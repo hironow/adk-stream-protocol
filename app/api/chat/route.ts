@@ -54,18 +54,19 @@ const calculateTool = tool({
 });
 
 const getCurrentTimeTool = tool({
-  description: "Get the current time",
+  description: "Get the current time in a specified timezone (default: UTC)",
   parameters: z.object({
-    timezone: z.string().optional().default("UTC").describe("Timezone name (default: UTC)"),
+    timezone: z.string().optional().describe("Timezone name (e.g., 'America/New_York', 'Asia/Tokyo', 'UTC'). Defaults to UTC if not specified."),
   }),
   execute: async ({ timezone }: { timezone?: string }) => {
+    const tz = timezone || "UTC";
     const now = new Date();
     const result = {
       datetime: now.toISOString(),
-      timezone: timezone,
-      formatted: now.toLocaleString("en-US", { timeZone: timezone || "UTC" }),
+      timezone: tz,
+      formatted: now.toLocaleString("en-US", { timeZone: tz }),
     };
-    console.log(`[Gemini Direct] Tool call: get_current_time(${timezone}) ->`, result);
+    console.log(`[Gemini Direct] Tool call: get_current_time(${tz}) ->`, result);
     return result;
   },
 });
@@ -76,7 +77,7 @@ export async function POST(req: Request) {
   // Phase 1: Direct Gemini API with tools (matches ADK Agent behavior)
   // Phase 2 (adk-sse) connects directly to ADK backend - no Next.js API proxy needed
   const result = streamText({
-    model: google("gemini-2.0-flash-exp"),
+    model: google("gemini-3-pro-preview"),  // Latest Gemini 3 Pro with advanced tool calling support
     messages: convertToModelMessages(messages),
     tools: {
       get_weather: getWeatherTool,

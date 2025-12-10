@@ -28,6 +28,16 @@ from stream_protocol import stream_adk_to_ai_sdk
 # Load environment variables from .env.local
 load_dotenv(".env.local")
 
+# Configure loguru logger
+logger.add(
+    "logs/adk_server_{time:YYYY-MM-DD}.log",
+    rotation="00:00",  # Rotate at midnight
+    retention="7 days",  # Keep logs for 7 days
+    level="INFO",
+    format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
+)
+logger.info("ADK Backend Server starting up...")
+
 # Explicitly ensure API key is in os.environ for Google GenAI SDK
 if not os.getenv("GOOGLE_GENERATIVE_AI_API_KEY"):
     # Try loading again with override
@@ -147,7 +157,7 @@ else:
 # Functions are passed directly - ADK automatically wraps them as FunctionTool
 chat_agent = Agent(
     name="adk_assistant_agent",
-    model="gemini-2.0-flash-exp",
+    model="gemini-3-pro-preview",  # Latest Gemini 3 Pro with advanced tool calling support
     description="An intelligent assistant that can check weather, perform calculations, and get current time",
     instruction=(
         "You are a helpful AI assistant with access to real-time tools. "
@@ -238,6 +248,13 @@ async def stream_agent_chat(messages: list[ChatMessage], user_id: str = "default
     if not last_user_message:
         return
 
+    logger.info(
+        f"Streaming chat for user {user_id}, message: {last_user_message[:50]}..."
+    )
+    logger.info(
+        f"Agent model: {chat_agent.model}, tools: {[tool.__name__ if callable(tool) else str(tool) for tool in chat_agent.tools]}"
+    )
+
     # Create ADK message content for the latest user input
     message_content = types.Content(
         role="user", parts=[types.Part(text=last_user_message)]
@@ -251,8 +268,12 @@ async def stream_agent_chat(messages: list[ChatMessage], user_id: str = "default
     )
 
     # Convert ADK stream to AI SDK v6 format using protocol converter
+    event_count = 0
     async for sse_event in stream_adk_to_ai_sdk(event_stream):
+        event_count += 1
         yield sse_event
+
+    logger.info(f"Stream completed with {event_count} SSE events")
 
 
 class MessagePart(BaseModel):

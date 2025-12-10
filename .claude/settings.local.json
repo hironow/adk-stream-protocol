@@ -33,7 +33,11 @@
       "WebFetch(domain:v6.ai-sdk.dev)",
       "Bash(uv run pytest:*)",
       "Bash(PYTHONPATH=. uv run pytest:*)",
-      "Bash(just test-python:*)"
+      "Bash(just test-python:*)",
+      "mcp__chrome-devtools__wait_for",
+      "mcp__chrome-devtools__get_network_request",
+      "Bash(uv pip:*)",
+      "WebFetch(domain:ai.google.dev)"
     ],
     "deny": [],
     "ask": []

@@ -114,6 +114,7 @@ export function MessageComponent({ message }: MessageComponentProps) {
           }
 
           // Tool Invocation (any tool)
+          // AI SDK useChat converts tool events to part.type = "tool-{toolName}"
           if (part.type === "tool-call" && part.toolInvocation) {
             return (
               <ToolInvocationComponent
@@ -121,6 +122,29 @@ export function MessageComponent({ message }: MessageComponentProps) {
                 toolInvocation={part.toolInvocation}
               />
             );
+          }
+
+          // Tool invocation in "tool-*" format (from AI SDK useChat)
+          if (typeof part.type === "string" && part.type.startsWith("tool-")) {
+            // Extract tool invocation data from part
+            const toolInvocation = {
+              toolCallId: part.toolCallId,
+              toolName: part.type.replace("tool-", ""),
+              state: part.state,
+              args: part.input,
+              result: part.output,
+            };
+            return (
+              <ToolInvocationComponent
+                key={index}
+                toolInvocation={toolInvocation}
+              />
+            );
+          }
+
+          // Step markers (Gemini 3 Pro feature) - skip or show minimal indicator
+          if (part.type === "step-start" || part.type === "step-end") {
+            return null; // Don't display step markers
           }
 
           // Unknown part type - debug view
