@@ -32,8 +32,12 @@ fmt-python:
 typecheck-python:
     uv run mypy .
 
+# Run Python tests
+test-python:
+    PYTHONPATH=. uv run pytest tests/unit/ -v
+
 # Run all Python checks
-check-python: lint-python typecheck-python
+check-python: lint-python typecheck-python test-python
 
 # Run Next.js linting
 lint-frontend:

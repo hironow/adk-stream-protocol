@@ -30,7 +30,10 @@
       "Bash(uv run ruff:*)",
       "Bash(uv run mypy:*)",
       "Bash(pnpm lint:*)",
-      "WebFetch(domain:v6.ai-sdk.dev)"
+      "WebFetch(domain:v6.ai-sdk.dev)",
+      "Bash(uv run pytest:*)",
+      "Bash(PYTHONPATH=. uv run pytest:*)",
+      "Bash(just test-python:*)"
     ],
     "deny": [],
     "ask": []
