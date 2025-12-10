@@ -9,29 +9,89 @@ export const maxDuration = 30;
 // ========== Tool Definitions ==========
 // Same tools as ADK Agent for consistent behavior
 
+// Simple in-memory cache for weather data
+const weatherCache = new Map<string, { data: any; timestamp: number }>();
+const WEATHER_CACHE_TTL = 43200000; // 12 hours in milliseconds
+
 const getWeatherTool = tool({
   description: "Get weather information for a location",
   parameters: z.object({
     location: z.string().describe("City name or location to get weather for"),
   }),
   execute: async ({ location }: { location: string }) => {
-    // Mock weather data (same as server.py)
-    const mockWeather: Record<string, any> = {
-      Tokyo: { temperature: 18, condition: "Cloudy", humidity: 65 },
-      "San Francisco": { temperature: 15, condition: "Foggy", humidity: 80 },
-      London: { temperature: 12, condition: "Rainy", humidity: 85 },
-      "New York": { temperature: 10, condition: "Sunny", humidity: 50 },
-    };
+    // Check cache first
+    const cacheKey = location.toLowerCase();
+    const cached = weatherCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < WEATHER_CACHE_TTL) {
+      console.log(`[Gemini Direct] Tool call: get_weather(${location}) ->`, cached.data, "(cached)");
+      return { ...cached.data, cached: true };
+    }
 
-    const weather = mockWeather[location] || {
-      temperature: 20,
-      condition: "Unknown",
-      humidity: 60,
-      note: `Weather data not available for ${location}, showing default`,
-    };
+    // Get API key from environment
+    const apiKey = process.env.OPENWEATHERMAP_API_KEY;
+    console.log(`[Gemini Direct] API key status: ${apiKey ? `present (${apiKey.substring(0, 10)}...)` : 'not set'}`);
 
-    console.log(`[Gemini Direct] Tool call: get_weather(${location}) ->`, weather);
-    return weather;
+    if (!apiKey) {
+      console.warn("[Gemini Direct] OPENWEATHERMAP_API_KEY not set, using mock data");
+      // Fallback to mock data
+      const mockWeather: Record<string, any> = {
+        Tokyo: { temperature: 18, condition: "Cloudy", humidity: 65 },
+        "San Francisco": { temperature: 15, condition: "Foggy", humidity: 80 },
+        London: { temperature: 12, condition: "Rainy", humidity: 85 },
+        "New York": { temperature: 10, condition: "Sunny", humidity: 50 },
+      };
+      const weather = mockWeather[location] || {
+        temperature: 20,
+        condition: "Unknown",
+        humidity: 60,
+        note: `Mock data for ${location}`,
+      };
+      console.log(`[Gemini Direct] Tool call: get_weather(${location}) ->`, weather, "(mock)");
+      return weather;
+    }
+
+    // Call OpenWeatherMap API
+    const url = "https://api.openweathermap.org/data/2.5/weather";
+    const params = new URLSearchParams({
+      q: location,
+      appid: apiKey,
+      units: "metric", // Get temperature in Celsius
+    });
+
+    try {
+      const response = await fetch(`${url}?${params}`);
+
+      if (response.ok) {
+        const data = await response.json();
+        const weather = {
+          temperature: Math.round(data.main.temp * 10) / 10,
+          condition: data.weather[0].main,
+          description: data.weather[0].description,
+          humidity: data.main.humidity,
+          feels_like: Math.round(data.main.feels_like * 10) / 10,
+          wind_speed: data.wind.speed,
+        };
+        // Cache the result
+        weatherCache.set(cacheKey, { data: weather, timestamp: Date.now() });
+        console.log(`[Gemini Direct] Tool call: get_weather(${location}) ->`, weather, "(API)");
+        return weather;
+      } else {
+        const errorMsg = `API returned status ${response.status}`;
+        console.error(`[Gemini Direct] Tool call: get_weather(${location}) failed:`, errorMsg);
+        return {
+          error: errorMsg,
+          location,
+          note: "Failed to fetch weather data from API",
+        };
+      }
+    } catch (error) {
+      console.error(`[Gemini Direct] Tool call: get_weather(${location}) exception:`, error);
+      return {
+        error: String(error),
+        location,
+        note: "Exception occurred while fetching weather data",
+      };
+    }
   },
 });
 

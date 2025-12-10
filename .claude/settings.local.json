@@ -37,7 +37,8 @@
       "mcp__chrome-devtools__wait_for",
       "mcp__chrome-devtools__get_network_request",
       "Bash(uv pip:*)",
-      "WebFetch(domain:ai.google.dev)"
+      "WebFetch(domain:ai.google.dev)",
+      "mcp__chrome-devtools__evaluate_script"
     ],
     "deny": [],
     "ask": []

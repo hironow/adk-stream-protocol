@@ -131,8 +131,8 @@ export function MessageComponent({ message }: MessageComponentProps) {
               toolCallId: part.toolCallId,
               toolName: part.type.replace("tool-", ""),
               state: part.state,
-              args: part.input,
-              result: part.output,
+              input: part.input,  // Use 'input' instead of 'args'
+              output: part.output,  // Use 'output' instead of 'result'
             };
             return (
               <ToolInvocationComponent

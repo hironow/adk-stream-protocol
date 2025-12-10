@@ -13,6 +13,7 @@ import os
 from datetime import datetime
 from typing import Any
 
+import aiohttp
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -28,14 +29,6 @@ from stream_protocol import stream_adk_to_ai_sdk
 # Load environment variables from .env.local
 load_dotenv(".env.local")
 
-# Configure loguru logger
-logger.add(
-    "logs/adk_server_{time:YYYY-MM-DD}.log",
-    rotation="00:00",  # Rotate at midnight
-    retention="7 days",  # Keep logs for 7 days
-    level="INFO",
-    format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
-)
 logger.info("ADK Backend Server starting up...")
 
 # Explicitly ensure API key is in os.environ for Google GenAI SDK
@@ -62,10 +55,14 @@ app.add_middleware(
 # ========== Tool Definitions ==========
 # Real-world example tools that demonstrate tool calling and tool results
 
+# Simple in-memory cache for weather data
+_weather_cache: dict[str, tuple[dict[str, Any], float]] = {}
+WEATHER_CACHE_TTL = 43200  # 12 hours in seconds
 
-def get_weather(location: str) -> dict[str, Any]:
+
+async def get_weather(location: str) -> dict[str, Any]:
     """
-    Get weather information for a location.
+    Get weather information for a location using OpenWeatherMap API.
 
     Args:
         location: City name or location to get weather for
@@ -73,27 +70,82 @@ def get_weather(location: str) -> dict[str, Any]:
     Returns:
         Weather information including temperature and conditions
     """
-    # Mock weather data for demonstration
-    # In production, this would call a real weather API
-    mock_weather = {
-        "Tokyo": {"temperature": 18, "condition": "Cloudy", "humidity": 65},
-        "San Francisco": {"temperature": 15, "condition": "Foggy", "humidity": 80},
-        "London": {"temperature": 12, "condition": "Rainy", "humidity": 85},
-        "New York": {"temperature": 10, "condition": "Sunny", "humidity": 50},
+    # Check cache first
+    import time
+
+    cache_key = location.lower()
+    if cache_key in _weather_cache:
+        cached_data, timestamp = _weather_cache[cache_key]
+        if time.time() - timestamp < WEATHER_CACHE_TTL:
+            logger.info(f"Tool call: get_weather({location}) -> {cached_data} (cached)")
+            return {**cached_data, "cached": True}
+
+    # Get API key from environment
+    api_key = os.getenv("OPENWEATHERMAP_API_KEY")
+
+    if not api_key:
+        logger.warning("OPENWEATHERMAP_API_KEY not set, using mock data")
+        # Fallback to mock data
+        mock_weather = {
+            "Tokyo": {"temperature": 18, "condition": "Cloudy", "humidity": 65},
+            "San Francisco": {"temperature": 15, "condition": "Foggy", "humidity": 80},
+            "London": {"temperature": 12, "condition": "Rainy", "humidity": 85},
+            "New York": {"temperature": 10, "condition": "Sunny", "humidity": 50},
+        }
+        weather = mock_weather.get(
+            location,
+            {
+                "temperature": 20,
+                "condition": "Unknown",
+                "humidity": 60,
+                "note": f"Mock data for {location}",
+            },
+        )
+        logger.info(f"Tool call: get_weather({location}) -> {weather} (mock)")
+        return weather
+
+    # Call OpenWeatherMap API
+    url = "https://api.openweathermap.org/data/2.5/weather"
+    params = {
+        "q": location,
+        "appid": api_key,
+        "units": "metric",  # Get temperature in Celsius
     }
 
-    weather = mock_weather.get(
-        location,
-        {
-            "temperature": 20,
-            "condition": "Unknown",
-            "humidity": 60,
-            "note": f"Weather data not available for {location}, showing default",
-        },
-    )
+    try:
+        import time
 
-    logger.info(f"Tool call: get_weather({location}) -> {weather}")
-    return weather
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, params=params) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    weather = {
+                        "temperature": round(data["main"]["temp"], 1),
+                        "condition": data["weather"][0]["main"],
+                        "description": data["weather"][0]["description"],
+                        "humidity": data["main"]["humidity"],
+                        "feels_like": round(data["main"]["feels_like"], 1),
+                        "wind_speed": data["wind"]["speed"],
+                    }
+                    # Cache the result
+                    _weather_cache[cache_key] = (weather, time.time())
+                    logger.info(f"Tool call: get_weather({location}) -> {weather} (API)")
+                    return weather
+                else:
+                    error_msg = f"API returned status {response.status}"
+                    logger.error(f"Tool call: get_weather({location}) failed: {error_msg}")
+                    return {
+                        "error": error_msg,
+                        "location": location,
+                        "note": "Failed to fetch weather data from API",
+                    }
+    except Exception as e:
+        logger.error(f"Tool call: get_weather({location}) exception: {e}")
+        return {
+            "error": str(e),
+            "location": location,
+            "note": "Exception occurred while fetching weather data",
+        }
 
 
 def calculate(expression: str) -> dict[str, Any]:
