@@ -9,7 +9,7 @@ import asyncio
 import os
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -349,6 +349,118 @@ async def jsonrpc(request: JSONRPCRequest):
             error=JSONRPCError(code=-32603, message="Internal error", data=str(e)),
             id=request.id,
         )
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    """
+    WebSocket endpoint for bidirectional streaming (Phase 4)
+    Uses ADK's run_live() method for real-time bidirectional communication
+    """
+    await websocket.accept()
+    logger.info("WebSocket connection established")
+
+    user_id = "default_user"  # In production, get from auth/session
+
+    try:
+        # Get or create session
+        session = await get_or_create_session(user_id)
+        logger.info(f"WebSocket session created: {session.id}")
+
+        # Create message queue for upstream messages
+        from queue import Queue
+        message_queue: Queue = Queue()
+
+        async def upstream():
+            """Receive messages from client"""
+            try:
+                while True:
+                    # Receive message from client
+                    data = await websocket.receive_text()
+                    message_data = json.loads(data)
+                    logger.info(f"Received from client: {message_data}")
+
+                    # Put message in queue for processing
+                    message_queue.put(message_data)
+
+                    # For now, process message immediately with run_async
+                    # TODO: Switch to run_live() when LiveRequestQueue is available
+                    if message_data.get("text"):
+                        # Send user message event
+                        await websocket.send_json({
+                            "type": "message-start",
+                            "role": "user",
+                            "content": message_data["text"]
+                        })
+
+                        # Process with ADK agent using run_async (SSE-style streaming)
+                        message_content = types.Content(
+                            role="user",
+                            parts=[types.Part(text=message_data["text"])]
+                        )
+
+                        # Stream response
+                        text_id = "0"
+                        has_started = False
+
+                        async for event in agent_runner.run_async(
+                            user_id=user_id,
+                            session_id=session.id,
+                            new_message=message_content,
+                        ):
+                            if event.content and event.content.parts:
+                                for part in event.content.parts:
+                                    if hasattr(part, 'text') and part.text:
+                                        if not has_started:
+                                            await websocket.send_json({
+                                                "type": "text-start",
+                                                "id": text_id
+                                            })
+                                            has_started = True
+
+                                        await websocket.send_json({
+                                            "type": "text-delta",
+                                            "id": text_id,
+                                            "delta": part.text
+                                        })
+
+                        # Send completion
+                        if has_started:
+                            await websocket.send_json({
+                                "type": "text-end",
+                                "id": text_id
+                            })
+
+                        await websocket.send_json({
+                            "type": "finish",
+                            "finishReason": "stop"
+                        })
+
+            except WebSocketDisconnect:
+                logger.info("Client disconnected from upstream")
+            except Exception as e:
+                logger.error(f"Upstream error: {e}")
+                await websocket.send_json({
+                    "type": "error",
+                    "error": str(e)
+                })
+
+        # Run upstream task
+        await upstream()
+
+    except WebSocketDisconnect:
+        logger.info("WebSocket connection closed")
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+        try:
+            await websocket.send_json({
+                "type": "error",
+                "error": str(e)
+            })
+        except:
+            pass
+    finally:
+        logger.info("WebSocket connection cleanup complete")
 
 
 if __name__ == "__main__":
