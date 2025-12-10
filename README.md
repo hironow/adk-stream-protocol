@@ -8,22 +8,34 @@ This project demonstrates the integration between:
 - **Frontend**: Next.js 15 with AI SDK v6 beta
 - **Backend**: Google ADK with FastAPI
 
-The project provides two streaming modes:
-1. **Phase 1**: Direct Gemini API integration via AI SDK v6
-2. **Phase 2**: ADK backend with SSE streaming (FINAL VERSION)
+The project provides **three streaming modes** with real-time mode switching:
 
-## Current Status: Production Ready ✅
+1. **Gemini Direct** - Direct Gemini API via AI SDK
+2. **ADK SSE** - ADK backend with Server-Sent Events
+3. **ADK BIDI** ⚡ - ADK backend with WebSocket bidirectional streaming
 
-**Phase 1: Gemini Direct** ✅
+## Current Status
+
+**Phase 1: Gemini Direct** ✅ Production Ready
 - Frontend: Next.js app with AI SDK v6 using `useChat` hook
-- Direct connection to Gemini API
+- Direct connection to Gemini API (no backend needed)
 - Built-in AI SDK v6 streaming support
+- Tool calling: `get_weather`, `calculate`, `get_current_time`
 
-**Phase 2: ADK SSE Streaming (FINAL)** ✅
+**Phase 2: ADK SSE Streaming** ✅ Production Ready
 - Backend: FastAPI server with Google ADK integration
 - SSE streaming endpoint (`/stream`) using ADK's `run_async()`
 - Full AI SDK v6 Data Stream Protocol compatibility
 - Real-time token-by-token streaming
+- Tool calling via ADK agent
+
+**Phase 3: ADK BIDI Streaming** ✅ **NEW** - Experimental
+- Backend: WebSocket endpoint (`/live`) using ADK's `run_live()`
+- Bidirectional streaming via WebSocket
+- Custom `WebSocketChatTransport` for AI SDK v6 `useChat`
+- Enables real-time voice agent capabilities
+- Same tool calling support as SSE mode
+- **Architecture:** "SSE format over WebSocket" (100% protocol reuse)
 
 ## Experimental Code
 
@@ -175,19 +187,274 @@ just info              # Show project info
 
 ## Architecture Overview
 
-### Phase 1: Gemini Direct
-- AI SDK v6 native Gemini integration
-- Streaming via `toUIMessageStreamResponse()`
-- No backend required
-- Best for simple use cases
+This project supports **three streaming modes**, all using the same frontend (`useChat` hook) with different backends and transports.
 
-### Phase 2: ADK SSE Streaming (Final)
-- ADK backend provides LLM capabilities
-- SSE streaming using `run_async()`
-- AI SDK v6 Data Stream Protocol compatible
-- Full control over agent behavior
-- Session management
-- Extensible with ADK tools and capabilities
+### Quick Comparison
+
+```
++------------------+------------------+------------------+------------------+
+| Mode             | Backend          | Transport        | Use Case         |
++------------------+------------------+------------------+------------------+
+| Gemini Direct    | None (AI SDK)    | HTTP SSE         | Simple apps      |
+| ADK SSE          | ADK + FastAPI    | HTTP SSE         | Production apps  |
+| ADK BIDI         | ADK + FastAPI    | WebSocket        | Voice agents     |
++------------------+------------------+------------------+------------------+
+```
+
+Legend / 凡例:
+- Backend: バックエンド（処理を行うサーバー）
+- Transport: トランスポート層（通信方式）
+- Use Case: 利用ケース
+
+### Architecture Diagrams
+
+#### Overview: All Three Modes
+
+```
+Mode 1: Gemini Direct (SSE)      Mode 2: ADK SSE              Mode 3: ADK BIDI (WebSocket)
+================================  ===========================  ================================
+
+┌─────────────────────┐          ┌─────────────────────┐      ┌─────────────────────┐
+│   Frontend (Next)   │          │   Frontend (Next)   │      │   Frontend (Next)   │
+│  ┌──────────────┐   │          │  ┌──────────────┐   │      │  ┌──────────────┐   │
+│  │   useChat    │   │          │  │   useChat    │   │      │  │   useChat    │   │
+│  │    Hook      │   │          │  │    Hook      │   │      │  │    Hook      │   │
+│  └──────┬───────┘   │          │  └──────┬───────┘   │      │  └──────┬───────┘   │
+│         │           │          │         │           │      │         │           │
+│         │ HTTP      │          │         │ HTTP      │      │         │ WS        │
+└─────────┼───────────┘          └─────────┼───────────┘      └─────────┼───────────┘
+          │                                │                            │
+          │ SSE                            │ SSE                        │ SSE format
+          ▼                                ▼                            │ over WS
+  ┌───────────────┐              ┌─────────────────┐           ┌────────▼──────────┐
+  │ /api/chat     │              │ /stream         │           │ /live (WebSocket) │
+  │ (Next.js API) │              │ (FastAPI)       │           │ (FastAPI)         │
+  │               │              │                 │           │                   │
+  │ ┌───────────┐ │              │ ┌─────────────┐ │           │ ┌───────────────┐ │
+  │ │  Gemini   │ │              │ │ ADK Agent   │ │           │ │ ADK Agent     │ │
+  │ │    API    │ │              │ │ run_async() │ │           │ │ run_live()    │ │
+  │ └───────────┘ │              │ └─────────────┘ │           │ │ LiveQueue     │ │
+  └───────────────┘              └─────────────────┘           │ └───────────────┘ │
+                                                                └───────────────────┘
+```
+
+Legend / 凡例:
+- useChat Hook: AI SDKのReactフック（チャット状態管理）
+- HTTP/WS: 通信プロトコル（HTTP または WebSocket）
+- SSE: Server-Sent Events（サーバーからクライアントへの一方向ストリーミング）
+- run_async(): ADKの通常ストリーミングメソッド
+- run_live(): ADKの双方向ストリーミングメソッド
+- LiveQueue: LiveRequestQueue（クライアント→エージェントのメッセージキュー）
+
+---
+
+#### Mode 1: Gemini Direct (SSE) - Simple Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                Frontend (Next.js + AI SDK v6)           │
+│                                                         │
+│  User Input → useChat.sendMessage({ text: "..." })     │
+│                           ↓                             │
+│                    POST /api/chat                       │
+└───────────────────────────┬─────────────────────────────┘
+                            │
+                            │ HTTP Request
+                            │ { messages: [...] }
+                            ▼
+┌─────────────────────────────────────────────────────────┐
+│         Next.js API Route (/app/api/chat/route.ts)      │
+│                                                         │
+│  1. Receive messages (UIMessage[])                      │
+│  2. convertToModelMessages(messages)                    │
+│  3. streamText({                                        │
+│       model: google("gemini-3-pro-preview"),            │
+│       messages,                                         │
+│       tools: { get_weather, calculate, ... }            │
+│     })                                                  │
+│  4. return result.toUIMessageStreamResponse()          │
+└───────────────────────────┬─────────────────────────────┘
+                            │
+                            │ SSE Stream
+                            │ data: {"type":"text-delta",...}
+                            ▼
+┌─────────────────────────────────────────────────────────┐
+│                  Gemini API (Google Cloud)              │
+│                                                         │
+│  - Model: gemini-3-pro-preview                          │
+│  - Tool execution: Server-side                          │
+│  - Streaming: Native SSE support                        │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Key Points:**
+- No separate backend server required
+- AI SDK handles Gemini API directly
+- Tools executed on Next.js server
+- Simple setup, best for prototypes
+
+---
+
+#### Mode 2: ADK SSE - Production Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                Frontend (Next.js + AI SDK v6)           │
+│                                                         │
+│  User Input → useChat.sendMessage({ text: "..." })     │
+│                           ↓                             │
+│                  POST http://localhost:8000/stream      │
+└───────────────────────────┬─────────────────────────────┘
+                            │
+                            │ HTTP Request
+                            │ { messages: [...] }
+                            ▼
+┌─────────────────────────────────────────────────────────┐
+│            ADK Backend (FastAPI server.py)              │
+│                                                         │
+│  1. Receive ChatRequest (messages)                      │
+│  2. Extract last user message                           │
+│  3. Create ADK Content:                                 │
+│     types.Content(role="user", parts=[...])             │
+│  4. Run agent:                                          │
+│     agent_runner.run_async(                             │
+│       session_id=session.id,                            │
+│       new_message=message_content                       │
+│     )                                                   │
+│  5. Convert ADK events → SSE format:                    │
+│     stream_adk_to_ai_sdk(event_stream)                  │
+│  6. Return StreamingResponse                            │
+└───────────────────────────┬─────────────────────────────┘
+                            │
+                            │ Protocol Conversion
+                            │ (stream_protocol.py)
+                            ▼
+┌─────────────────────────────────────────────────────────┐
+│            AI SDK v6 Data Stream Protocol               │
+│                                                         │
+│  SSE Format:                                            │
+│  data: {"type":"text-start","id":"0"}                   │
+│  data: {"type":"text-delta","id":"0","delta":"..."}     │
+│  data: {"type":"tool-call-available","toolName":"..."}  │
+│  data: {"type":"tool-result-available","result":{...}}  │
+│  data: {"type":"finish","finishReason":"stop"}          │
+│  data: [DONE]                                           │
+└───────────────────────────┬─────────────────────────────┘
+                            │
+                            │ HTTP SSE
+                            ▼
+┌─────────────────────────────────────────────────────────┐
+│            Frontend useChat Hook (React State)          │
+│                                                         │
+│  - Parses SSE events                                    │
+│  - Updates messages array                               │
+│  - Renders UI components                                │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Key Points:**
+- ADK backend provides full agent capabilities
+- Session management and state preservation
+- Tool execution via ADK agent
+- Protocol conversion to AI SDK v6 format
+- Production-ready with FastAPI
+
+---
+
+#### Mode 3: ADK BIDI (WebSocket) - Bidirectional Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                Frontend (Next.js + AI SDK v6)           │
+│                                                         │
+│  User Input → useChat.sendMessage({ text: "..." })     │
+│                           ↓                             │
+│             WebSocketChatTransport.sendMessages()       │
+│                           ↓                             │
+│                WebSocket Connection                     │
+│                ws://localhost:8000/live                 │
+└─────────────────┬───────────────────────┬───────────────┘
+                  │                       │
+                  │ ↓ JSON Message        │ ↑ SSE format
+                  │   (Upstream)          │   over WebSocket
+                  │                       │   (Downstream)
+┌─────────────────▼───────────────────────▼───────────────┐
+│        ADK Backend WebSocket Handler (server.py)        │
+│                                                         │
+│  Concurrent Tasks (asyncio.gather):                     │
+│                                                         │
+│  Task 1: Receive from Client                            │
+│  ┌────────────────────────────────────────────┐         │
+│  │ 1. websocket.receive_text()                │         │
+│  │ 2. Parse JSON → ChatMessage                │         │
+│  │ 3. Convert: ChatMessage.to_adk_content()   │         │
+│  │ 4. Enqueue: live_request_queue.send_content() │      │
+│  └────────────────────────────────────────────┘         │
+│                       ↓                                 │
+│                 LiveRequestQueue                        │
+│                       ↓                                 │
+│  Task 2: Send to Client                                 │
+│  ┌────────────────────────────────────────────┐         │
+│  │ 1. agent_runner.run_live(                  │         │
+│  │      live_request_queue=...,               │         │
+│  │      run_config=RunConfig(...)             │         │
+│  │    )                                       │         │
+│  │ 2. stream_adk_to_ai_sdk(live_events)       │         │
+│  │    ★ SAME converter as SSE mode!           │         │
+│  │ 3. websocket.send_text(sse_event)          │         │
+│  └────────────────────────────────────────────┘         │
+└─────────────────┬───────────────────────┬───────────────┘
+                  │                       │
+                  │ WebSocket             │ WebSocket
+                  ▼                       ▼
+┌─────────────────────────────────────────────────────────┐
+│         WebSocketChatTransport (Frontend)               │
+│                                                         │
+│  handleWebSocketMessage():                              │
+│  1. Receive: data.startsWith("data: ")                  │
+│  2. Parse: JSON.parse(data.substring(6))                │
+│  3. Convert: chunk as UIMessageChunk                    │
+│  4. Enqueue: controller.enqueue(chunk)                  │
+│  5. useChat consumes → UI updates                       │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Key Points:**
+- **Architecture: "SSE format over WebSocket"**
+- Protocol conversion: 100% reuses `stream_adk_to_ai_sdk()`
+- Bidirectional: Concurrent upstream/downstream message flow
+- Real-time: Low latency, suitable for voice agents
+- Tools: Same tool calling support as SSE mode
+- Future: Can add audio/video streaming
+
+**Why This Design:**
+- **Code reuse:** Same protocol converter for SSE and BIDI modes
+- **Simplicity:** Only transport layer changes (HTTP → WebSocket)
+- **Compatibility:** AI SDK v6 Data Stream Protocol maintained
+- **Flexibility:** Easy to extend with audio/video
+
+---
+
+### Mode Comparison Table
+
+| Feature | Gemini Direct | ADK SSE | ADK BIDI |
+|---------|--------------|---------|----------|
+| **Backend** | None | FastAPI + ADK | FastAPI + ADK |
+| **Transport** | HTTP SSE | HTTP SSE | WebSocket |
+| **Latency** | Low | Low | Very Low |
+| **Bidirectional** | No | No | Yes |
+| **Tool Calling** | Next.js server | ADK agent | ADK agent |
+| **Session Management** | No | Yes | Yes |
+| **Audio/Video** | No | No | Yes (future) |
+| **Complexity** | Simple | Medium | Advanced |
+| **Use Case** | Prototypes | Production | Voice agents |
+
+Legend / 凡例:
+- Transport: トランスポート（通信方式）
+- Latency: レイテンシ（応答速度）
+- Bidirectional: 双方向通信の可否
+- Session Management: セッション管理機能
+- Complexity: 実装の複雑さ
 
 ## Testing
 
