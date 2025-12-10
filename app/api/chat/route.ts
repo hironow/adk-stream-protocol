@@ -132,13 +132,61 @@ const getCurrentTimeTool = tool({
 });
 
 export async function POST(req: Request) {
-  const { messages }: { messages: UIMessage[] } = await req.json();
+  const body = await req.json();
+  console.log("[Gemini Direct] Received request body:", JSON.stringify(body, null, 2));
+
+  const { messages }: { messages: UIMessage[] } = body;
+
+  if (!messages || !Array.isArray(messages)) {
+    console.error("[Gemini Direct] Invalid messages:", messages);
+    return new Response(
+      JSON.stringify({ error: "Invalid messages format" }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  console.log("[Gemini Direct] Processing", messages.length, "messages");
+
+  // Transform messages with experimental_attachments to proper format
+  const transformedMessages = messages.map((msg, idx) => {
+    console.log(`[Gemini Direct] Message ${idx}:`, {
+      role: msg.role,
+      content: typeof msg.content === "string" ? msg.content.substring(0, 50) + "..." : msg.content,
+      experimental_attachments: msg.experimental_attachments,
+    });
+
+    // If message has experimental_attachments, convert to parts format
+    if (msg.experimental_attachments && Array.isArray(msg.experimental_attachments)) {
+      const parts = msg.experimental_attachments.map((attachment: any) => {
+        if (attachment.type === "text") {
+          return { type: "text" as const, text: attachment.text };
+        } else if (attachment.type === "image") {
+          // Convert base64 image to data URL format expected by AI SDK
+          const dataUrl = `data:${attachment.media_type};base64,${attachment.data}`;
+          return {
+            type: "image" as const,
+            image: dataUrl,
+          };
+        }
+        return attachment;
+      });
+
+      return {
+        ...msg,
+        content: parts,
+      };
+    }
+
+    return msg;
+  });
+
+  console.log("[Gemini Direct] Transformed messages:", JSON.stringify(transformedMessages, null, 2));
 
   // Phase 1: Direct Gemini API with tools (matches ADK Agent behavior)
   // Phase 2 (adk-sse) connects directly to ADK backend - no Next.js API proxy needed
   const result = streamText({
     model: google("gemini-3-pro-preview"),  // Latest Gemini 3 Pro with advanced tool calling support
-    messages: convertToModelMessages(messages),
+    messages: transformedMessages as any,  // Pass transformed messages directly
     tools: {
       get_weather: getWeatherTool,
       calculate: calculateTool,

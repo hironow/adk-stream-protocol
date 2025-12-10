@@ -558,3 +558,136 @@ class TestSSEFormatCompliance:
         assert done_marker.startswith("data: ")
         assert done_marker.endswith("\n\n")
         assert "[DONE]" in done_marker
+
+    def test_image_output_event(self):
+        """
+        Test that inline_data (image) generates data-image custom event.
+
+        RED phase: Will fail until image handling is implemented.
+        """
+        import base64
+
+        converter = StreamProtocolConverter()
+
+        # Create event with inline_data (image)
+        png_data = base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+        )
+
+        mock_blob = types.Blob(mimeType="image/png", data=png_data)
+        mock_part = Mock()
+        mock_part.text = None
+        mock_part.thought = False
+        mock_part.function_call = None
+        mock_part.function_response = None
+        mock_part.executable_code = None
+        mock_part.code_execution_result = None
+        mock_part.inline_data = mock_blob
+
+        mock_content = Mock()
+        mock_content.parts = [mock_part]
+
+        mock_event = Mock(spec=Event)
+        mock_event.content = mock_content
+
+        # Convert event
+        events = []
+
+        async def collect():
+            async for event in converter.convert_event(mock_event):
+                events.append(event)
+
+        import asyncio
+
+        asyncio.run(collect())
+
+        # Should have: start, data-image
+        assert len(events) == 2
+
+        # Verify message start
+        parsed_start = parse_sse_event(events[0])
+        assert parsed_start["type"] == "start"
+
+        # Verify data-image event
+        parsed_image = parse_sse_event(events[1])
+        assert parsed_image["type"] == "data-image"
+        assert "data" in parsed_image
+        assert parsed_image["data"]["mediaType"] == "image/png"
+        assert "content" in parsed_image["data"]
+
+        # Verify base64 encoding
+        decoded = base64.b64decode(parsed_image["data"]["content"])
+        assert decoded == png_data
+
+    def test_text_and_image_combined(self):
+        """
+        Test message with both text and image parts.
+
+        RED phase: Will fail until image handling is implemented.
+        """
+        import base64
+
+        converter = StreamProtocolConverter()
+
+        # Create PNG image
+        png_data = base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+        )
+
+        # Create text part
+        text_part = Mock()
+        text_part.text = "Here is an image:"
+        text_part.thought = False
+        text_part.function_call = None
+        text_part.function_response = None
+        text_part.executable_code = None
+        text_part.code_execution_result = None
+        text_part.inline_data = None
+
+        # Create image part
+        image_part = Mock()
+        image_part.text = None
+        image_part.thought = False
+        image_part.function_call = None
+        image_part.function_response = None
+        image_part.executable_code = None
+        image_part.code_execution_result = None
+        image_part.inline_data = types.Blob(mimeType="image/png", data=png_data)
+
+        mock_content = Mock()
+        mock_content.parts = [text_part, image_part]
+
+        mock_event = Mock(spec=Event)
+        mock_event.content = mock_content
+
+        # Convert event
+        events = []
+
+        async def collect():
+            async for event in converter.convert_event(mock_event):
+                events.append(event)
+
+        import asyncio
+
+        asyncio.run(collect())
+
+        # Should have: start, text-start, text-delta, text-end, data-image
+        assert len(events) == 5
+
+        # Verify events in order
+        parsed_0 = parse_sse_event(events[0])
+        assert parsed_0["type"] == "start"
+
+        parsed_1 = parse_sse_event(events[1])
+        assert parsed_1["type"] == "text-start"
+
+        parsed_2 = parse_sse_event(events[2])
+        assert parsed_2["type"] == "text-delta"
+        assert parsed_2["delta"] == "Here is an image:"
+
+        parsed_3 = parse_sse_event(events[3])
+        assert parsed_3["type"] == "text-end"
+
+        parsed_4 = parse_sse_event(events[4])
+        assert parsed_4["type"] == "data-image"
+        assert parsed_4["data"]["mediaType"] == "image/png"

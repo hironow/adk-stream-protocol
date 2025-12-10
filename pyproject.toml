@@ -12,6 +12,7 @@ dependencies = [
     "pydantic>=2.10.0",
     "python-dotenv>=1.0.0",
     "aiohttp>=3.13.2",
+    "pillow>=12.0.0",
 ]
 
 [dependency-groups]

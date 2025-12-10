@@ -12,6 +12,7 @@
 
 import { Message } from "@ai-sdk/react";
 import { ToolInvocationComponent } from "./tool-invocation";
+import { ImageDisplay } from "./image-display";
 
 interface MessageComponentProps {
   message: Message;
@@ -56,8 +57,41 @@ export function MessageComponent({ message }: MessageComponentProps) {
         )}
       </div>
 
-      {/* Message Parts */}
+      {/* Message Content - handle both parts and experimental_attachments */}
       <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+        {/* Handle experimental_attachments (user messages with images) */}
+        {(message as any).experimental_attachments?.map((attachment: any, index: number) => {
+          // Text attachment
+          if (attachment.type === "text") {
+            return (
+              <div
+                key={index}
+                style={{
+                  whiteSpace: "pre-wrap",
+                  lineHeight: "1.5",
+                }}
+              >
+                {attachment.text}
+              </div>
+            );
+          }
+
+          // Image attachment
+          if (attachment.type === "image") {
+            return (
+              <ImageDisplay
+                key={index}
+                content={attachment.data}
+                mediaType={attachment.media_type}
+                alt="Uploaded image"
+              />
+            );
+          }
+
+          return null;
+        })}
+
+        {/* Handle regular message parts (assistant responses) */}
         {message.parts?.map((part: any, index: number) => {
           // Text content
           if (part.type === "text") {
@@ -110,6 +144,18 @@ export function MessageComponent({ message }: MessageComponentProps) {
                   {part.text || part.content}
                 </div>
               </details>
+            );
+          }
+
+          // Image content (data-image custom event)
+          if (part.type === "data-image" && part.data) {
+            return (
+              <ImageDisplay
+                key={index}
+                content={part.data.content}
+                mediaType={part.data.mediaType}
+                alt="Image from assistant"
+              />
             );
           }
 

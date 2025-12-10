@@ -129,6 +129,15 @@ class StreamProtocolConverter:
                     ):
                         yield sse_event
 
+                # Inline data (images, etc.)
+                if (
+                    hasattr(part, "inline_data")
+                    and part.inline_data
+                    and isinstance(part.inline_data, types.Blob)
+                ):
+                    for sse_event in self._process_inline_data_part(part.inline_data):
+                        yield sse_event
+
     def _process_text_part(self, text: str) -> list[str]:
         """Process text part into text-* events."""
         part_id = self._generate_part_id()
@@ -210,6 +219,39 @@ class StreamProtocolConverter:
             {
                 "type": "data-code-execution-result",
                 "data": {"outcome": result.outcome, "output": result.output},
+            }
+        )
+        return [event]
+
+    def _process_inline_data_part(self, inline_data: types.Blob) -> list[str]:
+        """Process inline data (image) as data-image custom event."""
+        import base64
+        from io import BytesIO
+        from PIL import Image
+
+        # Convert bytes to base64 string
+        base64_content = base64.b64encode(inline_data.data).decode("utf-8")
+
+        # Get image dimensions using PIL
+        with Image.open(BytesIO(inline_data.data)) as img:
+            width, height = img.size
+            image_format = img.format
+
+        logger.info(
+            f"[IMAGE OUTPUT] media_type={inline_data.mime_type}, "
+            f"size={len(inline_data.data)} bytes, "
+            f"dimensions={width}x{height}, "
+            f"format={image_format}, "
+            f"base64_size={len(base64_content)} chars"
+        )
+
+        event = self._format_sse_event(
+            {
+                "type": "data-image",
+                "data": {
+                    "mediaType": inline_data.mime_type,
+                    "content": base64_content,
+                },
             }
         )
         return [event]

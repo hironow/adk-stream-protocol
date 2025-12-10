@@ -39,7 +39,8 @@
       "Bash(uv pip:*)",
       "WebFetch(domain:ai.google.dev)",
       "mcp__chrome-devtools__evaluate_script",
-      "mcp__chrome-devtools__new_page"
+      "mcp__chrome-devtools__new_page",
+      "mcp__chrome-devtools__upload_file"
     ],
     "deny": [],
     "ask": []

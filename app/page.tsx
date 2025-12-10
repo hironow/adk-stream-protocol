@@ -3,12 +3,18 @@
 import { useChat } from "@ai-sdk/react";
 import { useState, useMemo } from "react";
 import { MessageComponent } from "@/components/message";
+import { ImageUpload } from "@/components/image-upload";
 import { WebSocketChatTransport } from "@/lib/websocket-chat-transport";
 
 type BackendMode = "gemini" | "adk-sse" | "adk-bidi";
 
 export default function ChatPage() {
   const [input, setInput] = useState("");
+  const [selectedImage, setSelectedImage] = useState<{
+    data: string;
+    media_type: string;
+    fileName: string;
+  } | null>(null);
 
   // Backend mode state (controlled by user or env var)
   const [selectedMode, setSelectedMode] = useState<BackendMode>(
@@ -54,10 +60,35 @@ export default function ChatPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!input.trim() && !selectedImage) return;
 
-    sendMessage({ text: input });
+    // Build message with text and/or image
+    if (selectedImage) {
+      // Multimodal message with parts
+      const parts: Array<{ type: string; text?: string; data?: string; media_type?: string }> = [];
+
+      if (input.trim()) {
+        parts.push({ type: "text", text: input });
+      }
+
+      parts.push({
+        type: "image",
+        data: selectedImage.data,
+        media_type: selectedImage.media_type,
+      });
+
+      sendMessage({
+        content: "",
+        experimental_attachments: parts as any,
+      });
+    } else {
+      // Text-only message
+      sendMessage({ text: input });
+    }
+
+    // Clear input and image
     setInput("");
+    setSelectedImage(null);
   };
 
   const isLoading = status === "submitted" || status === "streaming";
@@ -108,37 +139,46 @@ export default function ChatPage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} style={{ display: "flex", gap: "0.5rem" }}>
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Type your message..."
-          disabled={isLoading}
-          style={{
-            flex: 1,
-            padding: "0.75rem",
-            borderRadius: "4px",
-            border: "1px solid #333",
-            background: "#111",
-            color: "#ededed",
-            fontSize: "1rem",
-          }}
+      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+        {/* Image Upload */}
+        <ImageUpload
+          onImageSelect={(imageData) => setSelectedImage(imageData)}
+          onImageRemove={() => setSelectedImage(null)}
         />
-        <button
-          type="submit"
-          disabled={isLoading}
-          style={{
-            padding: "0.75rem 1.5rem",
-            borderRadius: "4px",
-            border: "none",
-            background: isLoading ? "#333" : "#2563eb",
-            color: "#fff",
-            fontSize: "1rem",
-            cursor: isLoading ? "not-allowed" : "pointer",
-          }}
-        >
-          Send
-        </button>
+
+        {/* Text Input and Send Button */}
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Type your message..."
+            disabled={isLoading}
+            style={{
+              flex: 1,
+              padding: "0.75rem",
+              borderRadius: "4px",
+              border: "1px solid #333",
+              background: "#111",
+              color: "#ededed",
+              fontSize: "1rem",
+            }}
+          />
+          <button
+            type="submit"
+            disabled={isLoading}
+            style={{
+              padding: "0.75rem 1.5rem",
+              borderRadius: "4px",
+              border: "none",
+              background: isLoading ? "#333" : "#2563eb",
+              color: "#fff",
+              fontSize: "1rem",
+              cursor: isLoading ? "not-allowed" : "pointer",
+            }}
+          >
+            Send
+          </button>
+        </div>
       </form>
 
       {/* Backend Mode Switcher */}

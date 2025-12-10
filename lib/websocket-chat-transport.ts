@@ -28,13 +28,29 @@
 import type { UIMessageChunk } from "ai";
 
 /**
+ * Message part types
+ */
+interface TextPart {
+  type: "text";
+  text: string;
+}
+
+interface ImagePart {
+  type: "image";
+  data: string; // base64 encoded
+  media_type: string; // "image/png", "image/jpeg", "image/webp"
+}
+
+type MessagePart = TextPart | ImagePart;
+
+/**
  * Message format sent to backend
  */
 interface SendMessagesParams {
   messages: Array<{
     role: string;
     content?: string;
-    parts?: Array<{ type: string; text?: string }>;
+    parts?: Array<MessagePart>;
   }>;
 }
 
