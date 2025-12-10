@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from typing import AsyncGenerator
+from typing import Any, AsyncGenerator
 
 from google.adk.events import Event
 from google.genai import types
@@ -84,7 +84,7 @@ class StreamProtocolConverter:
                         yield sse_event
 
                 # Thought/Reasoning content (Gemini 2.0)
-                if hasattr(part, 'thought') and part.thought:
+                if hasattr(part, 'thought') and part.thought and isinstance(part.thought, str):
                     for sse_event in self._process_thought_part(part.thought):
                         yield sse_event
 
@@ -206,7 +206,7 @@ class StreamProtocolConverter:
             })
         else:
             # Send finish event with reason
-            finish_event = {"type": "finish", "finishReason": finish_reason}
+            finish_event: dict[str, Any] = {"type": "finish", "finishReason": finish_reason}
 
             # Add usage metadata if available
             if usage_metadata:
