@@ -23,7 +23,14 @@
       "WebFetch(domain:google.github.io)",
       "WebFetch(domain:medium.com)",
       "WebFetch(domain:github.com)",
-      "Bash(uv run uvicorn:*)"
+      "Bash(uv run uvicorn:*)",
+      "Bash(just dev:*)",
+      "Bash(open http://localhost:3000)",
+      "Bash(uv run python:*)",
+      "Bash(uv run ruff:*)",
+      "Bash(uv run mypy:*)",
+      "Bash(pnpm lint:*)",
+      "WebFetch(domain:v6.ai-sdk.dev)"
     ],
     "deny": [],
     "ask": []

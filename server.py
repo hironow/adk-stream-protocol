@@ -22,6 +22,8 @@ from google.genai import types
 from loguru import logger
 from pydantic import BaseModel
 
+from stream_protocol import stream_adk_to_ai_sdk
+
 # Load environment variables from .env.local
 load_dotenv(".env.local")
 
@@ -131,6 +133,13 @@ async def stream_agent_chat(messages: list[ChatMessage], user_id: str = "default
 
     Note: ADK session management preserves conversation history internally.
     Frontend sends full history (AI SDK protocol), but ADK uses session-based history.
+
+    This implementation now supports:
+    - Text streaming
+    - Tool calls (function_call/function_response)
+    - Reasoning (thought)
+    - Dynamic finish reasons
+    - Usage metadata
     """
     # Reuse session for the same user (ADK manages conversation history)
     session = await get_or_create_session(user_id)
@@ -149,41 +158,16 @@ async def stream_agent_chat(messages: list[ChatMessage], user_id: str = "default
         parts=[types.Part(text=last_user_message)]
     )
 
-    # Track if we've sent any text
-    text_id = "0"
-    has_started = False
+    # Create ADK event stream
+    event_stream = agent_runner.run_async(
+        user_id=user_id,
+        session_id=session.id,
+        new_message=message_content,
+    )
 
-    try:
-        # Stream events from ADK agent
-        async for event in agent_runner.run_async(
-            user_id=user_id,
-            session_id=session.id,
-            new_message=message_content,
-        ):
-            # Extract text from event
-            if event.content and event.content.parts:
-                for part in event.content.parts:
-                    if hasattr(part, 'text') and part.text:
-                        # Send text-start event on first text
-                        if not has_started:
-                            yield f'data: {json.dumps({"type": "text-start", "id": text_id})}\n\n'
-                            has_started = True
-
-                        # Send text-delta event for each chunk
-                        yield f'data: {json.dumps({"type": "text-delta", "id": text_id, "delta": part.text})}\n\n'
-
-        # Send text-end and finish events
-        if has_started:
-            yield f'data: {json.dumps({"type": "text-end", "id": text_id})}\n\n'
-
-        yield f'data: {json.dumps({"type": "finish", "finishReason": "stop"})}\n\n'
-        yield 'data: [DONE]\n\n'
-
-    except Exception as e:
-        logger.error(f"Error streaming ADK agent: {e}")
-        # Send error event
-        yield f'data: {json.dumps({"type": "error", "error": str(e)})}\n\n'
-        yield 'data: [DONE]\n\n'
+    # Convert ADK stream to AI SDK v6 format using protocol converter
+    async for sse_event in stream_adk_to_ai_sdk(event_stream):
+        yield sse_event
 
 
 class MessagePart(BaseModel):
