@@ -27,6 +27,7 @@ wheels/
 .venv/
 venv/
 ENV/
+.mypy_cache/
 
 # Next.js
 .next/
@@ -53,7 +54,6 @@ yarn-error.log*
 
 # TypeScript
 *.tsbuildinfo
-next-env.d.ts
 
 # IDE
 .vscode/
@@ -62,5 +62,5 @@ next-env.d.ts
 *.swo
 *~
 
-# UV
-uv.lock
+# Private files
+private/

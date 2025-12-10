@@ -1,35 +1,27 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { useEffect, useState, useRef, useCallback } from "react";
-
-type Message = {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-};
+import { useEffect, useState } from "react";
 
 export default function ChatPage() {
-  // AI SDK v6: useChat for non-WebSocket modes
-  const { messages: chatMessages, sendMessage, status, error } = useChat({
-    api: "/api/chat",
-  });
-
-  // Manage input state ourselves
   const [input, setInput] = useState("");
-
   const [config, setConfig] = useState<{
     backendMode: string;
     adkBackendUrl: string;
   } | null>(null);
 
-  // WebSocket state
-  const [wsMessages, setWsMessages] = useState<Message[]>([]);
-  const [wsConnected, setWsConnected] = useState(false);
-  const [wsError, setWsError] = useState<string | null>(null);
-  const [wsLoading, setWsLoading] = useState(false);
-  const wsRef = useRef<WebSocket | null>(null);
-  const currentMessageRef = useRef<string>("");
+  // Phase 1: Use Next.js API route (hides API key)
+  // Phase 2: Connect directly to ADK backend (no proxy needed)
+  const backendMode = process.env.NEXT_PUBLIC_BACKEND_MODE || "gemini";
+  const adkBackendUrl = process.env.NEXT_PUBLIC_ADK_BACKEND_URL || "http://localhost:8000";
+
+  const apiEndpoint = backendMode === "adk-sse"
+    ? `${adkBackendUrl}/stream`
+    : "/api/chat";
+
+  const { messages, sendMessage, status, error } = useChat({
+    api: apiEndpoint,
+  });
 
   useEffect(() => {
     fetch("/api/config")
@@ -38,122 +30,15 @@ export default function ChatPage() {
       .catch(console.error);
   }, []);
 
-  // Determine if we're using WebSocket mode
-  const useWebSocket = config?.backendMode === "adk-websocket";
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim()) return;
 
-  // WebSocket connection
-  useEffect(() => {
-    if (!useWebSocket) return;
+    sendMessage({ text: input });
+    setInput("");
+  };
 
-    const ws = new WebSocket("ws://localhost:8000/ws");
-    wsRef.current = ws;
-
-    ws.onopen = () => {
-      console.log("WebSocket connected");
-      setWsConnected(true);
-      setWsError(null);
-    };
-
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      console.log("WebSocket message:", data);
-
-      if (data.type === "message-start") {
-        // User message echo
-        setWsMessages((prev) => [
-          ...prev,
-          {
-            id: `user-${Date.now()}`,
-            role: "user",
-            content: data.content,
-          },
-        ]);
-        // Start new assistant message
-        currentMessageRef.current = "";
-      } else if (data.type === "text-start") {
-        // Start assistant response
-        setWsLoading(true);
-      } else if (data.type === "text-delta") {
-        // Append text delta
-        currentMessageRef.current += data.delta;
-        setWsMessages((prev) => {
-          const last = prev[prev.length - 1];
-          if (last && last.role === "assistant") {
-            // Update existing message
-            return [
-              ...prev.slice(0, -1),
-              { ...last, content: currentMessageRef.current },
-            ];
-          } else {
-            // Create new assistant message
-            return [
-              ...prev,
-              {
-                id: `assistant-${Date.now()}`,
-                role: "assistant",
-                content: currentMessageRef.current,
-              },
-            ];
-          }
-        });
-      } else if (data.type === "text-end") {
-        // Text complete
-        console.log("Text completed");
-      } else if (data.type === "finish") {
-        // Response complete
-        setWsLoading(false);
-        currentMessageRef.current = "";
-      } else if (data.type === "error") {
-        setWsError(data.error);
-        setWsLoading(false);
-      }
-    };
-
-    ws.onerror = (error) => {
-      console.error("WebSocket error:", error);
-      setWsError("WebSocket connection error");
-      setWsConnected(false);
-    };
-
-    ws.onclose = () => {
-      console.log("WebSocket disconnected");
-      setWsConnected(false);
-    };
-
-    return () => {
-      ws.close();
-    };
-  }, [useWebSocket]);
-
-  const handleSubmit = useCallback(
-    (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!input.trim()) return;
-
-      if (useWebSocket) {
-        // Send via WebSocket
-        if (wsRef.current && wsConnected) {
-          wsRef.current.send(JSON.stringify({ text: input }));
-          setInput("");
-          setWsLoading(true);
-        } else {
-          setWsError("WebSocket not connected");
-        }
-      } else {
-        // Send via AI SDK useChat
-        sendMessage({ text: input });
-        setInput("");
-      }
-    },
-    [input, useWebSocket, wsConnected, sendMessage]
-  );
-
-  // Choose which messages to display
-  const messages = useWebSocket ? wsMessages : chatMessages;
-  const isLoading = useWebSocket
-    ? wsLoading
-    : status === "submitted" || status === "streaming";
-  const displayError = useWebSocket ? wsError : error?.message;
+  const isLoading = status === "submitted" || status === "streaming";
 
   return (
     <div style={{ maxWidth: "800px", margin: "0 auto", padding: "2rem" }}>
@@ -175,9 +60,9 @@ export default function ChatPage() {
           <p style={{ color: "#666" }}>Start a conversation...</p>
         )}
 
-        {messages.map((message, idx) => (
+        {messages.map((message) => (
           <div
-            key={useWebSocket ? message.id : message.id}
+            key={message.id}
             style={{
               marginBottom: "1rem",
               padding: "0.75rem",
@@ -195,16 +80,10 @@ export default function ChatPage() {
               {message.role === "user" ? "You" : "Assistant"}
             </div>
             <div style={{ whiteSpace: "pre-wrap" }}>
-              {useWebSocket ? (
-                // WebSocket mode: display content directly
-                message.content
-              ) : (
-                // AI SDK mode: display parts
-                message.parts?.map((part: any, index: number) =>
-                  part.type === "text" ? (
-                    <span key={index}>{part.text}</span>
-                  ) : null
-                )
+              {message.parts?.map((part: any, index: number) =>
+                part.type === "text" ? (
+                  <span key={index}>{part.text}</span>
+                ) : null
               )}
             </div>
           </div>
@@ -217,7 +96,7 @@ export default function ChatPage() {
         )}
       </div>
 
-      {displayError && (
+      {error && (
         <div
           style={{
             padding: "0.75rem",
@@ -228,22 +107,7 @@ export default function ChatPage() {
             color: "#faa",
           }}
         >
-          Error: {displayError}
-        </div>
-      )}
-
-      {useWebSocket && (
-        <div
-          style={{
-            padding: "0.5rem",
-            marginBottom: "0.5rem",
-            borderRadius: "4px",
-            fontSize: "0.875rem",
-            background: wsConnected ? "#1a2e1a" : "#3a1a1a",
-            color: wsConnected ? "#4ade80" : "#faa",
-          }}
-        >
-          WebSocket: {wsConnected ? "Connected" : "Disconnected"}
+          Error: {error.message}
         </div>
       )}
 
@@ -252,7 +116,7 @@ export default function ChatPage() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Type your message..."
-          disabled={isLoading || (useWebSocket && !wsConnected)}
+          disabled={isLoading}
           style={{
             flex: 1,
             padding: "0.75rem",
@@ -265,7 +129,7 @@ export default function ChatPage() {
         />
         <button
           type="submit"
-          disabled={isLoading || (useWebSocket && !wsConnected)}
+          disabled={isLoading}
           style={{
             padding: "0.75rem 1.5rem",
             borderRadius: "4px",
@@ -308,10 +172,8 @@ export default function ChatPage() {
                 : config.backendMode === "adk-jsonrpc"
                   ? "2 (JSONRPC)"
                   : config.backendMode === "adk-sse"
-                    ? "3 (SSE Streaming)"
-                    : config.backendMode === "adk-websocket"
-                      ? "4 (WebSocket Bidirectional)"
-                      : "Unknown"}
+                    ? "3 (SSE Streaming - FINAL)"
+                    : "Unknown"}
           </>
         )}
       </div>

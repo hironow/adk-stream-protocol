@@ -1,21 +1,26 @@
 """
-ADK Backend Server with FastAPI
-Phase 1: Independent operation with simple LLM chat
-Phase 2: JSONRPC integration
-Phase 3: SSE streaming with ADK LLM
+ADK Backend Server with FastAPI (Phase 2 - ADK SSE Streaming)
+
+This server provides AI capabilities using Google ADK.
+Frontend connects directly to this backend in Phase 2 mode (adk-sse).
+Phase 1 (gemini) uses direct Gemini API and doesn't require this backend.
 """
 
-import asyncio
+from __future__ import annotations
+
+import json
 import os
 from typing import Any
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from dotenv import load_dotenv
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from google.adk.agents import Agent
+from google.adk.runners import InMemoryRunner
+from google.genai import types
 from loguru import logger
-from dotenv import load_dotenv
-import json
+from pydantic import BaseModel
 
 # Load environment variables from .env.local
 load_dotenv(".env.local")
@@ -24,11 +29,6 @@ load_dotenv(".env.local")
 if not os.getenv("GOOGLE_GENERATIVE_AI_API_KEY"):
     # Try loading again with override
     load_dotenv(".env.local", override=True)
-
-# ADK imports
-from google.adk.agents import Agent
-from google.adk.runners import InMemoryRunner
-from google.genai import types
 
 app = FastAPI(
     title="ADK Data Protocol Server",
@@ -114,7 +114,7 @@ async def run_agent_chat(user_message: str, user_id: str = "default_user") -> st
         new_message=message_content,
     ):
         # Collect final response
-        if event.is_final_response() and event.content:
+        if event.is_final_response() and event.content and event.content.parts:
             for part in event.content.parts:
                 if hasattr(part, 'text') and part.text:
                     response_text += part.text
@@ -122,17 +122,31 @@ async def run_agent_chat(user_message: str, user_id: str = "default_user") -> st
     return response_text.strip()
 
 
-async def stream_agent_chat(user_message: str, user_id: str = "default_user"):
+async def stream_agent_chat(messages: list[ChatMessage], user_id: str = "default_user"):
     """
     Stream ADK agent responses as SSE events in AI SDK v6 format.
+    Accepts full message history (AI SDK v6 Data Stream Protocol).
+    Converts to ADK format internally (implementation detail).
     Yields SSE-formatted events compatible with AI SDK's Data Stream Protocol.
+
+    Note: ADK session management preserves conversation history internally.
+    Frontend sends full history (AI SDK protocol), but ADK uses session-based history.
     """
+    # Reuse session for the same user (ADK manages conversation history)
     session = await get_or_create_session(user_id)
 
-    # Create message content
+    # Extract last user message (ADK session already has full history)
+    if not messages:
+        return
+
+    last_user_message = messages[-1].get_text_content()
+    if not last_user_message:
+        return
+
+    # Create ADK message content for the latest user input
     message_content = types.Content(
         role="user",
-        parts=[types.Part(text=user_message)]
+        parts=[types.Part(text=last_user_message)]
     )
 
     # Track if we've sent any text
@@ -172,11 +186,26 @@ async def stream_agent_chat(user_message: str, user_id: str = "default_user"):
         yield 'data: [DONE]\n\n'
 
 
+class MessagePart(BaseModel):
+    """Message part model for AI SDK v6 UIMessage format"""
+    type: str
+    text: str | None = None
+
+
 class ChatMessage(BaseModel):
-    """Chat message model"""
+    """Chat message model - supports both simple content and AI SDK v6 parts format"""
 
     role: str
-    content: str
+    content: str | None = None  # Simple format
+    parts: list[MessagePart] | None = None  # AI SDK v6 format
+
+    def get_text_content(self) -> str:
+        """Extract text content from either format"""
+        if self.content:
+            return self.content
+        if self.parts is not None:
+            return "".join(p.text or "" for p in self.parts if p.type == "text")
+        return ""
 
 
 class ChatRequest(BaseModel):
@@ -189,33 +218,6 @@ class ChatResponse(BaseModel):
     """Chat response model"""
 
     message: str
-
-
-# JSONRPC 2.0 Models
-class JSONRPCRequest(BaseModel):
-    """JSONRPC 2.0 request model"""
-
-    jsonrpc: str = Field(default="2.0", pattern="^2\\.0$")
-    method: str
-    params: dict[str, Any] | None = None
-    id: str | int | None = None
-
-
-class JSONRPCError(BaseModel):
-    """JSONRPC 2.0 error model"""
-
-    code: int
-    message: str
-    data: Any | None = None
-
-
-class JSONRPCResponse(BaseModel):
-    """JSONRPC 2.0 response model"""
-
-    jsonrpc: str = Field(default="2.0")
-    result: Any | None = None
-    error: JSONRPCError | None = None
-    id: str | int | None = None
 
 
 @app.get("/")
@@ -237,13 +239,16 @@ async def health():
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     """
-    Chat endpoint with ADK LLM (Phase 1: Non-streaming)
-    Uses Google ADK with InMemoryRunner for actual LLM responses
+    Non-streaming chat endpoint (NOT USED - for reference only)
+
+    Current architecture uses /stream endpoint exclusively.
+    This endpoint is kept for reference but not actively used.
+    Use /stream for production.
     """
     logger.info(f"Received chat request with {len(request.messages)} messages")
 
     # Get the last user message
-    last_message = request.messages[-1].content if request.messages else ""
+    last_message = request.messages[-1].get_text_content() if request.messages else ""
 
     if not last_message:
         return ChatResponse(message="No message provided")
@@ -261,18 +266,20 @@ async def chat(request: ChatRequest):
 @app.post("/stream")
 async def stream(request: ChatRequest):
     """
-    SSE streaming endpoint (Phase 3)
-    Streams ADK agent responses in AI SDK v6 Data Stream Protocol format
+    SSE streaming endpoint (Phase 2 - FINAL)
+
+    AI SDK v6 Data Stream Protocol compliant endpoint.
+    - Request: UIMessage[] (full message history)
+    - Response: SSE stream (text-start, text-delta, text-end, finish)
+
+    Internal ADK processing is hidden from the API consumer.
     """
     logger.info(f"Received stream request with {len(request.messages)} messages")
 
-    # Get the last user message
-    last_message = request.messages[-1].content if request.messages else ""
-
-    if not last_message:
+    if not request.messages:
         # Return error as SSE
         async def error_stream():
-            yield f'data: {json.dumps({"type": "error", "error": "No message provided"})}\n\n'
+            yield f'data: {json.dumps({"type": "error", "error": "No messages provided"})}\n\n'
             yield 'data: [DONE]\n\n'
 
         return StreamingResponse(
@@ -284,183 +291,18 @@ async def stream(request: ChatRequest):
             }
         )
 
-    # Stream ADK agent response
+    # Stream ADK agent response (pass full message history)
     return StreamingResponse(
-        stream_agent_chat(last_message),
+        stream_agent_chat(request.messages),
         media_type="text/event-stream",
         headers={
+            "Content-Type": "text/event-stream",
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",  # Disable nginx buffering
+            "x-vercel-ai-ui-message-stream": "v1",  # AI SDK v6 Data Stream Protocol marker
         }
     )
-
-
-@app.post("/jsonrpc", response_model=JSONRPCResponse)
-async def jsonrpc(request: JSONRPCRequest):
-    """
-    JSONRPC 2.0 endpoint (Phase 2)
-    Handles chat requests via JSONRPC protocol
-    """
-    logger.info(f"Received JSONRPC request: method={request.method}, id={request.id}")
-
-    try:
-        if request.method == "chat":
-            # Extract messages from params
-            if not request.params or "messages" not in request.params:
-                return JSONRPCResponse(
-                    jsonrpc="2.0",
-                    error=JSONRPCError(
-                        code=-32602,
-                        message="Invalid params: 'messages' field required",
-                    ),
-                    id=request.id,
-                )
-
-            messages_data = request.params["messages"]
-            messages = [ChatMessage(**msg) for msg in messages_data]
-
-            # Get last user message and run ADK agent
-            last_message = messages[-1].content if messages else ""
-            response_text = await run_agent_chat(last_message)
-
-            logger.info(f"Sending JSONRPC response: {response_text[:100]}...")
-
-            return JSONRPCResponse(
-                jsonrpc="2.0",
-                result={"message": response_text, "role": "assistant"},
-                id=request.id,
-            )
-
-        else:
-            # Method not found
-            return JSONRPCResponse(
-                jsonrpc="2.0",
-                error=JSONRPCError(
-                    code=-32601, message=f"Method not found: {request.method}"
-                ),
-                id=request.id,
-            )
-
-    except Exception as e:
-        logger.error(f"Error processing JSONRPC request: {e}")
-        return JSONRPCResponse(
-            jsonrpc="2.0",
-            error=JSONRPCError(code=-32603, message="Internal error", data=str(e)),
-            id=request.id,
-        )
-
-
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    """
-    WebSocket endpoint for bidirectional streaming (Phase 4)
-    Uses ADK's run_live() method for real-time bidirectional communication
-    """
-    await websocket.accept()
-    logger.info("WebSocket connection established")
-
-    user_id = "default_user"  # In production, get from auth/session
-
-    try:
-        # Get or create session
-        session = await get_or_create_session(user_id)
-        logger.info(f"WebSocket session created: {session.id}")
-
-        # Create message queue for upstream messages
-        from queue import Queue
-        message_queue: Queue = Queue()
-
-        async def upstream():
-            """Receive messages from client"""
-            try:
-                while True:
-                    # Receive message from client
-                    data = await websocket.receive_text()
-                    message_data = json.loads(data)
-                    logger.info(f"Received from client: {message_data}")
-
-                    # Put message in queue for processing
-                    message_queue.put(message_data)
-
-                    # For now, process message immediately with run_async
-                    # TODO: Switch to run_live() when LiveRequestQueue is available
-                    if message_data.get("text"):
-                        # Send user message event
-                        await websocket.send_json({
-                            "type": "message-start",
-                            "role": "user",
-                            "content": message_data["text"]
-                        })
-
-                        # Process with ADK agent using run_async (SSE-style streaming)
-                        message_content = types.Content(
-                            role="user",
-                            parts=[types.Part(text=message_data["text"])]
-                        )
-
-                        # Stream response
-                        text_id = "0"
-                        has_started = False
-
-                        async for event in agent_runner.run_async(
-                            user_id=user_id,
-                            session_id=session.id,
-                            new_message=message_content,
-                        ):
-                            if event.content and event.content.parts:
-                                for part in event.content.parts:
-                                    if hasattr(part, 'text') and part.text:
-                                        if not has_started:
-                                            await websocket.send_json({
-                                                "type": "text-start",
-                                                "id": text_id
-                                            })
-                                            has_started = True
-
-                                        await websocket.send_json({
-                                            "type": "text-delta",
-                                            "id": text_id,
-                                            "delta": part.text
-                                        })
-
-                        # Send completion
-                        if has_started:
-                            await websocket.send_json({
-                                "type": "text-end",
-                                "id": text_id
-                            })
-
-                        await websocket.send_json({
-                            "type": "finish",
-                            "finishReason": "stop"
-                        })
-
-            except WebSocketDisconnect:
-                logger.info("Client disconnected from upstream")
-            except Exception as e:
-                logger.error(f"Upstream error: {e}")
-                await websocket.send_json({
-                    "type": "error",
-                    "error": str(e)
-                })
-
-        # Run upstream task
-        await upstream()
-
-    except WebSocketDisconnect:
-        logger.info("WebSocket connection closed")
-    except Exception as e:
-        logger.error(f"WebSocket error: {e}")
-        try:
-            await websocket.send_json({
-                "type": "error",
-                "error": str(e)
-            })
-        except:
-            pass
-    finally:
-        logger.info("WebSocket connection cleanup complete")
 
 
 if __name__ == "__main__":
