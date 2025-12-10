@@ -1,0 +1,29 @@
+{
+  "name": "adk-ai-data-protocol",
+  "version": "1.0.0",
+  "description": "AI SDK v6 and Google ADK integration example with data stream protocol",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@ai-sdk/google": "^2.0.45",
+    "@ai-sdk/openai": "^3.0.0-beta.89",
+    "@ai-sdk/react": "^3.0.0-beta.142",
+    "ai": "^6.0.0-beta.140",
+    "next": "^15.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.0.1",
+    "@types/react-dom": "^19.0.2",
+    "typescript": "^5.7.2"
+  }
+}

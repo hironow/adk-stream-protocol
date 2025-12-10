@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:ai-sdk.dev)",
+      "Skill(superpowers:brainstorming)",
+      "Bash(cat:*)",
+      "Bash(pnpm install)",
+      "Bash(curl:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill:*)",
+      "mcp__chrome-devtools__list_pages",
+      "mcp__chrome-devtools__navigate_page",
+      "mcp__chrome-devtools__take_snapshot",
+      "mcp__chrome-devtools__take_screenshot",
+      "mcp__chrome-devtools__fill",
+      "mcp__chrome-devtools__click",
+      "mcp__chrome-devtools__list_console_messages",
+      "mcp__chrome-devtools__list_network_requests",
+      "mcp__chrome-devtools__press_key",
+      "WebFetch(domain:sdk.vercel.ai)",
+      "Bash(pnpm dev)",
+      "WebSearch",
+      "WebFetch(domain:google.github.io)",
+      "WebFetch(domain:medium.com)",
+      "WebFetch(domain:github.com)",
+      "Bash(uv run uvicorn:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
