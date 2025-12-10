@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import datetime
 from typing import Any
 
 from dotenv import load_dotenv
@@ -48,6 +49,84 @@ app.add_middleware(
 )
 
 
+# ========== Tool Definitions ==========
+# Real-world example tools that demonstrate tool calling and tool results
+
+
+def get_weather(location: str) -> dict[str, Any]:
+    """
+    Get weather information for a location.
+
+    Args:
+        location: City name or location to get weather for
+
+    Returns:
+        Weather information including temperature and conditions
+    """
+    # Mock weather data for demonstration
+    # In production, this would call a real weather API
+    mock_weather = {
+        "Tokyo": {"temperature": 18, "condition": "Cloudy", "humidity": 65},
+        "San Francisco": {"temperature": 15, "condition": "Foggy", "humidity": 80},
+        "London": {"temperature": 12, "condition": "Rainy", "humidity": 85},
+        "New York": {"temperature": 10, "condition": "Sunny", "humidity": 50},
+    }
+
+    weather = mock_weather.get(
+        location,
+        {
+            "temperature": 20,
+            "condition": "Unknown",
+            "humidity": 60,
+            "note": f"Weather data not available for {location}, showing default",
+        },
+    )
+
+    logger.info(f"Tool call: get_weather({location}) -> {weather}")
+    return weather
+
+
+def calculate(expression: str) -> dict[str, Any]:
+    """
+    Calculate a mathematical expression.
+
+    Args:
+        expression: Mathematical expression to evaluate (e.g., "2 + 2", "10 * 5")
+
+    Returns:
+        Calculation result
+    """
+    try:
+        # Safe evaluation - only allows basic math operations
+        # In production, use a proper math expression parser
+        result = eval(expression, {"__builtins__": {}}, {})
+        logger.info(f"Tool call: calculate({expression}) -> {result}")
+        return {"expression": expression, "result": result, "success": True}
+    except Exception as e:
+        logger.error(f"Tool call: calculate({expression}) failed: {e}")
+        return {"expression": expression, "error": str(e), "success": False}
+
+
+def get_current_time(timezone: str = "UTC") -> dict[str, Any]:
+    """
+    Get the current time.
+
+    Args:
+        timezone: Timezone name (default: UTC)
+
+    Returns:
+        Current time information
+    """
+    now = datetime.now()
+    result = {
+        "datetime": now.isoformat(),
+        "timezone": timezone,
+        "formatted": now.strftime("%Y-%m-%d %H:%M:%S"),
+    }
+    logger.info(f"Tool call: get_current_time({timezone}) -> {result}")
+    return result
+
+
 # ========== ADK Agent Setup ==========
 # Based on official ADK quickstart examples
 # https://google.github.io/adk-docs/get-started/quickstart/
@@ -57,18 +136,28 @@ app.add_middleware(
 API_KEY = os.getenv("GOOGLE_API_KEY")
 if not API_KEY:
     logger.error("GOOGLE_API_KEY not found in environment! ADK will fail.")
-    logger.error("Note: ADK uses GOOGLE_API_KEY, while AI SDK uses GOOGLE_GENERATIVE_AI_API_KEY")
+    logger.error(
+        "Note: ADK uses GOOGLE_API_KEY, while AI SDK uses GOOGLE_GENERATIVE_AI_API_KEY"
+    )
 else:
     logger.info(f"ADK API key loaded: {API_KEY[:10]}...")
 
-# Simple chat agent using ADK
-# Note: Agent reads API key from GOOGLE_API_KEY environment variable
+# Real-world agent with tools
+# This agent can call functions and return results via tool-call and tool-result events
+# Functions are passed directly - ADK automatically wraps them as FunctionTool
 chat_agent = Agent(
-    name="adk_chat_agent",
+    name="adk_assistant_agent",
     model="gemini-2.0-flash-exp",
-    description="A helpful chat agent powered by Google ADK",
-    instruction="You are a helpful AI assistant. Respond naturally and helpfully to user queries.",
-    tools=[],  # No tools for basic chat
+    description="An intelligent assistant that can check weather, perform calculations, and get current time",
+    instruction=(
+        "You are a helpful AI assistant with access to real-time tools. "
+        "Use the available tools when needed to provide accurate information:\n"
+        "- get_weather: Check weather for any city\n"
+        "- calculate: Perform mathematical calculations\n"
+        "- get_current_time: Get the current time\n\n"
+        "Always explain what you're doing when using tools."
+    ),
+    tools=[get_weather, calculate, get_current_time],
 )
 
 # Initialize InMemoryRunner for programmatic agent invocation
@@ -103,10 +192,7 @@ async def run_agent_chat(user_message: str, user_id: str = "default_user") -> st
     session = await get_or_create_session(user_id)
 
     # Create message content
-    message_content = types.Content(
-        role="user",
-        parts=[types.Part(text=user_message)]
-    )
+    message_content = types.Content(role="user", parts=[types.Part(text=user_message)])
 
     # Run agent and collect response
     response_text = ""
@@ -118,7 +204,7 @@ async def run_agent_chat(user_message: str, user_id: str = "default_user") -> st
         # Collect final response
         if event.is_final_response() and event.content and event.content.parts:
             for part in event.content.parts:
-                if hasattr(part, 'text') and part.text:
+                if hasattr(part, "text") and part.text:
                     response_text += part.text
 
     return response_text.strip()
@@ -154,8 +240,7 @@ async def stream_agent_chat(messages: list[ChatMessage], user_id: str = "default
 
     # Create ADK message content for the latest user input
     message_content = types.Content(
-        role="user",
-        parts=[types.Part(text=last_user_message)]
+        role="user", parts=[types.Part(text=last_user_message)]
     )
 
     # Create ADK event stream
@@ -172,6 +257,7 @@ async def stream_agent_chat(messages: list[ChatMessage], user_id: str = "default
 
 class MessagePart(BaseModel):
     """Message part model for AI SDK v6 UIMessage format"""
+
     type: str
     text: str | None = None
 
@@ -263,8 +349,8 @@ async def stream(request: ChatRequest):
     if not request.messages:
         # Return error as SSE
         async def error_stream():
-            yield f'data: {json.dumps({"type": "error", "error": "No messages provided"})}\n\n'
-            yield 'data: [DONE]\n\n'
+            yield f"data: {json.dumps({'type': 'error', 'error': 'No messages provided'})}\n\n"
+            yield "data: [DONE]\n\n"
 
         return StreamingResponse(
             error_stream(),
@@ -272,7 +358,7 @@ async def stream(request: ChatRequest):
             headers={
                 "Cache-Control": "no-cache",
                 "Connection": "keep-alive",
-            }
+            },
         )
 
     # Stream ADK agent response (pass full message history)
@@ -285,7 +371,7 @@ async def stream(request: ChatRequest):
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",  # Disable nginx buffering
             "x-vercel-ai-ui-message-stream": "v1",  # AI SDK v6 Data Stream Protocol marker
-        }
+        },
     )
 
 

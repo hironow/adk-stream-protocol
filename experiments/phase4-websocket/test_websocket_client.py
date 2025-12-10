@@ -37,7 +37,7 @@ async def test_websocket():
                     print(f"[message-start] User: {data.get('content')}")
 
                 elif event_type == "text-start":
-                    print(f"[text-start] Assistant response starting...")
+                    print("[text-start] Assistant response starting...")
                     full_response = ""
 
                 elif event_type == "text-delta":
@@ -46,7 +46,7 @@ async def test_websocket():
                     print(delta, end="", flush=True)
 
                 elif event_type == "text-end":
-                    print(f"\n[text-end] Text completed")
+                    print("\n[text-end] Text completed")
 
                 elif event_type == "finish":
                     print(f"[finish] Response complete: {data.get('finishReason')}")
@@ -67,7 +67,7 @@ async def test_websocket():
                 break
 
         print("-" * 60)
-        print(f"\n✅ Test completed!")
+        print("\n✅ Test completed!")
         print(f"\nFull response:\n{full_response}")
 
 

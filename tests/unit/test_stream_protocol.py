@@ -23,9 +23,9 @@ from stream_protocol import StreamProtocolConverter, stream_adk_to_ai_sdk
 
 def parse_sse_event(sse_string: str) -> dict[str, Any]:
     """Parse SSE format 'data: {json}\\n\\n' to dict."""
-    if sse_string.startswith('data: '):
+    if sse_string.startswith("data: "):
         data_part = sse_string[6:].strip()
-        if data_part == '[DONE]':
+        if data_part == "[DONE]":
             return {"type": "DONE"}
         return json.loads(data_part)
     msg = f"Invalid SSE format: {sse_string}"
@@ -45,11 +45,13 @@ class TestStreamProtocolConverter:
 
         # Convert event
         events = []
+
         async def collect():
             async for event in converter.convert_event(mock_event):
                 events.append(event)
 
         import asyncio
+
         asyncio.run(collect())
 
         # Parse first event
@@ -82,11 +84,13 @@ class TestStreamProtocolConverter:
 
         # Convert event
         events = []
+
         async def collect():
             async for event in converter.convert_event(mock_event):
                 events.append(event)
 
         import asyncio
+
         asyncio.run(collect())
 
         # Should have: start, text-start, text-delta, text-end
@@ -133,11 +137,13 @@ class TestStreamProtocolConverter:
 
         # Convert event
         events = []
+
         async def collect():
             async for event in converter.convert_event(mock_event):
                 events.append(event)
 
         import asyncio
+
         asyncio.run(collect())
 
         # Should have: start, reasoning-start, reasoning-delta, reasoning-end
@@ -179,11 +185,13 @@ class TestStreamProtocolConverter:
 
         # Convert event
         events = []
+
         async def collect():
             async for event in converter.convert_event(mock_event):
                 events.append(event)
 
         import asyncio
+
         asyncio.run(collect())
 
         # Should have: start, tool-call-start, tool-call-available
@@ -226,11 +234,13 @@ class TestStreamProtocolConverter:
 
         # Convert event
         events = []
+
         async def collect():
             async for event in converter.convert_event(mock_event):
                 events.append(event)
 
         import asyncio
+
         asyncio.run(collect())
 
         # Should have: start, tool-result-available
@@ -267,11 +277,13 @@ class TestStreamProtocolConverter:
 
         # Convert event
         events = []
+
         async def collect():
             async for event in converter.convert_event(mock_event):
                 events.append(event)
 
         import asyncio
+
         asyncio.run(collect())
 
         # Should have: start, data-executable-code
@@ -296,15 +308,15 @@ class TestStreamProtocolConverter:
 
         # Finalize
         events = []
+
         async def collect():
             async for event in converter.finalize(
-                finish_reason="stop",
-                usage_metadata=mock_usage,
-                error=None
+                finish_reason="stop", usage_metadata=mock_usage, error=None
             ):
                 events.append(event)
 
         import asyncio
+
         asyncio.run(collect())
 
         # Should have: finish, [DONE]
@@ -331,15 +343,15 @@ class TestStreamProtocolConverter:
         # Finalize with error
         test_error = Exception("Test error")
         events = []
+
         async def collect():
             async for event in converter.finalize(
-                finish_reason="stop",
-                usage_metadata=None,
-                error=test_error
+                finish_reason="stop", usage_metadata=None, error=test_error
             ):
                 events.append(event)
 
         import asyncio
+
         asyncio.run(collect())
 
         # Should have: error, [DONE]
@@ -379,11 +391,13 @@ class TestStreamProtocolConverter:
 
         # Convert event
         events = []
+
         async def collect():
             async for event in converter.convert_event(mock_event):
                 events.append(event)
 
         import asyncio
+
         asyncio.run(collect())
 
         # Extract all text-start events
@@ -445,6 +459,7 @@ class TestStreamADKToAISDK:
     @pytest.mark.asyncio
     async def test_stream_with_error(self):
         """Test stream handles errors correctly."""
+
         # Create event that will raise error
         async def mock_event_stream():
             raise RuntimeError("Stream error")
@@ -524,10 +539,10 @@ class TestSSEFormatCompliance:
 
         for event in events:
             # Check starts with 'data: '
-            assert event.startswith('data: ')
+            assert event.startswith("data: ")
 
             # Check ends with '\n\n'
-            assert event.endswith('\n\n')
+            assert event.endswith("\n\n")
 
             # Check can parse JSON
             json_part = event[6:-2]  # Strip 'data: ' and '\n\n'
@@ -537,9 +552,9 @@ class TestSSEFormatCompliance:
 
     def test_done_marker_format(self):
         """Test [DONE] marker follows correct format."""
-        done_marker = 'data: [DONE]\n\n'
+        done_marker = "data: [DONE]\n\n"
 
         # Verify format
-        assert done_marker.startswith('data: ')
-        assert done_marker.endswith('\n\n')
-        assert '[DONE]' in done_marker
+        assert done_marker.startswith("data: ")
+        assert done_marker.endswith("\n\n")
+        assert "[DONE]" in done_marker

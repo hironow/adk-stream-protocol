@@ -2,6 +2,7 @@
 
 import { useChat } from "@ai-sdk/react";
 import { useEffect, useState } from "react";
+import { MessageComponent } from "@/components/message";
 
 export default function ChatPage() {
   const [input, setInput] = useState("");
@@ -10,17 +11,21 @@ export default function ChatPage() {
     adkBackendUrl: string;
   } | null>(null);
 
-  // Phase 1: Use Next.js API route (hides API key)
-  // Phase 2: Connect directly to ADK backend (no proxy needed)
-  const backendMode = process.env.NEXT_PUBLIC_BACKEND_MODE || "gemini";
+  // Backend mode state (controlled by user or env var)
+  const [selectedMode, setSelectedMode] = useState<"gemini" | "adk-sse">(
+    (process.env.NEXT_PUBLIC_BACKEND_MODE as "gemini" | "adk-sse") || "gemini"
+  );
+
   const adkBackendUrl = process.env.NEXT_PUBLIC_ADK_BACKEND_URL || "http://localhost:8000";
 
-  const apiEndpoint = backendMode === "adk-sse"
+  const apiEndpoint = selectedMode === "adk-sse"
     ? `${adkBackendUrl}/stream`
     : "/api/chat";
 
   const { messages, sendMessage, status, error } = useChat({
     api: apiEndpoint,
+    // Reset messages when switching backends
+    key: selectedMode,
   });
 
   useEffect(() => {
@@ -61,32 +66,7 @@ export default function ChatPage() {
         )}
 
         {messages.map((message) => (
-          <div
-            key={message.id}
-            style={{
-              marginBottom: "1rem",
-              padding: "0.75rem",
-              borderRadius: "4px",
-              background: message.role === "user" ? "#1a2332" : "#1a2e1a",
-            }}
-          >
-            <div
-              style={{
-                fontWeight: "bold",
-                marginBottom: "0.5rem",
-                color: message.role === "user" ? "#60a5fa" : "#4ade80",
-              }}
-            >
-              {message.role === "user" ? "You" : "Assistant"}
-            </div>
-            <div style={{ whiteSpace: "pre-wrap" }}>
-              {message.parts?.map((part: any, index: number) =>
-                part.type === "text" ? (
-                  <span key={index}>{part.text}</span>
-                ) : null
-              )}
-            </div>
-          </div>
+          <MessageComponent key={message.id} message={message} />
         ))}
 
         {isLoading && (
@@ -144,9 +124,71 @@ export default function ChatPage() {
         </button>
       </form>
 
+      {/* Backend Mode Switcher */}
       <div
         style={{
           marginTop: "1rem",
+          padding: "0.75rem",
+          background: "#1a1a1a",
+          borderRadius: "4px",
+        }}
+      >
+        <div
+          style={{
+            fontSize: "0.875rem",
+            fontWeight: 600,
+            marginBottom: "0.5rem",
+            color: "#d1d5db",
+          }}
+        >
+          Backend Mode
+        </div>
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          <button
+            onClick={() => setSelectedMode("gemini")}
+            style={{
+              flex: 1,
+              padding: "0.5rem 1rem",
+              borderRadius: "4px",
+              border: selectedMode === "gemini" ? "2px solid #2563eb" : "1px solid #333",
+              background: selectedMode === "gemini" ? "#1e3a8a" : "#111",
+              color: selectedMode === "gemini" ? "#fff" : "#888",
+              fontSize: "0.875rem",
+              cursor: "pointer",
+              fontWeight: selectedMode === "gemini" ? 600 : 400,
+            }}
+          >
+            Gemini Direct
+            <div style={{ fontSize: "0.75rem", marginTop: "0.25rem", opacity: 0.8 }}>
+              Next.js API → Gemini
+            </div>
+          </button>
+          <button
+            onClick={() => setSelectedMode("adk-sse")}
+            style={{
+              flex: 1,
+              padding: "0.5rem 1rem",
+              borderRadius: "4px",
+              border: selectedMode === "adk-sse" ? "2px solid #10b981" : "1px solid #333",
+              background: selectedMode === "adk-sse" ? "#064e3b" : "#111",
+              color: selectedMode === "adk-sse" ? "#fff" : "#888",
+              fontSize: "0.875rem",
+              cursor: "pointer",
+              fontWeight: selectedMode === "adk-sse" ? 600 : 400,
+            }}
+          >
+            ADK SSE Backend
+            <div style={{ fontSize: "0.75rem", marginTop: "0.25rem", opacity: 0.8 }}>
+              Frontend → ADK Backend
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* Backend Info */}
+      <div
+        style={{
+          marginTop: "0.5rem",
           padding: "0.75rem",
           background: "#1a1a1a",
           borderRadius: "4px",
@@ -154,28 +196,15 @@ export default function ChatPage() {
           color: "#888",
         }}
       >
-        {config && (
-          <>
-            <strong>Backend Mode:</strong> {config.backendMode}
-            <br />
-            {config.backendMode !== "gemini" && config.backendMode !== "openai" && (
-              <>
-                <strong>ADK URL:</strong> {config.adkBackendUrl}
-                <br />
-              </>
-            )}
-            <strong>Phase:</strong>{" "}
-            {config.backendMode === "gemini"
-              ? "1 (Gemini Direct)"
-              : config.backendMode === "openai"
-                ? "1 (OpenAI Direct)"
-                : config.backendMode === "adk-jsonrpc"
-                  ? "2 (JSONRPC)"
-                  : config.backendMode === "adk-sse"
-                    ? "3 (SSE Streaming - FINAL)"
-                    : "Unknown"}
-          </>
-        )}
+        <strong>Active Endpoint:</strong>{" "}
+        <span style={{ color: "#d1d5db", fontFamily: "monospace", fontSize: "0.8125rem" }}>
+          {apiEndpoint}
+        </span>
+        <br />
+        <strong>Status:</strong>{" "}
+        <span style={{ color: status === "streaming" ? "#10b981" : "#888" }}>
+          {status}
+        </span>
       </div>
     </div>
   );
