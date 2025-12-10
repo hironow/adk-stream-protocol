@@ -1,39 +1,56 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { useEffect, useState } from "react";
+import { useState, useMemo } from "react";
 import { MessageComponent } from "@/components/message";
+import { WebSocketChatTransport } from "@/lib/websocket-chat-transport";
+
+type BackendMode = "gemini" | "adk-sse" | "adk-bidi";
 
 export default function ChatPage() {
   const [input, setInput] = useState("");
-  const [config, setConfig] = useState<{
-    backendMode: string;
-    adkBackendUrl: string;
-  } | null>(null);
 
   // Backend mode state (controlled by user or env var)
-  const [selectedMode, setSelectedMode] = useState<"gemini" | "adk-sse">(
-    (process.env.NEXT_PUBLIC_BACKEND_MODE as "gemini" | "adk-sse") || "gemini"
+  const [selectedMode, setSelectedMode] = useState<BackendMode>(
+    (process.env.NEXT_PUBLIC_BACKEND_MODE as BackendMode) || "gemini"
   );
 
   const adkBackendUrl = process.env.NEXT_PUBLIC_ADK_BACKEND_URL || "http://localhost:8000";
+
+  // Create WebSocket transport for BIDI mode (memoized to avoid recreating on every render)
+  const websocketTransport = useMemo(() => {
+    if (selectedMode === "adk-bidi") {
+      const wsUrl = adkBackendUrl.replace(/^http/, "ws") + "/live";
+      console.log("[Page] Creating WebSocket transport:", wsUrl);
+      return new WebSocketChatTransport({
+        url: wsUrl,
+        toolCallCallback: async (toolCall) => {
+          console.log("[Page] Tool call:", toolCall);
+          // Tools are handled on backend for now
+          // Could add frontend tool execution here
+          return { handled: "backend" };
+        },
+      });
+    }
+    return undefined;
+  }, [selectedMode, adkBackendUrl]);
 
   const apiEndpoint = selectedMode === "adk-sse"
     ? `${adkBackendUrl}/stream`
     : "/api/chat";
 
-  const { messages, sendMessage, status, error } = useChat({
-    api: apiEndpoint,
-    // Reset messages when switching backends
-    key: selectedMode,
-  });
-
-  useEffect(() => {
-    fetch("/api/config")
-      .then((res) => res.json())
-      .then(setConfig)
-      .catch(console.error);
-  }, []);
+  // Use transport for BIDI mode, api for SSE modes
+  const { messages, sendMessage, status, error} = useChat(
+    selectedMode === "adk-bidi" && websocketTransport
+      ? {
+          transport: websocketTransport,
+          key: selectedMode,
+        }
+      : {
+          api: apiEndpoint,
+          key: selectedMode,
+        }
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -143,11 +160,10 @@ export default function ChatPage() {
         >
           Backend Mode
         </div>
-        <div style={{ display: "flex", gap: "0.5rem" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.5rem" }}>
           <button
             onClick={() => setSelectedMode("gemini")}
             style={{
-              flex: 1,
               padding: "0.5rem 1rem",
               borderRadius: "4px",
               border: selectedMode === "gemini" ? "2px solid #2563eb" : "1px solid #333",
@@ -160,13 +176,12 @@ export default function ChatPage() {
           >
             Gemini Direct
             <div style={{ fontSize: "0.75rem", marginTop: "0.25rem", opacity: 0.8 }}>
-              Next.js API → Gemini
+              Next.js → Gemini (SSE)
             </div>
           </button>
           <button
             onClick={() => setSelectedMode("adk-sse")}
             style={{
-              flex: 1,
               padding: "0.5rem 1rem",
               borderRadius: "4px",
               border: selectedMode === "adk-sse" ? "2px solid #10b981" : "1px solid #333",
@@ -177,9 +192,27 @@ export default function ChatPage() {
               fontWeight: selectedMode === "adk-sse" ? 600 : 400,
             }}
           >
-            ADK SSE Backend
+            ADK SSE
             <div style={{ fontSize: "0.75rem", marginTop: "0.25rem", opacity: 0.8 }}>
-              Frontend → ADK Backend
+              Frontend → ADK (SSE)
+            </div>
+          </button>
+          <button
+            onClick={() => setSelectedMode("adk-bidi")}
+            style={{
+              padding: "0.5rem 1rem",
+              borderRadius: "4px",
+              border: selectedMode === "adk-bidi" ? "2px solid #f59e0b" : "1px solid #333",
+              background: selectedMode === "adk-bidi" ? "#78350f" : "#111",
+              color: selectedMode === "adk-bidi" ? "#fff" : "#888",
+              fontSize: "0.875rem",
+              cursor: "pointer",
+              fontWeight: selectedMode === "adk-bidi" ? 600 : 400,
+            }}
+          >
+            ADK BIDI ⚡
+            <div style={{ fontSize: "0.75rem", marginTop: "0.25rem", opacity: 0.8 }}>
+              Frontend ↔ ADK (WS)
             </div>
           </button>
         </div>

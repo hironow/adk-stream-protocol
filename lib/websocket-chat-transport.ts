@@ -1,0 +1,224 @@
+/**
+ * WebSocket Chat Transport for AI SDK v6
+ *
+ * Implements custom ChatTransport to enable bidirectional streaming
+ * between AI SDK useChat hook and ADK BIDI mode via WebSocket.
+ *
+ * Based on community implementation by alexmarmon:
+ * https://github.com/vercel/ai/discussions/5607
+ */
+
+import type { UIMessageChunk } from "ai";
+
+/**
+ * Message format sent to backend
+ */
+interface SendMessagesParams {
+  messages: Array<{
+    role: string;
+    content?: string;
+    parts?: Array<{ type: string; text?: string }>;
+  }>;
+}
+
+/**
+ * WebSocket transport configuration
+ */
+export interface WebSocketChatTransportConfig {
+  /** WebSocket URL (e.g., ws://localhost:8000/live) */
+  url: string;
+
+  /** Optional callback for handling tool calls on frontend */
+  toolCallCallback?: (toolCall: any) => Promise<any>;
+
+  /** WebSocket connection timeout (ms) */
+  timeout?: number;
+}
+
+/**
+ * WebSocket Chat Transport
+ *
+ * Enables bidirectional streaming with ADK backend via WebSocket.
+ * Compatible with AI SDK v6 useChat hook.
+ */
+export class WebSocketChatTransport {
+  private config: WebSocketChatTransportConfig;
+  private ws: WebSocket | null = null;
+
+  constructor(config: WebSocketChatTransportConfig) {
+    this.config = {
+      timeout: 30000, // 30 seconds default
+      ...config,
+    };
+  }
+
+  /**
+   * Send messages and return stream of UI message chunks.
+   * Required by ChatTransport interface.
+   */
+  async sendMessages(
+    params: SendMessagesParams
+  ): Promise<ReadableStream<UIMessageChunk>> {
+    const { url, timeout } = this.config;
+
+    return new ReadableStream<UIMessageChunk>({
+      start: async (controller) => {
+        try {
+          // Create WebSocket connection
+          this.ws = new WebSocket(url);
+
+          // Connection timeout
+          const timeoutId = setTimeout(() => {
+            controller.error(new Error("WebSocket connection timeout"));
+            this.ws?.close();
+          }, timeout);
+
+          // Wait for connection to open
+          await new Promise<void>((resolve, reject) => {
+            if (!this.ws) {
+              reject(new Error("WebSocket not initialized"));
+              return;
+            }
+
+            this.ws.onopen = () => {
+              clearTimeout(timeoutId);
+              console.log("[WS Transport] Connected to", url);
+              resolve();
+            };
+
+            this.ws.onerror = (error) => {
+              clearTimeout(timeoutId);
+              console.error("[WS Transport] Connection error:", error);
+              reject(new Error("WebSocket connection failed"));
+            };
+          });
+
+          // Set up message handler
+          if (this.ws) {
+            this.ws.onmessage = (event) => {
+              this.handleWebSocketMessage(event.data, controller);
+            };
+
+            this.ws.onerror = (error) => {
+              console.error("[WS Transport] Error:", error);
+              controller.error(new Error("WebSocket error"));
+            };
+
+            this.ws.onclose = () => {
+              console.log("[WS Transport] Connection closed");
+              controller.close();
+            };
+          }
+
+          // Send messages to backend
+          const messageData = JSON.stringify({ messages: params.messages });
+          console.log(
+            "[WS Transport] Sending messages:",
+            messageData.substring(0, 100) + "..."
+          );
+          this.ws.send(messageData);
+        } catch (error) {
+          console.error("[WS Transport] Error in start:", error);
+          controller.error(error);
+        }
+      },
+
+      cancel: () => {
+        console.log("[WS Transport] Stream cancelled");
+        this.ws?.close();
+        this.ws = null;
+      },
+    });
+  }
+
+  /**
+   * Handle incoming WebSocket messages.
+   * Converts SSE format to UIMessageChunk and enqueues.
+   */
+  private handleWebSocketMessage(
+    data: string,
+    controller: ReadableStreamDefaultController<UIMessageChunk>
+  ): void {
+    try {
+      // Backend sends SSE-formatted events (data: {...}\n\n)
+      // Parse and convert to UIMessageChunk
+      if (data.startsWith("data: ")) {
+        const jsonStr = data.substring(6); // Remove "data: " prefix
+
+        if (jsonStr === "[DONE]") {
+          console.log("[WS Transport] Stream completed");
+          controller.close();
+          this.ws?.close();
+          return;
+        }
+
+        const chunk = JSON.parse(jsonStr);
+        console.log("[WS Transport] Received chunk:", chunk.type);
+
+        // Enqueue UIMessageChunk
+        controller.enqueue(chunk as UIMessageChunk);
+
+        // Handle tool calls if callback is provided
+        if (
+          chunk.type === "tool-call-available" &&
+          this.config.toolCallCallback
+        ) {
+          this.handleToolCall(chunk);
+        }
+      } else {
+        console.warn("[WS Transport] Unexpected message format:", data);
+      }
+    } catch (error) {
+      console.error("[WS Transport] Error handling message:", error);
+      controller.error(error);
+    }
+  }
+
+  /**
+   * Handle tool call execution (if callback is provided)
+   */
+  private async handleToolCall(chunk: any): Promise<void> {
+    if (!this.config.toolCallCallback) return;
+
+    try {
+      const toolCall = {
+        toolCallId: chunk.toolCallId,
+        toolName: chunk.toolName,
+        args: chunk.args,
+      };
+
+      console.log("[WS Transport] Executing tool:", toolCall.toolName);
+
+      const result = await this.config.toolCallCallback(toolCall);
+
+      // Send tool result back to backend
+      const toolResult = {
+        type: "tool-result",
+        toolCallId: chunk.toolCallId,
+        result,
+      };
+
+      this.ws?.send(JSON.stringify(toolResult));
+    } catch (error) {
+      console.error("[WS Transport] Tool call error:", error);
+    }
+  }
+
+  /**
+   * Reconnect to stream (not supported for WebSocket)
+   * WebSocket connections are stateful, reconnection requires new connection.
+   */
+  reconnectToStream(): null {
+    // WebSocket connections cannot be reconnected to specific streams
+    // Client needs to establish new connection
+    return null;
+  }
+
+  /**
+   * Close WebSocket connection
+   */
+  close(): void {
+    this.ws?.close();
+    this.ws = null;
+  }
+}

@@ -15,10 +15,11 @@ from typing import Any
 
 import aiohttp
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from google.adk.agents import Agent
+from google.adk.agents import Agent, LiveRequestQueue
+from google.adk.agents.run_config import RunConfig
 from google.adk.runners import InMemoryRunner
 from google.genai import types
 from loguru import logger
@@ -350,6 +351,23 @@ class ChatMessage(BaseModel):
             return "".join(p.text or "" for p in self.parts if p.type == "text")
         return ""
 
+    def to_adk_content(self) -> types.Content:
+        """
+        Convert AI SDK v6 message to ADK Content format.
+
+        AI SDK v6 format:
+        - Simple: { role: "user", content: "text" }
+        - Parts: { role: "user", parts: [{ type: "text", text: "..." }] }
+
+        ADK format:
+        - types.Content(role="user", parts=[types.Part(text="...")])
+        """
+        text_content = self.get_text_content()
+        return types.Content(
+            role=self.role,
+            parts=[types.Part(text=text_content)] if text_content else [],
+        )
+
 
 class ChatRequest(BaseModel):
     """Chat request model"""
@@ -446,6 +464,118 @@ async def stream(request: ChatRequest):
             "x-vercel-ai-ui-message-stream": "v1",  # AI SDK v6 Data Stream Protocol marker
         },
     )
+
+
+@app.websocket("/live")
+async def live_chat(websocket: WebSocket):
+    """
+    WebSocket endpoint for bidirectional streaming with ADK BIDI mode (Phase 3).
+
+    This endpoint enables real-time bidirectional communication between
+    AI SDK v6 useChat and ADK's run_live() method. It bridges the two systems:
+    - Frontend → Backend: useChat messages via WebSocket
+    - Backend → Frontend: ADK live events via WebSocket
+
+    Protocol:
+    - Client sends AI SDK v6 ChatMessage as JSON
+    - Server streams ADK events as UIMessageChunk (SSE format over WebSocket)
+    - Supports tool calling in live conversation context
+    """
+    import asyncio
+
+    await websocket.accept()
+    logger.info("[BIDI] WebSocket connection established")
+
+    # Create session for BIDI mode
+    session = await get_or_create_session("live_user")
+
+    # Create LiveRequestQueue for bidirectional communication
+    live_request_queue = LiveRequestQueue()
+
+    # Configure for text response (can add AUDIO later)
+    run_config = RunConfig(response_modalities=["TEXT"])
+
+    try:
+        # Start ADK BIDI streaming
+        live_events = agent_runner.run_live(
+            user_id="live_user",
+            session_id=session.id,
+            live_request_queue=live_request_queue,
+            run_config=run_config,
+        )
+
+        logger.info("[BIDI] ADK live stream started")
+
+        # Task 1: Receive messages from WebSocket → send to LiveRequestQueue
+        async def receive_from_client():
+            try:
+                while True:
+                    data = await websocket.receive_text()
+                    logger.info(f"[BIDI] Received from client: {data[:100]}...")
+
+                    # Parse AI SDK v6 message format
+                    message_data = json.loads(data)
+
+                    # Handle different message types
+                    if "messages" in message_data:
+                        # Full message history (initial request)
+                        messages = message_data["messages"]
+                        if messages:
+                            # Get last message
+                            last_msg = ChatMessage(**messages[-1])
+                            content = last_msg.to_adk_content()
+                            logger.info(f"[BIDI] Sending to ADK: {content}")
+                            live_request_queue.send_content(content)
+                    elif "role" in message_data:
+                        # Single message
+                        msg = ChatMessage(**message_data)
+                        content = msg.to_adk_content()
+                        logger.info(f"[BIDI] Sending to ADK: {content}")
+                        live_request_queue.send_content(content)
+
+            except WebSocketDisconnect:
+                logger.info("[BIDI] Client disconnected")
+                live_request_queue.close()
+            except Exception as e:
+                logger.error(f"[BIDI] Error receiving from client: {e}")
+                live_request_queue.close()
+                raise
+
+        # Task 2: Receive ADK events → send to WebSocket
+        async def send_to_client():
+            try:
+                event_count = 0
+                async for sse_event in stream_adk_to_ai_sdk(live_events):
+                    event_count += 1
+                    await websocket.send_text(sse_event)
+
+                logger.info(f"[BIDI] Sent {event_count} events to client")
+
+            except Exception as e:
+                logger.error(f"[BIDI] Error sending to client: {e}")
+                raise
+
+        # Run both tasks concurrently
+        await asyncio.gather(
+            receive_from_client(),
+            send_to_client(),
+            return_exceptions=True,
+        )
+
+    except WebSocketDisconnect:
+        logger.info("[BIDI] WebSocket connection closed")
+    except Exception as e:
+        logger.error(f"[BIDI] WebSocket error: {e}")
+        try:
+            await websocket.close(code=1011, reason=str(e))
+        except Exception:
+            pass  # Connection might already be closed
+    finally:
+        # Ensure queue is closed
+        try:
+            live_request_queue.close()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":
