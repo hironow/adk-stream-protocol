@@ -4,6 +4,23 @@
  * Implements custom ChatTransport to enable bidirectional streaming
  * between AI SDK useChat hook and ADK BIDI mode via WebSocket.
  *
+ * Architecture: "SSE format over WebSocket"
+ * ==========================================
+ * Backend sends AI SDK v6 Data Stream Protocol in SSE format via WebSocket:
+ *   - ADK events → SSE format (stream_protocol.py)
+ *   - SSE format → WebSocket messages (server.py /live endpoint)
+ *   - WebSocket messages → SSE parsing (this class)
+ *   - SSE format → UIMessageChunk (handleWebSocketMessage)
+ *   - UIMessageChunk → useChat hook (React state)
+ *
+ * Key Insight: Protocol stays the same (AI SDK v6 Data Stream Protocol),
+ *             only transport layer changes (HTTP SSE → WebSocket)
+ *
+ * Benefits:
+ *   - Reuses 100% of SSE mode conversion logic
+ *   - Consistent protocol across all modes
+ *   - Simple implementation (just parse SSE format)
+ *
  * Based on community implementation by alexmarmon:
  * https://github.com/vercel/ai/discussions/5607
  */
@@ -134,6 +151,22 @@ export class WebSocketChatTransport {
   /**
    * Handle incoming WebSocket messages.
    * Converts SSE format to UIMessageChunk and enqueues.
+   *
+   * IMPORTANT: Protocol conversion happens here!
+   * Backend sends AI SDK v6 Data Stream Protocol in SSE format over WebSocket:
+   *   - Format: 'data: {"type":"text-delta","text":"..."}\n\n'
+   *   - Same format as HTTP SSE, but delivered via WebSocket
+   *
+   * This method:
+   *   1. Parses SSE format (strips "data: " prefix)
+   *   2. Extracts JSON payload
+   *   3. Converts to UIMessageChunk (AI SDK v6 format)
+   *   4. Enqueues to stream for useChat consumption
+   *
+   * Architecture: SSE format over WebSocket
+   *   - Backend: ADK events → SSE format (stream_protocol.py)
+   *   - Transport: SSE format over WebSocket (this layer)
+   *   - Frontend: SSE format → UIMessageChunk (this method)
    */
   private handleWebSocketMessage(
     data: string,
@@ -152,10 +185,15 @@ export class WebSocketChatTransport {
           return;
         }
 
+        // Parse JSON and convert to UIMessageChunk
+        // This is already in AI SDK v6 Data Stream Protocol format
+        // Examples: {"type":"text-delta","text":"..."}
+        //          {"type":"tool-call-available","toolCallId":"...","toolName":"..."}
         const chunk = JSON.parse(jsonStr);
         console.log("[WS Transport] Received chunk:", chunk.type);
 
-        // Enqueue UIMessageChunk
+        // Enqueue UIMessageChunk to stream
+        // useChat hook will consume this and update UI
         controller.enqueue(chunk as UIMessageChunk);
 
         // Handle tool calls if callback is provided

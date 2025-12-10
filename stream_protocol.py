@@ -3,6 +3,16 @@ ADK to AI SDK v6 Data Stream Protocol Converter
 
 This module provides utilities to convert ADK agent events to
 AI SDK v6 Data Stream Protocol format (SSE).
+
+IMPORTANT: This converter is used by BOTH streaming modes:
+  1. SSE Mode (/stream endpoint):
+     - ADK events → SSE format → HTTP SSE → Browser EventSource
+  2. BIDI Mode (/live WebSocket endpoint):
+     - ADK events → SSE format → WebSocket → WebSocketChatTransport
+
+The same conversion logic is reused in both cases.
+Only the transport layer differs (HTTP SSE vs WebSocket).
+This ensures protocol consistency across all modes.
 """
 
 from __future__ import annotations

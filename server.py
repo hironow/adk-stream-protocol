@@ -476,10 +476,30 @@ async def live_chat(websocket: WebSocket):
     - Frontend → Backend: useChat messages via WebSocket
     - Backend → Frontend: ADK live events via WebSocket
 
-    Protocol:
-    - Client sends AI SDK v6 ChatMessage as JSON
-    - Server streams ADK events as UIMessageChunk (SSE format over WebSocket)
-    - Supports tool calling in live conversation context
+    Protocol Flow (IMPORTANT - Read carefully):
+
+    1. Client → Server (Upstream):
+       - Client sends: AI SDK v6 ChatMessage as JSON
+       - Server converts: JSON → ADK Content format
+       - Server enqueues: Content → LiveRequestQueue
+
+    2. Server → Client (Downstream):
+       - ADK generates: Events from run_live()
+       - stream_adk_to_ai_sdk() converts: ADK events → SSE format
+         (Same converter as /stream endpoint - 100% code reuse!)
+       - WebSocket sends: SSE-formatted strings like 'data: {...}\n\n'
+       - Client parses: SSE format → UIMessageChunk
+
+    Architecture: "SSE format over WebSocket"
+    - Protocol: AI SDK v6 Data Stream Protocol (SSE format)
+    - Transport: WebSocket (instead of HTTP SSE)
+    - Benefit: Reuses all existing conversion logic from SSE mode
+
+    Supports:
+    - Text streaming (text-delta)
+    - Tool calling (tool-call-available, tool-result-available)
+    - Reasoning (thought)
+    - Usage metadata
     """
     import asyncio
 
@@ -545,8 +565,16 @@ async def live_chat(websocket: WebSocket):
         async def send_to_client():
             try:
                 event_count = 0
+                # IMPORTANT: Protocol conversion happens here!
+                # stream_adk_to_ai_sdk() converts ADK events to AI SDK v6 Data Stream Protocol
+                # Output: SSE-formatted strings like 'data: {"type":"text-delta","text":"..."}\n\n'
+                # This is the SAME converter used in SSE mode (/stream endpoint)
+                # We reuse 100% of the conversion logic - only transport layer differs
+                # WebSocket mode: Send SSE format over WebSocket (instead of HTTP SSE)
                 async for sse_event in stream_adk_to_ai_sdk(live_events):
                     event_count += 1
+                    # Send SSE-formatted event as WebSocket text message
+                    # Frontend will parse "data: {...}" format and extract UIMessageChunk
                     await websocket.send_text(sse_event)
 
                 logger.info(f"[BIDI] Sent {event_count} events to client")
