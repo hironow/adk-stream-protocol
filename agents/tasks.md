@@ -2,7 +2,7 @@
 
 **Project Goal:** Demonstrate integration between AI SDK v6 (frontend) and Google ADK (backend) with progressive implementation of data stream protocols.
 
-**Last Updated:** 2025-12-10 (after Phase 1 completion and AI SDK v6 migration debugging)
+**Last Updated:** 2025-12-10 (after Phase 3 SSE completion and ADK real-time capabilities research)
 
 ---
 
@@ -110,7 +110,7 @@
 
 ---
 
-## Phase 3: SSE Streaming 🚧 IN PROGRESS
+## Phase 3: SSE Streaming ✅ COMPLETED
 
 **Objective:** Implement Server-Sent Events (SSE) streaming with AI SDK data stream protocol.
 
@@ -130,72 +130,284 @@
   - [x] Loading states with `status` enum
 - [x] Test SSE streaming end-to-end (working with Gemini)
 
-**Backend (⏳ Next steps):**
-- [ ] Implement SSE endpoint in backend (`/stream`)
-  - [ ] AI SDK compatible event format
-  - [ ] Token-by-token streaming
-  - [ ] Proper SSE headers and connection handling
-- [ ] Integrate with ADK LLM capabilities
-  - [ ] Connect to actual LLM (Gemini via ADK)
-  - [ ] Stream tokens as they're generated
-- [ ] Add `adk-sse` backend mode to API route
-- [ ] Test ADK backend SSE streaming end-to-end
+**Backend (✅ Completed):**
+- [x] Implement SSE endpoint in backend (`/stream`)
+  - [x] AI SDK compatible event format
+  - [x] Token-by-token streaming
+  - [x] Proper SSE headers and connection handling
+- [x] Integrate with ADK LLM capabilities
+  - [x] Connect to actual LLM (Gemini via ADK)
+  - [x] Stream tokens as they're generated using `run_async()`
+- [x] Add `adk-sse` backend mode to API route
+- [x] Test ADK backend SSE streaming end-to-end
 
-### Files to Modify/Create
-- `server.py` - Add SSE streaming endpoint
-- `app/api/chat/route.ts` - Add SSE mode support
-- `.env.example` - Document SSE mode
+### Files Modified
+- `server.py` - Added `/stream` endpoint with `stream_agent_chat()` function
+- `app/api/chat/route.ts` - Added `adk-sse` mode support
+- `.env.example` - Documented SSE mode
+
+### Implementation Details
+
+**Backend SSE Implementation:**
+```python
+async def stream_agent_chat(user_message: str, user_id: str = "default_user"):
+    """Stream ADK agent responses as SSE events in AI SDK v6 format."""
+    session = await get_or_create_session(user_id)
+    message_content = types.Content(role="user", parts=[types.Part(text=user_message)])
+
+    text_id = "0"
+    has_started = False
+
+    async for event in agent_runner.run_async(
+        user_id=user_id,
+        session_id=session.id,
+        new_message=message_content,
+    ):
+        if event.content and event.content.parts:
+            for part in event.content.parts:
+                if hasattr(part, 'text') and part.text:
+                    if not has_started:
+                        yield f'data: {json.dumps({"type": "text-start", "id": text_id})}\n\n'
+                        has_started = True
+                    yield f'data: {json.dumps({"type": "text-delta", "id": text_id, "delta": part.text})}\n\n'
+
+    if has_started:
+        yield f'data: {json.dumps({"type": "text-end", "id": text_id})}\n\n'
+    yield f'data: {json.dumps({"type": "finish", "finishReason": "stop"})}\n\n'
+    yield 'data: [DONE]\n\n'
+```
+
+**Testing Results:**
+- ✅ Backend `/stream` endpoint tested with curl
+- ✅ Frontend-to-backend SSE streaming working
+- ✅ AI SDK v6 Data Stream Protocol format verified
+- ✅ Real-time token display in UI
+
+### Key Learnings
+- **ADK `run_async()` method**: Used for unidirectional streaming (SSE)
+- **SSE Event Format**: Matches AI SDK v6 protocol (`text-start`, `text-delta`, `text-end`, `finish`)
+- **FastAPI StreamingResponse**: Proper headers required (`Cache-Control: no-cache`, `Connection: keep-alive`)
+- **Event Streaming Pattern**: ADK events converted to AI SDK SSE format on-the-fly
+
+---
+
+## ADK Real-time Capabilities Research 📚
+
+**Research Date:** 2025-12-10
+**Objective:** Investigate ADK Python SDK's latest real-time communication capabilities for WebSocket and bidirectional streaming implementation.
+
+### ADK Streaming Methods Comparison
+
+| Method | Protocol | Direction | Use Case | Phase |
+|--------|----------|-----------|----------|-------|
+| `run_async()` | SSE | Unidirectional (server→client) | Token streaming, real-time responses | ✅ Phase 3 |
+| `run_live()` | WebSocket | Bidirectional (server↔client) | Interactive conversations, interruptions | 📋 Phase 4/5 |
+
+### Key Technical Findings
+
+**1. `run_live()` Method - Bidirectional WebSocket Streaming**
+
+```python
+async def run_live(
+    self,
+    user_id: str,
+    session_id: str,
+    request_queue: LiveRequestQueue,
+) -> AsyncIterator[LiveEvent]:
+    """
+    Run agent with bidirectional streaming over WebSocket.
+
+    Args:
+        user_id: User identifier
+        session_id: Session identifier
+        request_queue: Queue for incoming messages from client
+
+    Yields:
+        LiveEvent: Streaming events from agent
+    """
+```
+
+**2. LiveRequestQueue - Message Buffering**
+
+- Manages incoming messages from client during streaming
+- Supports user interruptions of agent responses
+- Thread-safe message queuing
+- Required for bidirectional communication
+
+**3. Dual-Task Concurrent Pattern**
+
+```python
+async def websocket_handler(websocket: WebSocket):
+    request_queue = LiveRequestQueue()
+
+    # Task 1: Upstream - Receive messages from client
+    async def upstream():
+        async for message in websocket.receive_text():
+            await request_queue.put(message)
+
+    # Task 2: Downstream - Send agent responses to client
+    async def downstream():
+        async for event in agent_runner.run_live(
+            user_id=user_id,
+            session_id=session_id,
+            request_queue=request_queue,
+        ):
+            await websocket.send_text(event.to_json())
+
+    # Run both tasks concurrently
+    await asyncio.gather(upstream(), downstream())
+```
+
+**4. Streaming Session Lifecycle**
+
+1. **Connection**: WebSocket connection established
+2. **Session Creation**: Get or create ADK session
+3. **Concurrent Tasks**: Launch upstream (receive) and downstream (send) tasks
+4. **Message Flow**: Bidirectional message exchange
+5. **Interruption Support**: Client can interrupt agent mid-response
+6. **Termination**: Clean session closure
+
+**5. Multimodal Support**
+
+- Text streaming (implemented in Phase 3)
+- Audio streaming (future capability)
+- Video streaming (future capability)
+- Combined multimodal streams
+
+### Implementation Architecture for Phase 4/5
+
+**Backend WebSocket Endpoint:**
+```python
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+
+    user_id = "default_user"  # From auth in production
+    session = await get_or_create_session(user_id)
+    request_queue = LiveRequestQueue()
+
+    async def upstream():
+        """Receive messages from client"""
+        try:
+            while True:
+                data = await websocket.receive_text()
+                await request_queue.put(data)
+        except WebSocketDisconnect:
+            await request_queue.close()
+
+    async def downstream():
+        """Send agent responses to client"""
+        try:
+            async for event in agent_runner.run_live(
+                user_id=user_id,
+                session_id=session.id,
+                request_queue=request_queue,
+            ):
+                # Convert ADK LiveEvent to AI SDK format
+                formatted_event = format_live_event(event)
+                await websocket.send_json(formatted_event)
+        except Exception as e:
+            logger.error(f"Downstream error: {e}")
+
+    await asyncio.gather(upstream(), downstream())
+```
+
+**Frontend WebSocket Client:**
+```typescript
+const ws = new WebSocket('ws://localhost:8000/ws');
+
+ws.onopen = () => {
+  ws.send(JSON.stringify({ text: "Hello" }));
+};
+
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  // Handle streaming event
+};
+
+// Support interruption
+function interruptAgent() {
+  ws.send(JSON.stringify({ type: "interrupt" }));
+}
+```
 
 ### Resources
-- AI SDK v6 documentation: https://ai-sdk.dev/docs
-- AI SDK v6 data stream protocol spec
-- FastAPI SSE examples: https://fastapi.tiangolo.com/advanced/custom-response/#using-streamingresponse-with-file-like-objects
+- **ADK Official Docs**: https://google.github.io/adk-docs/
+- **Gemini Live API**: WebSocket-based real-time API
+- **FastAPI WebSocket**: https://fastapi.tiangolo.com/advanced/websockets/
+- **AI SDK v6**: WebSocket support investigation needed
 
-### Answered Questions
-- ✅ **AI SDK v6 data stream protocol format**: SSE with structured JSON events
-  - Format: `data: {"type":"text-delta","id":"0","delta":"text"}`
-  - Terminates with `data: [DONE]`
-  - Uses `toUIMessageStreamResponse()` on backend
-  - Frontend automatically handles with `useChat` hook
-
-### Open Questions
-- How to properly integrate ADK's LLM streaming with FastAPI SSE?
-- Should we use sse-starlette library or implement manually?
-- How to format ADK streaming output to match AI SDK protocol?
+### Next Steps for Implementation
+1. Research AI SDK v6 WebSocket/bidirectional streaming support
+2. Implement `/ws` WebSocket endpoint in FastAPI with `run_live()`
+3. Create LiveRequestQueue integration
+4. Implement dual-task pattern (upstream/downstream)
+5. Build frontend WebSocket client
+6. Add interruption support
+7. Test bidirectional streaming end-to-end
 
 ---
 
 ## Phase 4: WebSocket Integration 📋 PLANNED
 
-**Objective:** Implement bidirectional communication via WebSocket.
+**Objective:** Implement bidirectional communication via WebSocket using ADK's `run_live()` method.
 
 ### Tasks
-- [ ] Research WebSocket support in AI SDK v6
-- [ ] Implement WebSocket endpoint in backend
-  - [ ] Connection handling
-  - [ ] Message protocol design
-  - [ ] Bidirectional streaming
+- [ ] Research AI SDK v6 WebSocket/bidirectional streaming support
+- [ ] Implement WebSocket endpoint in backend (`/ws`)
+  - [ ] WebSocket connection handling with FastAPI
+  - [ ] Integrate ADK `run_live()` method
+  - [ ] Implement LiveRequestQueue for message buffering
+  - [ ] Dual-task pattern (upstream + downstream)
+  - [ ] Session management for WebSocket connections
 - [ ] Update frontend for WebSocket mode
-  - [ ] WebSocket connection management
-  - [ ] Handle bidirectional communication
-- [ ] Test WebSocket integration
+  - [ ] WebSocket client implementation
+  - [ ] Bidirectional message handling
+  - [ ] Connection state management
+- [ ] Test WebSocket integration end-to-end
+
+### Implementation Approach
+- Use ADK's `run_live()` method (not `run_async()`)
+- Implement concurrent upstream/downstream tasks with `asyncio.gather()`
+- Use `LiveRequestQueue` for client→server message buffering
+- Convert ADK `LiveEvent` format to AI SDK compatible format
 
 ### Files to Modify/Create
-- `server.py` - Add WebSocket endpoint
-- `app/api/chat/route.ts` or separate WebSocket client
+- `server.py` - Add WebSocket endpoint with `run_live()` integration
 - Frontend WebSocket client component
+- `.env.example` - Add WebSocket mode configuration
 
 ---
 
-## Phase 5: Full Bidirectional Streaming 📋 PLANNED
+## Phase 5: Full Bidirectional Streaming with Interruption 📋 PLANNED
 
-**Objective:** Advanced streaming scenarios with full bidirectional capabilities.
+**Objective:** Advanced streaming scenarios with interruption support and multimodal capabilities.
 
 ### Tasks
-- [ ] Define advanced streaming use cases
-- [ ] Implement complex streaming patterns
+- [ ] Implement user interruption of agent responses
+  - [ ] Send interrupt signal via WebSocket
+  - [ ] Handle interruption in ADK agent
+  - [ ] Clean state management after interruption
+- [ ] Add frontend controls for interruption
+  - [ ] "Stop" button during agent response
+  - [ ] Visual feedback for interruption state
+- [ ] Implement advanced streaming patterns
+  - [ ] Message queuing and prioritization
+  - [ ] Retry logic for connection failures
+  - [ ] Graceful degradation (WebSocket → SSE → JSONRPC)
 - [ ] Performance optimization
+  - [ ] Connection pooling
+  - [ ] Message batching where appropriate
+  - [ ] Memory management for long sessions
 - [ ] Load testing
+  - [ ] Concurrent WebSocket connections
+  - [ ] Message throughput testing
+  - [ ] Latency measurements
+
+### Future Capabilities (Multimodal)
+- [ ] Audio streaming integration
+- [ ] Video streaming integration
+- [ ] Combined text + audio + video streams
 
 ---
 
@@ -205,7 +417,8 @@
 |-------|--------|-----------------|
 | Phase 1: Independent Operation | ✅ Completed | 2025-12-10 |
 | Phase 2: JSONRPC + ADK LLM | ✅ Completed | 2025-12-10 |
-| Phase 3: SSE Streaming | 🚧 In Progress | - |
+| Phase 3: SSE Streaming | ✅ Completed | 2025-12-10 |
+| ADK Research: Real-time Capabilities | ✅ Completed | 2025-12-10 |
 | Phase 4: WebSocket Integration | 📋 Planned | - |
 | Phase 5: Bidirectional Streaming | 📋 Planned | - |
 
@@ -218,31 +431,41 @@
 - ✅ Gemini Direct mode working with SSE streaming
 - ✅ All AI SDK v6 migration issues resolved and documented
 - ✅ **ADK backend integrated with actual LLM (InMemoryRunner + Agent)**
-- ✅ **Both `/chat` and `/jsonrpc` endpoints working with ADK**
-- ⏳ Next: Implement ADK backend SSE streaming endpoint
+- ✅ **All endpoints working: `/chat`, `/jsonrpc`, `/stream`**
+- ✅ **Phase 3 SSE streaming completed and tested**
+- ✅ **ADK real-time capabilities researched (`run_async()` vs `run_live()`)**
+- ⏳ Next: Implement Phase 4 WebSocket bidirectional streaming
 
-### Phase 3: ADK Backend SSE Implementation
+### Phase 4: WebSocket Bidirectional Streaming with ADK
 
-1. **Implement SSE Endpoint in FastAPI** (`/stream`)
-   - Generate SSE events matching AI SDK v6 format
-   - Support `text-start`, `text-delta`, `text-end` event types
-   - Add `data: [DONE]` terminator
-   - Proper SSE headers (`Content-Type: text/event-stream`)
+1. **Research AI SDK v6 WebSocket Support**
+   - Investigate if AI SDK v6 has built-in WebSocket/bidirectional streaming
+   - Check for existing examples or patterns
+   - Determine if custom implementation needed
 
-2. **Integrate ADK LLM Streaming**
-   - Use Google ADK to generate streaming responses
-   - Convert ADK token stream to AI SDK SSE format
-   - Handle errors and edge cases
+2. **Implement WebSocket Endpoint in FastAPI** (`/ws`)
+   - Use FastAPI WebSocket support
+   - Integrate ADK's `run_live()` method (not `run_async()`)
+   - Implement LiveRequestQueue for message buffering
+   - Dual-task concurrent pattern (upstream + downstream)
+   - Proper connection lifecycle management
 
-3. **Add `adk-sse` Mode to Frontend**
-   - Update `app/api/chat/route.ts` to support `adk-sse` mode
-   - Proxy SSE stream from ADK backend to frontend
-   - Maintain same AI SDK protocol format
+3. **Build Frontend WebSocket Client**
+   - Create WebSocket connection to `/ws` endpoint
+   - Handle bidirectional message flow
+   - Connection state management (connecting, open, closed)
+   - Error handling and reconnection logic
 
-4. **End-to-End Testing**
-   - Test with curl to verify SSE format
-   - Test in browser with UI
-   - Compare behavior with Gemini Direct mode
+4. **Event Format Conversion**
+   - Convert ADK `LiveEvent` to AI SDK compatible format
+   - Support text streaming (audio/video for future phases)
+   - Handle special events (interruption, errors, completion)
+
+5. **End-to-End Testing**
+   - Test WebSocket connection establishment
+   - Test bidirectional message exchange
+   - Test connection error handling
+   - Compare with SSE streaming behavior
 
 ---
 
@@ -257,23 +480,38 @@
 ## Testing Commands
 
 ```bash
-# Phase 1: Gemini Direct
+# Phase 1: Gemini Direct (✅ Working)
 echo 'BACKEND_MODE=gemini' > .env.local
 pnpm dev
 
-# Phase 2: JSONRPC
+# Phase 2: JSONRPC (✅ Working)
 echo 'BACKEND_MODE=adk-jsonrpc' > .env.local
 just dev
 
-# Phase 3: SSE (when ready)
+# Phase 3: SSE Streaming (✅ Working)
 echo 'BACKEND_MODE=adk-sse' > .env.local
+just dev
+
+# Phase 4: WebSocket (📋 Planned)
+echo 'BACKEND_MODE=adk-websocket' > .env.local
 just dev
 
 # Test backend directly
 curl http://localhost:8000/
 curl http://localhost:8000/health
-curl -X POST http://localhost:8000/jsonrpc -H "Content-Type: application/json" \
+
+# Test JSONRPC endpoint
+curl -X POST http://localhost:8000/jsonrpc \
+  -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","method":"chat","params":{"messages":[{"role":"user","content":"Hello"}]},"id":1}'
+
+# Test SSE streaming endpoint
+curl -N -X POST http://localhost:8000/stream \
+  -H "Content-Type: application/json" \
+  -d '{"messages":[{"role":"user","content":"Tell me a joke"}]}'
+
+# Test WebSocket endpoint (when implemented)
+# wscat -c ws://localhost:8000/ws
 ```
 
 ---

@@ -76,7 +76,55 @@ export async function POST(req: Request) {
     }
   }
 
-  // Phase 3+: SSE streaming (to be implemented)
+  // Phase 3: ADK Backend via SSE Streaming
+  if (BACKEND_MODE === "adk-sse") {
+    try {
+      // Forward request to ADK backend /stream endpoint
+      const response = await fetch(`${ADK_BACKEND_URL}/stream`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messages: messages.map(msg => ({
+            role: msg.role,
+            content: msg.parts?.map(p => p.type === "text" ? p.text : "").join("") || "",
+          })),
+        }),
+      });
+
+      if (!response.ok) {
+        return new Response(
+          JSON.stringify({ error: "ADK backend SSE stream failed" }),
+          {
+            status: response.status,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      // Return the SSE stream directly
+      // ADK backend already sends AI SDK v6 compatible SSE format
+      return new Response(response.body, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          "Connection": "keep-alive",
+        },
+      });
+    } catch (error) {
+      console.error("ADK SSE streaming failed:", error);
+      return new Response(
+        JSON.stringify({ error: "Failed to connect to ADK backend for streaming" }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+  }
+
+  // Unsupported mode
   return new Response(
     JSON.stringify({ error: `Unsupported backend mode: ${BACKEND_MODE}` }),
     {

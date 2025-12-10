@@ -11,9 +11,11 @@ from typing import Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from loguru import logger
 from dotenv import load_dotenv
+import json
 
 # Load environment variables from .env.local
 load_dotenv(".env.local")
@@ -120,6 +122,56 @@ async def run_agent_chat(user_message: str, user_id: str = "default_user") -> st
     return response_text.strip()
 
 
+async def stream_agent_chat(user_message: str, user_id: str = "default_user"):
+    """
+    Stream ADK agent responses as SSE events in AI SDK v6 format.
+    Yields SSE-formatted events compatible with AI SDK's Data Stream Protocol.
+    """
+    session = await get_or_create_session(user_id)
+
+    # Create message content
+    message_content = types.Content(
+        role="user",
+        parts=[types.Part(text=user_message)]
+    )
+
+    # Track if we've sent any text
+    text_id = "0"
+    has_started = False
+
+    try:
+        # Stream events from ADK agent
+        async for event in agent_runner.run_async(
+            user_id=user_id,
+            session_id=session.id,
+            new_message=message_content,
+        ):
+            # Extract text from event
+            if event.content and event.content.parts:
+                for part in event.content.parts:
+                    if hasattr(part, 'text') and part.text:
+                        # Send text-start event on first text
+                        if not has_started:
+                            yield f'data: {json.dumps({"type": "text-start", "id": text_id})}\n\n'
+                            has_started = True
+
+                        # Send text-delta event for each chunk
+                        yield f'data: {json.dumps({"type": "text-delta", "id": text_id, "delta": part.text})}\n\n'
+
+        # Send text-end and finish events
+        if has_started:
+            yield f'data: {json.dumps({"type": "text-end", "id": text_id})}\n\n'
+
+        yield f'data: {json.dumps({"type": "finish", "finishReason": "stop"})}\n\n'
+        yield 'data: [DONE]\n\n'
+
+    except Exception as e:
+        logger.error(f"Error streaming ADK agent: {e}")
+        # Send error event
+        yield f'data: {json.dumps({"type": "error", "error": str(e)})}\n\n'
+        yield 'data: [DONE]\n\n'
+
+
 class ChatMessage(BaseModel):
     """Chat message model"""
 
@@ -204,6 +256,44 @@ async def chat(request: ChatRequest):
     except Exception as e:
         logger.error(f"Error running ADK agent: {e}")
         return ChatResponse(message=f"Error: {str(e)}")
+
+
+@app.post("/stream")
+async def stream(request: ChatRequest):
+    """
+    SSE streaming endpoint (Phase 3)
+    Streams ADK agent responses in AI SDK v6 Data Stream Protocol format
+    """
+    logger.info(f"Received stream request with {len(request.messages)} messages")
+
+    # Get the last user message
+    last_message = request.messages[-1].content if request.messages else ""
+
+    if not last_message:
+        # Return error as SSE
+        async def error_stream():
+            yield f'data: {json.dumps({"type": "error", "error": "No message provided"})}\n\n'
+            yield 'data: [DONE]\n\n'
+
+        return StreamingResponse(
+            error_stream(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+            }
+        )
+
+    # Stream ADK agent response
+    return StreamingResponse(
+        stream_agent_chat(last_message),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # Disable nginx buffering
+        }
+    )
 
 
 @app.post("/jsonrpc", response_model=JSONRPCResponse)
