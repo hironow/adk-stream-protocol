@@ -371,3 +371,844 @@ UI toggle to switch between:
 - Follow TDD where possible (write tests first)
 - Commit frequently with clear messages
 - Update experiment document with findings
+
+---
+
+## Current Sprint: ADK BIDI Multimodal Support - Phase 1 (Image Support)
+
+**Experiment Reference:** `experiments/2025-12-11_adk_bidi_multimodal_support.md`
+
+**Objective:** Implement image input/output support in ADK BIDI mode using AI SDK v6 Data Stream Protocol custom events.
+
+**Decision:** Focus on Phase 1 (Image Support) - highest value-to-complexity ratio.
+
+### Phase 1A: Backend Image Input Support
+
+#### Task 1A.1: Extend ChatMessage model for multimodal parts
+
+**File:** `server.py`
+
+**Current Implementation:**
+```python
+class ChatMessage(BaseModel):
+    role: str
+    content: str | None = None
+    parts: list[dict] | None = None
+```
+
+**New Implementation:**
+```python
+from pydantic import BaseModel, Field
+
+class ImagePart(BaseModel):
+    """Image part in message"""
+    type: Literal["image"] = "image"
+    data: str  # base64 encoded image
+    media_type: str = "image/png"  # image/png, image/jpeg, image/webp
+
+class TextPart(BaseModel):
+    """Text part in message"""
+    type: Literal["text"] = "text"
+    text: str
+
+MessagePart = ImagePart | TextPart
+
+class ChatMessage(BaseModel):
+    role: str
+    content: str | None = None
+    parts: list[MessagePart] | None = None  # ← Updated to use union type
+```
+
+**Acceptance Criteria:**
+- ChatMessage supports both text and image parts
+- Pydantic validates part types correctly
+- Base64 image data accepted
+- Media type validation (png, jpeg, webp)
+- Backward compatibility with existing text-only messages
+
+#### Task 1A.2: Extend to_adk_content() for image conversion
+
+**File:** `server.py` (ChatMessage class)
+
+**Implementation:**
+```python
+def to_adk_content(self) -> types.Content:
+    """
+    Convert AI SDK v6 message to ADK Content format.
+
+    Supports:
+    - Text only: { role: "user", content: "text" }
+    - Parts (text + images): { role: "user", parts: [
+        { type: "text", text: "..." },
+        { type: "image", data: "base64...", media_type: "image/png" }
+      ]}
+    """
+    adk_parts = []
+
+    # Handle simple text content
+    if self.content:
+        adk_parts.append(types.Part(text=self.content))
+
+    # Handle parts array (multimodal)
+    if self.parts:
+        for part in self.parts:
+            if part.type == "text":
+                adk_parts.append(types.Part(text=part.text))
+            elif part.type == "image":
+                # Decode base64 and create inline_data
+                import base64
+                image_bytes = base64.b64decode(part.data)
+                adk_parts.append(
+                    types.Part(
+                        inline_data=types.InlineData(
+                            mime_type=part.media_type,
+                            data=image_bytes
+                        )
+                    )
+                )
+
+    return types.Content(role=self.role, parts=adk_parts)
+```
+
+**Acceptance Criteria:**
+- Converts text parts to ADK Part(text=...)
+- Converts image parts to ADK Part(inline_data=...)
+- Base64 decoding works correctly
+- MIME types mapped correctly
+- Handles mixed text+image messages
+- Unit tests for all conversion paths
+
+#### Task 1A.3: Add image input validation
+
+**File:** `server.py` (new helper functions)
+
+**Implementation:**
+```python
+import imghdr
+from io import BytesIO
+
+MAX_IMAGE_SIZE = 10 * 1024 * 1024  # 10MB
+ALLOWED_IMAGE_TYPES = {"png", "jpeg", "webp"}
+
+def validate_image(data: str, media_type: str) -> bool:
+    """
+    Validate image data and media type.
+
+    Args:
+        data: base64 encoded image
+        media_type: MIME type (image/png, etc.)
+
+    Returns:
+        True if valid
+
+    Raises:
+        ValueError: If validation fails
+    """
+    import base64
+
+    # Decode base64
+    try:
+        image_bytes = base64.b64decode(data)
+    except Exception as e:
+        raise ValueError(f"Invalid base64 encoding: {e}")
+
+    # Check size
+    if len(image_bytes) > MAX_IMAGE_SIZE:
+        raise ValueError(f"Image too large: {len(image_bytes)} bytes (max {MAX_IMAGE_SIZE})")
+
+    # Verify image type
+    image_type = imghdr.what(BytesIO(image_bytes))
+    if image_type not in ALLOWED_IMAGE_TYPES:
+        raise ValueError(f"Unsupported image type: {image_type}")
+
+    # Verify MIME type matches
+    expected_mime = f"image/{image_type}"
+    if media_type != expected_mime:
+        raise ValueError(f"MIME type mismatch: expected {expected_mime}, got {media_type}")
+
+    return True
+```
+
+**Acceptance Criteria:**
+- Validates base64 encoding
+- Enforces size limits (10MB max)
+- Checks image format (PNG, JPEG, WebP only)
+- Verifies MIME type consistency
+- Provides clear error messages
+- Unit tests for validation logic
+
+### Phase 1B: Backend Image Output Support
+
+#### Task 1B.1: Add image output handling in StreamProtocolConverter
+
+**File:** `stream_protocol.py`
+
+**Implementation:**
+```python
+class StreamProtocolConverter:
+    # ... existing code ...
+
+    def _process_inline_data_part(self, inline_data: types.InlineData) -> list[str]:
+        """
+        Process inline data (image) part into data-image event.
+
+        ADK format: types.Part(inline_data=InlineData(mime_type="image/png", data=bytes))
+        AI SDK v6 format: data: {"type":"data-image","data":"base64...","mediaType":"image/png"}
+        """
+        import base64
+
+        # Encode image bytes to base64
+        image_base64 = base64.b64encode(inline_data.data).decode('utf-8')
+
+        # Create data-image custom event
+        event = self._format_sse_event({
+            "type": "data-image",
+            "data": image_base64,
+            "mediaType": inline_data.mime_type,
+        })
+
+        return [event]
+
+    async def convert_event(self, event: Event) -> AsyncGenerator[str, None]:
+        """Convert a single ADK event to AI SDK v6 SSE events."""
+        # ... existing start event code ...
+
+        # Process event content parts
+        if event.content and event.content.parts:
+            for part in event.content.parts:
+                # Text content
+                if hasattr(part, "text") and part.text:
+                    for sse_event in self._process_text_part(part.text):
+                        yield sse_event
+
+                # Image content (NEW)
+                if hasattr(part, "inline_data") and part.inline_data:
+                    for sse_event in self._process_inline_data_part(part.inline_data):
+                        yield sse_event
+
+                # ... existing thought, function_call, etc. ...
+```
+
+**Acceptance Criteria:**
+- Detects ADK inline_data parts
+- Encodes image bytes to base64
+- Creates data-image SSE events
+- Preserves MIME type information
+- Works with existing text/tool events
+- Unit tests for image event conversion
+
+#### Task 1B.2: Add logging and monitoring for image events
+
+**File:** `stream_protocol.py`
+
+**Implementation:**
+```python
+def _process_inline_data_part(self, inline_data: types.InlineData) -> list[str]:
+    """Process inline data (image) part into data-image event."""
+    import base64
+
+    # Log image processing
+    image_size = len(inline_data.data)
+    logger.info(
+        f"Processing image: {inline_data.mime_type}, "
+        f"size={image_size} bytes ({image_size / 1024:.1f} KB)"
+    )
+
+    # Encode to base64
+    image_base64 = base64.b64encode(inline_data.data).decode('utf-8')
+
+    # Log base64 size (larger than original due to encoding)
+    base64_size = len(image_base64)
+    logger.debug(f"Base64 encoded size: {base64_size} bytes")
+
+    # Create event
+    event = self._format_sse_event({
+        "type": "data-image",
+        "data": image_base64,
+        "mediaType": inline_data.mime_type,
+    })
+
+    return [event]
+```
+
+**Acceptance Criteria:**
+- Logs image size and type
+- Tracks base64 encoding overhead
+- Debug logs for troubleshooting
+- Performance metrics collected
+
+### Phase 1C: Frontend Image Upload Component
+
+#### Task 1C.1: Create ImageUpload component
+
+**File:** `components/image-upload.tsx` (new file)
+
+**Implementation:**
+```typescript
+"use client";
+
+import { useState } from "react";
+
+interface ImageUploadProps {
+  onImageSelect: (image: { data: string; mediaType: string }) => void;
+  maxSizeMB?: number;
+}
+
+export function ImageUpload({ onImageSelect, maxSizeMB = 10 }: ImageUploadProps) {
+  const [preview, setPreview] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ["image/png", "image/jpeg", "image/webp"];
+    if (!allowedTypes.includes(file.type)) {
+      setError("Only PNG, JPEG, and WebP images are supported");
+      return;
+    }
+
+    // Validate file size
+    const maxSize = maxSizeMB * 1024 * 1024;
+    if (file.size > maxSize) {
+      setError(`Image must be smaller than ${maxSizeMB}MB`);
+      return;
+    }
+
+    // Read file as base64
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result as string;
+      const data = base64.split(",")[1]; // Remove data:image/png;base64, prefix
+
+      setPreview(base64);
+      setError(null);
+      onImageSelect({ data, mediaType: file.type });
+    };
+    reader.onerror = () => {
+      setError("Failed to read image file");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <div className="image-upload">
+      <input
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        onChange={handleFileSelect}
+        className="file-input"
+      />
+
+      {preview && (
+        <div className="preview">
+          <img src={preview} alt="Preview" style={{ maxWidth: "200px" }} />
+        </div>
+      )}
+
+      {error && <div className="error">{error}</div>}
+    </div>
+  );
+}
+```
+
+**Acceptance Criteria:**
+- File input accepts PNG, JPEG, WebP
+- File size validation (10MB limit)
+- File type validation
+- Base64 encoding of image
+- Image preview after selection
+- Error messages for invalid inputs
+- Clean, accessible UI
+
+#### Task 1C.2: Integrate ImageUpload with chat interface
+
+**File:** `app/page.tsx`
+
+**Implementation:**
+```typescript
+import { ImageUpload } from "@/components/image-upload";
+
+export default function Home() {
+  const [pendingImages, setPendingImages] = useState<Array<{data: string, mediaType: string}>>([]);
+
+  const { messages, sendMessage } = useChat({
+    // ... existing config ...
+  });
+
+  const handleImageSelect = (image: { data: string; mediaType: string }) => {
+    setPendingImages([...pendingImages, image]);
+  };
+
+  const handleSendMessage = (text: string) => {
+    const parts = [];
+
+    // Add text part
+    if (text) {
+      parts.push({ type: "text", text });
+    }
+
+    // Add image parts
+    for (const image of pendingImages) {
+      parts.push({
+        type: "image",
+        data: image.data,
+        media_type: image.mediaType,
+      });
+    }
+
+    // Send message with parts
+    sendMessage({ parts });
+
+    // Clear pending images
+    setPendingImages([]);
+  };
+
+  return (
+    <div>
+      {/* ... existing chat UI ... */}
+
+      <div className="input-area">
+        <ImageUpload onImageSelect={handleImageSelect} />
+
+        {/* Show pending images */}
+        {pendingImages.length > 0 && (
+          <div className="pending-images">
+            {pendingImages.length} image(s) ready to send
+          </div>
+        )}
+
+        {/* ... existing text input ... */}
+      </div>
+    </div>
+  );
+}
+```
+
+**Acceptance Criteria:**
+- ImageUpload component integrated in chat UI
+- Multiple images can be attached to one message
+- Pending images shown before sending
+- Images cleared after message sent
+- Works with both text-only and text+image messages
+
+### Phase 1D: Frontend Image Display Component
+
+#### Task 1D.1: Create ImageDisplay component
+
+**File:** `components/image-display.tsx` (new file)
+
+**Implementation:**
+```typescript
+"use client";
+
+interface ImageDisplayProps {
+  data: string; // base64 encoded
+  mediaType: string;
+  alt?: string;
+}
+
+export function ImageDisplay({ data, mediaType, alt = "Image" }: ImageDisplayProps) {
+  const dataUrl = `data:${mediaType};base64,${data}`;
+
+  return (
+    <div className="image-display">
+      <img
+        src={dataUrl}
+        alt={alt}
+        style={{
+          maxWidth: "100%",
+          maxHeight: "400px",
+          borderRadius: "8px",
+          objectFit: "contain",
+        }}
+        loading="lazy"
+      />
+    </div>
+  );
+}
+```
+
+**Acceptance Criteria:**
+- Renders base64 encoded images
+- Supports PNG, JPEG, WebP
+- Responsive sizing (max 400px height)
+- Lazy loading for performance
+- Accessible alt text
+- Clean styling
+
+#### Task 1D.2: Extend WebSocketChatTransport to handle data-image events
+
+**File:** `lib/websocket-chat-transport.ts`
+
+**Implementation:**
+```typescript
+private handleWebSocketMessage(
+  data: string,
+  controller: ReadableStreamDefaultController<UIMessageChunk>
+): void {
+  try {
+    if (data.startsWith("data: ")) {
+      const jsonStr = data.substring(6);
+
+      if (jsonStr === "[DONE]") {
+        controller.close();
+        this.ws?.close();
+        return;
+      }
+
+      const chunk = JSON.parse(jsonStr);
+      console.log("[WS Transport] Received chunk:", chunk.type);
+
+      // Enqueue UIMessageChunk to stream
+      controller.enqueue(chunk as UIMessageChunk);
+
+      // Handle tool calls
+      if (chunk.type === "tool-call-available" && this.config.toolCallCallback) {
+        this.handleToolCall(chunk);
+      }
+
+      // Handle images (NEW)
+      if (chunk.type === "data-image") {
+        console.log(`[WS Transport] Received image: ${chunk.mediaType}`);
+        // Image chunk will be consumed by MessageComponent
+      }
+    }
+  } catch (error) {
+    console.error("[WS Transport] Error handling message:", error);
+    controller.error(error);
+  }
+}
+```
+
+**Acceptance Criteria:**
+- Detects data-image events
+- Logs image reception
+- Passes image chunks to stream
+- No special handling needed (MessageComponent handles rendering)
+
+#### Task 1D.3: Update MessageComponent to render images
+
+**File:** `components/message.tsx`
+
+**Implementation:**
+```typescript
+import { ImageDisplay } from "./image-display";
+
+export function MessageComponent({ message }: { message: UIMessage }) {
+  return (
+    <div className={`message message-${message.role}`}>
+      {/* Render text content */}
+      {message.content && <div className="message-text">{message.content}</div>}
+
+      {/* Render data parts (NEW) */}
+      {message.data && message.data.length > 0 && (
+        <div className="message-data">
+          {message.data.map((dataPart, index) => {
+            // Render images
+            if (dataPart.type === "data-image") {
+              return (
+                <ImageDisplay
+                  key={index}
+                  data={dataPart.data}
+                  mediaType={dataPart.mediaType}
+                  alt={`Image ${index + 1}`}
+                />
+              );
+            }
+            return null;
+          })}
+        </div>
+      )}
+
+      {/* ... existing tool call rendering ... */}
+    </div>
+  );
+}
+```
+
+**Acceptance Criteria:**
+- MessageComponent renders data-image parts
+- Images display inline with text
+- Multiple images in one message supported
+- Existing text/tool rendering unaffected
+
+### Phase 1E: Testing and Validation
+
+#### Task 1E.1: Backend unit tests
+
+**File:** `tests/unit/test_image_support.py` (new file)
+
+**Tests:**
+```python
+import pytest
+import base64
+from server import ChatMessage, ImagePart, TextPart, validate_image
+
+def test_chat_message_with_image():
+    """Test ChatMessage with image part"""
+    # Create message with text and image
+    message = ChatMessage(
+        role="user",
+        parts=[
+            TextPart(type="text", text="What's in this image?"),
+            ImagePart(
+                type="image",
+                data=base64.b64encode(b"fake_image_data").decode(),
+                media_type="image/png"
+            )
+        ]
+    )
+
+    # Convert to ADK content
+    content = message.to_adk_content()
+
+    # Assertions
+    assert len(content.parts) == 2
+    assert content.parts[0].text == "What's in this image?"
+    assert content.parts[1].inline_data is not None
+    assert content.parts[1].inline_data.mime_type == "image/png"
+
+def test_image_validation_size_limit():
+    """Test image size validation"""
+    large_image = "a" * (11 * 1024 * 1024)  # 11MB > 10MB limit
+
+    with pytest.raises(ValueError, match="Image too large"):
+        validate_image(large_image, "image/png")
+
+def test_stream_protocol_image_output():
+    """Test StreamProtocolConverter handles images"""
+    # TODO: Test image event generation
+    pass
+```
+
+**Acceptance Criteria:**
+- Tests for ChatMessage with images
+- Tests for to_adk_content() conversion
+- Tests for image validation
+- Tests for StreamProtocolConverter image events
+- All tests pass
+
+#### Task 1E.2: End-to-end testing with real images
+
+**Manual Test Checklist:**
+
+**Test 1: Upload single image**
+- [ ] Click file input, select PNG image
+- [ ] Image preview displays
+- [ ] Type text message "What's in this image?"
+- [ ] Send message
+- [ ] Backend receives image part
+- [ ] Agent analyzes image (Gemini vision)
+- [ ] Agent response describes image content
+- [ ] Response displays in UI
+
+**Test 2: Upload multiple images**
+- [ ] Select 2 images
+- [ ] Both previews display
+- [ ] Send message with both images
+- [ ] Agent response references both images
+- [ ] Images display in chat history
+
+**Test 3: Image-only message (no text)**
+- [ ] Select image without typing text
+- [ ] Send image-only message
+- [ ] Agent responds appropriately
+
+**Test 4: Error handling**
+- [ ] Try uploading file > 10MB → error message
+- [ ] Try uploading non-image file → error message
+- [ ] Try uploading unsupported format (GIF) → error message
+
+**Test 5: Performance**
+- [ ] Upload 5MB image → reasonable upload time
+- [ ] Image displays without lag
+- [ ] Chat remains responsive
+
+**Test 6: Backward compatibility**
+- [ ] Send text-only message → works as before
+- [ ] Use tool calling → works as before
+- [ ] Switch between ADK SSE and BIDI modes → both work
+
+#### Task 1E.3: Update experiment document with results
+
+**File:** `experiments/2025-12-11_adk_bidi_multimodal_support.md`
+
+**Add Results Section:**
+```markdown
+## Results (Phase 1: Image Support)
+
+**Implementation Date:** 2025-12-11
+
+### What Works ✅
+
+- Image upload via file input (PNG, JPEG, WebP)
+- Image size validation (10MB limit)
+- Base64 encoding/decoding
+- WebSocket transmission of images
+- ADK vision model processing
+- Image display in chat messages
+- Multiple images per message
+- Backward compatibility with text-only mode
+
+### Performance Metrics
+
+- Image upload: ~XXXms for 5MB image
+- Base64 encoding overhead: ~33% size increase
+- WebSocket transmission: ~XXXms for encoded image
+- Agent response time: ~XXXs for image analysis
+
+### Limitations Discovered
+
+- [Document any limitations found during testing]
+
+### Future Improvements
+
+- [ ] Image compression before upload
+- [ ] Binary WebSocket frames (reduce overhead)
+- [ ] Progressive image loading
+- [ ] Image thumbnail generation
+```
+
+### Phase 1F: Documentation
+
+#### Task 1F.1: Update README.md
+
+**File:** `README.md`
+
+**Add to "Current Status" section:**
+```markdown
+**Phase 3.1: Image Support** ✅ Complete
+- Image upload in chat interface (PNG, JPEG, WebP)
+- Image transmission via WebSocket (base64 encoded)
+- ADK vision model processing (Gemini multimodal)
+- Image display in chat messages
+- Custom `data-image` events in AI SDK v6 protocol
+- Backward compatible with text-only mode
+```
+
+#### Task 1F.2: Create architecture diagram for image flow
+
+**File:** `README.md` or `docs/multimodal-architecture.md`
+
+**Add diagram:**
+```
+Image Upload Flow (BIDI Mode with Multimodal)
+==============================================
+
+┌─────────────────────────────────────────────┐
+│  Frontend (Next.js + AI SDK v6)             │
+│                                             │
+│  1. User selects image file                 │
+│  2. ImageUpload reads as base64             │
+│  3. Add to message parts:                   │
+│     parts: [                                │
+│       { type: "text", text: "..." },        │
+│       { type: "image", data: "base64...",   │
+│         media_type: "image/png" }           │
+│     ]                                       │
+│  4. Send via WebSocket                      │
+└──────────────┬──────────────────────────────┘
+               │ WebSocket
+               │ JSON: { messages: [...] }
+               ▼
+┌─────────────────────────────────────────────┐
+│  Backend (server.py)                        │
+│                                             │
+│  1. ChatMessage.to_adk_content():           │
+│     - Decode base64 → bytes                 │
+│     - Create types.Part(inline_data=        │
+│         InlineData(mime_type, data))        │
+│  2. live_request_queue.send_content()       │
+└──────────────┬──────────────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────────────┐
+│  ADK Agent (Gemini Vision)                  │
+│                                             │
+│  - Processes multimodal content             │
+│  - Analyzes image + text                    │
+│  - Generates response                       │
+└──────────────┬──────────────────────────────┘
+               │ ADK Events
+               ▼
+┌─────────────────────────────────────────────┐
+│  stream_protocol.py                         │
+│                                             │
+│  - Detects inline_data parts                │
+│  - Encodes to base64                        │
+│  - Creates SSE event:                       │
+│    data: {"type":"data-image",              │
+│           "data":"base64...",               │
+│           "mediaType":"image/png"}          │
+└──────────────┬──────────────────────────────┘
+               │ WebSocket
+               │ SSE format
+               ▼
+┌─────────────────────────────────────────────┐
+│  WebSocketChatTransport                     │
+│                                             │
+│  - Parses data-image events                 │
+│  - Enqueues to stream                       │
+└──────────────┬──────────────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────────────┐
+│  MessageComponent + ImageDisplay            │
+│                                             │
+│  - Renders base64 as <img>                  │
+│  - Displays inline with text                │
+└─────────────────────────────────────────────┘
+```
+
+## Implementation Order (Phase 1: Image Support)
+
+**Day 1: Backend Foundation**
+1. Task 1A.1: Extend ChatMessage model
+2. Task 1A.2: Extend to_adk_content()
+3. Task 1A.3: Add image validation
+4. Task 1B.1: Add image output handling
+5. Task 1E.1: Backend unit tests
+
+**Day 2: Frontend Components**
+6. Task 1C.1: Create ImageUpload component
+7. Task 1D.1: Create ImageDisplay component
+8. Task 1D.2: Extend WebSocketChatTransport
+9. Task 1D.3: Update MessageComponent
+
+**Day 3: Integration & Testing**
+10. Task 1C.2: Integrate ImageUpload with chat
+11. Task 1E.2: End-to-end testing
+12. Task 1B.2: Add logging/monitoring
+13. Bug fixes from testing
+
+**Day 4: Documentation & Polish**
+14. Task 1E.3: Update experiment document
+15. Task 1F.1: Update README
+16. Task 1F.2: Create architecture diagram
+17. Final testing and commit
+
+## Success Criteria (Phase 1)
+
+- [ ] User can upload images in chat UI (PNG, JPEG, WebP)
+- [ ] Images validate correctly (size, type)
+- [ ] Images transmit via WebSocket
+- [ ] ADK agent receives and processes images
+- [ ] Agent can describe image contents using Gemini vision
+- [ ] Images display in chat messages
+- [ ] Multiple images per message work
+- [ ] No regression in text/tool functionality
+- [ ] Protocol compatible with AI SDK v6 Data Stream Protocol
+- [ ] All tests pass
+- [ ] Documentation complete
+
+## Notes (Phase 1)
+
+- Use `data-image` custom events (not `file` events)
+- Base64 encoding in JSON (binary frames in future phase)
+- Gemini vision model automatically used when images present
+- Keep existing SSE/BIDI text mode functional
+- Follow TDD where possible
+- Commit frequently with clear messages
+- Update experiment document with findings

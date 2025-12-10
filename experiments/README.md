@@ -6,7 +6,9 @@ This directory contains research, preliminary experiments, and exploratory imple
 
 ### 🟡 In Progress
 
-_No in-progress experiments_
+| Date | Experiment | Status | Objective | Current Phase |
+|------|-----------|--------|-----------|---------------|
+| 2025-12-11 | [ADK BIDI Multimodal Support](./2025-12-11_adk_bidi_multimodal_support.md) | 🟡 In Progress | Investigate and implement ADK BIDI mode's multimodal capabilities (images, audio, video) within AI SDK v6 Data Stream Protocol | Phase 1: Image Support - Ready to Implement |
 
 ### ⚪ Planned
 
