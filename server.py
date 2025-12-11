@@ -752,15 +752,85 @@ async def live_chat(websocket: WebSocket):
                         if messages:
                             # Get last message
                             last_msg = ChatMessage(**messages[-1])
-                            content = last_msg.to_adk_content()
-                            logger.info(f"[BIDI] Sending to ADK: {content}")
-                            live_request_queue.send_content(content)
+
+                            # IMPORTANT: Live API requires separation of image/video blobs and text
+                            # - Images/videos: Use send_realtime(blob)
+                            # - Text: Use send_content(content)
+                            # Reference: https://google.github.io/adk-docs/streaming/dev-guide/part2/
+
+                            # Separate image/video blobs from text parts
+                            text_parts: list[types.Part] = []
+
+                            for part in last_msg.parts:
+                                # Handle file parts (images)
+                                if isinstance(part, FilePart):
+                                    # Send image blob via send_realtime()
+                                    import base64
+                                    from io import BytesIO
+
+                                    # Decode data URL
+                                    if part.url.startswith("data:"):
+                                        data_url_parts = part.url.split(",", 1)
+                                        if len(data_url_parts) == 2:
+                                            image_data_base64 = data_url_parts[1]
+                                            image_bytes = base64.b64decode(image_data_base64)
+
+                                            # Create blob and send via send_realtime()
+                                            image_blob = types.Blob(
+                                                mime_type=part.mediaType,
+                                                data=image_bytes
+                                            )
+                                            logger.info(f"[BIDI] Sending image via send_realtime(): {part.filename}, {part.mediaType}, {len(image_bytes)} bytes")
+                                            live_request_queue.send_realtime(image_blob)
+
+                                # Handle text parts
+                                elif isinstance(part, TextPart):
+                                    text_parts.append(types.Part(text=part.text))
+
+                            # Send text content via send_content() if any text exists
+                            if text_parts:
+                                text_content = types.Content(role="user", parts=text_parts)
+                                logger.info(f"[BIDI] Sending text via send_content(): {text_parts}")
+                                live_request_queue.send_content(text_content)
+
                     elif "role" in message_data:
                         # Single message
                         msg = ChatMessage(**message_data)
-                        content = msg.to_adk_content()
-                        logger.info(f"[BIDI] Sending to ADK: {content}")
-                        live_request_queue.send_content(content)
+
+                        # Separate image/video blobs from text parts
+                        text_parts: list[types.Part] = []
+
+                        for part in msg.parts:
+                            # Handle file parts (images)
+                            if isinstance(part, FilePart):
+                                # Send image blob via send_realtime()
+                                import base64
+                                from io import BytesIO
+
+                                # Decode data URL
+                                if part.url.startswith("data:"):
+                                    data_url_parts = part.url.split(",", 1)
+                                    if len(data_url_parts) == 2:
+                                        image_data_base64 = data_url_parts[1]
+                                        image_bytes = base64.b64decode(image_data_base64)
+
+                                        # Create blob and send via send_realtime()
+                                        image_blob = types.Blob(
+                                            mime_type=part.mediaType,
+                                            data=image_bytes
+                                        )
+                                        logger.info(f"[BIDI] Sending image via send_realtime(): {part.filename}, {part.mediaType}, {len(image_bytes)} bytes")
+                                        live_request_queue.send_realtime(image_blob)
+
+                            # Handle text parts
+                            elif isinstance(part, TextPart):
+                                text_parts.append(types.Part(text=part.text))
+
+                        # Send text content via send_content() if any text exists
+                        if text_parts:
+                            text_content = types.Content(role="user", parts=text_parts)
+                            logger.info(f"[BIDI] Sending text via send_content(): {text_parts}")
+                            live_request_queue.send_content(text_content)
 
             except WebSocketDisconnect:
                 logger.info("[BIDI] Client disconnected")
