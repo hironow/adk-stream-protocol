@@ -1,14 +1,26 @@
 "use client";
 
-import { useChat } from "@ai-sdk/react";
-import { useState, useMemo } from "react";
+import { useChat, type UIMessage } from "@ai-sdk/react";
+import { useState, useMemo, useEffect } from "react";
 import { MessageComponent } from "@/components/message";
 import { ImageUpload } from "@/components/image-upload";
 import { WebSocketChatTransport } from "@/lib/websocket-chat-transport";
 
 type BackendMode = "gemini" | "adk-sse" | "adk-bidi";
 
-export default function ChatPage() {
+// Inner component that will be re-mounted when backend mode changes
+// This forces useChat to re-initialize with the new endpoint
+function ChatInterface({
+  mode,
+  adkBackendUrl,
+  initialMessages,
+  onMessagesUpdate,
+}: {
+  mode: BackendMode;
+  adkBackendUrl: string;
+  initialMessages: UIMessage[];
+  onMessagesUpdate: (messages: UIMessage[]) => void;
+}) {
   const [input, setInput] = useState("");
   const [selectedImage, setSelectedImage] = useState<{
     data: string;
@@ -16,16 +28,30 @@ export default function ChatPage() {
     fileName: string;
   } | null>(null);
 
-  // Backend mode state (controlled by user or env var)
-  const [selectedMode, setSelectedMode] = useState<BackendMode>(
-    (process.env.NEXT_PUBLIC_BACKEND_MODE as BackendMode) || "gemini"
-  );
+  // Use SHARED chatId across all backend modes to preserve history
+  // Since all backends support the data stream protocol, they can handle the same messages
+  const chatId = "chat";  // Single shared ID for all modes
 
-  const adkBackendUrl = process.env.NEXT_PUBLIC_ADK_BACKEND_URL || "http://localhost:8000";
+  // Log component lifecycle for debugging
+  useEffect(() => {
+    console.log("[Page] ChatInterface mounted with mode:", mode, "chatId:", chatId);
 
-  // Create WebSocket transport for BIDI mode (memoized to avoid recreating on every render)
+    return () => {
+      console.log("[Page] ChatInterface unmounting for mode:", mode);
+    };
+  }, [mode, chatId]);
+
+  // Compute api endpoint based on mode
+  const apiEndpoint = mode === "adk-sse"
+    ? `${adkBackendUrl}/stream`
+    : "/api/chat";
+
+  console.log("[Page] Mode:", mode, "apiEndpoint:", apiEndpoint, "adkBackendUrl:", adkBackendUrl);
+
+  // Create WebSocket transport for BIDI mode
+  // Must be recreated when mode or URL changes to avoid stale connections
   const websocketTransport = useMemo(() => {
-    if (selectedMode === "adk-bidi") {
+    if (mode === "adk-bidi") {
       const wsUrl = adkBackendUrl.replace(/^http/, "ws") + "/live";
       console.log("[Page] Creating WebSocket transport:", wsUrl);
       return new WebSocketChatTransport({
@@ -39,48 +65,60 @@ export default function ChatPage() {
       });
     }
     return undefined;
-  }, [selectedMode, adkBackendUrl]);
+  }, [mode, adkBackendUrl]);
 
-  const apiEndpoint = selectedMode === "adk-sse"
-    ? `${adkBackendUrl}/stream`
-    : "/api/chat";
+  // Configure useChat options based on backend mode
+  // CRITICAL: AI SDK v6's useChat doesn't react to dynamic changes,
+  // so we rely on ChatInterface re-mounting (via key prop) to reinitialize
+  const useChatOptions = useMemo(() => {
+    const baseOptions = {
+      messages: initialMessages,  // Restore messages from parent state
+      id: chatId,
+    };
 
-  // Use transport for BIDI mode, api for SSE modes
-  // Use shared ID to test history compatibility across all modes
-  const { messages, sendMessage, status, error} = useChat(
-    selectedMode === "adk-bidi" && websocketTransport
-      ? {
-          transport: websocketTransport,
-          id: "image-history-test-v2",
-        }
-      : {
-          api: apiEndpoint,
-          id: "image-history-test-v2",
-        }
-  );
+    if (mode === "adk-bidi" && websocketTransport) {
+      console.log("[Page] Configuring useChat with WebSocket transport for BIDI mode");
+      return {
+        ...baseOptions,
+        transport: websocketTransport,
+      };
+    } else {
+      console.log("[Page] Configuring useChat with API endpoint:", apiEndpoint);
+      return {
+        ...baseOptions,
+        api: apiEndpoint,
+      };
+    }
+  }, [mode, websocketTransport, apiEndpoint, chatId, initialMessages]);
+
+  const { messages, sendMessage, status, error } = useChat(useChatOptions);
+
+  // Sync messages back to parent whenever they change
+  useEffect(() => {
+    onMessagesUpdate(messages);
+  }, [messages, onMessagesUpdate]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() && !selectedImage) return;
 
-    // Build message with text and/or image
+    // Build message with text and/or image using v6 sendMessage API
     if (selectedImage) {
-      // Multimodal message with parts
-      const parts: Array<{ type: string; text?: string; data?: string; media_type?: string }> = [];
+      // Multimodal message with files
+      // Convert base64 to Data URL for file part
+      const dataUrl = `data:${selectedImage.media_type};base64,${selectedImage.data}`;
 
-      if (input.trim()) {
-        parts.push({ type: "text", text: input });
-      }
+      const files = [{
+        type: "file" as const,
+        filename: selectedImage.fileName,
+        mediaType: selectedImage.media_type,
+        url: dataUrl,
+      }];
 
-      parts.push({
-        type: "image",
-        data: selectedImage.data,
-        media_type: selectedImage.media_type,
-      });
-
+      // v6 API: sendMessage with text and files
       sendMessage({
-        content: "",
-        experimental_attachments: parts as any,
+        text: input.trim() || " ", // sendMessage requires text, use space if empty
+        files: files as any,
       });
     } else {
       // Text-only message
@@ -182,13 +220,60 @@ export default function ChatPage() {
         </div>
       </form>
 
-      {/* Backend Mode Switcher */}
+      {/* Backend Info */}
       <div
         style={{
-          marginTop: "1rem",
+          marginTop: "0.5rem",
           padding: "0.75rem",
           background: "#1a1a1a",
           borderRadius: "4px",
+          fontSize: "0.875rem",
+          color: "#888",
+        }}
+      >
+        <strong>Active Endpoint:</strong>{" "}
+        <span style={{ color: "#d1d5db", fontFamily: "monospace", fontSize: "0.8125rem" }}>
+          {apiEndpoint}
+        </span>
+        <br />
+        <strong>Status:</strong>{" "}
+        <span style={{ color: status === "streaming" ? "#10b981" : "#888" }}>
+          {status}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// Main page component manages backend mode state
+export default function ChatPage() {
+  // Backend mode state (controlled by user or env var)
+  const [selectedMode, setSelectedMode] = useState<BackendMode>(
+    (process.env.NEXT_PUBLIC_BACKEND_MODE as BackendMode) || "gemini"
+  );
+
+  // Shared messages state across all backend modes
+  // This allows history to persist when switching backends
+  const [sharedMessages, setSharedMessages] = useState<UIMessage[]>([]);
+
+  const adkBackendUrl = process.env.NEXT_PUBLIC_ADK_BACKEND_URL || "http://localhost:8000";
+
+  // Log state changes for debugging
+  console.log("[ChatPage] selectedMode:", selectedMode, "messages count:", sharedMessages.length);
+
+  return (
+    <>
+      {/* Backend Mode Switcher */}
+      <div
+        style={{
+          position: "fixed",
+          top: "1rem",
+          right: "1rem",
+          zIndex: 1000,
+          padding: "0.75rem",
+          background: "#1a1a1a",
+          borderRadius: "4px",
+          border: "1px solid #333",
         }}
       >
         <div
@@ -259,27 +344,16 @@ export default function ChatPage() {
         </div>
       </div>
 
-      {/* Backend Info */}
-      <div
-        style={{
-          marginTop: "0.5rem",
-          padding: "0.75rem",
-          background: "#1a1a1a",
-          borderRadius: "4px",
-          fontSize: "0.875rem",
-          color: "#888",
-        }}
-      >
-        <strong>Active Endpoint:</strong>{" "}
-        <span style={{ color: "#d1d5db", fontFamily: "monospace", fontSize: "0.8125rem" }}>
-          {apiEndpoint}
-        </span>
-        <br />
-        <strong>Status:</strong>{" "}
-        <span style={{ color: status === "streaming" ? "#10b981" : "#888" }}>
-          {status}
-        </span>
-      </div>
-    </div>
+      {/* ChatInterface with key to force re-mount when backend changes */}
+      {/* This is the workaround for AI SDK v6 limitation: useChat doesn't react to dynamic api prop changes */}
+      {/* GitHub issue: https://github.com/vercel/ai/issues/7070 */}
+      <ChatInterface
+        key={selectedMode}
+        mode={selectedMode}
+        adkBackendUrl={adkBackendUrl}
+        initialMessages={sharedMessages}
+        onMessagesUpdate={setSharedMessages}
+      />
+    </>
   );
 }

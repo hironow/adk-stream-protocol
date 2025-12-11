@@ -188,64 +188,16 @@ export async function POST(req: Request) {
   messages.forEach((msg, idx) => {
     console.log(`[Gemini Direct] Message ${idx}:`, {
       role: msg.role,
-      content: typeof msg.content === "string" ? msg.content.substring(0, 50) + "..." : msg.content,
-      experimental_attachments: msg.experimental_attachments,
-      parts: (msg as any).parts,
+      parts: msg.parts?.map((p: any) => ({ type: p.type, text: p.text?.substring(0, 50) })),
+      metadata: msg.metadata,
     });
   });
 
-  // Fix messages that have parts but no content (common when useChat stores messages from streaming responses)
-  // This prevents "expected string or array for content, received undefined" errors
-  // Reference: https://ai-sdk.dev/docs/ai-sdk-ui/chatbot#attachments-experimental
-  const fixedMessages = messages.map((msg) => {
-    // Convert experimental_attachments to parts (AI SDK v6 migration)
-    // convertToModelMessages expects parts, not experimental_attachments
-    if ((msg as any).experimental_attachments) {
-      const attachments = (msg as any).experimental_attachments;
-      const parts: any[] = [];
-
-      attachments.forEach((attachment: any) => {
-        if (attachment.type === "text") {
-          parts.push({
-            type: "text",
-            text: attachment.text,
-          });
-        } else if (attachment.type === "image") {
-          parts.push({
-            type: "image",
-            image: attachment.data, // Base64 encoded image data
-            mimeType: attachment.media_type || "image/png",
-          });
-        }
-      });
-
-      // Return message with parts instead of experimental_attachments
-      const { experimental_attachments, ...restMsg } = msg as any;
-      return {
-        ...restMsg,
-        parts,
-        content: "", // Empty content when using multimodal parts
-      };
-    }
-
-    // If message has parts but no content, convert parts to content
-    if ((msg as any).parts && !msg.content) {
-      const parts = (msg as any).parts;
-      const textParts = parts.filter((p: any) => p.type === "text");
-      if (textParts.length > 0) {
-        return {
-          ...msg,
-          content: textParts.map((p: any) => p.text).join("\n"),
-        };
-      }
-      return { ...msg, content: "" };
-    }
-    return msg;
-  });
-
+  // AI SDK v6: convertToModelMessages handles UIMessage parts directly
+  // No manual conversion needed - it supports text, file, tool, and other part types
   const result = streamText({
     model: google("gemini-3-pro-preview"),  // Latest Gemini 3 Pro with advanced tool calling support
-    messages: convertToModelMessages(fixedMessages),  // AI SDK v6 handles attachments and parts
+    messages: convertToModelMessages(messages),  // AI SDK v6 handles UIMessage parts natively
     tools: {
       get_weather: getWeatherTool,
       calculate: calculateTool,

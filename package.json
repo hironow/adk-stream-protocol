@@ -14,7 +14,9 @@
   "dependencies": {
     "@ai-sdk/google": "3.0.0-beta.69",
     "@ai-sdk/react": "^3.0.0-beta.142",
+    "@valibot/to-json-schema": "^1.4.0",
     "ai": "^6.0.0-beta.140",
+    "effect": "^3.19.11",
     "next": "^15.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

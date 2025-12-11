@@ -74,11 +74,12 @@ export async function sendImageMessage(
  * Wait for assistant response to complete
  */
 export async function waitForAssistantResponse(page: Page) {
-  // Wait for "Thinking..." to appear
-  await expect(page.getByText('Thinking...')).toBeVisible({ timeout: 5000 });
+  // Wait for "Thinking..." to appear (increased timeout for slower LLM responses)
+  await expect(page.getByText('Thinking...')).toBeVisible({ timeout: 10000 });
 
   // Wait for "Thinking..." to disappear (response complete)
-  await expect(page.getByText('Thinking...')).not.toBeVisible({ timeout: 60000 });
+  // Increased to 2 minutes to accommodate image processing and slower LLM responses
+  await expect(page.getByText('Thinking...')).not.toBeVisible({ timeout: 120000 });
 }
 
 /**

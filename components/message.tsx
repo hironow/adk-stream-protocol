@@ -152,6 +152,22 @@ export function MessageComponent({ message }: MessageComponentProps) {
             );
           }
 
+          // File content (AI SDK v6 file part)
+          if (part.type === "file" && part.mediaType?.startsWith("image/")) {
+            return (
+              <img
+                key={index}
+                src={part.url}
+                alt={part.filename || "Image"}
+                style={{
+                  maxWidth: "100%",
+                  borderRadius: "8px",
+                  marginTop: "0.5rem",
+                }}
+              />
+            );
+          }
+
           // Image content (data-image custom event)
           if (part.type === "data-image" && part.data) {
             return (
@@ -234,6 +250,8 @@ export function MessageComponent({ message }: MessageComponentProps) {
             </details>
           );
         })}
+
+        {/* AI SDK v6: All content is in parts array, no content property */}
       </div>
 
       {/* Usage Metadata (if available) */}
