@@ -282,7 +282,7 @@ _sessions: dict[str, Any] = {}
 
 
 async def get_or_create_session(
-    user_id: str, agent_runner: InMemoryRunner, app_name: str = "adk_data_protocol"
+    user_id: str, agent_runner: InMemoryRunner, app_name: str = "agents"
 ) -> Any:
     """Get or create a session for a user with specific agent runner"""
     session_id = f"session_{user_id}_{app_name}"
@@ -303,7 +303,7 @@ async def run_agent_chat(
     user_message: str,
     user_id: str,
     agent_runner: InMemoryRunner,
-    app_name: str = "adk_data_protocol",
+    app_name: str = "agents",
 ) -> str:
     """
     Run the ADK agent with a user message and return the response.
@@ -349,7 +349,7 @@ async def stream_agent_chat(messages: list[ChatMessage], user_id: str = "default
     """
     # Reuse session for the same user (ADK manages conversation history)
     session = await get_or_create_session(
-        user_id, sse_agent_runner, "adk_data_protocol_sse"
+        user_id, sse_agent_runner, "agents"
     )
 
     # Extract last user message (ADK session already has full history)
@@ -532,7 +532,7 @@ class ChatMessage(BaseModel):
                     adk_parts.append(
                         types.Part(
                             inline_data=types.Blob(
-                                mimeType=media_type, data=image_bytes
+                                mime_type=media_type, data=image_bytes
                             )
                         )
                     )
@@ -564,7 +564,7 @@ class ChatMessage(BaseModel):
                     adk_parts.append(
                         types.Part(
                             inline_data=types.Blob(
-                                mimeType=part.media_type, data=image_bytes
+                                mime_type=part.media_type, data=image_bytes
                             )
                         )
                     )
@@ -604,7 +604,7 @@ class ChatMessage(BaseModel):
                             adk_parts.append(
                                 types.Part(
                                     inline_data=types.Blob(
-                                        mimeType=part.mediaType, data=file_bytes
+                                        mime_type=part.mediaType, data=file_bytes
                                     )
                                 )
                             )
@@ -660,7 +660,7 @@ async def chat(request: ChatRequest):
     # Run ADK agent and get response
     try:
         response_text = await run_agent_chat(
-            last_message, "default_user", sse_agent_runner, "adk_data_protocol_sse"
+            last_message, "default_user", sse_agent_runner, "agents"
         )
         logger.info(f"ADK agent response: {response_text[:100]}...")
         return ChatResponse(message=response_text)
@@ -753,7 +753,7 @@ async def live_chat(websocket: WebSocket):
 
     # Create session for BIDI mode
     session = await get_or_create_session(
-        "live_user", bidi_agent_runner, "adk_data_protocol_bidi"
+        "live_user", bidi_agent_runner, "agents"
     )
 
     # Create LiveRequestQueue for bidirectional communication
@@ -804,6 +804,18 @@ async def live_chat(websocket: WebSocket):
 
                     # Parse AI SDK v6 message format
                     message_data = json.loads(data)
+
+                    # Handle ping/pong for latency monitoring
+                    if message_data.get("type") == "ping":
+                        await websocket.send_text(
+                            json.dumps(
+                                {
+                                    "type": "pong",
+                                    "timestamp": message_data.get("timestamp"),
+                                }
+                            )
+                        )
+                        continue
 
                     # Handle different message types
                     if "messages" in message_data:

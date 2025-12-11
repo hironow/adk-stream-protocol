@@ -155,6 +155,47 @@ Backend → WebSocket → WebSocketChatTransport → audio-marker → message.pa
 3. Confirm audio plays continuously without restarts
 4. Verify UI displays audio status correctly
 
+## WebSocket Latency Monitoring (2025-12-12)
+
+**Objective**: Add WebSocket RTT (Round-Trip Time) monitoring to ensure transport layer reliability
+
+### Implementation:
+
+Following the user's request for WebSocket health monitoring in BIDI mode, implemented ping/pong latency measurement:
+
+1. **Backend (server.py:808-818)**
+   - Handles `ping` messages and responds with `pong` + timestamp
+   - Allows latency calculation on frontend
+
+2. **WebSocketChatTransport (lib/websocket-chat-transport.ts)**
+   - `startPing()`: Sends ping every 2 seconds (line 90-107)
+   - `handlePong()`: Calculates RTT from timestamp (line 120-128)
+   - `latencyCallback`: Optional callback for RTT updates (line 67)
+   - Automatically starts on connection, stops on close/error
+
+3. **AudioContext (lib/audio-context.tsx)**
+   - Added `wsLatency` state and `updateLatency()` callback (lines 47-48, 70, 188-190)
+   - Exported in context value for consumption (lines 201-202)
+
+4. **buildUseChatOptions (lib/build-use-chat-options.ts)**
+   - Updated AudioContextValue interface (lines 24-25)
+   - Passes `audioContext.updateLatency` as `latencyCallback` (line 103)
+
+5. **UI Component (components/chat.tsx:74-105)**
+   - Fixed position at top center (BIDI mode only)
+   - Displays RTT in milliseconds
+   - Color coding:
+     - Green (< 100ms): Normal operation
+     - Red (>= 100ms): Warning - potential network issues
+   - Pulsing indicator dot for visual feedback
+
+### User Requirements Met:
+- ✅ BIDI mode only
+- ✅ Top center display
+- ✅ Millisecond precision
+- ✅ Warning color when >= 100ms
+- ✅ Non-invasive UI (small, fixed position)
+
 ## References
 
 - ADK Audio Streaming Docs: https://google.github.io/adk-docs/streaming/dev-guide/part5/#handling-audio-events-at-the-client

@@ -21,6 +21,8 @@ interface AudioContextValue {
   };
   isReady: boolean;
   error: string | null;
+  wsLatency: number | null;
+  updateLatency: (latency: number) => void;
 }
 
 // Debug logging controlled by environment variable
@@ -98,6 +100,7 @@ export function buildUseChatOptions({
         return { handled: "backend" };
       },
       audioContext, // Pass AudioContext for PCM streaming
+      latencyCallback: audioContext?.updateLatency, // Pass latency callback for WebSocket monitoring
     });
   }
 

@@ -42,6 +42,10 @@ interface AudioContextValue {
   // Global audio context state
   isReady: boolean;
   error: string | null;
+
+  // WebSocket latency monitoring (BIDI mode only)
+  wsLatency: number | null; // Round-trip time in milliseconds
+  updateLatency: (latency: number) => void;
 }
 
 const AudioContext = createContext<AudioContextValue | null>(null);
@@ -63,6 +67,7 @@ export function AudioProvider({ children }: AudioProviderProps) {
   const [error, setError] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [chunkCount, setChunkCount] = useState(0);
+  const [wsLatency, setWsLatency] = useState<number | null>(null);
 
   // Web Audio API instances
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -180,6 +185,10 @@ export function AudioProvider({ children }: AudioProviderProps) {
     setChunkCount(0);
   };
 
+  const updateLatency = (latency: number) => {
+    setWsLatency(latency);
+  };
+
   const value: AudioContextValue = {
     voiceChannel: {
       isPlaying,
@@ -189,6 +198,8 @@ export function AudioProvider({ children }: AudioProviderProps) {
     },
     isReady,
     error,
+    wsLatency,
+    updateLatency,
   };
 
   return <AudioContext.Provider value={value}>{children}</AudioContext.Provider>;

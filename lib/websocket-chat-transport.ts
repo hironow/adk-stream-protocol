@@ -62,6 +62,9 @@ export interface WebSocketChatTransportConfig {
 
   /** Optional AudioContext for PCM streaming (BIDI mode only) */
   audioContext?: AudioContextValue;
+
+  /** Optional callback for latency updates (ms) */
+  latencyCallback?: (latency: number) => void;
 }
 
 /**
@@ -74,12 +77,54 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
   private config: WebSocketChatTransportConfig;
   private ws: WebSocket | null = null;
   private audioChunkIndex = 0; // Track audio chunks for marker IDs
+  private pingInterval: NodeJS.Timeout | null = null; // Ping interval timer
+  private lastPingTime: number | null = null; // Timestamp of last ping
 
   constructor(config: WebSocketChatTransportConfig) {
     this.config = {
       timeout: 30000, // 30 seconds default
       ...config,
     };
+  }
+
+  /**
+   * Start ping/pong for latency monitoring
+   */
+  private startPing() {
+    this.stopPing(); // Clear any existing interval
+
+    this.pingInterval = setInterval(() => {
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        this.lastPingTime = Date.now();
+        this.ws.send(
+          JSON.stringify({
+            type: "ping",
+            timestamp: this.lastPingTime,
+          })
+        );
+      }
+    }, 2000); // Ping every 2 seconds
+  }
+
+  /**
+   * Stop ping/pong monitoring
+   */
+  private stopPing() {
+    if (this.pingInterval) {
+      clearInterval(this.pingInterval);
+      this.pingInterval = null;
+    }
+    this.lastPingTime = null;
+  }
+
+  /**
+   * Handle pong response and calculate RTT
+   */
+  private handlePong(timestamp: number) {
+    if (this.lastPingTime && timestamp === this.lastPingTime) {
+      const rtt = Date.now() - this.lastPingTime;
+      this.config.latencyCallback?.(rtt);
+    }
   }
 
   /**
@@ -119,6 +164,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
             this.ws.onopen = () => {
               clearTimeout(timeoutId);
               console.log("[WS Transport] Connected to", url);
+              this.startPing(); // Start latency monitoring
               resolve();
             };
 
@@ -137,11 +183,13 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
 
             this.ws.onerror = (error) => {
               console.error("[WS Transport] Error:", error);
+              this.stopPing(); // Stop ping on error
               controller.error(new Error("WebSocket error"));
             };
 
             this.ws.onclose = () => {
               console.log("[WS Transport] Connection closed");
+              this.stopPing(); // Stop ping on close
               controller.close();
             };
           }
@@ -187,6 +235,19 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
     controller: ReadableStreamDefaultController<UIMessageChunk>
   ): void {
     try {
+      // Handle ping/pong for latency monitoring (not SSE format)
+      if (!data.startsWith("data: ")) {
+        try {
+          const message = JSON.parse(data);
+          if (message.type === "pong" && message.timestamp) {
+            this.handlePong(message.timestamp);
+            return;
+          }
+        } catch {
+          // Not JSON, ignore
+        }
+      }
+
       // Backend sends SSE-formatted events (data: {...}\n\n)
       // Parse and convert to UIMessageChunk
       if (data.startsWith("data: ")) {

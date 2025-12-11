@@ -71,6 +71,39 @@ export function Chat({ mode }: ChatProps) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
+      {/* WebSocket Latency Indicator (BIDI mode only) */}
+      {mode === "adk-bidi" && audioContext.wsLatency !== null && (
+        <div
+          style={{
+            position: "fixed",
+            top: "1rem",
+            left: "50%",
+            transform: "translateX(-50%)",
+            padding: "0.5rem 1rem",
+            background: audioContext.wsLatency >= 100 ? "#dc2626" : "#0a0a0a",
+            border: `1px solid ${audioContext.wsLatency >= 100 ? "#991b1b" : "#10b981"}`,
+            borderRadius: "6px",
+            fontSize: "0.875rem",
+            fontWeight: 600,
+            color: audioContext.wsLatency >= 100 ? "#fca5a5" : "#10b981",
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+          }}
+        >
+          <div
+            style={{
+              width: "8px",
+              height: "8px",
+              borderRadius: "50%",
+              background: audioContext.wsLatency >= 100 ? "#ef4444" : "#10b981",
+            }}
+          />
+          <span>WS: {audioContext.wsLatency}ms</span>
+        </div>
+      )}
+
       <div style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
         {messages.length === 0 && (
           <div style={{ textAlign: "center", color: "#666", marginTop: "2rem" }}>
