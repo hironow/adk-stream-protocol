@@ -50,6 +50,10 @@ class StreamProtocolConverter:
         self.part_id_counter = 0
         self.tool_call_id_counter = 0
         self.has_started = False
+        # Track PCM streaming stats
+        self.pcm_chunk_count = 0
+        self.pcm_total_bytes = 0
+        self.pcm_sample_rate: int | None = None
 
     def _generate_part_id(self) -> str:
         """Generate unique part ID."""
@@ -224,37 +228,108 @@ class StreamProtocolConverter:
         return [event]
 
     def _process_inline_data_part(self, inline_data: types.Blob) -> list[str]:
-        """Process inline data (image) as data-image custom event."""
+        """Process inline data (image or audio) as appropriate custom event."""
         import base64
         from io import BytesIO
-        from PIL import Image
 
-        # Convert bytes to base64 string
-        base64_content = base64.b64encode(inline_data.data).decode("utf-8")
+        mime_type = inline_data.mime_type or ""
 
-        # Get image dimensions using PIL
-        with Image.open(BytesIO(inline_data.data)) as img:
-            width, height = img.size
-            image_format = img.format
+        # Process audio data - send PCM chunks directly without buffering
+        if mime_type.startswith("audio/pcm"):
+            import base64
 
-        logger.info(
-            f"[IMAGE OUTPUT] media_type={inline_data.mime_type}, "
-            f"size={len(inline_data.data)} bytes, "
-            f"dimensions={width}x{height}, "
-            f"format={image_format}, "
-            f"base64_size={len(base64_content)} chars"
+            # Extract sample rate from mime type (e.g., "audio/pcm;rate=24000")
+            sample_rate = None
+            if ";rate=" in mime_type:
+                rate_str = mime_type.split(";rate=")[1]
+                sample_rate = int(rate_str)
+                if self.pcm_sample_rate is None:
+                    self.pcm_sample_rate = sample_rate
+
+            # Track stats
+            self.pcm_chunk_count += 1
+            self.pcm_total_bytes += len(inline_data.data)
+
+            # Send PCM chunk immediately as data-pcm event (AI SDK v6 Stream Protocol)
+            base64_content = base64.b64encode(inline_data.data).decode("utf-8")
+
+            logger.info(
+                f"[AUDIO PCM] Sending chunk #{self.pcm_chunk_count}: "
+                f"size={len(inline_data.data)} bytes, "
+                f"total={self.pcm_total_bytes} bytes"
+            )
+
+            event = self._format_sse_event(
+                {
+                    "type": "data-pcm",
+                    "data": {
+                        "content": base64_content,
+                        "sampleRate": sample_rate or 24000,
+                        "channels": 1,
+                        "bitDepth": 16,
+                    },
+                }
+            )
+            return [event]
+
+        # Process other audio formats (non-PCM) - send directly
+        if mime_type.startswith("audio/"):
+            # Convert bytes to base64 string
+            base64_content = base64.b64encode(inline_data.data).decode("utf-8")
+
+            logger.info(
+                f"[AUDIO OUTPUT] media_type={mime_type}, "
+                f"size={len(inline_data.data)} bytes, "
+                f"base64_size={len(base64_content)} chars"
+            )
+
+            event = self._format_sse_event(
+                {
+                    "type": "data-audio",
+                    "data": {
+                        "mediaType": mime_type,
+                        "content": base64_content,
+                    },
+                }
+            )
+            return [event]
+
+        # Process image data
+        if mime_type.startswith("image/"):
+            from PIL import Image
+
+            # Convert bytes to base64 string
+            base64_content = base64.b64encode(inline_data.data).decode("utf-8")
+
+            # Get image dimensions using PIL
+            with Image.open(BytesIO(inline_data.data)) as img:
+                width, height = img.size
+                image_format = img.format
+
+            logger.info(
+                f"[IMAGE OUTPUT] media_type={mime_type}, "
+                f"size={len(inline_data.data)} bytes, "
+                f"dimensions={width}x{height}, "
+                f"format={image_format}, "
+                f"base64_size={len(base64_content)} chars"
+            )
+
+            event = self._format_sse_event(
+                {
+                    "type": "data-image",
+                    "data": {
+                        "mediaType": mime_type,
+                        "content": base64_content,
+                    },
+                }
+            )
+            return [event]
+
+        # Unknown mime type - log warning and skip
+        logger.warning(
+            f"[INLINE DATA] Unknown mime_type={mime_type}, size={len(inline_data.data)} bytes - skipping"
         )
-
-        event = self._format_sse_event(
-            {
-                "type": "data-image",
-                "data": {
-                    "mediaType": inline_data.mime_type,
-                    "content": base64_content,
-                },
-            }
-        )
-        return [event]
+        return []
 
     async def finalize(
         self,
@@ -273,6 +348,17 @@ class StreamProtocolConverter:
         Yields:
             Final SSE events
         """
+        # Log PCM streaming completion
+        if self.pcm_chunk_count > 0:
+            duration = self.pcm_total_bytes / (self.pcm_sample_rate or 24000) / 2  # 16-bit = 2 bytes per sample
+            logger.info(
+                f"[AUDIO PCM] Streaming completed: "
+                f"chunks={self.pcm_chunk_count}, "
+                f"total_bytes={self.pcm_total_bytes}, "
+                f"duration={duration:.2f}s, "
+                f"sample_rate={self.pcm_sample_rate}Hz"
+            )
+
         if error:
             yield self._format_sse_event({"type": "error", "error": str(error)})
         else:

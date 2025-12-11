@@ -37,16 +37,15 @@ export function buildUseChatOptions({
   adkBackendUrl = typeof process !== "undefined" && process.env?.NEXT_PUBLIC_ADK_BACKEND_URL
     ? process.env.NEXT_PUBLIC_ADK_BACKEND_URL
     : "http://localhost:8000",
+  forceNewInstance = false,
 }: {
   mode: BackendMode;
   initialMessages: UIMessage[];
   adkBackendUrl?: string;
+  forceNewInstance?: boolean;
 }) {
-  // Generate mode-specific chatId to prevent internal state sharing
-  // Each backend mode gets its own isolated chat session
-  const chatId = `chat-${mode}`;
-
-  // Compute API endpoint based on mode
+  // Compute API endpoint based on mode FIRST
+  // (needed for chatId generation)
   let apiEndpoint: string;
   switch (mode) {
     case "adk-sse":
@@ -60,6 +59,14 @@ export function buildUseChatOptions({
       apiEndpoint = "/api/chat";
       break;
   }
+
+  // Generate unique chatId that includes endpoint hash
+  // This ensures a new Chat instance is created when the endpoint changes
+  // (workaround for AI SDK v6 bug where `api` option changes are ignored)
+  const endpointHash = apiEndpoint.replace(/[^a-zA-Z0-9]/g, "-");
+  const chatId = forceNewInstance
+    ? `chat-${mode}-${endpointHash}-${Date.now()}`
+    : `chat-${mode}-${endpointHash}`;
 
   // Create WebSocket transport for BIDI mode
   let websocketTransport: WebSocketChatTransport | undefined;
@@ -92,7 +99,7 @@ export function buildUseChatOptions({
         ...baseOptions,
         api: apiEndpoint,
       };
-      debugLog("Gemini options:", geminiOptions);
+      debugLog("Gemini options:", JSON.stringify({ id: geminiOptions.id, api: geminiOptions.api, messagesCount: geminiOptions.messages.length }));
       return geminiOptions;
 
     case "adk-sse":
@@ -101,7 +108,7 @@ export function buildUseChatOptions({
         ...baseOptions,
         api: apiEndpoint,
       };
-      debugLog("ADK SSE options:", adkSseOptions);
+      debugLog("ADK SSE options:", JSON.stringify({ id: adkSseOptions.id, api: adkSseOptions.api, messagesCount: adkSseOptions.messages.length }));
       return adkSseOptions;
 
     case "adk-bidi":

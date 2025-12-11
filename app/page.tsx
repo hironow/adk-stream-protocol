@@ -6,8 +6,10 @@ import { MessageComponent } from "@/components/message";
 import { ImageUpload } from "@/components/image-upload";
 import { buildUseChatOptions, type BackendMode } from "@/lib/build-use-chat-options";
 
-// Inner component that will be re-mounted when backend mode changes
-// This forces useChat to re-initialize with the new endpoint
+// Inner component with 3 separate useChat instances
+// EXPERIMENTAL WORKAROUND: Create 3 separate useChat instances instead of 1 dynamic instance
+// This is to verify if AI SDK v6 bug (issue #7070) is specific to dynamic reconfiguration
+// or if separate instances can work correctly
 function ChatInterface({
   mode,
   initialMessages,
@@ -24,19 +26,45 @@ function ChatInterface({
     fileName: string;
   } | null>(null);
 
-  // Configure useChat options based on backend mode
-  // CRITICAL: AI SDK v6's useChat doesn't react to dynamic changes,
-  // so we rely on ChatInterface re-mounting (via key prop) to reinitialize
-  // All backend configuration (endpoints, WebSocket transport) is handled in buildUseChatOptions
-  const useChatOptions = useMemo(() =>
+  // Create 3 separate useChat instances - one for each backend mode
+  // Each instance is configured with its specific endpoint/transport
+  // TESTING: Create ADK SSE first to see if first-instance endpoint gets cached
+  const adkSseChatOptions = useMemo(() =>
     buildUseChatOptions({
-      mode,
+      mode: "adk-sse",
       initialMessages,
     }),
-    [mode, initialMessages]
+    [initialMessages]
   );
 
-  const { messages, sendMessage, status, error } = useChat(useChatOptions);
+  const geminiChatOptions = useMemo(() =>
+    buildUseChatOptions({
+      mode: "gemini",
+      initialMessages,
+    }),
+    [initialMessages]
+  );
+
+  const adkBidiChatOptions = useMemo(() =>
+    buildUseChatOptions({
+      mode: "adk-bidi",
+      initialMessages,
+    }),
+    [initialMessages]
+  );
+
+  const adkSseChat = useChat(adkSseChatOptions);
+  const geminiChat = useChat(geminiChatOptions);
+  const adkBidiChat = useChat(adkBidiChatOptions);
+
+  // Select the appropriate chat instance based on current mode
+  const activeChat = mode === "gemini"
+    ? geminiChat
+    : mode === "adk-sse"
+    ? adkSseChat
+    : adkBidiChat;
+
+  const { messages, sendMessage, status, error } = activeChat;
 
   // Sync messages back to parent whenever they change
   useEffect(() => {
@@ -288,12 +316,11 @@ export default function ChatPage() {
         </div>
       </div>
 
-      {/* ChatInterface with key to force re-mount when backend changes */}
-      {/* This is the workaround for AI SDK v6 limitation: useChat doesn't react to dynamic api prop changes */}
-      {/* GitHub issue: https://github.com/vercel/ai/issues/7070 */}
-      {/* All backend configuration is now encapsulated in buildUseChatOptions */}
+      {/* ChatInterface with 3 separate useChat instances */}
+      {/* EXPERIMENTAL WORKAROUND: Component stays mounted, switches between 3 useChat instances */}
+      {/* This tests if AI SDK v6 bug (issue #7070) is specific to dynamic reconfiguration */}
+      {/* All backend configuration is encapsulated in buildUseChatOptions */}
       <ChatInterface
-        key={selectedMode}
         mode={selectedMode}
         initialMessages={sharedMessages}
         onMessagesUpdate={setSharedMessages}

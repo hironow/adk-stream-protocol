@@ -196,7 +196,7 @@ export async function POST(req: Request) {
   // AI SDK v6: convertToModelMessages handles UIMessage parts directly
   // No manual conversion needed - it supports text, file, tool, and other part types
   const result = streamText({
-    model: google("gemini-3-pro-preview"),  // Latest Gemini 3 Pro with advanced tool calling support
+    model: google("gemini-2.5-flash-native-audio-preview-09-2025"),  // Latest Gemini 2.5 Flash with Live API (bidiGenerateContent) support
     messages: convertToModelMessages(messages),  // AI SDK v6 handles UIMessage parts natively
     tools: {
       get_weather: getWeatherTool,

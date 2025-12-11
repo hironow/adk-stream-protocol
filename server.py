@@ -210,7 +210,7 @@ else:
 # Functions are passed directly - ADK automatically wraps them as FunctionTool
 chat_agent = Agent(
     name="adk_assistant_agent",
-    model="gemini-3-pro-preview",  # Latest Gemini 3 Pro with advanced tool calling support
+    model="gemini-2.5-flash-native-audio-preview-09-2025",  # Latest Gemini 2.5 Flash with Live API (bidiGenerateContent) support
     description="An intelligent assistant that can check weather, perform calculations, and get current time",
     instruction=(
         "You are a helpful AI assistant with access to real-time tools. "
@@ -373,8 +373,17 @@ class ImagePart(BaseModel):
         return v
 
 
+class FilePart(BaseModel):
+    """File part in message (AI SDK v6 format)"""
+
+    type: Literal["file"] = "file"
+    filename: str
+    url: str  # data URL with base64 content (e.g., "data:image/png;base64,...")
+    contentType: str  # MIME type (e.g., "image/png")
+
+
 # Union type for message parts
-MessagePart = Union[TextPart, ImagePart]
+MessagePart = Union[TextPart, ImagePart, FilePart]
 
 
 class ChatMessage(BaseModel):
@@ -499,6 +508,46 @@ class ChatMessage(BaseModel):
                             )
                         )
                     )
+                elif isinstance(part, FilePart):
+                    # AI SDK v6 file format: extract base64 from data URL
+                    # Format: "data:image/png;base64,iVBORw0..."
+                    if part.url.startswith("data:"):
+                        # Extract base64 content after "base64,"
+                        data_url_parts = part.url.split(",", 1)
+                        if len(data_url_parts) == 2:
+                            base64_data = data_url_parts[1]
+                            file_bytes = base64.b64decode(base64_data)
+
+                            # Get image dimensions if it's an image
+                            if part.contentType.startswith("image/"):
+                                from io import BytesIO
+                                from PIL import Image
+
+                                with Image.open(BytesIO(file_bytes)) as img:
+                                    width, height = img.size
+                                    image_format = img.format
+
+                                logger.info(
+                                    f"[FILE INPUT] filename={part.filename}, "
+                                    f"contentType={part.contentType}, "
+                                    f"size={len(file_bytes)} bytes, "
+                                    f"dimensions={width}x{height}, "
+                                    f"format={image_format}"
+                                )
+                            else:
+                                logger.info(
+                                    f"[FILE INPUT] filename={part.filename}, "
+                                    f"contentType={part.contentType}, "
+                                    f"size={len(file_bytes)} bytes"
+                                )
+
+                            adk_parts.append(
+                                types.Part(
+                                    inline_data=types.Blob(
+                                        mimeType=part.contentType, data=file_bytes
+                                    )
+                                )
+                            )
 
         return types.Content(role=self.role, parts=adk_parts)
 
@@ -646,8 +695,20 @@ async def live_chat(websocket: WebSocket):
     # Create LiveRequestQueue for bidirectional communication
     live_request_queue = LiveRequestQueue()
 
-    # Configure for text response (can add AUDIO later)
-    run_config = RunConfig(response_modalities=["TEXT"])
+    # Configure response modality based on model type (following ADK bidi-demo pattern)
+    # Native audio models require AUDIO modality with transcription config
+    # Half-cascade models use TEXT modality for faster performance
+    model_name = chat_agent.model
+    if "native-audio" in model_name:
+        logger.info(f"[BIDI] Detected native-audio model: {model_name}, using AUDIO modality with transcription")
+        run_config = RunConfig(
+            response_modalities=["AUDIO"],
+            output_audio_transcription=types.AudioTranscriptionConfig(),
+            input_audio_transcription=types.AudioTranscriptionConfig(),
+        )
+    else:
+        logger.info(f"[BIDI] Using TEXT modality for model: {model_name}")
+        run_config = RunConfig(response_modalities=["TEXT"])
 
     try:
         # Start ADK BIDI streaming

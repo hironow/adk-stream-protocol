@@ -13,6 +13,7 @@
 import { Message } from "@ai-sdk/react";
 import { ToolInvocationComponent } from "./tool-invocation";
 import { ImageDisplay } from "./image-display";
+import { AudioPlayer } from "./audio-player";
 
 interface MessageComponentProps {
   message: Message;
@@ -94,6 +95,23 @@ export function MessageComponent({ message }: MessageComponentProps) {
 
           return null;
         })}
+
+        {/* Collect all PCM audio chunks and render as single player */}
+        {(() => {
+          const pcmChunks = message.parts?.filter(
+            (part: any) => part.type === "data-pcm" && part.data
+          );
+          return pcmChunks && pcmChunks.length > 0 ? (
+            <AudioPlayer
+              chunks={pcmChunks.map((part: any) => ({
+                content: part.data.content,
+                sampleRate: part.data.sampleRate,
+                channels: part.data.channels,
+                bitDepth: part.data.bitDepth,
+              }))}
+            />
+          ) : null;
+        })()}
 
         {/* Handle regular message parts (assistant responses) */}
         {message.parts?.map((part: any, index: number) => {
@@ -178,6 +196,16 @@ export function MessageComponent({ message }: MessageComponentProps) {
                 alt="Image from assistant"
               />
             );
+          }
+
+          // PCM audio content (data-pcm custom event) - Skip here, handled above as single player
+          if (part.type === "data-pcm" && part.data) {
+            return null;
+          }
+
+          // Legacy audio content (data-audio custom event) - Skip if present
+          if (part.type === "data-audio" && part.data) {
+            return null;
           }
 
           // Tool Invocation (any tool)
