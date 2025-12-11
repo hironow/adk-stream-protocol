@@ -186,30 +186,46 @@ class StreamProtocolConverter:
                     for sse_event in self._process_inline_data_part(part.inline_data):
                         yield sse_event
 
-    def _process_text_part(self, text: str) -> list[str]:
-        """Process text part into text-* events."""
+    def _create_streaming_events(
+        self,
+        event_type_prefix: str,
+        content: str,
+        log_prefix: str | None = None,
+    ) -> list[str]:
+        """
+        Generic helper for start/delta/end event sequences.
+
+        Args:
+            event_type_prefix: Prefix for event types (e.g., "text", "reasoning")
+            content: Content to stream
+            log_prefix: Optional logging prefix (e.g., "[TEXT PART]")
+
+        Returns:
+            List of SSE-formatted events
+        """
         part_id = self._generate_part_id()
-        logger.info(f"[TEXT PART] Processing text (part_id={part_id}): {text[:100]}...")
+
+        if log_prefix:
+            logger.info(
+                f"{log_prefix} Processing {event_type_prefix} (part_id={part_id}): {content[:100]}..."
+            )
+
         events = [
-            self._format_sse_event({"type": "text-start", "id": part_id}),
+            self._format_sse_event({"type": f"{event_type_prefix}-start", "id": part_id}),
             self._format_sse_event(
-                {"type": "text-delta", "id": part_id, "delta": text}
+                {"type": f"{event_type_prefix}-delta", "id": part_id, "delta": content}
             ),
-            self._format_sse_event({"type": "text-end", "id": part_id}),
+            self._format_sse_event({"type": f"{event_type_prefix}-end", "id": part_id}),
         ]
         return events
 
+    def _process_text_part(self, text: str) -> list[str]:
+        """Process text part into text-* events."""
+        return self._create_streaming_events("text", text, log_prefix="[TEXT PART]")
+
     def _process_thought_part(self, thought: str) -> list[str]:
         """Process thought part into reasoning-* events."""
-        part_id = self._generate_part_id()
-        events = [
-            self._format_sse_event({"type": "reasoning-start", "id": part_id}),
-            self._format_sse_event(
-                {"type": "reasoning-delta", "id": part_id, "delta": thought}
-            ),
-            self._format_sse_event({"type": "reasoning-end", "id": part_id}),
-        ]
-        return events
+        return self._create_streaming_events("reasoning", thought)
 
     def _process_function_call(self, function_call: types.FunctionCall) -> list[str]:
         """Process function call into tool-call-* events."""
