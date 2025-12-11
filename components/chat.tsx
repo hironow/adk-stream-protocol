@@ -1,13 +1,17 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { buildUseChatOptions } from "@/lib/build-use-chat-options";
+import { buildUseChatOptions, type BackendMode } from "@/lib/build-use-chat-options";
 import { MessageComponent } from "@/components/message";
 import { useState } from "react";
 
-export function AdkBidiChat() {
+interface ChatProps {
+  mode: BackendMode;
+}
+
+export function Chat({ mode }: ChatProps) {
   const chatOptions = buildUseChatOptions({
-    mode: "adk-bidi",
+    mode,
     initialMessages: [],
   });
 

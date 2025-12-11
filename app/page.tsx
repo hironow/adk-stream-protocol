@@ -2,24 +2,8 @@
 
 import { useState } from "react";
 import { type BackendMode } from "@/lib/build-use-chat-options";
-import { GeminiChat } from "@/components/gemini-chat";
-import { AdkSseChat } from "@/components/adk-sse-chat";
-import { AdkBidiChat } from "@/components/adk-bidi-chat";
+import { Chat } from "@/components/chat";
 
-/**
- * EXPERIMENT: Completely Separate React Components
- *
- * Testing if AI SDK v6 endpoint bug can be worked around by using
- * 3 completely independent React components, each with exactly 1 useChat instance.
- *
- * Expected behavior:
- * - Each component has its own React tree, state, and useChat hook
- * - Switching modes unmounts one component and mounts another
- * - Each useChat instance should be truly independent
- *
- * If this STILL doesn't work (all requests go to first endpoint),
- * it confirms the bug is at the module/global level in AI SDK v6.
- */
 export default function ChatPage() {
   const [mode, setMode] = useState<BackendMode>("gemini");
 
@@ -123,11 +107,9 @@ export default function ChatPage() {
           AI SDK v6 + ADK Integration
         </h1>
 
-        {/* Render ONLY the active chat component */}
-        {/* Each component is completely independent with its own useChat instance */}
-        {mode === "gemini" && <GeminiChat key="gemini" />}
-        {mode === "adk-sse" && <AdkSseChat key="adk-sse" />}
-        {mode === "adk-bidi" && <AdkBidiChat key="adk-bidi" />}
+        {/* Single unified Chat component with mode prop */}
+        {/* buildUseChatOptions() creates appropriate transport based on mode */}
+        <Chat key={mode} mode={mode} />
       </div>
     </div>
   );

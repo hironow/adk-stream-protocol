@@ -437,9 +437,85 @@ The fixes enable:
 - Robust handling of AI SDK v6's dynamic message formats
 - Better developer experience with clearer failure modes
 
+### AI SDK v6 Bug Investigation: 3 Separate useChat Instances ❌
+
+**Date:** 2025-12-11 16:27 JST
+**Hypothesis:** Creating 3 separate useChat instances (one per backend mode) instead of trying to reconfigure a single instance might bypass the `api` option bug.
+
+**Implementation:**
+Modified `app/page.tsx` to create 3 separate useChat instances:
+
+```typescript
+const geminiChat = useChat(buildUseChatOptions({ mode: "gemini", initialMessages }));
+const adkSseChat = useChat(buildUseChatOptions({ mode: "adk-sse", initialMessages }));
+const adkBidiChat = useChat(buildUseChatOptions({ mode: "adk-bidi", initialMessages }));
+
+const activeChat = mode === "gemini" ? geminiChat
+  : mode === "adk-sse" ? adkSseChat
+  : adkBidiChat;
+```
+
+**Debug Logs Confirmed Correct Configuration:**
+```
+[buildUseChatOptions] Gemini options: {"id":"chat-gemini--api-chat","api":"/api/chat","messagesCount":0}
+[buildUseChatOptions] ADK SSE options: {"id":"chat-adk-sse-http---localhost-8000-stream","api":"http://localhost:8000/stream","messagesCount":0}
+[buildUseChatOptions] ADK BIDI options: {...transport: WebSocketChatTransport...}
+```
+
+**Test Results:**
+
+1. **Gemini Direct Mode** ✅
+   - Expected: `POST /api/chat`
+   - Actual: `POST http://localhost:3001/api/chat`
+   - Chat ID: `chat-gemini--api-chat`
+   - **Result: CORRECT**
+
+2. **ADK SSE Mode** ❌
+   - Expected: `POST http://localhost:8000/stream`
+   - Actual: `POST http://localhost:3001/api/chat`
+   - Chat ID: `chat-adk-sse-http---localhost-8000-stream` (correct)
+   - **Result: WRONG ENDPOINT**
+
+**Network Evidence:**
+```
+reqid=301 POST http://localhost:3001/api/chat [success - 200]  # Gemini Direct (correct)
+reqid=304 POST http://localhost:3001/api/chat [success - 200]  # ADK SSE (WRONG!)
+```
+
+**Server Logs Confirmed Bug:**
+```
+[Gemini Direct] Received request body: {
+  "id": "chat-adk-sse-http---localhost-8000-stream",  // Correct ID
+  "messages": [{"parts": [{"type": "text", "text": "ADK SSEモードのテスト"}], ...}]
+}
+```
+
+The request has the ADK SSE chat ID but went to the Gemini Direct endpoint.
+
+**Conclusion: WORKAROUND FAILED ❌**
+
+Creating 3 separate useChat instances does NOT bypass the AI SDK v6 bug. The `api` option is completely non-functional in AI SDK v6 beta v142. This is a more severe bug than initially understood:
+
+- ❌ Dynamic `api` changes don't work (expected from issue #7070)
+- ❌ Component re-mounting doesn't work
+- ❌ Chat ID changes don't work
+- ❌ **Even separate Chat instances with different `api` options don't work**
+
+**Root Cause Hypothesis:**
+
+AI SDK v6 beta appears to have a global or module-level cache/singleton that captures the first endpoint, and all subsequent Chat instances inherit that endpoint regardless of their individual `api` option configuration.
+
+**Next Actions:**
+
+1. ⛔ **Stop attempting client-side workarounds** - The bug is too fundamental
+2. 🔧 **Consider custom transport implementation** - Bypass useChat's broken `api` option entirely
+3. 📝 **Document bug for upstream report** - Provide evidence from this investigation
+4. 🤔 **Discuss with user:** Architecture implications and path forward
+
 ## References
 
 - [Playwright Timeouts Documentation](https://playwright.dev/docs/test-timeouts)
 - [AI SDK v6 Message Formats](https://v6.ai-sdk.dev/)
 - [Gemini 3 Pro Preview API](https://ai.google.dev/gemini-api/docs/models/gemini-v3)
+- [AI SDK Issue #7070](https://github.com/vercel/ai/issues/7070) - useChat hook does not respect dynamic api prop changes
 - Previous investigation: git commit 920f5fc (experimental_attachments fix)
