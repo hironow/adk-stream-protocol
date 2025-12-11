@@ -63,7 +63,8 @@ export function MessageComponent({ message }: MessageComponentProps) {
 
       {/* Message Content - handle both parts and experimental_attachments */}
       <div data-testid="message-content" style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-        {/* Handle experimental_attachments (user messages with images) */}
+        {/* Handle experimental_attachments (legacy v5 format - kept for backward compatibility) */}
+        {/* Note: AI SDK v6 converts files to parts array, so this is rarely used */}
         {(message as any).experimental_attachments?.map((attachment: any, index: number) => {
           // Text attachment
           if (attachment.type === "text") {

@@ -312,21 +312,20 @@ async def stream_agent_chat(messages: list[ChatMessage], user_id: str = "default
     if not messages:
         return
 
-    last_user_message = messages[-1].get_text_content()
-    if not last_user_message:
+    last_user_message_obj = messages[-1]
+    last_user_message_text = last_user_message_obj.get_text_content()
+    if not last_user_message_text:
         return
 
     logger.info(
-        f"Streaming chat for user {user_id}, message: {last_user_message[:50]}..."
+        f"Streaming chat for user {user_id}, message: {last_user_message_text[:50]}..."
     )
     logger.info(
         f"Agent model: {sse_agent.model}, tools: {[tool.__name__ if callable(tool) else str(tool) for tool in sse_agent.tools]}"
     )
 
-    # Create ADK message content for the latest user input
-    message_content = types.Content(
-        role="user", parts=[types.Part(text=last_user_message)]
-    )
+    # Create ADK message content for the latest user input (includes images!)
+    message_content = last_user_message_obj.to_adk_content()
 
     # Create ADK event stream
     event_stream = sse_agent_runner.run_async(
@@ -394,7 +393,7 @@ class FilePart(BaseModel):
     type: Literal["file"] = "file"
     filename: str
     url: str  # data URL with base64 content (e.g., "data:image/png;base64,...")
-    contentType: str  # MIME type (e.g., "image/png")
+    mediaType: str  # MIME type (e.g., "image/png")
 
 
 # Union type for message parts
@@ -534,7 +533,7 @@ class ChatMessage(BaseModel):
                             file_bytes = base64.b64decode(base64_data)
 
                             # Get image dimensions if it's an image
-                            if part.contentType.startswith("image/"):
+                            if part.mediaType.startswith("image/"):
                                 from io import BytesIO
                                 from PIL import Image
 
@@ -544,7 +543,7 @@ class ChatMessage(BaseModel):
 
                                 logger.info(
                                     f"[FILE INPUT] filename={part.filename}, "
-                                    f"contentType={part.contentType}, "
+                                    f"mediaType={part.mediaType}, "
                                     f"size={len(file_bytes)} bytes, "
                                     f"dimensions={width}x{height}, "
                                     f"format={image_format}"
@@ -552,14 +551,14 @@ class ChatMessage(BaseModel):
                             else:
                                 logger.info(
                                     f"[FILE INPUT] filename={part.filename}, "
-                                    f"contentType={part.contentType}, "
+                                    f"mediaType={part.mediaType}, "
                                     f"size={len(file_bytes)} bytes"
                                 )
 
                             adk_parts.append(
                                 types.Part(
                                     inline_data=types.Blob(
-                                        mimeType=part.contentType, data=file_bytes
+                                        mimeType=part.mediaType, data=file_bytes
                                     )
                                 )
                             )

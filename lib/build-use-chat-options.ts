@@ -82,8 +82,14 @@ export function buildUseChatOptions({
   // WORKAROUND: Use prepareSendMessagesRequest to override endpoint
   // This is the proper extension point in AI SDK v6 for dynamic endpoint routing
   const prepareSendMessagesRequest = async (options: any) => {
-    debugLog(`[prepareSendMessagesRequest] Overriding endpoint to: ${apiEndpoint}`);
-    debugLog(`[prepareSendMessagesRequest] Original options:`, options);
+    // DETAILED DEBUG LOGGING
+    console.log(`[prepareSendMessagesRequest] ==== DEBUG START ====`);
+    console.log(`[prepareSendMessagesRequest] Overriding endpoint to: ${apiEndpoint}`);
+    console.log(`[prepareSendMessagesRequest] options keys:`, Object.keys(options));
+    console.log(`[prepareSendMessagesRequest] options.body:`, options.body);
+    console.log(`[prepareSendMessagesRequest] options.messages:`, options.messages);
+    console.log(`[prepareSendMessagesRequest] Full options:`, JSON.stringify(options, null, 2));
+    console.log(`[prepareSendMessagesRequest] ==== DEBUG END ====`);
 
     // IMPORTANT: Don't return `body` field - let AI SDK construct it
     // If we return body: {}, AI SDK will use that empty object instead of building the proper request

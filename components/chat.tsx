@@ -43,10 +43,11 @@ export function Chat({ mode }: ChatProps) {
         const dataUrl = reader.result as string;
         sendMessage({
           text: input.trim() || " ",
-          experimental_attachments: [
+          files: [
             {
-              name: selectedFile.name,
-              contentType: selectedFile.type,
+              type: 'file',
+              filename: selectedFile.name,
+              mediaType: selectedFile.type,
               url: dataUrl,
             },
           ],
