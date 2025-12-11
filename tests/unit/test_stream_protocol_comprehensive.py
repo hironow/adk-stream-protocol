@@ -721,6 +721,58 @@ class TestMessageControlConversion:
         done_events = [e for e in parsed_events if e["type"] == "DONE"]
         assert len(done_events) == 1
 
+    @pytest.mark.parametrize(
+        "prompt_tokens,completion_tokens,expected_total",
+        [
+            pytest.param(100, 50, 150, id="normal-usage"),
+            pytest.param(1000, 500, 1500, id="large-usage"),
+            pytest.param(0, 0, 0, id="zero-usage"),
+        ],
+    )
+    def test_usage_metadata_in_finish_event(
+        self, prompt_tokens: int, completion_tokens: int, expected_total: int
+    ):
+        """
+        Test: usage_metadata is converted to AI SDK format in finish event
+
+        Coverage: reviews.md Section 9.1 - Usage Metadata
+        - finish event with usage field
+        - promptTokens, completionTokens, totalTokens
+        """
+        converter = StreamProtocolConverter()
+        converter.has_started = True  # Skip start event
+
+        # Create usage metadata
+        mock_usage = Mock()
+        mock_usage.prompt_token_count = prompt_tokens
+        mock_usage.candidates_token_count = completion_tokens
+        mock_usage.total_token_count = expected_total
+
+        # Finalize with usage
+        events = []
+
+        async def collect():
+            async for event in converter.finalize(
+                usage_metadata=mock_usage, error=None
+            ):
+                events.append(event)
+
+        asyncio.run(collect())
+
+        # Parse all events
+        parsed_events = [parse_sse_event(e) for e in events]
+
+        # Find finish event
+        finish_events = [e for e in parsed_events if e["type"] == "finish"]
+        assert len(finish_events) == 1
+
+        finish_event = finish_events[0]
+        assert finish_event["type"] == "finish"
+        assert "usage" in finish_event, "finish event must include usage field"
+        assert finish_event["usage"]["promptTokens"] == prompt_tokens
+        assert finish_event["usage"]["completionTokens"] == completion_tokens
+        assert finish_event["usage"]["totalTokens"] == expected_total
+
 
 class TestMultiPartMessages:
     """Test Category: Multi-part Messages (Complex scenarios)"""

@@ -391,13 +391,13 @@ class StreamProtocolConverter:
 
     async def finalize(
         self,
+        usage_metadata: Any | None = None,
         error: Exception | None = None,
     ) -> AsyncGenerator[str, None]:
         """
         Send final events to close the stream.
 
         Args:
-            finish_reason: Reason for stream completion
             usage_metadata: Optional token usage information
             error: Optional error that occurred
 
@@ -418,10 +418,23 @@ class StreamProtocolConverter:
         if error:
             yield self._format_sse_event({"type": "error", "error": str(error)})
         else:
-            # Send finish event (AI SDK v6 format)
-            # Per v6 spec: finish event is simple {"type":"finish"} without finishReason or usage
-            # Reference: https://v6.ai-sdk.dev/docs/ai-sdk-ui/stream-protocol
-            yield self._format_sse_event({"type": "finish"})
+            # Build finish event
+            finish_event: dict[str, Any] = {"type": "finish"}
+
+            # Add usage metadata if available
+            if usage_metadata:
+                finish_event["usage"] = {
+                    "promptTokens": usage_metadata.prompt_token_count,
+                    "completionTokens": usage_metadata.candidates_token_count,
+                    "totalTokens": usage_metadata.total_token_count,
+                }
+                logger.info(
+                    f"[USAGE] Tokens: {usage_metadata.prompt_token_count} in + "
+                    f"{usage_metadata.candidates_token_count} out = "
+                    f"{usage_metadata.total_token_count} total"
+                )
+
+            yield self._format_sse_event(finish_event)
 
         # Always send [DONE] marker
         yield "data: [DONE]\n\n"
@@ -446,9 +459,14 @@ async def stream_adk_to_ai_sdk(
     """
     converter = StreamProtocolConverter(message_id)
     error = None
+    usage_metadata = None
 
     try:
         async for event in event_stream:
+            # Extract usage metadata if present
+            if hasattr(event, "usage_metadata") and event.usage_metadata:
+                usage_metadata = event.usage_metadata
+
             # Convert and yield event
             async for sse_event in converter.convert_event(event):
                 yield sse_event
@@ -458,6 +476,8 @@ async def stream_adk_to_ai_sdk(
         error = e
 
     finally:
-        # Send final events
-        async for final_event in converter.finalize(error):
+        # Send final events with usage metadata
+        async for final_event in converter.finalize(
+            usage_metadata=usage_metadata, error=error
+        ):
             yield final_event
