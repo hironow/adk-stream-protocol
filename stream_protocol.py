@@ -23,7 +23,37 @@ from typing import Any, AsyncGenerator
 
 from google.adk.events import Event
 from google.genai import types
+from google.genai.types import FinishReason
 from loguru import logger
+
+
+def map_adk_finish_reason_to_ai_sdk(finish_reason: Any) -> str:
+    """
+    Map ADK FinishReason enum to AI SDK v6 finish reason string.
+
+    ADK uses FinishReason enum (e.g., FinishReason.STOP)
+    AI SDK v6 expects lowercase strings: "stop", "length", "content-filter", etc.
+    """
+    if not finish_reason:
+        return "stop"
+
+    # Get the enum name (e.g., "STOP" from FinishReason.STOP)
+    reason_name = getattr(finish_reason, "name", str(finish_reason))
+
+    # Map ADK finish reasons to AI SDK v6 format
+    reason_map = {
+        "STOP": "stop",
+        "MAX_TOKENS": "length",
+        "SAFETY": "content-filter",
+        "RECITATION": "content-filter",
+        "OTHER": "other",
+        "BLOCKLIST": "content-filter",
+        "PROHIBITED_CONTENT": "content-filter",
+        "SPII": "content-filter",
+    }
+
+    # Return mapped value or default to lowercase name
+    return reason_map.get(reason_name, reason_name.lower())
 
 
 class StreamProtocolConverter:
@@ -333,8 +363,6 @@ class StreamProtocolConverter:
 
     async def finalize(
         self,
-        finish_reason: str = "stop",
-        usage_metadata: types.GenerateContentResponseUsageMetadata | None = None,
         error: Exception | None = None,
     ) -> AsyncGenerator[str, None]:
         """
@@ -362,23 +390,10 @@ class StreamProtocolConverter:
         if error:
             yield self._format_sse_event({"type": "error", "error": str(error)})
         else:
-            # Send finish event with reason
-            finish_event: dict[str, Any] = {
-                "type": "finish",
-                "finishReason": finish_reason,
-            }
-
-            # Add usage metadata if available
-            if usage_metadata:
-                finish_event["usage"] = {
-                    "promptTokens": getattr(usage_metadata, "prompt_token_count", 0),
-                    "completionTokens": getattr(
-                        usage_metadata, "candidates_token_count", 0
-                    ),
-                    "totalTokens": getattr(usage_metadata, "total_token_count", 0),
-                }
-
-            yield self._format_sse_event(finish_event)
+            # Send finish event (AI SDK v6 format)
+            # Per v6 spec: finish event is simple {"type":"finish"} without finishReason or usage
+            # Reference: https://v6.ai-sdk.dev/docs/ai-sdk-ui/stream-protocol
+            yield self._format_sse_event({"type": "finish"})
 
         # Always send [DONE] marker
         yield "data: [DONE]\n\n"
@@ -402,8 +417,6 @@ async def stream_adk_to_ai_sdk(
         ...     yield sse_event
     """
     converter = StreamProtocolConverter(message_id)
-    finish_reason = "stop"
-    usage_metadata = None
     error = None
 
     try:
@@ -412,19 +425,11 @@ async def stream_adk_to_ai_sdk(
             async for sse_event in converter.convert_event(event):
                 yield sse_event
 
-            # Track finish reason and usage metadata
-            if hasattr(event, "finish_reason") and event.finish_reason:
-                finish_reason = str(event.finish_reason)
-            if hasattr(event, "usage_metadata") and event.usage_metadata:
-                usage_metadata = event.usage_metadata
-
     except Exception as e:
         logger.error(f"Error in ADK stream conversion: {e}")
         error = e
 
     finally:
         # Send final events
-        async for final_event in converter.finalize(
-            finish_reason, usage_metadata, error
-        ):
+        async for final_event in converter.finalize(error):
             yield final_event
