@@ -36,6 +36,25 @@ typecheck-python:
 test-python:
     PYTHONPATH=. uv run pytest tests/unit/ -v
 
+# Run E2E tests (Playwright)
+test-e2e:
+    pnpm exec playwright test
+
+# Run E2E tests with UI (headed mode)
+test-e2e-ui:
+    pnpm exec playwright test --ui
+
+# Run E2E tests in headed mode (show browser)
+test-e2e-headed:
+    pnpm exec playwright test --headed
+
+# Install Playwright browsers
+install-browsers:
+    pnpm exec playwright install chromium
+
+# Run all tests
+test: test-python test-e2e
+
 # Run all Python checks
 check-python: lint-python typecheck-python test-python
 

@@ -64,3 +64,6 @@ yarn-error.log*
 
 # Private files
 private/
+
+playwright-report/
+test-results/

@@ -1,0 +1,76 @@
+import { defineConfig, devices } from '@playwright/test';
+
+/**
+ * Playwright E2E Test Configuration
+ *
+ * Tests located in: tests/e2e/
+ *
+ * Requirements:
+ * - Real backend servers must be running (ADK Python + Next.js)
+ * - No mocks allowed (per CLAUDE.md e2e-guidelines)
+ * - Tests verify Gemini Direct and ADK SSE mode equivalence
+ * - Tests verify history sharing between modes
+ */
+
+export default defineConfig({
+  // Test directory
+  testDir: './tests/e2e',
+
+  // Maximum time one test can run for
+  timeout: 60 * 1000,
+
+  // Run tests in files in parallel
+  fullyParallel: false,
+
+  // Fail the build on CI if you accidentally left test.only in the source code
+  forbidOnly: !!process.env.CI,
+
+  // Retry on CI only
+  retries: process.env.CI ? 2 : 0,
+
+  // Reporter to use
+  reporter: [
+    ['html'],
+    ['list']
+  ],
+
+  // Shared settings for all the projects below
+  use: {
+    // Base URL to use in actions like `await page.goto('/')`
+    baseURL: 'http://localhost:3000',
+
+    // Collect trace when retrying the failed test
+    trace: 'on-first-retry',
+
+    // Screenshot on failure
+    screenshot: 'only-on-failure',
+  },
+
+  // Configure projects for major browsers
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+  ],
+
+  // Run your local dev server before starting the tests
+  webServer: [
+    {
+      // Next.js dev server
+      command: 'pnpm dev',
+      url: 'http://localhost:3000',
+      reuseExistingServer: !process.env.CI,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    },
+    {
+      // ADK Python backend server
+      command: 'uv run uvicorn server:app --reload',
+      url: 'http://localhost:8000/health',
+      reuseExistingServer: !process.env.CI,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    },
+  ],
+});
