@@ -28,6 +28,26 @@
 import type { UIMessageChunk, ChatTransport, ChatRequestOptions, UIMessage } from "ai";
 
 /**
+ * AudioContext interface for PCM streaming
+ * (imported from lib/audio-context.tsx in buildUseChatOptions)
+ */
+interface AudioContextValue {
+  voiceChannel: {
+    isPlaying: boolean;
+    chunkCount: number;
+    sendChunk: (chunk: {
+      content: string;
+      sampleRate: number;
+      channels: number;
+      bitDepth: number;
+    }) => void;
+    reset: () => void;
+  };
+  isReady: boolean;
+  error: string | null;
+}
+
+/**
  * WebSocket transport configuration
  */
 export interface WebSocketChatTransportConfig {
@@ -39,6 +59,9 @@ export interface WebSocketChatTransportConfig {
 
   /** WebSocket connection timeout (ms) */
   timeout?: number;
+
+  /** Optional AudioContext for PCM streaming (BIDI mode only) */
+  audioContext?: AudioContextValue;
 }
 
 /**
@@ -50,6 +73,7 @@ export interface WebSocketChatTransportConfig {
 export class WebSocketChatTransport implements ChatTransport<UIMessage> {
   private config: WebSocketChatTransportConfig;
   private ws: WebSocket | null = null;
+  private audioChunkIndex = 0; // Track audio chunks for marker IDs
 
   constructor(config: WebSocketChatTransportConfig) {
     this.config = {
@@ -166,11 +190,14 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
       // Backend sends SSE-formatted events (data: {...}\n\n)
       // Parse and convert to UIMessageChunk
       if (data.startsWith("data: ")) {
-        const jsonStr = data.substring(6); // Remove "data: " prefix
+        const jsonStr = data.substring(6).trim(); // Remove "data: " prefix and trim whitespace
 
         if (jsonStr === "[DONE]") {
+          console.log("[WS Transport] Turn complete, closing stream (WebSocket stays open)");
           controller.close();
-          this.ws?.close();
+          // IMPORTANT: Don't close WebSocket in BIDI mode!
+          // WebSocket stays open for next turn
+          // this.ws?.close(); // <- Removed: Keep WebSocket alive
           return;
         }
 
@@ -180,8 +207,39 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
         //          {"type":"tool-input-available","toolCallId":"...","toolName":"..."}
         const chunk = JSON.parse(jsonStr);
 
-        // Debug: Log chunk before enqueuing to useChat
+        // Debug: Log chunk before processing
         console.debug("[WS→useChat]", chunk);
+
+        // SPECIAL HANDLING: PCM audio chunks (ADK BIDI mode)
+        // Following official ADK implementation pattern:
+        // https://github.com/google/adk-samples/blob/main/python/agents/bidi-demo/app/static/js/app.js
+        //
+        // PCM chunks bypass message.parts and go directly to AudioWorklet for low-latency playback.
+        // UI markers are enqueued to stream for display purposes.
+        if (chunk.type === "data-pcm" && this.config.audioContext) {
+          console.log("[WS Transport] PCM chunk received, routing to AudioWorklet");
+
+          // Path 1: Low-latency audio - directly to AudioWorklet
+          try {
+            this.config.audioContext.voiceChannel.sendChunk({
+              content: chunk.data.content,
+              sampleRate: chunk.data.sampleRate,
+              channels: chunk.data.channels,
+              bitDepth: chunk.data.bitDepth,
+            });
+            console.log(`[WS Transport] PCM chunk sent to AudioWorklet (chunk #${this.audioChunkIndex})`);
+          } catch (err) {
+            console.error("[WS Transport] Error sending PCM to AudioWorklet:", err);
+          }
+
+          // Path 2: UI marker - enqueue to stream for display
+          controller.enqueue({
+            type: "audio-marker",
+            chunkIndex: this.audioChunkIndex++,
+          } as UIMessageChunk);
+
+          return; // Skip normal enqueue for PCM chunks
+        }
 
         // Enqueue UIMessageChunk to stream
         // useChat hook will consume this and update UI

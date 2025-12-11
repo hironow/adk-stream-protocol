@@ -4,6 +4,25 @@ import { WebSocketChatTransport } from "@/lib/websocket-chat-transport";
 
 export type BackendMode = "gemini" | "adk-sse" | "adk-bidi";
 
+/**
+ * AudioContext interface (from lib/audio-context.tsx)
+ */
+interface AudioContextValue {
+  voiceChannel: {
+    isPlaying: boolean;
+    chunkCount: number;
+    sendChunk: (chunk: {
+      content: string;
+      sampleRate: number;
+      channels: number;
+      bitDepth: number;
+    }) => void;
+    reset: () => void;
+  };
+  isReady: boolean;
+  error: string | null;
+}
+
 // Debug logging controlled by environment variable
 // Set NEXT_PUBLIC_DEBUG_CHAT_OPTIONS=true to enable
 const DEBUG = process.env.NEXT_PUBLIC_DEBUG_CHAT_OPTIONS === "true";
@@ -35,11 +54,13 @@ export function buildUseChatOptions({
     ? process.env.NEXT_PUBLIC_ADK_BACKEND_URL
     : "http://localhost:8000",
   forceNewInstance = false,
+  audioContext,
 }: {
   mode: BackendMode;
   initialMessages: UIMessage[];
   adkBackendUrl?: string;
   forceNewInstance?: boolean;
+  audioContext?: AudioContextValue;
 }) {
   // Compute API endpoint based on mode FIRST
   // (needed for chatId generation)
@@ -76,6 +97,7 @@ export function buildUseChatOptions({
         // Tools are handled on backend for now
         return { handled: "backend" };
       },
+      audioContext, // Pass AudioContext for PCM streaming
     });
   }
 

@@ -4,15 +4,19 @@ import { useChat } from "@ai-sdk/react";
 import { buildUseChatOptions, type BackendMode } from "@/lib/build-use-chat-options";
 import { MessageComponent } from "@/components/message";
 import { useState } from "react";
+import { useAudio } from "@/lib/audio-context";
 
 interface ChatProps {
   mode: BackendMode;
 }
 
 export function Chat({ mode }: ChatProps) {
+  const audioContext = useAudio();
+
   const chatOptions = buildUseChatOptions({
     mode,
     initialMessages: [],
+    audioContext,
   });
 
   const { messages, sendMessage, status, error } = useChat(chatOptions);

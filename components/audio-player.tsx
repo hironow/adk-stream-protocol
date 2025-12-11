@@ -1,10 +1,16 @@
 /**
- * Audio Player Component with Web Audio API
+ * Audio Player Component (AudioWorklet-based)
  *
- * Handles PCM audio chunks streamed from backend using Web Audio API
- * - Decodes raw PCM data directly (no WAV conversion needed)
- * - Concatenates multiple chunks into seamless playback
- * - Auto-plays as chunks arrive during streaming
+ * Plays streaming PCM audio chunks using Web Audio API's AudioWorklet.
+ * Uses ring buffer pattern to prevent playback restarts when new chunks arrive.
+ *
+ * Based on ADK documentation:
+ * https://google.github.io/adk-docs/streaming/dev-guide/part5/#handling-audio-events-at-the-client
+ *
+ * Key features:
+ * - Continuous streaming without restarts
+ * - Ring buffer handles chunks as they arrive
+ * - No concatenation or Blob URL creation
  */
 
 "use client";
@@ -12,170 +18,163 @@
 import { useEffect, useRef, useState } from "react";
 
 interface PCMChunk {
-  content: string; // Base64-encoded PCM data
-  sampleRate: number; // e.g., 24000
-  channels: number; // 1 = mono, 2 = stereo
-  bitDepth: number; // 16 = 16-bit PCM
+  content: string; // base64-encoded PCM data
+  sampleRate: number;
+  channels: number;
+  bitDepth: number;
 }
 
 interface AudioPlayerProps {
-  chunks: PCMChunk[]; // Array of PCM chunks to play
+  chunks: PCMChunk[];
 }
 
 export function AudioPlayer({ chunks }: AudioPlayerProps) {
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const audioRef = useRef<HTMLAudioElement>(null);
+  const [error, setError] = useState<string | null>(null);
 
+  // Refs for Web Audio API objects
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioWorkletNodeRef = useRef<AudioWorkletNode | null>(null);
+  const processedChunksCountRef = useRef(0);
+
+  // Initialize AudioContext and AudioWorklet on first mount
   useEffect(() => {
-    if (!chunks || chunks.length === 0) return;
+    let mounted = true;
 
-    let currentUrl: string | null = null;
-
-    const concatenatePCMToWAV = () => {
+    const initAudioWorklet = async () => {
       try {
-        if (chunks.length === 0) return;
+        // Create AudioContext with 24kHz sample rate (Gemini output format)
+        const audioContext = new AudioContext({ sampleRate: 24000 });
+        audioContextRef.current = audioContext;
 
-        const firstChunk = chunks[0];
-        const sampleRate = firstChunk.sampleRate;
-        const channels = firstChunk.channels;
-        const bitDepth = firstChunk.bitDepth;
+        // Load AudioWorklet processor module
+        await audioContext.audioWorklet.addModule("/pcm-player-processor.js");
 
-        // Decode all PCM chunks from base64
-        const pcmBuffers = chunks.map((chunk) => {
-          const binaryString = atob(chunk.content);
-          const bytes = new Uint8Array(binaryString.length);
-          for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-          }
-          return bytes;
+        // Create AudioWorklet node
+        const audioWorkletNode = new AudioWorkletNode(
+          audioContext,
+          "pcm-player-processor"
+        );
+
+        // Connect to audio destination (speakers)
+        audioWorkletNode.connect(audioContext.destination);
+
+        if (mounted) {
+          audioWorkletNodeRef.current = audioWorkletNode;
+          console.log("[AudioPlayer] AudioWorklet initialized successfully");
+        }
+      } catch (err) {
+        console.error("[AudioPlayer] Failed to initialize AudioWorklet:", err);
+        if (mounted) {
+          setError(
+            `Failed to initialize audio: ${err instanceof Error ? err.message : String(err)}`
+          );
+        }
+      }
+    };
+
+    initAudioWorklet();
+
+    // Cleanup on unmount
+    return () => {
+      mounted = false;
+      if (audioWorkletNodeRef.current) {
+        audioWorkletNodeRef.current.disconnect();
+        audioWorkletNodeRef.current = null;
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
+    };
+  }, []);
+
+  // Process new chunks as they arrive
+  useEffect(() => {
+    if (!chunks || chunks.length === 0) {
+      return;
+    }
+
+    const audioWorkletNode = audioWorkletNodeRef.current;
+    const audioContext = audioContextRef.current;
+
+    if (!audioWorkletNode || !audioContext) {
+      // AudioWorklet not ready yet
+      return;
+    }
+
+    // Process only new chunks (incremental)
+    const newChunks = chunks.slice(processedChunksCountRef.current);
+    if (newChunks.length === 0) {
+      return;
+    }
+
+    try {
+      // Resume audio context if suspended (browser autoplay policy)
+      if (audioContext.state === "suspended") {
+        audioContext.resume().then(() => {
+          setIsPlaying(true);
         });
+      } else if (!isPlaying) {
+        setIsPlaying(true);
+      }
 
-        // Calculate total PCM size
-        const totalPCMSize = pcmBuffers.reduce((sum, buf) => sum + buf.length, 0);
-
-        // Concatenate all PCM data
-        const combinedPCM = new Uint8Array(totalPCMSize);
-        let offset = 0;
-        for (const buf of pcmBuffers) {
-          combinedPCM.set(buf, offset);
-          offset += buf.length;
+      // Send each new chunk to AudioWorklet
+      for (const chunk of newChunks) {
+        // Decode base64 PCM data
+        const binaryString = atob(chunk.content);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
         }
 
-        // Create WAV header (44 bytes)
-        const wavHeader = new Uint8Array(44);
+        // Convert to Int16Array (16-bit PCM)
+        const int16Array = new Int16Array(bytes.buffer);
 
-        // Helper to write ASCII string
-        const writeString = (offset: number, str: string) => {
-          for (let i = 0; i < str.length; i++) {
-            wavHeader[offset + i] = str.charCodeAt(i);
-          }
-        };
-
-        // Helper to write 32-bit little-endian integer
-        const writeUint32 = (offset: number, value: number) => {
-          wavHeader[offset] = value & 0xff;
-          wavHeader[offset + 1] = (value >> 8) & 0xff;
-          wavHeader[offset + 2] = (value >> 16) & 0xff;
-          wavHeader[offset + 3] = (value >> 24) & 0xff;
-        };
-
-        // Helper to write 16-bit little-endian integer
-        const writeUint16 = (offset: number, value: number) => {
-          wavHeader[offset] = value & 0xff;
-          wavHeader[offset + 1] = (value >> 8) & 0xff;
-        };
-
-        // RIFF chunk descriptor
-        writeString(0, "RIFF");
-        writeUint32(4, 36 + totalPCMSize); // File size - 8
-        writeString(8, "WAVE");
-
-        // fmt sub-chunk
-        writeString(12, "fmt ");
-        writeUint32(16, 16); // Subchunk1Size (16 for PCM)
-        writeUint16(20, 1); // AudioFormat (1 = PCM)
-        writeUint16(22, channels); // NumChannels
-        writeUint32(24, sampleRate); // SampleRate
-        writeUint32(28, (sampleRate * channels * bitDepth) / 8); // ByteRate
-        writeUint16(32, (channels * bitDepth) / 8); // BlockAlign
-        writeUint16(34, bitDepth); // BitsPerSample
-
-        // data sub-chunk
-        writeString(36, "data");
-        writeUint32(40, totalPCMSize); // Subchunk2Size
-
-        // Combine header and PCM data
-        const wavFile = new Uint8Array(44 + totalPCMSize);
-        wavFile.set(wavHeader, 0);
-        wavFile.set(combinedPCM, 44);
-
-        // Create Blob and URL
-        const blob = new Blob([wavFile], { type: "audio/wav" });
-        const url = URL.createObjectURL(blob);
-        currentUrl = url;
-
-        setAudioUrl(url);
-
-        const duration = totalPCMSize / sampleRate / (bitDepth / 8) / channels;
-        console.log(
-          `[AudioPlayer] Created WAV from ${chunks.length} PCM chunks: ` +
-            `${totalPCMSize} bytes PCM, ${duration.toFixed(2)}s @ ${sampleRate}Hz`
-        );
-      } catch (error) {
-        console.error("[AudioPlayer] Failed to create WAV from PCM chunks:", error);
+        // Send to AudioWorklet ring buffer via MessagePort
+        audioWorkletNode.port.postMessage(int16Array.buffer, [
+          int16Array.buffer,
+        ]);
       }
-    };
 
-    concatenatePCMToWAV();
+      // Update processed count
+      processedChunksCountRef.current = chunks.length;
 
-    // Cleanup
-    return () => {
-      if (currentUrl) {
-        URL.revokeObjectURL(currentUrl);
-      }
-    };
-  }, [chunks.length]); // Re-run when chunk count changes
-
-  useEffect(() => {
-    // Auto-play when audio URL is ready
-    if (audioRef.current && audioUrl && !isPlaying) {
-      audioRef.current.load();
-      audioRef.current
-        .play()
-        .then(() => {
-          setIsPlaying(true);
-          console.log("[AudioPlayer] Started playing audio");
-        })
-        .catch((error) => {
-          console.error("[AudioPlayer] Auto-play failed:", error);
-        });
+      console.log(
+        `[AudioPlayer] Sent ${newChunks.length} new chunks to AudioWorklet (total: ${chunks.length})`
+      );
+    } catch (err) {
+      console.error("[AudioPlayer] Error processing chunks:", err);
+      setError(
+        `Error processing audio: ${err instanceof Error ? err.message : String(err)}`
+      );
     }
-  }, [audioUrl]);
+  }, [chunks, isPlaying]);
 
-  const handleEnded = () => {
-    setIsPlaying(false);
-    console.log("[AudioPlayer] Finished playing audio");
-  };
+  // Reset when chunks array is emptied (new turn)
+  useEffect(() => {
+    if (chunks.length === 0 && processedChunksCountRef.current > 0) {
+      // New turn detected - reset
+      processedChunksCountRef.current = 0;
+      setIsPlaying(false);
 
-  const handlePause = () => {
-    setIsPlaying(false);
-  };
-
-  const handlePlay = () => {
-    setIsPlaying(true);
-  };
+      // Reset AudioWorklet buffer
+      if (audioWorkletNodeRef.current) {
+        audioWorkletNodeRef.current.port.postMessage({ command: "reset" });
+      }
+    }
+  }, [chunks.length]);
 
   if (!chunks || chunks.length === 0) return null;
 
   return (
     <div
       style={{
+        margin: "0.75rem 0",
         padding: "0.75rem",
-        borderRadius: "8px",
+        borderRadius: "6px",
         background: "#0a0a0a",
-        border: "1px solid #374151",
-        marginTop: "0.5rem",
+        border: "1px solid #6366f1",
       }}
     >
       <div
@@ -183,33 +182,49 @@ export function AudioPlayer({ chunks }: AudioPlayerProps) {
           display: "flex",
           alignItems: "center",
           gap: "0.5rem",
-          marginBottom: "0.5rem",
-          fontSize: "0.875rem",
-          color: "#9ca3af",
+          color: "#818cf8",
         }}
       >
-        <span>🔊</span>
-        <span>
-          Audio Response (PCM {chunks[0].sampleRate}Hz)
-          {chunks.length > 1 && ` - ${chunks.length} chunks`}
+        <div
+          style={{
+            width: "8px",
+            height: "8px",
+            borderRadius: "50%",
+            background: isPlaying ? "#10b981" : "#6b7280",
+          }}
+        />
+        <span style={{ fontWeight: 600 }}>
+          {isPlaying ? "🔊 Playing Audio" : "🔇 Audio Ready"}
+        </span>
+        <span style={{ fontSize: "0.875rem", color: "#888" }}>
+          ({chunks.length} chunks)
         </span>
       </div>
-      {audioUrl && (
-        <audio
-          ref={audioRef}
-          controls
-          onEnded={handleEnded}
-          onPause={handlePause}
-          onPlay={handlePlay}
+
+      {error && (
+        <div
           style={{
-            width: "100%",
-            height: "40px",
+            marginTop: "0.5rem",
+            padding: "0.5rem",
+            borderRadius: "4px",
+            background: "#1a0a0a",
+            color: "#fca5a5",
+            fontSize: "0.875rem",
           }}
         >
-          <source src={audioUrl} type="audio/wav" />
-          Your browser does not support the audio element.
-        </audio>
+          {error}
+        </div>
       )}
+
+      <div
+        style={{
+          marginTop: "0.5rem",
+          fontSize: "0.75rem",
+          color: "#6b7280",
+        }}
+      >
+        AudioWorklet streaming (24kHz, 16-bit PCM)
+      </div>
     </div>
   );
 }

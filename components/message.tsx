@@ -13,7 +13,7 @@
 import type { UIMessage } from "@ai-sdk/react";
 import { ToolInvocationComponent } from "./tool-invocation";
 import { ImageDisplay } from "./image-display";
-import { AudioPlayer } from "./audio-player";
+import { useAudio } from "@/lib/audio-context";
 
 interface MessageComponentProps {
   message: UIMessage;
@@ -21,6 +21,12 @@ interface MessageComponentProps {
 
 export function MessageComponent({ message }: MessageComponentProps) {
   const isUser = message.role === "user";
+  const audioContext = useAudio();
+
+  // Check if this message has audio markers (ADK BIDI mode)
+  const hasAudioMarkers = message.parts?.some(
+    (part: any) => part.type === "audio-marker"
+  );
 
   return (
     <div
@@ -97,22 +103,52 @@ export function MessageComponent({ message }: MessageComponentProps) {
           return null;
         })}
 
-        {/* Collect all PCM audio chunks and render as single player */}
-        {(() => {
-          const pcmChunks = message.parts?.filter(
-            (part: any) => part.type === "data-pcm" && part.data
-          );
-          return pcmChunks && pcmChunks.length > 0 ? (
-            <AudioPlayer
-              chunks={pcmChunks.map((part: any) => ({
-                content: part.data.content,
-                sampleRate: part.data.sampleRate,
-                channels: part.data.channels,
-                bitDepth: part.data.bitDepth,
-              }))}
-            />
-          ) : null;
-        })()}
+        {/* Audio status indicator (ADK BIDI mode) */}
+        {hasAudioMarkers && (
+          <div
+            style={{
+              margin: "0.75rem 0",
+              padding: "0.75rem",
+              borderRadius: "6px",
+              background: "#0a0a0a",
+              border: "1px solid #6366f1",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                color: "#818cf8",
+              }}
+            >
+              <div
+                style={{
+                  width: "8px",
+                  height: "8px",
+                  borderRadius: "50%",
+                  background: audioContext.voiceChannel.isPlaying ? "#10b981" : "#6b7280",
+                }}
+              />
+              <span style={{ fontWeight: 600 }}>
+                {audioContext.voiceChannel.isPlaying ? "🔊 Playing Audio" : "🔇 Audio Ready"}
+              </span>
+              <span style={{ fontSize: "0.875rem", color: "#888" }}>
+                ({audioContext.voiceChannel.chunkCount} chunks)
+              </span>
+            </div>
+
+            <div
+              style={{
+                marginTop: "0.5rem",
+                fontSize: "0.75rem",
+                color: "#6b7280",
+              }}
+            >
+              AudioWorklet streaming (24kHz, 16-bit PCM)
+            </div>
+          </div>
+        )}
 
         {/* Handle regular message parts (assistant responses) */}
         {message.parts?.map((part: any, index: number) => {
@@ -200,8 +236,15 @@ export function MessageComponent({ message }: MessageComponentProps) {
             );
           }
 
-          // PCM audio content (data-pcm custom event) - Skip here, handled above as single player
+          // Audio marker (ADK BIDI mode) - Skip, handled above as audio status indicator
+          if (part.type === "audio-marker") {
+            return null;
+          }
+
+          // PCM audio content (data-pcm custom event) - Should not appear here anymore
+          // (bypassed to AudioWorklet in BIDI mode, but keep for backwards compatibility)
           if (part.type === "data-pcm" && part.data) {
+            console.warn("[MessageComponent] data-pcm in message.parts (should be bypassed to AudioWorklet)");
             return null;
           }
 

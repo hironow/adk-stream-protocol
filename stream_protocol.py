@@ -409,6 +409,7 @@ class StreamProtocolConverter:
             yield self._format_sse_event(finish_event)
 
         # Always send [DONE] marker
+        logger.debug("[ADK→SSE] Sending [DONE] marker")
         yield "data: [DONE]\n\n"
 
 
@@ -448,12 +449,27 @@ async def stream_adk_to_ai_sdk(
             async for sse_event in converter.convert_event(event):
                 yield sse_event
 
+            # BIDI mode: Check for turn completion
+            # In Live API (run_live), turn_complete signals end of model's response
+            # Send finish + [DONE] to complete the turn, but keep stream open for next turn
+            if hasattr(event, "turn_complete") and event.turn_complete:
+                logger.info("[TURN COMPLETE] Detected turn_complete, sending finish event")
+                async for final_event in converter.finalize(
+                    usage_metadata=usage_metadata, error=None, finish_reason=finish_reason
+                ):
+                    yield final_event
+                # Reset converter for next turn (same WebSocket connection)
+                converter = StreamProtocolConverter()
+                usage_metadata = None
+                finish_reason = None
+
     except Exception as e:
         logger.error(f"Error in ADK stream conversion: {e}")
         error = e
 
     finally:
         # Send final events with usage metadata and finish reason
+        # (For SSE mode or error cases)
         async for final_event in converter.finalize(
             usage_metadata=usage_metadata, error=error, finish_reason=finish_reason
         ):

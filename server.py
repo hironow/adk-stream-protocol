@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Literal, Union
 
 import aiohttp
@@ -19,7 +20,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from google.adk.agents import Agent, LiveRequestQueue
-from google.adk.agents.run_config import RunConfig
+from google.adk.agents.run_config import RunConfig, StreamingMode
 from google.adk.runners import InMemoryRunner
 from google.genai import types
 from loguru import logger
@@ -60,9 +61,41 @@ app.add_middleware(
 # ========== Tool Definitions ==========
 # Real-world example tools that demonstrate tool calling and tool results
 
-# Simple in-memory cache for weather data
-_weather_cache: dict[str, tuple[dict[str, Any], float]] = {}
+# File-based cache for weather data
 WEATHER_CACHE_TTL = 43200  # 12 hours in seconds
+CACHE_DIR = Path(".cache")
+
+
+async def _get_weather_from_cache(location: str) -> dict[str, Any] | None:
+    """Get weather data from file cache if available and not expired."""
+    import time
+
+    CACHE_DIR.mkdir(exist_ok=True)
+    cache_file = CACHE_DIR / f"weather_{location.lower().replace(' ', '_')}.json"
+
+    try:
+        if cache_file.exists():
+            cache_data = json.loads(cache_file.read_text())
+            if time.time() - cache_data["timestamp"] < WEATHER_CACHE_TTL:
+                return cache_data["data"]
+    except Exception as e:
+        logger.warning(f"Failed to read cache for {location}: {e}")
+
+    return None
+
+
+async def _set_weather_cache(location: str, data: dict[str, Any]) -> None:
+    """Save weather data to file cache."""
+    import time
+
+    CACHE_DIR.mkdir(exist_ok=True)
+    cache_file = CACHE_DIR / f"weather_{location.lower().replace(' ', '_')}.json"
+
+    try:
+        cache_data = {"data": data, "timestamp": time.time()}
+        cache_file.write_text(json.dumps(cache_data, indent=2))
+    except Exception as e:
+        logger.warning(f"Failed to write cache for {location}: {e}")
 
 
 async def get_weather(location: str) -> dict[str, Any]:
@@ -76,14 +109,10 @@ async def get_weather(location: str) -> dict[str, Any]:
         Weather information including temperature and conditions
     """
     # Check cache first
-    import time
-
-    cache_key = location.lower()
-    if cache_key in _weather_cache:
-        cached_data, timestamp = _weather_cache[cache_key]
-        if time.time() - timestamp < WEATHER_CACHE_TTL:
-            logger.info(f"Tool call: get_weather({location}) -> {cached_data} (cached)")
-            return {**cached_data, "cached": True}
+    cached_data = await _get_weather_from_cache(location)
+    if cached_data:
+        logger.info(f"Tool call: get_weather({location}) -> {cached_data} (cached)")
+        return {**cached_data, "cached": True}
 
     # Get API key from environment
     api_key = os.getenv("OPENWEATHERMAP_API_KEY")
@@ -118,8 +147,6 @@ async def get_weather(location: str) -> dict[str, Any]:
     }
 
     try:
-        import time
-
         async with aiohttp.ClientSession() as session:
             async with session.get(url, params=params) as response:
                 if response.status == 200:
@@ -133,7 +160,7 @@ async def get_weather(location: str) -> dict[str, Any]:
                         "wind_speed": data["wind"]["speed"],
                     }
                     # Cache the result
-                    _weather_cache[cache_key] = (weather, time.time())
+                    await _set_weather_cache(location, weather)
                     logger.info(
                         f"Tool call: get_weather({location}) -> {weather} (API)"
                     )
@@ -246,8 +273,8 @@ bidi_agent = Agent(
 )
 
 # Initialize InMemoryRunners for each agent
-sse_agent_runner = InMemoryRunner(agent=sse_agent, app_name="adk_data_protocol_sse")
-bidi_agent_runner = InMemoryRunner(agent=bidi_agent, app_name="adk_data_protocol_bidi")
+sse_agent_runner = InMemoryRunner(agent=sse_agent, app_name="agents")
+bidi_agent_runner = InMemoryRunner(agent=bidi_agent, app_name="agents")
 
 # Global session management (in-memory for now)
 # In production, use persistent session storage
@@ -741,13 +768,21 @@ async def live_chat(websocket: WebSocket):
             f"[BIDI] Detected native-audio model: {model_name}, using AUDIO modality with transcription"
         )
         run_config = RunConfig(
-            response_modalities=["AUDIO"],
-            output_audio_transcription=types.AudioTranscriptionConfig(),
+            streaming_mode=StreamingMode.BIDI,
+            response_modalities=[types.Modality.AUDIO],
             input_audio_transcription=types.AudioTranscriptionConfig(),
+            output_audio_transcription=types.AudioTranscriptionConfig(),
+            session_resumption=types.SessionResumptionConfig(),
         )
     else:
         logger.info(f"[BIDI] Using TEXT modality for model: {model_name}")
-        run_config = RunConfig(response_modalities=["TEXT"])
+        run_config = RunConfig(
+            streaming_mode=StreamingMode.BIDI,
+            response_modalities=[types.Modality.TEXT],
+            input_audio_transcription=None,
+            output_audio_transcription=None,
+            session_resumption=types.SessionResumptionConfig(),
+        )
 
     try:
         # Start ADK BIDI streaming
