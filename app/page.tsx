@@ -8,7 +8,7 @@ export default function ChatPage() {
   const [mode, setMode] = useState<BackendMode>("gemini");
 
   return (
-    <div>
+    <div style={{ height: "100vh", overflow: "hidden" }}>
       {/* Backend Mode Switcher */}
       <div
         style={{
@@ -102,15 +102,9 @@ export default function ChatPage() {
         </div>
       </div>
 
-      <div style={{ padding: "2rem", maxWidth: "900px", margin: "0 auto" }}>
-        <h1 style={{ marginBottom: "1rem", fontSize: "1.875rem" }}>
-          AI SDK v6 + ADK Integration
-        </h1>
-
-        {/* Single unified Chat component with mode prop */}
-        {/* buildUseChatOptions() creates appropriate transport based on mode */}
-        <Chat key={mode} mode={mode} />
-      </div>
+      {/* Single unified Chat component with mode prop */}
+      {/* buildUseChatOptions() creates appropriate transport based on mode */}
+      <Chat key={mode} mode={mode} />
     </div>
   );
 }
