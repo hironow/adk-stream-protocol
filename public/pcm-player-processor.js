@@ -24,6 +24,11 @@ class PCMPlayerProcessor extends AudioWorkletProcessor {
     // Track if we've received any audio yet
     this.hasAudio = false;
 
+    // Track playback state
+    this.isPlaying = false;
+    this.silenceFrames = 0;
+    this.SILENCE_THRESHOLD = 24000; // 1 second of silence at 24kHz
+
     // Handle incoming PCM chunks
     this.port.onmessage = (event) => {
       if (event.data.command === 'endOfAudio') {
@@ -37,6 +42,8 @@ class PCMPlayerProcessor extends AudioWorkletProcessor {
         this.writeIndex = 0;
         this.readIndex = 0;
         this.hasAudio = false;
+        this.isPlaying = false;
+        this.silenceFrames = 0;
         return;
       }
 
@@ -53,6 +60,15 @@ class PCMPlayerProcessor extends AudioWorkletProcessor {
   _enqueue(int16Samples) {
     if (!this.hasAudio) {
       this.hasAudio = true;
+    }
+
+    // Reset silence counter when new audio arrives
+    this.silenceFrames = 0;
+
+    // Notify that playback has started
+    if (!this.isPlaying) {
+      this.isPlaying = true;
+      this.port.postMessage({ type: 'playback-started' });
     }
 
     for (let i = 0; i < int16Samples.length; i++) {
@@ -81,23 +97,39 @@ class PCMPlayerProcessor extends AudioWorkletProcessor {
     }
 
     const framesPerBlock = output[0].length;
+    let silentFramesInBlock = 0;
 
     for (let frame = 0; frame < framesPerBlock; frame++) {
-      const sample = this.buffer[this.readIndex];
-
-      // Output to all channels (mono or stereo)
-      for (let channel = 0; channel < output.length; channel++) {
-        output[channel][frame] = sample;
-      }
-
-      // Advance read index only if we have audio to read
+      // Check if we have audio available to read
       if (this.readIndex !== this.writeIndex) {
+        // Read sample from buffer
+        const sample = this.buffer[this.readIndex];
+
+        // Output to all channels (mono or stereo)
+        for (let channel = 0; channel < output.length; channel++) {
+          output[channel][frame] = sample;
+        }
+
+        // Advance read index
         this.readIndex = (this.readIndex + 1) % this.bufferSize;
       } else {
         // No more audio available - output silence
         for (let channel = 0; channel < output.length; channel++) {
           output[channel][frame] = 0;
         }
+        silentFramesInBlock++;
+      }
+    }
+
+    // Track silence duration
+    if (silentFramesInBlock === framesPerBlock) {
+      this.silenceFrames += framesPerBlock;
+
+      // After 1 second of silence, consider playback finished
+      if (this.isPlaying && this.silenceFrames >= this.SILENCE_THRESHOLD) {
+        this.isPlaying = false;
+        this.port.postMessage({ type: 'playback-finished' });
+        console.log('[AudioWorklet] Playback finished after', this.silenceFrames, 'silent frames');
       }
     }
 

@@ -23,10 +23,10 @@ export function MessageComponent({ message }: MessageComponentProps) {
   const isUser = message.role === "user";
   const audioContext = useAudio();
 
-  // Check if this message has audio markers (ADK BIDI mode)
-  const hasAudioMarkers = message.parts?.some(
-    (part: any) => part.type === "audio-marker"
-  );
+  // Check if this assistant message has audio (ADK BIDI mode)
+  // Audio is detected by AudioContext chunk count, not message.parts
+  // (PCM chunks go directly to AudioWorklet, bypassing message stream)
+  const hasAudio = message.role === "assistant" && audioContext.voiceChannel.chunkCount > 0;
 
   return (
     <div
@@ -104,7 +104,7 @@ export function MessageComponent({ message }: MessageComponentProps) {
         })}
 
         {/* Audio status indicator (ADK BIDI mode) */}
-        {hasAudioMarkers && (
+        {hasAudio && (
           <div
             style={{
               margin: "0.75rem 0",
@@ -236,13 +236,8 @@ export function MessageComponent({ message }: MessageComponentProps) {
             );
           }
 
-          // Audio marker (ADK BIDI mode) - Skip, handled above as audio status indicator
-          if (part.type === "audio-marker") {
-            return null;
-          }
-
-          // PCM audio content (data-pcm custom event) - Should not appear here anymore
-          // (bypassed to AudioWorklet in BIDI mode, but keep for backwards compatibility)
+          // PCM audio content (data-pcm custom event) - Should not appear here
+          // (bypassed to AudioWorklet in BIDI mode)
           if (part.type === "data-pcm" && part.data) {
             console.warn("[MessageComponent] data-pcm in message.parts (should be bypassed to AudioWorklet)");
             return null;

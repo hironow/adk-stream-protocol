@@ -76,7 +76,7 @@ export interface WebSocketChatTransportConfig {
 export class WebSocketChatTransport implements ChatTransport<UIMessage> {
   private config: WebSocketChatTransportConfig;
   private ws: WebSocket | null = null;
-  private audioChunkIndex = 0; // Track audio chunks for marker IDs
+  private audioChunkIndex = 0; // Track audio chunks for logging
   private pingInterval: NodeJS.Timeout | null = null; // Ping interval timer
   private lastPingTime: number | null = null; // Timestamp of last ping
 
@@ -255,7 +255,15 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
 
         if (jsonStr === "[DONE]") {
           console.log("[WS Transport] Turn complete, closing stream (WebSocket stays open)");
+
+          // Reset AudioContext for next turn (BIDI mode)
+          if (this.config.audioContext) {
+            this.config.audioContext.voiceChannel.reset();
+          }
+
           controller.close();
+          // Reset audio chunk counter for next turn
+          this.audioChunkIndex = 0;
           // IMPORTANT: Don't close WebSocket in BIDI mode!
           // WebSocket stays open for next turn
           // this.ws?.close(); // <- Removed: Keep WebSocket alive
@@ -276,11 +284,11 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
         // https://github.com/google/adk-samples/blob/main/python/agents/bidi-demo/app/static/js/app.js
         //
         // PCM chunks bypass message.parts and go directly to AudioWorklet for low-latency playback.
-        // UI markers are enqueued to stream for display purposes.
+        // UI detects audio by checking AudioContext.voiceChannel.chunkCount > 0
         if (chunk.type === "data-pcm" && this.config.audioContext) {
           console.log("[WS Transport] PCM chunk received, routing to AudioWorklet");
 
-          // Path 1: Low-latency audio - directly to AudioWorklet
+          // Low-latency audio path: directly to AudioWorklet
           try {
             this.config.audioContext.voiceChannel.sendChunk({
               content: chunk.data.content,
@@ -289,15 +297,10 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
               bitDepth: chunk.data.bitDepth,
             });
             console.log(`[WS Transport] PCM chunk sent to AudioWorklet (chunk #${this.audioChunkIndex})`);
+            this.audioChunkIndex++;
           } catch (err) {
             console.error("[WS Transport] Error sending PCM to AudioWorklet:", err);
           }
-
-          // Path 2: UI marker - enqueue to stream for display
-          controller.enqueue({
-            type: "audio-marker",
-            chunkIndex: this.audioChunkIndex++,
-          } as UIMessageChunk);
 
           return; // Skip normal enqueue for PCM chunks
         }

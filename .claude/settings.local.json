@@ -48,7 +48,8 @@
       "Bash(pnpm exec tsc:*)",
       "Bash(pnpm exec vitest:*)",
       "Bash(pnpm list:*)",
-      "Bash(pnpm build:*)"
+      "Bash(pnpm build:*)",
+      "Bash(pnpm run build:*)"
     ],
     "deny": [],
     "ask": []

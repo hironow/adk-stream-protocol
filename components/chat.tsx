@@ -71,6 +71,31 @@ export function Chat({ mode }: ChatProps) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
+      {/* BGM Switch Button (upper left) */}
+      <button
+        onClick={() => audioContext.bgmChannel.switchTrack()}
+        style={{
+          position: "fixed",
+          top: "1rem",
+          left: "1rem",
+          padding: "0.5rem 1rem",
+          background: "#1a1a1a",
+          border: "1px solid #333",
+          borderRadius: "6px",
+          fontSize: "0.875rem",
+          fontWeight: 600,
+          color: "#fff",
+          cursor: "pointer",
+          zIndex: 1000,
+          display: "flex",
+          alignItems: "center",
+          gap: "0.5rem",
+        }}
+      >
+        <span>🎵</span>
+        <span>BGM {audioContext.bgmChannel.currentTrack + 1}</span>
+      </button>
+
       {/* WebSocket Latency Indicator (BIDI mode only) */}
       {mode === "adk-bidi" && audioContext.wsLatency !== null && (
         <div
@@ -100,7 +125,12 @@ export function Chat({ mode }: ChatProps) {
               background: audioContext.wsLatency >= 100 ? "#ef4444" : "#10b981",
             }}
           />
-          <span>WS: {audioContext.wsLatency}ms</span>
+          <span>
+            WS:{" "}
+            {audioContext.wsLatency < 1000
+              ? `${audioContext.wsLatency}ms`
+              : `${(audioContext.wsLatency / 1000).toFixed(2)}s`}
+          </span>
         </div>
       )}
 

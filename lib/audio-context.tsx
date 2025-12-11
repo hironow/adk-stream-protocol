@@ -33,8 +33,11 @@ interface AudioContextValue {
     reset: () => void;
   };
 
-  // Future: BGM channel
-  // bgmChannel: { ... }
+  // BGM channel
+  bgmChannel: {
+    currentTrack: number; // 0: bgm.wav, 1: bgm2.wav
+    switchTrack: () => void;
+  };
 
   // Future: SFX channel
   // sfxChannel: { ... }
@@ -68,10 +71,19 @@ export function AudioProvider({ children }: AudioProviderProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [chunkCount, setChunkCount] = useState(0);
   const [wsLatency, setWsLatency] = useState<number | null>(null);
+  const [currentBgmTrack, setCurrentBgmTrack] = useState(0);
 
   // Web Audio API instances
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioWorkletNodeRef = useRef<AudioWorkletNode | null>(null);
+
+  // Dual BGM system for crossfade switching
+  const bgmSource1Ref = useRef<AudioBufferSourceNode | null>(null);
+  const bgmGain1Ref = useRef<GainNode | null>(null);
+  const bgmSource2Ref = useRef<AudioBufferSourceNode | null>(null);
+  const bgmGain2Ref = useRef<GainNode | null>(null);
+  const bgmBuffer1Ref = useRef<AudioBuffer | null>(null);
+  const bgmBuffer2Ref = useRef<AudioBuffer | null>(null);
 
   // Initialize AudioWorklet on mount
   useEffect(() => {
@@ -94,13 +106,118 @@ export function AudioProvider({ children }: AudioProviderProps) {
           "pcm-player-processor"
         );
 
+        // Listen for playback state messages from AudioWorklet
+        audioWorkletNode.port.onmessage = (event) => {
+          if (event.data.type === 'playback-started') {
+            console.log("[AudioContext] Playback started - ducking BGM");
+            if (mounted) {
+              setIsPlaying(true);
+
+              // Duck BGM: Fade volume down smoothly (current → 0.1 over 0.5s)
+              // Duck whichever track is currently playing
+              const now = audioContext.currentTime;
+              if (bgmGain1Ref.current && bgmGain1Ref.current.gain.value > 0) {
+                const currentGain = bgmGain1Ref.current.gain.value;
+                bgmGain1Ref.current.gain.setTargetAtTime(
+                  Math.min(currentGain, 0.1),
+                  now,
+                  0.15
+                );
+              }
+              if (bgmGain2Ref.current && bgmGain2Ref.current.gain.value > 0) {
+                const currentGain = bgmGain2Ref.current.gain.value;
+                bgmGain2Ref.current.gain.setTargetAtTime(
+                  Math.min(currentGain, 0.1),
+                  now,
+                  0.15
+                );
+              }
+            }
+          } else if (event.data.type === 'playback-finished') {
+            console.log("[AudioContext] Playback finished - restoring BGM");
+            if (mounted) {
+              setIsPlaying(false);
+
+              // Restore BGM: Fade volume back up smoothly
+              // Restore to 0.3 or maintain current crossfade state
+              const now = audioContext.currentTime;
+              if (bgmGain1Ref.current) {
+                const currentGain = bgmGain1Ref.current.gain.value;
+                // Only restore if this track was ducked (gain < 0.3)
+                if (currentGain > 0 && currentGain < 0.3) {
+                  bgmGain1Ref.current.gain.setTargetAtTime(0.3, now, 0.3);
+                }
+              }
+              if (bgmGain2Ref.current) {
+                const currentGain = bgmGain2Ref.current.gain.value;
+                if (currentGain > 0 && currentGain < 0.3) {
+                  bgmGain2Ref.current.gain.setTargetAtTime(0.3, now, 0.3);
+                }
+              }
+            }
+          }
+        };
+
         // Connect to audio destination (speakers)
         audioWorkletNode.connect(audioContext.destination);
 
+        // Load both BGM tracks
+        console.log("[AudioContext] Loading BGM tracks...");
+        const [response1, response2] = await Promise.all([
+          fetch("/bgm.wav"),
+          fetch("/bgm2.wav"),
+        ]);
+        const [arrayBuffer1, arrayBuffer2] = await Promise.all([
+          response1.arrayBuffer(),
+          response2.arrayBuffer(),
+        ]);
+        const [audioBuffer1, audioBuffer2] = await Promise.all([
+          audioContext.decodeAudioData(arrayBuffer1),
+          audioContext.decodeAudioData(arrayBuffer2),
+        ]);
+
+        // Store buffers for track switching
+        bgmBuffer1Ref.current = audioBuffer1;
+        bgmBuffer2Ref.current = audioBuffer2;
+
+        // Create BGM Track 1 (initially playing)
+        const bgmSource1 = audioContext.createBufferSource();
+        bgmSource1.buffer = audioBuffer1;
+        bgmSource1.loop = true;
+
+        const bgmGain1 = audioContext.createGain();
+        bgmGain1.gain.value = 0.3; // 30% volume for BGM
+
+        // Connect: BGM1 -> Gain1 -> Destination
+        bgmSource1.connect(bgmGain1);
+        bgmGain1.connect(audioContext.destination);
+
+        // Start BGM Track 1
+        bgmSource1.start(0);
+
+        // Create BGM Track 2 (silent, ready for crossfade)
+        const bgmSource2 = audioContext.createBufferSource();
+        bgmSource2.buffer = audioBuffer2;
+        bgmSource2.loop = true;
+
+        const bgmGain2 = audioContext.createGain();
+        bgmGain2.gain.value = 0; // Start silent
+
+        // Connect: BGM2 -> Gain2 -> Destination
+        bgmSource2.connect(bgmGain2);
+        bgmGain2.connect(audioContext.destination);
+
+        // Start BGM Track 2 (playing but silent)
+        bgmSource2.start(0);
+
         if (mounted) {
           audioWorkletNodeRef.current = audioWorkletNode;
+          bgmSource1Ref.current = bgmSource1;
+          bgmGain1Ref.current = bgmGain1;
+          bgmSource2Ref.current = bgmSource2;
+          bgmGain2Ref.current = bgmGain2;
           setIsReady(true);
-          console.log("[AudioContext] AudioWorklet initialized successfully");
+          console.log("[AudioContext] AudioWorklet and BGM tracks initialized successfully");
         }
       } catch (err) {
         console.error("[AudioContext] Failed to initialize AudioWorklet:", err);
@@ -117,6 +234,24 @@ export function AudioProvider({ children }: AudioProviderProps) {
     // Cleanup on unmount
     return () => {
       mounted = false;
+      if (bgmSource1Ref.current) {
+        bgmSource1Ref.current.stop();
+        bgmSource1Ref.current.disconnect();
+        bgmSource1Ref.current = null;
+      }
+      if (bgmGain1Ref.current) {
+        bgmGain1Ref.current.disconnect();
+        bgmGain1Ref.current = null;
+      }
+      if (bgmSource2Ref.current) {
+        bgmSource2Ref.current.stop();
+        bgmSource2Ref.current.disconnect();
+        bgmSource2Ref.current = null;
+      }
+      if (bgmGain2Ref.current) {
+        bgmGain2Ref.current.disconnect();
+        bgmGain2Ref.current = null;
+      }
       if (audioWorkletNodeRef.current) {
         audioWorkletNodeRef.current.disconnect();
         audioWorkletNodeRef.current = null;
@@ -159,10 +294,8 @@ export function AudioProvider({ children }: AudioProviderProps) {
       // Send to AudioWorklet ring buffer via MessagePort
       audioWorkletNode.port.postMessage(int16Array.buffer, [int16Array.buffer]);
 
-      // Update state
-      if (!isPlaying) {
-        setIsPlaying(true);
-      }
+      // Update chunk count
+      // Note: isPlaying is now managed by AudioWorklet notifications
       setChunkCount((prev) => prev + 1);
 
       console.log(`[AudioContext] Sent chunk to AudioWorklet (total: ${chunkCount + 1})`);
@@ -177,16 +310,62 @@ export function AudioProvider({ children }: AudioProviderProps) {
   const reset = () => {
     console.log("[AudioContext] Resetting voice channel");
 
+    // Reset state first
+    setIsPlaying(false);
+    setChunkCount(0);
+
+    // Then reset AudioWorklet buffer
     if (audioWorkletNodeRef.current) {
       audioWorkletNodeRef.current.port.postMessage({ command: "reset" });
     }
-
-    setIsPlaying(false);
-    setChunkCount(0);
   };
 
   const updateLatency = (latency: number) => {
     setWsLatency(latency);
+  };
+
+  // BGM channel methods
+  const switchTrack = () => {
+    const audioContext = audioContextRef.current;
+    if (!audioContext || !bgmGain1Ref.current || !bgmGain2Ref.current) {
+      console.warn("[AudioContext] Cannot switch BGM - audio not ready");
+      return;
+    }
+
+    const now = audioContext.currentTime;
+    const fadeDuration = 0.6; // Time constant for exponential fade (~2 seconds total)
+
+    if (currentBgmTrack === 0) {
+      // Switch from Track 1 to Track 2
+      console.log("[AudioContext] Switching BGM: Track 1 → Track 2 (crossfade)");
+
+      // Fade out Track 1
+      bgmGain1Ref.current.gain.setTargetAtTime(0, now, fadeDuration);
+
+      // Fade in Track 2
+      bgmGain2Ref.current.gain.setTargetAtTime(
+        isPlaying ? 0.1 : 0.3, // Respect ducking state
+        now,
+        fadeDuration
+      );
+
+      setCurrentBgmTrack(1);
+    } else {
+      // Switch from Track 2 to Track 1
+      console.log("[AudioContext] Switching BGM: Track 2 → Track 1 (crossfade)");
+
+      // Fade out Track 2
+      bgmGain2Ref.current.gain.setTargetAtTime(0, now, fadeDuration);
+
+      // Fade in Track 1
+      bgmGain1Ref.current.gain.setTargetAtTime(
+        isPlaying ? 0.1 : 0.3, // Respect ducking state
+        now,
+        fadeDuration
+      );
+
+      setCurrentBgmTrack(0);
+    }
   };
 
   const value: AudioContextValue = {
@@ -195,6 +374,10 @@ export function AudioProvider({ children }: AudioProviderProps) {
       chunkCount,
       sendChunk,
       reset,
+    },
+    bgmChannel: {
+      currentTrack: currentBgmTrack,
+      switchTrack,
     },
     isReady,
     error,
