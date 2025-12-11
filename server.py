@@ -205,12 +205,10 @@ if not API_KEY:
 else:
     logger.info(f"ADK API key loaded: {API_KEY[:10]}...")
 
-# Real-world agent with tools
-# This agent can call functions and return results via tool-call and tool-result events
-# Functions are passed directly - ADK automatically wraps them as FunctionTool
-chat_agent = Agent(
-    name="adk_assistant_agent",
-    model="gemini-2.5-flash-native-audio-preview-09-2025",  # Latest Gemini 2.5 Flash with Live API (bidiGenerateContent) support
+# SSE Agent: Uses stable model for generateContent API (SSE streaming)
+sse_agent = Agent(
+    name="adk_assistant_agent_sse",
+    model="gemini-2.5-flash",  # Stable Gemini 2.5 Flash for generateContent API (SSE mode)
     description="An intelligent assistant that can check weather, perform calculations, and get current time",
     instruction=(
         "You are a helpful AI assistant with access to real-time tools. "
@@ -223,22 +221,39 @@ chat_agent = Agent(
     tools=[get_weather, calculate, get_current_time],
 )
 
-# Initialize InMemoryRunner for programmatic agent invocation
-agent_runner = InMemoryRunner(agent=chat_agent, app_name="adk_data_protocol")
+# BIDI Agent: Uses Live API model for bidirectional streaming
+bidi_agent = Agent(
+    name="adk_assistant_agent_bidi",
+    model="gemini-2.5-flash-native-audio-preview-09-2025",  # Live API model for BIDI mode with audio support
+    description="An intelligent assistant that can check weather, perform calculations, and get current time",
+    instruction=(
+        "You are a helpful AI assistant with access to real-time tools. "
+        "Use the available tools when needed to provide accurate information:\n"
+        "- get_weather: Check weather for any city\n"
+        "- calculate: Perform mathematical calculations\n"
+        "- get_current_time: Get the current time\n\n"
+        "Always explain what you're doing when using tools."
+    ),
+    tools=[get_weather, calculate, get_current_time],
+)
+
+# Initialize InMemoryRunners for each agent
+sse_agent_runner = InMemoryRunner(agent=sse_agent, app_name="adk_data_protocol_sse")
+bidi_agent_runner = InMemoryRunner(agent=bidi_agent, app_name="adk_data_protocol_bidi")
 
 # Global session management (in-memory for now)
 # In production, use persistent session storage
 _sessions: dict[str, Any] = {}
 
 
-async def get_or_create_session(user_id: str = "default_user") -> Any:
-    """Get or create a session for a user"""
-    session_id = f"session_{user_id}"
+async def get_or_create_session(user_id: str, agent_runner: InMemoryRunner, app_name: str = "adk_data_protocol") -> Any:
+    """Get or create a session for a user with specific agent runner"""
+    session_id = f"session_{user_id}_{app_name}"
 
     if session_id not in _sessions:
-        logger.info(f"Creating new session for user: {user_id}")
+        logger.info(f"Creating new session for user: {user_id} with app: {app_name}")
         session = await agent_runner.session_service.create_session(
-            app_name="adk_data_protocol",
+            app_name=app_name,
             user_id=user_id,
             session_id=session_id,
         )
@@ -247,12 +262,12 @@ async def get_or_create_session(user_id: str = "default_user") -> Any:
     return _sessions[session_id]
 
 
-async def run_agent_chat(user_message: str, user_id: str = "default_user") -> str:
+async def run_agent_chat(user_message: str, user_id: str, agent_runner: InMemoryRunner, app_name: str = "adk_data_protocol") -> str:
     """
     Run the ADK agent with a user message and return the response.
     Based on official ADK examples using InMemoryRunner.
     """
-    session = await get_or_create_session(user_id)
+    session = await get_or_create_session(user_id, agent_runner, app_name)
 
     # Create message content
     message_content = types.Content(role="user", parts=[types.Part(text=user_message)])
@@ -291,7 +306,7 @@ async def stream_agent_chat(messages: list[ChatMessage], user_id: str = "default
     - Usage metadata
     """
     # Reuse session for the same user (ADK manages conversation history)
-    session = await get_or_create_session(user_id)
+    session = await get_or_create_session(user_id, sse_agent_runner, "adk_data_protocol_sse")
 
     # Extract last user message (ADK session already has full history)
     if not messages:
@@ -305,7 +320,7 @@ async def stream_agent_chat(messages: list[ChatMessage], user_id: str = "default
         f"Streaming chat for user {user_id}, message: {last_user_message[:50]}..."
     )
     logger.info(
-        f"Agent model: {chat_agent.model}, tools: {[tool.__name__ if callable(tool) else str(tool) for tool in chat_agent.tools]}"
+        f"Agent model: {sse_agent.model}, tools: {[tool.__name__ if callable(tool) else str(tool) for tool in sse_agent.tools]}"
     )
 
     # Create ADK message content for the latest user input
@@ -314,7 +329,7 @@ async def stream_agent_chat(messages: list[ChatMessage], user_id: str = "default
     )
 
     # Create ADK event stream
-    event_stream = agent_runner.run_async(
+    event_stream = sse_agent_runner.run_async(
         user_id=user_id,
         session_id=session.id,
         new_message=message_content,
@@ -599,7 +614,7 @@ async def chat(request: ChatRequest):
 
     # Run ADK agent and get response
     try:
-        response_text = await run_agent_chat(last_message)
+        response_text = await run_agent_chat(last_message, "default_user", sse_agent_runner, "adk_data_protocol_sse")
         logger.info(f"ADK agent response: {response_text[:100]}...")
         return ChatResponse(message=response_text)
     except Exception as e:
@@ -690,7 +705,7 @@ async def live_chat(websocket: WebSocket):
     logger.info("[BIDI] WebSocket connection established")
 
     # Create session for BIDI mode
-    session = await get_or_create_session("live_user")
+    session = await get_or_create_session("live_user", bidi_agent_runner, "adk_data_protocol_bidi")
 
     # Create LiveRequestQueue for bidirectional communication
     live_request_queue = LiveRequestQueue()
@@ -698,7 +713,7 @@ async def live_chat(websocket: WebSocket):
     # Configure response modality based on model type (following ADK bidi-demo pattern)
     # Native audio models require AUDIO modality with transcription config
     # Half-cascade models use TEXT modality for faster performance
-    model_name = chat_agent.model
+    model_name = bidi_agent.model
     if "native-audio" in model_name:
         logger.info(f"[BIDI] Detected native-audio model: {model_name}, using AUDIO modality with transcription")
         run_config = RunConfig(
@@ -712,7 +727,7 @@ async def live_chat(websocket: WebSocket):
 
     try:
         # Start ADK BIDI streaming
-        live_events = agent_runner.run_live(
+        live_events = bidi_agent_runner.run_live(
             user_id="live_user",
             session_id=session.id,
             live_request_queue=live_request_queue,

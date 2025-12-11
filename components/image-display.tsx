@@ -29,7 +29,8 @@ export function ImageDisplay({ content, mediaType, alt }: ImageDisplayProps) {
         src={dataUrl}
         alt={alt || "AI-generated image"}
         style={{
-          maxWidth: "100%",
+          maxWidth: "300px",
+          width: "100%",
           height: "auto",
           borderRadius: "8px",
           border: "1px solid #374151",

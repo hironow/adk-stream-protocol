@@ -178,7 +178,8 @@ export function MessageComponent({ message }: MessageComponentProps) {
                 src={part.url}
                 alt={part.filename || "Image"}
                 style={{
-                  maxWidth: "100%",
+                  maxWidth: "300px",
+                  width: "100%",
                   borderRadius: "8px",
                   marginTop: "0.5rem",
                 }}
