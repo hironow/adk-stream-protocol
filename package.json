@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "description": "AI SDK v6 and Google ADK integration example with data stream protocol",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3000",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -p 3000",
     "lint": "next lint"
   },
   "keywords": [],
