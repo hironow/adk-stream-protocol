@@ -1,5 +1,7 @@
 # Development tasks for ADK-AI Data Protocol project
 
+default: info
+
 # Install all dependencies (both Python and Node.js)
 install:
     uv sync
@@ -97,4 +99,4 @@ info:
     @echo "Frontend port: 3000"
     @echo ""
     @echo "Available commands:"
-    @just --list
+    @just --list --unsorted

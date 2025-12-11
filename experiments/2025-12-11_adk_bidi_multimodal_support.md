@@ -416,9 +416,29 @@ const result = streamText({
   messages: convertToModelMessages(fixedMessages),  // Now works correctly
 ```
 
-**Status:** ✅ Fix re-implemented with correct approach, ready for E2E testing
+**Status:** ✅ Fix re-implemented with correct approach
+
+**E2E Test Infrastructure Updates (2025-12-11):**
+
+1. **OpenWeather API File-Based Cache** (app/api/chat/route.ts:12-52)
+   - Changed from in-memory to file-based cache in `.cache/` directory
+   - Prevents API usage during E2E test runs
+   - Cache TTL: 12 hours
+   - Added `.cache/` to .gitignore
+
+2. **Justfile E2E Commands** (justfile:43-63)
+   - `just test-e2e-clean`: Kill existing servers + run tests with fresh instances
+   - `just test-e2e-headed`: Run headed mode tests with clean servers
+   - Ensures tests always run against latest code
+
+3. **data-testid Implementation** (components/message.tsx)
+   - Added `data-testid` attributes to MessageComponent for reliable E2E testing
+   - `data-testid="message-user"` / `data-testid="message-assistant"`
+   - `data-testid="message-sender"`, `data-testid="message-text"`
+   - Updated E2E helpers to use data-testid selectors (tests/e2e/helpers.ts)
 
 **Testing Status:**
+- 🟡 E2E Infrastructure: Complete, ready for test execution
 - ⬜ Gemini Direct: Image message + follow-up message
 - ⬜ ADK SSE: Image history compatibility
 - ⬜ ADK BIDI: Complete conversation history with images

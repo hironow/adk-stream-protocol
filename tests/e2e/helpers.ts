@@ -85,8 +85,8 @@ export async function waitForAssistantResponse(page: Page) {
  * Get all messages in the chat
  */
 export async function getMessages(page: Page) {
-  // Messages are divs with specific styling that contain user/assistant headers
-  return page.locator('div[style*="marginBottom"][style*="borderRadius: 8px"]').all();
+  // Use data-testid for reliable selection
+  return page.locator('[data-testid^="message-"]').all();
 }
 
 /**
@@ -101,15 +101,15 @@ export async function getLastMessage(page: Page) {
  * Get message text content
  */
 export async function getMessageText(messageLocator: any): Promise<string> {
-  return await messageLocator.locator('[style*="whiteSpace"]').first().textContent() || '';
+  return await messageLocator.locator('[data-testid="message-text"]').first().textContent() || '';
 }
 
 /**
  * Check if message is from user or assistant
  */
 export async function isUserMessage(messageLocator: any): Promise<boolean> {
-  const header = await messageLocator.locator('[style*="fontWeight: bold"]').textContent();
-  return header?.includes('You') || false;
+  const sender = await messageLocator.locator('[data-testid="message-sender"]').textContent();
+  return sender?.includes('You') || false;
 }
 
 /**

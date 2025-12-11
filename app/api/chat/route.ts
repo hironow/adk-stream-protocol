@@ -198,6 +198,36 @@ export async function POST(req: Request) {
   // This prevents "expected string or array for content, received undefined" errors
   // Reference: https://ai-sdk.dev/docs/ai-sdk-ui/chatbot#attachments-experimental
   const fixedMessages = messages.map((msg) => {
+    // Convert experimental_attachments to parts (AI SDK v6 migration)
+    // convertToModelMessages expects parts, not experimental_attachments
+    if ((msg as any).experimental_attachments) {
+      const attachments = (msg as any).experimental_attachments;
+      const parts: any[] = [];
+
+      attachments.forEach((attachment: any) => {
+        if (attachment.type === "text") {
+          parts.push({
+            type: "text",
+            text: attachment.text,
+          });
+        } else if (attachment.type === "image") {
+          parts.push({
+            type: "image",
+            image: attachment.data, // Base64 encoded image data
+            mimeType: attachment.media_type || "image/png",
+          });
+        }
+      });
+
+      // Return message with parts instead of experimental_attachments
+      const { experimental_attachments, ...restMsg } = msg as any;
+      return {
+        ...restMsg,
+        parts,
+        content: "", // Empty content when using multimodal parts
+      };
+    }
+
     // If message has parts but no content, convert parts to content
     if ((msg as any).parts && !msg.content) {
       const parts = (msg as any).parts;

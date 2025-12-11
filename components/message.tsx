@@ -23,6 +23,8 @@ export function MessageComponent({ message }: MessageComponentProps) {
 
   return (
     <div
+      data-testid={`message-${message.role}`}
+      data-message-id={message.id}
       style={{
         marginBottom: "1rem",
         padding: "0.75rem",
@@ -32,6 +34,7 @@ export function MessageComponent({ message }: MessageComponentProps) {
     >
       {/* Message Header */}
       <div
+        data-testid="message-header"
         style={{
           fontWeight: "bold",
           marginBottom: "0.5rem",
@@ -41,7 +44,7 @@ export function MessageComponent({ message }: MessageComponentProps) {
           gap: "0.5rem",
         }}
       >
-        <span>{isUser ? "You" : "Assistant"}</span>
+        <span data-testid="message-sender">{isUser ? "You" : "Assistant"}</span>
 
         {/* Status indicator for streaming */}
         {message.status === "in_progress" && (
@@ -58,7 +61,7 @@ export function MessageComponent({ message }: MessageComponentProps) {
       </div>
 
       {/* Message Content - handle both parts and experimental_attachments */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+      <div data-testid="message-content" style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
         {/* Handle experimental_attachments (user messages with images) */}
         {(message as any).experimental_attachments?.map((attachment: any, index: number) => {
           // Text attachment
@@ -66,6 +69,7 @@ export function MessageComponent({ message }: MessageComponentProps) {
             return (
               <div
                 key={index}
+                data-testid="message-text"
                 style={{
                   whiteSpace: "pre-wrap",
                   lineHeight: "1.5",
@@ -98,6 +102,7 @@ export function MessageComponent({ message }: MessageComponentProps) {
             return (
               <div
                 key={index}
+                data-testid="message-text"
                 style={{
                   whiteSpace: "pre-wrap",
                   lineHeight: "1.5",

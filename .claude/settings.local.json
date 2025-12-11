@@ -40,7 +40,9 @@
       "WebFetch(domain:ai.google.dev)",
       "mcp__chrome-devtools__evaluate_script",
       "mcp__chrome-devtools__new_page",
-      "mcp__chrome-devtools__upload_file"
+      "mcp__chrome-devtools__upload_file",
+      "Bash(pnpm exec playwright test:*)",
+      "Bash(just test-e2e-clean:*)"
     ],
     "deny": [],
     "ask": []
