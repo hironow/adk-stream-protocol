@@ -263,6 +263,7 @@ class TestToolExecutionConversion:
 
         # Create event with function response
         mock_function_response = Mock(spec=types.FunctionResponse)
+        mock_function_response.name = "test_function"  # Required for ID mapping
         mock_function_response.response = tool_output
 
         part = create_mock_part(function_response=mock_function_response)
@@ -285,6 +286,51 @@ class TestToolExecutionConversion:
         ][0]
         assert tool_result["output"] == tool_output
         assert "toolCallId" in tool_result
+
+    def test_tool_call_and_result_id_consistency(self):
+        """
+        Test: Tool call and result MUST share the same toolCallId.
+
+        This is CRITICAL for AI SDK UI to match calls with results.
+        Current implementation generates different IDs, causing UI bugs.
+
+        Coverage: reviews.md Issue #1 - Tool Call ID マッピング問題
+        Priority: 🔴 HIGH
+        """
+        converter = StreamProtocolConverter()
+
+        # Create function call
+        mock_function_call = Mock(spec=types.FunctionCall)
+        mock_function_call.name = "get_weather"
+        mock_function_call.args = {"location": "Tokyo"}
+
+        # Create function response (for the same tool call)
+        mock_function_response = Mock(spec=types.FunctionResponse)
+        mock_function_response.name = "get_weather"
+        mock_function_response.response = {"temperature": 20, "condition": "sunny"}
+
+        # Process function call
+        call_events = converter._process_function_call(mock_function_call)
+
+        # Process function response
+        result_events = converter._process_function_response(mock_function_response)
+
+        # Parse SSE events
+        call_parsed = [parse_sse_event(e) for e in call_events]
+        result_parsed = [parse_sse_event(e) for e in result_events]
+
+        # Extract toolCallIds
+        call_start = [e for e in call_parsed if e["type"] == "tool-call-start"][0]
+        call_available = [e for e in call_parsed if e["type"] == "tool-call-available"][0]
+        result_available = [e for e in result_parsed if e["type"] == "tool-result-available"][0]
+
+        call_id = call_start["toolCallId"]
+        available_id = call_available["toolCallId"]
+        result_id = result_available["toolCallId"]
+
+        # CRITICAL: All three MUST have the same ID for UI to work
+        assert call_id == available_id, f"Call start and available IDs differ: {call_id} != {available_id}"
+        assert call_id == result_id, f"Tool call and result IDs MUST match: {call_id} != {result_id}"
 
 
 class TestAudioContentConversion:

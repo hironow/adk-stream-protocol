@@ -23,7 +23,6 @@ from typing import Any, AsyncGenerator
 
 from google.adk.events import Event
 from google.genai import types
-from google.genai.types import FinishReason
 from loguru import logger
 
 
@@ -84,6 +83,8 @@ class StreamProtocolConverter:
         self.pcm_chunk_count = 0
         self.pcm_total_bytes = 0
         self.pcm_sample_rate: int | None = None
+        # Map function names to tool call IDs for matching calls with results
+        self.tool_call_id_map: dict[str, str] = {}
 
     def _generate_part_id(self) -> str:
         """Generate unique part ID."""
@@ -111,6 +112,19 @@ class StreamProtocolConverter:
         Yields:
             SSE-formatted event strings
         """
+        # DEBUG: Log event details
+        logger.debug(f"[CONVERT_EVENT] Event type: {type(event)}, has content: {event.content is not None}")
+        if event.content:
+            logger.debug(f"[CONVERT_EVENT] Content has {len(event.content.parts) if event.content.parts else 0} parts")
+            if event.content.parts:
+                for i, part in enumerate(event.content.parts):
+                    part_attrs = [attr for attr in dir(part) if not attr.startswith('_') and hasattr(part, attr) and getattr(part, attr) is not None]
+                    logger.debug(f"[CONVERT_EVENT] Part {i}: type={type(part)}, attrs={part_attrs}")
+                    if hasattr(part, "text") and part.text:
+                        logger.debug(f"[CONVERT_EVENT] Part {i} has TEXT: {part.text[:100]}...")
+                    if hasattr(part, "inline_data") and part.inline_data:
+                        logger.debug(f"[CONVERT_EVENT] Part {i} has INLINE_DATA: mime={getattr(part.inline_data, 'mime_type', None)}, size={len(part.inline_data.data) if hasattr(part.inline_data, 'data') else 0}")
+
         # Send start event on first event
         if not self.has_started:
             yield self._format_sse_event(
@@ -175,6 +189,7 @@ class StreamProtocolConverter:
     def _process_text_part(self, text: str) -> list[str]:
         """Process text part into text-* events."""
         part_id = self._generate_part_id()
+        logger.info(f"[TEXT PART] Processing text (part_id={part_id}): {text[:100]}...")
         events = [
             self._format_sse_event({"type": "text-start", "id": part_id}),
             self._format_sse_event(
@@ -202,6 +217,9 @@ class StreamProtocolConverter:
         tool_name = function_call.name
         tool_args = function_call.args
 
+        # Store mapping so function_response can use the same ID
+        self.tool_call_id_map[tool_name] = tool_call_id
+
         events = [
             self._format_sse_event(
                 {
@@ -225,7 +243,17 @@ class StreamProtocolConverter:
         self, function_response: types.FunctionResponse
     ) -> list[str]:
         """Process function response into tool-result-available event."""
-        tool_call_id = self._generate_tool_call_id()
+        # Retrieve the tool call ID from the map to match with the function call
+        tool_name = function_response.name
+        tool_call_id = self.tool_call_id_map.get(tool_name)
+
+        # Fallback: generate new ID if not found (shouldn't happen in normal flow)
+        if tool_call_id is None:
+            logger.warning(
+                f"[TOOL RESULT] No matching tool call ID found for {tool_name}, generating new ID"
+            )
+            tool_call_id = self._generate_tool_call_id()
+
         output = function_response.response
 
         event = self._format_sse_event(
