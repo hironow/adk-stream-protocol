@@ -818,10 +818,11 @@ class TestMessageControlConversion:
 
         finish_event = finish_events[0]
         assert finish_event["type"] == "finish"
-        assert "usage" in finish_event, "finish event must include usage field"
-        assert finish_event["usage"]["promptTokens"] == prompt_tokens
-        assert finish_event["usage"]["completionTokens"] == completion_tokens
-        assert finish_event["usage"]["totalTokens"] == expected_total
+        assert "messageMetadata" in finish_event, "finish event must include messageMetadata field"
+        assert "usage" in finish_event["messageMetadata"], "messageMetadata must include usage field"
+        assert finish_event["messageMetadata"]["usage"]["promptTokens"] == prompt_tokens
+        assert finish_event["messageMetadata"]["usage"]["completionTokens"] == completion_tokens
+        assert finish_event["messageMetadata"]["usage"]["totalTokens"] == expected_total
 
 
 class TestMultiPartMessages:

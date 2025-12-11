@@ -121,9 +121,10 @@ class TestStreamProtocolConverter:
         converter = StreamProtocolConverter()
 
         # Create event with thought content
+        # ADK represents thought as: part.thought=True (boolean flag) + part.text="content"
         mock_part = Mock()
-        mock_part.text = None
-        mock_part.thought = "Let me think..."
+        mock_part.text = "Let me think..."  # Actual thought text content
+        mock_part.thought = True  # Boolean flag indicating this is reasoning
         mock_part.function_call = None
         mock_part.function_response = None
         mock_part.executable_code = None
@@ -216,6 +217,7 @@ class TestStreamProtocolConverter:
 
         # Create event with function response
         mock_function_response = Mock(spec=types.FunctionResponse)
+        mock_function_response.name = "get_weather"  # Tool name for ID mapping
         mock_function_response.response = {"temperature": 20, "condition": "sunny"}
 
         mock_part = Mock()
@@ -326,10 +328,11 @@ class TestStreamProtocolConverter:
         parsed_finish = parse_sse_event(events[0])
         assert parsed_finish["type"] == "finish"
         assert parsed_finish["finishReason"] == "stop"
-        assert "usage" in parsed_finish
-        assert parsed_finish["usage"]["promptTokens"] == 10
-        assert parsed_finish["usage"]["completionTokens"] == 20
-        assert parsed_finish["usage"]["totalTokens"] == 30
+        assert "messageMetadata" in parsed_finish
+        assert "usage" in parsed_finish["messageMetadata"]
+        assert parsed_finish["messageMetadata"]["usage"]["promptTokens"] == 10
+        assert parsed_finish["messageMetadata"]["usage"]["completionTokens"] == 20
+        assert parsed_finish["messageMetadata"]["usage"]["totalTokens"] == 30
 
         # Verify DONE marker
         parsed_done = parse_sse_event(events[1])
@@ -522,10 +525,11 @@ class TestStreamADKToAISDK:
         assert finish_event is not None
         # Verify finishReason is mapped correctly (MAX_TOKENS → "length")
         assert finish_event["finishReason"] == "length"
-        assert "usage" in finish_event
-        assert finish_event["usage"]["promptTokens"] == 100
-        assert finish_event["usage"]["completionTokens"] == 50
-        assert finish_event["usage"]["totalTokens"] == 150
+        assert "messageMetadata" in finish_event
+        assert "usage" in finish_event["messageMetadata"]
+        assert finish_event["messageMetadata"]["usage"]["promptTokens"] == 100
+        assert finish_event["messageMetadata"]["usage"]["completionTokens"] == 50
+        assert finish_event["messageMetadata"]["usage"]["totalTokens"] == 150
 
 
 class TestSSEFormatCompliance:

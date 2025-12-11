@@ -394,12 +394,16 @@ class StreamProtocolConverter:
                     finish_reason
                 )
 
-            # Add usage metadata if available
+            # Add usage metadata if available (via messageMetadata field)
+            # AI SDK v6 finish event doesn't have a direct usage field,
+            # but supports messageMetadata for arbitrary metadata
             if usage_metadata:
-                finish_event["usage"] = {
-                    "promptTokens": usage_metadata.prompt_token_count,
-                    "completionTokens": usage_metadata.candidates_token_count,
-                    "totalTokens": usage_metadata.total_token_count,
+                finish_event["messageMetadata"] = {
+                    "usage": {
+                        "promptTokens": usage_metadata.prompt_token_count,
+                        "completionTokens": usage_metadata.candidates_token_count,
+                        "totalTokens": usage_metadata.total_token_count,
+                    }
                 }
 
             yield self._format_sse_event(finish_event)
