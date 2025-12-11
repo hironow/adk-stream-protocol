@@ -89,15 +89,13 @@ export function Chat({ mode }: ChatProps) {
       <form
         onSubmit={onSubmit}
         style={{
-          position: "sticky",
-          bottom: 0,
+          flexShrink: 0,
           padding: "1rem",
           borderTop: "1px solid #333",
           background: "#0a0a0a",
           display: "flex",
           flexDirection: "column",
           gap: "0.5rem",
-          zIndex: 10,
         }}
       >
         {previewUrl && (
