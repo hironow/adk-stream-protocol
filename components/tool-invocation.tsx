@@ -5,10 +5,8 @@
  * Handles all tool visualization complexity internally.
  */
 
-import { ToolInvocation } from "@ai-sdk/react";
-
 interface ToolInvocationProps {
-  toolInvocation: ToolInvocation;
+  toolInvocation: any;
 }
 
 export function ToolInvocationComponent({ toolInvocation }: ToolInvocationProps) {

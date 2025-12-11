@@ -10,13 +10,13 @@
  * All rendering complexity is contained within this component.
  */
 
-import { Message } from "@ai-sdk/react";
+import type { UIMessage } from "@ai-sdk/react";
 import { ToolInvocationComponent } from "./tool-invocation";
 import { ImageDisplay } from "./image-display";
 import { AudioPlayer } from "./audio-player";
 
 interface MessageComponentProps {
-  message: Message;
+  message: UIMessage;
 }
 
 export function MessageComponent({ message }: MessageComponentProps) {
@@ -48,7 +48,7 @@ export function MessageComponent({ message }: MessageComponentProps) {
         <span data-testid="message-sender">{isUser ? "You" : "Assistant"}</span>
 
         {/* Status indicator for streaming */}
-        {message.status === "in_progress" && (
+        {(message as any).status === "in_progress" && (
           <span
             style={{
               fontSize: "0.75rem",
@@ -315,9 +315,9 @@ export function MessageComponent({ message }: MessageComponentProps) {
       )}
 
       {/* Tool Invocations Summary (if available) */}
-      {message.toolInvocations && message.toolInvocations.length > 0 && (
+      {(message as any).toolInvocations && (message as any).toolInvocations.length > 0 && (
         <div style={{ marginTop: "0.75rem" }}>
-          {message.toolInvocations.map((toolInvocation, index) => (
+          {(message as any).toolInvocations.map((toolInvocation: any, index: number) => (
             <ToolInvocationComponent
               key={index}
               toolInvocation={toolInvocation}

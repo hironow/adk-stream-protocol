@@ -25,34 +25,7 @@
  * https://github.com/vercel/ai/discussions/5607
  */
 
-import type { UIMessageChunk } from "ai";
-
-/**
- * Message part types
- */
-interface TextPart {
-  type: "text";
-  text: string;
-}
-
-interface ImagePart {
-  type: "image";
-  data: string; // base64 encoded
-  media_type: string; // "image/png", "image/jpeg", "image/webp"
-}
-
-type MessagePart = TextPart | ImagePart;
-
-/**
- * Message format sent to backend
- */
-interface SendMessagesParams {
-  messages: Array<{
-    role: string;
-    content?: string;
-    parts?: Array<MessagePart>;
-  }>;
-}
+import type { UIMessageChunk, ChatTransport, ChatRequestOptions, UIMessage } from "ai";
 
 /**
  * WebSocket transport configuration
@@ -74,7 +47,7 @@ export interface WebSocketChatTransportConfig {
  * Enables bidirectional streaming with ADK backend via WebSocket.
  * Compatible with AI SDK v6 useChat hook.
  */
-export class WebSocketChatTransport {
+export class WebSocketChatTransport implements ChatTransport<UIMessage> {
   private config: WebSocketChatTransportConfig;
   private ws: WebSocket | null = null;
 
@@ -90,7 +63,13 @@ export class WebSocketChatTransport {
    * Required by ChatTransport interface.
    */
   async sendMessages(
-    params: SendMessagesParams
+    options: {
+      trigger: 'submit-message' | 'regenerate-message';
+      chatId: string;
+      messageId: string | undefined;
+      messages: UIMessage[];
+      abortSignal: AbortSignal | undefined;
+    } & ChatRequestOptions
   ): Promise<ReadableStream<UIMessageChunk>> {
     const { url, timeout } = this.config;
 
@@ -144,7 +123,7 @@ export class WebSocketChatTransport {
           }
 
           // Send messages to backend
-          const messageData = JSON.stringify({ messages: params.messages });
+          const messageData = JSON.stringify({ messages: options.messages });
           this.ws.send(messageData);
         } catch (error) {
           console.error("[WS Transport] Error in start:", error);
@@ -256,7 +235,7 @@ export class WebSocketChatTransport {
    * Reconnect to stream (not supported for WebSocket)
    * WebSocket connections are stateful, reconnection requires new connection.
    */
-  reconnectToStream(): null {
+  async reconnectToStream(_options: { chatId: string } & ChatRequestOptions): Promise<ReadableStream<UIMessageChunk> | null> {
     // WebSocket connections cannot be reconnected to specific streams
     // Client needs to establish new connection
     return null;

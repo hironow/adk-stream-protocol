@@ -53,10 +53,10 @@ async function setWeatherCache(location: string, data: any) {
 
 const getWeatherTool = tool({
   description: "Get weather information for a location",
-  parameters: z.object({
+  inputSchema: z.object({
     location: z.string().describe("City name or location to get weather for"),
   }),
-  execute: async ({ location }: { location: string }) => {
+  execute: async ({ location }) => {
     // Check cache first
     const cached = await getWeatherFromCache(location);
     if (cached) {
@@ -134,10 +134,10 @@ const getWeatherTool = tool({
 
 const calculateTool = tool({
   description: "Calculate a mathematical expression",
-  parameters: z.object({
+  inputSchema: z.object({
     expression: z.string().describe('Mathematical expression to evaluate (e.g., "2 + 2", "10 * 5")'),
   }),
-  execute: async ({ expression }: { expression: string }) => {
+  execute: async ({ expression }) => {
     try {
       // Safe evaluation - only allows basic math operations
       const result = eval(expression);
@@ -152,10 +152,10 @@ const calculateTool = tool({
 
 const getCurrentTimeTool = tool({
   description: "Get the current time in a specified timezone (default: UTC)",
-  parameters: z.object({
+  inputSchema: z.object({
     timezone: z.string().optional().describe("Timezone name (e.g., 'America/New_York', 'Asia/Tokyo', 'UTC'). Defaults to UTC if not specified."),
   }),
-  execute: async ({ timezone }: { timezone?: string }) => {
+  execute: async ({ timezone }) => {
     const tz = timezone || "UTC";
     const now = new Date();
     const result = {
