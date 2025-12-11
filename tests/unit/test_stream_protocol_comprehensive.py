@@ -47,12 +47,55 @@ def create_mock_part(**kwargs: Any) -> Mock:
     return part
 
 
-async def convert_and_collect(converter: StreamProtocolConverter, event: Mock) -> list[str]:
+async def convert_and_collect(converter: StreamProtocolConverter, event: Mock | Event) -> list[str]:
     """Helper to convert event and collect all SSE strings."""
     events = []
     async for sse_event in converter.convert_event(event):
         events.append(sse_event)
     return events
+
+
+# ============================================================
+# Real ADK Type Helpers (replacing Mocks for type safety)
+# ============================================================
+
+
+def create_text_part(text: str) -> types.Part:
+    """Create real ADK Part with text content."""
+    return types.Part(text=text)
+
+
+def create_function_call_part(name: str, args: dict[str, Any]) -> types.Part:
+    """Create real ADK Part with function call."""
+    function_call = types.FunctionCall(name=name, args=args)
+    return types.Part(function_call=function_call)
+
+
+def create_function_response_part(name: str, response: Any) -> types.Part:
+    """
+    Create real ADK Part with function response.
+
+    Note: FunctionResponse.response expects dict, but we allow Any for testing
+    purposes. Invalid types will be caught by Pydantic validation.
+    """
+    function_response = types.FunctionResponse(name=name, response=response)
+    return types.Part(function_response=function_response)
+
+
+def create_inline_data_part(mime_type: str, data: bytes) -> types.Part:
+    """Create real ADK Part with inline data (image/binary)."""
+    blob = types.Blob(mime_type=mime_type, data=data)
+    return types.Part(inline_data=blob)
+
+
+def create_content(role: str, parts: list[types.Part]) -> types.Content:
+    """Create real ADK Content with parts."""
+    return types.Content(role=role, parts=parts)
+
+
+def create_event(author: str, content: types.Content) -> Event:
+    """Create real ADK Event."""
+    return Event(author=author, content=content)
 
 
 class TestTextContentConversion:
@@ -91,15 +134,13 @@ class TestTextContentConversion:
         """
         converter = StreamProtocolConverter()
 
-        # Create event with text content
-        part = create_mock_part(text=text_content)
-        mock_content = Mock()
-        mock_content.parts = [part]
-        mock_event = Mock(spec=Event)
-        mock_event.content = mock_content
+        # Create event with text content (using real ADK types)
+        part = create_text_part(text_content)
+        content = create_content(role="model", parts=[part])
+        event = create_event(author="model", content=content)
 
         # Convert event
-        events = asyncio.run(convert_and_collect(converter, mock_event))
+        events = asyncio.run(convert_and_collect(converter, event))
 
         # Verify event sequence
         parsed_events = [parse_sse_event(e) for e in events]
@@ -203,19 +244,13 @@ class TestToolExecutionConversion:
         """
         converter = StreamProtocolConverter()
 
-        # Create event with function call
-        mock_function_call = Mock(spec=types.FunctionCall)
-        mock_function_call.name = tool_name
-        mock_function_call.args = tool_args
-
-        part = create_mock_part(function_call=mock_function_call)
-        mock_content = Mock()
-        mock_content.parts = [part]
-        mock_event = Mock(spec=Event)
-        mock_event.content = mock_content
+        # Create event with function call (using real ADK types)
+        part = create_function_call_part(tool_name, tool_args)
+        content = create_content(role="model", parts=[part])
+        event = create_event(author="model", content=content)
 
         # Convert event
-        events = asyncio.run(convert_and_collect(converter, mock_event))
+        events = asyncio.run(convert_and_collect(converter, event))
 
         # Verify event sequence
         parsed_events = [parse_sse_event(e) for e in events]
@@ -244,9 +279,9 @@ class TestToolExecutionConversion:
                 id="tool-result-object",
             ),
             pytest.param(
-                "Success",
+                {"status": "success", "message": "Operation completed"},
                 ["start", "tool-result-available"],
-                id="tool-result-string",
+                id="tool-result-with-status",
             ),
         ],
     )
@@ -261,19 +296,13 @@ class TestToolExecutionConversion:
         """
         converter = StreamProtocolConverter()
 
-        # Create event with function response
-        mock_function_response = Mock(spec=types.FunctionResponse)
-        mock_function_response.name = "test_function"  # Required for ID mapping
-        mock_function_response.response = tool_output
-
-        part = create_mock_part(function_response=mock_function_response)
-        mock_content = Mock()
-        mock_content.parts = [part]
-        mock_event = Mock(spec=Event)
-        mock_event.content = mock_content
+        # Create event with function response (using real ADK types)
+        part = create_function_response_part("test_function", tool_output)
+        content = create_content(role="model", parts=[part])
+        event = create_event(author="model", content=content)
 
         # Convert event
-        events = asyncio.run(convert_and_collect(converter, mock_event))
+        events = asyncio.run(convert_and_collect(converter, event))
 
         # Verify event sequence
         parsed_events = [parse_sse_event(e) for e in events]
@@ -299,21 +328,20 @@ class TestToolExecutionConversion:
         """
         converter = StreamProtocolConverter()
 
-        # Create function call
-        mock_function_call = Mock(spec=types.FunctionCall)
-        mock_function_call.name = "get_weather"
-        mock_function_call.args = {"location": "Tokyo"}
+        # Create function call (using real ADK types)
+        function_call = types.FunctionCall(name="get_weather", args={"location": "Tokyo"})
 
         # Create function response (for the same tool call)
-        mock_function_response = Mock(spec=types.FunctionResponse)
-        mock_function_response.name = "get_weather"
-        mock_function_response.response = {"temperature": 20, "condition": "sunny"}
+        function_response = types.FunctionResponse(
+            name="get_weather",
+            response={"temperature": 20, "condition": "sunny"}
+        )
 
         # Process function call
-        call_events = converter._process_function_call(mock_function_call)
+        call_events = converter._process_function_call(function_call)
 
         # Process function response
-        result_events = converter._process_function_response(mock_function_response)
+        result_events = converter._process_function_response(function_response)
 
         # Parse SSE events
         call_parsed = [parse_sse_event(e) for e in call_events]
