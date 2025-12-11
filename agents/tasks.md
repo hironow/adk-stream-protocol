@@ -83,89 +83,224 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
 
 ---
 
-## 📋 Current Sprint Tasks
+### 🔴 PRIORITY 3: Missing finishReason in finish Event
 
-### Task 4.4: Improve Type Safety with Real ADK Types (🟡 MEDIUM)
-
-**Status:** ⚪ Not Started
-
-**Issue:** Tests use Mock objects instead of real ADK types, reducing type safety
-
-**Files:** `tests/unit/test_stream_protocol_comprehensive.py`
-
-**Current Problem:**
-```python
-# Fragile: Uses Mock with manual attribute assignment
-mock_part = Mock()
-mock_part.text = "Hello"
-mock_part.thought = False
-mock_part.function_call = None
-# ... many more attributes
-```
+**Issue:** `finish` event does not include `finishReason` field from ADK
 
 **Impact:**
-- Tests don't catch ADK API changes
-- Type checker cannot verify correctness
-- Mocks may not match real ADK behavior
+- ❌ Frontend cannot distinguish between normal completion, length limits, safety filters
+- ❌ Incomplete AI SDK v6 Data Stream Protocol compliance
 
-**Implementation Plan:**
-
-**Step 1: Research ADK type constructors**
-
-Investigate how to create real `types.Part`, `types.Content`, `Event` objects:
-
+**Current Behavior:**
 ```python
-from google.genai import types
-from google.adk.events import Event
-
-# Try different construction methods
-text_part = types.Part(text="Hello")
-thought_part = types.Part(thought="Thinking...")
-# etc.
+# stream_protocol.py:387-397
+finish_event = {
+    "type": "finish",
+    "usage": {...}  # finishReason is missing!
+}
 ```
 
-**Step 2: Refactor test helper**
+**ADK Source:** `Event.finish_reason` (FinishReason enum)
 
-Replace `create_mock_part()` with real types:
+**Required Actions:**
 
-```python
-def create_text_part(text: str) -> types.Part:
-    """Create real ADK Part with text content."""
-    return types.Part(text=text)
+1. **Add finishReason to finish event:**
+   - File: `stream_protocol.py` - `finalize()` method
+   - Use existing `map_adk_finish_reason_to_ai_sdk()` function (lines 29-55)
+   - Map: STOP → "stop", MAX_TOKENS → "length", SAFETY → "content-filter"
 
-def create_thought_part(thought: str) -> types.Part:
-    """Create real ADK Part with thought content."""
-    return types.Part(thought=thought)
+2. **Pass finish_reason through converter:**
+   - Update `finalize()` signature to accept `finish_reason` parameter
+   - Update `stream_adk_to_ai_sdk()` to extract and pass `event.finish_reason`
 
-def create_function_call_part(name: str, args: dict) -> types.Part:
-    """Create real ADK Part with function call."""
-    function_call = types.FunctionCall(name=name, args=args)
-    return types.Part(function_call=function_call)
-```
+3. **Update tests:**
+   - Add `finishReason` field assertions in test expectations
+   - Test all mapped finish reason values
 
-**Step 3: Gradually migrate tests**
+**Testing Requirements:**
+- [ ] `finishReason: "stop"` for normal completion
+- [ ] `finishReason: "length"` for MAX_TOKENS
+- [ ] `finishReason: "content-filter"` for SAFETY/RECITATION
 
-Start with one test class at a time:
-1. TestTextContentConversion
-2. TestReasoningContentConversion
-3. TestToolExecutionConversion
-4. etc.
+**Priority:** 🔴 HIGH - Trivial to implement, important for protocol compliance
 
-**Acceptance Criteria:**
-- [ ] Research ADK type construction
-- [ ] Create helper functions for real type creation
-- [ ] Migrate at least one test class to real types
-- [ ] All tests pass
-- [ ] Type checker verifies correctness
-- [ ] Commit with proper message
-
-**Estimated Time:** 2 hours
-
-**Priority:** 🟡 MEDIUM - Long-term quality improvement
+**Reference:** IMPLEMENTATION.md - Section "1. `finish_reason` → `finishReason` field"
 
 ---
 
-## 📝 Future Tasks (Pending Current Issues Resolution)
+### 🟡 PRIORITY 4: WebSocket Bidirectional Communication Inconsistency
+
+**Issue:** Communication format is inconsistent between directions
+
+**Current Behavior:**
+
+**Backend → Frontend:** ✅ SSE format over WebSocket
+```python
+# stream_protocol.py:_format_sse_event()
+return f"data: {json.dumps(event_data)}\n\n"
+```
+
+**Frontend → Backend:** ❌ Raw JSON (not SSE format)
+```typescript
+// lib/websocket-chat-transport.ts:249
+this.ws?.send(JSON.stringify(toolResult));
+// → {"type": "tool-result", "toolCallId": "...", "result": {...}}
+```
+
+**Problems:**
+
+1. **Protocol Asymmetry:**
+   - Backend sends: `data: {...}\n\n` (SSE format)
+   - Frontend sends: `{...}` (raw JSON)
+   - Violates "SSE format over WebSocket" architecture
+
+2. **Backend doesn't handle tool-result:**
+   - `server.py` `/live` endpoint only handles:
+     - `"messages" in message_data` - Initial message history
+     - `"role" in message_data` - Single message
+   - **No handler for `"type": "tool-result"`**
+
+3. **Unused toolCallCallback:**
+   - `lib/build-use-chat-options.ts:74-78` returns `{handled: "backend"}`
+   - But backend cannot receive frontend tool results
+
+**Required Actions:**
+
+1. **Decision:** Choose bidirectional protocol format
+   - **Option A:** SSE format both ways (consistent with "SSE over WebSocket" design)
+   - **Option B:** JSON both ways (simpler, but breaks current architecture)
+   - **Recommendation:** Option A for consistency
+
+2. **If Option A (SSE format both ways):**
+   - Frontend: Wrap tool results in SSE format before send
+     ```typescript
+     const sseMessage = `data: ${JSON.stringify(toolResult)}\n\n`;
+     this.ws?.send(sseMessage);
+     ```
+   - Backend: Parse SSE format from client messages
+     ```python
+     if data.startswith("data: "):
+         json_str = data[6:]  # Remove "data: " prefix
+         message_data = json.loads(json_str)
+     ```
+
+3. **Add tool-result handling in server.py:**
+   - Extract toolCallId and result
+   - Send to ADK via appropriate mechanism
+   - Need to investigate: How does ADK receive tool results in BIDI mode?
+
+**Testing Requirements:**
+- [ ] Bidirectional SSE format over WebSocket works
+- [ ] Backend receives and parses SSE-formatted messages from frontend
+- [ ] Tool execution round-trip works (if tools move to frontend)
+
+**Priority:** 🟡 MEDIUM - Currently not blocking (tools run on backend), but architecture inconsistency
+
+**Reference:** README.md - "SSE format over WebSocket" design rationale
+
+---
+
+## 📋 Current Sprint Tasks
+
+### ✅ Completed Tasks
+
+#### Task 4.4: Improve Type Safety with Real ADK Types
+
+**Status:** ✅ Completed
+
+**Completed Actions:**
+- Created helper functions for real ADK types
+- Migrated 10 tests to use real types (text, reasoning, tool execution)
+- Fixed reasoning/thinking content handling bug (dead code detection)
+- All 31 unit tests passing
+
+**Commits:**
+- dd8f2b7 - refactor: Migrate tests to use real ADK types
+- a319581 - fix: Correct reasoning/thinking content handling
+
+---
+
+#### Fix Tool Event Names to Match AI SDK v6 Specification
+
+**Status:** ✅ Completed
+
+**Completed Actions:**
+- Fixed incorrect event names to match official AI SDK v6 spec
+  - `tool-call-start` → `tool-input-start`
+  - `tool-call-available` → `tool-input-available`
+  - `tool-result-available` → `tool-output-available`
+- Updated stream_protocol.py implementation
+- Updated lib/websocket-chat-transport.ts
+- Updated all test expectations (2 test files)
+- All tool-related tests passing (7/47 tests)
+
+**Commits:**
+- 3ebe567 - fix: Update tool event names to match AI SDK v6 specification
+
+**Reference:** https://v6.ai-sdk.dev/docs/ai-sdk-ui/stream-protocol
+
+---
+
+#### Comprehensive ADK Event Mapping Documentation
+
+**Status:** ✅ Completed
+
+**Completed Actions:**
+- Created IMPLEMENTATION.md with bidirectional mapping tables
+  - ADK Event/Part Fields → AI SDK v6 Data Stream Protocol
+  - AI SDK v6 Protocol → ADK Sources (reverse view)
+  - 25 Event-level fields documented
+  - 11 Part-level fields documented
+- Added discussion section for unmapped fields with prioritization
+- Clarified "Gemini 2.0" labeling → specific feature names
+- Identified finishReason and WebSocket bidirectional issues
+
+**Commits:**
+- f0ad1a0 - docs: Add comprehensive ADK Event mapping to AI SDK v6 protocol
+
+**References:**
+- https://google.github.io/adk-docs/
+- https://google.github.io/adk-docs/streaming/dev-guide/part5/
+
+---
+
+## 🔄 Future Tasks
+
+### Consider ADK Live API Transcriptions Support (🟢 LOW)
+
+**ADK Fields**: `Event.input_transcription`, `Event.output_transcription`
+
+**Use Case**: Display real-time speech-to-text during voice conversations
+
+**Proposal**: Use custom `data-*` events
+- `data-input-transcription` - User speech → text
+- `data-output-transcription` - Model speech → text
+
+**Challenge**: Need UI design decision for transcription display
+
+**Priority:** 🟢 LOW - Not currently needed
+
+**Reference:** IMPLEMENTATION.md - Section "2. Live API Transcriptions"
+
+---
+
+### Consider Grounding & Citation Metadata Support (🟢 LOW)
+
+**ADK Fields**: `Event.grounding_metadata`, `Event.citation_metadata`
+
+**Use Case**: Display sources and citations (like Perplexity.ai, ChatGPT search)
+
+**Proposal**: Use custom `data-*` events for grounding sources
+
+**Challenge**: Complex metadata structure, needs UI design
+
+**Priority:** 🟢 LOW - Search-enhanced responses feature
+
+**Reference:** IMPLEMENTATION.md - Section "3. Grounding & Citation Metadata"
+
+---
+
+## 📝 Pending Tasks (Blocked by Current Issues)
 
 ### Complete Multimodal Integration Testing
 
@@ -249,16 +384,22 @@ Start with one test class at a time:
    - Update server.py and app/api/chat/route.ts
    - Test all 3 backend modes
 
-**Phase 2: Stability Improvements** 🟡
-2. Investigate WebSocket timeout (PRIORITY 2)
+**Phase 2: Protocol Compliance & Stability** 🟡
+2. Add finishReason to finish event (PRIORITY 3) ✅ Ready to implement
+   - Trivial change - function already exists
+   - High impact on protocol compliance
+   - Update finalize() method and tests
+
+3. Investigate WebSocket timeout (PRIORITY 2)
    - Find ADK deadline configuration
    - Increase timeout for audio streaming
    - Test with long sessions
 
-3. Complete Task 4.4: Type Safety (MEDIUM)
-   - Research ADK type constructors
-   - Refactor tests to use real types
-   - Improve long-term maintainability
+4. Fix WebSocket bidirectional communication (PRIORITY 4)
+   - Decision: Choose consistent protocol format
+   - Implement SSE format both ways
+   - Add tool-result handling in backend
+   - Test bidirectional SSE format
 
 **Phase 3: Feature Completion** 🟢
 4. Complete multimodal integration testing
