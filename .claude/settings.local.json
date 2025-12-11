@@ -46,7 +46,9 @@
       "mcp__chrome-devtools__get_console_message",
       "mcp__ide__getDiagnostics",
       "Bash(pnpm exec tsc:*)",
-      "Bash(pnpm exec vitest:*)"
+      "Bash(pnpm exec vitest:*)",
+      "Bash(pnpm list:*)",
+      "Bash(pnpm build:*)"
     ],
     "deny": [],
     "ask": []
