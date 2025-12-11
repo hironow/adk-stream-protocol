@@ -1,4 +1,5 @@
 import type { UIMessage } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
 import { WebSocketChatTransport } from "@/lib/websocket-chat-transport";
 
 export type BackendMode = "gemini" | "adk-sse" | "adk-bidi";
@@ -17,19 +18,15 @@ function debugLog(message: string, ...args: any[]) {
  * Build useChat options based on backend mode
  * This function is extracted for testability and encapsulates all backend configuration logic
  *
- * KNOWN ISSUE: AI SDK v6 useChat hook does not respect dynamic `api` prop changes
- * - GitHub Issue: https://github.com/vercel/ai/issues/7070
- * - "useChat hook does not respect dynamic api prop changes in DefaultChatTransport"
- * - Date: 2025-07-05
- * - Symptom: useChat captures the initial api route value at initialization,
- *   and subsequent changes to the state variable passed to the api prop do not
- *   reconfigure the transport, resulting in all requests being sent to the
- *   original endpoint even after the state has updated.
- * - Workaround: Force component re-mount via key prop when mode/endpoint changes
- *
- * Additionally, `prepareSendMessagesRequest` callback does not appear to be
- * invoked in AI SDK v6 beta, making it impossible to intercept and modify
- * requests before they are sent.
+ * KNOWN ISSUE: AI SDK v6 useChat hook does not respect `api` prop
+ * - Investigation: experiments/2025-12-11_e2e_test_timeout_investigation.md:440-513
+ * - Symptom: All HTTP requests go to the first endpoint regardless of `api` value
+ * - Tested workarounds (all failed):
+ *   - Dynamic `api` reconfiguration
+ *   - Component re-mounting with key prop
+ *   - Three separate useChat instances with different `api` values
+ * - Root cause hypothesis: Global/module-level endpoint cache in AI SDK v6 beta
+ * - Solution: Custom fetch function to bypass broken `api` routing
  */
 export function buildUseChatOptions({
   mode,
@@ -62,7 +59,6 @@ export function buildUseChatOptions({
 
   // Generate unique chatId that includes endpoint hash
   // This ensures a new Chat instance is created when the endpoint changes
-  // (workaround for AI SDK v6 bug where `api` option changes are ignored)
   const endpointHash = apiEndpoint.replace(/[^a-zA-Z0-9]/g, "-");
   const chatId = forceNewInstance
     ? `chat-${mode}-${endpointHash}-${Date.now()}`
@@ -83,6 +79,21 @@ export function buildUseChatOptions({
     });
   }
 
+  // WORKAROUND: Use prepareSendMessagesRequest to override endpoint
+  // This is the proper extension point in AI SDK v6 for dynamic endpoint routing
+  const prepareSendMessagesRequest = async (options: any) => {
+    debugLog(`[prepareSendMessagesRequest] Overriding endpoint to: ${apiEndpoint}`);
+    debugLog(`[prepareSendMessagesRequest] Original options:`, options);
+
+    // IMPORTANT: Don't return `body` field - let AI SDK construct it
+    // If we return body: {}, AI SDK will use that empty object instead of building the proper request
+    const { body, ...restOptions } = options;
+    return {
+      ...restOptions,
+      api: apiEndpoint, // Override with correct endpoint for this mode
+    };
+  };
+
   const baseOptions = {
     messages: initialMessages,
     id: chatId,
@@ -95,20 +106,30 @@ export function buildUseChatOptions({
   switch (mode) {
     case "gemini":
       debugLog("Configuring useChat for Gemini Direct mode");
+      // Create transport manually to pass prepareSendMessagesRequest
+      const geminiTransport = new DefaultChatTransport({
+        api: apiEndpoint,
+        prepareSendMessagesRequest,
+      });
       const geminiOptions = {
         ...baseOptions,
-        api: apiEndpoint,
+        transport: geminiTransport,
       };
-      debugLog("Gemini options:", JSON.stringify({ id: geminiOptions.id, api: geminiOptions.api, messagesCount: geminiOptions.messages.length }));
+      debugLog("Gemini options:", JSON.stringify({ id: geminiOptions.id, messagesCount: geminiOptions.messages.length }));
       return geminiOptions;
 
     case "adk-sse":
       debugLog("Configuring useChat for ADK SSE mode");
+      // Create transport manually to pass prepareSendMessagesRequest
+      const adkSseTransport = new DefaultChatTransport({
+        api: apiEndpoint,
+        prepareSendMessagesRequest,
+      });
       const adkSseOptions = {
         ...baseOptions,
-        api: apiEndpoint,
+        transport: adkSseTransport,
       };
-      debugLog("ADK SSE options:", JSON.stringify({ id: adkSseOptions.id, api: adkSseOptions.api, messagesCount: adkSseOptions.messages.length }));
+      debugLog("ADK SSE options:", JSON.stringify({ id: adkSseOptions.id, messagesCount: adkSseOptions.messages.length }));
       return adkSseOptions;
 
     case "adk-bidi":
