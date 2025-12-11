@@ -1325,3 +1325,267 @@ Total: 26 passed
 - Task 1F.1: Update README
 - Task 1F.2: Create architecture diagram
 - Final testing and commit
+
+---
+
+## 🚨 Current Issues and Remaining Tasks (2025-12-11 Updated)
+
+### ✅ RESOLVED: AI SDK v6 Endpoint Switching Bug
+
+**Problem:** AI SDK v6 `useChat` hook's `api` option completely non-functional - all requests went to first endpoint
+
+**Solution Implemented:** Manual `DefaultChatTransport` creation with `prepareSendMessagesRequest` callback
+- File: `lib/build-use-chat-options.ts`
+- Commits: `ee4784a`, `8bea94e`, `15044d7`
+- Documentation: `experiments/2025-12-11_e2e_test_timeout_investigation.md` (lines 515-690)
+
+**Verification:**
+- ✅ Gemini Direct → `POST /api/chat` (200 OK)
+- ✅ ADK SSE → `POST http://localhost:8000/stream` (200 OK)
+- ✅ Component consolidation (3 separate → 1 unified)
+
+**Status:** 🟢 COMPLETE - No further action needed
+
+---
+
+### 🔧 PRIORITY 1: Gemini Model Name Configuration
+
+**Issue:** Model `gemini-2.5-flash-native-audio-preview-09-2025` not found (404 NOT_FOUND)
+
+**Impact:**
+- ❌ Gemini Direct mode fails
+- ❌ ADK SSE/BIDI modes fail (backend uses same model)
+
+**Root Cause:** Model name no longer valid or requires different API version
+
+**Required Actions:**
+
+1. **Research correct model name:**
+   - Reference: https://google.github.io/adk-docs/streaming/dev-guide/part4/#streamingmode-bidi-or-sse
+   - Check ADK documentation for SSE/BIDI recommended models
+   - Verify model availability in API version v1beta
+
+2. **Update model names in:**
+   - `server.py` - ADK backend agent configuration
+   - `app/api/chat/route.ts` - Gemini Direct mode
+
+3. **Recommended models to try:**
+   - For SSE: `gemini-2.0-flash-exp` (text + vision)
+   - For BIDI audio: `gemini-2.0-flash-exp` with AUDIO response modality
+   - Fallback: `gemini-1.5-flash` (stable)
+
+**Files to Update:**
+```
+server.py:272-278          # Agent model configuration
+app/api/chat/route.ts:X    # Gemini Direct model (need to locate)
+```
+
+**Testing Requirements:**
+- [ ] Gemini Direct mode works with new model
+- [ ] ADK SSE mode works with new model
+- [ ] ADK BIDI mode works with new model
+- [ ] Image upload still works (vision capability)
+- [ ] Tool calling still works
+
+**Priority:** 🔴 HIGH - Blocks all functionality
+
+---
+
+### ⏱️ PRIORITY 2: WebSocket Timeout Investigation
+
+**Issue:** WebSocket connection closes with "Deadline expired" error after successful PCM streaming
+
+**Context:**
+- 35 PCM audio chunks (111,360 bytes) sent successfully
+- Connection closes before completion
+- Error: `received 1011 (internal error) Deadline expired before operation could complete`
+
+**Evidence:**
+```
+Connection closed: received 1011 (internal error) Deadline expired before operation could complete.
+```
+
+**Hypothesis:** ADK Live API deadline setting too short for audio streaming
+
+**Required Investigation:**
+
+1. **Check ADK deadline configuration:**
+   - File: `server.py`
+   - Look for timeout/deadline parameters in:
+     - `run_live()` configuration
+     - `RunConfig` parameters
+     - WebSocket connection settings
+     - ADK session configuration
+
+2. **Review ADK documentation:**
+   - ADK Live API timeout/deadline docs
+   - Default timeout values
+   - Recommended settings for audio streaming
+   - Session keep-alive mechanisms
+
+3. **Identify timeout location:**
+   ```python
+   # Potential locations in server.py
+   run_config = RunConfig(...)  # Check for deadline parameter
+   live_events = agent_runner.run_live(...)  # Check for timeout
+   await websocket.accept()  # WebSocket settings
+   ```
+
+4. **Test fixes:**
+   - Increase deadline/timeout value
+   - Add keep-alive mechanism
+   - Verify connection stability with longer sessions
+
+**Files to Investigate:**
+```
+server.py:469-578          # WebSocket /live endpoint
+server.py:220-289          # Agent configuration
+```
+
+**Testing Requirements:**
+- [ ] WebSocket connection stays open during full audio stream
+- [ ] No deadline expiry errors
+- [ ] Graceful connection close after completion
+- [ ] Works with both short and long audio streams
+
+**Priority:** 🟡 MEDIUM - Affects ADK BIDI mode audio streaming
+
+---
+
+### 📋 PRIORITY 3: Multimodal Support - Complete Integration Testing
+
+**Status:** Day 2 frontend implementation complete, Day 3 integration testing pending
+
+**Completed:**
+- ✅ Backend image input/output support
+- ✅ Frontend ImageUpload component
+- ✅ Frontend ImageDisplay component
+- ✅ MessageComponent integration
+- ✅ WebSocketChatTransport image event handling
+- ✅ Backend unit tests (26 passed)
+
+**Remaining Tasks:**
+
+**Task 1E.2: End-to-end testing with real images**
+
+Manual Test Checklist:
+
+**Test 1: Upload single image**
+- [ ] Click file input, select PNG image
+- [ ] Image preview displays
+- [ ] Type text message "What's in this image?"
+- [ ] Send message
+- [ ] Backend receives image part (check logs)
+- [ ] Agent analyzes image (Gemini vision)
+- [ ] Agent response describes image content
+- [ ] Response displays in UI
+
+**Test 2: Upload multiple images**
+- [ ] Select 2 images
+- [ ] Both previews display
+- [ ] Send message with both images
+- [ ] Agent response references both images
+- [ ] Images display in chat history
+
+**Test 3: Image-only message (no text)**
+- [ ] Select image without typing text
+- [ ] Send image-only message
+- [ ] Agent responds appropriately
+
+**Test 4: Error handling**
+- [ ] Try uploading file > 5MB → error message
+- [ ] Try uploading non-image file → error message
+- [ ] Try uploading unsupported format → error message
+
+**Test 5: Backend mode switching**
+- [ ] Test in Gemini Direct mode
+- [ ] Test in ADK SSE mode
+- [ ] Test in ADK BIDI mode
+- [ ] All modes handle images correctly
+
+**Test 6: Backward compatibility**
+- [ ] Send text-only message → works as before
+- [ ] Use tool calling → works as before
+
+**Prerequisites:**
+- ⚠️ BLOCKED by Gemini model name fix (need vision-capable model)
+- Server and frontend must be running
+- Valid Gemini API key required
+
+**Priority:** 🟢 LOW - Feature addition (not blocking existing functionality)
+
+---
+
+### 📝 PRIORITY 4: Documentation Updates
+
+**Task 1E.3: Update experiment document**
+- File: `experiments/2025-12-11_adk_bidi_multimodal_support.md`
+- Add: Results section with test outcomes
+- Add: Performance metrics
+- Add: Limitations discovered
+- Status: Pending integration testing
+
+**Task 1F.1: Update README.md**
+- Add: Image support to Current Status section
+- Add: Usage instructions for image upload
+- Add: Troubleshooting section
+- Status: Pending integration testing
+
+**Task 1F.2: Create architecture diagram**
+- Add: Image upload flow diagram
+- Add: Data format transformations
+- Location: README.md or docs/multimodal-architecture.md
+- Status: Pending integration testing
+
+**Priority:** 🟢 LOW - Documentation (defer until features working)
+
+---
+
+## Recommended Implementation Order
+
+**Phase 1: Unblock Current Functionality** 🔴
+1. Fix Gemini model name (PRIORITY 1)
+   - Research correct model name from ADK docs
+   - Update server.py and app/api/chat/route.ts
+   - Test all 3 backend modes
+
+**Phase 2: Stability Improvements** 🟡
+2. Investigate WebSocket timeout (PRIORITY 2)
+   - Find ADK deadline configuration
+   - Increase timeout for audio streaming
+   - Test with long sessions
+
+**Phase 3: Feature Completion** 🟢
+3. Complete multimodal integration testing (PRIORITY 3)
+   - Run manual test checklist
+   - Fix bugs discovered during testing
+   - Update experiment document
+
+4. Update documentation (PRIORITY 4)
+   - Add results to experiment notes
+   - Update README with new features
+   - Create architecture diagrams
+
+---
+
+## Quick Reference: Current System State
+
+**Working:**
+- ✅ AI SDK v6 endpoint switching (fixed with manual transport)
+- ✅ Backend WebSocket infrastructure (/live endpoint)
+- ✅ Frontend WebSocketChatTransport
+- ✅ Backend image input/output support (code complete)
+- ✅ Frontend image upload/display (code complete)
+- ✅ Tool calling in all modes
+- ✅ Text streaming in all modes
+
+**Broken:**
+- ❌ All modes (model name error blocks everything)
+- ❌ ADK BIDI audio streaming (WebSocket timeout)
+
+**Untested:**
+- ⚠️ End-to-end image upload (blocked by model name)
+- ⚠️ Image display in chat messages (blocked by model name)
+- ⚠️ Multi-image messages (blocked by model name)
+
+**Next Immediate Action:** Fix Gemini model name to unblock all functionality
