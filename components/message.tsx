@@ -285,7 +285,7 @@ export function MessageComponent({ message }: MessageComponentProps) {
       </div>
 
       {/* Usage Metadata (if available) */}
-      {message.usage && (
+      {(message as any).metadata?.usage && (
         <div
           style={{
             marginTop: "0.75rem",
@@ -300,15 +300,15 @@ export function MessageComponent({ message }: MessageComponentProps) {
           <span>
             📊 Tokens:{" "}
             <span style={{ color: "#9ca3af" }}>
-              {message.usage.promptTokens} in
+              {(message as any).metadata.usage.promptTokens} in
             </span>
             {" + "}
             <span style={{ color: "#9ca3af" }}>
-              {message.usage.completionTokens} out
+              {(message as any).metadata.usage.completionTokens} out
             </span>
             {" = "}
             <span style={{ fontWeight: 600, color: "#d1d5db" }}>
-              {message.usage.totalTokens} total
+              {(message as any).metadata.usage.totalTokens} total
             </span>
           </span>
         </div>
