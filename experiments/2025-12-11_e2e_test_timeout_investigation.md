@@ -512,6 +512,175 @@ AI SDK v6 beta appears to have a global or module-level cache/singleton that cap
 3. 📝 **Document bug for upstream report** - Provide evidence from this investigation
 4. 🤔 **Discuss with user:** Architecture implications and path forward
 
+---
+
+### ✅ SOLUTION FOUND: Manual Transport Creation with prepareSendMessagesRequest
+
+**Date:** 2025-12-11 18:30 JST
+**Status:** 🟢 RESOLVED
+
+After exhaustive testing proved that the `api` option is completely non-functional in AI SDK v6, we found a working solution by using the AI SDK's extension point: **`prepareSendMessagesRequest`**.
+
+#### Experiment 4: Completely Separate React Components ❌
+
+**Hypothesis:** Using 3 completely independent React components (each with exactly 1 useChat instance) might isolate the bug.
+
+**Implementation:**
+```typescript
+// app/page.tsx
+{mode === "gemini" && <GeminiChat key="gemini" />}
+{mode === "adk-sse" && <AdkSseChat key="adk-sse" />}
+{mode === "adk-bidi" && <AdkBidiChat key="adk-bidi" />}
+
+// Each component:
+export function GeminiChat() {
+  const chatOptions = buildUseChatOptions({ mode: "gemini", initialMessages: [] });
+  const { messages, sendMessage, status, error } = useChat(chatOptions);
+  // ...
+}
+```
+
+**Test Results:**
+```
+reqid=239 POST http://localhost:3002/api/chat  ✅ Test 1: Gemini (correct)
+reqid=242 POST http://localhost:3002/api/chat  ❌ Test 2: ADK SSE (should be http://localhost:8000/stream)
+```
+
+**Conclusion:** Even completely separate React components with independent useChat instances failed. This confirms the bug is at the module/global level in AI SDK v6.
+
+#### Root Cause Discovery: prepareSendMessagesRequest Must Be Passed via Transport
+
+**Investigation:**
+Examined AI SDK v6 source code (`node_modules/ai/dist/index.js` and `index.d.ts`) to understand how the `api` option is actually used:
+
+**Key Finding 1:** `ChatInit` interface does NOT include `prepareSendMessagesRequest`
+```typescript
+interface ChatInit<UI_MESSAGE extends UIMessage> {
+    id?: string;
+    messages?: UI_MESSAGE[];
+    transport?: ChatTransport<UI_MESSAGE>;  // ← Transport can be passed
+    onError?: ChatOnErrorCallback;
+    // prepareSendMessagesRequest is NOT here!
+}
+```
+
+**Key Finding 2:** `prepareSendMessagesRequest` exists in `HttpChatTransportInitOptions`
+```typescript
+type HttpChatTransportInitOptions<UI_MESSAGE extends UIMessage> = {
+    api?: string;
+    credentials?: Resolvable<RequestCredentials>;
+    headers?: Resolvable<Record<string, string> | Headers>;
+    body?: Resolvable<object>;
+    fetch?: FetchFunction;
+    prepareSendMessagesRequest?: PrepareSendMessagesRequest<UI_MESSAGE>;  // ← It's here!
+    prepareReconnectToStreamRequest?: PrepareReconnectToStreamRequest;
+};
+```
+
+**Key Finding 3:** AI SDK uses `prepareSendMessagesRequest` to allow request modification
+```javascript
+const preparedRequest = await this.prepareSendMessagesRequest?.call(this, {
+  api: this.api,
+  id: options.chatId,
+  messages: options.messages,
+  body: { ...resolvedBody, ...options.body },
+  headers: baseHeaders,
+  // ...
+});
+
+const api = preparedRequest?.api ?? this.api;  // ← Can override endpoint!
+const body = preparedRequest?.body !== undefined
+  ? preparedRequest.body
+  : { ...resolvedBody, ...options.body, id: options.chatId, messages: options.messages };
+```
+
+#### Working Solution
+
+**Implementation in `lib/build-use-chat-options.ts`:**
+
+```typescript
+import { DefaultChatTransport } from "ai";
+
+const prepareSendMessagesRequest = async (options: any) => {
+  debugLog(`[prepareSendMessagesRequest] Overriding endpoint to: ${apiEndpoint}`);
+
+  // CRITICAL: Don't return `body` field - let AI SDK construct it
+  // If we return body: {}, AI SDK will use that empty object instead of building the proper request
+  const { body, ...restOptions } = options;
+  return {
+    ...restOptions,
+    api: apiEndpoint, // Override with correct endpoint for this mode
+  };
+};
+
+// Create transport manually to pass prepareSendMessagesRequest
+const transport = new DefaultChatTransport({
+  api: apiEndpoint,
+  prepareSendMessagesRequest,
+});
+
+return {
+  messages: initialMessages,
+  id: chatId,
+  transport: transport, // Pass transport instead of api
+};
+```
+
+**Critical Discovery:** The `body` field exclusion is essential. Initially tried:
+```typescript
+return { ...options, api: apiEndpoint }; // ❌ This includes body: {}
+```
+
+This caused empty requests because AI SDK checks:
+```javascript
+const body = preparedRequest?.body !== undefined ? preparedRequest.body : /* construct body */
+```
+
+If `body: {}` is present (even empty), AI SDK uses it directly instead of constructing the proper body with messages.
+
+#### Verification Results ✅
+
+**Test 1: Gemini Direct Mode**
+```
+POST http://localhost:3002/api/chat [200 OK]
+Debug Log: [prepareSendMessagesRequest] Overriding endpoint to: /api/chat
+```
+
+**Test 2: ADK SSE Mode**
+```
+POST http://localhost:8000/stream [200 OK]
+Debug Log: [prepareSendMessagesRequest] Overriding endpoint to: http://localhost:8000/stream
+```
+
+**Test 3: Component Consolidation**
+After verifying the solution, consolidated 3 separate components back to single unified `Chat` component:
+```typescript
+<Chat key={mode} mode={mode} />
+```
+Endpoint switching continued to work correctly. The `key` prop ensures React remounts the component when mode changes.
+
+#### Summary
+
+**Problem:** AI SDK v6 `api` option completely non-functional
+- Affects dynamic endpoint switching
+- Even separate Chat instances don't work
+- Bug appears to be at module/global level
+
+**Solution:** Manual `DefaultChatTransport` creation with `prepareSendMessagesRequest`
+- Use AI SDK's proper extension point
+- Override `api` in callback
+- CRITICAL: Exclude `body` field from return value
+
+**Benefits:**
+- ✅ Endpoint switching works correctly
+- ✅ Clean architecture (single Chat component)
+- ✅ Leverages official AI SDK extension point
+- ✅ No hacky workarounds or monkey-patching
+
+**Implementation Commits:**
+- `ee4784a` - Fix AI SDK v6 endpoint switching bug with manual transport creation
+- `8bea94e` - Consolidate 3 separate chat components into unified Chat component
+
 ## References
 
 - [Playwright Timeouts Documentation](https://playwright.dev/docs/test-timeouts)
