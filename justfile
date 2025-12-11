@@ -36,16 +36,30 @@ typecheck-python:
 test-python:
     PYTHONPATH=. uv run pytest tests/unit/ -v
 
-# Run E2E tests (Playwright)
+# Run E2E tests (Playwright) - uses existing servers if running
 test-e2e:
+    pnpm exec playwright test
+
+# Run E2E tests with clean server restart - guarantees fresh servers
+test-e2e-clean:
+    @echo "Stopping any existing servers on ports 3000 and 8000..."
+    -lsof -ti:3000 | xargs kill -9 2>/dev/null || true
+    -lsof -ti:8000 | xargs kill -9 2>/dev/null || true
+    @echo "Playwright will start fresh servers automatically..."
+    @echo "Running E2E tests..."
     pnpm exec playwright test
 
 # Run E2E tests with UI (headed mode)
 test-e2e-ui:
     pnpm exec playwright test --ui
 
-# Run E2E tests in headed mode (show browser)
+# Run E2E tests in headed mode (show browser) with clean servers
 test-e2e-headed:
+    @echo "Stopping any existing servers on ports 3000 and 8000..."
+    -lsof -ti:3000 | xargs kill -9 2>/dev/null || true
+    -lsof -ti:8000 | xargs kill -9 2>/dev/null || true
+    @echo "Playwright will start fresh servers automatically..."
+    @echo "Running E2E tests in headed mode..."
     pnpm exec playwright test --headed
 
 # Install Playwright browsers

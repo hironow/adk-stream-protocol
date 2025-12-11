@@ -46,15 +46,16 @@ export default function ChatPage() {
     : "/api/chat";
 
   // Use transport for BIDI mode, api for SSE modes
+  // Use shared ID to test history compatibility across all modes
   const { messages, sendMessage, status, error} = useChat(
     selectedMode === "adk-bidi" && websocketTransport
       ? {
           transport: websocketTransport,
-          key: selectedMode,
+          id: "image-history-test-v2",
         }
       : {
           api: apiEndpoint,
-          key: selectedMode,
+          id: "image-history-test-v2",
         }
   );
 

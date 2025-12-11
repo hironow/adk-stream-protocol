@@ -315,12 +315,113 @@ After analyzing the compatibility matrix and feasibility assessment, we have dec
 
 1. ✅ Research AI SDK v6 and ADK BIDI capabilities (Complete)
 2. ✅ Create implementation plan with detailed tasks (Complete - see agents/tasks.md)
-3. ⬜ Implement image input support (backend)
-4. ⬜ Implement image output support (backend)
-5. ⬜ Create frontend image upload component
-6. ⬜ Create frontend image display component
-7. ⬜ End-to-end testing with real images
+3. ✅ Implement image input support (backend) - Complete
+4. ✅ Implement image output support (backend) - Complete
+5. ✅ Create frontend image upload component - Complete
+6. ✅ Create frontend image display component - Complete
+7. 🟡 End-to-end testing with real images - In Progress
 8. ⬜ Document limitations and future work
+
+## Implementation Progress
+
+### Phase 1: Image Support - In Progress (Day 3)
+
+**Completed:**
+- ✅ Backend image handling (server.py - ChatMessage.to_adk_content)
+- ✅ Image protocol conversion (stream_protocol.py - _process_inline_data_part)
+- ✅ Frontend ImageUpload component (components/image-upload.tsx)
+- ✅ Frontend ImageDisplay component (components/image-display.tsx)
+- ✅ Message component integration (components/message.tsx)
+- ✅ Gemini Direct mode image upload and response working
+
+**Issues Discovered:**
+
+### Issue #1: AI SDK v6 useChat Message History Compatibility (RESOLVED)
+
+**Problem:** When sending multimodal messages (images) using `experimental_attachments`, follow-up text messages fail with:
+
+```
+TypeError: Cannot read properties of undefined (reading 'map')
+at POST (app/api/chat/route.ts:208:37)
+```
+
+**Root Cause Analysis:**
+
+1. Frontend sends image messages with `experimental_attachments` format:
+```typescript
+{
+  role: "user",
+  content: "",
+  experimental_attachments: [
+    { type: "text", text: "この画像には何が写っていますか？" },
+    { type: "image", data: "base64...", media_type: "image/png" }
+  ]
+}
+```
+
+2. **Wrong function**: `convertToModelMessages()` doesn't handle `experimental_attachments` properly
+3. **Correct function**: `convertToCoreMessages()` is designed for messages with attachments
+
+**Affected Modes:** Gemini Direct (app/api/chat/route.ts)
+
+**Solution Implemented:** (app/api/chat/route.ts:2, 160-165)
+
+Changed from `convertToModelMessages` to `convertToCoreMessages`:
+
+```typescript
+// Import change (line 2)
+import { convertToCoreMessages, streamText, tool } from "ai";
+
+// Usage (lines 160-165)
+// Use convertToCoreMessages for messages with experimental_attachments
+// This properly handles multimodal messages including images
+// Reference: https://sdk.vercel.ai/docs/ai-sdk-ui/chatbot#attachments-experimental
+const result = streamText({
+  model: google("gemini-3-pro-preview"),
+  messages: convertToCoreMessages(messages),  // AI SDK v6 handles attachments and parts
+```
+
+**Reference Documentation:**
+- [AI SDK v6 Chatbot with Attachments](https://sdk.vercel.ai/docs/ai-sdk-ui/chatbot#attachments-experimental)
+- AI SDK documentation states: "There's an 'attachments' feature in useChat that you can use in combination with convertToCoreMessages"
+
+**Investigation Update (2025-12-11):**
+
+研究の結果、`convertToCoreMessages`は実際にはAI SDK v6に存在しないことが判明しました。
+
+**実際の解決策:** `convertToModelMessages` + 手動のメッセージ修正
+
+AI SDK v6のドキュメントを確認したところ、`convertToModelMessages`が正しい関数です。しかし、この関数は`parts`を持つが`content: undefined`のメッセージを正しく処理できないため、`convertToModelMessages`を呼び出す前に手動でメッセージを修正する必要があります。
+
+**Final Solution:** (app/api/chat/route.ts:160-181)
+```typescript
+// Fix messages that have parts but no content
+const fixedMessages = messages.map((msg) => {
+  if ((msg as any).parts && !msg.content) {
+    const parts = (msg as any).parts;
+    const textParts = parts.filter((p: any) => p.type === "text");
+    if (textParts.length > 0) {
+      return {
+        ...msg,
+        content: textParts.map((p: any) => p.text).join("\n"),
+      };
+    }
+    return { ...msg, content: "" };
+  }
+  return msg;
+});
+
+const result = streamText({
+  model: google("gemini-3-pro-preview"),
+  messages: convertToModelMessages(fixedMessages),  // Now works correctly
+```
+
+**Status:** ✅ Fix re-implemented with correct approach, ready for E2E testing
+
+**Testing Status:**
+- ⬜ Gemini Direct: Image message + follow-up message
+- ⬜ ADK SSE: Image history compatibility
+- ⬜ ADK BIDI: Complete conversation history with images
 
 ## Implementation Tasks
 

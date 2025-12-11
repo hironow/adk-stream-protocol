@@ -9,9 +9,47 @@ export const maxDuration = 30;
 // ========== Tool Definitions ==========
 // Same tools as ADK Agent for consistent behavior
 
-// Simple in-memory cache for weather data
-const weatherCache = new Map<string, { data: any; timestamp: number }>();
+// File-based cache for weather data (to avoid API usage during E2E tests)
+import { promises as fs } from "fs";
+import path from "path";
+
 const WEATHER_CACHE_TTL = 43200000; // 12 hours in milliseconds
+const CACHE_DIR = path.join(process.cwd(), ".cache");
+
+async function ensureCacheDir() {
+  try {
+    await fs.mkdir(CACHE_DIR, { recursive: true });
+  } catch (err) {
+    // Directory already exists, ignore
+  }
+}
+
+async function getWeatherFromCache(location: string): Promise<any | null> {
+  await ensureCacheDir();
+  const cacheFile = path.join(CACHE_DIR, `weather_${location.toLowerCase().replace(/\s+/g, "_")}.json`);
+
+  try {
+    const data = await fs.readFile(cacheFile, "utf-8");
+    const cached = JSON.parse(data);
+    if (Date.now() - cached.timestamp < WEATHER_CACHE_TTL) {
+      return cached.data;
+    }
+  } catch (err) {
+    // Cache miss or expired
+  }
+  return null;
+}
+
+async function setWeatherCache(location: string, data: any) {
+  await ensureCacheDir();
+  const cacheFile = path.join(CACHE_DIR, `weather_${location.toLowerCase().replace(/\s+/g, "_")}.json`);
+
+  await fs.writeFile(
+    cacheFile,
+    JSON.stringify({ data, timestamp: Date.now() }, null, 2),
+    "utf-8"
+  );
+}
 
 const getWeatherTool = tool({
   description: "Get weather information for a location",
@@ -20,11 +58,10 @@ const getWeatherTool = tool({
   }),
   execute: async ({ location }: { location: string }) => {
     // Check cache first
-    const cacheKey = location.toLowerCase();
-    const cached = weatherCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < WEATHER_CACHE_TTL) {
-      console.log(`[Gemini Direct] Tool call: get_weather(${location}) ->`, cached.data, "(cached)");
-      return { ...cached.data, cached: true };
+    const cached = await getWeatherFromCache(location);
+    if (cached) {
+      console.log(`[Gemini Direct] Tool call: get_weather(${location}) ->`, cached, "(cached)");
+      return { ...cached, cached: true };
     }
 
     // Get API key from environment
@@ -72,7 +109,7 @@ const getWeatherTool = tool({
           wind_speed: data.wind.speed,
         };
         // Cache the result
-        weatherCache.set(cacheKey, { data: weather, timestamp: Date.now() });
+        await setWeatherCache(location, weather);
         console.log(`[Gemini Direct] Tool call: get_weather(${location}) ->`, weather, "(API)");
         return weather;
       } else {
@@ -147,46 +184,38 @@ export async function POST(req: Request) {
 
   console.log("[Gemini Direct] Processing", messages.length, "messages");
 
-  // Transform messages with experimental_attachments to proper format
-  const transformedMessages = messages.map((msg, idx) => {
+  // Log messages for debugging
+  messages.forEach((msg, idx) => {
     console.log(`[Gemini Direct] Message ${idx}:`, {
       role: msg.role,
       content: typeof msg.content === "string" ? msg.content.substring(0, 50) + "..." : msg.content,
       experimental_attachments: msg.experimental_attachments,
+      parts: (msg as any).parts,
     });
+  });
 
-    // If message has experimental_attachments, convert to parts format
-    if (msg.experimental_attachments && Array.isArray(msg.experimental_attachments)) {
-      const parts = msg.experimental_attachments.map((attachment: any) => {
-        if (attachment.type === "text") {
-          return { type: "text" as const, text: attachment.text };
-        } else if (attachment.type === "image") {
-          // Convert base64 image to data URL format expected by AI SDK
-          const dataUrl = `data:${attachment.media_type};base64,${attachment.data}`;
-          return {
-            type: "image" as const,
-            image: dataUrl,
-          };
-        }
-        return attachment;
-      });
-
-      return {
-        ...msg,
-        content: parts,
-      };
+  // Fix messages that have parts but no content (common when useChat stores messages from streaming responses)
+  // This prevents "expected string or array for content, received undefined" errors
+  // Reference: https://ai-sdk.dev/docs/ai-sdk-ui/chatbot#attachments-experimental
+  const fixedMessages = messages.map((msg) => {
+    // If message has parts but no content, convert parts to content
+    if ((msg as any).parts && !msg.content) {
+      const parts = (msg as any).parts;
+      const textParts = parts.filter((p: any) => p.type === "text");
+      if (textParts.length > 0) {
+        return {
+          ...msg,
+          content: textParts.map((p: any) => p.text).join("\n"),
+        };
+      }
+      return { ...msg, content: "" };
     }
-
     return msg;
   });
 
-  console.log("[Gemini Direct] Transformed messages:", JSON.stringify(transformedMessages, null, 2));
-
-  // Phase 1: Direct Gemini API with tools (matches ADK Agent behavior)
-  // Phase 2 (adk-sse) connects directly to ADK backend - no Next.js API proxy needed
   const result = streamText({
     model: google("gemini-3-pro-preview"),  // Latest Gemini 3 Pro with advanced tool calling support
-    messages: transformedMessages as any,  // Pass transformed messages directly
+    messages: convertToModelMessages(fixedMessages),  // AI SDK v6 handles attachments and parts
     tools: {
       get_weather: getWeatherTool,
       calculate: calculateTool,
