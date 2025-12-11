@@ -14,6 +14,81 @@ The project provides **three streaming modes** with real-time mode switching:
 2. **ADK SSE** - ADK backend with Server-Sent Events
 3. **ADK BIDI** ⚡ - ADK backend with WebSocket bidirectional streaming
 
+## Core Architecture
+
+**Key Insight:** All three modes use the same **AI SDK v6 Data Stream Protocol** format for communication, ensuring consistent frontend behavior regardless of backend implementation.
+
+### Protocol Flow
+
+```
+┌─────────────────┐
+│  Gemini Direct  │  AI SDK v6 → Gemini API → AI SDK v6 Data Stream Protocol → HTTP SSE
+└─────────────────┘
+
+┌─────────────────┐
+│    ADK SSE      │  ADK Events → StreamProtocolConverter → AI SDK v6 Data Stream Protocol → HTTP SSE
+└─────────────────┘
+
+┌─────────────────┐
+│   ADK BIDI      │  ADK Events → StreamProtocolConverter → AI SDK v6 Data Stream Protocol → WebSocket
+└─────────────────┘                                         (SSE format over WebSocket)
+```
+
+### StreamProtocolConverter: The Heart of Integration
+
+**Location:** `stream_protocol.py`
+
+**Purpose:** Convert ADK-specific event formats to AI SDK v6 Data Stream Protocol
+
+**Usage:** Both ADK SSE and ADK BIDI modes use the **same converter**
+
+**Key Events:**
+- Text streaming: `text-start`, `text-delta`, `text-end`
+- Reasoning/Thinking: `reasoning-start`, `reasoning-delta`, `reasoning-end` (Gemini 2.0)
+- Tool calls: `tool-call-start`, `tool-call-delta`, `tool-call-available`
+- Tool results: `tool-result-start`, `tool-result-delta`, `tool-result-available`
+- Audio (BIDI): `data-pcm` (PCM audio streaming)
+- Images: `data` events with base64-encoded images
+
+### Transport Layer Differences
+
+**HTTP SSE (Gemini Direct / ADK SSE):**
+- Standard Server-Sent Events over HTTP
+- Browser `EventSource` API automatically parses SSE format
+- AI SDK v6 built-in support via `streamText()`
+
+**WebSocket (ADK BIDI):**
+- Real-time bidirectional communication
+- Backend sends **SSE format over WebSocket** (not raw JSON)
+  - Format: `data: {"type":"text-delta","text":"..."}\n\n`
+  - Same format as HTTP SSE, just delivered via WebSocket
+- Custom `WebSocketChatTransport` (frontend):
+  - Parses SSE format from WebSocket messages
+  - Converts to `ReadableStream<UIMessageChunk>`
+  - Makes WebSocket transparent to `useChat` hook
+
+**Why SSE format over WebSocket?**
+- **Protocol reuse:** Same `StreamProtocolConverter` works for both modes
+- **Compatibility:** AI SDK v6 expects Data Stream Protocol format
+- **Simplicity:** No need to maintain two different protocol implementations
+
+### Frontend Transparency
+
+```typescript
+// Frontend code is identical for all modes:
+const { messages, input, handleSubmit } = useChat({
+  api: selectedMode === 'bidi' ? undefined : '/api/chat',
+  experimental_transform: selectedMode === 'bidi'
+    ? webSocketTransportRef.current
+    : undefined,
+});
+```
+
+The `useChat` hook receives the same `UIMessageChunk` stream regardless of:
+- Backend implementation (Gemini Direct vs ADK)
+- Streaming mode (SSE vs BIDI)
+- Transport layer (HTTP SSE vs WebSocket)
+
 ## Current Status
 
 **Phase 1: Gemini Direct** ✅ Production Ready
