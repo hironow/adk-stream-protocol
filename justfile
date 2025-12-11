@@ -90,6 +90,16 @@ clean:
     find . -type d -name "*.egg-info" -exec rm -rf {} +
     find . -type d -name "__pycache__" -exec rm -rf {} +
 
+# Run E2E tests with clean server restart - guarantees fresh servers
+kill:
+    @echo "Stopping any existing servers on ports 3000, 3001, 3002 and 8000, 8001, 8002..."
+    -lsof -ti:3000 | xargs kill -9 2>/dev/null || true
+    -lsof -ti:3001 | xargs kill -9 2>/dev/null || true
+    -lsof -ti:3002 | xargs kill -9 2>/dev/null || true
+    -lsof -ti:8000 | xargs kill -9 2>/dev/null || true
+    -lsof -ti:8001 | xargs kill -9 2>/dev/null || true
+    -lsof -ti:8002 | xargs kill -9 2>/dev/null || true
+
 # Show project info
 info:
     @echo "ADK-AI Data Protocol Project"
