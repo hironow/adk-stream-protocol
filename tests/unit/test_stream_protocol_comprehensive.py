@@ -234,13 +234,13 @@ class TestToolExecutionConversion:
             pytest.param(
                 "get_weather",
                 {"location": "Tokyo"},
-                ["start", "tool-call-start", "tool-call-available"],
+                ["start", "tool-input-start", "tool-input-available"],
                 id="tool-call-simple",
             ),
             pytest.param(
                 "search",
                 {"query": "AI SDK", "limit": 10},
-                ["start", "tool-call-start", "tool-call-available"],
+                ["start", "tool-input-start", "tool-input-available"],
                 id="tool-call-with-multiple-args",
             ),
         ],
@@ -252,8 +252,8 @@ class TestToolExecutionConversion:
         Test: ADK function_call → AI SDK v6 tool-call-start/available events
 
         Coverage: reviews.md Section 3 - Tool Execution
-        - tool-call-start
-        - tool-call-available
+        - tool-input-start
+        - tool-input-available
         """
         converter = StreamProtocolConverter()
 
@@ -270,14 +270,14 @@ class TestToolExecutionConversion:
         actual_types = [e["type"] for e in parsed_events]
         assert actual_types == expected_event_types
 
-        # Verify tool-call-start
-        tool_start = [e for e in parsed_events if e["type"] == "tool-call-start"][0]
+        # Verify tool-input-start
+        tool_start = [e for e in parsed_events if e["type"] == "tool-input-start"][0]
         assert tool_start["toolName"] == tool_name
         assert "toolCallId" in tool_start
 
-        # Verify tool-call-available
+        # Verify tool-input-available
         tool_available = [
-            e for e in parsed_events if e["type"] == "tool-call-available"
+            e for e in parsed_events if e["type"] == "tool-input-available"
         ][0]
         assert tool_available["toolName"] == tool_name
         assert tool_available["input"] == tool_args
@@ -288,12 +288,12 @@ class TestToolExecutionConversion:
         [
             pytest.param(
                 {"temperature": 20, "condition": "sunny"},
-                ["start", "tool-result-available"],
+                ["start", "tool-output-available"],
                 id="tool-result-object",
             ),
             pytest.param(
                 {"status": "success", "message": "Operation completed"},
-                ["start", "tool-result-available"],
+                ["start", "tool-output-available"],
                 id="tool-result-with-status",
             ),
         ],
@@ -305,7 +305,7 @@ class TestToolExecutionConversion:
         Test: ADK function_response → AI SDK v6 tool-result-available event
 
         Coverage: reviews.md Section 3 - Tool Execution
-        - tool-result-available
+        - tool-output-available
         """
         converter = StreamProtocolConverter()
 
@@ -322,9 +322,9 @@ class TestToolExecutionConversion:
         actual_types = [e["type"] for e in parsed_events]
         assert actual_types == expected_event_types
 
-        # Verify tool-result-available
+        # Verify tool-output-available
         tool_result = [
-            e for e in parsed_events if e["type"] == "tool-result-available"
+            e for e in parsed_events if e["type"] == "tool-output-available"
         ][0]
         assert tool_result["output"] == tool_output
         assert "toolCallId" in tool_result
@@ -362,12 +362,12 @@ class TestToolExecutionConversion:
         result_parsed = [parse_sse_event(e) for e in result_events]
 
         # Extract toolCallIds
-        call_start = [e for e in call_parsed if e["type"] == "tool-call-start"][0]
-        call_available = [e for e in call_parsed if e["type"] == "tool-call-available"][
+        call_start = [e for e in call_parsed if e["type"] == "tool-input-start"][0]
+        call_available = [e for e in call_parsed if e["type"] == "tool-input-available"][
             0
         ]
         result_available = [
-            e for e in result_parsed if e["type"] == "tool-result-available"
+            e for e in result_parsed if e["type"] == "tool-output-available"
         ][0]
 
         call_id = call_start["toolCallId"]
@@ -908,11 +908,11 @@ class TestMultiPartMessages:
         parsed_events = [parse_sse_event(e) for e in events]
         event_types = [e["type"] for e in parsed_events]
 
-        # Should have: start, text events, tool-call events
+        # Should have: start, text events, tool-input events
         assert "start" in event_types
         assert "text-delta" in event_types
-        assert "tool-call-start" in event_types
-        assert "tool-call-available" in event_types
+        assert "tool-input-start" in event_types
+        assert "tool-input-available" in event_types
 
     def test_multiple_text_blocks_unique_ids(self):
         """

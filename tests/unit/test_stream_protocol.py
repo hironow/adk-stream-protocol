@@ -194,24 +194,24 @@ class TestStreamProtocolConverter:
 
         asyncio.run(collect())
 
-        # Should have: start, tool-call-start, tool-call-available
+        # Should have: start, tool-input-start, tool-input-available
         assert len(events) == 3
 
-        # Verify tool-call-start
+        # Verify tool-input-start
         parsed_start = parse_sse_event(events[1])
-        assert parsed_start["type"] == "tool-call-start"
+        assert parsed_start["type"] == "tool-input-start"
         assert parsed_start["toolName"] == "get_weather"
         assert "toolCallId" in parsed_start
 
-        # Verify tool-call-available
+        # Verify tool-input-available
         parsed_available = parse_sse_event(events[2])
-        assert parsed_available["type"] == "tool-call-available"
+        assert parsed_available["type"] == "tool-input-available"
         assert parsed_available["toolCallId"] == parsed_start["toolCallId"]
         assert parsed_available["toolName"] == "get_weather"
         assert parsed_available["input"] == {"location": "Tokyo"}
 
     def test_tool_result_events(self):
-        """Test function_response generates tool-result-available event."""
+        """Test function_response generates tool-output-available event (AI SDK v6 spec)."""
         converter = StreamProtocolConverter()
 
         # Create event with function response
@@ -243,12 +243,12 @@ class TestStreamProtocolConverter:
 
         asyncio.run(collect())
 
-        # Should have: start, tool-result-available
+        # Should have: start, tool-output-available
         assert len(events) == 2
 
-        # Verify tool-result-available
+        # Verify tool-output-available
         parsed_result = parse_sse_event(events[1])
-        assert parsed_result["type"] == "tool-result-available"
+        assert parsed_result["type"] == "tool-output-available"
         assert "toolCallId" in parsed_result
         assert parsed_result["output"] == {"temperature": 20, "condition": "sunny"}
 

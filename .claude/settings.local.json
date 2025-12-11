@@ -45,7 +45,8 @@
       "Bash(just test-e2e-clean:*)",
       "mcp__chrome-devtools__get_console_message",
       "mcp__ide__getDiagnostics",
-      "Bash(pnpm exec tsc:*)"
+      "Bash(pnpm exec tsc:*)",
+      "Bash(pnpm exec vitest:*)"
     ],
     "deny": [],
     "ask": []

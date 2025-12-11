@@ -46,7 +46,11 @@ app = FastAPI(
 # CORS middleware for frontend communication
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001", "http://localhost:3002"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:3002",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -130,11 +134,15 @@ async def get_weather(location: str) -> dict[str, Any]:
                     }
                     # Cache the result
                     _weather_cache[cache_key] = (weather, time.time())
-                    logger.info(f"Tool call: get_weather({location}) -> {weather} (API)")
+                    logger.info(
+                        f"Tool call: get_weather({location}) -> {weather} (API)"
+                    )
                     return weather
                 else:
                     error_msg = f"API returned status {response.status}"
-                    logger.error(f"Tool call: get_weather({location}) failed: {error_msg}")
+                    logger.error(
+                        f"Tool call: get_weather({location}) failed: {error_msg}"
+                    )
                     return {
                         "error": error_msg,
                         "location": location,
@@ -246,7 +254,9 @@ bidi_agent_runner = InMemoryRunner(agent=bidi_agent, app_name="adk_data_protocol
 _sessions: dict[str, Any] = {}
 
 
-async def get_or_create_session(user_id: str, agent_runner: InMemoryRunner, app_name: str = "adk_data_protocol") -> Any:
+async def get_or_create_session(
+    user_id: str, agent_runner: InMemoryRunner, app_name: str = "adk_data_protocol"
+) -> Any:
     """Get or create a session for a user with specific agent runner"""
     session_id = f"session_{user_id}_{app_name}"
 
@@ -262,7 +272,12 @@ async def get_or_create_session(user_id: str, agent_runner: InMemoryRunner, app_
     return _sessions[session_id]
 
 
-async def run_agent_chat(user_message: str, user_id: str, agent_runner: InMemoryRunner, app_name: str = "adk_data_protocol") -> str:
+async def run_agent_chat(
+    user_message: str,
+    user_id: str,
+    agent_runner: InMemoryRunner,
+    app_name: str = "adk_data_protocol",
+) -> str:
     """
     Run the ADK agent with a user message and return the response.
     Based on official ADK examples using InMemoryRunner.
@@ -306,7 +321,9 @@ async def stream_agent_chat(messages: list[ChatMessage], user_id: str = "default
     - Usage metadata
     """
     # Reuse session for the same user (ADK manages conversation history)
-    session = await get_or_create_session(user_id, sse_agent_runner, "adk_data_protocol_sse")
+    session = await get_or_create_session(
+        user_id, sse_agent_runner, "adk_data_protocol_sse"
+    )
 
     # Extract last user message (ADK session already has full history)
     if not messages:
@@ -487,7 +504,9 @@ class ChatMessage(BaseModel):
                     )
                     adk_parts.append(
                         types.Part(
-                            inline_data=types.Blob(mimeType=media_type, data=image_bytes)
+                            inline_data=types.Blob(
+                                mimeType=media_type, data=image_bytes
+                            )
                         )
                     )
 
@@ -613,7 +632,9 @@ async def chat(request: ChatRequest):
 
     # Run ADK agent and get response
     try:
-        response_text = await run_agent_chat(last_message, "default_user", sse_agent_runner, "adk_data_protocol_sse")
+        response_text = await run_agent_chat(
+            last_message, "default_user", sse_agent_runner, "adk_data_protocol_sse"
+        )
         logger.info(f"ADK agent response: {response_text[:100]}...")
         return ChatResponse(message=response_text)
     except Exception as e:
@@ -704,7 +725,9 @@ async def live_chat(websocket: WebSocket):
     logger.info("[BIDI] WebSocket connection established")
 
     # Create session for BIDI mode
-    session = await get_or_create_session("live_user", bidi_agent_runner, "adk_data_protocol_bidi")
+    session = await get_or_create_session(
+        "live_user", bidi_agent_runner, "adk_data_protocol_bidi"
+    )
 
     # Create LiveRequestQueue for bidirectional communication
     live_request_queue = LiveRequestQueue()
@@ -714,7 +737,9 @@ async def live_chat(websocket: WebSocket):
     # Half-cascade models use TEXT modality for faster performance
     model_name = bidi_agent.model
     if "native-audio" in model_name:
-        logger.info(f"[BIDI] Detected native-audio model: {model_name}, using AUDIO modality with transcription")
+        logger.info(
+            f"[BIDI] Detected native-audio model: {model_name}, using AUDIO modality with transcription"
+        )
         run_config = RunConfig(
             response_modalities=["AUDIO"],
             output_audio_transcription=types.AudioTranscriptionConfig(),
@@ -766,21 +791,24 @@ async def live_chat(websocket: WebSocket):
                                 if isinstance(part, FilePart):
                                     # Send image blob via send_realtime()
                                     import base64
-                                    from io import BytesIO
 
                                     # Decode data URL
                                     if part.url.startswith("data:"):
                                         data_url_parts = part.url.split(",", 1)
                                         if len(data_url_parts) == 2:
                                             image_data_base64 = data_url_parts[1]
-                                            image_bytes = base64.b64decode(image_data_base64)
+                                            image_bytes = base64.b64decode(
+                                                image_data_base64
+                                            )
 
                                             # Create blob and send via send_realtime()
                                             image_blob = types.Blob(
                                                 mime_type=part.mediaType,
-                                                data=image_bytes
+                                                data=image_bytes,
                                             )
-                                            logger.info(f"[BIDI] Sending image via send_realtime(): {part.filename}, {part.mediaType}, {len(image_bytes)} bytes")
+                                            logger.info(
+                                                f"[BIDI] Sending image via send_realtime(): {part.filename}, {part.mediaType}, {len(image_bytes)} bytes"
+                                            )
                                             live_request_queue.send_realtime(image_blob)
 
                                 # Handle text parts
@@ -789,8 +817,12 @@ async def live_chat(websocket: WebSocket):
 
                             # Send text content via send_content() if any text exists
                             if text_parts:
-                                text_content = types.Content(role="user", parts=text_parts)
-                                logger.info(f"[BIDI] Sending text via send_content(): {text_parts}")
+                                text_content = types.Content(
+                                    role="user", parts=text_parts
+                                )
+                                logger.info(
+                                    f"[BIDI] Sending text via send_content(): {text_parts}"
+                                )
                                 live_request_queue.send_content(text_content)
 
                     elif "role" in message_data:
@@ -805,21 +837,23 @@ async def live_chat(websocket: WebSocket):
                             if isinstance(part, FilePart):
                                 # Send image blob via send_realtime()
                                 import base64
-                                from io import BytesIO
 
                                 # Decode data URL
                                 if part.url.startswith("data:"):
                                     data_url_parts = part.url.split(",", 1)
                                     if len(data_url_parts) == 2:
                                         image_data_base64 = data_url_parts[1]
-                                        image_bytes = base64.b64decode(image_data_base64)
+                                        image_bytes = base64.b64decode(
+                                            image_data_base64
+                                        )
 
                                         # Create blob and send via send_realtime()
                                         image_blob = types.Blob(
-                                            mime_type=part.mediaType,
-                                            data=image_bytes
+                                            mime_type=part.mediaType, data=image_bytes
                                         )
-                                        logger.info(f"[BIDI] Sending image via send_realtime(): {part.filename}, {part.mediaType}, {len(image_bytes)} bytes")
+                                        logger.info(
+                                            f"[BIDI] Sending image via send_realtime(): {part.filename}, {part.mediaType}, {len(image_bytes)} bytes"
+                                        )
                                         live_request_queue.send_realtime(image_blob)
 
                             # Handle text parts
@@ -829,7 +863,9 @@ async def live_chat(websocket: WebSocket):
                         # Send text content via send_content() if any text exists
                         if text_parts:
                             text_content = types.Content(role="user", parts=text_parts)
-                            logger.info(f"[BIDI] Sending text via send_content(): {text_parts}")
+                            logger.info(
+                                f"[BIDI] Sending text via send_content(): {text_parts}"
+                            )
                             live_request_queue.send_content(text_content)
 
             except WebSocketDisconnect:

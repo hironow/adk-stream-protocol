@@ -198,7 +198,7 @@ export class WebSocketChatTransport {
         // Parse JSON and convert to UIMessageChunk
         // This is already in AI SDK v6 Data Stream Protocol format
         // Examples: {"type":"text-delta","text":"..."}
-        //          {"type":"tool-call-available","toolCallId":"...","toolName":"..."}
+        //          {"type":"tool-input-available","toolCallId":"...","toolName":"..."}
         const chunk = JSON.parse(jsonStr);
 
         // Debug: Log chunk before enqueuing to useChat
@@ -210,7 +210,7 @@ export class WebSocketChatTransport {
 
         // Handle tool calls if callback is provided
         if (
-          chunk.type === "tool-call-available" &&
+          chunk.type === "tool-input-available" &&
           this.config.toolCallCallback
         ) {
           this.handleToolCall(chunk);

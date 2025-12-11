@@ -216,7 +216,7 @@ class StreamProtocolConverter:
         return self._create_streaming_events("reasoning", thought)
 
     def _process_function_call(self, function_call: types.FunctionCall) -> list[str]:
-        """Process function call into tool-call-* events."""
+        """Process function call into tool-input-* events (AI SDK v6 spec)."""
         tool_call_id = self._generate_tool_call_id()
         tool_name = function_call.name
         tool_args = function_call.args
@@ -227,14 +227,14 @@ class StreamProtocolConverter:
         events = [
             self._format_sse_event(
                 {
-                    "type": "tool-call-start",
+                    "type": "tool-input-start",
                     "toolCallId": tool_call_id,
                     "toolName": tool_name,
                 }
             ),
             self._format_sse_event(
                 {
-                    "type": "tool-call-available",
+                    "type": "tool-input-available",
                     "toolCallId": tool_call_id,
                     "toolName": tool_name,
                     "input": tool_args,
@@ -246,7 +246,7 @@ class StreamProtocolConverter:
     def _process_function_response(
         self, function_response: types.FunctionResponse
     ) -> list[str]:
-        """Process function response into tool-result-available event."""
+        """Process function response into tool-output-available event (AI SDK v6 spec)."""
         # Retrieve the tool call ID from the map to match with the function call
         tool_name = function_response.name
         tool_call_id = self.tool_call_id_map.get(tool_name)
@@ -254,7 +254,7 @@ class StreamProtocolConverter:
         # Fallback: generate new ID if not found (shouldn't happen in normal flow)
         if tool_call_id is None:
             logger.warning(
-                f"[TOOL RESULT] No matching tool call ID found for {tool_name}, generating new ID"
+                f"[TOOL OUTPUT] No matching tool call ID found for {tool_name}, generating new ID"
             )
             tool_call_id = self._generate_tool_call_id()
 
@@ -262,7 +262,7 @@ class StreamProtocolConverter:
 
         event = self._format_sse_event(
             {
-                "type": "tool-result-available",
+                "type": "tool-output-available",
                 "toolCallId": tool_call_id,
                 "output": output,
             }
