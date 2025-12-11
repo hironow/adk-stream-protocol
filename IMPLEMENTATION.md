@@ -23,8 +23,8 @@ This section provides the mapping from **ADK perspective** (what ADK provides) t
 | **Content & Parts** |
 | `content.parts[]` | Content | Multiple events | stream_protocol.py:125-179 | Processed per Part type (see Part mapping below) |
 | **Metadata** |
-| `usage_metadata` | UsageMetadata | `finish` event `usage` field | stream_protocol.py:390-395 | Token counts in finish event |
-| `finish_reason` | FinishReason | ❌ Not mapped | N/A | **Missing: Should map to `finishReason` field** |
+| `usage_metadata` | UsageMetadata | `finish` event `usage` field | stream_protocol.py:398-403 | Token counts in finish event |
+| `finish_reason` | FinishReason | ✅ Mapped | stream_protocol.py:392-395, 440-441 | Maps to `finishReason` field in finish event |
 | `grounding_metadata` | GroundingMetadata | ❌ Not mapped | N/A | Search grounding sources - no AI SDK v6 equivalent |
 | `citation_metadata` | CitationMetadata | ❌ Not mapped | N/A | Citation info - no AI SDK v6 equivalent |
 | **Live API Specific** |
@@ -85,8 +85,8 @@ This section shows the AI SDK v6 protocol from **frontend perspective** (what AI
 |------------|--------|----------------|------------|-------|
 | **Message Control** |
 | `start` | ✅ Implemented | stream_protocol.py:119-122 | Auto-generated | Sent on first event |
-| `finish` | ⚠️ Partial | stream_protocol.py:387-397 | Event.usage_metadata | Includes token usage, **Missing: finishReason field** |
-| `[DONE]` | ✅ Implemented | stream_protocol.py:400 | Auto-generated | Stream termination marker |
+| `finish` | ✅ Implemented | stream_protocol.py:387-405 | Event.usage_metadata, Event.finish_reason | Includes token usage and finishReason |
+| `[DONE]` | ✅ Implemented | stream_protocol.py:407-408 | Auto-generated | Stream termination marker |
 | **Text Streaming** |
 | `text-start` | ✅ Implemented | stream_protocol.py:210-212 | Part.text (thought=False/None) | Start text block |
 | `text-delta` | ✅ Implemented | stream_protocol.py:210-212 | Part.text (thought=False/None) | Text content |
@@ -183,34 +183,7 @@ These custom events follow the `data-*` pattern specified in the AI SDK v6 proto
 
 This section discusses ADK fields that are currently unmapped but may be valuable to implement.
 
-### 1. `finish_reason` → `finishReason` field in `finish` event
-
-**Status**: ❌ Missing (High Priority)
-
-**ADK Source**: `Event.finish_reason` (FinishReason enum)
-
-**Expected Mapping**: Add `finishReason` field to `finish` event
-
-**Current Behavior**: Token usage is sent, but `finishReason` is omitted
-
-**Impact**: Frontend cannot distinguish between normal completion, length limits, safety filters, etc.
-
-**Proposal**:
-```python
-finish_event = {
-    "type": "finish",
-    "finishReason": map_adk_finish_reason_to_ai_sdk(event.finish_reason),  # Add this
-    "usage": {...}
-}
-```
-
-We already have `map_adk_finish_reason_to_ai_sdk()` function (stream_protocol.py:29-55) but it's not being used.
-
-**Action Required**: Yes - Add `finishReason` to finish event
-
----
-
-### 2. Live API Transcriptions (`input_transcription`, `output_transcription`)
+### 1. Live API Transcriptions (`input_transcription`, `output_transcription`)
 
 **Status**: ❌ Not Mapped
 
@@ -240,7 +213,7 @@ We already have `map_adk_finish_reason_to_ai_sdk()` function (stream_protocol.py
 
 ---
 
-### 3. Grounding & Citation Metadata (`grounding_metadata`, `citation_metadata`)
+### 2. Grounding & Citation Metadata (`grounding_metadata`, `citation_metadata`)
 
 **Status**: ❌ Not Mapped
 
@@ -275,7 +248,7 @@ We already have `map_adk_finish_reason_to_ai_sdk()` function (stream_protocol.py
 
 ---
 
-### 4. File References (`file_data`)
+### 3. File References (`file_data`)
 
 **Status**: ❌ Not Mapped
 
@@ -300,7 +273,7 @@ We already have `map_adk_finish_reason_to_ai_sdk()` function (stream_protocol.py
 
 ---
 
-### 5. Advanced Features (Low Priority)
+### 4. Advanced Features (Low Priority)
 
 **Fields**: `avg_logprobs`, `logprobs_result`, `cache_metadata`, `interrupted`, `video_metadata`, `media_resolution`
 
@@ -324,13 +297,12 @@ We already have `map_adk_finish_reason_to_ai_sdk()` function (stream_protocol.py
 | **Core Streaming** | ✅ Complete | Text, reasoning, tool execution, images, audio |
 | **Error Handling** | ✅ Complete | Error events |
 | **Token Usage** | ✅ Complete | Usage metadata in finish event |
-| **Finish Reason** | ❌ Missing | High priority - easy to add |
+| **Finish Reason** | ✅ Complete | Implemented in stream_protocol.py |
 | **Live API Transcriptions** | ❌ Missing | Medium priority - requires UI design decision |
 | **Grounding/Citations** | ❌ Missing | Medium priority - requires UI design decision |
 | **File References** | ❌ Missing | Low priority - requires backend proxy |
 | **Advanced Metadata** | ❌ Missing | Low priority - debugging/optimization info |
 
 **Recommendation**:
-1. **Immediate**: Add `finishReason` field to `finish` event (trivial change)
-2. **Near-term**: Discuss and design Live API transcription display
-3. **Future**: Consider grounding/citation display for search-enhanced responses
+1. **Near-term**: Discuss and design Live API transcription display
+2. **Future**: Consider grounding/citation display for search-enhanced responses

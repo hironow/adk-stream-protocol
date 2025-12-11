@@ -369,6 +369,7 @@ class StreamProtocolConverter:
         self,
         usage_metadata: Any | None = None,
         error: Exception | None = None,
+        finish_reason: Any | None = None,
     ) -> AsyncGenerator[str, None]:
         """
         Send final events to close the stream.
@@ -376,6 +377,7 @@ class StreamProtocolConverter:
         Args:
             usage_metadata: Optional token usage information
             error: Optional error that occurred
+            finish_reason: Optional ADK FinishReason enum
 
         Yields:
             Final SSE events
@@ -385,6 +387,12 @@ class StreamProtocolConverter:
         else:
             # Build finish event
             finish_event: dict[str, Any] = {"type": "finish"}
+
+            # Add finish reason if available
+            if finish_reason:
+                finish_event["finishReason"] = map_adk_finish_reason_to_ai_sdk(
+                    finish_reason
+                )
 
             # Add usage metadata if available
             if usage_metadata:
@@ -420,12 +428,17 @@ async def stream_adk_to_ai_sdk(
     converter = StreamProtocolConverter(message_id)
     error = None
     usage_metadata = None
+    finish_reason = None
 
     try:
         async for event in event_stream:
             # Extract usage metadata if present
             if hasattr(event, "usage_metadata") and event.usage_metadata:
                 usage_metadata = event.usage_metadata
+
+            # Extract finish reason if present
+            if hasattr(event, "finish_reason") and event.finish_reason:
+                finish_reason = event.finish_reason
 
             # Convert and yield event
             async for sse_event in converter.convert_event(event):
@@ -436,8 +449,8 @@ async def stream_adk_to_ai_sdk(
         error = e
 
     finally:
-        # Send final events with usage metadata
+        # Send final events with usage metadata and finish reason
         async for final_event in converter.finalize(
-            usage_metadata=usage_metadata, error=error
+            usage_metadata=usage_metadata, error=error, finish_reason=finish_reason
         ):
             yield final_event

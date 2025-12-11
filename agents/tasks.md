@@ -2,46 +2,30 @@
 
 This file tracks current and future implementation tasks for the ADK AI Data Protocol project.
 
-## 🚨 Current Issues Blocking Functionality
+## 📋 Implementation Phases
 
-### 🔴 PRIORITY 1: Gemini Model Name Configuration
+**Phase 1: 即座に対応（機能ブロック解消）** - ✅ Complete
+- No blocking issues remaining (finishReason implemented)
 
-**Issue:** Model `gemini-2.5-flash-native-audio-preview-09-2025` not found (404 NOT_FOUND)
+**Phase 2: アーキテクチャ安定化** - 🟡 In Progress
+- [P2-T1] WebSocket Timeout Investigation
+- [P2-T2] WebSocket Bidirectional Communication
 
-**Impact:**
-- ❌ Gemini Direct mode fails
-- ❌ ADK SSE/BIDI modes fail (backend uses same model)
+**Phase 3: 新機能検討（UI設計判断待ち）** - ⏸️ Awaiting Decision
+- [P3-T1] Live API Transcriptions
+- [P3-T2] Grounding & Citation Metadata
 
-**Root Cause:** Model name no longer valid or requires different API version
-
-**Required Actions:**
-
-1. **Research correct model name:**
-   - Reference: https://google.github.io/adk-docs/streaming/dev-guide/part4/#streamingmode-bidi-or-sse
-   - Check ADK documentation for SSE/BIDI recommended models
-   - Verify model availability in API version v1beta
-
-2. **Update model names in:**
-   - `server.py` - ADK backend agent configuration (lines 272-278)
-   - `app/api/chat/route.ts` - Gemini Direct mode
-
-3. **Recommended models to try:**
-   - For SSE: `gemini-2.0-flash-exp` (text + vision)
-   - For BIDI audio: `gemini-2.0-flash-exp` with AUDIO response modality
-   - Fallback: `gemini-1.5-flash` (stable)
-
-**Testing Requirements:**
-- [ ] Gemini Direct mode works with new model
-- [ ] ADK SSE mode works with new model
-- [ ] ADK BIDI mode works with new model
-- [ ] Image upload still works (vision capability)
-- [ ] Tool calling still works
-
-**Priority:** 🔴 HIGH - Blocks all functionality
+**Phase 4: その他** - 🟢 Low Priority
+- [P4-T1] Multimodal Integration Testing
+- [P4-T2] File References Support
+- [P4-T3] Advanced Metadata Features
+- [P4-T4] Documentation Updates
 
 ---
 
-### ⏱️ PRIORITY 2: WebSocket Timeout Investigation
+## Phase 2: アーキテクチャ安定化
+
+### [P2-T1] WebSocket Timeout Investigation
 
 **Issue:** WebSocket connection closes with "Deadline expired" error after successful PCM streaming
 
@@ -83,52 +67,7 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
 
 ---
 
-### 🔴 PRIORITY 3: Missing finishReason in finish Event
-
-**Issue:** `finish` event does not include `finishReason` field from ADK
-
-**Impact:**
-- ❌ Frontend cannot distinguish between normal completion, length limits, safety filters
-- ❌ Incomplete AI SDK v6 Data Stream Protocol compliance
-
-**Current Behavior:**
-```python
-# stream_protocol.py:387-397
-finish_event = {
-    "type": "finish",
-    "usage": {...}  # finishReason is missing!
-}
-```
-
-**ADK Source:** `Event.finish_reason` (FinishReason enum)
-
-**Required Actions:**
-
-1. **Add finishReason to finish event:**
-   - File: `stream_protocol.py` - `finalize()` method
-   - Use existing `map_adk_finish_reason_to_ai_sdk()` function (lines 29-55)
-   - Map: STOP → "stop", MAX_TOKENS → "length", SAFETY → "content-filter"
-
-2. **Pass finish_reason through converter:**
-   - Update `finalize()` signature to accept `finish_reason` parameter
-   - Update `stream_adk_to_ai_sdk()` to extract and pass `event.finish_reason`
-
-3. **Update tests:**
-   - Add `finishReason` field assertions in test expectations
-   - Test all mapped finish reason values
-
-**Testing Requirements:**
-- [ ] `finishReason: "stop"` for normal completion
-- [ ] `finishReason: "length"` for MAX_TOKENS
-- [ ] `finishReason: "content-filter"` for SAFETY/RECITATION
-
-**Priority:** 🔴 HIGH - Trivial to implement, important for protocol compliance
-
-**Reference:** IMPLEMENTATION.md - Section "1. `finish_reason` → `finishReason` field"
-
----
-
-### 🟡 PRIORITY 4: WebSocket Bidirectional Communication Inconsistency
+### [P2-T2] WebSocket Bidirectional Communication Inconsistency
 
 **Issue:** Communication format is inconsistent between directions
 
@@ -200,9 +139,7 @@ this.ws?.send(JSON.stringify(toolResult));
 
 ---
 
-## 📋 Current Sprint Tasks
-
-### ✅ Completed Tasks
+## ✅ Completed Tasks (Phase 1)
 
 #### Task 4.4: Improve Type Safety with Real ADK Types
 
@@ -264,9 +201,31 @@ this.ws?.send(JSON.stringify(toolResult));
 
 ---
 
-## 🔄 Future Tasks
+#### Add finishReason to finish Event
 
-### Consider ADK Live API Transcriptions Support (🟢 LOW)
+**Status:** ✅ Completed
+
+**Completed Actions:**
+- Updated `finalize()` method to accept `finish_reason` parameter
+- Added `finishReason` field to finish event using existing `map_adk_finish_reason_to_ai_sdk()` function
+- Updated `stream_adk_to_ai_sdk()` to extract and pass `event.finish_reason`
+- Updated test expectations to verify `finishReason` mapping (MAX_TOKENS → "length")
+
+**Files Modified:**
+- `stream_protocol.py` - Added finish_reason handling in finalize() and stream_adk_to_ai_sdk()
+- `tests/unit/test_stream_protocol.py` - Updated test_stream_with_usage_metadata
+
+**Impact:**
+- ✅ Frontend can now distinguish between completion types (stop, length, content-filter)
+- ✅ AI SDK v6 Data Stream Protocol compliance improved
+
+**Reference:** IMPLEMENTATION.md - Section "1. `finish_reason` → `finishReason` field"
+
+---
+
+## Phase 3: 新機能検討（UI設計判断待ち）
+
+### [P3-T1] Live API Transcriptions Support
 
 **ADK Fields**: `Event.input_transcription`, `Event.output_transcription`
 
@@ -278,13 +237,13 @@ this.ws?.send(JSON.stringify(toolResult));
 
 **Challenge**: Need UI design decision for transcription display
 
-**Priority:** 🟢 LOW - Not currently needed
+**Priority:** 🟡 MEDIUM - Requires UI design decision
 
-**Reference:** IMPLEMENTATION.md - Section "2. Live API Transcriptions"
+**Reference:** IMPLEMENTATION.md - Section "1. Live API Transcriptions"
 
 ---
 
-### Consider Grounding & Citation Metadata Support (🟢 LOW)
+### [P3-T2] Grounding & Citation Metadata Support
 
 **ADK Fields**: `Event.grounding_metadata`, `Event.citation_metadata`
 
@@ -294,18 +253,49 @@ this.ws?.send(JSON.stringify(toolResult));
 
 **Challenge**: Complex metadata structure, needs UI design
 
-**Priority:** 🟢 LOW - Search-enhanced responses feature
+**Priority:** 🟡 MEDIUM - Requires UI design decision
 
-**Reference:** IMPLEMENTATION.md - Section "3. Grounding & Citation Metadata"
+**Reference:** IMPLEMENTATION.md - Section "2. Grounding & Citation Metadata"
 
 ---
 
-## 📝 Pending Tasks (Blocked by Current Issues)
+## Phase 4: その他
 
-### Complete Multimodal Integration Testing
+### [P4-T2] File References Support
+
+**ADK Fields**: `Part.file_data`
+
+**Use Case**: Display file attachments from Cloud Storage (gs:// URLs)
+
+**Proposal**: Use `file` event with backend proxy for signed URLs
+
+**Challenge**:
+- File URIs (gs://) require signed URLs or proxy for browser access
+- Need backend endpoint to serve/proxy Cloud Storage files
+
+**Priority:** 🟢 LOW - Requires backend proxy implementation
+
+**Reference:** IMPLEMENTATION.md - Section "3. File References"
+
+---
+
+### [P4-T3] Advanced Metadata Features
+
+**ADK Fields**: `avg_logprobs`, `logprobs_result`, `cache_metadata`, `interrupted`, `video_metadata`, `media_resolution`
+
+**Use Case**: Advanced debugging and optimization features
+
+**Challenge**: These are advanced features not typically displayed in chat UI
+
+**Priority:** 🟢 LOW - Implement only if specific use case arises
+
+**Reference:** IMPLEMENTATION.md - Section "4. Advanced Features"
+
+---
+
+### [P4-T1] Multimodal Integration Testing
 
 **Prerequisites:**
-- ⚠️ BLOCKED by Gemini model name fix (need vision-capable model)
 - Server and frontend must be running
 - Valid Gemini API key required
 
@@ -352,7 +342,7 @@ this.ws?.send(JSON.stringify(toolResult));
 
 ---
 
-### Documentation Updates
+### [P4-T4] Documentation Updates
 
 **Pending integration testing completion**
 
@@ -376,44 +366,6 @@ this.ws?.send(JSON.stringify(toolResult));
 
 ---
 
-## Recommended Implementation Order
-
-**Phase 1: Unblock Current Functionality** 🔴
-1. Fix Gemini model name (PRIORITY 1)
-   - Research correct model name from ADK docs
-   - Update server.py and app/api/chat/route.ts
-   - Test all 3 backend modes
-
-**Phase 2: Protocol Compliance & Stability** 🟡
-2. Add finishReason to finish event (PRIORITY 3) ✅ Ready to implement
-   - Trivial change - function already exists
-   - High impact on protocol compliance
-   - Update finalize() method and tests
-
-3. Investigate WebSocket timeout (PRIORITY 2)
-   - Find ADK deadline configuration
-   - Increase timeout for audio streaming
-   - Test with long sessions
-
-4. Fix WebSocket bidirectional communication (PRIORITY 4)
-   - Decision: Choose consistent protocol format
-   - Implement SSE format both ways
-   - Add tool-result handling in backend
-   - Test bidirectional SSE format
-
-**Phase 3: Feature Completion** 🟢
-4. Complete multimodal integration testing
-   - Run manual test checklist
-   - Fix bugs discovered during testing
-   - Update experiment document
-
-5. Update documentation
-   - Add results to experiment notes
-   - Update README with new features
-   - Create architecture diagrams
-
----
-
 ## Quick Reference: Current System State
 
 **Working:**
@@ -429,15 +381,14 @@ this.ws?.send(JSON.stringify(toolResult));
 - ✅ Code duplication reduction (commit efe6f38)
 
 **Broken:**
-- ❌ All modes (model name error blocks everything)
 - ❌ ADK BIDI audio streaming (WebSocket timeout)
 
 **Untested:**
-- ⚠️ End-to-end image upload (blocked by model name)
-- ⚠️ Image display in chat messages (blocked by model name)
-- ⚠️ Multi-image messages (blocked by model name)
+- ⚠️ End-to-end image upload
+- ⚠️ Image display in chat messages
+- ⚠️ Multi-image messages
 
-**Next Immediate Action:** Fix Gemini model name to unblock all functionality
+**Current Focus:** Phase 2 - Architecture stabilization ([P2-T1], [P2-T2])
 
 ---
 

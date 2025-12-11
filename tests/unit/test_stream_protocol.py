@@ -485,17 +485,21 @@ class TestStreamADKToAISDK:
 
     @pytest.mark.asyncio
     async def test_stream_with_usage_metadata(self):
-        """Test stream includes usage metadata in finish event."""
+        """Test stream includes usage metadata and finish reason in finish event."""
         # Create mock usage metadata
         mock_usage = Mock()
         mock_usage.prompt_token_count = 100
         mock_usage.candidates_token_count = 50
         mock_usage.total_token_count = 150
 
+        # Create mock finish reason enum (MAX_TOKENS maps to "length" in AI SDK v6)
+        mock_finish_reason = Mock()
+        mock_finish_reason.name = "MAX_TOKENS"
+
         # Create mock event
         mock_event = Mock(spec=Event)
         mock_event.content = None
-        mock_event.finish_reason = "FinishReason.MAX_TOKENS"
+        mock_event.finish_reason = mock_finish_reason
         mock_event.usage_metadata = mock_usage
 
         # Create async generator
@@ -516,7 +520,8 @@ class TestStreamADKToAISDK:
                 break
 
         assert finish_event is not None
-        assert finish_event["finishReason"] == "FinishReason.MAX_TOKENS"
+        # Verify finishReason is mapped correctly (MAX_TOKENS → "length")
+        assert finish_event["finishReason"] == "length"
         assert "usage" in finish_event
         assert finish_event["usage"]["promptTokens"] == 100
         assert finish_event["usage"]["completionTokens"] == 50
