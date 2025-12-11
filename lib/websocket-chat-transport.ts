@@ -145,10 +145,6 @@ export class WebSocketChatTransport {
 
           // Send messages to backend
           const messageData = JSON.stringify({ messages: params.messages });
-          console.log(
-            "[WS Transport] Sending messages:",
-            messageData.substring(0, 100) + "..."
-          );
           this.ws.send(messageData);
         } catch (error) {
           console.error("[WS Transport] Error in start:", error);
@@ -157,7 +153,6 @@ export class WebSocketChatTransport {
       },
 
       cancel: () => {
-        console.log("[WS Transport] Stream cancelled");
         this.ws?.close();
         this.ws = null;
       },
@@ -195,7 +190,6 @@ export class WebSocketChatTransport {
         const jsonStr = data.substring(6); // Remove "data: " prefix
 
         if (jsonStr === "[DONE]") {
-          console.log("[WS Transport] Stream completed");
           controller.close();
           this.ws?.close();
           return;
@@ -206,7 +200,9 @@ export class WebSocketChatTransport {
         // Examples: {"type":"text-delta","text":"..."}
         //          {"type":"tool-call-available","toolCallId":"...","toolName":"..."}
         const chunk = JSON.parse(jsonStr);
-        console.log("[WS Transport] Received chunk:", chunk.type);
+
+        // Debug: Log chunk before enqueuing to useChat
+        console.debug("[WS→useChat]", chunk);
 
         // Enqueue UIMessageChunk to stream
         // useChat hook will consume this and update UI
@@ -240,8 +236,6 @@ export class WebSocketChatTransport {
         toolName: chunk.toolName,
         args: chunk.args,
       };
-
-      console.log("[WS Transport] Executing tool:", toolCall.toolName);
 
       const result = await this.config.toolCallCallback(toolCall);
 

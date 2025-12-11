@@ -100,6 +100,8 @@ class StreamProtocolConverter:
 
     def _format_sse_event(self, event_data: dict) -> str:
         """Format event data as SSE."""
+        # Debug: Log event before SSE formatting
+        logger.debug(f"[ADK→SSE] {event_data}")
         return f"data: {json.dumps(event_data)}\n\n"
 
     async def convert_event(self, event: Event) -> AsyncGenerator[str, None]:
@@ -193,11 +195,6 @@ class StreamProtocolConverter:
             List of SSE-formatted events
         """
         part_id = self._generate_part_id()
-
-        if log_prefix:
-            logger.info(
-                f"{log_prefix} Processing {event_type_prefix} (part_id={part_id}): {content[:100]}..."
-            )
 
         events = [
             self._format_sse_event(
@@ -295,7 +292,6 @@ class StreamProtocolConverter:
     def _process_inline_data_part(self, inline_data: types.Blob) -> list[str]:
         """Process inline data (image or audio) as appropriate custom event."""
         import base64
-        from io import BytesIO
 
         mime_type = inline_data.mime_type or ""
 
@@ -318,12 +314,6 @@ class StreamProtocolConverter:
             # Send PCM chunk immediately as data-pcm event (AI SDK v6 Stream Protocol)
             base64_content = base64.b64encode(inline_data.data).decode("utf-8")
 
-            logger.info(
-                f"[AUDIO PCM] Sending chunk #{self.pcm_chunk_count}: "
-                f"size={len(inline_data.data)} bytes, "
-                f"total={self.pcm_total_bytes} bytes"
-            )
-
             event = self._format_sse_event(
                 {
                     "type": "data-pcm",
@@ -342,12 +332,6 @@ class StreamProtocolConverter:
             # Convert bytes to base64 string
             base64_content = base64.b64encode(inline_data.data).decode("utf-8")
 
-            logger.info(
-                f"[AUDIO OUTPUT] media_type={mime_type}, "
-                f"size={len(inline_data.data)} bytes, "
-                f"base64_size={len(base64_content)} chars"
-            )
-
             event = self._format_sse_event(
                 {
                     "type": "data-audio",
@@ -361,23 +345,8 @@ class StreamProtocolConverter:
 
         # Process image data
         if mime_type.startswith("image/"):
-            from PIL import Image
-
             # Convert bytes to base64 string
             base64_content = base64.b64encode(inline_data.data).decode("utf-8")
-
-            # Get image dimensions using PIL
-            with Image.open(BytesIO(inline_data.data)) as img:
-                width, height = img.size
-                image_format = img.format
-
-            logger.info(
-                f"[IMAGE OUTPUT] media_type={mime_type}, "
-                f"size={len(inline_data.data)} bytes, "
-                f"dimensions={width}x{height}, "
-                f"format={image_format}, "
-                f"base64_size={len(base64_content)} chars"
-            )
 
             event = self._format_sse_event(
                 {
@@ -411,19 +380,6 @@ class StreamProtocolConverter:
         Yields:
             Final SSE events
         """
-        # Log PCM streaming completion
-        if self.pcm_chunk_count > 0:
-            duration = (
-                self.pcm_total_bytes / (self.pcm_sample_rate or 24000) / 2
-            )  # 16-bit = 2 bytes per sample
-            logger.info(
-                f"[AUDIO PCM] Streaming completed: "
-                f"chunks={self.pcm_chunk_count}, "
-                f"total_bytes={self.pcm_total_bytes}, "
-                f"duration={duration:.2f}s, "
-                f"sample_rate={self.pcm_sample_rate}Hz"
-            )
-
         if error:
             yield self._format_sse_event({"type": "error", "error": str(error)})
         else:
@@ -437,11 +393,6 @@ class StreamProtocolConverter:
                     "completionTokens": usage_metadata.candidates_token_count,
                     "totalTokens": usage_metadata.total_token_count,
                 }
-                logger.info(
-                    f"[USAGE] Tokens: {usage_metadata.prompt_token_count} in + "
-                    f"{usage_metadata.candidates_token_count} out = "
-                    f"{usage_metadata.total_token_count} total"
-                )
 
             yield self._format_sse_event(finish_event)
 
