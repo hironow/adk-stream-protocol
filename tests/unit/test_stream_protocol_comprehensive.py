@@ -47,7 +47,9 @@ def create_mock_part(**kwargs: Any) -> Mock:
     return part
 
 
-async def convert_and_collect(converter: StreamProtocolConverter, event: Mock | Event) -> list[str]:
+async def convert_and_collect(
+    converter: StreamProtocolConverter, event: Mock | Event
+) -> list[str]:
     """Helper to convert event and collect all SSE strings."""
     events = []
     async for sse_event in converter.convert_event(event):
@@ -63,6 +65,17 @@ async def convert_and_collect(converter: StreamProtocolConverter, event: Mock | 
 def create_text_part(text: str) -> types.Part:
     """Create real ADK Part with text content."""
     return types.Part(text=text)
+
+
+def create_reasoning_part(reasoning: str) -> types.Part:
+    """
+    Create real ADK Part with reasoning/thought content.
+
+    According to Gemini API docs:
+    - thought (boolean): indicates if this is a thought summary
+    - text (string): contains the actual reasoning content when thought=True
+    """
+    return types.Part(text=reasoning, thought=True)
 
 
 def create_function_call_part(name: str, args: dict[str, Any]) -> types.Part:
@@ -186,25 +199,25 @@ class TestReasoningContentConversion:
         - reasoning-start
         - reasoning-delta
         - reasoning-end
+
+        Uses real ADK types (thought=True with text content).
         """
         converter = StreamProtocolConverter()
 
-        # Create event with thought content
-        part = create_mock_part(thought=thought_content)
-        mock_content = Mock()
-        mock_content.parts = [part]
-        mock_event = Mock(spec=Event)
-        mock_event.content = mock_content
+        # given: Create event with reasoning content (thought=True, text=reasoning)
+        part = create_reasoning_part(thought_content)
+        content = create_content(role="model", parts=[part])
+        event = create_event(author="model", content=content)
 
-        # Convert event
-        events = asyncio.run(convert_and_collect(converter, mock_event))
+        # when: Convert event
+        events = asyncio.run(convert_and_collect(converter, event))
 
-        # Verify event sequence
+        # then: Verify event sequence
         parsed_events = [parse_sse_event(e) for e in events]
         actual_types = [e["type"] for e in parsed_events]
         assert actual_types == expected_event_types
 
-        # Verify thought content in delta
+        # then: Verify thought content in delta
         reasoning_delta_events = [
             e for e in parsed_events if e["type"] == "reasoning-delta"
         ]
@@ -329,12 +342,13 @@ class TestToolExecutionConversion:
         converter = StreamProtocolConverter()
 
         # Create function call (using real ADK types)
-        function_call = types.FunctionCall(name="get_weather", args={"location": "Tokyo"})
+        function_call = types.FunctionCall(
+            name="get_weather", args={"location": "Tokyo"}
+        )
 
         # Create function response (for the same tool call)
         function_response = types.FunctionResponse(
-            name="get_weather",
-            response={"temperature": 20, "condition": "sunny"}
+            name="get_weather", response={"temperature": 20, "condition": "sunny"}
         )
 
         # Process function call
@@ -349,16 +363,24 @@ class TestToolExecutionConversion:
 
         # Extract toolCallIds
         call_start = [e for e in call_parsed if e["type"] == "tool-call-start"][0]
-        call_available = [e for e in call_parsed if e["type"] == "tool-call-available"][0]
-        result_available = [e for e in result_parsed if e["type"] == "tool-result-available"][0]
+        call_available = [e for e in call_parsed if e["type"] == "tool-call-available"][
+            0
+        ]
+        result_available = [
+            e for e in result_parsed if e["type"] == "tool-result-available"
+        ][0]
 
         call_id = call_start["toolCallId"]
         available_id = call_available["toolCallId"]
         result_id = result_available["toolCallId"]
 
         # CRITICAL: All three MUST have the same ID for UI to work
-        assert call_id == available_id, f"Call start and available IDs differ: {call_id} != {available_id}"
-        assert call_id == result_id, f"Tool call and result IDs MUST match: {call_id} != {result_id}"
+        assert call_id == available_id, (
+            f"Call start and available IDs differ: {call_id} != {available_id}"
+        )
+        assert call_id == result_id, (
+            f"Tool call and result IDs MUST match: {call_id} != {result_id}"
+        )
 
 
 class TestAudioContentConversion:

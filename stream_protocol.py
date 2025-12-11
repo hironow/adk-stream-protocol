@@ -112,19 +112,6 @@ class StreamProtocolConverter:
         Yields:
             SSE-formatted event strings
         """
-        # DEBUG: Log event details
-        logger.debug(f"[CONVERT_EVENT] Event type: {type(event)}, has content: {event.content is not None}")
-        if event.content:
-            logger.debug(f"[CONVERT_EVENT] Content has {len(event.content.parts) if event.content.parts else 0} parts")
-            if event.content.parts:
-                for i, part in enumerate(event.content.parts):
-                    part_attrs = [attr for attr in dir(part) if not attr.startswith('_') and hasattr(part, attr) and getattr(part, attr) is not None]
-                    logger.debug(f"[CONVERT_EVENT] Part {i}: type={type(part)}, attrs={part_attrs}")
-                    if hasattr(part, "text") and part.text:
-                        logger.debug(f"[CONVERT_EVENT] Part {i} has TEXT: {part.text[:100]}...")
-                    if hasattr(part, "inline_data") and part.inline_data:
-                        logger.debug(f"[CONVERT_EVENT] Part {i} has INLINE_DATA: mime={getattr(part.inline_data, 'mime_type', None)}, size={len(part.inline_data.data) if hasattr(part.inline_data, 'data') else 0}")
-
         # Send start event on first event
         if not self.has_started:
             yield self._format_sse_event(
@@ -135,18 +122,20 @@ class StreamProtocolConverter:
         # Process event content parts
         if event.content and event.content.parts:
             for part in event.content.parts:
-                # Text content
-                if hasattr(part, "text") and part.text:
-                    for sse_event in self._process_text_part(part.text):
-                        yield sse_event
-
                 # Thought/Reasoning content (Gemini 2.0)
+                # - thought (boolean): indicates if this is a thought summary
+                # - text (string): contains the actual reasoning content when thought=True
                 if (
                     hasattr(part, "thought")
-                    and part.thought
-                    and isinstance(part.thought, str)
+                    and part.thought is True
+                    and hasattr(part, "text")
+                    and part.text
                 ):
-                    for sse_event in self._process_thought_part(part.thought):
+                    for sse_event in self._process_thought_part(part.text):
+                        yield sse_event
+                # Text content (regular answer when thought=False or None)
+                elif hasattr(part, "text") and part.text:
+                    for sse_event in self._process_text_part(part.text):
                         yield sse_event
 
                 # Function call (Tool call)
@@ -211,7 +200,9 @@ class StreamProtocolConverter:
             )
 
         events = [
-            self._format_sse_event({"type": f"{event_type_prefix}-start", "id": part_id}),
+            self._format_sse_event(
+                {"type": f"{event_type_prefix}-start", "id": part_id}
+            ),
             self._format_sse_event(
                 {"type": f"{event_type_prefix}-delta", "id": part_id, "delta": content}
             ),
@@ -422,7 +413,9 @@ class StreamProtocolConverter:
         """
         # Log PCM streaming completion
         if self.pcm_chunk_count > 0:
-            duration = self.pcm_total_bytes / (self.pcm_sample_rate or 24000) / 2  # 16-bit = 2 bytes per sample
+            duration = (
+                self.pcm_total_bytes / (self.pcm_sample_rate or 24000) / 2
+            )  # 16-bit = 2 bytes per sample
             logger.info(
                 f"[AUDIO PCM] Streaming completed: "
                 f"chunks={self.pcm_chunk_count}, "
