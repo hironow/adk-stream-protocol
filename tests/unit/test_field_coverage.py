@@ -95,6 +95,7 @@ METADATA_PART_FIELDS = {
 # Tests
 # =============================================================================
 
+
 def test_event_field_coverage():
     """Verify all Event fields are either implemented or documented as TODO."""
     event_sig = inspect.signature(Event)
@@ -162,6 +163,10 @@ def test_coverage_stats():
     part_coverage = (implemented_part_count / total_part_fields) * 100
 
     print("\n📊 Field Coverage Statistics:")
-    print(f"  Event: {implemented_event_count}/{total_event_fields} ({event_coverage:.1f}%)")
-    print(f"  Part:  {implemented_part_count}/{total_part_fields} ({part_coverage:.1f}%)")
+    print(
+        f"  Event: {implemented_event_count}/{total_event_fields} ({event_coverage:.1f}%)"
+    )
+    print(
+        f"  Part:  {implemented_part_count}/{total_part_fields} ({part_coverage:.1f}%)"
+    )
     print("\n✅ All fields accounted for (implemented, documented, or metadata)")

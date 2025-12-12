@@ -173,10 +173,12 @@ class StreamProtocolConverter:
             logger.error(
                 f"[ERROR] ADK error detected: {event.error_code} - {error_message}"
             )
-            yield self._format_sse_event({
-                "type": "error",
-                "error": {"code": event.error_code, "message": error_message},
-            })
+            yield self._format_sse_event(
+                {
+                    "type": "error",
+                    "error": {"code": event.error_code, "message": error_message},
+                }
+            )
             return
 
         # [INPUT] Log incoming ADK event
@@ -202,7 +204,7 @@ class StreamProtocolConverter:
             logger.debug(f"[convert_event INPUT] Could not pformat event: {e}")
 
         # Log content parts if present
-        if has_content and event.content.parts:
+        if has_content and event.content is not None and event.content.parts:
             for idx, part in enumerate(event.content.parts):
                 part_types = []
                 if hasattr(part, "text") and part.text:
@@ -229,7 +231,10 @@ class StreamProtocolConverter:
                         )
                 if hasattr(part, "executable_code") and part.executable_code:
                     part_types.append("executable_code")
-                if hasattr(part, "code_execution_result") and part.code_execution_result:
+                if (
+                    hasattr(part, "code_execution_result")
+                    and part.code_execution_result
+                ):
                     part_types.append("code_execution_result")
 
                 if part_types:
@@ -313,24 +318,24 @@ class StreamProtocolConverter:
                 if not self._input_text_block_started:
                     self._input_text_block_id = f"{self.message_id}_input_text"
                     self._input_text_block_started = True
-                    yield self._format_sse_event({
-                        "type": "text-start",
-                        "id": self._input_text_block_id
-                    })
+                    yield self._format_sse_event(
+                        {"type": "text-start", "id": self._input_text_block_id}
+                    )
 
                 # Send text-delta with the transcription text (AI SDK v6 protocol)
-                yield self._format_sse_event({
-                    "type": "text-delta",
-                    "id": self._input_text_block_id,
-                    "delta": transcription.text
-                })
+                yield self._format_sse_event(
+                    {
+                        "type": "text-delta",
+                        "id": self._input_text_block_id,
+                        "delta": transcription.text,
+                    }
+                )
 
                 # Send text-end if transcription is finished
                 if hasattr(transcription, "finished") and transcription.finished:
-                    yield self._format_sse_event({
-                        "type": "text-end",
-                        "id": self._input_text_block_id
-                    })
+                    yield self._format_sse_event(
+                        {"type": "text-end", "id": self._input_text_block_id}
+                    )
                     self._input_text_block_started = False
 
         # [EXPERIMENT] Output transcription (audio response text from native-audio models)
@@ -346,24 +351,24 @@ class StreamProtocolConverter:
                 if not self._output_text_block_started:
                     self._output_text_block_id = f"{self.message_id}_output_text"
                     self._output_text_block_started = True
-                    yield self._format_sse_event({
-                        "type": "text-start",
-                        "id": self._output_text_block_id
-                    })
+                    yield self._format_sse_event(
+                        {"type": "text-start", "id": self._output_text_block_id}
+                    )
 
                 # Send text-delta with the transcription text (AI SDK v6 protocol)
-                yield self._format_sse_event({
-                    "type": "text-delta",
-                    "id": self._output_text_block_id,
-                    "delta": transcription.text
-                })
+                yield self._format_sse_event(
+                    {
+                        "type": "text-delta",
+                        "id": self._output_text_block_id,
+                        "delta": transcription.text,
+                    }
+                )
 
                 # Send text-end if transcription is finished
                 if hasattr(transcription, "finished") and transcription.finished:
-                    yield self._format_sse_event({
-                        "type": "text-end",
-                        "id": self._output_text_block_id
-                    })
+                    yield self._format_sse_event(
+                        {"type": "text-end", "id": self._output_text_block_id}
+                    )
                     self._output_text_block_started = False
 
         # BIDI mode: Handle turn completion within convert_event
@@ -429,6 +434,11 @@ class StreamProtocolConverter:
         tool_name = function_call.name
         tool_args = function_call.args
 
+        # Ensure tool_name is not None
+        if tool_name is None:
+            logger.warning("[FUNCTION CALL] Tool name is None, skipping")
+            return []
+
         # Store mapping so function_response can use the same ID
         self.tool_call_id_map[tool_name] = tool_call_id
 
@@ -457,6 +467,12 @@ class StreamProtocolConverter:
         """Process function response into tool-output-available or tool-output-error event (AI SDK v6 spec)."""
         # Retrieve the tool call ID from the map to match with the function call
         tool_name = function_response.name
+
+        # Ensure tool_name is not None
+        if tool_name is None:
+            logger.warning("[FUNCTION RESPONSE] Tool name is None, skipping")
+            return []
+
         tool_call_id = self.tool_call_id_map.get(tool_name)
 
         # Fallback: generate new ID if not found (shouldn't happen in normal flow)
@@ -485,11 +501,13 @@ class StreamProtocolConverter:
 
         # Send error event if error detected
         if is_error:
-            event = self._format_sse_event({
-                "type": "tool-output-error",
-                "toolCallId": tool_call_id,
-                "errorText": str(error_message),
-            })
+            event = self._format_sse_event(
+                {
+                    "type": "tool-output-error",
+                    "toolCallId": tool_call_id,
+                    "errorText": str(error_message),
+                }
+            )
             logger.error(f"[TOOL ERROR] {tool_name}: {error_message}")
             return [event]
 
@@ -526,6 +544,11 @@ class StreamProtocolConverter:
     def _process_inline_data_part(self, inline_data: types.Blob) -> list[str]:
         """Process inline data (image or audio) as appropriate custom event."""
         import base64
+
+        # Ensure data is not None
+        if inline_data.data is None:
+            logger.warning("[INLINE DATA] Data is None, skipping")
+            return []
 
         mime_type = inline_data.mime_type or ""
 
@@ -584,12 +607,16 @@ class StreamProtocolConverter:
 
             # Use AI SDK v6 standard 'file' event with data URL
             # This matches the input format (symmetric input/output)
-            event = self._format_sse_event({
-                "type": "file",
-                "url": f"data:{mime_type};base64,{base64_content}",
-                "mediaType": mime_type,
-            })
-            logger.debug(f"[IMAGE OUTPUT] mime_type={mime_type}, size={len(inline_data.data)} bytes")
+            event = self._format_sse_event(
+                {
+                    "type": "file",
+                    "url": f"data:{mime_type};base64,{base64_content}",
+                    "mediaType": mime_type,
+                }
+            )
+            logger.debug(
+                f"[IMAGE OUTPUT] mime_type={mime_type}, size={len(inline_data.data)} bytes"
+            )
             return [event]
 
         # Unknown mime type - log warning and skip
@@ -628,19 +655,19 @@ class StreamProtocolConverter:
         else:
             # Close any open text blocks (input transcription)
             if self._input_text_block_started and self._input_text_block_id:
-                logger.debug(f"[INPUT TRANSCRIPTION] Closing text block in finalize: id={self._input_text_block_id}")
-                yield self._format_sse_event({
-                    "type": "text-end",
-                    "id": self._input_text_block_id
-                })
+                logger.debug(
+                    f"[INPUT TRANSCRIPTION] Closing text block in finalize: id={self._input_text_block_id}"
+                )
+                yield self._format_sse_event(
+                    {"type": "text-end", "id": self._input_text_block_id}
+                )
                 self._input_text_block_started = False
 
             # Close any open text blocks (output transcription)
             if self._output_text_block_started and self._output_text_block_id:
-                yield self._format_sse_event({
-                    "type": "text-end",
-                    "id": self._output_text_block_id
-                })
+                yield self._format_sse_event(
+                    {"type": "text-end", "id": self._output_text_block_id}
+                )
                 self._output_text_block_started = False
 
             # Build finish event
@@ -691,14 +718,18 @@ class StreamProtocolConverter:
                     for chunk in grounding_chunks:
                         if hasattr(chunk, "web"):
                             web = chunk.web
-                            sources.append({
-                                "type": "web",
-                                "uri": getattr(web, "uri", ""),
-                                "title": getattr(web, "title", ""),
-                            })
+                            sources.append(
+                                {
+                                    "type": "web",
+                                    "uri": getattr(web, "uri", ""),
+                                    "title": getattr(web, "title", ""),
+                                }
+                            )
                 if sources:
                     metadata["grounding"] = {"sources": sources}
-                    logger.debug(f"[GROUNDING] Added {len(sources)} grounding sources to metadata")
+                    logger.debug(
+                        f"[GROUNDING] Added {len(sources)} grounding sources to metadata"
+                    )
 
             # Add citations
             if citation_metadata:
@@ -706,15 +737,19 @@ class StreamProtocolConverter:
                 citation_sources = getattr(citation_metadata, "citation_sources", None)
                 if citation_sources:
                     for source in citation_sources:
-                        citations.append({
-                            "startIndex": getattr(source, "start_index", 0),
-                            "endIndex": getattr(source, "end_index", 0),
-                            "uri": getattr(source, "uri", ""),
-                            "license": getattr(source, "license", ""),
-                        })
+                        citations.append(
+                            {
+                                "startIndex": getattr(source, "start_index", 0),
+                                "endIndex": getattr(source, "end_index", 0),
+                                "uri": getattr(source, "uri", ""),
+                                "license": getattr(source, "license", ""),
+                            }
+                        )
                 if citations:
                     metadata["citations"] = citations
-                    logger.debug(f"[CITATIONS] Added {len(citations)} citations to metadata")
+                    logger.debug(
+                        f"[CITATIONS] Added {len(citations)} citations to metadata"
+                    )
 
             # Add cache metadata (context cache statistics)
             if cache_metadata:
@@ -724,7 +759,9 @@ class StreamProtocolConverter:
                     "hits": cache_hits,
                     "misses": cache_misses,
                 }
-                logger.debug(f"[CACHE] Added cache metadata: hits={cache_hits}, misses={cache_misses}")
+                logger.debug(
+                    f"[CACHE] Added cache metadata: hits={cache_hits}, misses={cache_misses}"
+                )
 
             # Add model version
             if model_version:
@@ -797,8 +834,12 @@ async def stream_adk_to_ai_sdk(
         error = error_list[-1] if error_list else None
         usage_metadata = usage_metadata_list[-1] if usage_metadata_list else None
         finish_reason = finish_reason_list[-1] if finish_reason_list else None
-        grounding_metadata = grounding_metadata_list[-1] if grounding_metadata_list else None
-        citation_metadata = citation_metadata_list[-1] if citation_metadata_list else None
+        grounding_metadata = (
+            grounding_metadata_list[-1] if grounding_metadata_list else None
+        )
+        citation_metadata = (
+            citation_metadata_list[-1] if citation_metadata_list else None
+        )
         cache_metadata = cache_metadata_list[-1] if cache_metadata_list else None
         model_version = model_version_list[-1] if model_version_list else None
 
@@ -817,4 +858,3 @@ async def stream_adk_to_ai_sdk(
             model_version=model_version,
         ):
             yield final_event
-

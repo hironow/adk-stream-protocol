@@ -42,6 +42,12 @@ interface AudioContextValue {
       bitDepth: number;
     }) => void;
     reset: () => void;
+    onComplete?: (metadata: {
+      chunks: number;
+      bytes: number;
+      sampleRate: number;
+      duration: number;
+    }) => void;
   };
   isReady: boolean;
   error: string | null;

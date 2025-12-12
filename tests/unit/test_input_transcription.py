@@ -167,7 +167,11 @@ class TestInputTranscription:
         # CRITICAL: Verify ID stability across multiple events
         # All text events (start/delta/end) MUST use the same text block ID
         # This prevents accidental use of event.id which changes per event
-        text_events = [e for e in parsed_events if e["type"] in ["text-start", "text-delta", "text-end"]]
+        text_events = [
+            e
+            for e in parsed_events
+            if e["type"] in ["text-start", "text-delta", "text-end"]
+        ]
         unique_ids = {e["id"] for e in text_events}
         assert len(unique_ids) == 1, (
             f"Text block ID must be stable across multiple events. "
@@ -221,7 +225,11 @@ class TestInputTranscription:
 
         # then: Text block ID MUST be the same despite different event.id
         parsed_events = [parse_sse_event(e) for e in all_events]
-        text_events = [e for e in parsed_events if e["type"] in ["text-start", "text-delta", "text-end"]]
+        text_events = [
+            e
+            for e in parsed_events
+            if e["type"] in ["text-start", "text-delta", "text-end"]
+        ]
 
         # Extract unique text block IDs
         unique_ids = {e["id"] for e in text_events}
@@ -262,6 +270,11 @@ class TestInputTranscription:
         # then: Should not generate any transcription events (text-start/delta/end)
         # but may generate other events like "start"
         parsed_events = [parse_sse_event(e) for e in events]
-        transcription_event_types = [e["type"] for e in parsed_events
-                                     if e["type"] in ["text-start", "text-delta", "text-end"]]
-        assert len(transcription_event_types) == 0, f"Unexpected transcription events: {transcription_event_types}"
+        transcription_event_types = [
+            e["type"]
+            for e in parsed_events
+            if e["type"] in ["text-start", "text-delta", "text-end"]
+        ]
+        assert len(transcription_event_types) == 0, (
+            f"Unexpected transcription events: {transcription_event_types}"
+        )

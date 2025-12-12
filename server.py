@@ -361,9 +361,7 @@ async def stream_agent_chat(messages: list[ChatMessage], user_id: str = "default
     - Usage metadata
     """
     # Reuse session for the same user (ADK manages conversation history)
-    session = await get_or_create_session(
-        user_id, sse_agent_runner, "agents"
-    )
+    session = await get_or_create_session(user_id, sse_agent_runner, "agents")
 
     # Extract last user message (ADK session already has full history)
     if not messages:
@@ -765,9 +763,7 @@ async def live_chat(websocket: WebSocket):
     logger.info("[BIDI] WebSocket connection established")
 
     # Create session for BIDI mode
-    session = await get_or_create_session(
-        "live_user", bidi_agent_runner, "agents"
-    )
+    session = await get_or_create_session("live_user", bidi_agent_runner, "agents")
 
     # Create LiveRequestQueue for bidirectional communication
     live_request_queue = LiveRequestQueue()
@@ -775,26 +771,48 @@ async def live_chat(websocket: WebSocket):
     # Configure response modality based on model type (following ADK bidi-demo pattern)
     # Native audio models require AUDIO modality with transcription config
     # Half-cascade models use TEXT modality for faster performance
+
+    # Check if using Vertex AI (session_resumption is only supported on Vertex AI)
+    use_vertexai = os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "0") == "1"
+
     model_name = bidi_agent.model
     if "native-audio" in model_name:
         logger.info(
             f"[BIDI] Detected native-audio model: {model_name}, using AUDIO modality with transcription"
         )
+        if use_vertexai:
+            logger.info("[BIDI] Using Vertex AI with session resumption enabled")
+        else:
+            logger.info(
+                "[BIDI] Using Google AI Studio (session resumption not available)"
+            )
+
         run_config = RunConfig(
             streaming_mode=StreamingMode.BIDI,
-            response_modalities=["AUDIO"],  # Use string to avoid Pydantic serialization warning
+            response_modalities=["AUDIO"],
             input_audio_transcription=types.AudioTranscriptionConfig(),
             output_audio_transcription=types.AudioTranscriptionConfig(),
-            session_resumption=types.SessionResumptionConfig(),
+            session_resumption=types.SessionResumptionConfig()
+            if use_vertexai
+            else None,
         )
     else:
         logger.info(f"[BIDI] Using TEXT modality for model: {model_name}")
+        if use_vertexai:
+            logger.info("[BIDI] Using Vertex AI with session resumption enabled")
+        else:
+            logger.info(
+                "[BIDI] Using Google AI Studio (session resumption not available)"
+            )
+
         run_config = RunConfig(
             streaming_mode=StreamingMode.BIDI,
-            response_modalities=["TEXT"],  # Use string to avoid Pydantic serialization warning
+            response_modalities=["TEXT"],
             input_audio_transcription=None,
             output_audio_transcription=None,
-            session_resumption=types.SessionResumptionConfig(),
+            session_resumption=types.SessionResumptionConfig()
+            if use_vertexai
+            else None,
         )
 
     try:

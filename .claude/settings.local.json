@@ -53,7 +53,8 @@
       "Bash(just check-coverage-verbose:*)",
       "Bash(just lint:*)",
       "Bash(git add:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(just:*)"
     ],
     "deny": [],
     "ask": []

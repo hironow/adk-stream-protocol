@@ -17,6 +17,18 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "mypy>=1.19.0",
     "pytest>=9.0.2",
     "pytest-asyncio>=1.3.0",
+]
+
+[tool.mypy]
+python_version = "3.13"
+explicit_package_bases = true
+mypy_path = "."
+exclude = [
+    "node_modules",
+    ".venv",
+    "build",
+    "dist",
 ]

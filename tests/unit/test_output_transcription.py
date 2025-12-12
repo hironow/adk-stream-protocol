@@ -69,7 +69,10 @@ class TestOutputTranscriptionRealResponse:
                         "id": "test_text",
                         "delta": "Test transcription with finish marker",
                     },
-                    {"type": "text-end", "id": "test_text"},  # text-end because finished=True
+                    {
+                        "type": "text-end",
+                        "id": "test_text",
+                    },  # text-end because finished=True
                 ],
                 id="transcription_finished_true",
             ),
@@ -161,7 +164,9 @@ class TestOutputTranscriptionRealResponse:
             mock_event.turn_complete = None
             mock_event.usage_metadata = None
             mock_event.finish_reason = None
-            mock_event.output_transcription = MockTranscription(text=text, finished=finished)
+            mock_event.output_transcription = MockTranscription(
+                text=text, finished=finished
+            )
 
             async for event in converter.convert_event(mock_event):
                 all_events.append(event)
@@ -191,7 +196,9 @@ class TestOutputTranscriptionRealResponse:
         # CRITICAL: Verify ID stability across multiple events
         # All text events (start/delta/end) MUST use the same text block ID
         # This prevents accidental use of event.id which changes per event
-        text_events = [e for e in parsed if e["type"] in ["text-start", "text-delta", "text-end"]]
+        text_events = [
+            e for e in parsed if e["type"] in ["text-start", "text-delta", "text-end"]
+        ]
         unique_ids = {e["id"] for e in text_events}
         assert len(unique_ids) == 1, (
             f"Text block ID must be stable across multiple events. "
@@ -227,7 +234,9 @@ class TestOutputTranscriptionRealResponse:
         mock_event1.turn_complete = None
         mock_event1.usage_metadata = None
         mock_event1.finish_reason = None
-        mock_event1.output_transcription = MockTranscription("First part", finished=False)
+        mock_event1.output_transcription = MockTranscription(
+            "First part", finished=False
+        )
 
         mock_event2 = Mock(spec=Event)
         mock_event2.id = "event-beta"  # Different ID
@@ -235,7 +244,9 @@ class TestOutputTranscriptionRealResponse:
         mock_event2.turn_complete = None
         mock_event2.usage_metadata = None
         mock_event2.finish_reason = None
-        mock_event2.output_transcription = MockTranscription("Second part", finished=True)
+        mock_event2.output_transcription = MockTranscription(
+            "Second part", finished=True
+        )
 
         # when: Convert events with DIFFERENT event.id values
         all_events = []
@@ -245,7 +256,11 @@ class TestOutputTranscriptionRealResponse:
 
         # then: Text block ID MUST be the same despite different event.id
         parsed_events = [parse_sse_event(e) for e in all_events]
-        text_events = [e for e in parsed_events if e["type"] in ["text-start", "text-delta", "text-end"]]
+        text_events = [
+            e
+            for e in parsed_events
+            if e["type"] in ["text-start", "text-delta", "text-end"]
+        ]
 
         # Extract unique text block IDs
         unique_ids = {e["id"] for e in text_events}

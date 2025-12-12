@@ -87,7 +87,9 @@ def create_executable_code_part(language: types.Language, code: str) -> types.Pa
     return types.Part(executable_code=executable_code)
 
 
-def create_code_execution_result_part(outcome: types.Outcome, output: str) -> types.Part:
+def create_code_execution_result_part(
+    outcome: types.Outcome, output: str
+) -> types.Part:
     """Create real ADK Part with code execution result."""
     code_result = types.CodeExecutionResult(outcome=outcome, output=output)
     return types.Part(code_execution_result=code_result)
@@ -355,9 +357,9 @@ class TestToolExecutionConversion:
 
         # Extract toolCallIds
         call_start = [e for e in call_parsed if e["type"] == "tool-input-start"][0]
-        call_available = [e for e in call_parsed if e["type"] == "tool-input-available"][
-            0
-        ]
+        call_available = [
+            e for e in call_parsed if e["type"] == "tool-input-available"
+        ][0]
         result_available = [
             e for e in result_parsed if e["type"] == "tool-output-available"
         ][0]
@@ -785,10 +787,17 @@ class TestMessageControlConversion:
 
         finish_event = finish_events[0]
         assert finish_event["type"] == "finish"
-        assert "messageMetadata" in finish_event, "finish event must include messageMetadata field"
-        assert "usage" in finish_event["messageMetadata"], "messageMetadata must include usage field"
+        assert "messageMetadata" in finish_event, (
+            "finish event must include messageMetadata field"
+        )
+        assert "usage" in finish_event["messageMetadata"], (
+            "messageMetadata must include usage field"
+        )
         assert finish_event["messageMetadata"]["usage"]["promptTokens"] == prompt_tokens
-        assert finish_event["messageMetadata"]["usage"]["completionTokens"] == completion_tokens
+        assert (
+            finish_event["messageMetadata"]["usage"]["completionTokens"]
+            == completion_tokens
+        )
         assert finish_event["messageMetadata"]["usage"]["totalTokens"] == expected_total
 
 
@@ -1060,7 +1069,9 @@ class TestMetadataInFinishEvent:
         mock_event = Mock(spec=Event)
         mock_event.error_code = None
         mock_event.grounding_metadata = mock_grounding
-        mock_event.content = types.Content(role="model", parts=[types.Part(text="Response")])
+        mock_event.content = types.Content(
+            role="model", parts=[types.Part(text="Response")]
+        )
 
         # when: Stream events through converter
         events = []
@@ -1117,7 +1128,9 @@ class TestMetadataInFinishEvent:
         mock_event = Mock(spec=Event)
         mock_event.error_code = None
         mock_event.citation_metadata = mock_citation
-        mock_event.content = types.Content(role="model", parts=[types.Part(text="Response")])
+        mock_event.content = types.Content(
+            role="model", parts=[types.Part(text="Response")]
+        )
 
         # when: Stream events through converter
         events = []
@@ -1169,7 +1182,9 @@ class TestMetadataInFinishEvent:
         mock_event = Mock(spec=Event)
         mock_event.error_code = None
         mock_event.cache_metadata = mock_cache
-        mock_event.content = types.Content(role="model", parts=[types.Part(text="Response")])
+        mock_event.content = types.Content(
+            role="model", parts=[types.Part(text="Response")]
+        )
 
         # when: Stream events through converter
         events = []
@@ -1211,7 +1226,9 @@ class TestMetadataInFinishEvent:
         mock_event = Mock(spec=Event)
         mock_event.error_code = None
         mock_event.model_version = "gemini-2.0-flash-001"
-        mock_event.content = types.Content(role="model", parts=[types.Part(text="Response")])
+        mock_event.content = types.Content(
+            role="model", parts=[types.Part(text="Response")]
+        )
 
         # when: Stream events through converter
         events = []
@@ -1288,9 +1305,9 @@ class TestFinishReasonMapping:
         # when/then: All real enum values should map correctly
         for finish_reason, expected in test_cases:
             result = map_adk_finish_reason_to_ai_sdk(finish_reason)
-            assert (
-                result == expected
-            ), f"Expected {finish_reason.name} → {expected}, got {result}"
+            assert result == expected, (
+                f"Expected {finish_reason.name} → {expected}, got {result}"
+            )
 
     def test_finish_reason_unknown_fallback(self):
         """

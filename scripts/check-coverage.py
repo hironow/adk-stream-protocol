@@ -209,7 +209,9 @@ class AISdkExtractor:
         # Expected format: - `stop`: ...
         #                  - `length`: ...
         #                  - `content-filter`: ...
-        finish_reason_pattern = r"-\s+`(stop|length|content-filter|tool-calls|error|other)`:\s+"
+        finish_reason_pattern = (
+            r"-\s+`(stop|length|content-filter|tool-calls|error|other)`:\s+"
+        )
         matches = re.finditer(finish_reason_pattern, content)
 
         finish_reasons = set()
@@ -302,7 +304,9 @@ class ADKAnalyzer:
         # Find reason_map definition (Enum-based pattern)
         # Pattern: types.FinishReason.REASON_NAME: AISdkFinishReason.VALUE,
         reason_map = {}
-        reason_map_pattern = r"types\.FinishReason\.([A-Z_]+):\s*AISdkFinishReason\.([A-Z_]+)"
+        reason_map_pattern = (
+            r"types\.FinishReason\.([A-Z_]+):\s*AISdkFinishReason\.([A-Z_]+)"
+        )
         for match in re.finditer(reason_map_pattern, content):
             adk_reason = match.group(1)  # e.g., "STOP", "MAX_TOKENS"
             ai_sdk_enum = match.group(2)  # e.g., "STOP", "LENGTH"

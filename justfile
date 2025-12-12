@@ -22,12 +22,21 @@ dev:
     @echo "Frontend: http://localhost:3000"
     just --jobs 2 server frontend
 
+# Format all code (Python only - frontend has no format script)
+format: format-python
+
+# Run linting for all code (Python + frontend)
+lint: lint-python lint-frontend
+
+# Run type checking for all code (Python only)
+typecheck: typecheck-python
+
 # Run linting for Python
 lint-python:
     uv run ruff check --fix .
 
 # Format Python code
-fmt-python:
+format-python:
     uv run ruff format .
 
 # Run type checking for Python
