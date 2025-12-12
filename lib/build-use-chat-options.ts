@@ -75,7 +75,6 @@ export function buildUseChatOptions({
     case "adk-bidi":
       apiEndpoint = `${adkBackendUrl.replace(/^http/, "ws")}/live`;
       break;
-    case "gemini":
     default:
       apiEndpoint = "/api/chat";
       break;
@@ -91,7 +90,7 @@ export function buildUseChatOptions({
   // Create WebSocket transport for BIDI mode
   let websocketTransport: WebSocketChatTransport | undefined;
   if (mode === "adk-bidi") {
-    const wsUrl = adkBackendUrl.replace(/^http/, "ws") + "/live";
+    const wsUrl = `${adkBackendUrl.replace(/^http/, "ws")}/live`;
     debugLog("Creating WebSocket transport:", wsUrl);
     websocketTransport = new WebSocketChatTransport({
       url: wsUrl,

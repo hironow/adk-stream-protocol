@@ -90,7 +90,7 @@ class PCMPlayerProcessor extends AudioWorkletProcessor {
    * Process audio output continuously.
    * Called by Web Audio API for each audio block (128 frames).
    */
-  process(inputs, outputs, parameters) {
+  process(_inputs, outputs, _parameters) {
     const output = outputs[0];
     if (!output || output.length === 0) {
       return true;

@@ -10,8 +10,8 @@ export const maxDuration = 30;
 // Same tools as ADK Agent for consistent behavior
 
 // File-based cache for weather data (to avoid API usage during E2E tests)
-import { promises as fs } from "fs";
-import path from "path";
+import { promises as fs } from "node:fs";
+import path from "node:path";
 
 const WEATHER_CACHE_TTL = 43200000; // 12 hours in milliseconds
 const CACHE_DIR = path.join(process.cwd(), ".cache");
@@ -19,7 +19,7 @@ const CACHE_DIR = path.join(process.cwd(), ".cache");
 async function ensureCacheDir() {
   try {
     await fs.mkdir(CACHE_DIR, { recursive: true });
-  } catch (err) {
+  } catch (_err) {
     // Directory already exists, ignore
   }
 }
@@ -37,7 +37,7 @@ async function getWeatherFromCache(location: string): Promise<any | null> {
     if (Date.now() - cached.timestamp < WEATHER_CACHE_TTL) {
       return cached.data;
     }
-  } catch (err) {
+  } catch (_err) {
     // Cache miss or expired
   }
   return null;

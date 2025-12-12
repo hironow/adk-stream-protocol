@@ -5,8 +5,8 @@
  * These helpers interact with real UI elements (no mocks).
  */
 
+import path from "node:path";
 import { expect, type Page } from "@playwright/test";
-import path from "path";
 
 export type BackendMode = "gemini" | "adk-sse" | "adk-bidi";
 
@@ -145,7 +145,7 @@ export async function createTestImageFixture() {
   // This would typically be done in test setup
   // For now, we'll assume the image exists in tests/e2e/fixtures/
   const fixturesDir = path.join(__dirname, "fixtures");
-  const fs = await import("fs");
+  const fs = await import("node:fs");
   if (!fs.existsSync(fixturesDir)) {
     fs.mkdirSync(fixturesDir, { recursive: true });
   }

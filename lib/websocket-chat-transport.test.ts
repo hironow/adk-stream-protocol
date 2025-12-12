@@ -9,7 +9,6 @@
  * https://v6.ai-sdk.dev/docs/ai-sdk-ui/stream-protocol
  */
 
-import type { UIMessageChunk } from "ai";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { WebSocketChatTransport } from "./websocket-chat-transport";
 

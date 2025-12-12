@@ -1,6 +1,6 @@
 // Create a simple test image (1x1 green pixel PNG)
-const fs = require("fs");
-const path = require("path");
+const fs = require("node:fs");
+const path = require("node:path");
 
 // 1x1 green pixel PNG (base64)
 const greenPixelBase64 =
