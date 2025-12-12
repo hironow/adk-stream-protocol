@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import asyncio
 import base64
-import json
 from typing import Any
 from unittest.mock import Mock
 
@@ -20,35 +19,16 @@ import pytest
 from google.adk.events import Event
 from google.genai import types
 
-from stream_protocol import StreamProtocolConverter
-
-
-def parse_sse_event(sse_string: str) -> dict[str, Any]:
-    """Parse SSE format 'data: {json}\\n\\n' to dict."""
-    if sse_string.startswith("data: "):
-        data_part = sse_string[6:].strip()
-        if data_part == "[DONE]":
-            return {"type": "DONE"}
-        return json.loads(data_part)
-    msg = f"Invalid SSE format: {sse_string}"
-    raise ValueError(msg)
-
-
-def create_mock_part(**kwargs: Any) -> Mock:
-    """Create a mock part with all attributes set to None/False, then override with kwargs."""
-    part = Mock()
-    part.text = kwargs.get("text", None)
-    part.thought = kwargs.get("thought", False)
-    part.function_call = kwargs.get("function_call", None)
-    part.function_response = kwargs.get("function_response", None)
-    part.executable_code = kwargs.get("executable_code", None)
-    part.code_execution_result = kwargs.get("code_execution_result", None)
-    part.inline_data = kwargs.get("inline_data", None)
-    return part
+from stream_protocol import (
+    StreamProtocolConverter,
+    map_adk_finish_reason_to_ai_sdk,
+    stream_adk_to_ai_sdk,
+)
+from tests.utils import parse_sse_event
 
 
 async def convert_and_collect(
-    converter: StreamProtocolConverter, event: Mock | Event
+    converter: StreamProtocolConverter, event: Event
 ) -> list[str]:
     """Helper to convert event and collect all SSE strings."""
     events = []
@@ -99,6 +79,18 @@ def create_inline_data_part(mime_type: str, data: bytes) -> types.Part:
     """Create real ADK Part with inline data (image/binary)."""
     blob = types.Blob(mime_type=mime_type, data=data)
     return types.Part(inline_data=blob)
+
+
+def create_executable_code_part(language: types.Language, code: str) -> types.Part:
+    """Create real ADK Part with executable code."""
+    executable_code = types.ExecutableCode(language=language, code=code)
+    return types.Part(executable_code=executable_code)
+
+
+def create_code_execution_result_part(outcome: types.Outcome, output: str) -> types.Part:
+    """Create real ADK Part with code execution result."""
+    code_result = types.CodeExecutionResult(outcome=outcome, output=output)
+    return types.Part(code_execution_result=code_result)
 
 
 def create_content(role: str, parts: list[types.Part]) -> types.Content:
@@ -414,16 +406,13 @@ class TestAudioContentConversion:
         """
         converter = StreamProtocolConverter()
 
-        # Create event with PCM audio
-        mock_blob = types.Blob(mime_type=mime_type, data=audio_data)
-        part = create_mock_part(inline_data=mock_blob)
-        mock_content = Mock()
-        mock_content.parts = [part]
-        mock_event = Mock(spec=Event)
-        mock_event.content = mock_content
+        # Create event with PCM audio (using real ADK types)
+        part = create_inline_data_part(mime_type=mime_type, data=audio_data)
+        content = create_content(role="model", parts=[part])
+        event = create_event(author="model", content=content)
 
         # Convert event
-        events = asyncio.run(convert_and_collect(converter, mock_event))
+        events = asyncio.run(convert_and_collect(converter, event))
 
         # Verify event sequence
         parsed_events = [parse_sse_event(e) for e in events]
@@ -473,16 +462,13 @@ class TestAudioContentConversion:
         """
         converter = StreamProtocolConverter()
 
-        # Create event with non-PCM audio
-        mock_blob = types.Blob(mime_type=mime_type, data=audio_data)
-        part = create_mock_part(inline_data=mock_blob)
-        mock_content = Mock()
-        mock_content.parts = [part]
-        mock_event = Mock(spec=Event)
-        mock_event.content = mock_content
+        # Create event with non-PCM audio (using real ADK types)
+        part = create_inline_data_part(mime_type=mime_type, data=audio_data)
+        content = create_content(role="model", parts=[part])
+        event = create_event(author="model", content=content)
 
         # Convert event
-        events = asyncio.run(convert_and_collect(converter, mock_event))
+        events = asyncio.run(convert_and_collect(converter, event))
 
         # Verify event sequence
         parsed_events = [parse_sse_event(e) for e in events]
@@ -514,10 +500,10 @@ class TestImageContentConversion:
     )
     def test_image_output_events(self, mime_type: str, image_format: str):
         """
-        Test: ADK inline_data (image) → AI SDK v6 data-image custom event
+        Test: ADK inline_data (image) → AI SDK v6 file event
 
         Coverage: reviews.md Section 5 - Image Content
-        - data-image (custom)
+        - file (AI SDK v6 standard for images)
         """
         converter = StreamProtocolConverter()
 
@@ -527,31 +513,30 @@ class TestImageContentConversion:
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg=="
         )
 
-        # Create event with image
-        mock_blob = types.Blob(mime_type=mime_type, data=png_data)
-        part = create_mock_part(inline_data=mock_blob)
-        mock_content = Mock()
-        mock_content.parts = [part]
-        mock_event = Mock(spec=Event)
-        mock_event.content = mock_content
+        # Create event with image (using real ADK types)
+        part = create_inline_data_part(mime_type=mime_type, data=png_data)
+        content = create_content(role="model", parts=[part])
+        event = create_event(author="model", content=content)
 
         # Convert event
-        events = asyncio.run(convert_and_collect(converter, mock_event))
+        events = asyncio.run(convert_and_collect(converter, event))
 
         # Verify event sequence
         parsed_events = [parse_sse_event(e) for e in events]
 
-        # Find data-image event
-        image_events = [e for e in parsed_events if e["type"] == "data-image"]
-        assert len(image_events) == 1
+        # Find file event (AI SDK v6 standard)
+        file_events = [e for e in parsed_events if e["type"] == "file"]
+        assert len(file_events) == 1
 
-        image_event = image_events[0]
-        assert "data" in image_event
-        assert image_event["data"]["mediaType"] == mime_type
-        assert "content" in image_event["data"]
+        file_event = file_events[0]
+        assert "url" in file_event
+        assert file_event["url"].startswith(f"data:{mime_type};base64,")
+        assert "mediaType" in file_event
+        assert file_event["mediaType"] == mime_type
 
         # Verify base64 encoding
-        decoded = base64.b64decode(image_event["data"]["content"])
+        base64_part = file_event["url"].split(",", 1)[1]
+        decoded = base64.b64decode(base64_part)
         assert decoded == png_data
 
 
@@ -562,21 +547,15 @@ class TestCodeExecutionConversion:
         "language,code,expected_event_type",
         [
             pytest.param(
-                "python",
+                types.Language.PYTHON,
                 "print('hello')",
                 "data-executable-code",
                 id="code-python",
             ),
-            pytest.param(
-                "javascript",
-                "console.log('hello')",
-                "data-executable-code",
-                id="code-javascript",
-            ),
         ],
     )
     def test_executable_code_events(
-        self, language: str, code: str, expected_event_type: str
+        self, language: types.Language, code: str, expected_event_type: str
     ):
         """
         Test: ADK executable_code → AI SDK v6 data-executable-code custom event
@@ -588,19 +567,13 @@ class TestCodeExecutionConversion:
         """
         converter = StreamProtocolConverter()
 
-        # Create event with executable code
-        mock_code = Mock(spec=types.ExecutableCode)
-        mock_code.language = language
-        mock_code.code = code
-
-        part = create_mock_part(executable_code=mock_code)
-        mock_content = Mock()
-        mock_content.parts = [part]
-        mock_event = Mock(spec=Event)
-        mock_event.content = mock_content
+        # Create event with executable code (using real ADK types)
+        part = create_executable_code_part(language=language, code=code)
+        content = create_content(role="model", parts=[part])
+        event = create_event(author="model", content=content)
 
         # Convert event
-        events = asyncio.run(convert_and_collect(converter, mock_event))
+        events = asyncio.run(convert_and_collect(converter, event))
 
         # Verify event sequence
         parsed_events = [parse_sse_event(e) for e in events]
@@ -618,13 +591,13 @@ class TestCodeExecutionConversion:
         "outcome,output,expected_event_type",
         [
             pytest.param(
-                "OUTCOME_OK",
+                types.Outcome.OUTCOME_OK,
                 "Output text",
                 "data-code-execution-result",
                 id="code-result-success",
             ),
             pytest.param(
-                "OUTCOME_FAILED",
+                types.Outcome.OUTCOME_FAILED,
                 "Error message",
                 "data-code-execution-result",
                 id="code-result-error",
@@ -632,7 +605,7 @@ class TestCodeExecutionConversion:
         ],
     )
     def test_code_execution_result_events(
-        self, outcome: str, output: str, expected_event_type: str
+        self, outcome: types.Outcome, output: str, expected_event_type: str
     ):
         """
         Test: ADK code_execution_result → AI SDK v6 data-code-execution-result custom event
@@ -644,19 +617,13 @@ class TestCodeExecutionConversion:
         """
         converter = StreamProtocolConverter()
 
-        # Create event with code execution result
-        mock_result = Mock(spec=types.CodeExecutionResult)
-        mock_result.outcome = outcome
-        mock_result.output = output
-
-        part = create_mock_part(code_execution_result=mock_result)
-        mock_content = Mock()
-        mock_content.parts = [part]
-        mock_event = Mock(spec=Event)
-        mock_event.content = mock_content
+        # Create event with code execution result (using real ADK types)
+        part = create_code_execution_result_part(outcome=outcome, output=output)
+        content = create_content(role="model", parts=[part])
+        event = create_event(author="model", content=content)
 
         # Convert event
-        events = asyncio.run(convert_and_collect(converter, mock_event))
+        events = asyncio.run(convert_and_collect(converter, event))
 
         # Verify event sequence
         parsed_events = [parse_sse_event(e) for e in events]
@@ -841,34 +808,26 @@ class TestMultiPartMessages:
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg=="
         )
 
-        # Create text part
-        text_part = create_mock_part(text="Here is an image:")
-
-        # Create image part
-        image_part = create_mock_part(
-            inline_data=types.Blob(mime_type="image/png", data=png_data)
-        )
-
-        mock_content = Mock()
-        mock_content.parts = [text_part, image_part]
-
-        mock_event = Mock(spec=Event)
-        mock_event.content = mock_content
+        # Create multi-part message (using real ADK types)
+        text_part = create_text_part("Here is an image:")
+        image_part = create_inline_data_part(mime_type="image/png", data=png_data)
+        content = create_content(role="model", parts=[text_part, image_part])
+        event = create_event(author="model", content=content)
 
         # Convert event
-        events = asyncio.run(convert_and_collect(converter, mock_event))
+        events = asyncio.run(convert_and_collect(converter, event))
 
         # Verify event sequence
         parsed_events = [parse_sse_event(e) for e in events]
         event_types = [e["type"] for e in parsed_events]
 
-        # Should have: start, text-start, text-delta, text-end, data-image
+        # Should have: start, text-start, text-delta, text-end, file (AI SDK v6 standard)
         assert event_types == [
             "start",
             "text-start",
             "text-delta",
             "text-end",
-            "data-image",
+            "file",
         ]
 
         # Verify text content
@@ -876,8 +835,9 @@ class TestMultiPartMessages:
         assert text_delta["delta"] == "Here is an image:"
 
         # Verify image content
-        image_event = [e for e in parsed_events if e["type"] == "data-image"][0]
-        assert image_event["data"]["mediaType"] == "image/png"
+        file_event = [e for e in parsed_events if e["type"] == "file"][0]
+        assert file_event["mediaType"] == "image/png"
+        assert file_event["url"].startswith("data:image/png;base64,")
 
     def test_text_and_tool_call_combined(self):
         """
@@ -887,23 +847,14 @@ class TestMultiPartMessages:
         """
         converter = StreamProtocolConverter()
 
-        # Create text part
-        text_part = create_mock_part(text="Let me check the weather.")
-
-        # Create tool call part
-        mock_function_call = Mock(spec=types.FunctionCall)
-        mock_function_call.name = "get_weather"
-        mock_function_call.args = {"location": "Tokyo"}
-        tool_part = create_mock_part(function_call=mock_function_call)
-
-        mock_content = Mock()
-        mock_content.parts = [text_part, tool_part]
-
-        mock_event = Mock(spec=Event)
-        mock_event.content = mock_content
+        # Create multi-part message with text and tool call (using real ADK types)
+        text_part = create_text_part("Let me check the weather.")
+        tool_part = create_function_call_part("get_weather", {"location": "Tokyo"})
+        content = create_content(role="model", parts=[text_part, tool_part])
+        event = create_event(author="model", content=content)
 
         # Convert event
-        events = asyncio.run(convert_and_collect(converter, mock_event))
+        events = asyncio.run(convert_and_collect(converter, event))
 
         # Verify event sequence
         parsed_events = [parse_sse_event(e) for e in events]
@@ -923,18 +874,14 @@ class TestMultiPartMessages:
         """
         converter = StreamProtocolConverter()
 
-        # Create multiple text parts
-        part1 = create_mock_part(text="First")
-        part2 = create_mock_part(text="Second")
-
-        mock_content = Mock()
-        mock_content.parts = [part1, part2]
-
-        mock_event = Mock(spec=Event)
-        mock_event.content = mock_content
+        # Create multiple text parts (using real ADK types)
+        part1 = create_text_part("First")
+        part2 = create_text_part("Second")
+        content = create_content(role="model", parts=[part1, part2])
+        event = create_event(author="model", content=content)
 
         # Convert event
-        events = asyncio.run(convert_and_collect(converter, mock_event))
+        events = asyncio.run(convert_and_collect(converter, event))
 
         # Extract all text-start events
         parsed_events = [parse_sse_event(e) for e in events]
@@ -946,3 +893,421 @@ class TestMultiPartMessages:
         # Verify we have 2 unique IDs
         assert len(text_start_ids) == 2
         assert text_start_ids[0] != text_start_ids[1]
+
+
+class TestToolErrorHandling:
+    """Test Category 8: Tool Error Handling (Phase 2 - P2-T5)"""
+
+    def test_tool_execution_error_with_success_false(self):
+        """
+        Test: Tool response with success=false → tool-output-error event
+
+        Coverage: Phase 2 P2-T5 - Tool Error Handling
+        - Tool response with success=false pattern
+        """
+        # given: Tool response with error (success=false pattern)
+        converter = StreamProtocolConverter()
+
+        # First, simulate function call to register tool_call_id
+        function_call = types.FunctionCall(
+            name="calculate", args={"expression": "invalid / syntax"}
+        )
+        function_call_event = Mock(spec=Event)
+        function_call_event.error_code = None
+        function_call_event.content = types.Content(
+            role="model", parts=[types.Part(function_call=function_call)]
+        )
+
+        # Process function call to register tool_call_id
+        asyncio.run(convert_and_collect(converter, function_call_event))
+
+        # Now simulate function response with error
+        function_response = types.FunctionResponse(
+            name="calculate",
+            response={
+                "expression": "invalid / syntax",
+                "error": "Invalid expression: syntax error",
+                "success": False,
+            },
+        )
+        mock_event = Mock(spec=Event)
+        mock_event.error_code = None
+        mock_event.content = types.Content(
+            role="function", parts=[types.Part(function_response=function_response)]
+        )
+
+        # when: Convert event
+        events = asyncio.run(convert_and_collect(converter, mock_event))
+
+        # then: Should have tool-output-error event
+        assert len(events) == 1
+
+        parsed = parse_sse_event(events[0])
+        assert parsed["type"] == "tool-output-error"
+        assert "toolCallId" in parsed
+        assert parsed["errorText"] == "Invalid expression: syntax error"
+
+    def test_tool_execution_error_with_error_field(self):
+        """
+        Test: Tool response with error field (no result) → tool-output-error event
+
+        Coverage: Phase 2 P2-T5 - Tool Error Handling
+        - Tool response with error field pattern
+        """
+        # given: Tool response with error field pattern
+        converter = StreamProtocolConverter()
+
+        # Register tool_call_id
+        function_call = types.FunctionCall(
+            name="get_weather", args={"city": "InvalidCity123"}
+        )
+        function_call_event = Mock(spec=Event)
+        function_call_event.error_code = None
+        function_call_event.content = types.Content(
+            role="model", parts=[types.Part(function_call=function_call)]
+        )
+
+        asyncio.run(convert_and_collect(converter, function_call_event))
+
+        # Function response with error (no result field)
+        function_response = types.FunctionResponse(
+            name="get_weather",
+            response={"error": "City not found: InvalidCity123"},
+        )
+        mock_event = Mock(spec=Event)
+        mock_event.error_code = None
+        mock_event.content = types.Content(
+            role="function", parts=[types.Part(function_response=function_response)]
+        )
+
+        # when: Convert event
+        events = asyncio.run(convert_and_collect(converter, mock_event))
+
+        # then: Should have tool-output-error event
+        assert len(events) == 1
+
+        parsed = parse_sse_event(events[0])
+        assert parsed["type"] == "tool-output-error"
+        assert "toolCallId" in parsed
+        assert parsed["errorText"] == "City not found: InvalidCity123"
+
+    def test_tool_success_response_unchanged(self):
+        """
+        Test: Successful tool response → tool-output-available (not error)
+
+        Coverage: Phase 2 P2-T5 - Tool Error Handling
+        - Ensures successful responses are not affected
+        """
+        # given: Successful tool response
+        converter = StreamProtocolConverter()
+
+        # Register tool_call_id
+        function_call = types.FunctionCall(
+            name="calculate", args={"expression": "2 + 2"}
+        )
+        function_call_event = Mock(spec=Event)
+        function_call_event.error_code = None
+        function_call_event.content = types.Content(
+            role="model", parts=[types.Part(function_call=function_call)]
+        )
+
+        asyncio.run(convert_and_collect(converter, function_call_event))
+
+        # Function response with success
+        function_response = types.FunctionResponse(
+            name="calculate",
+            response={"expression": "2 + 2", "result": 4, "success": True},
+        )
+        mock_event = Mock(spec=Event)
+        mock_event.error_code = None
+        mock_event.content = types.Content(
+            role="function", parts=[types.Part(function_response=function_response)]
+        )
+
+        # when: Convert event
+        events = asyncio.run(convert_and_collect(converter, mock_event))
+
+        # then: Should have tool-output-available event (NOT error)
+        assert len(events) == 1
+
+        parsed = parse_sse_event(events[0])
+        assert parsed["type"] == "tool-output-available"
+        assert "toolCallId" in parsed
+        assert parsed["output"]["success"] is True
+        assert parsed["output"]["result"] == 4
+
+
+class TestMetadataInFinishEvent:
+    """Test Category 9: Metadata in Finish Event (Phase 2 - P2-T8)"""
+
+    def test_message_metadata_with_grounding(self):
+        """
+        Test: grounding_metadata → messageMetadata.grounding in finish event
+
+        Coverage: Phase 2 P2-T8 - Message Metadata Implementation
+        - Grounding sources (RAG, web search)
+        """
+
+        # given: Mock grounding metadata
+        mock_grounding = Mock()
+        mock_chunk = Mock()
+        mock_chunk.web = Mock()
+        mock_chunk.web.uri = "https://example.com/article"
+        mock_chunk.web.title = "Example Article"
+        mock_grounding.grounding_chunks = [mock_chunk]
+
+        # Create mock event with grounding metadata
+        mock_event = Mock(spec=Event)
+        mock_event.error_code = None
+        mock_event.grounding_metadata = mock_grounding
+        mock_event.content = types.Content(role="model", parts=[types.Part(text="Response")])
+
+        # when: Stream events through converter
+        events = []
+
+        async def collect():
+            # Create async generator from single event
+            async def event_stream():
+                yield mock_event
+
+            async for sse_event in stream_adk_to_ai_sdk(event_stream()):
+                events.append(sse_event)
+
+        asyncio.run(collect())
+
+        # then: Finish event should contain grounding metadata
+        finish_event = None
+        for event_str in events:
+            parsed = parse_sse_event(event_str)
+            if parsed and parsed.get("type") == "finish":
+                finish_event = parsed
+                break
+
+        assert finish_event is not None, "Finish event not found"
+        assert "messageMetadata" in finish_event
+        assert "grounding" in finish_event["messageMetadata"]
+
+        grounding = finish_event["messageMetadata"]["grounding"]
+        assert "sources" in grounding
+        assert len(grounding["sources"]) == 1
+
+        source = grounding["sources"][0]
+        assert source["type"] == "web"
+        assert source["uri"] == "https://example.com/article"
+        assert source["title"] == "Example Article"
+
+    def test_message_metadata_with_citations(self):
+        """
+        Test: citation_metadata → messageMetadata.citations in finish event
+
+        Coverage: Phase 2 P2-T8 - Message Metadata Implementation
+        - Citation sources
+        """
+
+        # given: Mock citation metadata
+        mock_citation = Mock()
+        mock_source = Mock()
+        mock_source.start_index = 0
+        mock_source.end_index = 10
+        mock_source.uri = "https://example.com/source"
+        mock_source.license = "CC-BY-4.0"
+        mock_citation.citation_sources = [mock_source]
+
+        # Create mock event with citation metadata
+        mock_event = Mock(spec=Event)
+        mock_event.error_code = None
+        mock_event.citation_metadata = mock_citation
+        mock_event.content = types.Content(role="model", parts=[types.Part(text="Response")])
+
+        # when: Stream events through converter
+        events = []
+
+        async def collect():
+            async def event_stream():
+                yield mock_event
+
+            async for sse_event in stream_adk_to_ai_sdk(event_stream()):
+                events.append(sse_event)
+
+        asyncio.run(collect())
+
+        # then: Finish event should contain citation metadata
+        finish_event = None
+        for event_str in events:
+            parsed = parse_sse_event(event_str)
+            if parsed and parsed.get("type") == "finish":
+                finish_event = parsed
+                break
+
+        assert finish_event is not None, "Finish event not found"
+        assert "messageMetadata" in finish_event
+        assert "citations" in finish_event["messageMetadata"]
+
+        citations = finish_event["messageMetadata"]["citations"]
+        assert len(citations) == 1
+
+        citation = citations[0]
+        assert citation["startIndex"] == 0
+        assert citation["endIndex"] == 10
+        assert citation["uri"] == "https://example.com/source"
+        assert citation["license"] == "CC-BY-4.0"
+
+    def test_message_metadata_with_cache(self):
+        """
+        Test: cache_metadata → messageMetadata.cache in finish event
+
+        Coverage: Phase 2 P2-T8 - Message Metadata Implementation
+        - Cache statistics
+        """
+
+        # given: Mock cache metadata
+        mock_cache = Mock()
+        mock_cache.cache_hits = 5
+        mock_cache.cache_misses = 2
+
+        # Create mock event with cache metadata
+        mock_event = Mock(spec=Event)
+        mock_event.error_code = None
+        mock_event.cache_metadata = mock_cache
+        mock_event.content = types.Content(role="model", parts=[types.Part(text="Response")])
+
+        # when: Stream events through converter
+        events = []
+
+        async def collect():
+            async def event_stream():
+                yield mock_event
+
+            async for sse_event in stream_adk_to_ai_sdk(event_stream()):
+                events.append(sse_event)
+
+        asyncio.run(collect())
+
+        # then: Finish event should contain cache metadata
+        finish_event = None
+        for event_str in events:
+            parsed = parse_sse_event(event_str)
+            if parsed and parsed.get("type") == "finish":
+                finish_event = parsed
+                break
+
+        assert finish_event is not None, "Finish event not found"
+        assert "messageMetadata" in finish_event
+        assert "cache" in finish_event["messageMetadata"]
+
+        cache = finish_event["messageMetadata"]["cache"]
+        assert cache["hits"] == 5
+        assert cache["misses"] == 2
+
+    def test_message_metadata_with_model_version(self):
+        """
+        Test: model_version → messageMetadata.modelVersion in finish event
+
+        Coverage: Phase 2 P2-T8 - Message Metadata Implementation
+        - Model version information
+        """
+
+        # given: Mock event with model version
+        mock_event = Mock(spec=Event)
+        mock_event.error_code = None
+        mock_event.model_version = "gemini-2.0-flash-001"
+        mock_event.content = types.Content(role="model", parts=[types.Part(text="Response")])
+
+        # when: Stream events through converter
+        events = []
+
+        async def collect():
+            async def event_stream():
+                yield mock_event
+
+            async for sse_event in stream_adk_to_ai_sdk(event_stream()):
+                events.append(sse_event)
+
+        asyncio.run(collect())
+
+        # then: Finish event should contain model version
+        finish_event = None
+        for event_str in events:
+            parsed = parse_sse_event(event_str)
+            if parsed and parsed.get("type") == "finish":
+                finish_event = parsed
+                break
+
+        assert finish_event is not None, "Finish event not found"
+        assert "messageMetadata" in finish_event
+        assert "modelVersion" in finish_event["messageMetadata"]
+        assert finish_event["messageMetadata"]["modelVersion"] == "gemini-2.0-flash-001"
+
+
+class TestFinishReasonMapping:
+    """Test Category 10: Finish Reason Mapping
+
+    Uses real types.FinishReason enum to test mapping to AI SDK v6 finish reasons.
+    """
+
+    def test_finish_reason_none_defaults_to_stop(self):
+        """Test: None finish reason defaults to 'stop'"""
+        # given: None finish reason
+        finish_reason = None
+
+        # when: Map to AI SDK v6 format
+        result = map_adk_finish_reason_to_ai_sdk(finish_reason)
+
+        # then: Should return 'stop'
+        assert result == "stop"
+
+    def test_finish_reason_with_real_types_finish_reason_enum(self):
+        """
+        Test: Real types.FinishReason enum values work correctly
+
+        Coverage: Integration test with actual ADK types.FinishReason enum
+        """
+
+        # given: Real types.FinishReason enum values
+        test_cases = [
+            (types.FinishReason.STOP, "stop"),
+            (types.FinishReason.MAX_TOKENS, "length"),
+            (types.FinishReason.SAFETY, "content-filter"),
+            (types.FinishReason.RECITATION, "content-filter"),
+            (types.FinishReason.BLOCKLIST, "content-filter"),
+            (types.FinishReason.PROHIBITED_CONTENT, "content-filter"),
+            (types.FinishReason.SPII, "content-filter"),
+            (types.FinishReason.OTHER, "other"),
+            # New enum values
+            (types.FinishReason.FINISH_REASON_UNSPECIFIED, "stop"),
+            (types.FinishReason.IMAGE_OTHER, "other"),
+            (types.FinishReason.IMAGE_PROHIBITED_CONTENT, "content-filter"),
+            (types.FinishReason.IMAGE_RECITATION, "content-filter"),
+            (types.FinishReason.IMAGE_SAFETY, "content-filter"),
+            (types.FinishReason.LANGUAGE, "content-filter"),
+            (types.FinishReason.MALFORMED_FUNCTION_CALL, "error"),
+            (types.FinishReason.NO_IMAGE, "error"),
+            (types.FinishReason.UNEXPECTED_TOOL_CALL, "error"),
+        ]
+
+        # when/then: All real enum values should map correctly
+        for finish_reason, expected in test_cases:
+            result = map_adk_finish_reason_to_ai_sdk(finish_reason)
+            assert (
+                result == expected
+            ), f"Expected {finish_reason.name} → {expected}, got {result}"
+
+    def test_finish_reason_unknown_fallback(self):
+        """
+        Test: Unknown finish reason uses lowercase fallback
+
+        Coverage: Fallback behavior for objects not in reason_map
+        """
+
+        # given: Unknown object with name attribute
+        class UnknownFinishReason:
+            def __init__(self, name: str):
+                self.name = name
+
+        finish_reason = UnknownFinishReason("CUSTOM_REASON")
+
+        # when: Map to AI SDK v6 format
+        result = map_adk_finish_reason_to_ai_sdk(finish_reason)
+
+        # then: Should use lowercase fallback
+        assert result == "custom_reason"
