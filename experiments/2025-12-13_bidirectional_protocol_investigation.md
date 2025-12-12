@@ -3914,3 +3914,744 @@ const { messages, addToolOutput, addToolApprovalResponse } = useChat({
 **Status:** Design clarified - ready to implement correct pattern
 
 ---
+
+## Phase 4 Investigation (Part 4): Tool Delegation Patterns from AP2 and ADK
+
+**Date:** 2025-12-13
+**Objective:** Learn from AP2 and ADK how to implement tool delegation (agent-to-agent) and apply it to our backend-to-frontend delegation
+
+### Background
+
+Our challenge is similar to AP2's agent-to-agent delegation:
+- **AP2**: Shopping Agent → Merchant Agent (different backends)
+- **Our case**: ADK Backend → Browser Frontend (backend to client)
+
+Both cases involve:
+1. Agent decides to call a tool
+2. Tool is NOT executed locally
+3. Tool execution is delegated to another entity
+4. Result is returned and processed
+
+---
+
+### AP2 Pattern: Agent-to-Agent Tool Delegation
+
+**Discovery:** AP2 implements delegation using **local tools that construct A2A messages**.
+
+#### Local Tool Definition
+
+**Source File:** [`samples/python/src/roles/shopping_agent/subagents/shopper/tools.py`](https://github.com/google-agentic-commerce/AP2/blob/main/samples/python/src/roles/shopping_agent/subagents/shopper/tools.py)
+
+```python
+# samples/python/src/roles/shopping_agent/subagents/shopper/tools.py
+async def find_products(
+    tool_context: ToolContext,
+    debug_mode: bool = False,
+) -> list[CartMandate]:
+    """Find products that match the user's IntentMandate.
+
+    This is a LOCAL TOOL that delegates to the Merchant Agent via A2A.
+    """
+    intent_mandate = IntentMandate.model_validate(
+        tool_context.state["intent_mandate"]
+    )
+    risk_data = tool_context.state.get("risk_data")
+
+    # Construct A2A message
+    message = (
+        A2aMessageBuilder()
+        .add_text("Find products that match the user's IntentMandate.")
+        .add_data(INTENT_MANDATE_DATA_KEY, intent_mandate.model_dump())
+        .add_data("risk_data", risk_data)
+        .add_data("debug_mode", debug_mode)
+        .add_data("shopping_agent_id", "trusted_shopping_agent")
+        .build()
+    )
+
+    # Delegate to remote agent via A2A client
+    task = await merchant_agent_client.send_a2a_message(message)
+
+    if task.status.state != "completed":
+        raise RuntimeError(f"Failed to find products: {task.status}")
+
+    # Process remote agent's result
+    tool_context.state["shopping_context_id"] = task.context_id
+    cart_mandates = _parse_cart_mandates(task.artifacts)
+    tool_context.state["cart_mandates"] = cart_mandates
+
+    return cart_mandates
+```
+
+#### Agent Definition
+
+**Source File:** [`samples/python/src/roles/shopping_agent/subagents/shopper/__init__.py`](https://github.com/google-agentic-commerce/AP2/blob/main/samples/python/src/roles/shopping_agent/subagents/shopper/__init__.py)
+
+```python
+# Shopping agent with local delegation tools
+shopper_agent = RetryingLlmAgent(
+    name="shopper",
+    model="gemini-2.0-flash-exp",
+    tools=[
+        find_products,        # ← Local tool that delegates
+        select_product,
+        # ... other tools
+    ],
+)
+```
+
+#### Remote A2A Client Setup
+
+**Source File:** [`src/roles/common/a2a_client.py`](https://github.com/google-agentic-commerce/AP2/blob/main/src/roles/common/a2a_client.py)
+
+```python
+# PaymentRemoteA2aClient - Handles agent-to-agent communication
+merchant_agent_client = PaymentRemoteA2aClient(
+    merchant_agent_url="http://merchant-agent:8080"
+)
+```
+
+#### Key Pattern Elements
+
+1. **Tool has `run_async` implementation**: Yes, but it doesn't execute business logic
+2. **Tool constructs delegation message**: Uses `A2aMessageBuilder`
+3. **Tool sends to remote agent**: Via `PaymentRemoteA2aClient`
+4. **Tool waits for result**: `await send_a2a_message()`
+5. **Tool returns result**: Processed artifacts from remote agent
+
+**References:**
+- AP2 Repository: https://github.com/google-agentic-commerce/AP2
+- DeepWiki Investigation: https://deepwiki.com/search/how-does-ap2-implement-tool-de_a4e5019f-4e4a-4d37-9ef6-d0a65cbaf9dc
+
+---
+
+### ADK Pattern: `before_tool_callback` for Execution Interception
+
+**Discovery:** ADK provides **`before_tool_callback`** to intercept tool execution before `run_async` is called.
+
+#### Execution Flow
+
+```
+1. LLM generates function_call
+2. _postprocess_handle_function_calls_async()
+3. handle_function_calls_async()
+4. _execute_single_function_call_async()
+5. → before_tool_callback(tool, tool_args, tool_context)  ← INTERCEPTION POINT
+6. If callback returns dict: Skip run_async, use returned dict as result
+7. If callback returns None: Proceed to tool.run_async()
+8. → after_tool_callback(tool, tool_args, tool_context, result)
+9. Build function_response_event with result
+```
+
+#### `before_tool_callback` Signature
+
+```python
+def before_tool_callback(
+    tool: BaseTool,
+    tool_args: Dict[str, Any],
+    tool_context: ToolContext
+) -> Optional[Dict]:
+    """Called before tool execution.
+
+    Returns:
+        Dict: Result to use instead of running the tool (skips run_async)
+        None: Proceed with normal tool execution
+    """
+    pass
+```
+
+#### Example: Preventing Server-Side Execution
+
+```python
+def client_side_tool_interceptor(
+    tool: BaseTool,
+    tool_args: Dict[str, Any],
+    tool_context: ToolContext
+) -> Optional[Dict]:
+    """Intercept client-side tools and prevent server execution."""
+
+    # Check if tool is client-side
+    if tool.name in CLIENT_SIDE_TOOLS:
+        logger.info(f"[Client-Side Tool] {tool.name} should execute on frontend")
+
+        # Return a marker result (prevents run_async execution)
+        return {
+            "_client_side": True,
+            "_tool_name": tool.name,
+            "_tool_args": tool_args,
+            "_status": "awaiting_client_execution"
+        }
+
+    # Allow normal server-side execution
+    return None
+```
+
+**Source:** DeepWiki investigation of `google/adk-python`
+
+#### Return Value Details: Dict Structure for Skipping `run_async`
+
+When `before_tool_callback` returns a **dict**, ADK:
+1. **Skips calling `tool.run_async()`**
+2. **Uses the returned dict as the tool's result**
+3. **Proceeds to generate `function_response` event with this dict**
+
+**Our Implementation - Placeholder Dict:**
+
+```python
+# server.py
+CLIENT_SIDE_TOOLS = {"change_bgm", "get_location"}
+
+def client_side_tool_interceptor(
+    tool: BaseTool,
+    tool_args: Dict[str, Any],
+    tool_context: ToolContext
+) -> Optional[Dict]:
+    if tool.name in CLIENT_SIDE_TOOLS:
+        # This dict will be used as the tool result instead of calling run_async
+        return {
+            "_client_side": True,         # Marker flag for debugging
+            "_tool_name": tool.name,      # Tool identifier
+            "_tool_args": tool_args,      # Original arguments for reference
+            "_status": "awaiting_client_execution"  # Status indicator
+            # NOTE: This dict is NOT the final result - frontend will execute
+            # the actual tool and send the real result via addToolOutput()
+        }
+    return None  # Let ADK call run_async for server-side tools
+```
+
+**Key Point:** The dict returned here is a **placeholder result**. The real tool execution happens on the frontend after user approval, and the actual result is sent back via `addToolOutput()`.
+
+**Comparison with AP2:**
+
+| Aspect | AP2 Pattern | Our Pattern |
+|--------|-------------|-------------|
+| **Callback Used** | N/A (tool executes normally) | `before_tool_callback` |
+| **Tool Execution** | Tool runs `run_async`, delegates via A2A | Tool's `run_async` is **skipped** |
+| **Return Value** | Real result from remote agent | **Placeholder dict** with metadata |
+| **Final Result Source** | `await send_a2a_message()` in tool | Frontend sends via `addToolOutput()` |
+
+In AP2's case, tools return the **actual result** from remote agent:
+```python
+# AP2: Tool delegates and returns real result
+async def find_products(...) -> list[CartMandate]:
+    task = await merchant_agent_client.send_a2a_message(message)
+    cart_mandates = _parse_cart_mandates(task.artifacts)  # Real result
+    return cart_mandates  # This is the actual tool result
+```
+
+In our case, `before_tool_callback` returns a **marker dict**, and the actual result comes from the frontend:
+```python
+# Our case: Callback returns placeholder, frontend provides real result later
+def client_side_tool_interceptor(...) -> Optional[Dict]:
+    return {
+        "_client_side": True,
+        "_status": "awaiting_client_execution"
+    }  # Placeholder, not final result
+
+# Frontend later sends actual result via:
+# addToolOutput({
+#   toolCallId: "call_abc123",
+#   output: { success: true, current_track: 1 }  ← Real result
+# })
+```
+
+---
+
+### Our Implementation Strategy: Hybrid Approach
+
+Combining AP2's delegation pattern with ADK's `before_tool_callback`:
+
+#### Option A: AP2-Style Delegation (Local Tool Executes)
+
+```python
+# server.py
+async def change_bgm(track: int, tool_context: ToolContext) -> dict:
+    """Change BGM track (delegated to frontend).
+
+    This tool executes on the backend, but delegates actual work to frontend.
+    Similar to AP2's find_products delegating to Merchant Agent.
+    """
+    # Store pending tool call in context
+    tool_call_id = str(uuid.uuid4())
+    tool_context.state["pending_client_tools"] = tool_context.state.get("pending_client_tools", {})
+    tool_context.state["pending_client_tools"][tool_call_id] = {
+        "tool": "change_bgm",
+        "args": {"track": track},
+        "status": "awaiting_approval"
+    }
+
+    # Generate tool-approval-request event (already implemented)
+    # Frontend will receive this via stream_protocol.py
+
+    # Wait for frontend to send tool_result event back
+    # (In AP2, this would be await remote_client.send_a2a_message())
+    # For us, we need to wait for WebSocket tool_result event
+
+    # Return result from frontend
+    return {
+        "success": True,
+        "track": track,
+        "_delegated_to_client": True
+    }
+```
+
+**Challenge:** How to `await` frontend's tool_result in synchronous flow?
+- AP2 can `await remote_client.send_a2a_message()` (async HTTP)
+- We can't easily `await` WebSocket message in tool function
+
+#### Option B: `before_tool_callback` Interception (Recommended)
+
+```python
+# server.py
+def change_bgm(track: int) -> dict:
+    """Change BGM track (CLIENT-SIDE EXECUTION).
+
+    NOTE: This function should NEVER be called due to before_tool_callback.
+    It exists only for ADK to generate FunctionDeclaration.
+    """
+    raise RuntimeError("change_bgm should execute on client, not server")
+
+def get_location() -> dict:
+    """Get location (CLIENT-SIDE EXECUTION)."""
+    raise RuntimeError("get_location should execute on client, not server")
+
+# Configure ADK agent with before_tool_callback
+CLIENT_SIDE_TOOLS = {"change_bgm", "get_location"}
+
+def client_side_tool_interceptor(
+    tool: BaseTool,
+    tool_args: Dict[str, Any],
+    tool_context: ToolContext
+) -> Optional[Dict]:
+    """Prevent server-side execution of client-side tools."""
+
+    if tool.name in CLIENT_SIDE_TOOLS:
+        logger.info(f"[Client Tool] {tool.name} intercepted - will execute on frontend")
+
+        # Return marker result (skips run_async)
+        # Frontend will receive function_call event and execute via onToolCall
+        return {
+            "_client_side_tool": True,
+            "_tool_name": tool.name,
+            "_args": tool_args,
+            # Frontend will replace this with actual result via addToolOutput()
+        }
+
+    return None  # Normal execution for server-side tools
+
+# Apply to agent
+bidi_agent_runner = InMemoryRunner(
+    agent=bidi_agent,
+    app_name="agents",
+    before_tool_callback=client_side_tool_interceptor  # ← KEY!
+)
+```
+
+**Advantage:** Clean separation, no async coordination needed
+
+**Disadvantage:** Feels like "forcibly stopping" execution - not as elegant as AP2's awaitable pattern
+
+#### Option C: Awaitable Frontend Delegation (Ideal Pattern)
+
+**Observation:** Option B uses `before_tool_callback` to "forcibly stop" tool execution. But theoretically, we could make frontend delegation **awaitable** like AP2.
+
+##### Core Concept: Queue-Based Awaitable Pattern
+
+```python
+# server.py
+import asyncio
+from typing import Dict
+
+class FrontendToolDelegate:
+    """Makes frontend tool execution awaitable using asyncio.Future"""
+
+    def __init__(self):
+        # tool_call_id → Future mapping
+        self._pending_calls: Dict[str, asyncio.Future] = {}
+
+    async def execute_on_frontend(
+        self,
+        tool_call_id: str,
+        tool_name: str,
+        args: dict
+    ) -> dict:
+        """Delegate tool execution to frontend and await result.
+
+        This makes frontend delegation awaitable, similar to AP2's
+        await send_a2a_message() pattern.
+        """
+        # 1. Create Future to await result
+        future = asyncio.Future()
+        self._pending_calls[tool_call_id] = future
+
+        # 2. tool-approval-request event will be sent automatically
+        #    (via stream_protocol.py when function_call is processed)
+
+        # 3. Await frontend result (blocks here until result arrives)
+        result = await future
+
+        return result
+
+    def resolve_tool_result(self, tool_call_id: str, result: dict):
+        """Called by WebSocket handler when frontend sends tool_result"""
+        if tool_call_id in self._pending_calls:
+            # Resolve Future to resume tool execution
+            self._pending_calls[tool_call_id].set_result(result)
+            del self._pending_calls[tool_call_id]
+
+# Global instance
+frontend_delegate = FrontendToolDelegate()
+
+# Tool definition (AP2 style!)
+async def change_bgm(track: int, tool_context: ToolContext) -> dict:
+    """Change BGM track (executed on frontend).
+
+    This tool delegates execution to the frontend and awaits the result,
+    similar to AP2's find_products delegating to Merchant Agent.
+    """
+    tool_call_id = str(uuid.uuid4())
+
+    # Delegate to frontend and await result (just like AP2!)
+    result = await frontend_delegate.execute_on_frontend(
+        tool_call_id=tool_call_id,
+        tool_name="change_bgm",
+        args={"track": track}
+    )
+
+    # Return actual result (not placeholder!)
+    return result
+
+async def get_location(tool_context: ToolContext) -> dict:
+    """Get user location (executed on frontend)."""
+    tool_call_id = str(uuid.uuid4())
+
+    result = await frontend_delegate.execute_on_frontend(
+        tool_call_id=tool_call_id,
+        tool_name="get_location",
+        args={}
+    )
+
+    return result
+
+# WebSocket handler (BIDI mode)
+async def handle_bidi_event(event: dict):
+    """Process events from frontend"""
+
+    if event["type"] == "tool_result":
+        tool_call_id = event["data"]["toolCallId"]
+        result = event["data"]["result"]
+
+        # Resolve Future to resume tool execution
+        frontend_delegate.resolve_tool_result(tool_call_id, result)
+```
+
+##### Advantages of Awaitable Pattern
+
+| Aspect | Option B (`before_tool_callback`) | Option C (Awaitable) |
+|--------|----------------------------------|----------------------|
+| **Pattern Similarity** | Different from AP2 | Same as AP2 ✅ |
+| **Tool Returns** | Placeholder dict | Actual result ✅ |
+| **Code Elegance** | Feels like "forcibly stopping" | Natural delegation ✅ |
+| **`before_tool_callback` Needed** | Yes | No ✅ |
+| **Tool Implementation** | `raise RuntimeError` | Real async logic ✅ |
+
+**Comparison with AP2:**
+
+```python
+# AP2: Delegate to remote backend agent
+async def find_products(...) -> list[CartMandate]:
+    task = await merchant_agent_client.send_a2a_message(message)
+    return _parse_cart_mandates(task.artifacts)
+
+# Our Option C: Delegate to frontend (same pattern!)
+async def change_bgm(...) -> dict:
+    result = await frontend_delegate.execute_on_frontend(...)
+    return result  # Actual result, not placeholder
+```
+
+##### Technical Challenges
+
+**VERIFICATION RESULT (2025-12-13):** After examining actual implementation code, the feasibility assessment has been updated.
+
+| Challenge | Initial Assessment | Actual Status | Details |
+|-----------|-------------------|---------------|---------|
+| **1. Async Generator** | Medium (requires refactoring) | ✅ **Already Implemented** | `stream_adk_to_ai_sdk` is `async def` returning `AsyncGenerator[str, None]` (stream_protocol.py:832) |
+| **2. `before_tool_callback` API** | Unknown | ✅ **Available** | `Agent(before_tool_callback=...)` confirmed via DeepWiki |
+| **3. WebSocket `tool_result` Handler** | Needs implementation | ✅ **Already Exists** | `server.py:1042-1053` receives `tool_result` events |
+| **4. `pending_approvals` State** | Needs implementation | ✅ **Already Exists** | `StreamProtocolConverter.pending_approvals` (stream_protocol.py:149) |
+| **5. Tool Call ID Sync** | Low | ⚠️ **Critical Challenge** | How to get `tool_call_id` inside tool function? |
+
+**Critical Remaining Challenge: Tool Call ID Synchronization**
+
+The main blocker for Option C is obtaining `tool_call_id` inside the tool function:
+
+```python
+async def change_bgm(track: int, tool_context: ToolContext) -> dict:
+    # Problem: ADK calls this function BEFORE generating function_call event
+    # How do we get the tool_call_id that stream_protocol will assign later?
+
+    tool_call_id = ???  # ← This is the critical challenge
+
+    result = await frontend_delegate.execute_on_frontend(
+        tool_call_id=tool_call_id,
+        tool_name="change_bgm",
+        args={"track": track}
+    )
+    return result
+```
+
+**Possible Solutions:**
+
+1. **Pre-generate ID in tool**: Generate UUID in tool, store in `tool_context`, retrieve in `stream_protocol`
+   - Requires `stream_protocol` to read from `tool_context` (coupling)
+
+2. **Pass delegate to tool via `tool_context`**: Inject `FrontendToolDelegate` into `ToolContext.state`
+   - Tool retrieves delegate and registers Future before returning
+   - `stream_protocol` gets tool_call_id after tool completes
+
+3. **Use `before_tool_callback` differently**: Callback generates ID and stores in context
+   - Tool reads ID from context
+   - Callback doesn't skip execution (returns None)
+
+**Updated Implementation Complexity:**
+
+| Aspect | Complexity | Reason |
+|--------|-----------|--------|
+| **Infrastructure** | Low ✅ | Most components already exist |
+| **Tool Call ID Sync** | **High** ⚠️ | Requires coordination between ADK tool execution and stream protocol |
+| **Overall** | **Medium-High** | Feasible but requires careful design of ID synchronization |
+
+**4. Timing: Approval Before Execution**
+
+Ensure tool execution doesn't happen before user approval:
+- ADK's execution flow: `function_call` → `run_async` (immediate)
+- Need to delay `run_async` until after approval
+
+This requires either:
+- Modifying ADK's execution flow (not feasible)
+- OR: Tool itself waits for approval before executing
+
+```python
+async def change_bgm(track: int, tool_context: ToolContext) -> dict:
+    tool_call_id = str(uuid.uuid4())
+
+    # 1. Trigger approval request
+    # 2. Wait for approval AND execution result
+    result = await frontend_delegate.execute_on_frontend(...)
+
+    return result
+```
+
+##### Implementation Complexity Assessment (Updated After Code Verification)
+
+| Challenge | Initial Estimate | Actual Complexity | Notes |
+|-----------|-----------------|-------------------|-------|
+| **1. Async Generator** | Medium | ✅ **Zero** (Already done) | No work needed - already async |
+| **2. Tool Call ID Sync** | Low | ⚠️ **High** | Critical blocker - ID coordination issue |
+| **3. WebSocket Integration** | Low | ✅ **Zero** (Already done) | Handler exists, just needs connection |
+| **4. FrontendToolDelegate** | Low | **Low** | Simple asyncio.Future wrapper |
+| **5. Approval Timing** | Medium | **Low** | Naturally handled by await |
+
+**Overall Complexity Revision:**
+- **Initial Assessment**: Medium (feasible with some refactoring)
+- **Actual Assessment**: **Medium-High** (feasible but Tool Call ID sync is tricky)
+
+##### Why Option B (before_tool_callback) Was Chosen
+
+Despite Option C being more elegant, Option B was chosen for pragmatic reasons:
+
+1. **Avoids Tool Call ID Coordination**: `before_tool_callback` can skip execution without needing the final ID
+2. **No ADK-StreamProtocol Coupling**: Tools don't need to coordinate with converter
+3. **Clear Separation**: Tools marked with `raise RuntimeError` = client-side only
+4. **Faster to Implement**: Can proceed with Phase 4 immediately
+5. **Lower Risk**: Proven pattern from ADK docs vs custom ID synchronization
+
+##### Future Consideration
+
+**Recommendation:** Start with Option B (`before_tool_callback`), refactor to Option C later if:
+- A clean solution for Tool Call ID synchronization is discovered
+- Pattern consistency with AP2 becomes architecturally critical
+- Engineering team prioritizes code elegance and is willing to solve the ID sync challenge
+
+**Key Insight After Verification:**
+- Option C is **technically feasible** with most infrastructure already in place
+- **Critical blocker**: Tool Call ID synchronization between tool execution and stream protocol
+- Option B is **pragmatically simpler** because it avoids the ID coordination problem entirely
+
+---
+
+### Comparison: Implementation Options
+
+| Aspect | AP2 (Agent-to-Agent) | Option B (`before_tool_callback`) | Option C (Awaitable) |
+|--------|---------------------|----------------------------------|----------------------|
+| **Delegation Target** | Remote Backend (Merchant Agent) | Browser Frontend | Browser Frontend |
+| **Communication** | A2A Protocol (HTTP) | WebSocket / SSE | WebSocket / SSE |
+| **Tool Implementation** | `await send_a2a_message()` | Intercepted by `before_tool_callback` | `await frontend_delegate.execute_on_frontend()` |
+| **Waiting for Result** | `await remote_client.send_a2a_message()` | N/A (returns placeholder) | `await future` (Queue-based) ✅ |
+| **Result Handling** | Parse `task.artifacts` | Frontend sends via `addToolOutput()` | Frontend sends via `addToolOutput()` |
+| **Execution Prevention** | N/A (tool executes, just delegates) | `before_tool_callback` returns dict | N/A (tool executes async) |
+| **Tool Returns** | Actual result | Placeholder dict | Actual result ✅ |
+| **Pattern Elegance** | Natural delegation | "Forcibly stopping" | Natural delegation ✅ |
+| **Implementation Complexity** | N/A (AP2 specific) | **Low** (works with current code) | **Medium-High** (Tool Call ID sync challenge) |
+| **Infrastructure Ready** | N/A | ✅ Yes | ✅ **Mostly** (async, WebSocket, handlers exist) |
+| **Critical Blocker** | N/A | None | Tool Call ID coordination ⚠️ |
+
+---
+
+### Final Design Decision
+
+**Initial Implementation: Use `before_tool_callback` to intercept client-side tools (Option B)**
+
+**Rationale:**
+1. **Pragmatic simplicity**: Works with current `stream_protocol.py` without refactoring
+2. **No async coordination needed**: Don't need to modify ADK execution flow
+3. **Clean separation**: Tool declaration (for LLM) vs execution (on client)
+4. **ADK native pattern**: Uses official ADK mechanism
+5. **Protocol flow intact**: Function call events still generated, just not executed server-side
+6. **Frontend control**: `onToolCall` handles execution timing (after approval)
+7. **Faster to implement**: Can proceed with Phase 4 immediately
+
+**Future Refactoring: Consider Option C (Awaitable) when:**
+- `stream_protocol.py` async refactoring is needed for other features
+- Pattern consistency with AP2 becomes architecturally important
+- Engineering team prioritizes code elegance over implementation speed
+
+**Flow:**
+```
+1. LLM generates function_call for change_bgm
+2. ADK calls before_tool_callback
+3. Callback returns {"_client_side_tool": True, ...}
+4. ADK skips run_async, uses callback result
+5. stream_protocol.py receives function_call event
+6. Generates tool-input-available + tool-approval-request
+7. Frontend receives both events
+8. Frontend shows approval UI
+9. User approves
+10. Frontend executes audioContext.switchTrack() via onToolCall
+11. Frontend calls addToolOutput({ output: { success: true } })
+12. Result flows back to ADK as function_response
+```
+
+---
+
+### Implementation Plan
+
+#### Backend Changes
+
+1. **Add `before_tool_callback` to agent runners:**
+```python
+# server.py
+CLIENT_SIDE_TOOLS = {"change_bgm", "get_location"}
+
+def client_side_tool_interceptor(
+    tool: BaseTool,
+    tool_args: Dict[str, Any],
+    tool_context: ToolContext
+) -> Optional[Dict]:
+    if tool.name in CLIENT_SIDE_TOOLS:
+        return {
+            "_client_side_tool": True,
+            "_tool_name": tool.name,
+            "_args": tool_args,
+        }
+    return None
+
+sse_agent_runner = InMemoryRunner(
+    agent=sse_agent,
+    app_name="agents",
+    before_tool_callback=client_side_tool_interceptor
+)
+
+bidi_agent_runner = InMemoryRunner(
+    agent=bidi_agent,
+    app_name="agents",
+    before_tool_callback=client_side_tool_interceptor
+)
+```
+
+2. **Update tool definitions to raise errors:**
+```python
+def change_bgm(track: int) -> dict:
+    """Change BGM track (CLIENT-SIDE)."""
+    raise RuntimeError("This tool executes on the client")
+
+def get_location() -> dict:
+    """Get location (CLIENT-SIDE)."""
+    raise RuntimeError("This tool executes on the client")
+```
+
+#### Frontend Changes
+
+1. **Implement `onToolCall` handler:**
+```typescript
+const { messages, addToolOutput } = useChat({
+  async onToolCall({ toolCall }) {
+    if (toolCall.dynamic) return;
+
+    // Handle client-side tools after approval
+    if (toolCall.toolName === 'change_bgm') {
+      const { track } = toolCall.input;
+      // Execute after approval (handled separately)
+      // audioContext.switchTrack(track);
+      // Called from approval UI callback
+    }
+  }
+});
+```
+
+2. **Integrate with approval UI:**
+```typescript
+async function handleApproval(approvalId: string, approved: boolean) {
+  const pending = pendingApprovals[approvalId];
+
+  if (approved) {
+    // Execute client-side tool
+    if (pending.toolName === 'change_bgm') {
+      audioContext.switchTrack(pending.input.track);
+      addToolOutput({
+        tool: 'change_bgm',
+        toolCallId: pending.toolCallId,
+        output: { success: true, track: pending.input.track }
+      });
+    }
+  } else {
+    addToolOutput({
+      tool: pending.toolName,
+      toolCallId: pending.toolCallId,
+      state: 'output-error',
+      errorText: 'User denied permission'
+    });
+  }
+}
+```
+
+---
+
+### References
+
+**AP2 Repository:**
+- GitHub Repository: https://github.com/google-agentic-commerce/AP2
+- Tool Delegation Example: [`samples/python/src/roles/shopping_agent/subagents/shopper/tools.py`](https://github.com/google-agentic-commerce/AP2/blob/main/samples/python/src/roles/shopping_agent/subagents/shopper/tools.py)
+- Agent Configuration: [`samples/python/src/roles/shopping_agent/subagents/shopper/__init__.py`](https://github.com/google-agentic-commerce/AP2/blob/main/samples/python/src/roles/shopping_agent/subagents/shopper/__init__.py)
+- A2A Client: [`src/roles/common/a2a_client.py`](https://github.com/google-agentic-commerce/AP2/blob/main/src/roles/common/a2a_client.py)
+- DeepWiki Investigation: https://deepwiki.com/search/how-does-ap2-implement-tool-de_a4e5019f-4e4a-4d37-9ef6-d0a65cbaf9dc
+
+**ADK Repository:**
+- GitHub Repository: https://github.com/google/adk-python
+- `before_tool_callback` Documentation: https://google.github.io/adk-docs/tools-custom/confirmation/
+- Source Code: [`src/google/adk/flows/llm_flows/in_memory_runner.py`](https://github.com/google/adk-python/blob/main/src/google/adk/flows/llm_flows/in_memory_runner.py)
+- DeepWiki Investigation: https://deepwiki.com/search/when-an-llm-generates-a-functi_156c247b-bb48-4cf0-a7e0-f4829491bdc1
+
+---
+
+### Next Steps
+
+1. ✅ Tool delegation pattern investigation complete
+2. ✅ Design decision: Use `before_tool_callback` for client-side tools
+3. ⏳ Implement `before_tool_callback` in server.py
+4. ⏳ Update tool definitions to raise errors
+5. ⏳ Implement frontend `onToolCall` + approval integration
+6. ⏳ Test end-to-end flow
+
+**Status:** Final design confirmed - ready to implement
+
+---
