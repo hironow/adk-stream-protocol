@@ -19,7 +19,7 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
 
 **Phase 3: 新機能検討（UI設計判断待ち）** - ⏸️ Awaiting Decision
 - [P3-T1] Live API Transcriptions
-- [P3-T2] Grounding & Citation Metadata
+- [P3-T2] Grounding & Citation Metadata - ✅ Complete (Implemented in P2-T8)
 
 **Phase 4: その他** - 🟢 Low Priority
 - [P4-T1] Interruption Signal Support (BIDI UX)
@@ -736,5 +736,54 @@ async def convert_event(self, event: Event) -> AsyncGenerator[str, None]:
 **Reference:**
 - experiments/2025-12-12_adk_field_mapping_completeness.md - Section "High-Value Fields"
 - AI SDK v6 UIMessageChunk type (message-metadata event)
+
+---
+
+## Phase 3: 新機能検討
+
+### [P3-T2] Grounding & Citation Metadata - ✅ Complete
+
+**Status:** ✅ COMPLETE (2025-12-13) - Implemented as part of [P2-T8]
+
+**Original Goal:** Display grounding sources and citations in the UI
+
+**Implementation:**
+This task was completed as part of P2-T8 message-metadata Event Implementation.
+
+**Backend (stream_protocol.py):**
+- Lines 714-732: Grounding metadata collection and formatting
+  - Extracts web search results, RAG sources
+  - Formats as `{"type": "web", "uri": "...", "title": "..."}`
+- Lines 735-752: Citation metadata collection and formatting
+  - Extracts citation sources with index ranges
+  - Formats as `{"startIndex": N, "endIndex": N, "uri": "...", "license": "..."}`
+
+**Frontend (components/message.tsx):**
+- Lines 417-457: 🔍 Grounding Sources display
+  - Shows source count
+  - Clickable links with titles
+  - Opens in new tab
+- Lines 459-504: 📝 Citations display
+  - Shows citation count
+  - [startIndex-endIndex] URI format
+  - Optional license information display
+
+**User Experience:**
+```
+🔍 Sources (3):
+  - Search result title
+  - Another source
+  - RAG document
+
+📝 Citations (2):
+  - [0-150] https://example.com/source1
+  - [200-350] https://example.com/source2 (CC BY 4.0)
+```
+
+**Related:**
+- [P2-T8] message-metadata Event Implementation - Parent task
+- Commits: 0916c58, add5f47
+
+**Impact:** Users can now see and verify the sources and citations used by the AI model
 
 ---
