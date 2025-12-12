@@ -1049,6 +1049,27 @@ We generate **all essential streaming events**:
 
 ## Changelog
 
+### 2025-12-12 (Night) - Google ADK 1.21.0 Upgrade & Field Detection
+
+- **Upgrade**: google-adk 1.20.0 → 1.21.0
+  - google-genai: 1.54.0 → 1.55.0
+  - fastapi: 0.118.3 → 0.123.10
+  - starlette: 0.48.0 → 0.50.0
+- **Field Coverage Test Success**: 🎉 Automated detection worked perfectly!
+  - Test detected new field: `interactionId` (Optional[str])
+  - Total Event fields: 25 → 26
+  - Test failed as designed with actionable error message
+- **New Field Analysis**: `interactionId`
+  - **Purpose**: Related to new Interactions API for state management
+  - **Description**: Allows server-side conversation history management via `previous_interaction_id`
+  - **Classification**: Metadata field (similar to `invocationId`)
+  - **Decision**: Mark as METADATA_EVENT_FIELDS (not user-facing, internal tracking)
+  - **Reference**: [Building agents with the ADK and the new Interactions API](https://developers.googleblog.com/building-agents-with-the-adk-and-the-new-interactions-api/)
+- **Impact**:
+  - Field coverage test prevented silent addition of new field
+  - Forced conscious review and classification decision
+  - Updated test_field_coverage.py to include `interactionId` in METADATA_EVENT_FIELDS
+
 ### 2025-12-12 (Night) - [P2-T4] Field Coverage Testing Implementation
 
 - **Feature**: Automated field coverage testing (`tests/unit/test_field_coverage.py`, 167 lines)

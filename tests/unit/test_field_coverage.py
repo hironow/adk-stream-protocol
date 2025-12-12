@@ -51,6 +51,7 @@ METADATA_EVENT_FIELDS = {
     "cacheMetadata": "Performance optimization metadata",
     "customMetadata": "User-defined metadata",
     "id": "Event ID (internal)",
+    "interactionId": "Interactions API state management ID (added in ADK 1.21.0)",
     "invocationId": "Invocation tracking ID",
     "liveSessionResumptionUpdate": "Live session state sync",
     "logprobsResult": "Advanced feature: token log probabilities",
