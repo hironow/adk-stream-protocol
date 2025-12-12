@@ -2839,3 +2839,700 @@ Duration: ~1.14s
 
 **Estimated Time:** 4 hours (test implementation + fixes)
 **Status:** ✅ Complete and verified
+
+---
+
+## Phase 4 Investigation: Tool Approval Patterns (2025-12-13)
+
+**Date:** 2025-12-13
+**Objective:** Research tool approval/confirmation patterns in ADK and other AI coding tools to design Phase 4 implementation
+**Status:** 🔍 Investigation Complete - Design Pending
+
+### Background
+
+Phase 4 goal: Implement user approval dialogs for sensitive tool calls (e.g., `change_bgm`, `get_location`)
+
+Before implementation, comprehensive research was conducted to understand:
+1. **ADK official tool approval patterns** (especially BIDI mode compatibility)
+2. **Industry best practices** (Claude Code, Gemini CLI, Aider, Cursor, Cline)
+3. **Recommended approach** for this project
+
+---
+
+### Investigation Summary
+
+#### 1. Google ADK Official Pattern - `require_confirmation`
+
+**Documentation:** https://google.github.io/adk-docs/tools-custom/confirmation/
+
+**Feature:** Tool Confirmation (Python ADK v1.14.0+, Experimental)
+
+**Two Confirmation Modes:**
+
+**A. Boolean Confirmation** (Simple yes/no)
+```python
+FunctionTool(reimburse, require_confirmation=True)
+
+# Or dynamic logic
+async def needs_approval(amount: int, tool_context: ToolContext) -> bool:
+    return amount > 1000
+
+FunctionTool(charge_card, require_confirmation=needs_approval)
+```
+
+**B. Advanced Confirmation** (Structured data input)
+```python
+def request_time_off(days: int, tool_context: ToolContext):
+    if not tool_context.tool_confirmation:
+        tool_context.request_confirmation(
+            hint="Approve/reject time off request",
+            payload={'approved_days': 0}
+        )
+        return {'status': 'Manager approval required'}
+
+    approved_days = tool_context.tool_confirmation.payload['approved_days']
+    return {'status': 'ok', 'approved_days': approved_days}
+```
+
+**Confirmation Flow (REST API / `run_async()` mode):**
+```
+1. Tool calls with require_confirmation=True
+2. ADK pauses execution via runner.run_async()
+3. Returns FunctionCall named REQUEST_CONFIRMATION_FUNCTION_CALL_NAME
+4. User provides FunctionResponse (confirm/reject)
+5. ADK resumes with runner.run_async()
+6. Tool executes based on confirmation status
+```
+
+**Known Limitations (from official docs):**
+- ❌ `DatabaseSessionService` not supported
+- ❌ `VertexAiSessionService` not supported
+- ⚠️ Experimental feature (feedback welcomed)
+
+---
+
+#### 2. **CRITICAL FINDING: BIDI Mode Incompatibility** ⚠️
+
+**Source:** DeepWiki investigation of `google/adk-python` repository
+**Query:** "How does FunctionTool's require_confirmation work with run_live() in BIDI mode?"
+
+**DeepWiki Search Results:**
+- https://deepwiki.com/search/how-does-functiontools-require_45650c98-c5e6-4b7c-89e5-8d1678dac30e
+- Wiki: [Tool Authentication and Confirmation (google/adk-python)](https://deepwiki.com/google/adk-python#6.7)
+
+**Key Finding:**
+
+> ❌ **`require_confirmation` is NOT supported with `run_live()` in BIDI streaming mode**
+
+**Evidence from Source Code:**
+
+**File:** `src/google/adk/flows/llm_flows/functions.py`
+**Method:** `FunctionTool._call_live()`
+
+```python
+# Explicit TODO comment in ADK source code:
+# TODO: Tool confirmation is not yet supported for live mode
+```
+
+**Technical Reason:**
+
+| Mode | Execution Model | Confirmation Support |
+|------|----------------|---------------------|
+| **`run_async()`** (REST API) | Synchronous, pause/resume capable | ✅ Fully supported |
+| **`run_live()`** (BIDI streaming) | Asynchronous streaming, no pause mechanism | ❌ **Not implemented** (TODO) |
+
+**Why BIDI is Different:**
+- BIDI mode designed for **real-time audio/video streaming**
+- Goal: **Seamless conversation experience** (interrupting for confirmations breaks UX)
+- ADK team is considering alternative UX patterns (hence TODO status)
+
+**Confirmation Flow Comparison:**
+
+```
+REST API (run_async):
+  User → Tool Request → PAUSE → Confirmation Dialog → RESUME → Execute
+
+BIDI (run_live):
+  User Audio → Tool Request → ??? (No pause mechanism) → ???
+```
+
+---
+
+#### 3. Industry Tool Approval Patterns
+
+**A. Claude Code (Anthropic)**
+
+**Pattern:** Permission-Based Model + Sandboxing
+- Default: Read-only, requires approval for all modifications
+- Auto-allow list: Safe commands (`echo`, `cat`)
+- **Sandboxing:** Pre-defined boundaries to reduce prompts by 84%
+
+**Reference:** https://www.anthropic.com/engineering/claude-code-sandboxing
+
+**Approval Flow:**
+```
+1. Tool execution attempt
+2. Check if in sandbox boundary
+3. If NO → Request permission
+4. User approves/denies
+5. Execute or abort
+```
+
+**Pros:**
+- ✅ Secure by default
+- ✅ Sandboxing balances efficiency and security
+
+**Cons:**
+- ❌ Coarse-grained (boundary-based, not tool-specific)
+
+---
+
+**B. Gemini CLI (Google)**
+
+**Pattern:** PolicyEngine + Message Bus Architecture
+
+**Architecture:**
+- **PolicyEngine:** Evaluates tool execution → ALLOW / DENY / ASK_USER
+- **Message Bus:** Pub/sub pattern decouples core from UI
+- **Pattern Matching:** Tool name + arguments for granular rules
+
+**Reference:** https://github.com/google-gemini/gemini-cli/issues/7231
+
+**Implementation:**
+```typescript
+// Core layer (tools)
+if (await policyEngine.evaluate(toolName, args) === 'ASK_USER') {
+  await messageBus.publish('confirmation-request', { toolCall });
+}
+
+// UI layer (TUI)
+messageBus.subscribe('confirmation-request', (toolCall) => {
+  showApprovalDialog(toolCall);
+});
+```
+
+**Approval Flow:**
+```
+1. Tool requests execution
+2. PolicyEngine evaluates: ALLOW/DENY/ASK_USER
+3. If ASK_USER → Publish to message bus
+4. UI subscribes and shows dialog
+5. User responds
+6. Response published back to tool
+```
+
+**Pros:**
+- ✅ Complete separation of concerns (Core vs UI)
+- ✅ Pattern matching for flexible rules
+- ✅ "Always Allow" feature
+- ✅ Non-interactive mode support
+
+**Cons:**
+- ❌ Complex architecture (requires Message Bus)
+- ❌ High implementation cost
+
+---
+
+**C. Aider / Cursor / Cline**
+
+**Aider Pattern:** Flag-Based Auto-Approval
+```bash
+--yes-always           # Auto-approve all confirmations
+--auto-accept-architect # Auto-accept architect mode changes
+```
+
+**Cursor Pattern:** Allowlist + Approval Prompts
+- Maintains allowlist for safe commands
+- Prompts for commands outside allowlist
+- Agent mode with guardrails and approvals
+
+**Cline Pattern:** Diff-First Approval
+- Every change shown as reviewable diff
+- Developer inspects, approves, or rejects before commit
+
+**Pros:**
+- ✅ Simple (flag-based configuration)
+- ✅ Config file + environment variable support
+- ✅ Diff preview (Cline/Cursor) provides good UX
+
+**Cons:**
+- ❌ Binary (all or nothing)
+- ❌ No granular tool-level control
+
+---
+
+### Comparison Matrix
+
+| Approach | Source | BIDI Compatible | Complexity | ADK Alignment | Recommendation |
+|----------|--------|-----------------|------------|---------------|----------------|
+| **ADK `require_confirmation`** | Google ADK Official | ❌ **Not supported** (TODO) | N/A | ⭐⭐⭐ (when available) | ❌ **Cannot use** |
+| **Sandboxing** | Claude Code | ✅ Yes | 🟡 Medium | 🔶 Compatible | ⚠️ Too coarse |
+| **PolicyEngine + Message Bus** | Gemini CLI | ✅ Yes | 🔴 High | ⭐⭐ Good | ⚠️ Over-engineered |
+| **Flag-Based** | Aider | ✅ Yes | 🟢 Low | 🔶 Compatible | ⚠️ Too simple |
+| **Diff-First** | Cursor/Cline | ✅ Yes | 🟡 Medium | 🔶 Compatible | ⚠️ Not applicable |
+| **Custom Protocol** | This project | ✅ Full control | 🟡 Medium | ⭐⭐ Good | ⭐ **Recommended** |
+
+---
+
+### Recommended Approach: Custom Tool Approval Protocol
+
+**Since ADK's `require_confirmation` is unavailable for BIDI mode**, we need a custom implementation.
+
+**Design Philosophy:**
+- **Backend-Controlled:** Policy decisions on server (security)
+- **Declarative Configuration:** Clear, readable tool policies
+- **Event-Based:** Extends existing WebSocket protocol
+- **Inline UI:** Approval dialogs in chat message stream
+- **Future-Proof:** Easy to migrate when ADK adds BIDI support
+
+**Proposed Architecture:**
+
+**Frontend Configuration (Declarative):**
+```typescript
+// lib/build-use-chat-options.ts
+const { useChatOptions, transport } = buildUseChatOptions({
+  mode: "adk-bidi",
+  audioContext,
+
+  // Tool Policy (Declarative)
+  toolPolicy: {
+    autoApprove: ["get_weather", "search_web"],
+    requireApproval: ["change_bgm", "get_location"],
+    deny: ["delete_all_files"],
+  },
+
+  // Approval Request Handler (UI callback)
+  onToolApprovalRequest: (toolCall) => {
+    // Display approval UI in Message component
+  }
+});
+```
+
+**Backend Implementation (Event-Based):**
+```python
+# server.py - Custom approval protocol
+async def handle_tool_call(tool_name, tool_call_id, args):
+    # Policy check (backend-controlled)
+    if tool_name in REQUIRE_APPROVAL_TOOLS:
+        # Send custom approval request event
+        yield format_sse_event({
+            "type": "tool-approval-request",  # Custom event type
+            "toolCallId": tool_call_id,
+            "toolName": tool_name,
+            "args": args,
+            "hint": f"BGMをTrack {args['track']}に変更しますか?",
+        })
+
+        # Wait for WebSocket approval response
+        approval = await wait_for_approval(tool_call_id)
+
+        if not approval["approved"]:
+            # User rejected
+            yield format_sse_event({
+                "type": "tool-output-error",
+                "toolCallId": tool_call_id,
+                "errorText": "User rejected tool execution",
+            })
+            return
+
+    # Approved or auto-approve tool → Execute
+    result = execute_tool(tool_name, args)
+    yield format_sse_event({
+        "type": "tool-output",
+        "toolCallId": tool_call_id,
+        "output": result,
+    })
+```
+
+**Frontend UI (Inline Approval):**
+```tsx
+// components/message.tsx
+{part.type === "tool-approval-request" && (
+  <div className="tool-approval">
+    <p>{part.hint}</p>
+    <button onClick={() => handleApprove(part.toolCallId, part.args)}>
+      承認
+    </button>
+    <button onClick={() => handleReject(part.toolCallId)}>
+      拒否
+    </button>
+  </div>
+)}
+```
+
+---
+
+### Design Rationale
+
+| Requirement | Why This Design? |
+|-------------|------------------|
+| **ADK-Independent** | `require_confirmation` unavailable in BIDI → Custom protocol necessary |
+| **Backend Control** | Security: Tool policies managed server-side, not client-configurable |
+| **Event-Based** | Fits BIDI WebSocket model, extends existing protocol naturally |
+| **Declarative Config** | High readability, easy to add new tools |
+| **Inline UI** | Approval/rejection appears in chat history (good UX) |
+| **Future Migration** | When ADK adds BIDI support, can switch to official implementation |
+
+---
+
+### Implementation Phases
+
+**Phase 4-1: BGM Approval (Simple)** ← Start here
+- `change_bgm` tool approval flow
+- Inline approval UI in Message component
+- AudioContext integration for BGM switching
+
+**Phase 4-2: Location Approval (Sensitive)** ← Next step
+- `get_location` tool approval flow
+- Geolocation API integration
+- Privacy considerations
+
+**Future: ADK Official Integration**
+- When ADK implements BIDI tool confirmation
+- Migrate to official `require_confirmation` pattern
+- Maintain backward compatibility
+
+---
+
+### References
+
+**ADK Documentation:**
+- Tool Confirmation: https://google.github.io/adk-docs/tools-custom/confirmation/
+- BIDI Streaming: https://google.github.io/adk-docs/streaming/
+- Streaming Tools: https://google.github.io/adk-docs/streaming/streaming-tools/
+
+**ADK Source Code:**
+- FunctionTool implementation: https://github.com/google/adk-python/blob/main/src/google/adk/flows/llm_flows/functions.py
+- TODO comment: `FunctionTool._call_live()` - "Tool confirmation is not yet supported for live mode"
+
+**DeepWiki Investigation:**
+- Search: https://deepwiki.com/search/how-does-functiontools-require_45650c98-c5e6-4b7c-89e5-8d1678dac30e
+- Wiki: https://deepwiki.com/google/adk-python#6.7
+
+**Industry Patterns:**
+- Claude Code Sandboxing: https://www.anthropic.com/engineering/claude-code-sandboxing
+- Gemini CLI PolicyEngine: https://github.com/google-gemini/gemini-cli/issues/7231
+- Aider Auto-Approval: https://aider.chat/docs/config/options.html
+
+---
+
+## Phase 4 Investigation (Part 2): AI SDK v6 Tool Approval Protocol
+
+**Date:** 2025-12-13
+**Objective:** Investigate AI SDK v6's tool approval feature and determine if we can leverage it
+
+### Background
+
+Our architecture uses:
+- **Frontend:** AI SDK UI (`useChat` hook from `@ai-sdk/react`)
+- **Backend:** ADK Python (not AI SDK Core)
+- **Transport:** Custom WebSocket with SSE-format events
+- **Protocol:** AI SDK v6 Data Stream Protocol
+
+**Key Question:** Can we mimic AI SDK v6's tool approval protocol on our backend and use `addToolApprovalResponse()` from the frontend?
+
+---
+
+### AI SDK v6 Official Tool Approval Feature
+
+**Discovery:** AI SDK v6 has built-in tool approval support in both Core and UI layers.
+
+#### AI SDK Core (Backend - Node.js)
+
+**Tool Definition:**
+```typescript
+import { tool } from 'ai';
+
+const weatherTool = tool({
+  description: 'Get the weather in a location',
+  parameters: z.object({
+    location: z.string().describe('The location to get the weather for'),
+  }),
+  needsApproval: true, // ← Tool approval flag
+  execute: async ({ location }) => ({
+    location,
+    temperature: 72 + Math.floor(Math.random() * 21) - 10,
+  }),
+});
+```
+
+**Reference:** https://sdk.vercel.ai/docs/ai-sdk-core/tools-and-tool-calling#tool-approval
+
+---
+
+#### AI SDK UI (Frontend - React)
+
+**Hook API:**
+```typescript
+const {
+  messages,
+  addToolApprovalResponse,
+} = useChat();
+
+// Approve a tool call
+await addToolApprovalResponse({
+  approvalId: approval.id,
+  approved: true,
+});
+
+// Reject a tool call
+await addToolApprovalResponse({
+  approvalId: approval.id,
+  approved: false,
+  reason: 'User denied permission', // Optional
+});
+```
+
+**Reference:** https://sdk.vercel.ai/docs/ai-sdk-ui/chatbot#tool-approval
+
+---
+
+### Data Stream Protocol Investigation (via DeepWiki)
+
+#### Event Format: `tool-approval-request`
+
+**SSE Format:**
+```
+event: tool-approval-request
+data: {"type":"tool-approval-request","approvalId":"approval-1","toolCallId":"call_abc123"}
+```
+
+**JSON Structure:**
+```typescript
+{
+  type: "tool-approval-request",
+  approvalId: string,  // Unique approval ID
+  toolCallId: string   // Tool call ID to approve
+}
+```
+
+**Source:** DeepWiki search "AI SDK v6 tool-approval-request event format"
+**Code Location:** `packages/ai/streams/ai-stream.ts` in `vercel/ai` repository
+
+---
+
+#### Event Format: `tool-approval-response`
+
+**Client sends back (as part of message):**
+```json
+{
+  "content": [
+    {
+      "approvalId": "approval-1",
+      "approved": true,
+      "reason": undefined,
+      "type": "tool-approval-response"
+    }
+  ],
+  "role": "tool"
+}
+```
+
+**Source:** DeepWiki search "AI SDK v6 tool-approval-response format"
+**Code Location:** `packages/react/src/use-chat.ts` - `addToolApprovalResponse()` implementation
+
+---
+
+#### UI Message States
+
+AI SDK UI provides specific message states for tool approval:
+
+- `approval-requested`: Tool is waiting for user approval
+- `approval-responded`: User has approved/rejected
+- `output-denied`: Tool execution was rejected
+- `output-available`: Tool execution was approved and completed
+
+**Source:** https://sdk.vercel.ai/docs/ai-sdk-ui/chatbot#tool-approval
+**DeepWiki:** Search "AI SDK UI message states tool approval"
+
+---
+
+### Custom Event Extension Pattern
+
+AI SDK v6 supports custom events via `data-*` pattern:
+
+**Backend (SSE):**
+```
+event: data-custom-event
+data: {"type":"custom-event","payload":{"foo":"bar"}}
+```
+
+**Frontend (useChat):**
+```typescript
+const { data } = useChat({
+  onCustomEvent: (event) => {
+    if (event.type === 'custom-event') {
+      // Handle custom event
+    }
+  }
+});
+```
+
+**Reference:** AI SDK v6 documentation on custom events
+**Use Case:** If `addToolApprovalResponse()` doesn't work with our backend, we can use custom events
+
+---
+
+### Our Implementation Strategy
+
+#### Protocol Mimicry Approach
+
+**What we CAN do:**
+- Generate AI SDK v6-compatible SSE events from our Python backend
+- Use standard event names (`tool-approval-request`, etc.)
+- Follow exact JSON structure from AI SDK v6 protocol
+
+**What we CANNOT do:**
+- Use AI SDK Core (it's Node.js, we have ADK Python)
+- Use AI SDK's `tool()` function with `needsApproval` flag
+
+**What we HOPE to do:**
+- Use `addToolApprovalResponse()` from `useChat` hook
+- Leverage AI SDK UI's built-in approval states and rendering
+
+---
+
+#### Backend Implementation (Python)
+
+```python
+# server.py - Generate AI SDK v6-compatible events
+
+async def handle_tool_approval_request(tool_call: dict):
+    """Generate tool-approval-request event in AI SDK v6 format."""
+    approval_id = str(uuid.uuid4())
+
+    # Store approval state
+    pending_approvals[approval_id] = {
+        "tool_call_id": tool_call["id"],
+        "tool_name": tool_call["function"]["name"],
+        "arguments": tool_call["function"]["arguments"],
+    }
+
+    # Send AI SDK v6-compatible event
+    yield format_sse_event({
+        "type": "tool-approval-request",
+        "approvalId": approval_id,
+        "toolCallId": tool_call["id"],
+    }, event_type="tool-approval-request")
+
+    # Wait for client response via WebSocket
+    # (Client will send tool_result event with approval status)
+```
+
+**Key Point:** We manually generate SSE events that match AI SDK v6's exact format.
+
+---
+
+#### Frontend Implementation (TypeScript)
+
+```typescript
+// components/chat-interface.tsx
+
+const { messages, addToolApprovalResponse } = useChat({
+  // existing config...
+});
+
+// In message rendering:
+{message.toolApprovals?.map(approval => (
+  <div key={approval.id}>
+    <p>Tool: {approval.toolName}</p>
+    <button onClick={() =>
+      addToolApprovalResponse({
+        approvalId: approval.id,
+        approved: true,
+      })
+    }>
+      Approve
+    </button>
+    <button onClick={() =>
+      addToolApprovalResponse({
+        approvalId: approval.id,
+        approved: false,
+        reason: "User denied",
+      })
+    }>
+      Reject
+    </button>
+  </div>
+))}
+```
+
+**Critical Question:** Will `addToolApprovalResponse()` work with our custom backend?
+
+- **If YES:** We get AI SDK UI's built-in approval handling for free
+- **If NO:** Fall back to `data-*` custom events or manual WebSocket messages
+
+---
+
+### Comparison: AI SDK Core vs Our Approach
+
+| Aspect | AI SDK Core | Our Custom Backend |
+|--------|-------------|-------------------|
+| Language | Node.js | Python (ADK) |
+| Tool Definition | `tool({ needsApproval: true })` | Manual approval logic |
+| Event Generation | Automatic (AI SDK) | Manual (mimic format) |
+| Protocol | AI SDK v6 native | AI SDK v6 compatible |
+| Frontend API | `addToolApprovalResponse()` | `addToolApprovalResponse()` (hopefully) |
+| Fallback | N/A | Custom `data-*` events |
+
+---
+
+### DeepWiki Investigation Results
+
+**Search 1: "AI SDK v6 tool approval implementation"**
+- Repository: `vercel/ai`
+- Found: `needsApproval` parameter in tool definition
+- Found: `tool-approval-request` and `tool-approval-response` event types
+- Location: `packages/ai/core/generate-text/tool-call.ts`
+
+**Search 2: "useChat addToolApprovalResponse implementation"**
+- Repository: `vercel/ai`
+- Found: `addToolApprovalResponse()` function in `useChat` hook
+- Found: Sends `tool` role message with `tool-approval-response` content
+- Location: `packages/react/src/use-chat.ts`
+
+**Search 3: "AI SDK v6 data stream protocol events"**
+- Repository: `vercel/ai`
+- Found: Complete SSE event format specifications
+- Found: `data-*` custom event extension pattern
+- Location: `packages/ai/streams/ai-stream.ts`, `packages/ai/streams/stream-parts.ts`
+
+**DeepWiki Links:**
+- Tool Approval Core: https://deepwiki.com/vercel/ai#tool-approval
+- useChat Implementation: https://deepwiki.com/vercel/ai#use-chat-hook
+- Stream Protocol: https://deepwiki.com/vercel/ai#data-stream-protocol
+
+---
+
+### References
+
+**AI SDK v6 Documentation:**
+- Core Tool Approval: https://sdk.vercel.ai/docs/ai-sdk-core/tools-and-tool-calling#tool-approval
+- UI Tool Approval: https://sdk.vercel.ai/docs/ai-sdk-ui/chatbot#tool-approval
+- Data Stream Protocol: https://sdk.vercel.ai/docs/ai-sdk-core/streaming
+
+**Source Code (via DeepWiki):**
+- Tool Call Types: `packages/ai/core/generate-text/tool-call.ts`
+- useChat Hook: `packages/react/src/use-chat.ts`
+- Stream Parts: `packages/ai/streams/stream-parts.ts`
+- AI Stream: `packages/ai/streams/ai-stream.ts`
+
+**GitHub Repository:**
+- AI SDK: https://github.com/vercel/ai
+
+---
+
+### Next Steps
+
+1. ✅ AI SDK v6 investigation complete
+2. ⏳ **Experimental implementation:** Test if `addToolApprovalResponse()` works with our backend
+3. ⏳ Implement backend: Generate `tool-approval-request` events in AI SDK v6 format
+4. ⏳ Implement frontend: Attempt to use `addToolApprovalResponse()` from useChat
+5. ⏳ If `addToolApprovalResponse()` doesn't work: Implement fallback using `data-*` custom events
+6. ⏳ Start with `change_bgm` tool as first use case (simple, low-risk)
+
+**Status:** Ready to start experimental implementation
+
+**Key Uncertainty:** Whether `addToolApprovalResponse()` will work with our custom Python backend that mimics AI SDK v6 protocol
+
+---

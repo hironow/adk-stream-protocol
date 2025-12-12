@@ -54,7 +54,9 @@
       "Bash(git add:*)",
       "Bash(grep:*)",
       "Bash(just:*)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "WebFetch(domain:code.claude.com)",
+      "mcp__deepwiki__ask_question"
     ],
     "deny": [],
     "ask": [
