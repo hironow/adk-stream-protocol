@@ -101,6 +101,15 @@ class ADKExtractor:
             fields[param_name] = field_info
         return fields
 
+    @staticmethod
+    def extract_finish_reasons() -> list[str]:
+        """Extract all FinishReason enum values from ADK."""
+        return [
+            attr
+            for attr in dir(types.FinishReason)
+            if attr.isupper() and not attr.startswith("_")
+        ]
+
     def extract_all(self) -> dict[str, Any]:
         """Extract all ADK type definitions."""
         return {
@@ -108,6 +117,7 @@ class ADKExtractor:
             "EventActions": self.extract_fields(EventActions),
             "Content": self.extract_fields(types.Content),
             "Part": self.extract_fields(types.Part),
+            "FinishReason": self.extract_finish_reasons(),
         }
 
     def get_field_names(self) -> dict[str, set[str]]:
@@ -118,6 +128,10 @@ class ADKExtractor:
             "event": set(event_sig.parameters.keys()),
             "part": set(part_sig.parameters.keys()),
         }
+
+    def get_finish_reasons(self) -> set[str]:
+        """Get all FinishReason enum values (for coverage checking)."""
+        return set(self.extract_finish_reasons())
 
 
 class AISdkExtractor:
@@ -184,6 +198,37 @@ class AISdkExtractor:
             all_types.add(event["type"])
         return all_types
 
+    def extract_finish_reasons(self) -> set[str]:
+        """Extract AI SDK v6 FinishReason string literal types."""
+        if not self.ai_sdk_path.exists():
+            return set()
+
+        content = self.ai_sdk_path.read_text()
+
+        # Search for FinishReason documentation comment
+        # Expected format: - `stop`: ...
+        #                  - `length`: ...
+        #                  - `content-filter`: ...
+        finish_reason_pattern = r"-\s+`(stop|length|content-filter|tool-calls|error|other)`:\s+"
+        matches = re.finditer(finish_reason_pattern, content)
+
+        finish_reasons = set()
+        for match in matches:
+            finish_reasons.add(match.group(1))
+
+        # If not found in docs, use known AI SDK v6 values
+        if not finish_reasons:
+            finish_reasons = {
+                "stop",
+                "length",
+                "content-filter",
+                "tool-calls",
+                "error",
+                "other",
+            }
+
+        return finish_reasons
+
 
 # =============================================================================
 # Analyzers
@@ -244,6 +289,30 @@ class ADKAnalyzer:
             "event": event_fields_normalized,
             "part": part_fields_normalized,
         }
+
+    def analyze_finish_reasons(self) -> dict[str, str]:
+        """
+        Analyze stream_protocol.py to extract reason_map.
+
+        Returns:
+            dict mapping ADK FinishReason name to AI SDK v6 finish reason string
+        """
+        content = self.stream_protocol_path.read_text()
+
+        # Find reason_map definition (Enum-based pattern)
+        # Pattern: types.FinishReason.REASON_NAME: AISdkFinishReason.VALUE,
+        reason_map = {}
+        reason_map_pattern = r"types\.FinishReason\.([A-Z_]+):\s*AISdkFinishReason\.([A-Z_]+)"
+        for match in re.finditer(reason_map_pattern, content):
+            adk_reason = match.group(1)  # e.g., "STOP", "MAX_TOKENS"
+            ai_sdk_enum = match.group(2)  # e.g., "STOP", "LENGTH"
+
+            # Convert AISdkFinishReason enum name to value
+            # STOP -> "stop", LENGTH -> "length", CONTENT_FILTER -> "content-filter"
+            ai_sdk_value = ai_sdk_enum.lower().replace("_", "-")
+            reason_map[adk_reason] = ai_sdk_value
+
+        return reason_map
 
 
 class AISdkAnalyzer:
@@ -542,6 +611,88 @@ class Reporter:
         print(f"- **AI SDK defines**: {len(all_types)} event types")
         print()
 
+    @staticmethod
+    def print_finish_reason_coverage(
+        adk_reasons: set[str],
+        reason_map: dict[str, str],
+        ai_sdk_reasons: set[str],
+        verbose: bool,
+    ) -> None:
+        """Print FinishReason coverage report."""
+        print("# FinishReason Mapping Coverage Report")
+        print()
+        print("**Analyzed**:")
+        print("- ADK: `types.FinishReason` enum (source)")
+        print("- Implementation: `stream_protocol.py` reason_map (mapping)")
+        print("- AI SDK v6: FinishReason type (target)")
+        print()
+
+        # ADK FinishReason coverage
+        mapped_adk_reasons = set(reason_map.keys())
+        missing_adk_reasons = adk_reasons - mapped_adk_reasons
+        adk_coverage = len(mapped_adk_reasons) / len(adk_reasons) * 100
+
+        print("## ADK FinishReason Coverage")
+        print()
+        print(
+            f"**Coverage**: {len(mapped_adk_reasons)}/{len(adk_reasons)} "
+            f"({adk_coverage:.1f}%)"
+        )
+        print()
+
+        if verbose:
+            print("### Mapped ADK FinishReasons")
+            print()
+            for reason in sorted(mapped_adk_reasons):
+                ai_sdk_value = reason_map[reason]
+                print(f"- ✅ `{reason}` → `{ai_sdk_value}`")
+            print()
+
+        if missing_adk_reasons:
+            print("### Missing ADK FinishReasons")
+            print()
+            for reason in sorted(missing_adk_reasons):
+                print(f"- ❌ `{reason}` (not in reason_map)")
+            print()
+
+        # AI SDK v6 target values validation
+        mapped_ai_sdk_values = set(reason_map.values())
+        unmapped_ai_sdk_reasons = ai_sdk_reasons - mapped_ai_sdk_values
+
+        if unmapped_ai_sdk_reasons:
+            print("## ⚠️ AI SDK FinishReasons Not Produced")
+            print()
+            print(
+                "These AI SDK finish reasons are defined but not produced by mapping:"
+            )
+            print()
+            for reason in sorted(unmapped_ai_sdk_reasons):
+                print(f"- `{reason}`")
+            print()
+
+        # Unknown values check
+        unknown_values = mapped_ai_sdk_values - ai_sdk_reasons
+        if unknown_values:
+            print("## ⚠️ Unknown Target Values in Mapping")
+            print()
+            print(
+                "These values are in reason_map but not defined in AI SDK FinishReason:"
+            )
+            print()
+            for value in sorted(unknown_values):
+                adk_sources = [k for k, v in reason_map.items() if v == value]
+                print(f"- `{value}` ← {', '.join(sorted(adk_sources))}")
+            print()
+
+        # Summary
+        print("## Summary")
+        print()
+        print(f"- **ADK FinishReason values**: {len(adk_reasons)}")
+        print(f"- **Mapped in reason_map**: {len(mapped_adk_reasons)}")
+        print(f"- **AI SDK target values**: {len(ai_sdk_reasons)}")
+        print(f"- **Unique mapped values**: {len(mapped_ai_sdk_values)}")
+        print()
+
 
 # =============================================================================
 # Main Orchestrator
@@ -593,6 +744,17 @@ class CoverageChecker:
         consumed = self.ai_sdk_analyzer.analyze_frontend()
         all_ai_sdk = self.ai_sdk_extractor.get_all_event_types()
         self.reporter.print_ai_sdk_coverage(generated, consumed, all_ai_sdk, verbose)
+
+        print("=" * 80)
+        print()
+
+        # FinishReason coverage
+        adk_reasons = self.adk_extractor.get_finish_reasons()
+        reason_map = self.adk_analyzer.analyze_finish_reasons()
+        ai_sdk_reasons = self.ai_sdk_extractor.extract_finish_reasons()
+        self.reporter.print_finish_reason_coverage(
+            adk_reasons, reason_map, ai_sdk_reasons, verbose
+        )
 
 
 # =============================================================================

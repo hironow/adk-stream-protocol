@@ -14,6 +14,8 @@ import base64
 
 import pytest
 
+from server import ChatMessage
+
 
 def test_chat_message_with_text_and_image():
     """
@@ -21,7 +23,6 @@ def test_chat_message_with_text_and_image():
 
     RED phase: This test will fail because ImagePart doesn't exist yet.
     """
-    from server import ChatMessage
 
     # given: A message with text and image parts
     # Create a small 1x1 PNG image (base64 encoded)
@@ -63,7 +64,6 @@ def test_chat_message_to_adk_content_with_image():
 
     RED phase: This test will fail because to_adk_content() doesn't handle images yet.
     """
-    from server import ChatMessage
 
     # given: A message with text and image
     png_data = base64.b64decode(
@@ -103,7 +103,6 @@ def test_chat_message_image_only():
 
     RED phase: Will fail until image support is implemented.
     """
-    from server import ChatMessage
 
     # given: An image-only message
     png_data = base64.b64decode(
@@ -134,7 +133,6 @@ def test_chat_message_multiple_images():
 
     RED phase: Will fail until multi-image support works.
     """
-    from server import ChatMessage
 
     # given: A message with text and two images
     png_data = base64.b64decode(
@@ -171,7 +169,6 @@ def test_chat_message_backward_compatibility_text_only():
     This should PASS even before implementing image support.
     Ensures we don't break existing functionality.
     """
-    from server import ChatMessage
 
     # given: Simple text message (existing format)
     message = ChatMessage(role="user", content="Hello")
@@ -191,7 +188,6 @@ def test_chat_message_backward_compatibility_parts_text():
 
     This should PASS even before implementing image support.
     """
-    from server import ChatMessage
 
     # given: Parts-based text message (existing format)
     message = ChatMessage(
@@ -214,7 +210,6 @@ def test_image_part_rejects_invalid_media_type():
 
     RED phase: Will fail until validation is added.
     """
-    from server import ChatMessage
 
     # given: Invalid media type (GIF not supported)
     png_data = base64.b64decode(
@@ -238,7 +233,6 @@ def test_image_part_rejects_invalid_base64():
 
     RED phase: Will fail until validation is added.
     """
-    from server import ChatMessage
 
     # given: Invalid base64 string
     invalid_base64 = "This is not base64!@#$"
@@ -259,7 +253,6 @@ def test_image_part_rejects_empty_data():
 
     RED phase: Will fail until validation is added.
     """
-    from server import ChatMessage
 
     # when/then: Should raise validation error
     with pytest.raises(ValueError, match="data"):
@@ -277,7 +270,6 @@ def test_image_part_accepts_all_supported_formats():
 
     This should PASS once validation is implemented.
     """
-    from server import ChatMessage
 
     # given: Valid base64 image
     png_data = base64.b64decode(

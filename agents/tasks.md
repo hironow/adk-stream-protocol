@@ -10,8 +10,12 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
 **Phase 2: アーキテクチャ安定化** - 🟡 In Progress
 - [P2-T1] WebSocket Timeout Investigation
 - [P2-T2] WebSocket Bidirectional Communication
-- [P2-T3] Immediate Error Detection (errorCode/errorMessage) - 🔴 High Priority
-- [P2-T4] Field Coverage Testing (Automated CI Checks) - 🔴 High Priority
+- [P2-T3] Immediate Error Detection (errorCode/errorMessage) - ✅ Complete
+- [P2-T4] Field Coverage Testing (Automated CI Checks) - ✅ Complete
+- [P2-T5] Tool Error Handling - 🔴 High Priority
+- [P2-T6] Unify Image Events to `file` Type - 🟡 Medium Priority
+- [P2-T7] Audio Completion Signaling - 🔴 High Priority
+- [P2-T8] message-metadata Event Implementation - 🟡 Medium Priority
 
 **Phase 3: 新機能検討（UI設計判断待ち）** - ⏸️ Awaiting Decision
 - [P3-T1] Live API Transcriptions
@@ -309,7 +313,516 @@ When test fails (ADK SDK updated):
 
 **Reference:**
 - experiments/2025-12-12_adk_field_mapping_completeness.md - Section "Automated Completeness Checking"
-- scripts/check-adk-coverage-from-code.py - Current coverage detection (32.4%)
+- scripts/check-coverage.py - Current coverage detection (34.2%)
+
+---
+
+### [P2-T5] Tool Error Handling
+
+**Issue:** Tool execution errors are not properly communicated to frontend
+
+**Current Behavior:**
+- Only `tool-input-start`, `tool-input-available`, `tool-output-available` events are generated
+- No error events when tool execution fails
+- ADK tool errors are not caught and converted to AI SDK v6 error events
+
+**Missing Event Types:**
+- `tool-input-error` - Tool input validation failed
+- `tool-output-error` - Tool execution failed
+- `tool-error` - Generic tool error (TextStreamPart type)
+
+**Required Implementation:**
+
+**1. Add tool error detection in `_process_function_response()`:**
+
+```python
+# stream_protocol.py:380-410 (in _process_function_response)
+def _process_function_response(
+    self, function_response: types.FunctionResponse
+) -> list[str]:
+    """Process function response into tool-output-available or tool-output-error event."""
+    tool_name = function_response.name
+    tool_call_id = self.tool_call_id_map.get(tool_name)
+
+    if not tool_call_id:
+        logger.warning(f"[TOOL] No tool_call_id found for function: {tool_name}")
+        return []
+
+    # Check if function response contains error
+    # ADK tool errors often have { "error": "...", "success": false } structure
+    output = function_response.response
+
+    # Detect error in response
+    is_error = False
+    error_message = None
+
+    if isinstance(output, dict):
+        if output.get("success") is False:
+            is_error = True
+            error_message = output.get("error", "Unknown tool error")
+        elif "error" in output and output.get("result") is None:
+            is_error = True
+            error_message = output.get("error", "Unknown tool error")
+
+    # Send error event if error detected
+    if is_error:
+        event = self._format_sse_event({
+            "type": "tool-output-error",
+            "toolCallId": tool_call_id,
+            "errorText": str(error_message),
+        })
+        logger.error(f"[TOOL ERROR] {tool_name}: {error_message}")
+        return [event]
+
+    # Normal success response
+    event = self._format_sse_event({
+        "type": "tool-output-available",
+        "toolCallId": tool_call_id,
+        "output": output,
+    })
+    return [event]
+```
+
+**2. Add exception handling in `stream_adk_to_ai_sdk()`:**
+
+```python
+# stream_protocol.py:564-616 (in stream_adk_to_ai_sdk)
+try:
+    async for event in event_stream:
+        try:
+            async for sse_event in converter.convert_event(event):
+                yield sse_event
+        except Exception as convert_error:
+            # Log conversion error but continue stream
+            logger.error(f"[CONVERT ERROR] Failed to convert event: {convert_error}")
+            # Send error event to frontend
+            yield converter._format_sse_event({
+                "type": "error",
+                "error": f"Event conversion failed: {str(convert_error)}"
+            })
+except Exception as e:
+    # ... existing error handling
+```
+
+**Testing Requirements:**
+- [ ] Test with tool that returns error response (`{ "success": false, "error": "..." }`)
+- [ ] Test with tool that raises exception
+- [ ] Verify `tool-output-error` event is sent to frontend
+- [ ] Verify UI displays tool error appropriately
+- [ ] Add unit test: `test_tool_execution_error()`
+
+**Priority:** 🔴 HIGH - Critical for proper tool error UX
+
+**Impact:** Users will see tool errors immediately instead of silent failures
+
+---
+
+### [P2-T6] Unify Image Events to `file` Type
+
+**Issue:** Asymmetry between input and output image formats
+
+**Current Behavior:**
+
+**Input (User → Backend):**
+```typescript
+{ type: "file", url: "data:image/png;base64,...", mediaType: "image/png" }
+```
+
+**Output (Backend → Frontend):**
+```python
+{ "type": "data-image", "data": { "mediaType": "...", "content": "base64..." } }
+```
+
+**Problem:**
+- Input uses AI SDK v6 standard `file` event
+- Output uses custom `data-image` event
+- Frontend must handle two different formats for the same data
+
+**Required Implementation:**
+
+**1. Update `_process_inline_data_part()` for images:**
+
+```python
+# stream_protocol.py:486-502 (replace data-image with file)
+# Process image data
+if mime_type.startswith("image/"):
+    # Convert bytes to base64 string
+    base64_content = base64.b64encode(inline_data.data).decode("utf-8")
+
+    # Use AI SDK v6 standard 'file' event with data URL
+    event = self._format_sse_event({
+        "type": "file",
+        "url": f"data:{mime_type};base64,{base64_content}",
+        "mediaType": mime_type,
+    })
+    logger.debug(f"[IMAGE OUTPUT] mime_type={mime_type}, size={len(inline_data.data)} bytes")
+    return [event]
+```
+
+**2. Update coverage script to recognize `file` instead of `data-image`:**
+
+```python
+# scripts/check-coverage.py - Update AI SDK event detection
+# Remove 'data-image' from expected events
+# Add 'file' to expected events
+```
+
+**3. Verify frontend handles `file` event:**
+
+Frontend should already handle `file` events correctly since AI SDK's `useChat` processes them.
+
+**Testing Requirements:**
+- [ ] Test with ADK returning image (Part.inline_data with image/*)
+- [ ] Verify `file` event is generated with correct data URL format
+- [ ] Verify frontend displays image correctly
+- [ ] Update test expectations to check for `file` instead of `data-image`
+- [ ] Verify `just check-coverage-verbose` shows `file` as generated
+
+**Priority:** 🟡 MEDIUM - Improves protocol consistency
+
+**Impact:** Symmetric input/output format, better AI SDK v6 compliance
+
+**Reference:** AI SDK v6 UIMessageChunk type definition (node_modules/ai/dist/index.d.ts)
+
+---
+
+### [P2-T7] Audio Completion Signaling
+
+**Issue:** No explicit signal when audio streaming completes
+
+**Current Behavior:**
+- PCM chunks are sent via `data-pcm` events
+- No indication when the last chunk is sent
+- Frontend cannot detect audio stream completion
+- `finalize()` is commented out (stream_protocol.py:606-609)
+
+**Problems:**
+1. Frontend doesn't know when to stop waiting for audio
+2. No finish event with usage metadata
+3. Audio playback cannot auto-advance to next action
+
+**Required Implementation:**
+
+**Approach: message-metadata + finalize()**
+
+**1. Uncomment and fix `finalize()` call:**
+
+```python
+# stream_protocol.py:606-609 (UNCOMMENT)
+finally:
+    # Send final events with usage metadata and finish reason
+    async for final_event in converter.finalize(
+        usage_metadata=usage_metadata, error=error, finish_reason=finish_reason
+    ):
+        yield final_event
+```
+
+**2. Add audio metadata to `finalize()`:**
+
+```python
+# stream_protocol.py:507-560 (update finalize method)
+async def finalize(
+    self,
+    usage_metadata: Any | None = None,
+    error: Exception | None = None,
+    finish_reason: Any | None = None,
+) -> AsyncGenerator[str, None]:
+    """Send final events including finish event with metadata."""
+
+    if error:
+        yield self._format_sse_event({"type": "error", "error": str(error)})
+    else:
+        # Close any open text blocks (output transcription)
+        if self._text_block_started and self._text_block_id:
+            logger.debug(f"[TRANSCRIPTION] Closing text block in finalize: id={self._text_block_id}")
+            yield self._format_sse_event({
+                "type": "text-end",
+                "id": self._text_block_id
+            })
+            self._text_block_started = False
+
+        # Send finish event with messageMetadata
+        finish_event: dict[str, Any] = {"type": "finish"}
+
+        # Add finishReason
+        if finish_reason:
+            ai_sdk_reason = map_adk_finish_reason_to_ai_sdk(finish_reason)
+            finish_event["finishReason"] = ai_sdk_reason
+
+        # Build messageMetadata
+        metadata: dict[str, Any] = {}
+
+        # Add usage metadata
+        if usage_metadata:
+            metadata["usage"] = {
+                "promptTokens": getattr(usage_metadata, "prompt_token_count", 0),
+                "completionTokens": getattr(usage_metadata, "candidates_token_count", 0),
+                "totalTokens": getattr(usage_metadata, "total_token_count", 0),
+            }
+
+        # Add audio streaming metadata if present
+        if self.pcm_chunk_count > 0:
+            metadata["audio"] = {
+                "chunks": self.pcm_chunk_count,
+                "bytes": self.pcm_total_bytes,
+                "sampleRate": self.pcm_sample_rate or 24000,
+                "duration": self.pcm_total_bytes / ((self.pcm_sample_rate or 24000) * 2),  # duration in seconds
+            }
+            logger.info(
+                f"[AUDIO COMPLETE] chunks={self.pcm_chunk_count}, "
+                f"bytes={self.pcm_total_bytes}, "
+                f"sampleRate={self.pcm_sample_rate}"
+            )
+
+        if metadata:
+            finish_event["messageMetadata"] = metadata
+
+        yield self._format_sse_event(finish_event)
+```
+
+**3. Send message-metadata for audio streaming start (optional):**
+
+```python
+# stream_protocol.py:453-467 (in _process_inline_data_part, first PCM chunk only)
+if mime_type.startswith("audio/pcm"):
+    # ... existing code ...
+
+    # Send audio streaming start notification on first chunk
+    if self.pcm_chunk_count == 1:
+        yield self._format_sse_event({
+            "type": "message-metadata",
+            "messageMetadata": {
+                "audioStreaming": {
+                    "status": "started",
+                    "sampleRate": sample_rate or 24000,
+                }
+            }
+        })
+```
+
+**Testing Requirements:**
+- [ ] Test with ADK BIDI audio response
+- [ ] Verify `finish` event is sent after last PCM chunk
+- [ ] Verify `messageMetadata.audio` contains chunk count, bytes, duration
+- [ ] Verify frontend can detect audio completion
+- [ ] Fix 3 failing tests (test_complete_stream_flow, test_stream_with_error, test_stream_with_usage_metadata)
+
+**Priority:** 🔴 HIGH - Critical for BIDI audio UX
+
+**Impact:** Frontend can properly detect audio completion and show finish state
+
+**Reference:**
+- stream_protocol.py:606-609 (commented out finalize)
+- ADK BIDI audio streaming issues
+
+---
+
+### [P2-T8] message-metadata Event Implementation
+
+**Issue:** ADK metadata fields (grounding, citations, cache, etc.) are not forwarded to frontend
+
+**Goal:** Implement `message-metadata` event to forward ADK metadata fields
+
+**Current Missing Fields:**
+- `groundingMetadata` - RAG sources, web search results
+- `citationMetadata` - Citation information
+- `cacheMetadata` - Context cache statistics
+- `modelVersion` - Model version used
+- `customMetadata` - User-defined metadata
+- `inputTranscription` - User audio transcription
+- `logprobsResult`, `avgLogprobs` - Token probabilities
+
+**Implementation Strategy:**
+
+**Phase 1: Add metadata to `finish` event (Priority 1)**
+
+```python
+# stream_protocol.py:507-560 (extend finalize method)
+async def finalize(
+    self,
+    usage_metadata: Any | None = None,
+    error: Exception | None = None,
+    finish_reason: Any | None = None,
+    grounding_metadata: Any | None = None,  # NEW
+    citation_metadata: Any | None = None,   # NEW
+    cache_metadata: Any | None = None,      # NEW
+    model_version: str | None = None,       # NEW
+) -> AsyncGenerator[str, None]:
+    # ... existing code ...
+
+    # Build messageMetadata
+    metadata: dict[str, Any] = {}
+
+    # Add usage
+    if usage_metadata:
+        metadata["usage"] = { ... }
+
+    # Add audio stats
+    if self.pcm_chunk_count > 0:
+        metadata["audio"] = { ... }
+
+    # Add grounding sources (NEW)
+    if grounding_metadata:
+        sources = []
+        for chunk in grounding_metadata.grounding_chunks or []:
+            if hasattr(chunk, 'web'):
+                sources.append({
+                    "type": "web",
+                    "uri": chunk.web.uri,
+                    "title": chunk.web.title,
+                })
+        if sources:
+            metadata["grounding"] = {"sources": sources}
+
+    # Add citations (NEW)
+    if citation_metadata:
+        citations = []
+        for source in citation_metadata.citation_sources or []:
+            citations.append({
+                "startIndex": source.start_index,
+                "endIndex": source.end_index,
+                "uri": source.uri,
+                "license": source.license,
+            })
+        if citations:
+            metadata["citations"] = citations
+
+    # Add cache metadata (NEW)
+    if cache_metadata:
+        metadata["cache"] = {
+            "hits": getattr(cache_metadata, "cache_hits", 0),
+            "misses": getattr(cache_metadata, "cache_misses", 0),
+        }
+
+    # Add model version (NEW)
+    if model_version:
+        metadata["modelVersion"] = model_version
+
+    if metadata:
+        finish_event["messageMetadata"] = metadata
+
+    yield self._format_sse_event(finish_event)
+```
+
+**Phase 2: Collect metadata from events (Priority 1)**
+
+```python
+# stream_protocol.py:564-616 (update stream_adk_to_ai_sdk)
+async def stream_adk_to_ai_sdk(event_stream):
+    # ... existing code ...
+
+    # Track metadata from events
+    grounding_metadata = None
+    citation_metadata = None
+    cache_metadata = None
+    model_version = None
+
+    try:
+        async for event in event_stream:
+            # Collect metadata fields
+            if hasattr(event, "grounding_metadata") and event.grounding_metadata:
+                grounding_metadata = event.grounding_metadata
+            if hasattr(event, "citation_metadata") and event.citation_metadata:
+                citation_metadata = event.citation_metadata
+            if hasattr(event, "cache_metadata") and event.cache_metadata:
+                cache_metadata = event.cache_metadata
+            if hasattr(event, "model_version") and event.model_version:
+                model_version = event.model_version
+
+            # ... existing conversion logic ...
+    finally:
+        # Send finalize with all collected metadata
+        async for final_event in converter.finalize(
+            usage_metadata=usage_metadata,
+            error=error,
+            finish_reason=finish_reason,
+            grounding_metadata=grounding_metadata,
+            citation_metadata=citation_metadata,
+            cache_metadata=cache_metadata,
+            model_version=model_version,
+        ):
+            yield final_event
+```
+
+**Phase 3: Standalone message-metadata events (Priority 2)**
+
+For streaming updates during generation (optional):
+
+```python
+# stream_protocol.py:convert_event (add metadata event generation)
+async def convert_event(self, event: Event) -> AsyncGenerator[str, None]:
+    # ... existing error check ...
+
+    # Send grounding metadata as standalone event (if mid-stream)
+    if hasattr(event, "grounding_metadata") and event.grounding_metadata:
+        # Only send as standalone if not in finalize (to avoid duplication)
+        if not hasattr(event, "turn_complete") or not event.turn_complete:
+            sources = [...]  # Extract sources
+            if sources:
+                yield self._format_sse_event({
+                    "type": "message-metadata",
+                    "messageMetadata": {
+                        "grounding": {"sources": sources}
+                    }
+                })
+```
+
+**Testing Requirements:**
+- [ ] Test with ADK response containing groundingMetadata
+- [ ] Test with ADK response containing citationMetadata
+- [ ] Test with ADK response containing cacheMetadata
+- [ ] Verify `finish` event includes messageMetadata
+- [ ] Verify frontend can access metadata
+- [ ] Add unit tests for metadata extraction
+
+**Priority:** 🟡 MEDIUM - Enhances transparency, not critical for basic functionality
+
+**Impact:** Frontend can display grounding sources, citations, cache stats
+
+**Reference:**
+- experiments/2025-12-12_adk_field_mapping_completeness.md - Section "High-Value Fields"
+- AI SDK v6 UIMessageChunk type (message-metadata event)
+
+---
+
+## ✅ Completed Tasks (Phase 2)
+
+### [P2-T3] Immediate Error Detection ✅
+
+**Completed:** 2025-12-12 (Night)
+
+**Implementation:**
+- Added `errorCode`/`errorMessage` detection at the start of `convert_event()` (stream_protocol.py:121-131)
+- Error events sent immediately before any other processing
+- 3 comprehensive tests added (all passing)
+
+**Impact:**
+- ADK Event coverage improved: 20.0% → 28.0%
+- Users see errors immediately instead of after stream finishes
+
+**Reference:** experiments/2025-12-12_adk_field_mapping_completeness.md - Changelog
+
+---
+
+### [P2-T4] Field Coverage Testing ✅
+
+**Completed:** 2025-12-12 (Night)
+
+**Implementation:**
+- Created `tests/unit/test_field_coverage.py` (167 lines)
+- Automated detection of new ADK Event/Part fields when SDK updates
+- Successfully tested with google-adk 1.20.0 → 1.21.0 upgrade
+- Detected new field: `interactionId` (classified as metadata)
+
+**Impact:**
+- CI now fails when new ADK fields are added without conscious decision
+- Prevents accidental field omissions (like `outputTranscription` which was discovered by accident)
+
+**Field Categories:**
+- Event: 7 implemented, 4 documented, 15 metadata (26 total)
+- Part: 7 implemented, 2 documented, 3 metadata (12 total)
+
+**Reference:** experiments/2025-12-12_adk_field_mapping_completeness.md - Changelog
 
 ---
 

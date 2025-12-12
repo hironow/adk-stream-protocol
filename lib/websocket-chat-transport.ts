@@ -282,60 +282,159 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
         // Debug: Log chunk before processing
         console.debug("[WS→useChat]", chunk);
 
-        // SPECIAL HANDLING: PCM audio chunks (ADK BIDI mode)
-        // Following official ADK implementation pattern:
-        // https://github.com/google/adk-samples/blob/main/python/agents/bidi-demo/app/static/js/app.js
-        //
-        // PCM chunks bypass message.parts and go directly to AudioWorklet for low-latency playback.
-        // UI detects audio by checking AudioContext.voiceChannel.chunkCount > 0
-        if (chunk.type === "data-pcm" && this.config.audioContext) {
-          console.log("[WS Transport] PCM chunk received, routing to AudioWorklet");
-
-          // Low-latency audio path: directly to AudioWorklet
-          try {
-            this.config.audioContext.voiceChannel.sendChunk({
-              content: chunk.data.content,
-              sampleRate: chunk.data.sampleRate,
-              channels: chunk.data.channels,
-              bitDepth: chunk.data.bitDepth,
-            });
-            console.log(`[WS Transport] PCM chunk sent to AudioWorklet (chunk #${this.audioChunkIndex})`);
-            this.audioChunkIndex++;
-          } catch (err) {
-            console.error("[WS Transport] Error sending PCM to AudioWorklet:", err);
-          }
-
-          return; // Skip normal enqueue for PCM chunks
+        // Custom event handling (skip standard enqueue)
+        // Returns true if standard enqueue should be skipped
+        if (this.handleCustomEventWithSkip(chunk, controller)) {
+          return;
         }
 
-        // Enqueue UIMessageChunk to stream
-        // useChat hook will consume this and update UI
+        // Standard enqueue: Forward to AI SDK useChat hook
+        // All standard AI SDK v6 events are handled here:
+        //   - text-start, text-delta, text-end
+        //   - tool-input-start, tool-input-available, tool-output-available, tool-output-error
+        //   - finish (with messageMetadata: usage, audio, grounding, citations, cache, modelVersion)
+        //   - file (images, documents)
+        //   - message-metadata (standalone metadata updates)
+        //   - error, abort, start
         controller.enqueue(chunk as UIMessageChunk);
 
-        // Handle tool calls if callback is provided
-        if (chunk.type === "tool-input-available") {
-          console.log("[EXPERIMENT] Tool call event received (tool-input-available)");
-          console.log("[EXPERIMENT] Tool name:", chunk.toolName);
-          console.log("[EXPERIMENT] Tool call ID:", chunk.toolCallId);
-          console.log("[EXPERIMENT] Tool input:", JSON.stringify(chunk.input, null, 2));
-
-          if (this.config.toolCallCallback) {
-            this.handleToolCall(chunk);
-          }
-        }
-
-        // Log tool output events
-        if (chunk.type === "tool-output-available") {
-          console.log("[EXPERIMENT] Tool output event received (tool-output-available)");
-          console.log("[EXPERIMENT] Tool call ID:", chunk.toolCallId);
-          console.log("[EXPERIMENT] Tool output:", JSON.stringify(chunk.output, null, 2));
-        }
+        // Custom event handling (after standard enqueue)
+        // These events are enqueued to useChat AND have additional side effects
+        this.handleCustomEventWithoutSkip(chunk);
       } else {
         console.warn("[WS Transport] Unexpected message format:", data);
       }
     } catch (error) {
       console.error("[WS Transport] Error handling message:", error);
       controller.error(error);
+    }
+  }
+
+  /**
+   * Handle custom events that SKIP standard enqueue.
+   *
+   * These events require special processing and should NOT be forwarded to useChat:
+   *   - data-pcm: PCM audio chunks sent directly to AudioWorklet for low-latency playback
+   *   - Future custom events that bypass useChat
+   *
+   * @returns true if standard enqueue should be skipped, false otherwise
+   */
+  private handleCustomEventWithSkip(
+    chunk: any,
+    _controller: ReadableStreamDefaultController<UIMessageChunk>
+  ): boolean {
+    // SPECIAL HANDLING: PCM audio chunks (ADK BIDI mode)
+    // Following official ADK implementation pattern:
+    // https://github.com/google/adk-samples/blob/main/python/agents/bidi-demo/app/static/js/app.js
+    //
+    // PCM chunks bypass message.parts and go directly to AudioWorklet for low-latency playback.
+    // UI detects audio by checking AudioContext.voiceChannel.chunkCount > 0
+    if (chunk.type === "data-pcm" && this.config.audioContext) {
+      // Log audio stream start on first chunk
+      if (this.audioChunkIndex === 0) {
+        console.log("[Audio Stream] Audio streaming started (BIDI mode)");
+        console.log(`[Audio Stream] Sample rate: ${chunk.data.sampleRate}Hz, Channels: ${chunk.data.channels}, Bit depth: ${chunk.data.bitDepth}`);
+      }
+
+      // Low-latency audio path: directly to AudioWorklet
+      try {
+        this.config.audioContext.voiceChannel.sendChunk({
+          content: chunk.data.content,
+          sampleRate: chunk.data.sampleRate,
+          channels: chunk.data.channels,
+          bitDepth: chunk.data.bitDepth,
+        });
+        this.audioChunkIndex++;
+
+        // Periodic logging for long streams
+        if (this.audioChunkIndex % 50 === 0) {
+          console.log(`[Audio Stream] Streaming... (${this.audioChunkIndex} chunks received)`);
+        }
+      } catch (err) {
+        console.error("[Audio Stream] Error sending PCM to AudioWorklet:", err);
+      }
+
+      return true; // Skip standard enqueue for PCM chunks
+    }
+
+    // Add more custom events here that should skip standard enqueue
+    // Example:
+    // if (chunk.type === "data-custom-event") {
+    //   // Handle custom event
+    //   return true; // Skip standard enqueue
+    // }
+
+    return false; // No skip, proceed with standard enqueue
+  }
+
+  /**
+   * Handle custom events that DO NOT skip standard enqueue.
+   *
+   * These events are forwarded to useChat AND have additional side effects:
+   *   - tool-input-available: Log tool call details, execute callback if provided
+   *   - tool-output-available: Log tool output details
+   *   - finish: Log audio stream completion, usage statistics
+   *   - Future custom events that need logging, telemetry, or side effects
+   *
+   * Standard enqueue happens BEFORE this method is called.
+   */
+  private handleCustomEventWithoutSkip(chunk: any): void {
+    // Tool call event: Log details and execute callback
+    if (chunk.type === "tool-input-available") {
+      console.log("[EXPERIMENT] Tool call event received (tool-input-available)");
+      console.log("[EXPERIMENT] Tool name:", chunk.toolName);
+      console.log("[EXPERIMENT] Tool call ID:", chunk.toolCallId);
+      console.log("[EXPERIMENT] Tool input:", JSON.stringify(chunk.input, null, 2));
+
+      if (this.config.toolCallCallback) {
+        this.handleToolCall(chunk);
+      }
+    }
+
+    // Tool output event: Log details
+    if (chunk.type === "tool-output-available") {
+      console.log("[EXPERIMENT] Tool output event received (tool-output-available)");
+      console.log("[EXPERIMENT] Tool call ID:", chunk.toolCallId);
+      console.log("[EXPERIMENT] Tool output:", JSON.stringify(chunk.output, null, 2));
+    }
+
+    // Finish event: Log completion metrics (usage, audio, grounding, citations, cache, model version)
+    if (chunk.type === "finish" && chunk.messageMetadata) {
+      const metadata = chunk.messageMetadata;
+
+      // Log audio stream completion with statistics
+      if (metadata.audio) {
+        console.log("[Audio Stream] Audio streaming completed");
+        console.log(`[Audio Stream] Total chunks: ${metadata.audio.chunks}`);
+        console.log(`[Audio Stream] Total bytes: ${metadata.audio.bytes}`);
+        console.log(`[Audio Stream] Sample rate: ${metadata.audio.sampleRate}Hz`);
+        console.log(`[Audio Stream] Duration: ${metadata.audio.duration.toFixed(2)}s`);
+      }
+
+      // Log usage statistics
+      if (metadata.usage) {
+        console.log("[Usage] Token usage:", metadata.usage);
+      }
+
+      // Log grounding sources (RAG, web search)
+      if (metadata.grounding?.sources) {
+        console.log(`[Grounding] ${metadata.grounding.sources.length} sources:`, metadata.grounding.sources);
+      }
+
+      // Log citations
+      if (metadata.citations) {
+        console.log(`[Citations] ${metadata.citations.length} citations:`, metadata.citations);
+      }
+
+      // Log cache statistics
+      if (metadata.cache) {
+        console.log("[Cache] Cache statistics:", metadata.cache);
+      }
+
+      // Log model version
+      if (metadata.modelVersion) {
+        console.log("[Model] Model version:", metadata.modelVersion);
+      }
     }
   }
 

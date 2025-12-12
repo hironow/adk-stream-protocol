@@ -103,35 +103,45 @@ describe("WebSocketChatTransport - SSE Format Parsing", () => {
   describe("Category 3: Tool Execution Events", () => {
     it.each([
       {
-        name: "tool-call-start event",
-        input: 'data: {"type":"tool-call-start","toolCallId":"call_0","toolName":"get_weather"}\n\n',
-        expected: { type: "tool-call-start", toolCallId: "call_0", toolName: "get_weather" },
+        name: "tool-input-start event (AI SDK v6)",
+        input: 'data: {"type":"tool-input-start","toolCallId":"call_0","toolName":"get_weather"}\n\n',
+        expected: { type: "tool-input-start", toolCallId: "call_0", toolName: "get_weather" },
       },
       {
-        name: "tool-call-available event",
-        input: 'data: {"type":"tool-call-available","toolCallId":"call_0","toolName":"get_weather","input":{"location":"Tokyo"}}\n\n',
+        name: "tool-input-available event (AI SDK v6)",
+        input: 'data: {"type":"tool-input-available","toolCallId":"call_0","toolName":"get_weather","input":{"location":"Tokyo"}}\n\n',
         expected: {
-          type: "tool-call-available",
+          type: "tool-input-available",
           toolCallId: "call_0",
           toolName: "get_weather",
           input: { location: "Tokyo" },
         },
       },
       {
-        name: "tool-result-available event",
-        input: 'data: {"type":"tool-result-available","toolCallId":"call_0","output":{"temperature":20,"condition":"sunny"}}\n\n',
+        name: "tool-output-available event (AI SDK v6)",
+        input: 'data: {"type":"tool-output-available","toolCallId":"call_0","output":{"temperature":20,"condition":"sunny"}}\n\n',
         expected: {
-          type: "tool-result-available",
+          type: "tool-output-available",
           toolCallId: "call_0",
           output: { temperature: 20, condition: "sunny" },
+        },
+      },
+      {
+        name: "tool-output-error event (AI SDK v6)",
+        input: 'data: {"type":"tool-output-error","toolCallId":"call_0","errorText":"Failed to fetch weather data"}\n\n',
+        expected: {
+          type: "tool-output-error",
+          toolCallId: "call_0",
+          errorText: "Failed to fetch weather data",
         },
       },
     ])("should parse $name correctly", ({ input, expected }) => {
       /**
        * Coverage: reviews.md Section 3 - Tool Execution
-       * - tool-call-start
-       * - tool-call-available
-       * - tool-result-available
+       * - tool-input-start (AI SDK v6 standard)
+       * - tool-input-available (AI SDK v6 standard)
+       * - tool-output-available (AI SDK v6 standard)
+       * - tool-output-error (AI SDK v6 standard) - P2-T5 implementation
        */
       (transport as any).handleWebSocketMessage(input, controller);
 
@@ -140,47 +150,102 @@ describe("WebSocketChatTransport - SSE Format Parsing", () => {
   });
 
   describe("Category 4: Audio Content Events", () => {
-    it.each([
-      {
-        name: "data-pcm event (PCM audio)",
-        input: 'data: {"type":"data-pcm","data":{"content":"AAABAAACAAA=","sampleRate":24000,"channels":1,"bitDepth":16}}\n\n',
-        expected: {
-          type: "data-pcm",
-          data: {
-            content: "AAABAAACAAA=",
-            sampleRate: 24000,
-            channels: 1,
-            bitDepth: 16,
-          },
-        },
-      },
-      {
-        name: "data-audio event (non-PCM audio)",
-        input: 'data: {"type":"data-audio","data":{"mediaType":"audio/mp3","content":"base64data"}}\n\n',
-        expected: {
-          type: "data-audio",
-          data: {
-            mediaType: "audio/mp3",
-            content: "base64data",
-          },
-        },
-      },
-    ])("should parse $name correctly", ({ input, expected }) => {
+    it("should skip enqueue for data-pcm when AudioContext is provided", () => {
       /**
        * Coverage: reviews.md Section 4 - Audio Content
-       * - data-pcm (custom)
-       * - data-audio (custom)
+       * - data-pcm (custom) - SKIP standard enqueue (handleCustomEventWithSkip)
+       *
+       * data-pcm chunks bypass useChat and go directly to AudioWorklet
        */
+      const mockAudioContext = {
+        voiceChannel: {
+          sendChunk: vi.fn(),
+          reset: vi.fn(),
+        },
+      };
+      const transportWithAudio = new WebSocketChatTransport({
+        url: "ws://test",
+        audioContext: mockAudioContext as any,
+      });
+      const localController = createMockController();
+
+      const input = 'data: {"type":"data-pcm","data":{"content":"AAABAAACAAA=","sampleRate":24000,"channels":1,"bitDepth":16}}\n\n';
+
+      (transportWithAudio as any).handleWebSocketMessage(input, localController);
+
+      // Should NOT enqueue to useChat
+      expect(localController.enqueue).not.toHaveBeenCalled();
+      // Should send directly to AudioWorklet
+      expect(mockAudioContext.voiceChannel.sendChunk).toHaveBeenCalledWith({
+        content: "AAABAAACAAA=",
+        sampleRate: 24000,
+        channels: 1,
+        bitDepth: 16,
+      });
+    });
+
+    it("should enqueue data-pcm when AudioContext is not provided", () => {
+      /**
+       * Coverage: Fallback behavior when no AudioContext
+       * - data-pcm should be enqueued normally if AudioContext is missing
+       */
+      const input = 'data: {"type":"data-pcm","data":{"content":"AAABAAACAAA=","sampleRate":24000,"channels":1,"bitDepth":16}}\n\n';
+
       (transport as any).handleWebSocketMessage(input, controller);
 
-      expect(controller.enqueue).toHaveBeenCalledWith(expected);
+      // Should enqueue to useChat when no AudioContext
+      expect(controller.enqueue).toHaveBeenCalledWith({
+        type: "data-pcm",
+        data: {
+          content: "AAABAAACAAA=",
+          sampleRate: 24000,
+          channels: 1,
+          bitDepth: 16,
+        },
+      });
+    });
+
+    it("should parse data-audio event correctly", () => {
+      /**
+       * Coverage: reviews.md Section 4 - Audio Content
+       * - data-audio (custom) - Standard enqueue
+       */
+      const input = 'data: {"type":"data-audio","data":{"mediaType":"audio/mp3","content":"base64data"}}\n\n';
+
+      (transport as any).handleWebSocketMessage(input, controller);
+
+      expect(controller.enqueue).toHaveBeenCalledWith({
+        type: "data-audio",
+        data: {
+          mediaType: "audio/mp3",
+          content: "base64data",
+        },
+      });
     });
   });
 
   describe("Category 5: Image Content Events", () => {
     it.each([
       {
-        name: "data-image event (PNG)",
+        name: "file event with data URL (AI SDK v6 standard)",
+        input: 'data: {"type":"file","url":"data:image/png;base64,iVBORw0KGgoAAAA...","mediaType":"image/png"}\n\n',
+        expected: {
+          type: "file",
+          url: "data:image/png;base64,iVBORw0KGgoAAAA...",
+          mediaType: "image/png",
+        },
+      },
+      {
+        name: "file event with http URL",
+        input: 'data: {"type":"file","url":"https://example.com/image.jpg","mediaType":"image/jpeg"}\n\n',
+        expected: {
+          type: "file",
+          url: "https://example.com/image.jpg",
+          mediaType: "image/jpeg",
+        },
+      },
+      {
+        name: "data-image event (legacy custom format)",
         input: 'data: {"type":"data-image","data":{"mediaType":"image/png","content":"iVBORw0KGgoAAAA..."}}\n\n',
         expected: {
           type: "data-image",
@@ -190,21 +255,11 @@ describe("WebSocketChatTransport - SSE Format Parsing", () => {
           },
         },
       },
-      {
-        name: "data-image event (JPEG)",
-        input: 'data: {"type":"data-image","data":{"mediaType":"image/jpeg","content":"/9j/4AAQSkZJRg..."}}\n\n',
-        expected: {
-          type: "data-image",
-          data: {
-            mediaType: "image/jpeg",
-            content: "/9j/4AAQSkZJRg...",
-          },
-        },
-      },
     ])("should parse $name correctly", ({ input, expected }) => {
       /**
        * Coverage: reviews.md Section 5 - Image Content
-       * - data-image (custom)
+       * - file (AI SDK v6 standard) - P2-T6 implementation
+       * - data-image (legacy custom format)
        */
       (transport as any).handleWebSocketMessage(input, controller);
 
@@ -258,7 +313,7 @@ describe("WebSocketChatTransport - SSE Format Parsing", () => {
         expected: { type: "start", messageId: "test-msg-123" },
       },
       {
-        name: "finish event",
+        name: "finish event (simple)",
         input: 'data: {"type":"finish"}\n\n',
         expected: { type: "finish" },
       },
@@ -277,6 +332,76 @@ describe("WebSocketChatTransport - SSE Format Parsing", () => {
       (transport as any).handleWebSocketMessage(input, controller);
 
       expect(controller.enqueue).toHaveBeenCalledWith(expected);
+    });
+
+    it("should parse finish event with messageMetadata (usage, audio, grounding, citations, cache, modelVersion)", () => {
+      /**
+       * Coverage: P2-T7, P2-T8 - messageMetadata implementation
+       * - finish event with rich messageMetadata
+       */
+      const input = `data: {"type":"finish","finishReason":"stop","messageMetadata":{"usage":{"promptTokens":100,"completionTokens":50,"totalTokens":150},"audio":{"chunks":150,"bytes":480000,"sampleRate":24000,"duration":10.0},"grounding":{"sources":[{"type":"web","uri":"https://example.com","title":"Example"}]},"citations":[{"startIndex":0,"endIndex":10,"uri":"https://example.com","license":"CC-BY-4.0"}],"cache":{"hits":5,"misses":2},"modelVersion":"gemini-2.0-flash-001"}}\n\n`;
+
+      (transport as any).handleWebSocketMessage(input, controller);
+
+      expect(controller.enqueue).toHaveBeenCalledWith({
+        type: "finish",
+        finishReason: "stop",
+        messageMetadata: {
+          usage: {
+            promptTokens: 100,
+            completionTokens: 50,
+            totalTokens: 150,
+          },
+          audio: {
+            chunks: 150,
+            bytes: 480000,
+            sampleRate: 24000,
+            duration: 10.0,
+          },
+          grounding: {
+            sources: [
+              {
+                type: "web",
+                uri: "https://example.com",
+                title: "Example",
+              },
+            ],
+          },
+          citations: [
+            {
+              startIndex: 0,
+              endIndex: 10,
+              uri: "https://example.com",
+              license: "CC-BY-4.0",
+            },
+          ],
+          cache: {
+            hits: 5,
+            misses: 2,
+          },
+          modelVersion: "gemini-2.0-flash-001",
+        },
+      });
+    });
+
+    it("should parse standalone message-metadata event", () => {
+      /**
+       * Coverage: P2-T8 - message-metadata event (Phase 3)
+       * - Standalone metadata updates during streaming
+       */
+      const input = 'data: {"type":"message-metadata","messageMetadata":{"custom":"value","telemetry":{"latency":150}}}\n\n';
+
+      (transport as any).handleWebSocketMessage(input, controller);
+
+      expect(controller.enqueue).toHaveBeenCalledWith({
+        type: "message-metadata",
+        messageMetadata: {
+          custom: "value",
+          telemetry: {
+            latency: 150,
+          },
+        },
+      });
     });
 
     it("should close stream on [DONE] marker", () => {

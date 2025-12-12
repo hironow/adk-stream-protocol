@@ -49,7 +49,10 @@
       "Bash(pnpm exec vitest:*)",
       "Bash(pnpm list:*)",
       "Bash(pnpm build:*)",
-      "Bash(pnpm run build:*)"
+      "Bash(pnpm run build:*)",
+      "Bash(just check-coverage-verbose:*)",
+      "Bash(just lint:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []
