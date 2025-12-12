@@ -823,3 +823,8 @@ The frontend uses:
 ## License
 
 ISC
+
+
+## References
+
+- [BGM](https://www.loopbgm.com/)
