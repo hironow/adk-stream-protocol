@@ -786,7 +786,14 @@ async def live_chat(websocket: WebSocket):
             logger.info(
                 "[BIDI] Using Google AI Studio (session resumption not available)"
             )
+        logger.info(
+            "[BIDI] Context window compression enabled - unlimited session duration"
+        )
 
+        # Context window compression enables unlimited session duration
+        # Reference: https://google.github.io/adk-docs/streaming/dev-guide/part4/#streamingmode-bidi-or-sse
+        # - Without compression: 15min (Gemini) / 10min (Vertex AI) session limit
+        # - With compression: Unlimited session duration (both platforms)
         run_config = RunConfig(
             streaming_mode=StreamingMode.BIDI,
             response_modalities=["AUDIO"],
@@ -795,6 +802,10 @@ async def live_chat(websocket: WebSocket):
             session_resumption=types.SessionResumptionConfig()
             if use_vertexai
             else None,
+            context_window_compression=types.ContextWindowCompressionConfig(
+                trigger_tokens=100000,
+                sliding_window=types.SlidingWindow(target_tokens=80000),
+            ),
         )
     else:
         logger.info(f"[BIDI] Using TEXT modality for model: {model_name}")
@@ -804,7 +815,14 @@ async def live_chat(websocket: WebSocket):
             logger.info(
                 "[BIDI] Using Google AI Studio (session resumption not available)"
             )
+        logger.info(
+            "[BIDI] Context window compression enabled - unlimited session duration"
+        )
 
+        # Context window compression enables unlimited session duration
+        # Reference: https://google.github.io/adk-docs/streaming/dev-guide/part4/#streamingmode-bidi-or-sse
+        # - Without compression: 15min (Gemini) / 10min (Vertex AI) session limit
+        # - With compression: Unlimited session duration (both platforms)
         run_config = RunConfig(
             streaming_mode=StreamingMode.BIDI,
             response_modalities=["TEXT"],
@@ -813,6 +831,10 @@ async def live_chat(websocket: WebSocket):
             session_resumption=types.SessionResumptionConfig()
             if use_vertexai
             else None,
+            context_window_compression=types.ContextWindowCompressionConfig(
+                trigger_tokens=100000,
+                sliding_window=types.SlidingWindow(target_tokens=80000),
+            ),
         )
 
     try:
