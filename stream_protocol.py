@@ -17,6 +17,7 @@ This ensures protocol consistency across all modes.
 
 from __future__ import annotations
 
+import enum
 import json
 import uuid
 from pprint import pformat
@@ -27,33 +28,78 @@ from google.genai import types
 from loguru import logger
 
 
-def map_adk_finish_reason_to_ai_sdk(finish_reason: Any) -> str:
+class AISdkFinishReason(str, enum.Enum):
+    """
+    AI SDK v6 FinishReason values.
+
+    Based on: https://sdk.vercel.ai/docs/ai-sdk-core/language-model#finishreason
+
+    These are the target values that ADK FinishReasons are mapped to.
+    """
+
+    STOP = "stop"
+    LENGTH = "length"
+    CONTENT_FILTER = "content-filter"
+    TOOL_CALLS = "tool-calls"
+    ERROR = "error"
+    OTHER = "other"
+
+
+def map_adk_finish_reason_to_ai_sdk(finish_reason: types.FinishReason | None) -> str:
     """
     Map ADK FinishReason enum to AI SDK v6 finish reason string.
 
-    ADK uses FinishReason enum (e.g., FinishReason.STOP)
-    AI SDK v6 expects lowercase strings: "stop", "length", "content-filter", etc.
+    ADK uses types.FinishReason enum (e.g., types.FinishReason.STOP)
+    AI SDK v6 expects AISdkFinishReason values: stop, length, content-filter, error, other
+
+    Mappings:
+        - STOP, FINISH_REASON_UNSPECIFIED → stop
+        - MAX_TOKENS → length
+        - SAFETY, RECITATION, BLOCKLIST, PROHIBITED_CONTENT, SPII → content-filter
+        - IMAGE_SAFETY, IMAGE_RECITATION, IMAGE_PROHIBITED_CONTENT → content-filter
+        - LANGUAGE → content-filter
+        - MALFORMED_FUNCTION_CALL, NO_IMAGE, UNEXPECTED_TOOL_CALL → error
+        - OTHER, IMAGE_OTHER → other
+        - Unknown → lowercase fallback
     """
     if not finish_reason:
-        return "stop"
-
-    # Get the enum name (e.g., "STOP" from FinishReason.STOP)
-    reason_name = getattr(finish_reason, "name", str(finish_reason))
+        return AISdkFinishReason.STOP.value
 
     # Map ADK finish reasons to AI SDK v6 format
-    reason_map = {
-        "STOP": "stop",
-        "MAX_TOKENS": "length",
-        "SAFETY": "content-filter",
-        "RECITATION": "content-filter",
-        "OTHER": "other",
-        "BLOCKLIST": "content-filter",
-        "PROHIBITED_CONTENT": "content-filter",
-        "SPII": "content-filter",
+    # Complete mapping for all types.FinishReason enum values using enum members
+    reason_map: dict[types.FinishReason, AISdkFinishReason] = {
+        # Standard completion reasons
+        types.FinishReason.STOP: AISdkFinishReason.STOP,
+        types.FinishReason.FINISH_REASON_UNSPECIFIED: AISdkFinishReason.STOP,
+        types.FinishReason.MAX_TOKENS: AISdkFinishReason.LENGTH,
+        types.FinishReason.OTHER: AISdkFinishReason.OTHER,
+        # Content filtering (text)
+        types.FinishReason.SAFETY: AISdkFinishReason.CONTENT_FILTER,
+        types.FinishReason.RECITATION: AISdkFinishReason.CONTENT_FILTER,
+        types.FinishReason.BLOCKLIST: AISdkFinishReason.CONTENT_FILTER,
+        types.FinishReason.PROHIBITED_CONTENT: AISdkFinishReason.CONTENT_FILTER,
+        types.FinishReason.SPII: AISdkFinishReason.CONTENT_FILTER,
+        # Content filtering (image)
+        types.FinishReason.IMAGE_SAFETY: AISdkFinishReason.CONTENT_FILTER,
+        types.FinishReason.IMAGE_RECITATION: AISdkFinishReason.CONTENT_FILTER,
+        types.FinishReason.IMAGE_PROHIBITED_CONTENT: AISdkFinishReason.CONTENT_FILTER,
+        # Language restrictions
+        types.FinishReason.LANGUAGE: AISdkFinishReason.CONTENT_FILTER,
+        # Image-related other
+        types.FinishReason.IMAGE_OTHER: AISdkFinishReason.OTHER,
+        # Tool/function call errors
+        types.FinishReason.MALFORMED_FUNCTION_CALL: AISdkFinishReason.ERROR,
+        types.FinishReason.UNEXPECTED_TOOL_CALL: AISdkFinishReason.ERROR,
+        # Missing requirements
+        types.FinishReason.NO_IMAGE: AISdkFinishReason.ERROR,
     }
 
     # Return mapped value or default to lowercase name
-    return reason_map.get(reason_name, reason_name.lower())
+    if finish_reason in reason_map:
+        return reason_map[finish_reason].value
+    # Fallback for unknown reasons
+    reason_name = getattr(finish_reason, "name", str(finish_reason))
+    return reason_name.lower()
 
 
 class StreamProtocolConverter:
@@ -86,9 +132,12 @@ class StreamProtocolConverter:
         self.pcm_sample_rate: int | None = None
         # Map function names to tool call IDs for matching calls with results
         self.tool_call_id_map: dict[str, str] = {}
-        # Track output transcription text blocks (for native-audio models)
-        self._text_block_id: str | None = None
-        self._text_block_started = False
+        # Track input transcription text blocks (user audio input in BIDI mode)
+        self._input_text_block_id: str | None = None
+        self._input_text_block_started = False
+        # Track output transcription text blocks (AI audio response in native-audio models)
+        self._output_text_block_id: str | None = None
+        self._output_text_block_started = False
 
     def _generate_part_id(self) -> str:
         """Generate unique part ID."""
@@ -251,41 +300,77 @@ class StreamProtocolConverter:
                     for sse_event in self._process_inline_data_part(part.inline_data):
                         yield sse_event
 
+        # [EXPERIMENT] Input transcription (user audio input text in BIDI mode)
+        # Check event.input_transcription at the top level (not in content.parts)
+        if hasattr(event, "input_transcription") and event.input_transcription:
+            transcription = event.input_transcription
+            if hasattr(transcription, "text") and transcription.text:
+                logger.debug(
+                    f"[INPUT TRANSCRIPTION] text='{transcription.text}', finished={getattr(transcription, 'finished', None)}"
+                )
+
+                # Send text-start if this is the first transcription chunk
+                if not self._input_text_block_started:
+                    self._input_text_block_id = f"{self.message_id}_input_text"
+                    self._input_text_block_started = True
+                    logger.debug(f"[INPUT TRANSCRIPTION] Sending text-start with id={self._input_text_block_id}")
+                    yield self._format_sse_event({
+                        "type": "text-start",
+                        "id": self._input_text_block_id
+                    })
+
+                # Send text-delta with the transcription text (AI SDK v6 protocol)
+                logger.debug(f"[INPUT TRANSCRIPTION] Sending text-delta with id={self._input_text_block_id}")
+                yield self._format_sse_event({
+                    "type": "text-delta",
+                    "id": self._input_text_block_id,
+                    "delta": transcription.text
+                })
+
+                # Send text-end if transcription is finished
+                if hasattr(transcription, "finished") and transcription.finished:
+                    logger.debug(f"[INPUT TRANSCRIPTION] Sending text-end with id={self._input_text_block_id}")
+                    yield self._format_sse_event({
+                        "type": "text-end",
+                        "id": self._input_text_block_id
+                    })
+                    self._input_text_block_started = False
+
         # [EXPERIMENT] Output transcription (audio response text from native-audio models)
         # Check event.output_transcription at the top level (not in content.parts)
         if hasattr(event, "output_transcription") and event.output_transcription:
             transcription = event.output_transcription
             if hasattr(transcription, "text") and transcription.text:
                 logger.debug(
-                    f"[TRANSCRIPTION] text='{transcription.text}', finished={getattr(transcription, 'finished', None)}"
+                    f"[OUTPUT TRANSCRIPTION] text='{transcription.text}', finished={getattr(transcription, 'finished', None)}"
                 )
 
                 # Send text-start if this is the first transcription chunk
-                if not self._text_block_started:
-                    self._text_block_id = f"{self.message_id}_text"
-                    self._text_block_started = True
-                    logger.debug(f"[TRANSCRIPTION] Sending text-start with id={self._text_block_id}")
+                if not self._output_text_block_started:
+                    self._output_text_block_id = f"{self.message_id}_output_text"
+                    self._output_text_block_started = True
+                    logger.debug(f"[OUTPUT TRANSCRIPTION] Sending text-start with id={self._output_text_block_id}")
                     yield self._format_sse_event({
                         "type": "text-start",
-                        "id": self._text_block_id
+                        "id": self._output_text_block_id
                     })
 
                 # Send text-delta with the transcription text (AI SDK v6 protocol)
-                logger.debug(f"[TRANSCRIPTION] Sending text-delta with id={self._text_block_id}")
+                logger.debug(f"[OUTPUT TRANSCRIPTION] Sending text-delta with id={self._output_text_block_id}")
                 yield self._format_sse_event({
                     "type": "text-delta",
-                    "id": self._text_block_id,
+                    "id": self._output_text_block_id,
                     "delta": transcription.text
                 })
 
                 # Send text-end if transcription is finished
                 if hasattr(transcription, "finished") and transcription.finished:
-                    logger.debug(f"[TRANSCRIPTION] Sending text-end with id={self._text_block_id}")
+                    logger.debug(f"[OUTPUT TRANSCRIPTION] Sending text-end with id={self._output_text_block_id}")
                     yield self._format_sse_event({
                         "type": "text-end",
-                        "id": self._text_block_id
+                        "id": self._output_text_block_id
                     })
-                    self._text_block_started = False
+                    self._output_text_block_started = False
 
         # BIDI mode: Handle turn completion within convert_event
         # This ensures content and turn_complete are processed in correct order
@@ -380,7 +465,7 @@ class StreamProtocolConverter:
     def _process_function_response(
         self, function_response: types.FunctionResponse
     ) -> list[str]:
-        """Process function response into tool-output-available event (AI SDK v6 spec)."""
+        """Process function response into tool-output-available or tool-output-error event (AI SDK v6 spec)."""
         # Retrieve the tool call ID from the map to match with the function call
         tool_name = function_response.name
         tool_call_id = self.tool_call_id_map.get(tool_name)
@@ -399,6 +484,32 @@ class StreamProtocolConverter:
         logger.info(f"[EXPERIMENT] Tool call ID: {tool_call_id}")
         logger.info(f"[EXPERIMENT] Tool output: {json.dumps(output, indent=2, ensure_ascii=False)}")
 
+        # Check if function response contains error
+        # ADK tool errors often have { "error": "...", "success": false } structure
+        is_error = False
+        error_message = None
+
+        if isinstance(output, dict):
+            # Pattern 1: success=false (common in tool implementations)
+            if output.get("success") is False:
+                is_error = True
+                error_message = output.get("error", "Unknown tool error")
+            # Pattern 2: error field present without result field
+            elif "error" in output and output.get("result") is None:
+                is_error = True
+                error_message = output.get("error", "Unknown tool error")
+
+        # Send error event if error detected
+        if is_error:
+            event = self._format_sse_event({
+                "type": "tool-output-error",
+                "toolCallId": tool_call_id,
+                "errorText": str(error_message),
+            })
+            logger.error(f"[TOOL ERROR] {tool_name}: {error_message}")
+            return [event]
+
+        # Normal success response
         event = self._format_sse_event(
             {
                 "type": "tool-output-available",
@@ -487,15 +598,14 @@ class StreamProtocolConverter:
             # Convert bytes to base64 string
             base64_content = base64.b64encode(inline_data.data).decode("utf-8")
 
-            event = self._format_sse_event(
-                {
-                    "type": "data-image",
-                    "data": {
-                        "mediaType": mime_type,
-                        "content": base64_content,
-                    },
-                }
-            )
+            # Use AI SDK v6 standard 'file' event with data URL
+            # This matches the input format (symmetric input/output)
+            event = self._format_sse_event({
+                "type": "file",
+                "url": f"data:{mime_type};base64,{base64_content}",
+                "mediaType": mime_type,
+            })
+            logger.debug(f"[IMAGE OUTPUT] mime_type={mime_type}, size={len(inline_data.data)} bytes")
             return [event]
 
         # Unknown mime type - log warning and skip
@@ -509,6 +619,10 @@ class StreamProtocolConverter:
         usage_metadata: Any | None = None,
         error: Exception | None = None,
         finish_reason: Any | None = None,
+        grounding_metadata: Any | None = None,
+        citation_metadata: Any | None = None,
+        cache_metadata: Any | None = None,
+        model_version: str | None = None,
     ) -> AsyncGenerator[str, None]:
         """
         Send final events to close the stream.
@@ -517,6 +631,10 @@ class StreamProtocolConverter:
             usage_metadata: Optional token usage information
             error: Optional error that occurred
             finish_reason: Optional ADK FinishReason enum
+            grounding_metadata: Optional grounding sources (RAG, web search)
+            citation_metadata: Optional citation information
+            cache_metadata: Optional context cache statistics
+            model_version: Optional model version string
 
         Yields:
             Final SSE events
@@ -524,14 +642,23 @@ class StreamProtocolConverter:
         if error:
             yield self._format_sse_event({"type": "error", "error": str(error)})
         else:
-            # Close any open text blocks (output transcription)
-            if self._text_block_started and self._text_block_id:
-                logger.debug(f"[TRANSCRIPTION] Closing text block in finalize: id={self._text_block_id}")
+            # Close any open text blocks (input transcription)
+            if self._input_text_block_started and self._input_text_block_id:
+                logger.debug(f"[INPUT TRANSCRIPTION] Closing text block in finalize: id={self._input_text_block_id}")
                 yield self._format_sse_event({
                     "type": "text-end",
-                    "id": self._text_block_id
+                    "id": self._input_text_block_id
                 })
-                self._text_block_started = False
+                self._input_text_block_started = False
+
+            # Close any open text blocks (output transcription)
+            if self._output_text_block_started and self._output_text_block_id:
+                logger.debug(f"[OUTPUT TRANSCRIPTION] Closing text block in finalize: id={self._output_text_block_id}")
+                yield self._format_sse_event({
+                    "type": "text-end",
+                    "id": self._output_text_block_id
+                })
+                self._output_text_block_started = False
 
             # Build finish event
             finish_event: dict[str, Any] = {"type": "finish"}
@@ -542,17 +669,88 @@ class StreamProtocolConverter:
                     finish_reason
                 )
 
-            # Add usage metadata if available (via messageMetadata field)
-            # AI SDK v6 finish event doesn't have a direct usage field,
-            # but supports messageMetadata for arbitrary metadata
+            # Build messageMetadata with usage and audio stats
+            metadata: dict[str, Any] = {}
+
+            # Add usage metadata if available
             if usage_metadata:
-                finish_event["messageMetadata"] = {
-                    "usage": {
-                        "promptTokens": usage_metadata.prompt_token_count,
-                        "completionTokens": usage_metadata.candidates_token_count,
-                        "totalTokens": usage_metadata.total_token_count,
-                    }
+                metadata["usage"] = {
+                    "promptTokens": usage_metadata.prompt_token_count,
+                    "completionTokens": usage_metadata.candidates_token_count,
+                    "totalTokens": usage_metadata.total_token_count,
                 }
+
+            # Add audio streaming metadata if present
+            if self.pcm_chunk_count > 0:
+                sample_rate = self.pcm_sample_rate or 24000
+                # Calculate duration: bytes / (sample_rate * bytes_per_sample)
+                # PCM16: 2 bytes per sample, 1 channel
+                duration_seconds = self.pcm_total_bytes / (sample_rate * 2)
+
+                metadata["audio"] = {
+                    "chunks": self.pcm_chunk_count,
+                    "bytes": self.pcm_total_bytes,
+                    "sampleRate": sample_rate,
+                    "duration": duration_seconds,
+                }
+                logger.info(
+                    f"[AUDIO COMPLETE] chunks={self.pcm_chunk_count}, "
+                    f"bytes={self.pcm_total_bytes}, "
+                    f"sampleRate={sample_rate}, "
+                    f"duration={duration_seconds:.2f}s"
+                )
+
+            # Add grounding sources (RAG, web search results)
+            if grounding_metadata:
+                sources = []
+                grounding_chunks = getattr(grounding_metadata, "grounding_chunks", None)
+                if grounding_chunks:
+                    for chunk in grounding_chunks:
+                        if hasattr(chunk, "web"):
+                            web = chunk.web
+                            sources.append({
+                                "type": "web",
+                                "uri": getattr(web, "uri", ""),
+                                "title": getattr(web, "title", ""),
+                            })
+                if sources:
+                    metadata["grounding"] = {"sources": sources}
+                    logger.debug(f"[GROUNDING] Added {len(sources)} grounding sources to metadata")
+
+            # Add citations
+            if citation_metadata:
+                citations = []
+                citation_sources = getattr(citation_metadata, "citation_sources", None)
+                if citation_sources:
+                    for source in citation_sources:
+                        citations.append({
+                            "startIndex": getattr(source, "start_index", 0),
+                            "endIndex": getattr(source, "end_index", 0),
+                            "uri": getattr(source, "uri", ""),
+                            "license": getattr(source, "license", ""),
+                        })
+                if citations:
+                    metadata["citations"] = citations
+                    logger.debug(f"[CITATIONS] Added {len(citations)} citations to metadata")
+
+            # Add cache metadata (context cache statistics)
+            if cache_metadata:
+                cache_hits = getattr(cache_metadata, "cache_hits", 0)
+                cache_misses = getattr(cache_metadata, "cache_misses", 0)
+                metadata["cache"] = {
+                    "hits": cache_hits,
+                    "misses": cache_misses,
+                }
+                logger.debug(f"[CACHE] Added cache metadata: hits={cache_hits}, misses={cache_misses}")
+
+            # Add model version
+            if model_version:
+                metadata["modelVersion"] = model_version
+                logger.debug(f"[MODEL] Added model version: {model_version}")
+
+            # Add messageMetadata to finish event if we have any metadata
+            if metadata:
+                finish_event["messageMetadata"] = metadata
 
             yield self._format_sse_event(finish_event)
 
@@ -582,6 +780,10 @@ async def stream_adk_to_ai_sdk(
     error_list = []
     usage_metadata_list = []
     finish_reason_list = []
+    grounding_metadata_list = []
+    citation_metadata_list = []
+    cache_metadata_list = []
+    model_version_list = []
 
     try:
         async for event in event_stream:
@@ -589,28 +791,59 @@ async def stream_adk_to_ai_sdk(
             async for sse_event in converter.convert_event(event):
                 yield sse_event
 
-            # But, extract usage metadata if present (for finalization)
+            # But, extract metadata if present (for finalization)
             if hasattr(event, "usage_metadata") and event.usage_metadata:
                 usage_metadata_list.append(event.usage_metadata)
-            # Extract finish reason if present
             if hasattr(event, "finish_reason") and event.finish_reason:
                 finish_reason_list.append(event.finish_reason)
+            if hasattr(event, "grounding_metadata") and event.grounding_metadata:
+                grounding_metadata_list.append(event.grounding_metadata)
+            if hasattr(event, "citation_metadata") and event.citation_metadata:
+                citation_metadata_list.append(event.citation_metadata)
+            if hasattr(event, "cache_metadata") and event.cache_metadata:
+                cache_metadata_list.append(event.cache_metadata)
+            if hasattr(event, "model_version") and event.model_version:
+                model_version_list.append(event.model_version)
 
     except Exception as e:
         logger.error(f"Error in ADK stream conversion: {e}")
         error_list.append(e)
     finally:
-        # Send final events with usage metadata and finish reason
-        # (For SSE mode or error cases)
-        # TODO: finalize event send from not convert_event() logic to be move carefully!
-        # async for final_event in converter.finalize(
-        #     usage_metadata=usage_metadata, error=error, finish_reason=finish_reason
-        # ):
-        #     yield final_event
-        for error in error_list:
-            logger.error(f"[stream_adk_to_ai_sdk] try finally: error {error}")
-        for usage_metadata in usage_metadata_list:
-            logger.error(f"[stream_adk_to_ai_sdk] try finally: usage_metadata {usage_metadata}")
-        for finish_reason in finish_reason_list:
-            logger.error(f"[stream_adk_to_ai_sdk] try finally: finish_reason {finish_reason}")
+        # Send final events with all collected metadata
+        # Extract last values from lists (most recent)
+        error = error_list[-1] if error_list else None
+        usage_metadata = usage_metadata_list[-1] if usage_metadata_list else None
+        finish_reason = finish_reason_list[-1] if finish_reason_list else None
+        grounding_metadata = grounding_metadata_list[-1] if grounding_metadata_list else None
+        citation_metadata = citation_metadata_list[-1] if citation_metadata_list else None
+        cache_metadata = cache_metadata_list[-1] if cache_metadata_list else None
+        model_version = model_version_list[-1] if model_version_list else None
+
+        # Log what we're finalizing with
+        if error:
+            logger.error(f"[FINALIZE] Sending error: {error}")
+        if usage_metadata:
+            logger.debug(f"[FINALIZE] Sending usage metadata: {usage_metadata}")
+        if finish_reason:
+            logger.debug(f"[FINALIZE] Sending finish reason: {finish_reason}")
+        if grounding_metadata:
+            logger.debug("[FINALIZE] Sending grounding metadata")
+        if citation_metadata:
+            logger.debug("[FINALIZE] Sending citation metadata")
+        if cache_metadata:
+            logger.debug(f"[FINALIZE] Sending cache metadata: {cache_metadata}")
+        if model_version:
+            logger.debug(f"[FINALIZE] Sending model version: {model_version}")
+
+        # Send finalize events with all metadata
+        async for final_event in converter.finalize(
+            usage_metadata=usage_metadata,
+            error=error,
+            finish_reason=finish_reason,
+            grounding_metadata=grounding_metadata,
+            citation_metadata=citation_metadata,
+            cache_metadata=cache_metadata,
+            model_version=model_version,
+        ):
+            yield final_event
 
