@@ -53,7 +53,8 @@
       "Bash(just lint:*)",
       "Bash(git add:*)",
       "Bash(grep:*)",
-      "Bash(just:*)"
+      "Bash(just:*)",
+      "Bash(git log:*)"
     ],
     "deny": [],
     "ask": [

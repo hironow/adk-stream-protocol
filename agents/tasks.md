@@ -14,7 +14,7 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
 - [P2-T4] Field Coverage Testing (Automated CI Checks) - ✅ Complete
 - [P2-T5] Tool Error Handling - 🔴 High Priority
 - [P2-T6] Unify Image Events to `file` Type - ✅ Complete
-- [P2-T7] Audio Completion Signaling - 🔴 High Priority
+- [P2-T7] Audio Completion Signaling - ✅ Complete
 - [P2-T8] message-metadata Event Implementation - 🟡 Medium Priority
 
 **Phase 3: 新機能検討（UI設計判断待ち）** - ⏸️ Awaiting Decision
@@ -471,26 +471,28 @@ if (part.type === "file" && part.mediaType?.startsWith("image/")) {
 
 ### [P2-T7] Audio Completion Signaling - Frontend Integration
 
-**Status:** ⚠️ Partially Complete (Backend ✅, Frontend ❌)
+**Status:** ✅ Complete (Implemented 2025-12-12)
 
-**Current Implementation:**
+**Implementation:**
 
-**Backend (✅ Complete):**
-- ✅ `finalize()` method sends `finish` event with `messageMetadata.audio` (stream_protocol.py:684-701)
-- ✅ Metadata includes: chunks, bytes, sampleRate, duration
-- ✅ Logs completion: "[AUDIO COMPLETE] chunks=654, bytes=111360, sampleRate=24000, duration=14.50s"
-- ✅ Works correctly in BIDI mode with turn_complete events
+**1. Backend (stream_protocol.py:684-701):**
+```python
+# finalize() method sends finish event with messageMetadata.audio
+async def finalize(self, usage_metadata, error, finish_reason, grounding_metadata):
+    # ... existing code ...
 
-**Frontend (❌ Incomplete):**
-- ✅ WebSocket transport receives `finish` event (lib/websocket-chat-transport.ts:402-412)
-- ✅ Logs metadata to console: "[Audio Stream] Audio streaming completed"
-- ❌ **Does NOT notify AudioContext** - no callback to voiceChannel
-- ❌ **Does NOT update UI** - no visual indication of completion
+    # Audio completion metadata
+    if self.pcm_chunk_count > 0:
+        audio_duration = self.pcm_total_bytes / (self.pcm_sample_rate * 2)
+        message_metadata["audio"] = {
+            "chunks": self.pcm_chunk_count,
+            "bytes": self.pcm_total_bytes,
+            "sampleRate": self.pcm_sample_rate,
+            "duration": audio_duration,
+        }
+```
 
-**Missing Implementation:**
-
-**1. Add completion callback to AudioContext (lib/audio-context.tsx):**
-
+**2. AudioContext (lib/audio-context.tsx:41-50, 345-348, 404-405):**
 ```typescript
 interface AudioContextValue {
   voiceChannel: {
@@ -498,68 +500,53 @@ interface AudioContextValue {
     chunkCount: number;
     sendChunk: (chunk: PCMChunk) => void;
     reset: () => void;
-    onComplete: (metadata: AudioMetadata) => void;  // ← ADD THIS
+    onComplete: (metadata: AudioMetadata) => void;  // ✅ Implemented
+    lastCompletion: AudioMetadata | null;           // ✅ Implemented
   };
 }
 
-interface AudioMetadata {
-  chunks: number;
-  bytes: number;
-  sampleRate: number;
-  duration: number;
-}
+const handleAudioComplete = (metadata: AudioMetadata) => {
+  setLastCompletion(metadata);
+  setIsPlaying(false);
+};
 ```
 
-**2. Update WebSocket transport to call callback (lib/websocket-chat-transport.ts):**
-
+**3. WebSocket Transport (lib/websocket-chat-transport.ts:548-550):**
 ```typescript
-// Line 402-412 (existing code)
 if (chunk.type === "finish" && chunk.messageMetadata?.audio) {
-  const metadata = chunk.messageMetadata.audio;
-
+  // Log completion statistics
   console.log("[Audio Stream] Audio streaming completed");
-  // ... existing logs ...
 
-  // NEW: Notify AudioContext
+  // Notify AudioContext of audio completion
   if (this.config.audioContext?.voiceChannel?.onComplete) {
-    this.config.audioContext.voiceChannel.onComplete(metadata);
+    this.config.audioContext.voiceChannel.onComplete(metadata.audio);
   }
 }
 ```
 
-**3. Display completion in UI (components/message.tsx or components/chat.tsx):**
-
+**4. UI Display (components/chat.tsx:140-167):**
 ```typescript
-// Option A: Show in message component
-{audioInfo && (
-  <div>
-    <div>🔊 Audio: {audioInfo.duration.toFixed(2)}s ({audioInfo.chunks} chunks)</div>
-  </div>
-)}
-
-// Option B: Show in chat status area
+{/* Audio Completion Indicator (BIDI mode only) */}
 {mode === "adk-bidi" && audioContext.voiceChannel.lastCompletion && (
-  <div>✓ Audio completed: {audioContext.voiceChannel.lastCompletion.duration}s</div>
+  <div style={{ position: "fixed", bottom: "1rem", right: "1rem" }}>
+    <span>✓</span>
+    <span>
+      Audio: {audioContext.voiceChannel.lastCompletion.duration.toFixed(2)}s
+      ({audioContext.voiceChannel.lastCompletion.chunks} chunks)
+    </span>
+  </div>
 )}
 ```
 
-**Testing Requirements:**
-- [ ] Verify AudioContext.onComplete() is called when audio finishes
-- [ ] Verify UI shows completion status
-- [ ] Verify metadata (chunks, bytes, duration) is displayed correctly
-- [ ] Test with multiple audio responses in same session
-- [ ] Verify no memory leaks from completion callbacks
+**Results:**
+- ✅ Backend sends audio completion metadata in finish event
+- ✅ AudioContext receives and stores completion data
+- ✅ UI displays completion indicator with duration and chunk count
+- ✅ Works correctly with multiple audio responses in same session
 
-**Priority:** 🔴 HIGH - Critical for BIDI audio UX completion
+**Commit:** 005bd81 (Dec 12, 2025)
 
-**Impact:** Users can see when audio playback has finished, better UX feedback
-
-**Related:** [ST-1] Frontend Audio Recording (agents/sub_tasks.md) - uses this completion signal
-
-**Reference:**
-- stream_protocol.py:684-701 (backend implementation ✅)
-- lib/websocket-chat-transport.ts:402-412 (frontend reception ✅)
-- Experiment: 2025-12-12_audio_stream_completion_notification.md
+**Related:** Experiment 2025-12-12_audio_stream_completion_notification.md
 
 ---
 
