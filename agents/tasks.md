@@ -15,7 +15,7 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
 - [P2-T5] Tool Error Handling - ✅ Complete
 - [P2-T6] Unify Image Events to `file` Type - ✅ Complete
 - [P2-T7] Audio Completion Signaling - ✅ Complete
-- [P2-T8] message-metadata Event Implementation - 🟡 Medium Priority
+- [P2-T8] message-metadata Event Implementation - ✅ Complete
 
 **Phase 3: 新機能検討（UI設計判断待ち）** - ⏸️ Awaiting Decision
 - [P3-T1] Live API Transcriptions
@@ -511,22 +511,82 @@ if (chunk.type === "finish" && chunk.messageMetadata?.audio) {
 
 ---
 
-### [P2-T8] message-metadata Event Implementation
+### [P2-T8] message-metadata Event Implementation - ✅ Complete
 
-**Issue:** ADK metadata fields (grounding, citations, cache, etc.) are not forwarded to frontend
+**Status:** ✅ COMPLETE (2025-12-13)
 
-**Goal:** Implement `message-metadata` event to forward ADK metadata fields
+**Original Issue:** ADK metadata fields (grounding, citations, cache, etc.) were not forwarded to frontend
 
-**Current Missing Fields:**
-- `groundingMetadata` - RAG sources, web search results
-- `citationMetadata` - Citation information
-- `cacheMetadata` - Context cache statistics
-- `modelVersion` - Model version used
-- `customMetadata` - User-defined metadata
-- `inputTranscription` - User audio transcription
-- `logprobsResult`, `avgLogprobs` - Token probabilities
+**Implementation Summary:**
 
-**Implementation Strategy:**
+**Backend (Already Complete):**
+- stream_protocol.py:628-775 - `finalize()` method accepts all metadata parameters
+- stream_protocol.py:782-860 - `stream_adk_to_ai_sdk()` collects metadata from events
+- All metadata included in `finish` event's `messageMetadata` field
+
+**Frontend (Implemented):**
+- components/message.tsx:417-548 - Added UI display for all metadata fields
+- Follows existing usage metadata display pattern
+- Consistent styling and conditional rendering
+
+**Implemented Metadata Fields:**
+
+1. **Grounding Sources (RAG, Web Search)** - lines 417-457
+   ```tsx
+   🔍 Sources (N):
+     - Title/URI as clickable links
+     - Opens in new tab
+   ```
+
+2. **Citations** - lines 459-504
+   ```tsx
+   📝 Citations (N):
+     - [startIndex-endIndex] URI
+     - Optional license information
+   ```
+
+3. **Cache Metadata** - lines 506-529
+   ```tsx
+   💾 Cache: N hits / N misses
+     - Green for hits, Red for misses
+   ```
+
+4. **Model Version** - lines 531-548
+   ```tsx
+   🤖 Model: model-name
+   ```
+
+5. **Usage Metadata** - lines 387-415 (Already existed)
+   ```tsx
+   📊 Tokens: N in + N out = N total
+   ```
+
+**Files Modified:**
+- `components/message.tsx` - Added metadata display UI
+
+**Related Commit:**
+- 0916c58 - Add UI display for all messageMetadata fields
+
+**Testing Verification:**
+- [x] Backend collects all metadata from ADK events
+- [x] Metadata forwarded in finish event's messageMetadata
+- [x] Frontend console logs metadata (websocket-chat-transport.ts:531-583)
+- [x] UI displays all metadata fields when available
+- [x] Build succeeds with no TypeScript errors
+- [ ] Manual testing: Verify with actual RAG/grounding/citation data (requires ADK features)
+
+**Impact:** Users can now see grounding sources, citations, cache statistics, and model version in the chat UI
+
+**Note:** Some ADK metadata fields not yet implemented:
+- `customMetadata` - User-defined metadata (ADK feature not yet used)
+- `inputTranscription` - User audio transcription (separate feature)
+- `logprobsResult`, `avgLogprobs` - Token probabilities (not in current ADK events)
+
+These can be added when ADK starts providing them.
+
+---
+
+**Original Implementation Strategy (for reference):**
 
 **Phase 1: Add metadata to `finish` event (Priority 1)**
 
