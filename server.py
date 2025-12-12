@@ -31,7 +31,20 @@ from stream_protocol import stream_adk_to_ai_sdk
 # Load environment variables from .env.local
 load_dotenv(".env.local")
 
+# Configure file logging
+log_dir = Path("logs")
+log_dir.mkdir(exist_ok=True)
+log_file = log_dir / f"server_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+logger.add(
+    log_file,
+    rotation="10 MB",
+    retention="7 days",
+    level="DEBUG",
+    format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} - {message}",
+)
+
 logger.info("ADK Backend Server starting up...")
+logger.info(f"Logging to: {log_file}")
 
 # Explicitly ensure API key is in os.environ for Google GenAI SDK
 if not os.getenv("GOOGLE_GENERATIVE_AI_API_KEY"):
@@ -103,7 +116,7 @@ async def get_weather(location: str) -> dict[str, Any]:
     Get weather information for a location using OpenWeatherMap API.
 
     Args:
-        location: City name or location to get weather for
+        location: City name or location to get weather for (must be in English)
 
     Returns:
         Weather information including temperature and conditions
@@ -800,13 +813,12 @@ async def live_chat(websocket: WebSocket):
             try:
                 while True:
                     data = await websocket.receive_text()
-                    logger.info(f"[BIDI] Received from client: {data[:100]}...")
-
                     # Parse AI SDK v6 message format
                     message_data = json.loads(data)
 
                     # Handle ping/pong for latency monitoring
-                    if message_data.get("type") == "ping":
+                    is_ping = message_data.get("type") == "ping"
+                    if is_ping:
                         await websocket.send_text(
                             json.dumps(
                                 {
@@ -818,7 +830,7 @@ async def live_chat(websocket: WebSocket):
                         continue
 
                     # Handle different message types
-                    if "messages" in message_data:
+                    if not is_ping and "messages" in message_data:
                         # Full message history (initial request)
                         messages = message_data["messages"]
                         if messages:
@@ -853,9 +865,6 @@ async def live_chat(websocket: WebSocket):
                                                 mime_type=part.mediaType,
                                                 data=image_bytes,
                                             )
-                                            logger.info(
-                                                f"[BIDI] Sending image via send_realtime(): {part.filename}, {part.mediaType}, {len(image_bytes)} bytes"
-                                            )
                                             live_request_queue.send_realtime(image_blob)
 
                                 # Handle text parts
@@ -867,12 +876,9 @@ async def live_chat(websocket: WebSocket):
                                 text_content = types.Content(
                                     role="user", parts=text_parts
                                 )
-                                logger.info(
-                                    f"[BIDI] Sending text via send_content(): {text_parts}"
-                                )
                                 live_request_queue.send_content(text_content)
 
-                    elif "role" in message_data:
+                    elif not is_ping and "role" in message_data:
                         # Single message
                         msg = ChatMessage(**message_data)
 
@@ -898,9 +904,6 @@ async def live_chat(websocket: WebSocket):
                                         image_blob = types.Blob(
                                             mime_type=part.mediaType, data=image_bytes
                                         )
-                                        logger.info(
-                                            f"[BIDI] Sending image via send_realtime(): {part.filename}, {part.mediaType}, {len(image_bytes)} bytes"
-                                        )
                                         live_request_queue.send_realtime(image_blob)
 
                             # Handle text parts
@@ -910,9 +913,6 @@ async def live_chat(websocket: WebSocket):
                         # Send text content via send_content() if any text exists
                         if text_parts:
                             text_content = types.Content(role="user", parts=text_parts)
-                            logger.info(
-                                f"[BIDI] Sending text via send_content(): {text_parts}"
-                            )
                             live_request_queue.send_content(text_content)
 
             except WebSocketDisconnect:

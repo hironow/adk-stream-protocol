@@ -195,6 +195,9 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
           }
 
           // Send messages to backend
+          console.log("[EXPERIMENT] Sending WebSocket message");
+          console.log("[EXPERIMENT] Message count:", options.messages.length);
+          console.log("[EXPERIMENT] Messages payload:", JSON.stringify(options.messages, null, 2));
           const messageData = JSON.stringify({ messages: options.messages });
           this.ws.send(messageData);
         } catch (error) {
@@ -310,11 +313,22 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
         controller.enqueue(chunk as UIMessageChunk);
 
         // Handle tool calls if callback is provided
-        if (
-          chunk.type === "tool-input-available" &&
-          this.config.toolCallCallback
-        ) {
-          this.handleToolCall(chunk);
+        if (chunk.type === "tool-input-available") {
+          console.log("[EXPERIMENT] Tool call event received (tool-input-available)");
+          console.log("[EXPERIMENT] Tool name:", chunk.toolName);
+          console.log("[EXPERIMENT] Tool call ID:", chunk.toolCallId);
+          console.log("[EXPERIMENT] Tool input:", JSON.stringify(chunk.input, null, 2));
+
+          if (this.config.toolCallCallback) {
+            this.handleToolCall(chunk);
+          }
+        }
+
+        // Log tool output events
+        if (chunk.type === "tool-output-available") {
+          console.log("[EXPERIMENT] Tool output event received (tool-output-available)");
+          console.log("[EXPERIMENT] Tool call ID:", chunk.toolCallId);
+          console.log("[EXPERIMENT] Tool output:", JSON.stringify(chunk.output, null, 2));
         }
       } else {
         console.warn("[WS Transport] Unexpected message format:", data);

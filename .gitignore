@@ -69,4 +69,4 @@ yarn-error.log*
 private/
 
 playwright-report/
-test-results/
+test-results/*.log
