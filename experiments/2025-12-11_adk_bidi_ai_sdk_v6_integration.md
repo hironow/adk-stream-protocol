@@ -176,6 +176,19 @@ useChat message state update
 UI renders response
 ```
 
+Legend / 凡例:
+- User Input: ユーザー入力
+- useChat.sendMessage(): AI SDKのメッセージ送信メソッド
+- WebSocketChatTransport: カスタムWebSocketトランスポート層
+- WebSocket (JSON message): WebSocket経由のJSON形式メッセージ
+- Backend WebSocket Handler: バックエンドのWebSocketハンドラー
+- LiveRequestQueue: クライアント→エージェントのメッセージキュー
+- Agent Processing (run_live): エージェントの処理（run_liveメソッド）
+- ADK Events Stream: ADKのイベントストリーム
+- WebSocket (UIMessageChunk): WebSocket経由のUIメッセージチャンク
+- useChat message state update: useChatフックのメッセージ状態更新
+- UI renders response: UIのレスポンスレンダリング
+
 ### Phase 3: Implementation Plan ⚪
 
 **Implementation Tasks:**

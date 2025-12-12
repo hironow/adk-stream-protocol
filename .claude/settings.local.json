@@ -36,7 +36,6 @@
       "Bash(just test-python:*)",
       "mcp__chrome-devtools__wait_for",
       "mcp__chrome-devtools__get_network_request",
-      "Bash(uv pip:*)",
       "WebFetch(domain:ai.google.dev)",
       "mcp__chrome-devtools__evaluate_script",
       "mcp__chrome-devtools__new_page",
@@ -57,6 +56,28 @@
       "Bash(just:*)"
     ],
     "deny": [],
-    "ask": []
+    "ask": [
+      "Bash(sudo:*)",
+      "Bash(rm -rf:*)",
+      "Bash(npm:*)",
+      "Bash(npx:*)",
+      "Bash(python3:*)",
+      "Bash(pip3:*)",
+      "Bash(pip:*)",
+      "Bash(git push:*)",
+      "Read(.env.keys)",
+      "Read(id_rsa)",
+      "Read(id_ed25519)",
+      "Read(**/*token*)",
+      "Read(**/*key*)",
+      "Read(**/private/**)",
+      "Write(.env.keys)",
+      "Write(**/secrets/**)",
+      "Write(**/private/**)",
+      "Bash(wget:*)",
+      "Bash(psql:*)",
+      "Bash(mysql:*)",
+      "Bash(mongod:*)"
+    ]
   }
 }

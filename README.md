@@ -5,7 +5,7 @@ AI SDK v6 and Google ADK integration example demonstrating SSE streaming impleme
 ## Project Overview
 
 This project demonstrates the integration between:
-- **Frontend**: Next.js 15 with AI SDK v6 beta
+- **Frontend**: Next.js 16 with AI SDK v6 beta
 - **Backend**: Google ADK with FastAPI
 
 The project provides **three streaming modes** with real-time mode switching:
@@ -34,6 +34,16 @@ The project provides **three streaming modes** with real-time mode switching:
 └─────────────────┘                                         (SSE format over WebSocket)
 ```
 
+Legend / 凡例:
+- Gemini Direct: Gemini APIへの直接接続モード
+- ADK SSE: ADKバックエンドを使用したSSE（Server-Sent Events）ストリーミングモード
+- ADK BIDI: ADKバックエンドを使用した双方向WebSocketストリーミングモード
+- AI SDK v6: Vercel AI SDK バージョン6
+- Data Stream Protocol: AI SDK v6のデータストリーミングプロトコル
+- StreamProtocolConverter: ADKイベントをAI SDK v6形式に変換するコンバーター
+- HTTP SSE: HTTPサーバー送信イベント（一方向ストリーミング）
+- WebSocket: 双方向通信プロトコル
+
 ### StreamProtocolConverter: The Heart of Integration
 
 **Location:** `stream_protocol.py`
@@ -45,10 +55,11 @@ The project provides **three streaming modes** with real-time mode switching:
 **Key Events:**
 - Text streaming: `text-start`, `text-delta`, `text-end`
 - Reasoning/Thinking: `reasoning-start`, `reasoning-delta`, `reasoning-end` (Gemini 2.0)
-- Tool calls: `tool-call-start`, `tool-call-delta`, `tool-call-available`
-- Tool results: `tool-result-start`, `tool-result-delta`, `tool-result-available`
+- Tool calls: `tool-input-start`, `tool-input-available`
+- Tool results: `tool-output-available`
 - Audio (BIDI): `data-pcm` (PCM audio streaming)
-- Images: `data` events with base64-encoded images
+- Images: `data-image` (base64-encoded images)
+- Audio transcription: `text-*` events for input/output transcription (native-audio models)
 
 ### Transport Layer Differences
 
@@ -104,12 +115,14 @@ The `useChat` hook receives the same `UIMessageChunk` stream regardless of:
 - Real-time token-by-token streaming
 - Tool calling via ADK agent
 
-**Phase 3: ADK BIDI Streaming** ✅ **NEW** - Experimental
+**Phase 3: ADK BIDI Streaming** ✅ **Production Ready**
 - Backend: WebSocket endpoint (`/live`) using ADK's `run_live()`
 - Bidirectional streaming via WebSocket
 - Custom `WebSocketChatTransport` for AI SDK v6 `useChat`
-- Enables real-time voice agent capabilities
+- Real-time voice agent with native-audio models (Gemini 2.5 Flash)
+- Audio transcription: input (user) and output (AI) speech-to-text
 - Same tool calling support as SSE mode
+- Multimodal support: images, audio, PCM streaming
 - **Architecture:** "SSE format over WebSocket" (100% protocol reuse)
 
 ## Experimental Code
@@ -123,10 +136,11 @@ See README files in each directory for details and why they weren't adopted.
 ## Tech Stack
 
 ### Frontend
-- Next.js 15 (App Router)
+- Next.js 16 (App Router)
 - React 19
 - AI SDK v6 beta (`ai`, `@ai-sdk/react`, `@ai-sdk/google`)
 - TypeScript 5.7
+- Biome (Linting & Formatting)
 
 ### Backend
 - Python 3.13
@@ -247,17 +261,19 @@ adk-ai-data-protocol/
 ## Available Commands (just)
 
 ```bash
-just install           # Install all dependencies
-just server            # Run backend server
-just frontend          # Run frontend dev server
-just dev               # Run both servers concurrently
-just lint-python       # Lint Python code
-just fmt-python        # Format Python code
-just check-python      # Run all Python checks
-just lint-frontend     # Lint Next.js code
-just check             # Run all checks
-just clean             # Clean generated files
-just info              # Show project info
+just install              # Install all dependencies (Python + Node.js)
+just server               # Run backend server
+just frontend             # Run frontend dev server
+just dev                  # Run both servers concurrently
+just format               # Format all code (Python + frontend)
+just lint                 # Lint all code (Python + frontend)
+just typecheck            # Run type checking (Python only)
+just test-python          # Run Python unit tests
+just test-e2e-clean       # Run E2E tests with clean server restart
+just check-coverage       # Check ADK field mapping coverage
+just clean                # Clean generated files
+just kill                 # Kill all servers on ports 3000/8000
+just info                 # Show project info
 ```
 
 ## Architecture Overview
@@ -362,6 +378,19 @@ Legend / 凡例:
 └─────────────────────────────────────────────────────────┘
 ```
 
+Legend / 凡例:
+- Frontend (Next.js + AI SDK v6): フロントエンド（Next.js + AI SDK v6）
+- User Input: ユーザー入力
+- useChat.sendMessage(): AI SDKのメッセージ送信メソッド
+- POST /api/chat: チャットAPIエンドポイントへのPOSTリクエスト
+- Next.js API Route: Next.jsのAPIルートハンドラー
+- convertToModelMessages(): UIメッセージをモデル用メッセージに変換する関数
+- streamText(): AI SDKのテキストストリーミング関数
+- toUIMessageStreamResponse(): UIメッセージストリームレスポンスに変換
+- SSE Stream: Server-Sent Eventsストリーム
+- Gemini API (Google Cloud): GoogleのGemini APIサービス
+- Tool execution: ツール実行機能
+
 **Key Points:**
 - No separate backend server required
 - AI SDK handles Gemini API directly
@@ -410,8 +439,8 @@ Legend / 凡例:
 │  SSE Format:                                            │
 │  data: {"type":"text-start","id":"0"}                   │
 │  data: {"type":"text-delta","id":"0","delta":"..."}     │
-│  data: {"type":"tool-call-available","toolName":"..."}  │
-│  data: {"type":"tool-result-available","result":{...}}  │
+│  data: {"type":"tool-input-available","toolName":"..."} │
+│  data: {"type":"tool-output-available","result":{...}}  │
 │  data: {"type":"finish","finishReason":"stop"}          │
 │  data: [DONE]                                           │
 └───────────────────────────┬─────────────────────────────┘
@@ -426,6 +455,32 @@ Legend / 凡例:
 │  - Renders UI components                                │
 └─────────────────────────────────────────────────────────┘
 ```
+
+Legend / 凡例:
+- Frontend (Next.js + AI SDK v6): フロントエンド（Next.js + AI SDK v6）
+- User Input: ユーザー入力
+- useChat.sendMessage(): AI SDKのメッセージ送信メソッド
+- POST http://localhost:8000/stream: ストリーミングエンドポイントへのPOSTリクエスト
+- HTTP Request: HTTPリクエスト
+- ADK Backend (FastAPI server.py): ADKバックエンド（FastAPIサーバー）
+- ChatRequest: チャットリクエスト
+- ADK Content: ADKのコンテンツ型（types.Content）
+- agent_runner.run_async(): エージェントの非同期実行メソッド
+- session_id: セッションID（状態管理用）
+- new_message: 新規メッセージ
+- Convert ADK events → SSE format: ADKイベントをSSE形式に変換
+- stream_adk_to_ai_sdk(): ADKストリームをAI SDK形式に変換する関数
+- StreamingResponse: FastAPIのストリーミングレスポンス
+- Protocol Conversion (stream_protocol.py): プロトコル変換（stream_protocol.py）
+- AI SDK v6 Data Stream Protocol: AI SDK v6のデータストリームプロトコル
+- SSE Format: Server-Sent Events形式
+- text-start/delta: テキストストリーミングイベント
+- tool-input-available: ツール入力利用可能イベント
+- tool-output-available: ツール出力利用可能イベント
+- finish: 完了イベント（finishReason付き）
+- [DONE]: ストリーム終了マーカー
+- HTTP SSE: HTTPサーバー送信イベント
+- Frontend useChat Hook (React State): フロントエンドのuseChatフック（Reactステート）
 
 **Key Points:**
 - ADK backend provides full agent capabilities
@@ -494,6 +549,37 @@ Legend / 凡例:
 └─────────────────────────────────────────────────────────┘
 ```
 
+Legend / 凡例:
+- Frontend (Next.js + AI SDK v6): フロントエンド（Next.js + AI SDK v6）
+- User Input: ユーザー入力
+- useChat.sendMessage(): AI SDKのメッセージ送信メソッド
+- WebSocketChatTransport.sendMessages(): カスタムWebSocketトランスポートのメッセージ送信メソッド
+- WebSocket Connection: WebSocket接続
+- ws://localhost:8000/live: ライブ通信用WebSocketエンドポイント
+- JSON Message (Upstream): JSON形式メッセージ（上り：クライアント→サーバー）
+- SSE format over WebSocket (Downstream): WebSocket経由のSSE形式（下り：サーバー→クライアント）
+- ADK Backend WebSocket Handler (server.py): ADKバックエンドのWebSocketハンドラー
+- Concurrent Tasks (asyncio.gather): 並行処理タスク（asyncio.gather）
+- Receive from Client: クライアントからの受信タスク
+- websocket.receive_text(): WebSocketのテキスト受信メソッド
+- Parse JSON → ChatMessage: JSON解析してChatMessageオブジェクトに変換
+- ChatMessage.to_adk_content(): ChatMessageをADK Content型に変換するメソッド
+- live_request_queue.send_content(): ライブリクエストキューへのコンテンツ送信
+- LiveRequestQueue: ライブリクエストキュー（非同期通信用）
+- Send to Client: クライアントへの送信タスク
+- agent_runner.run_live(): エージェントのライブ実行メソッド（双方向ストリーミング）
+- RunConfig: 実行設定（セッション再開、ツール設定など）
+- stream_adk_to_ai_sdk(): ADKストリームをAI SDK形式に変換する関数
+- SAME converter as SSE mode: SSEモードと同じコンバーター（コード再利用）
+- websocket.send_text(): WebSocketのテキスト送信メソッド
+- WebSocketChatTransport (Frontend): フロントエンドのWebSocketトランスポート層
+- handleWebSocketMessage(): WebSocketメッセージハンドラー
+- data.startsWith("data: "): SSE形式の判定（"data: "で始まる）
+- JSON.parse(): JSON解析
+- UIMessageChunk: UIメッセージチャンク（AI SDK v6形式）
+- controller.enqueue(): ReadableStreamコントローラーへのエンキュー
+- useChat consumes → UI updates: useChatフックが消費してUI更新
+
 **Key Points:**
 - **Architecture: "SSE format over WebSocket"**
 - Protocol conversion: 100% reuses `stream_adk_to_ai_sdk()`
@@ -520,7 +606,9 @@ Legend / 凡例:
 | **Bidirectional** | No | No | Yes |
 | **Tool Calling** | Next.js server | ADK agent | ADK agent |
 | **Session Management** | No | Yes | Yes |
-| **Audio/Video** | No | No | Yes (future) |
+| **Audio I/O** | No | No | Yes (PCM 24kHz) |
+| **Audio Transcription** | No | No | Yes (input + output) |
+| **Multimodal Input** | Text, Images | Text, Images | Text, Images, Audio |
 | **Complexity** | Simple | Medium | Advanced |
 | **Use Case** | Prototypes | Production | Voice agents |
 
@@ -528,7 +616,11 @@ Legend / 凡例:
 - Transport: トランスポート（通信方式）
 - Latency: レイテンシ（応答速度）
 - Bidirectional: 双方向通信の可否
+- Tool Calling: ツール実行機能
 - Session Management: セッション管理機能
+- Audio I/O: 音声入出力対応
+- Audio Transcription: 音声テキスト化（文字起こし）
+- Multimodal Input: マルチモーダル入力（テキスト、画像、音声など）
 - Complexity: 実装の複雑さ
 
 ## Testing
