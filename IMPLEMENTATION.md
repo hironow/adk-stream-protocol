@@ -23,13 +23,15 @@ This section provides the mapping from **ADK perspective** (what ADK provides) t
 | **Content & Parts** |
 | `content.parts[]` | Content | Multiple events | stream_protocol.py:125-179 | Processed per Part type (see Part mapping below) |
 | **Metadata** |
-| `usage_metadata` | UsageMetadata | `finish` event `usage` field | stream_protocol.py:398-403 | Token counts in finish event |
-| `finish_reason` | FinishReason | ✅ Mapped | stream_protocol.py:392-395, 440-441 | Maps to `finishReason` field in finish event |
-| `grounding_metadata` | GroundingMetadata | ❌ Not mapped | N/A | Search grounding sources - no AI SDK v6 equivalent |
-| `citation_metadata` | CitationMetadata | ❌ Not mapped | N/A | Citation info - no AI SDK v6 equivalent |
+| `usage_metadata` | UsageMetadata | `finish` event `usage` field | stream_protocol.py:690-711 | Token counts in finish event |
+| `finish_reason` | FinishReason | ✅ Mapped | stream_protocol.py:392-395, 817-818 | Maps to `finishReason` field in finish event |
+| `grounding_metadata` | GroundingMetadata | ✅ `finish` event `messageMetadata.grounding` | stream_protocol.py:714-732 | Search grounding sources (RAG, web search) |
+| `citation_metadata` | CitationMetadata | ✅ `finish` event `messageMetadata.citations` | stream_protocol.py:735-751 | Citation information |
+| `cache_metadata` | CacheMetadata | ✅ `finish` event `messageMetadata.cache` | stream_protocol.py:755-762 | Context cache hit/miss statistics |
+| `model_version` | str | ✅ `finish` event `messageMetadata.modelVersion` | stream_protocol.py:767-769 | Model version string |
 | **Live API Specific** |
-| `input_transcription` | Transcription | ❌ Not mapped | N/A | User speech → text (Live API) |
-| `output_transcription` | Transcription | ❌ Not mapped | N/A | Model speech → text (Live API) |
+| `input_transcription` | Transcription | ✅ `data-input-transcription` custom event | stream_protocol.py:310-340 | User speech → text (Live API BIDI mode) |
+| `output_transcription` | Transcription | ✅ `data-output-transcription` custom event | stream_protocol.py:343-378 | Model speech → text (Live API BIDI mode) |
 | `live_session_resumption_update` | SessionUpdate | ❌ Not mapped | N/A | Session resumption info (Live API) |
 | **Error & Control** |
 | `error_code` | str | `error` event | stream_protocol.py:383-384 | Error handling |
@@ -40,7 +42,6 @@ This section provides the mapping from **ADK perspective** (what ADK provides) t
 | **Advanced Features** |
 | `avg_logprobs` | float | ❌ Not mapped | N/A | Average log probabilities |
 | `logprobs_result` | LogprobsResult | ❌ Not mapped | N/A | Detailed log probabilities |
-| `cache_metadata` | CacheMetadata | ❌ Not mapped | N/A | Cache hit/miss info |
 | **ADK Internal** |
 | `invocation_id` | str | ❌ Not mapped | N/A | ADK internal tracking |
 | `author` | str | ❌ Not used | N/A | Event author (always "model" in streaming) |
@@ -92,9 +93,9 @@ This section shows the AI SDK v6 protocol from **frontend perspective** (what AI
 | `text-delta` | ✅ Implemented | stream_protocol.py:210-212 | Part.text (thought=False/None) | Text content |
 | `text-end` | ✅ Implemented | stream_protocol.py:210-212 | Part.text (thought=False/None) | End text block |
 | **Reasoning Streaming** |
-| `reasoning-start` | ✅ Implemented | stream_protocol.py:214-216 | Part.text + Part.thought=True | Start reasoning block (Gemini 2.0 Flash Thinking) |
-| `reasoning-delta` | ✅ Implemented | stream_protocol.py:214-216 | Part.text + Part.thought=True | Reasoning content |
-| `reasoning-end` | ✅ Implemented | stream_protocol.py:214-216 | Part.text + Part.thought=True | End reasoning block |
+| `reasoning-start` | ✅ Implemented | stream_protocol.py:259-265, 427-429 | Part.text + Part.thought=True | Start reasoning block (Gemini 2.0 Flash Thinking) |
+| `reasoning-delta` | ✅ Implemented | stream_protocol.py:259-265, 427-429 | Part.text + Part.thought=True | Reasoning content |
+| `reasoning-end` | ✅ Implemented | stream_protocol.py:259-265, 427-429 | Part.text + Part.thought=True | End reasoning block |
 | **Tool Execution** |
 | `tool-input-start` | ✅ Implemented | stream_protocol.py:218-244 | Part.function_call | Tool call begins |
 | `tool-input-delta` | ⚠️ Not Implemented | N/A | N/A | ADK doesn't stream tool input incrementally |
@@ -174,6 +175,8 @@ In addition to standard protocol events, we implement custom data events for Gem
 - **`data-image`**: Image data (png, jpeg, webp)
 - **`data-executable-code`**: Code execution requests (Gemini 2.0 code execution)
 - **`data-code-execution-result`**: Code execution results (Gemini 2.0 code execution)
+- **`data-input-transcription`**: User speech transcription (Live API BIDI mode)
+- **`data-output-transcription`**: Model speech transcription (Live API BIDI mode)
 
 These custom events follow the `data-*` pattern specified in the AI SDK v6 protocol and allow frontend handling of Gemini-specific capabilities.
 
@@ -183,72 +186,7 @@ These custom events follow the `data-*` pattern specified in the AI SDK v6 proto
 
 This section discusses ADK fields that are currently unmapped but may be valuable to implement.
 
-### 1. Live API Transcriptions (`input_transcription`, `output_transcription`)
-
-**Status**: ❌ Not Mapped
-
-**ADK Source**:
-- `Event.input_transcription` - User speech → text (Live API)
-- `Event.output_transcription` - Model speech → text (Live API)
-
-**Use Case**: Real-time speech-to-text display during voice conversations
-
-**AI SDK v6 Equivalent**: No standard event type exists
-
-**Proposal**: Use custom `data-*` events
-```python
-# Input transcription (user speech)
-{"type": "data-input-transcription", "data": {"text": "...", "is_final": true}}
-
-# Output transcription (model speech)
-{"type": "data-output-transcription", "data": {"text": "...", "is_final": false}}
-```
-
-**Challenge**:
-- Transcriptions can have `is_final` status (partial vs complete)
-- May arrive independently of content parts
-- Need to decide when to send (every event? only when present?)
-
-**Action Required**: Decision needed - Is real-time transcription display a priority?
-
----
-
-### 2. Grounding & Citation Metadata (`grounding_metadata`, `citation_metadata`)
-
-**Status**: ❌ Not Mapped
-
-**ADK Source**:
-- `Event.grounding_metadata` - Search grounding sources (web search, knowledge bases)
-- `Event.citation_metadata` - Citation information for generated content
-
-**Use Case**: Display sources and citations alongside AI responses (similar to Perplexity.ai, ChatGPT search)
-
-**AI SDK v6 Equivalent**: `source-url`, `source-document` events exist but are for file/URL references, not search results
-
-**Proposal**:
-```python
-# Grounding sources
-{"type": "data-grounding-metadata", "data": {
-    "search_queries": [...],
-    "grounding_chunks": [...],
-    "web_search_results": [...]
-}}
-
-# Citations
-{"type": "data-citation-metadata", "data": {
-    "citation_sources": [...]
-}}
-```
-
-**Challenge**:
-- ADK grounding metadata structure is complex
-- Need to determine how to present this in UI (inline? sidebar? footnotes?)
-
-**Action Required**: Decision needed - Is grounding/citation display a priority?
-
----
-
-### 3. File References (`file_data`)
+### 1. File References (`file_data`)
 
 **Status**: ❌ Not Mapped
 
@@ -273,16 +211,15 @@ This section discusses ADK fields that are currently unmapped but may be valuabl
 
 ---
 
-### 4. Advanced Features (Low Priority)
+### 2. Advanced Features (Low Priority)
 
-**Fields**: `avg_logprobs`, `logprobs_result`, `cache_metadata`, `interrupted`, `video_metadata`, `media_resolution`
+**Fields**: `avg_logprobs`, `logprobs_result`, `interrupted`, `video_metadata`, `media_resolution`
 
 **Status**: ❌ Not Mapped
 
 **Rationale**:
 - These are advanced/debugging features not typically displayed in chat UI
 - `logprobs` - For model developers, not end users
-- `cache_metadata` - Backend optimization info
 - `interrupted` - Handled by frontend WebSocket disconnect
 - `video_metadata`, `media_resolution` - Metadata for video frames (current implementation handles images only)
 
@@ -297,12 +234,14 @@ This section discusses ADK fields that are currently unmapped but may be valuabl
 | **Core Streaming** | ✅ Complete | Text, reasoning, tool execution, images, audio |
 | **Error Handling** | ✅ Complete | Error events |
 | **Token Usage** | ✅ Complete | Usage metadata in finish event |
-| **Finish Reason** | ✅ Complete | Implemented in stream_protocol.py |
-| **Live API Transcriptions** | ❌ Missing | Medium priority - requires UI design decision |
-| **Grounding/Citations** | ❌ Missing | Medium priority - requires UI design decision |
-| **File References** | ❌ Missing | Low priority - requires backend proxy |
-| **Advanced Metadata** | ❌ Missing | Low priority - debugging/optimization info |
+| **Finish Reason** | ✅ Complete | All ADK FinishReasons mapped (17/17) |
+| **Live API Transcriptions** | ✅ Complete | Implemented as `data-input-transcription`, `data-output-transcription` custom events |
+| **Grounding/Citations** | ✅ Complete | Implemented in finish event metadata (grounding, citations) |
+| **Cache Metadata** | ✅ Complete | Implemented in finish event metadata (cache hits/misses) |
+| **Model Version** | ✅ Complete | Implemented in finish event metadata |
+| **File References** | ❌ Missing | Low priority - requires backend proxy for gs:// URLs |
+| **Advanced Metadata** | ❌ Missing | Low priority - debugging/optimization info (logprobs, video metadata) |
 
 **Recommendation**:
-1. **Near-term**: Discuss and design Live API transcription display
-2. **Future**: Consider grounding/citation display for search-enhanced responses
+1. **Current Status**: All major Gemini API features are implemented
+2. **Future Enhancements**: Consider file reference proxy if gs:// URL support is needed
