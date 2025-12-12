@@ -52,7 +52,8 @@
       "Bash(pnpm run build:*)",
       "Bash(just check-coverage-verbose:*)",
       "Bash(just lint:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []
