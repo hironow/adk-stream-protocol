@@ -17,8 +17,8 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
 - [P2-T7] Audio Completion Signaling - ✅ Complete
 - [P2-T8] message-metadata Event Implementation - ✅ Complete
 
-**Phase 3: 新機能検討（UI設計判断待ち）** - ⏸️ Awaiting Decision
-- [P3-T1] Live API Transcriptions
+**Phase 3: 新機能検討（UI設計判断待ち）** - ✅ Complete
+- [P3-T1] Live API Transcriptions - ✅ Complete
 - [P3-T2] Grounding & Citation Metadata - ✅ Complete (Implemented in P2-T8)
 
 **Phase 4: その他** - 🟢 Low Priority
@@ -740,6 +740,112 @@ async def convert_event(self, event: Event) -> AsyncGenerator[str, None]:
 ---
 
 ## Phase 3: 新機能検討
+
+### [P3-T1] Live API Transcriptions - ✅ Complete
+
+**Status:** ✅ COMPLETE (2025-12-13)
+
+**Original Goal:** Support Live API transcription features for audio input/output
+
+**Implementation Summary:**
+
+Live API Transcriptions provide text transcription for audio in BIDI mode:
+- **Input Transcription**: User speaks → ADK recognizes speech → text displayed
+- **Output Transcription**: AI speaks → Native-audio model transcribes → text displayed
+
+**Backend (stream_protocol.py):**
+
+1. **Input Transcription Handler** - Lines 308-349
+   ```python
+   # User audio input → text (ADK BIDI mode)
+   if hasattr(event, "input_transcription") and event.input_transcription:
+       # Convert to AI SDK v6 text-start/text-delta/text-end events
+   ```
+   - Receives `input_transcription` events from ADK Live API
+   - Converts to AI SDK v6 text events (text-start → text-delta → text-end)
+   - Tracks state with `_input_text_block_started` flag
+
+2. **Output Transcription Handler** - Lines 351-389
+   ```python
+   # AI audio output → text (native-audio models)
+   if hasattr(event, "output_transcription") and event.output_transcription:
+       # Convert to AI SDK v6 text-start/text-delta/text-end events
+   ```
+   - Receives `output_transcription` events from native-audio models
+   - Same AI SDK v6 text event conversion
+   - Tracks state with `_output_text_block_started` flag
+
+**Server Configuration (server.py):**
+- Lines 800-801: Native-audio config with AudioTranscriptionConfig
+  ```python
+  input_audio_transcription=types.AudioTranscriptionConfig(),
+  output_audio_transcription=types.AudioTranscriptionConfig(),
+  ```
+- Lines 829-830: TEXT modality config (transcription disabled)
+  ```python
+  input_audio_transcription=None,
+  output_audio_transcription=None,
+  ```
+
+**Frontend (lib/websocket-chat-transport.ts):**
+- Lines 337-348: Standard event forwarding
+  - Transcription text events forwarded to AI SDK useChat hook
+  - No special handling needed (standard text-delta events)
+
+**UI Display (components/message.tsx):**
+- Lines 166-182: Text content rendering
+  - Transcription text displayed in regular message text blocks
+  - No distinction between typed text and transcribed audio text
+  - Same styling and layout as normal text responses
+
+**Data Flow:**
+
+Input Transcription:
+```
+User speaks → ADK Live API → input_transcription event
+→ Backend: text-start/text-delta/text-end
+→ WebSocket → Frontend: text events
+→ UI: Display as message text
+```
+
+Output Transcription:
+```
+AI audio response → Native-audio model → output_transcription event
+→ Backend: text-start/text-delta/text-end
+→ WebSocket → Frontend: text events
+→ UI: Display as message text
+```
+
+**Documentation Added:**
+- stream_protocol.py: Comprehensive comment blocks explaining both transcription handlers
+- websocket-chat-transport.ts: Comments clarifying transcription event forwarding
+- message.tsx: Comments linking text display to transcription features
+
+**Files Modified:**
+- `stream_protocol.py` - Added documentation comments (lines 308-363)
+- `lib/websocket-chat-transport.ts` - Added documentation comments (lines 339-342)
+- `components/message.tsx` - Added documentation comments (lines 166-169)
+
+**Related Commits:**
+- 92bb8e5 - Add clarifying comments to transcription implementation
+
+**Testing Verification:**
+- [x] Input transcription handler implemented and documented
+- [x] Output transcription handler implemented and documented
+- [x] Server configuration correct for both modalities
+- [x] Frontend forwarding works (standard text events)
+- [x] UI displays transcription text correctly
+- [ ] Manual testing: Verify with actual ADK Live API audio input (user verification pending)
+- [ ] Manual testing: Verify with native-audio model output (user verification pending)
+
+**Impact:** Users can see text transcriptions of both their spoken input and AI's audio responses in real-time
+
+**Note:** This feature is only active when:
+- Using BIDI mode (WebSocket connection)
+- AudioTranscriptionConfig is enabled in server configuration
+- For output transcription: Using native-audio models (AUDIO modality)
+
+---
 
 ### [P3-T2] Grounding & Citation Metadata - ✅ Complete
 
