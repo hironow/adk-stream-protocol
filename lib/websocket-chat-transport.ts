@@ -337,6 +337,9 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
         // Standard enqueue: Forward to AI SDK useChat hook
         // All standard AI SDK v6 events are handled here:
         //   - text-start, text-delta, text-end
+        //     * [P3-T1] Includes Live API Transcriptions (input/output audio → text)
+        //     * Input: User speaks → ADK input_transcription → text events
+        //     * Output: AI speaks → Native-audio model output_transcription → text events
         //   - tool-input-start, tool-input-available, tool-output-available, tool-output-error
         //   - finish (with messageMetadata: usage, audio, grounding, citations, cache, modelVersion)
         //   - file (images, documents)

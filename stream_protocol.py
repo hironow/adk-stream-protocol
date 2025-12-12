@@ -305,8 +305,18 @@ class StreamProtocolConverter:
                     for sse_event in self._process_inline_data_part(part.inline_data):
                         yield sse_event
 
-        # [EXPERIMENT] Input transcription (user audio input text in BIDI mode)
-        # Check event.input_transcription at the top level (not in content.parts)
+        # ========================================================================
+        # [P3-T1] Live API Transcriptions - Input Transcription
+        # ========================================================================
+        # Handles user audio input transcription in BIDI mode (ADK Live API).
+        # When user speaks, ADK generates input_transcription events with the
+        # recognized text. This converts it to AI SDK v6 text-delta events.
+        #
+        # Flow: User speaks → ADK Live API → input_transcription event
+        #       → text-start/text-delta/text-end → Frontend displays as text
+        #
+        # Reference: server.py:800 - input_audio_transcription config
+        # ========================================================================
         if hasattr(event, "input_transcription") and event.input_transcription:
             transcription = event.input_transcription
             if hasattr(transcription, "text") and transcription.text:
@@ -338,8 +348,19 @@ class StreamProtocolConverter:
                     )
                     self._input_text_block_started = False
 
-        # [EXPERIMENT] Output transcription (audio response text from native-audio models)
-        # Check event.output_transcription at the top level (not in content.parts)
+        # ========================================================================
+        # [P3-T1] Live API Transcriptions - Output Transcription
+        # ========================================================================
+        # Handles AI audio output transcription from native-audio models.
+        # When AI speaks (audio response), models like Gemini 2.0 Flash can
+        # generate output_transcription events with the spoken text.
+        #
+        # Flow: AI audio response → Native-audio model → output_transcription
+        #       → text-start/text-delta/text-end → Frontend displays as text
+        #
+        # Reference: server.py:801 - output_audio_transcription config
+        # Note: Only available with native-audio models (AUDIO modality)
+        # ========================================================================
         if hasattr(event, "output_transcription") and event.output_transcription:
             transcription = event.output_transcription
             if hasattr(transcription, "text") and transcription.text:

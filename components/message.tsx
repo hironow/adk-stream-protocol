@@ -163,6 +163,10 @@ export function MessageComponent({ message }: MessageComponentProps) {
         {/* Handle regular message parts (assistant responses) */}
         {message.parts?.map((part: any, index: number) => {
           // Text content
+          // [P3-T1] Live API Transcriptions display here as text-delta events
+          // - Input transcription: User audio → text (BIDI mode, ADK Live API)
+          // - Output transcription: AI audio → text (native-audio models)
+          // Backend converts transcription events to text-start/text-delta/text-end
           if (part.type === "text") {
             return (
               <div
