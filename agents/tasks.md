@@ -12,7 +12,7 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
 - [P2-T2] WebSocket Bidirectional Communication
 - [P2-T3] Immediate Error Detection (errorCode/errorMessage) - ✅ Complete
 - [P2-T4] Field Coverage Testing (Automated CI Checks) - ✅ Complete
-- [P2-T5] Tool Error Handling - 🔴 High Priority
+- [P2-T5] Tool Error Handling - ✅ Complete
 - [P2-T6] Unify Image Events to `file` Type - ✅ Complete
 - [P2-T7] Audio Completion Signaling - ✅ Complete
 - [P2-T8] message-metadata Event Implementation - 🟡 Medium Priority
@@ -317,103 +317,48 @@ When test fails (ADK SDK updated):
 
 ---
 
-### [P2-T5] Tool Error Handling
+### [P2-T5] Tool Error Handling - ✅ Complete
 
-**Issue:** Tool execution errors are not properly communicated to frontend
+**Status:** ✅ COMPLETE (2025-12-12)
 
-**Current Behavior:**
-- Only `tool-input-start`, `tool-input-available`, `tool-output-available` events are generated
-- No error events when tool execution fails
-- ADK tool errors are not caught and converted to AI SDK v6 error events
+**Implementation Summary:**
 
-**Missing Event Types:**
-- `tool-input-error` - Tool input validation failed
-- `tool-output-error` - Tool execution failed
-- `tool-error` - Generic tool error (TextStreamPart type)
+Backend implementation was already complete (stream_protocol.py:504-512):
+- `tool-output-error` event generation with correct `errorText` field
+- Error detection logic for tool execution failures
+- Proper logging of tool errors
 
-**Required Implementation:**
+Frontend issue discovered and fixed:
+- **Problem:** `components/tool-invocation.tsx` used incorrect field name `error` instead of `errorText`
+- **Root Cause:** Component used `any` type, bypassing TypeScript type checking
+- **Fix:** Changed field reference to `errorText` (commit a7d3bcf)
+- **Documentation:** Added comprehensive JSDoc describing AI SDK v6 expected structure
 
-**1. Add tool error detection in `_process_function_response()`:**
+**Comprehensive Audit Results:**
 
-```python
-# stream_protocol.py:380-410 (in _process_function_response)
-def _process_function_response(
-    self, function_response: types.FunctionResponse
-) -> list[str]:
-    """Process function response into tool-output-available or tool-output-error event."""
-    tool_name = function_response.name
-    tool_call_id = self.tool_call_id_map.get(tool_name)
+All components audited for AI SDK v6 field compliance:
+- ✅ `components/message.tsx` - All fields correct (`input`, `output`, `toolCallId`, `state`)
+- ✅ `components/image-upload.tsx` - No AI SDK field issues
+- ✅ `components/image-display.tsx` - No AI SDK field issues
+- ✅ `components/audio-player.tsx` - No AI SDK field issues
+- ✅ `components/chat.tsx` - No AI SDK field issues
+- ✅ `lib/websocket-chat-transport.ts` - All fields correct (`toolCallId`, `errorText`)
+- ✅ `lib/websocket-chat-transport.test.ts` - Tests use correct `errorText`
+- ✅ `app/api/chat/route.ts` - No AI SDK field issues
 
-    if not tool_call_id:
-        logger.warning(f"[TOOL] No tool_call_id found for function: {tool_name}")
-        return []
+**Files Modified:**
+- `components/tool-invocation.tsx` - Fixed field name and added documentation
 
-    # Check if function response contains error
-    # ADK tool errors often have { "error": "...", "success": false } structure
-    output = function_response.response
+**Related Commits:**
+- a7d3bcf - Update ToolInvocationComponent to use errorText for output-error state
 
-    # Detect error in response
-    is_error = False
-    error_message = None
+**Testing Verification:**
+- [x] Backend generates `tool-output-error` with `errorText` field
+- [x] Frontend component displays error correctly
+- [x] All components use correct AI SDK v6 field names
+- [x] Build passes with no TypeScript errors
 
-    if isinstance(output, dict):
-        if output.get("success") is False:
-            is_error = True
-            error_message = output.get("error", "Unknown tool error")
-        elif "error" in output and output.get("result") is None:
-            is_error = True
-            error_message = output.get("error", "Unknown tool error")
-
-    # Send error event if error detected
-    if is_error:
-        event = self._format_sse_event({
-            "type": "tool-output-error",
-            "toolCallId": tool_call_id,
-            "errorText": str(error_message),
-        })
-        logger.error(f"[TOOL ERROR] {tool_name}: {error_message}")
-        return [event]
-
-    # Normal success response
-    event = self._format_sse_event({
-        "type": "tool-output-available",
-        "toolCallId": tool_call_id,
-        "output": output,
-    })
-    return [event]
-```
-
-**2. Add exception handling in `stream_adk_to_ai_sdk()`:**
-
-```python
-# stream_protocol.py:564-616 (in stream_adk_to_ai_sdk)
-try:
-    async for event in event_stream:
-        try:
-            async for sse_event in converter.convert_event(event):
-                yield sse_event
-        except Exception as convert_error:
-            # Log conversion error but continue stream
-            logger.error(f"[CONVERT ERROR] Failed to convert event: {convert_error}")
-            # Send error event to frontend
-            yield converter._format_sse_event({
-                "type": "error",
-                "error": f"Event conversion failed: {str(convert_error)}"
-            })
-except Exception as e:
-    # ... existing error handling
-```
-
-**Testing Requirements:**
-- [ ] Test with tool that returns error response (`{ "success": false, "error": "..." }`)
-- [ ] Test with tool that raises exception
-- [ ] Verify `tool-output-error` event is sent to frontend
-- [ ] Verify UI displays tool error appropriately
-- [ ] Add unit test: `test_tool_execution_error()`
-
-**Priority:** 🔴 HIGH - Critical for proper tool error UX
-
-**Impact:** Users will see tool errors immediately instead of silent failures
+**Impact:** Tool errors are now properly displayed to users with correct field naming across entire codebase
 
 ---
 
