@@ -4378,19 +4378,18 @@ async def change_bgm(...) -> dict:
 | **2. `before_tool_callback` API** | Unknown | ✅ **Available** | `Agent(before_tool_callback=...)` confirmed via DeepWiki |
 | **3. WebSocket `tool_result` Handler** | Needs implementation | ✅ **Already Exists** | `server.py:1042-1053` receives `tool_result` events |
 | **4. `pending_approvals` State** | Needs implementation | ✅ **Already Exists** | `StreamProtocolConverter.pending_approvals` (stream_protocol.py:149) |
-| **5. Tool Call ID Sync** | Low | ⚠️ **Critical Challenge** | How to get `tool_call_id` inside tool function? |
+| **5. Tool Call ID Sync** | Low | ✅ **Solved** | `ToolContext.function_call_id` provides the ID |
 
-**Critical Remaining Challenge: Tool Call ID Synchronization**
+**BREAKTHROUGH (2025-12-13): Tool Call ID Challenge SOLVED!**
 
-The main blocker for Option C is obtaining `tool_call_id` inside the tool function:
+ADK provides `function_call_id` via `ToolContext` object, which is passed to every tool:
 
 ```python
 async def change_bgm(track: int, tool_context: ToolContext) -> dict:
-    # Problem: ADK calls this function BEFORE generating function_call event
-    # How do we get the tool_call_id that stream_protocol will assign later?
+    # ✅ SOLUTION: ADK provides function_call_id via ToolContext
+    tool_call_id = tool_context.function_call_id
 
-    tool_call_id = ???  # ← This is the critical challenge
-
+    # Now we can implement awaitable delegation!
     result = await frontend_delegate.execute_on_frontend(
         tool_call_id=tool_call_id,
         tool_name="change_bgm",
@@ -4399,26 +4398,24 @@ async def change_bgm(track: int, tool_context: ToolContext) -> dict:
     return result
 ```
 
-**Possible Solutions:**
+**How ADK Generates function_call.id:**
 
-1. **Pre-generate ID in tool**: Generate UUID in tool, store in `tool_context`, retrieve in `stream_protocol`
-   - Requires `stream_protocol` to read from `tool_context` (coupling)
+1. **Timing**: Generated **before** calling `run_async` (DeepWiki confirmation)
+2. **Location**: During LLM response processing via `populate_client_function_call_id()`
+3. **Format**: `adk-{uuid}` or `adk_tool_call_{uuid}`
+4. **Access**: Available in tool via `tool_context.function_call_id`
 
-2. **Pass delegate to tool via `tool_context`**: Inject `FrontendToolDelegate` into `ToolContext.state`
-   - Tool retrieves delegate and registers Future before returning
-   - `stream_protocol` gets tool_call_id after tool completes
-
-3. **Use `before_tool_callback` differently**: Callback generates ID and stores in context
-   - Tool reads ID from context
-   - Callback doesn't skip execution (returns None)
+**Reference:**
+- DeepWiki: https://deepwiki.com/search/when-does-adk-generate-functio_9fc77c52-ec7b-453c-b850-d5301b339ee6
+- ADK Source: `_create_tool_context()` passes `function_call_id` to `ToolContext`
 
 **Updated Implementation Complexity:**
 
 | Aspect | Complexity | Reason |
 |--------|-----------|--------|
 | **Infrastructure** | Low ✅ | Most components already exist |
-| **Tool Call ID Sync** | **High** ⚠️ | Requires coordination between ADK tool execution and stream protocol |
-| **Overall** | **Medium-High** | Feasible but requires careful design of ID synchronization |
+| **Tool Call ID Sync** | ✅ **Low** (SOLVED) | `ToolContext.function_call_id` provides direct access |
+| **Overall** | ✅ **Low-Medium** | All blockers removed - fully feasible! |
 
 **4. Timing: Approval Before Execution**
 
@@ -4446,36 +4443,57 @@ async def change_bgm(track: int, tool_context: ToolContext) -> dict:
 | Challenge | Initial Estimate | Actual Complexity | Notes |
 |-----------|-----------------|-------------------|-------|
 | **1. Async Generator** | Medium | ✅ **Zero** (Already done) | No work needed - already async |
-| **2. Tool Call ID Sync** | Low | ⚠️ **High** | Critical blocker - ID coordination issue |
+| **2. Tool Call ID Sync** | Low → High | ✅ **Zero** (SOLVED) | `ToolContext.function_call_id` solves it completely |
 | **3. WebSocket Integration** | Low | ✅ **Zero** (Already done) | Handler exists, just needs connection |
-| **4. FrontendToolDelegate** | Low | **Low** | Simple asyncio.Future wrapper |
+| **4. FrontendToolDelegate** | Low | **Low** | Simple asyncio.Future wrapper (~30 lines) |
 | **5. Approval Timing** | Medium | **Low** | Naturally handled by await |
 
 **Overall Complexity Revision:**
 - **Initial Assessment**: Medium (feasible with some refactoring)
-- **Actual Assessment**: **Medium-High** (feasible but Tool Call ID sync is tricky)
+- **Before Tool Call ID Discovery**: Medium-High (Tool Call ID sync was a blocker)
+- **FINAL ASSESSMENT**: ✅ **LOW** (All blockers removed - straightforward implementation!)
 
-##### Why Option B (before_tool_callback) Was Chosen
+##### Why Option B (before_tool_callback) Was Initially Chosen
 
-Despite Option C being more elegant, Option B was chosen for pragmatic reasons:
+Despite Option C being more elegant, Option B was initially chosen for pragmatic reasons:
 
-1. **Avoids Tool Call ID Coordination**: `before_tool_callback` can skip execution without needing the final ID
-2. **No ADK-StreamProtocol Coupling**: Tools don't need to coordinate with converter
-3. **Clear Separation**: Tools marked with `raise RuntimeError` = client-side only
-4. **Faster to Implement**: Can proceed with Phase 4 immediately
-5. **Lower Risk**: Proven pattern from ADK docs vs custom ID synchronization
+1. ~~**Avoids Tool Call ID Coordination**~~ → **OBSOLETE** (ID coordination is solved)
+2. **No ADK-StreamProtocol Coupling**: Tools don't need to coordinate with converter ✅
+3. **Clear Separation**: Tools marked with `raise RuntimeError` = client-side only ✅
+4. **Faster to Implement**: Can proceed with Phase 4 immediately ✅
+5. ~~**Lower Risk**: Proven pattern vs custom ID synchronization~~ → **OBSOLETE** (no custom sync needed)
 
-##### Future Consideration
+##### UPDATED Recommendation After Tool Call ID Discovery
 
-**Recommendation:** Start with Option B (`before_tool_callback`), refactor to Option C later if:
-- A clean solution for Tool Call ID synchronization is discovered
-- Pattern consistency with AP2 becomes architecturally critical
-- Engineering team prioritizes code elegance and is willing to solve the ID sync challenge
+**NEW INSIGHT:** With `ToolContext.function_call_id` discovery, **Option C is now equally simple** to implement:
 
-**Key Insight After Verification:**
-- Option C is **technically feasible** with most infrastructure already in place
-- **Critical blocker**: Tool Call ID synchronization between tool execution and stream protocol
-- Option B is **pragmatically simpler** because it avoids the ID coordination problem entirely
+**Comparison After Discovery:**
+
+| Aspect | Option B | Option C |
+|--------|----------|----------|
+| **Implementation Complexity** | Low ✅ | ✅ **Low** (was High, now solved) |
+| **Code Elegance** | "Forcibly stopping" | ✅ Natural delegation (AP2-style) |
+| **Pattern Consistency** | Different from AP2 | ✅ Same as AP2 |
+| **Tool Returns** | Placeholder dict | ✅ Actual result |
+| **Risk** | Low (ADK docs pattern) | ✅ Low (straightforward async) |
+
+**Recommendation Revision:**
+
+1. **Short-term (Phase 4 initial)**: Either option is equally valid now
+   - Option B: Slightly less code (~20 lines less)
+   - Option C: More elegant, AP2-consistent
+
+2. **Long-term (architectural preference)**: Consider Option C
+   - Same pattern as AP2 (industry reference)
+   - Tools return actual results (cleaner)
+   - No "forcibly stopping" feeling
+
+**Key Insight After Full Verification:**
+- ✅ Option C is **fully feasible** with LOW complexity
+- ✅ All infrastructure already exists
+- ✅ Tool Call ID synchronization is **solved** via `ToolContext.function_call_id`
+- ✅ Implementation is straightforward (~50 lines total)
+- 🎯 **Decision is now about code elegance preference, not technical difficulty**
 
 ---
 
@@ -4491,9 +4509,10 @@ Despite Option C being more elegant, Option B was chosen for pragmatic reasons:
 | **Execution Prevention** | N/A (tool executes, just delegates) | `before_tool_callback` returns dict | N/A (tool executes async) |
 | **Tool Returns** | Actual result | Placeholder dict | Actual result ✅ |
 | **Pattern Elegance** | Natural delegation | "Forcibly stopping" | Natural delegation ✅ |
-| **Implementation Complexity** | N/A (AP2 specific) | **Low** (works with current code) | **Medium-High** (Tool Call ID sync challenge) |
-| **Infrastructure Ready** | N/A | ✅ Yes | ✅ **Mostly** (async, WebSocket, handlers exist) |
-| **Critical Blocker** | N/A | None | Tool Call ID coordination ⚠️ |
+| **Implementation Complexity** | N/A (AP2 specific) | **Low** (works with current code) | ✅ **Low** (`ToolContext.function_call_id` solves it) |
+| **Infrastructure Ready** | N/A | ✅ Yes | ✅ **Complete** (async, WebSocket, handlers, ID access) |
+| **Critical Blocker** | N/A | None | ✅ **None** (Tool Call ID solved) |
+| **Lines of Code** | N/A | ~40 lines | ~50 lines |
 
 ---
 
