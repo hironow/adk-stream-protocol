@@ -782,7 +782,7 @@ async def live_chat(websocket: WebSocket):
         )
         run_config = RunConfig(
             streaming_mode=StreamingMode.BIDI,
-            response_modalities=[types.Modality.AUDIO],
+            response_modalities=["AUDIO"],  # Use string to avoid Pydantic serialization warning
             input_audio_transcription=types.AudioTranscriptionConfig(),
             output_audio_transcription=types.AudioTranscriptionConfig(),
             session_resumption=types.SessionResumptionConfig(),
@@ -791,7 +791,7 @@ async def live_chat(websocket: WebSocket):
         logger.info(f"[BIDI] Using TEXT modality for model: {model_name}")
         run_config = RunConfig(
             streaming_mode=StreamingMode.BIDI,
-            response_modalities=[types.Modality.TEXT],
+            response_modalities=["TEXT"],  # Use string to avoid Pydantic serialization warning
             input_audio_transcription=None,
             output_audio_transcription=None,
             session_resumption=types.SessionResumptionConfig(),
