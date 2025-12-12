@@ -207,7 +207,7 @@ export function MessageComponent({ message }: MessageComponentProps) {
             );
           }
 
-          // File content (AI SDK v6 file part)
+          // File content - Image (AI SDK v6 file part)
           if (part.type === "file" && part.mediaType?.startsWith("image/")) {
             return (
               <img
@@ -221,6 +221,56 @@ export function MessageComponent({ message }: MessageComponentProps) {
                   marginTop: "0.5rem",
                 }}
               />
+            );
+          }
+
+          // File content - Audio (AI SDK v6 file part)
+          if (part.type === "file" && part.mediaType?.startsWith("audio/")) {
+            return (
+              <div
+                key={index}
+                style={{
+                  margin: "0.75rem 0",
+                  padding: "0.75rem",
+                  borderRadius: "6px",
+                  background: "#0a0a0a",
+                  border: "1px solid #10b981",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                    marginBottom: "0.5rem",
+                    color: "#10b981",
+                    fontWeight: 600,
+                    fontSize: "0.875rem",
+                  }}
+                >
+                  <span>🎵</span>
+                  <span>Recorded Audio</span>
+                </div>
+                <audio
+                  controls
+                  src={part.url}
+                  style={{
+                    width: "100%",
+                    maxWidth: "400px",
+                  }}
+                >
+                  Your browser does not support the audio element.
+                </audio>
+                <div
+                  style={{
+                    marginTop: "0.5rem",
+                    fontSize: "0.75rem",
+                    color: "#6b7280",
+                  }}
+                >
+                  Format: {part.mediaType}
+                </div>
+              </div>
             );
           }
 

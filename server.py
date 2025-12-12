@@ -941,6 +941,14 @@ async def live_chat(websocket: WebSocket):
 
                 logger.info(f"[BIDI] Sent {event_count} events to client")
 
+            except WebSocketDisconnect:
+                # Client disconnected during streaming - this is expected during page reload
+                pass
+            except ValueError as e:
+                # ADK connection errors (e.g., session resumption errors)
+                # Silently handle expected errors when client disconnects
+                if "Transparent session resumption" not in str(e):
+                    logger.error(f"[BIDI] ADK connection error: {e}")
             except Exception as e:
                 logger.error(f"[BIDI] Error sending to client: {e}")
                 raise

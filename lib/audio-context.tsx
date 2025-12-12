@@ -24,6 +24,13 @@ interface PCMChunk {
   bitDepth: number;
 }
 
+interface AudioMetadata {
+  chunks: number;
+  bytes: number;
+  sampleRate: number;
+  duration: number;
+}
+
 interface AudioContextValue {
   // Voice channel (PCM streaming)
   voiceChannel: {
@@ -31,6 +38,8 @@ interface AudioContextValue {
     chunkCount: number;
     sendChunk: (chunk: PCMChunk) => void;
     reset: () => void;
+    onComplete: (metadata: AudioMetadata) => void;
+    lastCompletion: AudioMetadata | null;
   };
 
   // BGM channel
@@ -72,6 +81,7 @@ export function AudioProvider({ children }: AudioProviderProps) {
   const [chunkCount, setChunkCount] = useState(0);
   const [wsLatency, setWsLatency] = useState<number | null>(null);
   const [currentBgmTrack, setCurrentBgmTrack] = useState(0);
+  const [lastCompletion, setLastCompletion] = useState<AudioMetadata | null>(null);
 
   // Web Audio API instances
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -294,11 +304,8 @@ export function AudioProvider({ children }: AudioProviderProps) {
       // Send to AudioWorklet ring buffer via MessagePort
       audioWorkletNode.port.postMessage(int16Array.buffer, [int16Array.buffer]);
 
-      // Update chunk count
-      // Note: isPlaying is now managed by AudioWorklet notifications
+      // Update chunk count (isPlaying is managed by AudioWorklet notifications)
       setChunkCount((prev) => prev + 1);
-
-      console.log(`[AudioContext] Sent chunk to AudioWorklet (total: ${chunkCount + 1})`);
     } catch (err) {
       console.error("[AudioContext] Error sending chunk:", err);
       setError(
@@ -322,6 +329,11 @@ export function AudioProvider({ children }: AudioProviderProps) {
 
   const updateLatency = (latency: number) => {
     setWsLatency(latency);
+  };
+
+  const handleAudioComplete = (metadata: AudioMetadata) => {
+    setLastCompletion(metadata);
+    setIsPlaying(false);
   };
 
   // BGM channel methods
@@ -374,6 +386,8 @@ export function AudioProvider({ children }: AudioProviderProps) {
       chunkCount,
       sendChunk,
       reset,
+      onComplete: handleAudioComplete,
+      lastCompletion,
     },
     bgmChannel: {
       currentTrack: currentBgmTrack,

@@ -134,6 +134,34 @@ export function Chat({ mode }: ChatProps) {
         </div>
       )}
 
+      {/* Audio Completion Indicator (BIDI mode only) */}
+      {mode === "adk-bidi" && audioContext.voiceChannel.lastCompletion && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: "1rem",
+            right: "1rem",
+            padding: "0.5rem 1rem",
+            background: "#0a0a0a",
+            border: "1px solid #10b981",
+            borderRadius: "6px",
+            fontSize: "0.875rem",
+            fontWeight: 600,
+            color: "#10b981",
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+          }}
+        >
+          <span>✓</span>
+          <span>
+            Audio: {audioContext.voiceChannel.lastCompletion.duration.toFixed(2)}s
+            ({audioContext.voiceChannel.lastCompletion.chunks} chunks)
+          </span>
+        </div>
+      )}
+
       <div style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
         {messages.length === 0 && (
           <div style={{ textAlign: "center", color: "#666", marginTop: "2rem" }}>

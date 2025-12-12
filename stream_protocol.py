@@ -313,14 +313,12 @@ class StreamProtocolConverter:
                 if not self._input_text_block_started:
                     self._input_text_block_id = f"{self.message_id}_input_text"
                     self._input_text_block_started = True
-                    logger.debug(f"[INPUT TRANSCRIPTION] Sending text-start with id={self._input_text_block_id}")
                     yield self._format_sse_event({
                         "type": "text-start",
                         "id": self._input_text_block_id
                     })
 
                 # Send text-delta with the transcription text (AI SDK v6 protocol)
-                logger.debug(f"[INPUT TRANSCRIPTION] Sending text-delta with id={self._input_text_block_id}")
                 yield self._format_sse_event({
                     "type": "text-delta",
                     "id": self._input_text_block_id,
@@ -329,7 +327,6 @@ class StreamProtocolConverter:
 
                 # Send text-end if transcription is finished
                 if hasattr(transcription, "finished") and transcription.finished:
-                    logger.debug(f"[INPUT TRANSCRIPTION] Sending text-end with id={self._input_text_block_id}")
                     yield self._format_sse_event({
                         "type": "text-end",
                         "id": self._input_text_block_id
@@ -349,14 +346,12 @@ class StreamProtocolConverter:
                 if not self._output_text_block_started:
                     self._output_text_block_id = f"{self.message_id}_output_text"
                     self._output_text_block_started = True
-                    logger.debug(f"[OUTPUT TRANSCRIPTION] Sending text-start with id={self._output_text_block_id}")
                     yield self._format_sse_event({
                         "type": "text-start",
                         "id": self._output_text_block_id
                     })
 
                 # Send text-delta with the transcription text (AI SDK v6 protocol)
-                logger.debug(f"[OUTPUT TRANSCRIPTION] Sending text-delta with id={self._output_text_block_id}")
                 yield self._format_sse_event({
                     "type": "text-delta",
                     "id": self._output_text_block_id,
@@ -365,7 +360,6 @@ class StreamProtocolConverter:
 
                 # Send text-end if transcription is finished
                 if hasattr(transcription, "finished") and transcription.finished:
-                    logger.debug(f"[OUTPUT TRANSCRIPTION] Sending text-end with id={self._output_text_block_id}")
                     yield self._format_sse_event({
                         "type": "text-end",
                         "id": self._output_text_block_id
@@ -438,11 +432,6 @@ class StreamProtocolConverter:
         # Store mapping so function_response can use the same ID
         self.tool_call_id_map[tool_name] = tool_call_id
 
-        # [EXPERIMENT] Log tool call for investigation
-        logger.info(f"[EXPERIMENT] Tool call detected: {tool_name}")
-        logger.info(f"[EXPERIMENT] Tool call ID: {tool_call_id}")
-        logger.info(f"[EXPERIMENT] Tool arguments: {json.dumps(tool_args, indent=2, ensure_ascii=False)}")
-
         events = [
             self._format_sse_event(
                 {
@@ -478,11 +467,6 @@ class StreamProtocolConverter:
             tool_call_id = self._generate_tool_call_id()
 
         output = function_response.response
-
-        # [EXPERIMENT] Log tool response for investigation
-        logger.info(f"[EXPERIMENT] Tool response received: {tool_name}")
-        logger.info(f"[EXPERIMENT] Tool call ID: {tool_call_id}")
-        logger.info(f"[EXPERIMENT] Tool output: {json.dumps(output, indent=2, ensure_ascii=False)}")
 
         # Check if function response contains error
         # ADK tool errors often have { "error": "...", "success": false } structure
@@ -653,7 +637,6 @@ class StreamProtocolConverter:
 
             # Close any open text blocks (output transcription)
             if self._output_text_block_started and self._output_text_block_id:
-                logger.debug(f"[OUTPUT TRANSCRIPTION] Closing text block in finalize: id={self._output_text_block_id}")
                 yield self._format_sse_event({
                     "type": "text-end",
                     "id": self._output_text_block_id
@@ -822,18 +805,6 @@ async def stream_adk_to_ai_sdk(
         # Log what we're finalizing with
         if error:
             logger.error(f"[FINALIZE] Sending error: {error}")
-        if usage_metadata:
-            logger.debug(f"[FINALIZE] Sending usage metadata: {usage_metadata}")
-        if finish_reason:
-            logger.debug(f"[FINALIZE] Sending finish reason: {finish_reason}")
-        if grounding_metadata:
-            logger.debug("[FINALIZE] Sending grounding metadata")
-        if citation_metadata:
-            logger.debug("[FINALIZE] Sending citation metadata")
-        if cache_metadata:
-            logger.debug(f"[FINALIZE] Sending cache metadata: {cache_metadata}")
-        if model_version:
-            logger.debug(f"[FINALIZE] Sending model version: {model_version}")
 
         # Send finalize events with all metadata
         async for final_event in converter.finalize(

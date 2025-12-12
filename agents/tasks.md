@@ -486,134 +486,97 @@ Frontend should already handle `file` events correctly since AI SDK's `useChat` 
 
 ---
 
-### [P2-T7] Audio Completion Signaling
+### [P2-T7] Audio Completion Signaling - Frontend Integration
 
-**Issue:** No explicit signal when audio streaming completes
+**Status:** ⚠️ Partially Complete (Backend ✅, Frontend ❌)
 
-**Current Behavior:**
-- PCM chunks are sent via `data-pcm` events
-- No indication when the last chunk is sent
-- Frontend cannot detect audio stream completion
-- `finalize()` is commented out (stream_protocol.py:606-609)
+**Current Implementation:**
 
-**Problems:**
-1. Frontend doesn't know when to stop waiting for audio
-2. No finish event with usage metadata
-3. Audio playback cannot auto-advance to next action
+**Backend (✅ Complete):**
+- ✅ `finalize()` method sends `finish` event with `messageMetadata.audio` (stream_protocol.py:684-701)
+- ✅ Metadata includes: chunks, bytes, sampleRate, duration
+- ✅ Logs completion: "[AUDIO COMPLETE] chunks=654, bytes=111360, sampleRate=24000, duration=14.50s"
+- ✅ Works correctly in BIDI mode with turn_complete events
 
-**Required Implementation:**
+**Frontend (❌ Incomplete):**
+- ✅ WebSocket transport receives `finish` event (lib/websocket-chat-transport.ts:402-412)
+- ✅ Logs metadata to console: "[Audio Stream] Audio streaming completed"
+- ❌ **Does NOT notify AudioContext** - no callback to voiceChannel
+- ❌ **Does NOT update UI** - no visual indication of completion
 
-**Approach: message-metadata + finalize()**
+**Missing Implementation:**
 
-**1. Uncomment and fix `finalize()` call:**
+**1. Add completion callback to AudioContext (lib/audio-context.tsx):**
 
-```python
-# stream_protocol.py:606-609 (UNCOMMENT)
-finally:
-    # Send final events with usage metadata and finish reason
-    async for final_event in converter.finalize(
-        usage_metadata=usage_metadata, error=error, finish_reason=finish_reason
-    ):
-        yield final_event
+```typescript
+interface AudioContextValue {
+  voiceChannel: {
+    isPlaying: boolean;
+    chunkCount: number;
+    sendChunk: (chunk: PCMChunk) => void;
+    reset: () => void;
+    onComplete: (metadata: AudioMetadata) => void;  // ← ADD THIS
+  };
+}
+
+interface AudioMetadata {
+  chunks: number;
+  bytes: number;
+  sampleRate: number;
+  duration: number;
+}
 ```
 
-**2. Add audio metadata to `finalize()`:**
+**2. Update WebSocket transport to call callback (lib/websocket-chat-transport.ts):**
 
-```python
-# stream_protocol.py:507-560 (update finalize method)
-async def finalize(
-    self,
-    usage_metadata: Any | None = None,
-    error: Exception | None = None,
-    finish_reason: Any | None = None,
-) -> AsyncGenerator[str, None]:
-    """Send final events including finish event with metadata."""
+```typescript
+// Line 402-412 (existing code)
+if (chunk.type === "finish" && chunk.messageMetadata?.audio) {
+  const metadata = chunk.messageMetadata.audio;
 
-    if error:
-        yield self._format_sse_event({"type": "error", "error": str(error)})
-    else:
-        # Close any open text blocks (output transcription)
-        if self._text_block_started and self._text_block_id:
-            logger.debug(f"[TRANSCRIPTION] Closing text block in finalize: id={self._text_block_id}")
-            yield self._format_sse_event({
-                "type": "text-end",
-                "id": self._text_block_id
-            })
-            self._text_block_started = False
+  console.log("[Audio Stream] Audio streaming completed");
+  // ... existing logs ...
 
-        # Send finish event with messageMetadata
-        finish_event: dict[str, Any] = {"type": "finish"}
-
-        # Add finishReason
-        if finish_reason:
-            ai_sdk_reason = map_adk_finish_reason_to_ai_sdk(finish_reason)
-            finish_event["finishReason"] = ai_sdk_reason
-
-        # Build messageMetadata
-        metadata: dict[str, Any] = {}
-
-        # Add usage metadata
-        if usage_metadata:
-            metadata["usage"] = {
-                "promptTokens": getattr(usage_metadata, "prompt_token_count", 0),
-                "completionTokens": getattr(usage_metadata, "candidates_token_count", 0),
-                "totalTokens": getattr(usage_metadata, "total_token_count", 0),
-            }
-
-        # Add audio streaming metadata if present
-        if self.pcm_chunk_count > 0:
-            metadata["audio"] = {
-                "chunks": self.pcm_chunk_count,
-                "bytes": self.pcm_total_bytes,
-                "sampleRate": self.pcm_sample_rate or 24000,
-                "duration": self.pcm_total_bytes / ((self.pcm_sample_rate or 24000) * 2),  # duration in seconds
-            }
-            logger.info(
-                f"[AUDIO COMPLETE] chunks={self.pcm_chunk_count}, "
-                f"bytes={self.pcm_total_bytes}, "
-                f"sampleRate={self.pcm_sample_rate}"
-            )
-
-        if metadata:
-            finish_event["messageMetadata"] = metadata
-
-        yield self._format_sse_event(finish_event)
+  // NEW: Notify AudioContext
+  if (this.config.audioContext?.voiceChannel?.onComplete) {
+    this.config.audioContext.voiceChannel.onComplete(metadata);
+  }
+}
 ```
 
-**3. Send message-metadata for audio streaming start (optional):**
+**3. Display completion in UI (components/message.tsx or components/chat.tsx):**
 
-```python
-# stream_protocol.py:453-467 (in _process_inline_data_part, first PCM chunk only)
-if mime_type.startswith("audio/pcm"):
-    # ... existing code ...
+```typescript
+// Option A: Show in message component
+{audioInfo && (
+  <div>
+    <div>🔊 Audio: {audioInfo.duration.toFixed(2)}s ({audioInfo.chunks} chunks)</div>
+  </div>
+)}
 
-    # Send audio streaming start notification on first chunk
-    if self.pcm_chunk_count == 1:
-        yield self._format_sse_event({
-            "type": "message-metadata",
-            "messageMetadata": {
-                "audioStreaming": {
-                    "status": "started",
-                    "sampleRate": sample_rate or 24000,
-                }
-            }
-        })
+// Option B: Show in chat status area
+{mode === "adk-bidi" && audioContext.voiceChannel.lastCompletion && (
+  <div>✓ Audio completed: {audioContext.voiceChannel.lastCompletion.duration}s</div>
+)}
 ```
 
 **Testing Requirements:**
-- [ ] Test with ADK BIDI audio response
-- [ ] Verify `finish` event is sent after last PCM chunk
-- [ ] Verify `messageMetadata.audio` contains chunk count, bytes, duration
-- [ ] Verify frontend can detect audio completion
-- [ ] Fix 3 failing tests (test_complete_stream_flow, test_stream_with_error, test_stream_with_usage_metadata)
+- [ ] Verify AudioContext.onComplete() is called when audio finishes
+- [ ] Verify UI shows completion status
+- [ ] Verify metadata (chunks, bytes, duration) is displayed correctly
+- [ ] Test with multiple audio responses in same session
+- [ ] Verify no memory leaks from completion callbacks
 
-**Priority:** 🔴 HIGH - Critical for BIDI audio UX
+**Priority:** 🔴 HIGH - Critical for BIDI audio UX completion
 
-**Impact:** Frontend can properly detect audio completion and show finish state
+**Impact:** Users can see when audio playback has finished, better UX feedback
+
+**Related:** [ST-1] Frontend Audio Recording (agents/sub_tasks.md) - uses this completion signal
 
 **Reference:**
-- stream_protocol.py:606-609 (commented out finalize)
-- ADK BIDI audio streaming issues
+- stream_protocol.py:684-701 (backend implementation ✅)
+- lib/websocket-chat-transport.ts:402-412 (frontend reception ✅)
+- Experiment: 2025-12-12_audio_stream_completion_notification.md
 
 ---
 
@@ -787,6 +750,132 @@ async def convert_event(self, event: Event) -> AsyncGenerator[str, None]:
 
 ## ✅ Completed Tasks (Phase 2)
 
+### [REFACTOR] Test Utilities Centralization ✅
+
+**Completed:** 2025-12-12
+
+**Problem:**
+- `parse_sse_event` duplicated in 3 test files
+- `MockTranscription` duplicated in 2 test files
+- Violation of DRY principle
+
+**Implementation:**
+- Created `tests/utils/__init__.py` - Package initialization
+- Created `tests/utils/sse.py` - Centralized SSE test utilities
+- Updated 3 test files to import from `tests.utils`
+- Single source of truth for test helpers
+
+**Impact:**
+- Easier maintenance (change once, affect all tests)
+- Consistent behavior across tests
+- Follows project guidelines (tests/utils/ is designated for shared test code)
+
+**Commit:** f270e31 - refactor: Extract shared test utilities to tests/utils/
+
+**Reference:** experiments/2025-12-12_adk_field_mapping_completeness.md - Part 5
+
+---
+
+### [INVESTIGATION] ADK Event ID Field Analysis ✅
+
+**Completed:** 2025-12-12
+
+**Question:** Can we use ADK-provided IDs (event.id, interactionId, invocationId) for text block IDs instead of converter-generated UUIDs?
+
+**Motivation:** Using ADK IDs would make the converter feel more like a "translator" rather than a "generator"
+
+**Investigation Results:**
+
+**❌ event.id - UNSUITABLE**
+- Changes with every Event
+- Problem: Transcription streams across MULTIPLE events with DIFFERENT event.ids
+- Example:
+  ```
+  Event 1: input_transcription="京都の" - event.id="evt-001"
+  Event 2: input_transcription="天気は" - event.id="evt-002"
+  Event 3: input_transcription="？" - event.id="evt-003"
+  ```
+- If we use event.id, each chunk gets a DIFFERENT text block ID
+- Client breaks because AI SDK v6 requires STABLE text block IDs
+
+**❌ interactionId - UNSUITABLE**
+- Shared across messages in same conversation
+- Not unique enough for text block tracking
+
+**❌ invocationId - POTENTIALLY SUITABLE (deferred)**
+- Unique per API invocation
+- Could work but needs further investigation
+- Decision: Keep current approach for now
+
+**Decision:** Continue using `converter.message_id` for stable text block IDs
+
+**Safety Measures Added:**
+- Regression guard tests to prevent accidental event.id usage
+- Tests fail with clear error message if wrong ID source used
+- Protects against future developer mistakes
+
+**Impact:**
+- Prevented architectural mistake that would break multi-event streaming
+- Documented design decision for future reference
+
+**Reference:** experiments/2025-12-12_adk_field_mapping_completeness.md - Part 4
+
+---
+
+### [P3-T1] Live API Transcriptions (Input) ✅
+
+**Completed:** 2025-12-12
+
+**Implementation:**
+- Added `input_transcription` support for BIDI mode user audio input
+- Mirrors `output_transcription` implementation pattern
+- Uses same `text-start/delta/end` event types
+- Separate state tracking (_input_text_block_id vs _output_text_block_id)
+- 5 comprehensive tests including ID stability regression guards
+
+**Files Modified:**
+- `stream_protocol.py:135-140` - Separate state tracking
+- `stream_protocol.py:303-337` - Input transcription handler
+- `stream_protocol.py:645-661` - finalize() for both text blocks
+- `tests/unit/test_input_transcription.py` (NEW) - 5 tests
+
+**Commits:**
+- 05161a7 - feat: Add input_transcription support for BIDI mode
+- 65f7175 - docs: Document input transcription implementation and ADK ID investigation
+
+**Impact:**
+- BIDI mode users can see their audio transcribed to text
+- Symmetric support for both input and output transcription
+- 63 total tests passing (up from 61)
+
+**Reference:** experiments/2025-12-12_adk_field_mapping_completeness.md - Part 3
+
+---
+
+### [REFACTOR] E2E Directory Restructuring ✅
+
+**Completed:** 2025-12-12
+
+**Problem:** TypeScript E2E tests mixed with Python unit tests in tests/e2e/
+
+**Solution:** Move TypeScript E2E tests to root-level e2e/ directory
+
+**Rationale:**
+- Language separation (Python tests vs TypeScript tests)
+- Follows common pattern (e2e/ at root for integration tests)
+- Clearer project structure
+
+**Files Modified:**
+- `tests/e2e/` → `e2e/` (directory moved)
+- `playwright.config.ts` - Updated testDir: './e2e'
+
+**Verification:**
+- Playwright test --list shows all 16 E2E tests detected correctly
+
+**Commit:** b069568 - refactor: Move TypeScript E2E tests from tests/e2e/ to e2e/
+
+---
+
 ### [P2-T3] Immediate Error Detection ✅
 
 **Completed:** 2025-12-12 (Night)
@@ -916,40 +1005,40 @@ async def convert_event(self, event: Event) -> AsyncGenerator[str, None]:
 
 **ADK Fields**:
 - ✅ `Event.output_transcription` - **IMPLEMENTED** (2025-12-12)
-- ❌ `Event.input_transcription` - Not implemented
+- ✅ `Event.input_transcription` - **IMPLEMENTED** (2025-12-12)
 
-**Status:** Partially complete
+**Status:** ✅ **COMPLETE**
 
 **Completed:**
-- ✅ `output_transcription` → `text-start/delta/end` events
+- ✅ `output_transcription` → `text-start/delta/end` events (AI audio → text)
+- ✅ `input_transcription` → `text-start/delta/end` events (user audio → text)
 - ✅ Native-audio model audio responses are transcribed to text
+- ✅ User audio input (BIDI mode) is transcribed to text
 - ✅ UI displays transcribed text (no longer stuck on "Thinking...")
-- ✅ Tests: `test_output_transcription_real_response.py` (4 tests passing)
+- ✅ Separate state tracking for input/output text blocks
+- ✅ Stable text block IDs across multi-event streaming
+- ✅ Tests: `test_output_transcription.py` (5 tests passing)
+- ✅ Tests: `test_input_transcription.py` (5 tests passing)
+- ✅ Regression guards to prevent event.id misuse
 
-**Remaining Work:**
+**Implementation Details:**
+- `stream_protocol.py:135-140` - Separate state tracking for input/output text blocks
+- `stream_protocol.py:303-337` - Input transcription handler
+- `stream_protocol.py:342-375` - Output transcription handler (existing)
+- `stream_protocol.py:645-661` - finalize() closes both text blocks if needed
+- Text block IDs use `converter.message_id` (stable) not `event.id` (changes per event)
 
-**1. Input Transcription (`Event.input_transcription`)**
+**Design Decision:**
+- **Chosen**: Same `text-start/delta/end` events for both input and output transcription
+- **Rationale**: AI SDK v6 text events are flexible enough to handle both directions
+- **Alternative considered**: Custom `input-transcription-delta` events (rejected for simplicity)
 
-**Use Case**: Display user's speech as text (accessibility, confirmation)
-
-**Proposal Options:**
-- **Option A**: Custom event `input-transcription-delta` (clear separation)
-- **Option B**: `message-annotations` (AI SDK v6 standard)
-- **Option C**: Don't implement (client already has user input)
-
-**Decision Needed**: Which option to implement? (Leaning toward Option C)
-
-**2. UI Design for Input Transcription Display**
-- Where to show user's speech transcription?
-- Real-time updates vs final transcription?
-- Accessibility features integration?
-
-**Priority:** 🟢 LOW - output_transcription (critical) is done, input_transcription (nice-to-have) deferred
+**Priority:** ✅ COMPLETE - Both input and output transcription fully implemented
 
 **Reference:**
 - IMPLEMENTATION.md - Section "1. Live API Transcriptions"
 - experiments/2025-12-12_adk_bidi_message_history_and_function_calling.md - Section "RESOLUTION: output_transcription Support Implemented"
-- experiments/2025-12-12_adk_field_mapping_completeness.md - inputTranscription marked as "Low priority"
+- experiments/2025-12-12_adk_field_mapping_completeness.md - Part 3 (input transcription) + Part 4 (ID investigation)
 
 ---
 
@@ -1149,10 +1238,20 @@ if hasattr(event, "interrupted") and event.interrupted:
 
 **Current Focus:** Phase 2 - Architecture stabilization ([P2-T1], [P2-T2])
 
+**Test Coverage:** 63 tests passing (61 unit + 2 new regression guards)
+
 ---
 
 ## Completed Tasks (Recent History)
 
+**2025-12-12 (Latest Session):**
+- ✅ Test utilities centralization (commit f270e31) - Eliminated duplicate test code
+- ✅ Input transcription implementation (commit 05161a7) - BIDI mode user audio → text
+- ✅ ADK Event ID investigation (documented in 65f7175) - Prevented architectural mistake
+- ✅ ID stability regression guards - Protection against event.id misuse
+- ✅ E2E directory restructuring (commit b069568) - Language separation
+
+**2025-12-12 (Previous):**
 - ✅ Task 4.1: Tool Call ID Mapping (commit 5ff0822) - Fixed critical UI bug
 - ✅ Task 4.2: Usage Metadata Support (commit 0ffef44) - Added token tracking
 - ✅ Task 4.3: Code Duplication Reduction (commit efe6f38) - Improved maintainability

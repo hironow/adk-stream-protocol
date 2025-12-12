@@ -6,9 +6,9 @@ This file contains implementation tasks that are ready to be handed off to other
 
 ## [ST-1] Frontend Audio Recording for Message Replay
 
-**Status:** 🟢 Ready for Handoff
+**Status:** ✅ Complete (Implemented 2025-12-12)
 **Priority:** Medium
-**Estimated Effort:** 2-4 hours
+**Actual Effort:** ~2 hours
 
 ### Objective
 
@@ -271,6 +271,13 @@ const audioInfo = message.parts?.find((p: any) => p.type === "audio-info");
 - **Data Size:** 1 minute of audio ≈ 3MB (WAV base64)
 - **Future Optimization:** Can add feature flag to enable/disable recording
 - **Browser Compatibility:** All modern browsers support data URIs and `<audio>` element
+
+**Related Tasks:**
+- **[P2-T7] Audio Completion Signaling** (agents/tasks.md)
+  - [P2-T7] provides the completion signal via `finish` event with `messageMetadata.audio`
+  - [ST-1] uses that signal in `finalizeRecording()` to know when to save recording
+  - Backend already sends completion metadata (chunks, bytes, duration)
+  - Frontend integration (AudioContext callback) needed for both features
 
 ### References
 
