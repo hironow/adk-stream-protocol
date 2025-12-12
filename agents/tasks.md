@@ -13,7 +13,7 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
 - [P2-T3] Immediate Error Detection (errorCode/errorMessage) - ✅ Complete
 - [P2-T4] Field Coverage Testing (Automated CI Checks) - ✅ Complete
 - [P2-T5] Tool Error Handling - 🔴 High Priority
-- [P2-T6] Unify Image Events to `file` Type - 🟡 Medium Priority
+- [P2-T6] Unify Image Events to `file` Type - ✅ Complete
 - [P2-T7] Audio Completion Signaling - 🔴 High Priority
 - [P2-T8] message-metadata Event Implementation - 🟡 Medium Priority
 
@@ -419,37 +419,19 @@ except Exception as e:
 
 ### [P2-T6] Unify Image Events to `file` Type
 
-**Issue:** Asymmetry between input and output image formats
+**Status:** ✅ Complete (Implemented 2025-12-12)
 
-**Current Behavior:**
+**Implementation:**
 
-**Input (User → Backend):**
-```typescript
-{ type: "file", url: "data:image/png;base64,...", mediaType: "image/png" }
-```
-
-**Output (Backend → Frontend):**
+**1. Backend (stream_protocol.py:608-620):**
 ```python
-{ "type": "data-image", "data": { "mediaType": "...", "content": "base64..." } }
-```
-
-**Problem:**
-- Input uses AI SDK v6 standard `file` event
-- Output uses custom `data-image` event
-- Frontend must handle two different formats for the same data
-
-**Required Implementation:**
-
-**1. Update `_process_inline_data_part()` for images:**
-
-```python
-# stream_protocol.py:486-502 (replace data-image with file)
 # Process image data
 if mime_type.startswith("image/"):
     # Convert bytes to base64 string
     base64_content = base64.b64encode(inline_data.data).decode("utf-8")
 
     # Use AI SDK v6 standard 'file' event with data URL
+    # This matches the input format (symmetric input/output)
     event = self._format_sse_event({
         "type": "file",
         "url": f"data:{mime_type};base64,{base64_content}",
@@ -459,30 +441,31 @@ if mime_type.startswith("image/"):
     return [event]
 ```
 
-**2. Update coverage script to recognize `file` instead of `data-image`:**
-
-```python
-# scripts/check-coverage.py - Update AI SDK event detection
-# Remove 'data-image' from expected events
-# Add 'file' to expected events
+**2. Frontend (message.tsx:221-235):**
+```typescript
+// File content - Image (AI SDK v6 file part)
+if (part.type === "file" && part.mediaType?.startsWith("image/")) {
+  return (
+    <img
+      key={index}
+      src={part.url}
+      alt={part.filename || "Image"}
+      style={{ maxWidth: "100%", borderRadius: "8px", margin: "0.5rem 0" }}
+    />
+  );
+}
 ```
 
-**3. Verify frontend handles `file` event:**
+**3. Coverage Verification:**
+- ✅ Backend generates `file` events (confirmed by `just check-coverage-verbose`)
+- ✅ Frontend handles `file` events (confirmed by coverage report)
 
-Frontend should already handle `file` events correctly since AI SDK's `useChat` processes them.
+**Results:**
+- ✅ Symmetric input/output format achieved
+- ✅ AI SDK v6 standard compliance
+- ✅ Backward compatibility maintained (legacy `data-image` handling still present)
 
-**Testing Requirements:**
-- [ ] Test with ADK returning image (Part.inline_data with image/*)
-- [ ] Verify `file` event is generated with correct data URL format
-- [ ] Verify frontend displays image correctly
-- [ ] Update test expectations to check for `file` instead of `data-image`
-- [ ] Verify `just check-coverage-verbose` shows `file` as generated
-
-**Priority:** 🟡 MEDIUM - Improves protocol consistency
-
-**Impact:** Symmetric input/output format, better AI SDK v6 compliance
-
-**Reference:** AI SDK v6 UIMessageChunk type definition (node_modules/ai/dist/index.d.ts)
+**Commit:** 05161a7 (Dec 12, 2025)
 
 ---
 
