@@ -90,75 +90,407 @@ context_window_compression=types.ContextWindowCompressionConfig(
 
 ---
 
-### [P2-T2] WebSocket Bidirectional Communication Inconsistency
+### [P2-T2] WebSocket Bidirectional Communication - Client Events Implementation
 
-**Issue:** Communication format is inconsistent between directions
+**Status:** 🟡 In Progress (2025-12-13) - Phase 1-3 Complete ✅
 
-**Current Behavior:**
+**Investigation:** experiments/2025-12-13_bidirectional_protocol_investigation.md
 
-**Backend → Frontend:** ✅ SSE format over WebSocket
-```python
-# stream_protocol.py:_format_sse_event()
-return f"data: {json.dumps(event_data)}\n\n"
-```
+**Summary:** Investigation revealed that protocol asymmetry is INTENTIONAL and correct:
+- **Backend → Frontend:** AI SDK v6 Data Stream Protocol (SSE format) - Required for useChat
+- **Frontend → Backend:** Simple JSON - No standard protocol exists, implementation freedom
 
-**Frontend → Backend:** ❌ Raw JSON (not SSE format)
+However, user requirements justify implementing structured client events for:
+1. ESC key interruption
+2. CMD key audio control (BIDI)
+3. Tool call approval dialogs
+
+**Implementation Plan:** Unified Pattern (Constructor Options + Public Methods + Tool Callbacks)
+
+---
+
+#### Implementation Phases
+
+**Phase 1: Foundation - Structured Event Protocol** ✅ COMPLETE (1-2 hours)
+
+**Goal:** Add type-safe event sending infrastructure
+
+**Tasks:**
+1. ✅ Define `ClientToServerEvent` TypeScript types
+2. ✅ Add `sendEvent()` private method to WebSocketChatTransport
+3. ✅ Update existing message sending to use structured format
+4. ✅ Add public methods for user controls
+5. ✅ Update backend event handlers in server.py
+
+**Files Modified:**
+- `lib/websocket-chat-transport.ts` (+125 lines)
+- `server.py` (~50 lines)
+
+**Event Types to Define:**
 ```typescript
-// lib/websocket-chat-transport.ts:249
-this.ws?.send(JSON.stringify(toolResult));
-// → {"type": "tool-result", "toolCallId": "...", "result": {...}}
+interface ClientEvent {
+  type: string;
+  version: "1.0";
+  timestamp?: number;
+}
+
+interface MessageEvent extends ClientEvent {
+  type: "message";
+  data: { messages: UIMessage[] };
+}
+
+interface InterruptEvent extends ClientEvent {
+  type: "interrupt";
+  reason?: "user_abort" | "timeout" | "error";
+}
+
+interface AudioControlEvent extends ClientEvent {
+  type: "audio_control";
+  action: "start" | "stop";
+}
+
+interface ToolResultEvent extends ClientEvent {
+  type: "tool_result";
+  data: {
+    toolCallId: string;
+    result: any;
+    status?: "approved" | "rejected";
+  };
+}
+
+type ClientToServerEvent =
+  | MessageEvent
+  | InterruptEvent
+  | AudioControlEvent
+  | ToolResultEvent
+  | PingEvent;
 ```
 
-**Problems:**
+**Public Methods to Add:**
+```typescript
+public interrupt(reason?: string): void;
+public startAudio(): void;
+public stopAudio(): void;
+public sendToolResult(toolCallId: string, result: any, status?: string): void;
+```
 
-1. **Protocol Asymmetry:**
-   - Backend sends: `data: {...}\n\n` (SSE format)
-   - Frontend sends: `{...}` (raw JSON)
-   - Violates "SSE format over WebSocket" architecture
+**Acceptance Criteria:**
+- [ ] All client events use structured format with `type` and `version`
+- [ ] Public methods available for UI components
+- [ ] Backward compatible with existing code
+- [ ] Type-safe event sending
 
-2. **Backend doesn't handle tool-result:**
-   - `server.py` `/live` endpoint only handles:
-     - `"messages" in message_data` - Initial message history
-     - `"role" in message_data` - Single message
-   - **No handler for `"type": "tool-result"`**
+---
 
-3. **Unused toolCallCallback:**
-   - `lib/build-use-chat-options.ts:74-78` returns `{handled: "backend"}`
-   - But backend cannot receive frontend tool results
+**Phase 2: Interruption Support** ✅ COMPLETE (2-3 hours)
 
-**Required Actions:**
+**Goal:** Enable ESC key to stop AI generation
 
-1. **Decision:** Choose bidirectional protocol format
-   - **Option A:** SSE format both ways (consistent with "SSE over WebSocket" design)
-   - **Option B:** JSON both ways (simpler, but breaks current architecture)
-   - **Recommendation:** Option A for consistency
+**Tasks:**
+1. ✅ Export transport reference from buildUseChatOptions
+2. ✅ `interrupt()` public method already implemented in Phase 1
+3. ✅ Add ESC key handler in Chat component with useEffect
+4. ✅ Add visual interrupt indicator (red badge, 2s timeout)
+5. ✅ Backend: Handle `interrupt` event (close LiveRequestQueue) - Already implemented in Phase 1
 
-2. **If Option A (SSE format both ways):**
-   - Frontend: Wrap tool results in SSE format before send
-     ```typescript
-     const sseMessage = `data: ${JSON.stringify(toolResult)}\n\n`;
-     this.ws?.send(sseMessage);
-     ```
-   - Backend: Parse SSE format from client messages
-     ```python
-     if data.startswith("data: "):
-         json_str = data[6:]  # Remove "data: " prefix
-         message_data = json.loads(json_str)
-     ```
+**Files Modified:**
+- `lib/build-use-chat-options.ts` - Export transport reference (~30 lines)
+- `components/chat.tsx` - ESC key handler + interrupt indicator (~40 lines)
 
-3. **Add tool-result handling in server.py:**
-   - Extract toolCallId and result
-   - Send to ADK via appropriate mechanism
-   - Need to investigate: How does ADK receive tool results in BIDI mode?
+**Backend Handler:**
+```python
+elif event_type == "interrupt":
+    logger.info("[BIDI] User interrupted (ESC)")
+    live_request_queue.close()
+    # ADK will handle graceful shutdown
+```
 
-**Testing Requirements:**
-- [ ] Bidirectional SSE format over WebSocket works
-- [ ] Backend receives and parses SSE-formatted messages from frontend
-- [ ] Tool execution round-trip works (if tools move to frontend)
+**Frontend Handler:**
+```typescript
+useEffect(() => {
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      transportRef.current?.interrupt('user_abort');
+    }
+  };
+  window.addEventListener('keydown', handleKeyDown);
+  return () => window.removeEventListener('keydown', handleKeyDown);
+}, []);
+```
 
-**Priority:** 🟡 MEDIUM - Currently not blocking (tools run on backend), but architecture inconsistency
+**Acceptance Criteria:**
+- [ ] ESC key stops current generation
+- [ ] Backend receives and handles interrupt event
+- [ ] UI shows feedback (toast/indicator)
+- [ ] Works in both BIDI and non-BIDI modes
 
-**Reference:** README.md - "SSE format over WebSocket" design rationale
+---
+
+**Phase 3: Audio Control** ✅ COMPLETE (4-6 hours + 2 hours AudioWorklet migration)
+
+**Goal:** CMD key push-to-talk for BIDI audio input
+
+**Tasks:**
+1. ✅ `startAudio()`, `stopAudio()`, `sendAudioChunk()` methods - Already implemented in Phase 1
+2. ✅ Integrated AudioWorklet for PCM recording (ADK official pattern)
+3. ✅ Added CMD key (Meta) handlers for push-to-talk
+4. ✅ Added visual recording indicator with pulse animation
+5. ✅ Backend: Forward PCM audio chunks to LiveRequestQueue
+
+**AudioWorklet Implementation (Based on ADK Sample):**
+- ✅ Created `public/pcm-recorder-processor.js` - AudioWorklet processor
+- ✅ Created `lib/audio-recorder.ts` - AudioRecorder class
+- ✅ Replaced MediaRecorder with AudioWorklet in Chat component
+- ✅ 16kHz 16-bit PCM (matches ADK Live API requirements)
+- ✅ Echo cancellation, noise suppression, auto gain control
+
+**Files Created:**
+- `public/pcm-recorder-processor.js` - AudioWorklet processor (~50 lines)
+- `lib/audio-recorder.ts` - AudioRecorder class (~200 lines)
+
+**Files Modified:**
+- `components/chat.tsx` - Audio recording + CMD key handlers (~120 lines)
+- `server.py` - PCM audio_chunk handler (~30 lines)
+
+**Audio Capture Flow:**
+```typescript
+// CMD down → Start recording
+transport.startAudio();
+const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+const recorder = new MediaRecorder(stream);
+recorder.ondataavailable = (e) => {
+  transport.sendAudioChunk({
+    content: arrayBufferToBase64(e.data),
+    sampleRate: 24000,
+    channels: 1,
+    bitDepth: 16
+  });
+};
+
+// CMD up → Stop and auto-send
+transport.stopAudio();
+recorder.stop();
+```
+
+**Backend Handler:**
+```python
+elif event_type == "audio_chunk":
+    chunk_data = base64.b64decode(event["data"]["chunk"])
+    audio_blob = types.Blob(data=chunk_data, mime_type="audio/pcm")
+    live_request_queue.send_realtime(blob=audio_blob)
+
+elif event_type == "audio_control":
+    action = event["action"]
+    if action == "start":
+        logger.info("[BIDI] Audio input started")
+    elif action == "stop":
+        logger.info("[BIDI] Audio input stopped (auto-send)")
+```
+
+**Open Questions:**
+- [ ] Audio format requirements (PCM/WAV/sample rate)
+- [ ] Browser MediaRecorder compatibility
+- [ ] Fallback for unsupported browsers
+
+**Acceptance Criteria:**
+- [ ] CMD key starts/stops audio capture
+- [ ] Audio chunks stream to backend in real-time
+- [ ] Backend forwards to ADK LiveRequestQueue
+- [ ] Works on Chrome/Safari/Firefox
+- [ ] Visual feedback for recording state
+
+---
+
+**Phase 4: Tool Call Approval** (3-4 hours)
+
+**Goal:** User approval dialogs for sensitive tool calls
+
+**Tasks:**
+1. Add `onToolCallRequest` callback (manual mode)
+2. Update `handleToolCall()` to support both modes
+3. Implement approval dialog UI
+4. Add Geolocation API integration (example)
+
+**Files to Modify:**
+- `lib/websocket-chat-transport.ts` - Add approval mode
+- `components/tool-approval-dialog.tsx` - New component
+- `components/chat.tsx` - Integrate dialog
+
+**Two Modes Support:**
+
+**Mode 1: Auto-execute with approval (Simple)**
+```typescript
+toolCallCallback: async (toolCall) => {
+  if (toolCall.toolName === 'change_bgm') {
+    const approved = await showApprovalDialog({
+      title: 'BGM Change',
+      message: `Change to track ${toolCall.args.track}?`
+    });
+    return approved
+      ? { success: true, track: toolCall.args.track }
+      : { success: false, reason: 'User denied' };
+  }
+}
+```
+
+**Mode 2: Manual approval (Advanced)**
+```typescript
+onToolCallRequest: (toolCall) => {
+  if (toolCall.toolName === 'get_location') {
+    setToolApprovalDialog({
+      toolCall,
+      onApprove: async () => {
+        const location = await getGeolocation();
+        transport.sendToolResult(toolCall.toolCallId, location, "approved");
+      },
+      onDeny: () => {
+        transport.sendToolResult(
+          toolCall.toolCallId,
+          { message: '教えないよ！' },
+          "rejected"
+        );
+      }
+    });
+  }
+}
+```
+
+**Acceptance Criteria:**
+- [ ] Both auto and manual approval modes work
+- [ ] Approval dialog shows tool details
+- [ ] Geolocation example works (approve/deny)
+- [ ] Tool results sent back with status
+- [ ] Backend handles rejected tools gracefully
+
+---
+
+#### Configuration Extension
+
+**Updated WebSocketChatTransportConfig:**
+
+```typescript
+export interface WebSocketChatTransportConfig {
+  url: string;
+  timeout?: number;
+  audioContext?: AudioContextValue;
+  latencyCallback?: (latency: number) => void;
+
+  // ===== Tool Call Handling =====
+  toolCallCallback?: (toolCall: ToolCall) => Promise<any>;
+  onToolCallRequest?: (toolCall: ToolCall) => void;
+
+  // ===== Client Event Callbacks =====
+  onInterruptRequest?: () => void;
+  onAudioStart?: () => void;
+  onAudioStop?: () => void;
+  onAudioChunk?: (chunk: AudioChunk) => void;
+
+  // ===== Connection Events =====
+  onConnect?: () => void;
+  onDisconnect?: () => void;
+  onError?: (error: Error) => void;
+}
+```
+
+---
+
+#### Backend Event Handlers (server.py)
+
+**Add to WebSocket message handler:**
+
+```python
+async def receive_from_client():
+    while True:
+        data = await websocket.receive_text()
+        event = json.loads(data)
+        event_type = event.get("type")
+
+        if event_type == "message":
+            # Existing message handling
+            messages = event["data"]["messages"]
+            # ...
+
+        elif event_type == "interrupt":
+            # NEW: Handle interruption
+            logger.info("[BIDI] User interrupted")
+            live_request_queue.close()
+
+        elif event_type == "audio_control":
+            # NEW: Handle audio start/stop
+            action = event["action"]
+            logger.info(f"[BIDI] Audio {action}")
+
+        elif event_type == "audio_chunk":
+            # NEW: Handle audio streaming
+            chunk_data = base64.b64decode(event["data"]["chunk"])
+            audio_blob = types.Blob(data=chunk_data, mime_type="audio/pcm")
+            live_request_queue.send_realtime(blob=audio_blob)
+
+        elif event_type == "tool_result":
+            # NEW: Handle tool results with approval status
+            tool_call_id = event["data"]["toolCallId"]
+            result = event["data"]["result"]
+            status = event["data"].get("status", "approved")
+            logger.info(f"[Tool] User {status} tool {tool_call_id}")
+            # TODO: Investigate ADK tool result handling
+
+        elif event_type == "ping":
+            # Existing ping/pong
+            await websocket.send_text(json.dumps({
+                "type": "pong",
+                "timestamp": event["timestamp"]
+            }))
+```
+
+---
+
+#### Testing Strategy
+
+**Unit Tests:**
+- [ ] Event type definitions and serialization
+- [ ] Public method error handling
+- [ ] Callback invocation
+
+**Integration Tests:**
+- [ ] Full round-trip for each event type
+- [ ] Backend event handling
+- [ ] Error scenarios
+
+**E2E Tests:**
+- [ ] ESC key interruption flow
+- [ ] CMD key audio capture flow
+- [ ] Tool approval flow (approve/deny)
+
+---
+
+#### Implementation Timeline
+
+**Total Estimated Effort:** 10-14 hours
+
+- Phase 1: 1-2 hours ✓ Foundation (immediate value)
+- Phase 2: 2-3 hours ✓ High value, low risk
+- Phase 3: 4-6 hours ⚠️ Medium risk (browser APIs)
+- Phase 4: 3-4 hours ⚠️ Medium complexity
+
+**Recommended Start:** Phase 1 + Phase 2 (interruption) for quick wins
+
+---
+
+#### Success Metrics
+
+- ✅ ESC key reliably stops generation
+- ✅ CMD key audio input works in BIDI mode
+- ✅ Tool approval dialogs functional
+- ✅ All events use structured format
+- ✅ Backward compatible with existing code
+- ✅ Type-safe throughout
+
+---
+
+**Reference:**
+- Investigation: experiments/2025-12-13_bidirectional_protocol_investigation.md
+- Community pattern: https://github.com/vercel/ai/discussions/5607
+- AI SDK v6 Transport docs: https://ai-sdk.dev/docs/ai-sdk-ui/transport
 
 ---
 

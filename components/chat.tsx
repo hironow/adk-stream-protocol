@@ -1,13 +1,14 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { MessageComponent } from "@/components/message";
 import { useAudio } from "@/lib/audio-context";
 import {
   type BackendMode,
   buildUseChatOptions,
 } from "@/lib/build-use-chat-options";
+import { useAudioRecorder } from "@/lib/use-audio-recorder";
 
 interface ChatProps {
   mode: BackendMode;
@@ -16,17 +17,108 @@ interface ChatProps {
 export function Chat({ mode }: ChatProps) {
   const audioContext = useAudio();
 
-  const chatOptions = buildUseChatOptions({
+  const { useChatOptions, transport } = buildUseChatOptions({
     mode,
     initialMessages: [],
     audioContext,
   });
 
-  const { messages, sendMessage, status, error } = useChat(chatOptions);
+  const { messages, sendMessage, status, error } = useChat(useChatOptions);
+
+  // Keep transport reference for imperative control (P2-T2 Phase 2)
+  const transportRef = useRef(transport);
 
   const [input, setInput] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [interrupted, setInterrupted] = useState(false);
+
+  // Phase 3: Audio recording with custom hook (BIDI mode only)
+  const { isRecording, startRecording, stopRecording } = useAudioRecorder({
+    mode,
+  });
+
+  const isLoading = status === "submitted" || status === "streaming";
+
+  // Phase 3: Audio recording handlers
+  // Using useAudioRecorder hook for proper lifecycle management
+  const handleStartRecording = useCallback(async () => {
+    console.log("[Chat] Starting audio recording...");
+
+    // Start recording with chunk callback
+    await startRecording((chunk) => {
+      // Convert Int16Array to base64
+      const uint8Array = new Uint8Array(chunk.data.buffer);
+      const base64 = btoa(String.fromCharCode(...uint8Array));
+
+      // Send PCM chunk to backend
+      transportRef.current?.sendAudioChunk({
+        content: base64,
+        sampleRate: chunk.sampleRate, // 16kHz from AudioRecorder
+        channels: chunk.channels, // 1 (mono)
+        bitDepth: chunk.bitDepth, // 16-bit
+      });
+    });
+
+    // Notify transport that audio streaming has started
+    transportRef.current?.startAudio();
+  }, [startRecording]);
+
+  const handleStopRecording = useCallback(async () => {
+    console.log("[Chat] Stopping audio recording...");
+
+    // Stop recording (cleanup handled by hook)
+    await stopRecording();
+
+    // Notify transport that audio streaming has stopped
+    transportRef.current?.stopAudio();
+  }, [stopRecording]);
+
+  // Phase 3: CMD key push-to-talk (BIDI mode only)
+  useEffect(() => {
+    if (mode !== "adk-bidi") return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // CMD key (Meta) pressed - start recording
+      if (e.metaKey && !isRecording) {
+        e.preventDefault();
+        console.log("[Chat] CMD key pressed - starting recording");
+        handleStartRecording();
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      // CMD key released - stop recording and auto-send
+      if (e.key === "Meta" && isRecording) {
+        e.preventDefault();
+        console.log("[Chat] CMD key released - stopping recording");
+        handleStopRecording();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, [mode, isRecording, handleStartRecording, handleStopRecording]);
+
+  // Phase 2: ESC key interruption support
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isLoading) {
+        console.log("[Chat] ESC pressed - interrupting AI response");
+        transportRef.current?.interrupt("user_abort");
+        setInterrupted(true);
+        // Reset interrupted state after 2 seconds
+        setTimeout(() => setInterrupted(false), 2000);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isLoading]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -70,8 +162,6 @@ export function Chat({ mode }: ChatProps) {
     }
   };
 
-  const isLoading = status === "submitted" || status === "streaming";
-
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       {/* BGM Switch Button (upper left) */}
@@ -98,6 +188,69 @@ export function Chat({ mode }: ChatProps) {
         <span>🎵</span>
         <span>BGM {audioContext.bgmChannel.currentTrack + 1}</span>
       </button>
+
+      {/* Recording Indicator (Phase 3, BIDI mode only) */}
+      {mode === "adk-bidi" && isRecording && (
+        <div
+          style={{
+            position: "fixed",
+            top: "1rem",
+            right: "1rem",
+            padding: "0.75rem 1rem",
+            background: "#dc2626",
+            border: "1px solid #991b1b",
+            borderRadius: "6px",
+            fontSize: "0.875rem",
+            fontWeight: 600,
+            color: "#fff",
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            animation: "pulse 1.5s ease-in-out infinite",
+          }}
+        >
+          <span
+            style={{
+              width: "10px",
+              height: "10px",
+              borderRadius: "50%",
+              background: "#fff",
+              animation: "pulse 1s ease-in-out infinite",
+            }}
+          />
+          <span>🎤 Recording...</span>
+          <span style={{ fontSize: "0.75rem", opacity: 0.8 }}>
+            (Release CMD to send)
+          </span>
+        </div>
+      )}
+
+      {/* Interrupt Indicator (Phase 2) */}
+      {interrupted && (
+        <div
+          style={{
+            position: "fixed",
+            top: "1rem",
+            right: "1rem",
+            padding: "0.75rem 1rem",
+            background: "#dc2626",
+            border: "1px solid #991b1b",
+            borderRadius: "6px",
+            fontSize: "0.875rem",
+            fontWeight: 600,
+            color: "#fff",
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            animation: "fadeIn 0.2s ease-in",
+          }}
+        >
+          <span>⏹️</span>
+          <span>Interrupted</span>
+        </div>
+      )}
 
       {/* WebSocket Latency Indicator (BIDI mode only) */}
       {mode === "adk-bidi" && audioContext.wsLatency !== null && (

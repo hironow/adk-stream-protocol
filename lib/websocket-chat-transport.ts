@@ -59,6 +59,111 @@ interface AudioContextValue {
 }
 
 /**
+ * Client-to-Server Event Protocol (P2-T2)
+ * =======================================
+ * Structured event protocol for bidirectional communication.
+ *
+ * All client events follow this format:
+ *   - type: Event identifier (message, interrupt, audio_control, etc.)
+ *   - version: Protocol version for backward compatibility
+ *   - timestamp: Optional client timestamp (milliseconds since epoch)
+ *   - data: Event-specific payload
+ */
+
+/**
+ * Base event structure for all client-to-server events
+ */
+interface ClientEvent {
+  type: string;
+  version: "1.0";
+  timestamp?: number;
+}
+
+/**
+ * Message event: Send chat messages to backend
+ * Used by existing sendMessages() flow
+ */
+interface MessageEvent extends ClientEvent {
+  type: "message";
+  data: {
+    messages: UIMessage[];
+  };
+}
+
+/**
+ * Interrupt event: User cancels ongoing AI response
+ * Use cases:
+ *   - ESC key pressed during response generation
+ *   - User clicks cancel button
+ *   - Timeout or error conditions
+ */
+interface InterruptEvent extends ClientEvent {
+  type: "interrupt";
+  reason?: "user_abort" | "timeout" | "error";
+}
+
+/**
+ * Audio control event: Start/stop audio input (BIDI mode)
+ * Use cases:
+ *   - CMD key pressed: start audio input
+ *   - CMD key released: stop audio input
+ *   - Push-to-talk UI controls
+ */
+interface AudioControlEvent extends ClientEvent {
+  type: "audio_control";
+  action: "start" | "stop";
+}
+
+/**
+ * Audio chunk event: Send PCM audio data to backend
+ * Used for streaming microphone input in BIDI mode
+ */
+interface AudioChunkEvent extends ClientEvent {
+  type: "audio_chunk";
+  data: {
+    chunk: string; // Base64-encoded PCM data
+    sampleRate: number;
+    channels: number;
+    bitDepth: number;
+  };
+}
+
+/**
+ * Tool result event: Send tool execution results with approval status
+ * Use cases:
+ *   - Auto-execute: Immediate result without user interaction
+ *   - Manual approval: User approved/rejected tool call
+ *   - Tool execution errors
+ */
+interface ToolResultEvent extends ClientEvent {
+  type: "tool_result";
+  data: {
+    toolCallId: string;
+    result: any;
+    status?: "approved" | "rejected" | "error";
+  };
+}
+
+/**
+ * Ping event: Keep-alive and latency measurement
+ * Backend responds with pong event
+ */
+interface PingEvent extends ClientEvent {
+  type: "ping";
+}
+
+/**
+ * Union type for all client-to-server events
+ */
+type ClientToServerEvent =
+  | MessageEvent
+  | InterruptEvent
+  | AudioControlEvent
+  | AudioChunkEvent
+  | ToolResultEvent
+  | PingEvent;
+
+/**
  * WebSocket transport configuration
  */
 export interface WebSocketChatTransportConfig {
@@ -105,6 +210,120 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
   }
 
   /**
+   * Send structured event to backend (P2-T2)
+   * All client events use this method for type-safe sending
+   */
+  private sendEvent(event: ClientToServerEvent): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      console.warn("[WS Transport] Cannot send event, WebSocket not open");
+      return;
+    }
+
+    // Add timestamp if not present
+    const eventWithTimestamp = {
+      ...event,
+      timestamp: event.timestamp ?? Date.now(),
+    };
+
+    this.ws.send(JSON.stringify(eventWithTimestamp));
+    console.debug("[WS→Backend]", eventWithTimestamp.type, eventWithTimestamp);
+  }
+
+  /**
+   * PUBLIC API: Interrupt ongoing AI response
+   * Use cases:
+   *   - ESC key pressed during response
+   *   - User clicks cancel button
+   *   - Timeout or error conditions
+   */
+  public interrupt(reason?: "user_abort" | "timeout" | "error"): void {
+    const event: InterruptEvent = {
+      type: "interrupt",
+      version: "1.0",
+      reason,
+    };
+    this.sendEvent(event);
+    console.log("[WS Transport] Interrupt sent:", reason);
+  }
+
+  /**
+   * PUBLIC API: Start audio input (BIDI mode)
+   * Use case: CMD key pressed, start recording microphone
+   */
+  public startAudio(): void {
+    const event: AudioControlEvent = {
+      type: "audio_control",
+      version: "1.0",
+      action: "start",
+    };
+    this.sendEvent(event);
+    console.log("[WS Transport] Audio input started");
+  }
+
+  /**
+   * PUBLIC API: Stop audio input (BIDI mode)
+   * Use case: CMD key released, stop recording microphone
+   */
+  public stopAudio(): void {
+    const event: AudioControlEvent = {
+      type: "audio_control",
+      version: "1.0",
+      action: "stop",
+    };
+    this.sendEvent(event);
+    console.log("[WS Transport] Audio input stopped");
+  }
+
+  /**
+   * PUBLIC API: Send audio chunk to backend (BIDI mode)
+   * Used for streaming microphone input
+   */
+  public sendAudioChunk(chunk: {
+    content: string;
+    sampleRate: number;
+    channels: number;
+    bitDepth: number;
+  }): void {
+    const event: AudioChunkEvent = {
+      type: "audio_chunk",
+      version: "1.0",
+      data: {
+        chunk: chunk.content,
+        sampleRate: chunk.sampleRate,
+        channels: chunk.channels,
+        bitDepth: chunk.bitDepth,
+      },
+    };
+    this.sendEvent(event);
+  }
+
+  /**
+   * PUBLIC API: Send tool execution result with approval status
+   * Use cases:
+   *   - Auto-execute: Send result immediately
+   *   - Manual approval: Send result after user approves/rejects
+   */
+  public sendToolResult(
+    toolCallId: string,
+    result: any,
+    status?: "approved" | "rejected" | "error",
+  ): void {
+    const event: ToolResultEvent = {
+      type: "tool_result",
+      version: "1.0",
+      data: {
+        toolCallId,
+        result,
+        status,
+      },
+    };
+    this.sendEvent(event);
+    console.log(
+      `[WS Transport] Tool result sent: ${toolCallId} (${status ?? "auto"})`,
+    );
+  }
+
+  /**
    * Start ping/pong for latency monitoring
    */
   private startPing() {
@@ -113,12 +332,12 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
     this.pingInterval = setInterval(() => {
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
         this.lastPingTime = Date.now();
-        this.ws.send(
-          JSON.stringify({
-            type: "ping",
-            timestamp: this.lastPingTime,
-          }),
-        );
+        const event: PingEvent = {
+          type: "ping",
+          version: "1.0",
+          timestamp: this.lastPingTime,
+        };
+        this.sendEvent(event);
       }
     }, 2000); // Ping every 2 seconds
   }
@@ -211,9 +430,15 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
             };
           }
 
-          // Send messages to backend
-          const messageData = JSON.stringify({ messages: options.messages });
-          this.ws.send(messageData);
+          // Send messages to backend using structured event format (P2-T2)
+          const event: MessageEvent = {
+            type: "message",
+            version: "1.0",
+            data: {
+              messages: options.messages,
+            },
+          };
+          this.sendEvent(event);
         } catch (error) {
           console.error("[WS Transport] Error in start:", error);
           controller.error(error);
@@ -601,16 +826,12 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
 
       const result = await this.config.toolCallCallback(toolCall);
 
-      // Send tool result back to backend
-      const toolResult = {
-        type: "tool-result",
-        toolCallId: chunk.toolCallId,
-        result,
-      };
-
-      this.ws?.send(JSON.stringify(toolResult));
+      // Send tool result back to backend using structured event (P2-T2)
+      this.sendToolResult(chunk.toolCallId, result);
     } catch (error) {
       console.error("[WS Transport] Tool call error:", error);
+      // Send error status to backend
+      this.sendToolResult(chunk.toolCallId, { error: String(error) }, "error");
     }
   }
 

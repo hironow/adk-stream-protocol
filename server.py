@@ -853,26 +853,29 @@ async def live_chat(websocket: WebSocket):
             try:
                 while True:
                     data = await websocket.receive_text()
-                    # Parse AI SDK v6 message format
-                    message_data = json.loads(data)
+                    # Parse structured event format (P2-T2)
+                    event = json.loads(data)
+                    event_type = event.get("type")
+                    event_version = event.get("version", "1.0")
+
+                    logger.info(f"[BIDI] Received event: {event_type} (v{event_version})")
 
                     # Handle ping/pong for latency monitoring
-                    is_ping = message_data.get("type") == "ping"
-                    if is_ping:
+                    if event_type == "ping":
                         await websocket.send_text(
                             json.dumps(
                                 {
                                     "type": "pong",
-                                    "timestamp": message_data.get("timestamp"),
+                                    "timestamp": event.get("timestamp"),
                                 }
                             )
                         )
                         continue
 
-                    # Handle different message types
-                    if not is_ping and "messages" in message_data:
-                        # Full message history (initial request)
-                        messages = message_data["messages"]
+                    # Handle message event (chat messages)
+                    if event_type == "message":
+                        message_data = event.get("data", {})
+                        messages = message_data.get("messages", [])
                         if messages:
                             # Get last message
                             last_msg = ChatMessage(**messages[-1])
@@ -918,42 +921,73 @@ async def live_chat(websocket: WebSocket):
                                 )
                                 live_request_queue.send_content(text_content)
 
-                    elif not is_ping and "role" in message_data:
-                        # Single message
-                        msg = ChatMessage(**message_data)
+                    # Handle interrupt event (P2-T2 Phase 2)
+                    elif event_type == "interrupt":
+                        reason = event.get("reason", "user_abort")
+                        logger.info(f"[BIDI] User interrupted (reason: {reason})")
+                        # Close the request queue to stop AI generation
+                        live_request_queue.close()
+                        # Note: WebSocket stays open for next turn
 
-                        # Separate image/video blobs from text parts
-                        text_parts: list[types.Part] = []
+                    # Handle audio control event (P2-T2 Phase 3)
+                    elif event_type == "audio_control":
+                        action = event.get("action")
+                        if action == "start":
+                            logger.info("[BIDI] Audio input started (CMD key pressed)")
+                        elif action == "stop":
+                            logger.info(
+                                "[BIDI] Audio input stopped (CMD key released, auto-send)"
+                            )
+                        # Note: Audio chunks are streamed separately via audio_chunk events
+                        # ADK processes the audio in real-time through LiveRequestQueue
 
-                        for part in msg.parts:
-                            # Handle file parts (images)
-                            if isinstance(part, FilePart):
-                                # Send image blob via send_realtime()
-                                import base64
+                    # Handle audio chunk event (P2-T2 Phase 3)
+                    elif event_type == "audio_chunk":
+                        chunk_data = event.get("data", {})
+                        chunk_base64 = chunk_data.get("chunk")
+                        sample_rate = chunk_data.get("sampleRate", 16000)
+                        channels = chunk_data.get("channels", 1)
+                        bit_depth = chunk_data.get("bitDepth", 16)
 
-                                # Decode data URL
-                                if part.url.startswith("data:"):
-                                    data_url_parts = part.url.split(",", 1)
-                                    if len(data_url_parts) == 2:
-                                        image_data_base64 = data_url_parts[1]
-                                        image_bytes = base64.b64decode(
-                                            image_data_base64
-                                        )
+                        if chunk_base64:
+                            import base64
 
-                                        # Create blob and send via send_realtime()
-                                        image_blob = types.Blob(
-                                            mime_type=part.mediaType, data=image_bytes
-                                        )
-                                        live_request_queue.send_realtime(image_blob)
+                            # Decode base64 PCM audio data
+                            audio_bytes = base64.b64decode(chunk_base64)
+                            logger.debug(
+                                f"[BIDI] Received PCM chunk: {len(audio_bytes)} bytes "
+                                f"({sample_rate}Hz, {channels}ch, {bit_depth}bit)"
+                            )
 
-                            # Handle text parts
-                            elif isinstance(part, TextPart):
-                                text_parts.append(types.Part(text=part.text))
+                            # Frontend now sends raw PCM audio via AudioWorklet
+                            # Format: 16-bit signed integer, 16kHz, mono
+                            # This matches ADK Live API requirements
 
-                        # Send text content via send_content() if any text exists
-                        if text_parts:
-                            text_content = types.Content(role="user", parts=text_parts)
-                            live_request_queue.send_content(text_content)
+                            # Create audio blob for ADK
+                            # Using audio/pcm mime type (raw PCM from AudioWorklet)
+                            audio_blob = types.Blob(
+                                mime_type="audio/pcm", data=audio_bytes
+                            )
+                            # Send to ADK via LiveRequestQueue
+                            live_request_queue.send_realtime(audio_blob)
+
+                    # Handle tool result event (P2-T2 Phase 4)
+                    elif event_type == "tool_result":
+                        result_data = event.get("data", {})
+                        tool_call_id = result_data.get("toolCallId")
+                        # result = result_data.get("result")  # TODO: Use in Phase 4
+                        status = result_data.get("status", "approved")
+                        logger.info(
+                            f"[Tool] Received result for {tool_call_id} (status: {status})"
+                        )
+                        # TODO: Implement tool result handling in Phase 4
+                        # This will involve sending the result back to ADK
+                        # For now, just log the event - actual tool result forwarding
+                        # to ADK will be implemented in Phase 4
+
+                    # Unknown event type
+                    else:
+                        logger.warning(f"[BIDI] Unknown event type: {event_type}")
 
             except WebSocketDisconnect:
                 logger.info("[BIDI] Client disconnected")

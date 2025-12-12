@@ -49,6 +49,19 @@ function debugLog(message: string, ...args: any[]) {
  * - Root cause hypothesis: Global/module-level endpoint cache in AI SDK v6 beta
  * - Solution: Custom fetch function to bypass broken `api` routing
  */
+/**
+ * Return type for buildUseChatOptions
+ * Includes useChat options and optional transport reference for imperative control
+ */
+export interface UseChatOptionsWithTransport {
+  useChatOptions: {
+    transport: any;
+    messages: UIMessage[];
+    id: string;
+  };
+  transport?: WebSocketChatTransport;
+}
+
 export function buildUseChatOptions({
   mode,
   initialMessages,
@@ -56,6 +69,29 @@ export function buildUseChatOptions({
   process.env?.NEXT_PUBLIC_ADK_BACKEND_URL
     ? process.env.NEXT_PUBLIC_ADK_BACKEND_URL
     : "http://localhost:8000",
+  forceNewInstance = false,
+  audioContext,
+}: {
+  mode: BackendMode;
+  initialMessages: UIMessage[];
+  adkBackendUrl?: string;
+  forceNewInstance?: boolean;
+  audioContext?: AudioContextValue;
+}): UseChatOptionsWithTransport {
+  const result = buildUseChatOptionsInternal({
+    mode,
+    initialMessages,
+    adkBackendUrl,
+    forceNewInstance,
+    audioContext,
+  });
+  return result;
+}
+
+function buildUseChatOptionsInternal({
+  mode,
+  initialMessages,
+  adkBackendUrl = "http://localhost:8000",
   forceNewInstance = false,
   audioContext,
 }: {
@@ -151,7 +187,7 @@ export function buildUseChatOptions({
           messagesCount: geminiOptions.messages.length,
         }),
       );
-      return geminiOptions;
+      return { useChatOptions: geminiOptions, transport: undefined };
     }
 
     case "adk-sse": {
@@ -172,7 +208,7 @@ export function buildUseChatOptions({
           messagesCount: adkSseOptions.messages.length,
         }),
       );
-      return adkSseOptions;
+      return { useChatOptions: adkSseOptions, transport: undefined };
     }
 
     case "adk-bidi": {
@@ -187,7 +223,7 @@ export function buildUseChatOptions({
         transport: websocketTransport,
       };
       debugLog("ADK BIDI options:", adkBidiOptions);
-      return adkBidiOptions;
+      return { useChatOptions: adkBidiOptions, transport: websocketTransport };
     }
 
     default: {
