@@ -3,7 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 /**
  * Playwright E2E Test Configuration
  *
- * Tests located in: tests/e2e/
+ * Tests located in: e2e/
  *
  * Requirements:
  * - Real backend servers must be running (ADK Python + Next.js)
@@ -14,7 +14,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   // Test directory
-  testDir: './tests/e2e',
+  testDir: './e2e',
 
   // Maximum time one test can run for (3 minutes to accommodate LLM response times)
   timeout: 180 * 1000,
