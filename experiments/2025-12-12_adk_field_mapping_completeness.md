@@ -1154,6 +1154,651 @@ We generate **all essential streaming events**:
   - Validated that low frontend coverage is correct (AI SDK handles most events)
   - Discovered 11 events generated but forwarded to AI SDK (not consumed by custom code)
 
+### 2025-12-12 (Late Night) - Phase 2 Coverage Improvements Completed
+
+Completed 4 high-priority coverage improvement tasks identified from coverage analysis:
+
+#### [P2-T5] Tool Error Handling ✅
+
+- **Feature**: Implemented tool execution error detection and proper error events
+  - Added error detection in `_process_function_response()` (`stream_protocol.py:402-425`)
+  - Pattern 1: `success=false` (common in tool implementations)
+  - Pattern 2: `error` field present without `result` field
+  - Generates `tool-output-error` event with `errorText` field
+  - Errors logged with `logger.error()` for debugging
+- **Tests**: Added 3 comprehensive tests (`tests/unit/test_stream_protocol.py:800-982`)
+  - `test_tool_execution_error_with_success_false`: Tests success=false pattern
+  - `test_tool_execution_error_with_error_field`: Tests error field pattern
+  - `test_tool_success_response_unchanged`: Ensures success case still works
+  - All tests pass ✅
+- **TDD Approach**: Followed RED-GREEN cycle
+  - ✅ RED: Wrote failing tests first
+  - ✅ GREEN: Implemented error detection logic
+  - Code quality: Passed ruff checks
+- **Impact**: Users now see tool errors immediately with proper error messages
+
+#### [P2-T6] Unify Image Events to `file` Type ✅
+
+- **Feature**: Changed image output from custom `data-image` to standard AI SDK v6 `file` event
+  - Updated `_process_inline_data_part()` (`stream_protocol.py:511-524`)
+  - **Before**: `{"type": "data-image", "data": {"mediaType": "...", "content": "..."}}`
+  - **After**: `{"type": "file", "url": "data:image/png;base64,...", "mediaType": "image/png"}`
+  - Uses data URL format for inline base64 content
+- **Tests**: Updated 2 existing image tests
+  - Changed assertions to expect `file` event type
+  - Verified data URL format: `data:image/png;base64,...`
+  - All tests pass ✅
+- **Impact**:
+  - Symmetric input/output format (both use `file` event)
+  - Better AI SDK v6 protocol compliance
+  - Simpler frontend handling
+
+#### [P2-T7] Audio Completion Signaling ✅
+
+- **Feature**: Implemented explicit audio streaming completion signal
+  - Uncommented `finalize()` call (`stream_protocol.py:666-669`)
+  - Added audio metadata to `finalize()` method (`stream_protocol.py:582-607`)
+  - Metadata includes: chunks, bytes, sampleRate, duration
+  - Duration calculation: `bytes / (sampleRate * 2)` for PCM16
+- **Tests**: Fixed 3 previously failing tests
+  - `test_complete_stream_flow`: Now receives finish event
+  - `test_stream_with_error`: Finish event sent on error
+  - `test_stream_with_usage_metadata`: Finish event includes metadata
+  - All tests pass ✅
+- **Impact**:
+  - Frontend receives explicit signal when audio streaming completes
+  - Audio statistics available in `messageMetadata.audio`
+  - Proper stream termination with finish event
+
+#### [P2-T8] message-metadata Event Implementation ✅
+
+- **Feature**: Forward ADK metadata fields to frontend via `messageMetadata`
+  - Extended `finalize()` signature with 4 new parameters (`stream_protocol.py:532-541`):
+    - `grounding_metadata`: RAG sources, web search results
+    - `citation_metadata`: Citation information
+    - `cache_metadata`: Context cache statistics
+    - `model_version`: Model version string
+  - Implemented metadata extraction logic (`stream_protocol.py:609-655`):
+    - Grounding sources → `metadata["grounding"]["sources"]`
+    - Citations → `metadata["citations"]`
+    - Cache stats → `metadata["cache"]["hits/misses"]`
+    - Model version → `metadata["modelVersion"]`
+  - Updated `stream_adk_to_ai_sdk()` to collect metadata (`stream_protocol.py:689-754`)
+- **Tests**: Added 4 new comprehensive tests (`tests/unit/test_stream_protocol.py:984-1167`)
+  - `test_message_metadata_with_grounding`: Grounding sources extraction
+  - `test_message_metadata_with_citations`: Citation information extraction
+  - `test_message_metadata_with_cache`: Cache statistics extraction
+  - `test_message_metadata_with_model_version`: Model version forwarding
+  - All tests pass ✅
+- **TDD Approach**: Followed RED-GREEN-REFACTOR cycle
+  - ✅ RED: Wrote failing tests first
+  - ✅ GREEN: Implemented metadata collection and forwarding
+  - ✅ REFACTOR: Cleaned up unused variables, fixed linting issues
+  - Code quality: Passed ruff checks (All checks passed)
+- **Impact**:
+  - Frontend can access grounding sources for RAG transparency
+  - Citations available for attribution display
+  - Cache statistics for performance monitoring
+  - Model version for debugging and telemetry
+
+#### Summary
+
+- **Total Tests**: 26 tests passing (added 7 new tests)
+- **Code Quality**: All ruff checks passed
+- **Coverage Improvements**:
+  - Tool error handling: NEW capability
+  - Image events: Better protocol compliance
+  - Audio completion: Explicit signaling
+  - Metadata forwarding: 4 new metadata types
+- **AI SDK v6 Compliance**: Improved protocol adherence
+  - Standard `file` events for images
+  - Proper `tool-output-error` events
+  - Rich `messageMetadata` in finish events
+
+### 2025-12-12 (Late Night Part 3) - FinishReason Enum Refactoring + Coverage Automation ✅
+
+**Objective**: Refactor FinishReason mapping to use Enums + Add automated coverage checking
+
+#### Refactoring
+
+**Problem**: FinishReason mapping used string literals, making it error-prone:
+- `reason_map` used string keys/values ("STOP": "stop")
+- No type safety
+- No autocomplete
+- Risk of typos
+
+**Solution**: Use Enum-based mapping
+1. Created `AISdkFinishReason` Enum (`stream_protocol.py:31-45`)
+   - Defines AI SDK v6 finish reason values as Enum
+   - `STOP`, `LENGTH`, `CONTENT_FILTER`, `TOOL_CALLS`, `ERROR`, `OTHER`
+2. Updated `reason_map` to use Enums (`stream_protocol.py:70-95`)
+   - `types.FinishReason.STOP: AISdkFinishReason.STOP`
+   - Full type safety with ADK and AI SDK Enums
+   - IDE autocomplete support
+3. Updated tests to use real `types.FinishReason` enum
+   - Removed 18 Mock-based tests
+   - Kept 3 tests using real Enum values (57 tests total)
+
+#### Coverage Automation
+
+**Added FinishReason checking to `scripts/check-coverage.py`**:
+
+1. **ADK Extractor** (`scripts/check-coverage.py:104-134`)
+   - `extract_finish_reasons()`: Extract all `types.FinishReason` enum values
+   - `get_finish_reasons()`: Return as set for coverage checking
+
+2. **AI SDK Extractor** (`scripts/check-coverage.py:201-230`)
+   - `extract_finish_reasons()`: Extract AI SDK v6 FinishReason values from type definitions
+   - Falls back to known values: stop, length, content-filter, tool-calls, error, other
+
+3. **ADK Analyzer** (`scripts/check-coverage.py:293-315`)
+   - `analyze_finish_reasons()`: Parse Enum-based `reason_map` from `stream_protocol.py`
+   - Pattern: `types.FinishReason.NAME: AISdkFinishReason.VALUE`
+
+4. **Reporter** (`scripts/check-coverage.py:610-690`)
+   - `print_finish_reason_coverage()`: Comprehensive coverage report
+   - Shows mapped/missing ADK FinishReasons
+   - Validates AI SDK target values
+   - Detects unknown values in mapping
+
+5. **Coverage Checker** (`scripts/check-coverage.py:747-753`)
+   - Integrated FinishReason check into main coverage workflow
+
+#### Coverage Report
+
+```
+# FinishReason Mapping Coverage Report
+
+**Analyzed**:
+- ADK: `types.FinishReason` enum (source)
+- Implementation: `stream_protocol.py` reason_map (mapping)
+- AI SDK v6: FinishReason type (target)
+
+## ADK FinishReason Coverage
+
+**Coverage**: 17/17 (100.0%) ✅
+
+## ⚠️ AI SDK FinishReasons Not Produced
+
+These AI SDK finish reasons are defined but not produced by mapping:
+
+- `tool-calls`
+
+## Summary
+
+- **ADK FinishReason values**: 17
+- **Mapped in reason_map**: 17
+- **AI SDK target values**: 6
+- **Unique mapped values**: 5
+```
+
+#### Impact
+
+- **Type Safety**: Full Enum-based mapping prevents typos and provides IDE support
+- **Automated Detection**: Script detects new ADK FinishReason values automatically
+- **Maintainability**: Future ADK SDK updates will be caught by coverage check
+- **Test Quality**: Real Enum tests (57 tests passing) instead of Mock tests
+
+### 2025-12-12 (Late Night Part 2) - Complete FinishReason Coverage ✅
+
+**Objective**: Achieve 100% coverage for all `types.FinishReason` enum values
+
+#### Discovery
+
+Discovered that `google.genai.types.FinishReason` is an actual Python Enum with 17 values:
+- Original implementation covered: 8/17 (47%)
+- Missing values: 9 (FINISH_REASON_UNSPECIFIED, IMAGE_*, LANGUAGE, MALFORMED_FUNCTION_CALL, NO_IMAGE, UNEXPECTED_TOOL_CALL)
+
+#### Implementation (TDD Approach)
+
+**Phase 1 (RED)**: Added failing tests
+- Extended parameterized test with 9 new FinishReason values (`tests/unit/test_stream_protocol_comprehensive.py:1256-1310`)
+- Added integration test using real `types.FinishReason` enum (`test_finish_reason_with_real_types_finish_reason_enum`)
+- Total: 21 tests (11 existing + 10 new)
+
+**Phase 2 (GREEN)**: Updated implementation
+- Completed `reason_map` in `stream_protocol.py:55-80` with all 17 enum values
+- Improved type annotation: `Any` → `types.FinishReason | None`
+- Enhanced documentation with complete mapping table
+
+**Phase 3 (REFACTOR)**: Verified quality
+- All 75 unit tests passing ✅ (65 → 75)
+- Ruff checks: All passed ✅
+- 100% FinishReason coverage verified ✅
+
+#### FinishReason Mapping Table
+
+Complete mapping from ADK `types.FinishReason` to AI SDK v6:
+
+| ADK FinishReason | AI SDK v6 | Category |
+|------------------|-----------|----------|
+| STOP | "stop" | Normal completion |
+| FINISH_REASON_UNSPECIFIED | "stop" | Default/unspecified |
+| MAX_TOKENS | "length" | Token limit |
+| SAFETY | "content-filter" | Text content filter |
+| RECITATION | "content-filter" | Text content filter |
+| BLOCKLIST | "content-filter" | Text content filter |
+| PROHIBITED_CONTENT | "content-filter" | Text content filter |
+| SPII | "content-filter" | Text content filter |
+| IMAGE_SAFETY | "content-filter" | Image content filter |
+| IMAGE_RECITATION | "content-filter" | Image content filter |
+| IMAGE_PROHIBITED_CONTENT | "content-filter" | Image content filter |
+| LANGUAGE | "content-filter" | Language restriction |
+| OTHER | "other" | Other reasons |
+| IMAGE_OTHER | "other" | Image-related other |
+| MALFORMED_FUNCTION_CALL | "error" | Tool call error |
+| UNEXPECTED_TOOL_CALL | "error" | Tool call error |
+| NO_IMAGE | "error" | Missing requirement |
+
+#### Coverage Verification
+
+```
+=== Complete FinishReason Coverage Check ===
+
+Total FinishReason enum values: 17
+
+✅ Explicit: BLOCKLIST                           → "content-filter"
+✅ Explicit: FINISH_REASON_UNSPECIFIED           → "stop"
+✅ Explicit: IMAGE_OTHER                         → "other"
+✅ Explicit: IMAGE_PROHIBITED_CONTENT            → "content-filter"
+✅ Explicit: IMAGE_RECITATION                    → "content-filter"
+✅ Explicit: IMAGE_SAFETY                        → "content-filter"
+✅ Explicit: LANGUAGE                            → "content-filter"
+✅ Explicit: MALFORMED_FUNCTION_CALL             → "error"
+✅ Explicit: MAX_TOKENS                          → "length"
+✅ Explicit: NO_IMAGE                            → "error"
+⚠️  Fallback: OTHER                               → "other"
+✅ Explicit: PROHIBITED_CONTENT                  → "content-filter"
+✅ Explicit: RECITATION                          → "content-filter"
+✅ Explicit: SAFETY                              → "content-filter"
+✅ Explicit: SPII                                → "content-filter"
+⚠️  Fallback: STOP                                → "stop"
+✅ Explicit: UNEXPECTED_TOOL_CALL                → "error"
+
+All 17 FinishReason enum values are handled! ✅
+```
+
+#### Impact
+
+- **100% FinishReason Coverage**: All 17 `types.FinishReason` enum values correctly mapped
+- **Type Safety**: Changed from `Any` to `types.FinishReason | None` for better type checking
+- **Better Error Handling**: New "error" category for tool call and requirement failures
+- **Image Content Filtering**: Proper handling of image-specific finish reasons
+- **Maintainability**: Complete mapping prevents unexpected fallback behavior
+
+### 2025-12-12 (Late Night Part 1) - Test Coverage Completion ✅
+
+**Objective**: Achieve 100% test coverage for all public APIs in `stream_protocol.py`
+
+#### Test Coverage Analysis
+
+Analyzed `stream_protocol.py` public API:
+- ✅ `StreamProtocolConverter` class - tested
+- ✅ `StreamProtocolConverter.convert_event()` - tested
+- ✅ `StreamProtocolConverter.finalize()` - tested
+- ✅ `stream_adk_to_ai_sdk()` function - tested
+- ❌ `map_adk_finish_reason_to_ai_sdk()` function - **NOT TESTED**
+
+#### Implementation
+
+**Added TestFinishReasonMapping class** (`tests/unit/test_stream_protocol_comprehensive.py:1253-1331`)
+
+Added 11 comprehensive tests covering all mappings:
+
+1. **Parameterized test (10 cases)**: `test_finish_reason_mapping()`
+   - None/empty → "stop" (default)
+   - STOP → "stop"
+   - MAX_TOKENS → "length"
+   - SAFETY → "content-filter"
+   - RECITATION → "content-filter"
+   - OTHER → "other"
+   - BLOCKLIST → "content-filter"
+   - PROHIBITED_CONTENT → "content-filter"
+   - SPII → "content-filter"
+   - UNKNOWN_REASON → "unknown_reason" (lowercase fallback)
+
+2. **Edge case test**: `test_finish_reason_without_name_attribute_uses_string_conversion()`
+   - Tests fallback to `str()` when object lacks `.name` attribute
+   - Example: Custom object → lowercase conversion
+
+**Test Results**: All 65 unit tests passing ✅
+- 54 existing tests
+- 11 new finish reason mapping tests
+
+**Coverage Verification**:
+```
+=== Test Coverage for stream_protocol.py Public API ===
+
+✅ map_adk_finish_reason_to_ai_sdk
+✅ StreamProtocolConverter
+✅ StreamProtocolConverter.convert_event
+✅ StreamProtocolConverter.finalize
+✅ stream_adk_to_ai_sdk
+
+✅ All public APIs are tested!
+```
+
+#### Impact
+
+- **100% Public API Coverage**: All public functions, classes, and methods in `stream_protocol.py` now have test coverage
+- **Better Protocol Reliability**: Finish reason mapping is now validated for all ADK enum values
+- **Edge Case Handling**: Tests verify fallback behavior for unknown/custom reasons
+- **Maintainability**: Future changes to finish reason mappings will be caught by tests
+
+### 2025-12-12 (Late Night Part 3) - Input Transcription Support ✅
+
+**Objective**: Implement `input_transcription` handling following the `output_transcription` pattern for BIDI mode
+
+**Background**: In BIDI mode, user audio input is transcribed to text by ADK and sent via `event.input_transcription`. This needs to be converted to AI SDK v6 text events for client display.
+
+#### Implementation (TDD Approach)
+
+**Phase 1 (RED)**: Created test file `tests/unit/test_input_transcription.py`
+
+Added 4 comprehensive tests covering all scenarios:
+
+1. **Parameterized test (2 cases)**: `test_input_transcription_conversion()`
+   - Input text not finished → text-start, text-delta
+   - Input text finished → text-start, text-delta, text-end
+
+2. **Multi-chunk test**: `test_input_transcription_multiple_chunks()`
+   - Scenario: User says "京都の天気は？" in 3 chunks
+   - Verifies: text-start → 3 deltas → text-end sequence
+
+3. **Backward compatibility test**: `test_no_input_transcription()`
+   - Events without input_transcription should not generate transcription events
+
+**Phase 2 (GREEN)**: Implementation in `stream_protocol.py`
+
+1. **Separated text block tracking** (lines 135-140):
+   ```python
+   # Track input transcription text blocks (user audio input in BIDI mode)
+   self._input_text_block_id: str | None = None
+   self._input_text_block_started = False
+   # Track output transcription text blocks (AI audio response)
+   self._output_text_block_id: str | None = None
+   self._output_text_block_started = False
+   ```
+
+2. **Added input_transcription handler** (lines 303-337):
+   - Check `event.input_transcription` at Event level
+   - Generate text-start/delta/end events with `_input_text` ID prefix
+   - Track finished state separately from output transcription
+
+3. **Updated finalize() method** (lines 645-661):
+   - Close both input and output text blocks if open
+   - Ensures proper cleanup on stream end
+
+**Phase 3 (VERIFY)**: All tests passing
+
+- **Input transcription tests**: 4/4 passing ✅
+- **Comprehensive tests**: 40/40 passing ✅
+- **All unit tests**: 61/61 passing ✅
+- **Ruff linting**: All checks passed ✅
+
+#### Key Design Decisions
+
+1. **Separate State Tracking**: Input and output transcription use separate text block IDs and started flags
+   - Prevents collision when both are present in same event
+   - Allows independent lifecycle management
+
+2. **ID Naming Convention**:
+   - Input: `{message_id}_input_text`
+   - Output: `{message_id}_output_text`
+   - Clearly distinguishes source of transcription
+
+3. **Processing Order**: Input transcription processed before output transcription
+   - Logical flow: user input → AI response
+   - Consistent with Event structure
+
+#### Coverage Impact
+
+- **New Test File**: `tests/unit/test_input_transcription.py` (4 tests)
+- **Total Unit Tests**: 57 → 61 (4 new tests)
+- **Event Fields Covered**: `input_transcription` now handled alongside `output_transcription`
+- **BIDI Mode Support**: User audio input transcription now fully supported
+
+#### Files Modified
+
+1. `stream_protocol.py:135-140` - Separate state tracking variables
+2. `stream_protocol.py:303-337` - Input transcription handler
+3. `stream_protocol.py:645-661` - Updated finalize() for both blocks
+4. `tests/unit/test_input_transcription.py` - New test file (complete)
+
+### 2025-12-12 (Late Night Part 4) - ADK Event ID Investigation 🔍
+
+**Objective**: Investigate if ADK Event ID fields (`id`, `interactionId`, `invocationId`) can be used for text block IDs instead of self-generated UUIDs
+
+**Motivation**: Using ADK-provided IDs would make the converter more "pure" - transforming ADK data without adding synthetic identifiers
+
+#### Investigation Summary
+
+**ID Fields Available**:
+1. **`event.id`**: `str` (required, default: `""`)
+   - Event-level unique identifier
+   - Generated by ADK for each Event
+
+2. **`event.interactionId`**: `Optional[str]`
+   - Interaction-level identifier (spans multiple events)
+   - Shared across events in the same conversation turn
+   - Newly discovered field (added 2025-12-12)
+
+3. **`event.invocationId`**: `str` (required, default: `""`)
+   - Invocation-level identifier
+   - Likely unique per API call/session
+
+4. **`event.longRunningToolIds`**: `Optional[set[str]]`
+   - Tool-specific identifiers
+   - Not relevant for transcription
+
+#### Analysis
+
+**Current Implementation**:
+```python
+# StreamProtocolConverter.__init__
+self.message_id = message_id or str(uuid.uuid4())
+
+# In convert_event()
+self._input_text_block_id = f"{self.message_id}_input_text"
+self._output_text_block_id = f"{self.message_id}_output_text"
+```
+
+**Potential ADK ID Usage**:
+```python
+# Option 1: Use event.id directly
+self._input_text_block_id = f"{event.id}_input"
+self._output_text_block_id = f"{event.id}_output"
+
+# Option 2: Use interactionId for consistency across events
+self._input_text_block_id = f"{event.interactionId}_input"
+self._output_text_block_id = f"{event.interactionId}_output"
+
+# Option 3: Combine event.id + transcription type
+self._input_text_block_id = event.id  # If event.id is already unique
+```
+
+#### Risks & Concerns ⚠️
+
+1. **ID Uniqueness**:
+   - `event.id` may not be unique if ADK reuses IDs across events
+   - `interactionId` is intentionally shared (not unique per event)
+   - Need to verify ID uniqueness in real BIDI sessions
+
+2. **ID Availability**:
+   - Fields may be empty strings (default values)
+   - `interactionId` is Optional - may be None
+   - Requires fallback logic when IDs are missing
+
+3. **ID Collision**:
+   - If multiple events have same ID but different transcription types
+   - Input and output transcription in same event would need suffixes
+   - Current approach (`_input_text`, `_output_text`) still needed
+
+4. **Protocol Coupling**:
+   - Tighter coupling to ADK internal ID generation
+   - Changes in ADK ID format would affect client
+
+5. **Multi-Event Transcription**:
+   - Transcription can span multiple events (streaming)
+   - Need stable ID across event chunks
+   - `event.id` changes per event → would break text block continuity
+
+#### Critical Finding: Event ID Changes Per Chunk ❌
+
+**Problem**: Input/output transcription streams across **multiple events**:
+```
+Event 1: input_transcription="京都の" (finished=False) - event.id="evt-001"
+Event 2: input_transcription="天気は" (finished=False) - event.id="evt-002"
+Event 3: input_transcription="？" (finished=True) - event.id="evt-003"
+```
+
+If we use `event.id`, each chunk would get a **different** text block ID:
+```
+text-start: id="evt-001_input"  ❌
+text-delta: id="evt-002_input"  ❌ Different ID!
+text-delta: id="evt-003_input"  ❌ Different ID!
+text-end: id="evt-003_input"
+```
+
+**Client breaks** because text block IDs must be **stable** across chunks!
+
+#### Recommendation: ❌ Do NOT use Event IDs
+
+**Conclusion**: ADK Event IDs (`id`, `interactionId`, `invocationId`) are **not suitable** for text block IDs because:
+
+1. **Transcription spans multiple events** - need stable ID across chunks
+2. **Event IDs change per event** - would break text block continuity
+3. **Current approach is correct** - converter-generated message_id is stable for entire message
+4. **Converter responsibility** - text block tracking is a protocol conversion concern, not ADK data
+
+**Current Implementation Status**: ✅ **KEEP AS-IS**
+- Use converter-generated `message_id` (UUID)
+- Append `_input_text` / `_output_text` suffixes
+- Maintain text block ID stability across multi-event streams
+
+#### Alternative: Use invocationId as Message ID?
+
+**Potential Improvement** (Lower Priority):
+```python
+# StreamProtocolConverter.__init__
+def __init__(self, message_id: str | None = None, invocation_id: str | None = None):
+    # Prefer invocationId from ADK if available
+    self.message_id = invocation_id or message_id or str(uuid.uuid4())
+```
+
+**Benefits**:
+- Aligns message ID with ADK invocation tracking
+- More deterministic (same invocationId → same message_id)
+
+**Risks**:
+- `invocationId` may be empty string
+- Need to verify `invocationId` is unique per message (not per event)
+- Would need testing with real BIDI sessions
+
+**Status**: 📋 Investigation item for future work
+
+### 2025-12-12 (Late Night Part 5) - Test Utils Refactoring ✅
+
+**Objective**: Eliminate duplicate test utility code following DRY principle
+
+**Changes**:
+1. Created `tests/utils/sse.py` with shared utilities
+2. Moved `parse_sse_event` from 3 files → 1 centralized location
+3. Moved `MockTranscription` from 2 files → 1 centralized location
+4. Updated all test files to import from `tests.utils`
+
+**Files Modified**:
+- `tests/utils/__init__.py` (new)
+- `tests/utils/sse.py` (new)
+- `tests/unit/test_input_transcription.py` (import update)
+- `tests/unit/test_output_transcription.py` (import update)
+- `tests/unit/test_stream_protocol_comprehensive.py` (import update)
+
+**Quality**:
+- ✅ All 61 tests passing
+- ✅ Ruff checks passed
+- ✅ Follows project structure guidelines
+
+**Change Type**: STRUCTURAL (no behavior change)
+
+### 2025-12-12 (Late Night Part 6) - ID Stability Regression Guards ✅
+
+**Objective**: Add explicit tests to prevent accidental use of `event.id` for text block IDs
+
+**Motivation**: Investigation showed that using ADK Event IDs would break multi-event transcription. Need tests to catch such mistakes before they reach production.
+
+#### Problem Recap
+
+**Critical Requirement**: Text block IDs must be **stable** across multiple events
+```
+Event 1: transcription="京都の" (finished=False) - event.id="evt-001"
+Event 2: transcription="天気は" (finished=False) - event.id="evt-002"
+Event 3: transcription="？" (finished=True) - event.id="evt-003"
+
+✅ CORRECT: All use same text block ID (e.g., "msg-123_input_text")
+❌ WRONG: Different IDs per event (e.g., "evt-001_input", "evt-002_input", ...)
+```
+
+#### Tests Added
+
+**1. Enhanced existing multi-chunk tests** (`test_input_transcription.py`, `test_output_transcription.py`):
+```python
+# CRITICAL: Verify ID stability across multiple events
+text_events = [e for e in parsed_events if e["type"] in ["text-start", "text-delta", "text-end"]]
+unique_ids = {e["id"] for e in text_events}
+assert len(unique_ids) == 1, (
+    f"Text block ID must be stable across multiple events. "
+    f"Got {len(unique_ids)} different IDs: {unique_ids}. "
+    f"This likely means event.id is being used instead of converter.message_id"
+)
+```
+
+**2. New regression guard tests**:
+- `test_text_block_id_must_not_use_event_id` (input transcription)
+- `test_text_block_id_must_not_use_event_id` (output transcription)
+
+**Test Characteristics**:
+- Explicitly sets **different** `event.id` values (e.g., "event-001", "event-002")
+- Verifies text block ID is the **same** despite different event IDs
+- Comprehensive error messages explaining **why** and **what went wrong**
+- Includes documentation comments explaining the anti-pattern
+
+#### Example Error Message (if test fails)
+
+```
+AssertionError: Text block IDs must be stable across events with different event.id.
+Expected 1 unique ID, got 2: {'event-001_input', 'event-002_input'}.
+Event IDs were: event-001, event-002.
+If you see 2 different text block IDs, event.id is likely being used (WRONG!)
+```
+
+#### Test Coverage
+
+**Total Unit Tests**: 61 → 63 (2 new regression guards)
+- ✅ Input transcription: 4 → 5 tests (+1 regression guard)
+- ✅ Output transcription: 4 → 5 tests (+1 regression guard)
+- ✅ All 63 tests passing
+- ✅ Ruff checks passed
+
+#### Impact
+
+**Protection Added**:
+- ❌ Prevents accidental use of `event.id` for text block IDs
+- ❌ Prevents accidental use of `interactionId` (multi-message scope)
+- ✅ Enforces converter-generated `message_id` usage
+- ✅ Clear error messages guide developers to correct implementation
+
+**Developer Experience**:
+- Tests fail **immediately** if someone uses wrong ID source
+- Error messages explain **exactly** what's wrong and how to fix it
+- Documentation comments in test code explain **why** the requirement exists
+
+**Files Modified**:
+- `tests/unit/test_input_transcription.py` (enhanced + new test)
+- `tests/unit/test_output_transcription.py` (enhanced + new test)
+
+**Change Type**: Structural (test enhancement, no production code changes)
+
 ### 2025-12-12 (Morning)
 
 - **Initial version**: Created completeness matrix
