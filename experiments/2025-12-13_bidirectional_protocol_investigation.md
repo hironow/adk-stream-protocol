@@ -2675,3 +2675,167 @@ useAudioRecorder (lib/use-audio-recorder.ts)
 **Status:** ✅ Complete and verified
 
 **User Feedback:** "いいね" (Good)
+
+---
+
+## Unit Test Coverage (2025-12-13)
+
+**Date:** 2025-12-13
+**Objective:** Add comprehensive unit tests for audio recording and WebSocket event handling
+**Status:** ✅ Complete
+
+### Background
+
+Phase 1-3 implementation added significant new code without corresponding unit tests:
+- AudioRecorder class (lib/audio-recorder.ts)
+- useAudioRecorder React hook (lib/use-audio-recorder.ts)
+- AudioProvider context (lib/audio-context.tsx)
+- WebSocket event handling (server.py)
+
+### Implementation Summary
+
+#### TypeScript/React Tests
+
+**1. AudioRecorder Unit Tests** (`lib/audio-recorder.test.ts`)
+- **Coverage:** 25 tests
+- **Test Areas:**
+  - AudioContext initialization (16kHz sample rate)
+  - AudioWorklet processor module loading
+  - MediaStream and microphone access
+  - Recording lifecycle (start → stop → close)
+  - PCM conversion (Float32 → Int16)
+  - Error handling (getUserMedia failures, module loading errors)
+  - Resource cleanup verification
+  - Edge cases (empty arrays, value clamping)
+
+**2. useAudioRecorder Hook Tests** (`lib/use-audio-recorder.test.ts`)
+- **Coverage:** 23 tests
+- **Test Areas:**
+  - Hook initialization and state management
+  - startRecording() functionality
+  - stopRecording() cleanup
+  - Mode-specific behavior (BIDI only)
+  - Error state management
+  - Component unmount cleanup
+  - Function reference stability (useCallback)
+  - Full lifecycle integration
+
+**3. AudioProvider Context Tests** (`lib/audio-context.test.tsx`)
+- **Coverage:** 22 tests
+- **Test Areas:**
+  - AudioProvider initialization (24kHz AudioContext)
+  - AudioWorklet and BGM track loading
+  - Voice channel PCM streaming
+  - BGM channel switching and crossfade
+  - BGM ducking (playback-started/finished events)
+  - WebSocket latency monitoring
+  - Resource cleanup on unmount
+  - Error handling
+
+**4. Test Fix: build-use-chat-options**
+- **Issue:** Existing tests failed due to API change (new return type)
+- **Fix:** Updated tests to destructure `{ useChatOptions, transport }`
+- **Result:** All 8 tests passing
+
+#### Python Tests
+
+**WebSocket Event Handling Tests** (`tests/unit/test_websocket_events.py`)
+- **Coverage:** 22 tests
+- **Test Areas:**
+  - Event parsing (ping, message, interrupt, audio_control, audio_chunk, tool_result)
+  - ping/pong latency monitoring
+  - Message event extraction
+  - Interrupt event handling (LiveRequestQueue.close())
+  - Audio chunk PCM decoding (base64 → bytes)
+  - Audio chunk Blob creation for ADK
+  - Tool result event data extraction
+  - Event versioning (defaults to 1.0)
+  - Edge cases (empty messages, missing fields, default values)
+
+### Test Results
+
+**TypeScript (vitest):**
+```
+✓ lib/audio-recorder.test.ts       (25 tests) 19ms
+✓ lib/use-audio-recorder.test.ts   (23 tests) 671ms
+✓ lib/audio-context.test.tsx       (22 tests) 1354ms
+✓ lib/build-use-chat-options.test.ts (8 tests) 3ms
+
+Total: 78 tests passing
+Duration: ~2s
+```
+
+**Python (pytest):**
+```
+✓ tests/unit/test_websocket_events.py (22 tests)
+✓ tests/unit/test_*.py (existing)      (63 tests)
+
+Total: 85 tests passing
+Duration: ~1.14s
+```
+
+### Dependencies Added
+
+**TypeScript:**
+- `@testing-library/react` - React Hook testing utilities
+- `jsdom` - DOM environment for React component tests
+
+**Python:**
+- No new dependencies (all testing utilities already present)
+
+### Test Coverage Analysis
+
+| File | Type | Tests | Status |
+|------|------|-------|--------|
+| `lib/audio-recorder.ts` | New | 25 | ✅ |
+| `lib/use-audio-recorder.ts` | New | 23 | ✅ |
+| `lib/audio-context.tsx` | Existing | 22 | ✅ |
+| `lib/websocket-chat-transport.ts` | Modified | Existing | ✅ |
+| `lib/build-use-chat-options.ts` | Modified | 8 (fixed) | ✅ |
+| `server.py` | Modified | 22 | ✅ |
+| `components/chat.tsx` | UI | e2e | ⏸️ |
+| `public/pcm-recorder-processor.js` | AudioWorklet | Runtime | ⏸️ |
+
+**Coverage Summary:**
+- ✅ All testable business logic covered
+- ⏸️ UI components → e2e testing (out of scope)
+- ⏸️ AudioWorklet → Browser runtime testing
+
+### Commits
+
+1. **`aae9981`** - test: Add comprehensive unit tests for audio recording functionality
+   - Added 70 TypeScript tests (AudioRecorder, useAudioRecorder, AudioProvider)
+   - Added dependencies (@testing-library/react, jsdom)
+
+2. **`b765778`** - test: Add unit tests for WebSocket event handling in BIDI mode
+   - Added 22 Python tests for structured event format
+
+3. **`fac79cf`** - fix: Update build-use-chat-options tests for new return type
+   - Fixed 8 existing tests for API changes
+
+### Best Practices Applied
+
+**TypeScript Testing:**
+- ✅ Comprehensive Web Audio API mocking
+- ✅ jsdom environment for React Hook testing
+- ✅ Function syntax for vi.fn() (not arrow functions)
+- ✅ Proper async/await with waitFor()
+- ✅ Mock lifecycle management (beforeEach reset)
+
+**Python Testing:**
+- ✅ Event fixture pattern for test data
+- ✅ Async test support with pytest-asyncio
+- ✅ Mock WebSocket and LiveRequestQueue
+- ✅ Base64 encoding/decoding verification
+- ✅ Edge case coverage (empty data, missing fields)
+
+### Acceptance Criteria - PASSED
+
+✅ **Full test coverage:** All new code has corresponding unit tests
+✅ **All tests passing:** 163 total tests (78 TS + 85 Python)
+✅ **Existing tests updated:** build-use-chat-options tests fixed for API changes
+✅ **Dependencies documented:** Test dependencies added to package.json
+✅ **CI ready:** All tests run via just/pnpm commands
+
+**Estimated Time:** 4 hours (test implementation + fixes)
+**Status:** ✅ Complete and verified
