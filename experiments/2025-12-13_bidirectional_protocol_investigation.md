@@ -3536,3 +3536,381 @@ const { messages, addToolApprovalResponse } = useChat({
 **Key Uncertainty:** Whether `addToolApprovalResponse()` will work with our custom Python backend that mimics AI SDK v6 protocol
 
 ---
+
+## Phase 4 Investigation (Part 3): Client-Side Tool Execution Patterns
+
+**Date:** 2025-12-13
+**Objective:** Understand how to implement tools that execute on the frontend (browser APIs like geolocation, audio control)
+
+### Background
+
+Our use cases require **client-side tool execution**:
+- `change_bgm`: Uses browser AudioContext API (not server-side)
+- `get_location`: Uses browser Geolocation API (not server-side)
+
+**Key Question:** How do AI SDK v6 and ADK handle tools that must run on the frontend instead of the backend?
+
+---
+
+### Critical Design Insight
+
+**Original requirement interpretation:**
+> "ツールを使うことの許可を求め、ツールを使うのはbackendの内部処理ではなく、ツールを使った結果がbackendが欲するもの"
+
+Translation: Tool approval requests permission to **use browser features on the frontend**, not to execute backend functions. The backend wants the **result** of the tool execution, not to execute it itself.
+
+**Example Flow:**
+1. AI: "I want to use `change_bgm`" → Tool approval request
+2. User: "OK" → Approval granted
+3. **Frontend**: Executes `audioContext.switchTrack()` (browser API)
+4. Frontend: "Switched to track 1" → Tool result sent to backend
+5. Backend/AI: Receives result and continues conversation
+
+---
+
+### AI SDK v6 Pattern: `onToolCall` Callback
+
+**Discovery:** AI SDK v6 has official support for client-side tools via the `onToolCall` callback.
+
+#### Server-Side vs Client-Side Tools
+
+**Server-Side Tool (has `execute` function):**
+```typescript
+// Backend API route
+const weatherTool = {
+  description: 'Get weather information',
+  inputSchema: z.object({ city: z.string() }),
+  execute: async ({ city }) => {
+    // Executes on server
+    return fetchWeather(city);
+  },
+};
+```
+
+**Client-Side Tool (NO `execute` function):**
+```typescript
+// Backend API route - Declaration only
+const getLocationTool = {
+  description: 'Get user location',
+  inputSchema: z.object({}),
+  // No execute function! ← Tool runs on client
+};
+
+// Frontend - Actual execution
+const { addToolOutput } = useChat({
+  async onToolCall({ toolCall }) {
+    if (toolCall.toolName === 'getLocation') {
+      // Execute browser API
+      const location = await navigator.geolocation.getCurrentPosition(...);
+
+      // Return result to AI
+      addToolOutput({
+        tool: 'getLocation',
+        toolCallId: toolCall.toolCallId,
+        output: location,
+      });
+    }
+  }
+});
+```
+
+#### Key Functions
+
+**`onToolCall({ toolCall })`:**
+- Called when a client-side tool is invoked
+- Receives `toolCall` object with `toolName`, `toolCallId`, `input`
+- Executes tool logic on frontend (browser APIs, UI actions, etc.)
+
+**`addToolOutput({ tool, toolCallId, output })`:**
+- Sends tool execution result back to the chat
+- Renamed from deprecated `addToolResult`
+- Can also send errors: `{ state: 'output-error', errorText: '...' }`
+
+**`toolCall.dynamic` property:**
+- Indicates runtime-loaded tools (MCP, user-defined functions)
+- Check first for proper TypeScript type narrowing
+
+#### Official Example: `getLocation`
+
+```tsx
+// Frontend (app/page.tsx)
+'use client';
+
+import { useChat } from '@ai-sdk/react';
+import { lastAssistantMessageIsCompleteWithToolCalls } from 'ai';
+
+export default function Chat() {
+  const { messages, addToolOutput } = useChat({
+    transport: new DefaultChatTransport({ api: '/api/chat' }),
+
+    // Auto-submit when all tool results are available
+    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
+
+    // Client-side tool execution
+    async onToolCall({ toolCall }) {
+      // Type guard for dynamic tools
+      if (toolCall.dynamic) {
+        return;
+      }
+
+      if (toolCall.toolName === 'getLocation') {
+        const cities = ['New York', 'Los Angeles', 'Chicago', 'San Francisco'];
+
+        // Execute tool logic (mock random city)
+        const result = cities[Math.floor(Math.random() * cities.length)];
+
+        // No await - prevents deadlocks with sendAutomaticallyWhen
+        addToolOutput({
+          tool: 'getLocation',
+          toolCallId: toolCall.toolCallId,
+          output: result,
+        });
+      }
+    },
+  });
+
+  return (/* ... */);
+}
+```
+
+**Source:** AI SDK v6 documentation, DeepWiki investigation of `vercel/ai` repository
+
+---
+
+### ADK Pattern: Server-Side Only
+
+**Finding:** ADK does **not** have built-in support for client-side tools.
+
+#### FunctionTool Class
+
+All ADK tools are expected to implement `run_async` method for server-side execution:
+
+```python
+# ADK tool pattern
+def get_weather(location: str, units: str = "celsius") -> dict:
+    """Gets current weather for a specified location.
+
+    Args:
+        location: City name or coordinates
+        units: Temperature units (celsius or fahrenheit)
+
+    Returns:
+        Weather data including temperature and conditions
+    """
+    # Executes on server
+    return {"temperature": 72, "conditions": "sunny"}
+
+# Auto-wrapped as FunctionTool
+agent = Agent(
+    name="weather_agent",
+    model="gemini-2.0-flash",
+    tools=[get_weather]  # Has run_async implementation
+)
+```
+
+#### Limitations
+
+- **No client-side execution**: All tools execute via `run_async` on backend
+- **No browser API support**: Cannot directly call navigator.geolocation, AudioContext, etc.
+- **No differentiation**: Framework doesn't distinguish server-executed vs client-executed tools
+
+**Note from source code:**
+```python
+# BaseTool comment (appears to be legacy):
+# "Required if this tool needs to run at the client side"
+# BUT: Current implementation raises NotImplementedError if run_async not implemented
+```
+
+This suggests client-side tools were considered but not implemented in current ADK.
+
+**Source:** DeepWiki investigation of `google/adk-python` repository
+
+---
+
+### Our Implementation Strategy
+
+#### Hybrid Approach: ADK + AI SDK v6 Client-Side Pattern
+
+**Backend (ADK Agent):**
+```python
+# server.py
+def change_bgm(track: int) -> dict:
+    """Change background music track (CLIENT-SIDE EXECUTION).
+
+    NOTE: This tool does NOT execute on the backend.
+    It is a declaration for the AI to understand the tool exists.
+    Actual execution happens on the frontend via onToolCall.
+
+    Args:
+        track: Track number (0 or 1)
+
+    Returns:
+        Mock return type (actual execution on client)
+    """
+    # This function will NEVER be called
+    # It exists only for ADK to generate FunctionDeclaration
+    raise NotImplementedError("This tool executes on the client")
+
+def get_location() -> dict:
+    """Get user's current location (CLIENT-SIDE EXECUTION).
+
+    NOTE: Uses browser Geolocation API on frontend.
+
+    Returns:
+        Mock return type (actual execution on client)
+    """
+    raise NotImplementedError("This tool executes on the client")
+
+# Add to agent tools list
+agent = Agent(
+    name="assistant",
+    model="gemini-2.5-flash",
+    tools=[get_weather, calculate, change_bgm, get_location],  # Mixed server/client tools
+)
+
+# Mark which tools require client execution AND approval
+TOOLS_REQUIRING_APPROVAL = {"change_bgm", "get_location"}
+CLIENT_SIDE_TOOLS = {"change_bgm", "get_location"}  # NEW
+```
+
+**Frontend (AI SDK v6 useChat):**
+```typescript
+// components/chat-interface.tsx
+const { messages, addToolOutput, addToolApprovalResponse } = useChat({
+  async onToolCall({ toolCall }) {
+    // Skip dynamic tools
+    if (toolCall.dynamic) return;
+
+    // Client-side tools with approval
+    if (toolCall.toolName === 'change_bgm') {
+      // Wait for user approval (handled by tool-approval-request event)
+      // After approval, execute browser API
+      const { track } = toolCall.input;
+      audioContext.switchTrack(track);
+
+      addToolOutput({
+        tool: 'change_bgm',
+        toolCallId: toolCall.toolCallId,
+        output: { success: true, track },
+      });
+    }
+
+    if (toolCall.toolName === 'get_location') {
+      // Request browser permission
+      const position = await navigator.geolocation.getCurrentPosition(...);
+
+      addToolOutput({
+        tool: 'get_location',
+        toolCallId: toolCall.toolCallId,
+        output: {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        },
+      });
+    }
+  }
+});
+```
+
+#### Combining Tool Approval + Client-Side Execution
+
+**Challenge:** How to combine `tool-approval-request` events with `onToolCall` execution?
+
+**Solution 1: Sequential Flow**
+```
+1. AI generates tool call → tool-input-available + tool-approval-request
+2. User approves → addToolApprovalResponse()
+3. onToolCall triggered → Execute browser API
+4. addToolOutput() → Send result to backend
+```
+
+**Solution 2: Manual Execution After Approval**
+```
+1. AI generates tool call → tool-approval-request
+2. Approval UI shown → User clicks "Approve"
+3. Manual execution → audioContext.switchTrack()
+4. addToolOutput() → Send result
+5. Skip onToolCall for approval-required tools
+```
+
+**Recommended: Solution 2**
+- More explicit control flow
+- Clear separation: Approval UI vs Tool Execution
+- Easier to debug and test
+
+---
+
+### Design Decision: Tool Definition Location
+
+**Question:** Should `change_bgm` and `get_location` be in ADK Agent's `tools=[]`?
+
+**Answer:** YES, but with special handling.
+
+**Rationale:**
+1. **AI needs to know the tool exists**: ADK generates `FunctionDeclaration` from tool definition
+2. **Type schema required**: ADK extracts input schema from function signature
+3. **No server execution**: Function body raises `NotImplementedError`
+4. **Client executes via `onToolCall`**: Frontend receives tool call and executes browser API
+
+**Alternative considered (rejected):**
+- Define tools only on frontend → AI doesn't know they exist
+- Use `data-*` custom events → Bypasses standard tool calling flow
+
+---
+
+### References
+
+**AI SDK v6 Documentation:**
+- Client-Side Tool Calling: https://ai-sdk.dev/docs/ai-sdk-ui/chatbot-tool-usage
+- onToolCall Examples: https://ai-sdk.dev/docs/ai-sdk-ui/chatbot#ontoolcall
+
+**DeepWiki Investigations:**
+- AI SDK onToolCall: https://deepwiki.com/search/how-does-the-ontoolcall-callba_321039cd-5b18-48c7-b646-9e75c4f4d256
+- ADK Tool Framework: https://deepwiki.com/search/how-does-adk-handle-clientside_87f22dc4-e14b-4af0-9c61-be93a5c8fb39
+
+**GitHub Discussion:**
+- Client-side tools with useChat: https://github.com/vercel/ai/discussions/1521
+
+---
+
+### Implementation Plan Update
+
+#### Revised Backend Implementation
+
+1. **Keep tool definitions** in ADK Agent's `tools=[]`
+2. **Mark as client-side**: `CLIENT_SIDE_TOOLS = {"change_bgm", "get_location"}`
+3. **Prevent server execution**: Raise `NotImplementedError` in function body
+4. **Generate tool-approval-request**: Already implemented in Phase 4 Part 1
+
+#### Frontend Implementation
+
+1. **Handle approval UI**: Display when `tool-approval-request` received
+2. **Execute after approval**: Call browser APIs in response to approval
+3. **Send results**: Use `addToolOutput()` to return results to backend
+4. **Error handling**: Use `state: 'output-error'` for denied approvals
+
+#### Key Differences from Initial Design
+
+**Before (incorrect):**
+- Tools execute on backend
+- Approval prevents backend execution
+- Results come from server functions
+
+**After (correct):**
+- Tools execute on frontend (browser APIs)
+- Approval allows frontend execution
+- Results come from client-side logic
+
+---
+
+### Next Steps
+
+1. ✅ Client-side tool pattern investigation complete
+2. ⏳ Update backend: Mark `change_bgm` and `get_location` as client-side
+3. ⏳ Implement frontend: `onToolCall` + approval UI integration
+4. ⏳ Test end-to-end: AI request → Approval → Browser API → Result
+5. ⏳ Document client-side tool pattern for future tools
+
+**Status:** Design clarified - ready to implement correct pattern
+
+---
