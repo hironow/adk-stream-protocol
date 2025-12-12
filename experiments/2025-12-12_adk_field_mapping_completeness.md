@@ -1049,6 +1049,33 @@ We generate **all essential streaming events**:
 
 ## Changelog
 
+### 2025-12-12 (Night) - [P2-T4] Field Coverage Testing Implementation
+
+- **Feature**: Automated field coverage testing (`tests/unit/test_field_coverage.py`, 167 lines)
+  - Automatically detects new ADK Event/Part fields when SDK updates
+  - Requires conscious decision for each field: Implement, Document as TODO, or Mark as metadata
+  - Prevents accidental field omissions (example: `outputTranscription` discovered by accident)
+- **Test Structure**:
+  - `test_event_field_coverage()`: Validates all Event fields are accounted for
+  - `test_part_field_coverage()`: Validates all Part fields are accounted for
+  - `test_coverage_stats()`: Reports current coverage statistics
+- **Field Categories** (Event: 25 fields total):
+  - **IMPLEMENTED_EVENT_FIELDS** (7): content, errorCode, errorMessage, finishReason, outputTranscription, turnComplete, usageMetadata
+  - **DOCUMENTED_EVENT_FIELDS** (4): citationMetadata, groundingMetadata, inputTranscription, interrupted
+  - **METADATA_EVENT_FIELDS** (14): author, id, timestamp, invocationId, branch, actions, etc.
+- **Field Categories** (Part: 12 fields total):
+  - **IMPLEMENTED_PART_FIELDS** (7): codeExecutionResult, executableCode, functionCall, functionResponse, inlineData, text, thought
+  - **DOCUMENTED_PART_FIELDS** (2): fileData, videoMetadata
+  - **METADATA_PART_FIELDS** (3): mediaResolution, thoughtSignature, value
+- **Validation**: Tested by temporarily removing "content" field - test correctly failed with actionable error message
+- **Coverage Statistics**:
+  - Event: 7/25 (28.0%)
+  - Part: 7/12 (58.3%)
+  - All fields accounted for: ✅
+- **Impact**:
+  - **Before**: New fields added to ADK SDK without detection
+  - **After**: CI fails immediately when new fields appear, forcing review and decision
+
 ### 2025-12-12 (Night) - [P2-T3] Immediate Error Detection Implementation
 
 - **Feature**: Implemented `errorCode`/`errorMessage` immediate detection (`stream_protocol.py:121-131`)
