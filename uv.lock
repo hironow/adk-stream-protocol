@@ -7,8 +7,8 @@ resolution-markers = [
 ]
 
 [[package]]
-name = "adk-ai-data-protocol"
-version = "0.1.0"
+name = "adk-stream-protocol"
+version = "0.1.1"
 source = { virtual = "." }
 dependencies = [
     { name = "aiohttp" },

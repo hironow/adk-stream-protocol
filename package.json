@@ -1,6 +1,6 @@
 {
-  "name": "adk-ai-data-protocol",
-  "version": "1.0.0",
+  "name": "adk-stream-protocol",
+  "version": "1.0.1",
   "description": "AI SDK v6 and Google ADK integration example with data stream protocol",
   "scripts": {
     "dev": "next dev -p 3000",
