@@ -5,6 +5,18 @@
  * Handles all tool visualization complexity internally.
  */
 
+/**
+ * Tool invocation state for UI display.
+ * Based on AI SDK v6 ToolUIPart and DynamicToolUIPart types.
+ *
+ * Expected structure (from AI SDK):
+ * - toolName: string
+ * - toolCallId?: string
+ * - state: 'input-streaming' | 'input-available' | 'output-available' | 'output-error' | ...
+ * - input?: unknown
+ * - output?: unknown
+ * - errorText?: string (required when state is 'output-error')
+ */
 interface ToolInvocationProps {
   toolInvocation: any;
 }
@@ -141,7 +153,7 @@ export function ToolInvocationComponent({
       )}
 
       {/* Tool Error */}
-      {state === "output-error" && "error" in toolInvocation && (
+      {state === "output-error" && "errorText" in toolInvocation && (
         <div>
           <div
             style={{
@@ -163,7 +175,7 @@ export function ToolInvocationComponent({
               fontSize: "0.875rem",
             }}
           >
-            {String(toolInvocation.error)}
+            {String(toolInvocation.errorText)}
           </div>
         </div>
       )}
