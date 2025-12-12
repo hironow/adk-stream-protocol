@@ -414,6 +414,141 @@ export function MessageComponent({ message }: MessageComponentProps) {
         </div>
       )}
 
+      {/* Grounding Sources (RAG, Web Search) */}
+      {(message as any).metadata?.grounding?.sources && (
+        <div
+          style={{
+            marginTop: "0.75rem",
+            paddingTop: "0.75rem",
+            borderTop: "1px solid #374151",
+            fontSize: "0.75rem",
+            color: "#6b7280",
+          }}
+        >
+          <div style={{ marginBottom: "0.5rem", fontWeight: 600 }}>
+            🔍 Sources ({(message as any).metadata.grounding.sources.length}):
+          </div>
+          {(message as any).metadata.grounding.sources.map(
+            (source: any, idx: number) => (
+              <div
+                key={idx}
+                style={{
+                  marginLeft: "1rem",
+                  marginBottom: "0.25rem",
+                  color: "#9ca3af",
+                }}
+              >
+                <a
+                  href={source.uri}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    color: "#60a5fa",
+                    textDecoration: "none",
+                    wordBreak: "break-all",
+                  }}
+                >
+                  {source.title || source.uri}
+                </a>
+              </div>
+            ),
+          )}
+        </div>
+      )}
+
+      {/* Citations */}
+      {(message as any).metadata?.citations && (
+        <div
+          style={{
+            marginTop: "0.75rem",
+            paddingTop: "0.75rem",
+            borderTop: "1px solid #374151",
+            fontSize: "0.75rem",
+            color: "#6b7280",
+          }}
+        >
+          <div style={{ marginBottom: "0.5rem", fontWeight: 600 }}>
+            📝 Citations ({(message as any).metadata.citations.length}):
+          </div>
+          {(message as any).metadata.citations.map(
+            (citation: any, idx: number) => (
+              <div
+                key={idx}
+                style={{
+                  marginLeft: "1rem",
+                  marginBottom: "0.25rem",
+                  color: "#9ca3af",
+                }}
+              >
+                <a
+                  href={citation.uri}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    color: "#60a5fa",
+                    textDecoration: "none",
+                    wordBreak: "break-all",
+                  }}
+                >
+                  [{citation.startIndex}-{citation.endIndex}] {citation.uri}
+                </a>
+                {citation.license && (
+                  <span style={{ marginLeft: "0.5rem", color: "#6b7280" }}>
+                    ({citation.license})
+                  </span>
+                )}
+              </div>
+            ),
+          )}
+        </div>
+      )}
+
+      {/* Cache Metadata */}
+      {(message as any).metadata?.cache && (
+        <div
+          style={{
+            marginTop: "0.75rem",
+            paddingTop: "0.75rem",
+            borderTop: "1px solid #374151",
+            fontSize: "0.75rem",
+            color: "#6b7280",
+            display: "flex",
+            gap: "1rem",
+          }}
+        >
+          <span>
+            💾 Cache:{" "}
+            <span style={{ color: "#10b981" }}>
+              {(message as any).metadata.cache.hits} hits
+            </span>
+            {" / "}
+            <span style={{ color: "#ef4444" }}>
+              {(message as any).metadata.cache.misses} misses
+            </span>
+          </span>
+        </div>
+      )}
+
+      {/* Model Version */}
+      {(message as any).metadata?.modelVersion && (
+        <div
+          style={{
+            marginTop: "0.75rem",
+            paddingTop: "0.75rem",
+            borderTop: "1px solid #374151",
+            fontSize: "0.75rem",
+            color: "#6b7280",
+          }}
+        >
+          <span>
+            🤖 Model:{" "}
+            <span style={{ color: "#9ca3af" }}>
+              {(message as any).metadata.modelVersion}
+            </span>
+          </span>
+        </div>
+      )}
+
       {/* Tool Invocations Summary (if available) */}
       {(message as any).toolInvocations &&
         (message as any).toolInvocations.length > 0 && (
