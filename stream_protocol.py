@@ -118,6 +118,18 @@ class StreamProtocolConverter:
         Yields:
             SSE-formatted event strings
         """
+        # Check for errors FIRST (before any other processing)
+        if hasattr(event, "error_code") and event.error_code:
+            error_message = getattr(event, "error_message", None) or "Unknown error"
+            logger.error(
+                f"[ERROR] ADK error detected: {event.error_code} - {error_message}"
+            )
+            yield self._format_sse_event({
+                "type": "error",
+                "error": {"code": event.error_code, "message": error_message},
+            })
+            return
+
         # [INPUT] Log incoming ADK event
         event_type = type(event).__name__
         has_content = hasattr(event, "content") and event.content

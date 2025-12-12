@@ -700,3 +700,93 @@ class TestSSEFormatCompliance:
         parsed_4 = parse_sse_event(events[4])
         assert parsed_4["type"] == "data-image"
         assert parsed_4["data"]["mediaType"] == "image/png"
+
+    def test_error_detection_with_error_code_and_message(self):
+        """Test that errorCode/errorMessage generates immediate error event."""
+        converter = StreamProtocolConverter()
+
+        # Create event with error
+        mock_event = Mock(spec=Event)
+        mock_event.error_code = "RATE_LIMIT_EXCEEDED"
+        mock_event.error_message = "API rate limit exceeded. Please try again later."
+        mock_event.content = None
+
+        # Convert event
+        events = []
+
+        async def collect():
+            async for event in converter.convert_event(mock_event):
+                events.append(event)
+
+        import asyncio
+
+        asyncio.run(collect())
+
+        # Should have ONLY error event (no start, no content processing)
+        assert len(events) == 1
+
+        # Verify error event
+        parsed = parse_sse_event(events[0])
+        assert parsed["type"] == "error"
+        assert "error" in parsed
+        assert parsed["error"]["code"] == "RATE_LIMIT_EXCEEDED"
+        assert parsed["error"]["message"] == "API rate limit exceeded. Please try again later."
+
+    def test_error_detection_with_error_code_only(self):
+        """Test that errorCode without errorMessage uses default message."""
+        converter = StreamProtocolConverter()
+
+        # Create event with error code but no message
+        mock_event = Mock(spec=Event)
+        mock_event.error_code = "INTERNAL_ERROR"
+        mock_event.error_message = None
+        mock_event.content = None
+
+        # Convert event
+        events = []
+
+        async def collect():
+            async for event in converter.convert_event(mock_event):
+                events.append(event)
+
+        import asyncio
+
+        asyncio.run(collect())
+
+        # Should have ONLY error event
+        assert len(events) == 1
+
+        # Verify error event with default message
+        parsed = parse_sse_event(events[0])
+        assert parsed["type"] == "error"
+        assert "error" in parsed
+        assert parsed["error"]["code"] == "INTERNAL_ERROR"
+        assert parsed["error"]["message"] == "Unknown error"
+
+    def test_no_error_when_error_code_is_none(self):
+        """Test that normal processing occurs when errorCode is None."""
+        converter = StreamProtocolConverter()
+
+        # Create normal event (no error)
+        mock_event = Mock(spec=Event)
+        mock_event.error_code = None
+        mock_event.error_message = None
+        mock_event.content = None
+
+        # Convert event
+        events = []
+
+        async def collect():
+            async for event in converter.convert_event(mock_event):
+                events.append(event)
+
+        import asyncio
+
+        asyncio.run(collect())
+
+        # Should have start event (normal processing)
+        assert len(events) >= 1
+
+        # First event should be start
+        parsed = parse_sse_event(events[0])
+        assert parsed["type"] == "start"

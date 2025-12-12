@@ -1049,6 +1049,27 @@ We generate **all essential streaming events**:
 
 ## Changelog
 
+### 2025-12-12 (Night) - [P2-T3] Immediate Error Detection Implementation
+
+- **Feature**: Implemented `errorCode`/`errorMessage` immediate detection (`stream_protocol.py:121-131`)
+  - Error checking now happens **FIRST** in `convert_event()` before any other processing
+  - Errors are logged with `logger.error()` for visibility
+  - Error event is sent immediately to frontend with proper format: `{"type": "error", "error": {"code": "...", "message": "..."}}`
+  - Processing stops after error event (no start, no content processing)
+- **Tests**: Added 3 comprehensive tests (`tests/unit/test_stream_protocol.py`)
+  - `test_error_detection_with_error_code_and_message`: Both errorCode and errorMessage present
+  - `test_error_detection_with_error_code_only`: errorCode only (uses default "Unknown error" message)
+  - `test_no_error_when_error_code_is_none`: Normal processing when no error
+  - All tests pass ✅
+- **TDD Approach**: Followed RED-GREEN cycle
+  - ✅ RED: Wrote failing tests first
+  - ✅ GREEN: Implemented minimal code to pass tests
+  - Code quality: Passed ruff checks
+- **Impact**:
+  - **Before**: Errors were only checked in `finalize()`, detected too late
+  - **After**: Errors detected immediately, users see error messages instantly
+  - ADK Event coverage improved: `errorCode` and `errorMessage` fields now utilized (5/25 → 7/25, 20.0% → 28.0%)
+
 ### 2025-12-12 (Late Evening) - Script Unification
 
 - **Refactoring**: Unified all coverage scripts into single `scripts/check-coverage.py`
