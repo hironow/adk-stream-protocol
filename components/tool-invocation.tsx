@@ -9,7 +9,9 @@ interface ToolInvocationProps {
   toolInvocation: any;
 }
 
-export function ToolInvocationComponent({ toolInvocation }: ToolInvocationProps) {
+export function ToolInvocationComponent({
+  toolInvocation,
+}: ToolInvocationProps) {
   const { toolName, state } = toolInvocation;
 
   // Tool call states: input-streaming, input-available, output-available, output-error

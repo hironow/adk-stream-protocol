@@ -1,6 +1,6 @@
 import { google } from "@ai-sdk/google";
-import { convertToModelMessages, streamText, tool } from "ai";
 import type { UIMessage } from "ai";
+import { convertToModelMessages, streamText, tool } from "ai";
 import { z } from "zod";
 
 // Allow streaming responses up to 30 seconds
@@ -26,7 +26,10 @@ async function ensureCacheDir() {
 
 async function getWeatherFromCache(location: string): Promise<any | null> {
   await ensureCacheDir();
-  const cacheFile = path.join(CACHE_DIR, `weather_${location.toLowerCase().replace(/\s+/g, "_")}.json`);
+  const cacheFile = path.join(
+    CACHE_DIR,
+    `weather_${location.toLowerCase().replace(/\s+/g, "_")}.json`,
+  );
 
   try {
     const data = await fs.readFile(cacheFile, "utf-8");
@@ -42,12 +45,15 @@ async function getWeatherFromCache(location: string): Promise<any | null> {
 
 async function setWeatherCache(location: string, data: any) {
   await ensureCacheDir();
-  const cacheFile = path.join(CACHE_DIR, `weather_${location.toLowerCase().replace(/\s+/g, "_")}.json`);
+  const cacheFile = path.join(
+    CACHE_DIR,
+    `weather_${location.toLowerCase().replace(/\s+/g, "_")}.json`,
+  );
 
   await fs.writeFile(
     cacheFile,
     JSON.stringify({ data, timestamp: Date.now() }, null, 2),
-    "utf-8"
+    "utf-8",
   );
 }
 
@@ -60,16 +66,24 @@ const getWeatherTool = tool({
     // Check cache first
     const cached = await getWeatherFromCache(location);
     if (cached) {
-      console.log(`[Gemini Direct] Tool call: get_weather(${location}) ->`, cached, "(cached)");
+      console.log(
+        `[Gemini Direct] Tool call: get_weather(${location}) ->`,
+        cached,
+        "(cached)",
+      );
       return { ...cached, cached: true };
     }
 
     // Get API key from environment
     const apiKey = process.env.OPENWEATHERMAP_API_KEY;
-    console.log(`[Gemini Direct] API key status: ${apiKey ? `present (${apiKey.substring(0, 10)}...)` : 'not set'}`);
+    console.log(
+      `[Gemini Direct] API key status: ${apiKey ? `present (${apiKey.substring(0, 10)}...)` : "not set"}`,
+    );
 
     if (!apiKey) {
-      console.warn("[Gemini Direct] OPENWEATHERMAP_API_KEY not set, using mock data");
+      console.warn(
+        "[Gemini Direct] OPENWEATHERMAP_API_KEY not set, using mock data",
+      );
       // Fallback to mock data
       const mockWeather: Record<string, any> = {
         Tokyo: { temperature: 18, condition: "Cloudy", humidity: 65 },
@@ -83,7 +97,11 @@ const getWeatherTool = tool({
         humidity: 60,
         note: `Mock data for ${location}`,
       };
-      console.log(`[Gemini Direct] Tool call: get_weather(${location}) ->`, weather, "(mock)");
+      console.log(
+        `[Gemini Direct] Tool call: get_weather(${location}) ->`,
+        weather,
+        "(mock)",
+      );
       return weather;
     }
 
@@ -110,11 +128,18 @@ const getWeatherTool = tool({
         };
         // Cache the result
         await setWeatherCache(location, weather);
-        console.log(`[Gemini Direct] Tool call: get_weather(${location}) ->`, weather, "(API)");
+        console.log(
+          `[Gemini Direct] Tool call: get_weather(${location}) ->`,
+          weather,
+          "(API)",
+        );
         return weather;
       } else {
         const errorMsg = `API returned status ${response.status}`;
-        console.error(`[Gemini Direct] Tool call: get_weather(${location}) failed:`, errorMsg);
+        console.error(
+          `[Gemini Direct] Tool call: get_weather(${location}) failed:`,
+          errorMsg,
+        );
         return {
           error: errorMsg,
           location,
@@ -122,7 +147,10 @@ const getWeatherTool = tool({
         };
       }
     } catch (error) {
-      console.error(`[Gemini Direct] Tool call: get_weather(${location}) exception:`, error);
+      console.error(
+        `[Gemini Direct] Tool call: get_weather(${location}) exception:`,
+        error,
+      );
       return {
         error: String(error),
         location,
@@ -135,16 +163,26 @@ const getWeatherTool = tool({
 const calculateTool = tool({
   description: "Calculate a mathematical expression",
   inputSchema: z.object({
-    expression: z.string().describe('Mathematical expression to evaluate (e.g., "2 + 2", "10 * 5")'),
+    expression: z
+      .string()
+      .describe(
+        'Mathematical expression to evaluate (e.g., "2 + 2", "10 * 5")',
+      ),
   }),
   execute: async ({ expression }) => {
     try {
       // Safe evaluation - only allows basic math operations
       const result = eval(expression);
-      console.log(`[Gemini Direct] Tool call: calculate(${expression}) ->`, result);
+      console.log(
+        `[Gemini Direct] Tool call: calculate(${expression}) ->`,
+        result,
+      );
       return { expression, result, success: true };
     } catch (error) {
-      console.error(`[Gemini Direct] Tool call: calculate(${expression}) failed:`, error);
+      console.error(
+        `[Gemini Direct] Tool call: calculate(${expression}) failed:`,
+        error,
+      );
       return { expression, error: String(error), success: false };
     }
   },
@@ -153,7 +191,12 @@ const calculateTool = tool({
 const getCurrentTimeTool = tool({
   description: "Get the current time in a specified timezone (default: UTC)",
   inputSchema: z.object({
-    timezone: z.string().optional().describe("Timezone name (e.g., 'America/New_York', 'Asia/Tokyo', 'UTC'). Defaults to UTC if not specified."),
+    timezone: z
+      .string()
+      .optional()
+      .describe(
+        "Timezone name (e.g., 'America/New_York', 'Asia/Tokyo', 'UTC'). Defaults to UTC if not specified.",
+      ),
   }),
   execute: async ({ timezone }) => {
     const tz = timezone || "UTC";
@@ -163,23 +206,29 @@ const getCurrentTimeTool = tool({
       timezone: tz,
       formatted: now.toLocaleString("en-US", { timeZone: tz }),
     };
-    console.log(`[Gemini Direct] Tool call: get_current_time(${tz}) ->`, result);
+    console.log(
+      `[Gemini Direct] Tool call: get_current_time(${tz}) ->`,
+      result,
+    );
     return result;
   },
 });
 
 export async function POST(req: Request) {
   const body = await req.json();
-  console.log("[Gemini Direct] Received request body:", JSON.stringify(body, null, 2));
+  console.log(
+    "[Gemini Direct] Received request body:",
+    JSON.stringify(body, null, 2),
+  );
 
   const { messages }: { messages: UIMessage[] } = body;
 
   if (!messages || !Array.isArray(messages)) {
     console.error("[Gemini Direct] Invalid messages:", messages);
-    return new Response(
-      JSON.stringify({ error: "Invalid messages format" }),
-      { status: 400, headers: { "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: "Invalid messages format" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   console.log("[Gemini Direct] Processing", messages.length, "messages");
@@ -188,7 +237,10 @@ export async function POST(req: Request) {
   messages.forEach((msg, idx) => {
     console.log(`[Gemini Direct] Message ${idx}:`, {
       role: msg.role,
-      parts: msg.parts?.map((p: any) => ({ type: p.type, text: p.text?.substring(0, 50) })),
+      parts: msg.parts?.map((p: any) => ({
+        type: p.type,
+        text: p.text?.substring(0, 50),
+      })),
       metadata: msg.metadata,
     });
   });
@@ -196,8 +248,8 @@ export async function POST(req: Request) {
   // AI SDK v6: convertToModelMessages handles UIMessage parts directly
   // No manual conversion needed - it supports text, file, tool, and other part types
   const result = streamText({
-    model: google("gemini-2.5-flash"),  // Stable Gemini 2.5 Flash for generateContent API
-    messages: convertToModelMessages(messages),  // AI SDK v6 handles UIMessage parts natively
+    model: google("gemini-2.5-flash"), // Stable Gemini 2.5 Flash for generateContent API
+    messages: convertToModelMessages(messages), // AI SDK v6 handles UIMessage parts natively
     tools: {
       get_weather: getWeatherTool,
       calculate: calculateTool,

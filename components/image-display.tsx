@@ -40,7 +40,9 @@ export function ImageDisplay({ content, mediaType, alt }: ImageDisplayProps) {
           // Show error placeholder
           (e.target as HTMLImageElement).style.display = "none";
           if (e.target && (e.target as HTMLElement).nextElementSibling) {
-            ((e.target as HTMLElement).nextElementSibling as HTMLElement).style.display = "block";
+            (
+              (e.target as HTMLElement).nextElementSibling as HTMLElement
+            ).style.display = "block";
           }
         }}
       />

@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
-import { buildUseChatOptions } from "./build-use-chat-options";
 import type { UIMessage } from "@ai-sdk/react";
+import { describe, expect, it } from "vitest";
+import { buildUseChatOptions } from "./build-use-chat-options";
 
 describe("buildUseChatOptions", () => {
   const baseParams = {

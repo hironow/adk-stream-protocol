@@ -31,13 +31,13 @@ class PCMPlayerProcessor extends AudioWorkletProcessor {
 
     // Handle incoming PCM chunks
     this.port.onmessage = (event) => {
-      if (event.data.command === 'endOfAudio') {
+      if (event.data.command === "endOfAudio") {
         // Flush buffer - jump read index to write index
         this.readIndex = this.writeIndex;
         return;
       }
 
-      if (event.data.command === 'reset') {
+      if (event.data.command === "reset") {
         // Reset buffer for new turn
         this.writeIndex = 0;
         this.readIndex = 0;
@@ -68,7 +68,7 @@ class PCMPlayerProcessor extends AudioWorkletProcessor {
     // Notify that playback has started
     if (!this.isPlaying) {
       this.isPlaying = true;
-      this.port.postMessage({ type: 'playback-started' });
+      this.port.postMessage({ type: "playback-started" });
     }
 
     for (let i = 0; i < int16Samples.length; i++) {
@@ -128,8 +128,12 @@ class PCMPlayerProcessor extends AudioWorkletProcessor {
       // After 1 second of silence, consider playback finished
       if (this.isPlaying && this.silenceFrames >= this.SILENCE_THRESHOLD) {
         this.isPlaying = false;
-        this.port.postMessage({ type: 'playback-finished' });
-        console.log('[AudioWorklet] Playback finished after', this.silenceFrames, 'silent frames');
+        this.port.postMessage({ type: "playback-finished" });
+        console.log(
+          "[AudioWorklet] Playback finished after",
+          this.silenceFrames,
+          "silent frames",
+        );
       }
     }
 
@@ -139,4 +143,4 @@ class PCMPlayerProcessor extends AudioWorkletProcessor {
 }
 
 // Register processor
-registerProcessor('pcm-player-processor', PCMPlayerProcessor);
+registerProcessor("pcm-player-processor", PCMPlayerProcessor);

@@ -1,4 +1,4 @@
-import { defineConfig, devices } from '@playwright/test';
+import { defineConfig, devices } from "@playwright/test";
 
 /**
  * Playwright E2E Test Configuration
@@ -14,7 +14,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   // Test directory
-  testDir: './e2e',
+  testDir: "./e2e",
 
   // Maximum time one test can run for (3 minutes to accommodate LLM response times)
   timeout: 180 * 1000,
@@ -29,28 +29,25 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
 
   // Reporter to use
-  reporter: [
-    ['html'],
-    ['list']
-  ],
+  reporter: [["html"], ["list"]],
 
   // Shared settings for all the projects below
   use: {
     // Base URL to use in actions like `await page.goto('/')`
-    baseURL: 'http://localhost:3000',
+    baseURL: "http://localhost:3000",
 
     // Collect trace when retrying the failed test
-    trace: 'on-first-retry',
+    trace: "on-first-retry",
 
     // Screenshot on failure
-    screenshot: 'only-on-failure',
+    screenshot: "only-on-failure",
   },
 
   // Configure projects for major browsers
   projects: [
     {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"] },
     },
   ],
 
@@ -58,19 +55,19 @@ export default defineConfig({
   webServer: [
     {
       // Next.js dev server
-      command: 'pnpm dev',
-      url: 'http://localhost:3000',
+      command: "pnpm dev",
+      url: "http://localhost:3000",
       reuseExistingServer: !process.env.CI,
-      stdout: 'pipe',
-      stderr: 'pipe',
+      stdout: "pipe",
+      stderr: "pipe",
     },
     {
       // ADK Python backend server
-      command: 'uv run uvicorn server:app --reload',
-      url: 'http://localhost:8000/health',
+      command: "uv run uvicorn server:app --reload",
+      url: "http://localhost:8000/health",
       reuseExistingServer: !process.env.CI,
-      stdout: 'pipe',
-      stderr: 'pipe',
+      stdout: "pipe",
+      stderr: "pipe",
     },
   ],
 });

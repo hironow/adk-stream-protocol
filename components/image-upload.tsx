@@ -20,7 +20,10 @@ interface ImageUploadProps {
   onImageRemove?: () => void;
 }
 
-export function ImageUpload({ onImageSelect, onImageRemove }: ImageUploadProps) {
+export function ImageUpload({
+  onImageSelect,
+  onImageRemove,
+}: ImageUploadProps) {
   const [selectedImage, setSelectedImage] = useState<{
     data: string;
     media_type: string;
@@ -30,7 +33,9 @@ export function ImageUpload({ onImageSelect, onImageRemove }: ImageUploadProps) 
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const file = event.target.files?.[0];
     if (!file) return;
 

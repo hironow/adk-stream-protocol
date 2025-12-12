@@ -14,29 +14,31 @@
  * - Tests critical integration points
  */
 
-import { test, expect } from '@playwright/test';
+import { expect, test } from "@playwright/test";
 import {
-  navigateToChat,
-  selectBackendMode,
-  sendTextMessage,
-  sendImageMessage,
-  waitForAssistantResponse,
   getMessages,
   getMessageText,
-  isUserMessage,
   getTestImagePath,
-} from './helpers';
+  isUserMessage,
+  navigateToChat,
+  selectBackendMode,
+  sendImageMessage,
+  sendTextMessage,
+  waitForAssistantResponse,
+} from "./helpers";
 
-test.describe('History Sharing Tests', () => {
-  test('should preserve history when switching from Gemini Direct to ADK SSE', async ({ page }) => {
+test.describe("History Sharing Tests", () => {
+  test("should preserve history when switching from Gemini Direct to ADK SSE", async ({
+    page,
+  }) => {
     // Given: User has conversation in Gemini Direct mode
     await navigateToChat(page);
-    await selectBackendMode(page, 'gemini');
+    await selectBackendMode(page, "gemini");
 
-    await sendTextMessage(page, '私の名前はhironowです');
+    await sendTextMessage(page, "私の名前はhironowです");
     await waitForAssistantResponse(page);
 
-    await sendTextMessage(page, '好きな色は青です');
+    await sendTextMessage(page, "好きな色は青です");
     await waitForAssistantResponse(page);
 
     // Verify we have messages
@@ -44,7 +46,7 @@ test.describe('History Sharing Tests', () => {
     expect(messages.length).toBeGreaterThan(2); // At least user + assistant messages
 
     // When: User switches to ADK SSE mode
-    await selectBackendMode(page, 'adk-sse');
+    await selectBackendMode(page, "adk-sse");
 
     // Give UI time to re-render
     await page.waitForTimeout(500);
@@ -54,32 +56,36 @@ test.describe('History Sharing Tests', () => {
     expect(messages.length).toBeGreaterThan(2);
 
     // And: User can continue conversation with context
-    await sendTextMessage(page, '私の名前を覚えていますか？');
+    await sendTextMessage(page, "私の名前を覚えていますか？");
     await waitForAssistantResponse(page);
 
-    const lastMessage = await getMessages(page).then(msgs => msgs[msgs.length - 1]);
+    const lastMessage = await getMessages(page).then(
+      (msgs) => msgs[msgs.length - 1],
+    );
     const responseText = await getMessageText(lastMessage);
 
     // Response should reference the name "hironow" from earlier in conversation
-    expect(responseText.toLowerCase()).toContain('hironow');
+    expect(responseText.toLowerCase()).toContain("hironow");
   });
 
-  test('should preserve history when switching from ADK SSE to Gemini Direct', async ({ page }) => {
+  test("should preserve history when switching from ADK SSE to Gemini Direct", async ({
+    page,
+  }) => {
     // Given: User has conversation in ADK SSE mode
     await navigateToChat(page);
-    await selectBackendMode(page, 'adk-sse');
+    await selectBackendMode(page, "adk-sse");
 
-    await sendTextMessage(page, '私の趣味はプログラミングです');
+    await sendTextMessage(page, "私の趣味はプログラミングです");
     await waitForAssistantResponse(page);
 
-    await sendTextMessage(page, '特にPythonが好きです');
+    await sendTextMessage(page, "特にPythonが好きです");
     await waitForAssistantResponse(page);
 
     let messages = await getMessages(page);
     expect(messages.length).toBeGreaterThan(2);
 
     // When: User switches to Gemini Direct mode
-    await selectBackendMode(page, 'gemini');
+    await selectBackendMode(page, "gemini");
 
     await page.waitForTimeout(500);
 
@@ -88,23 +94,27 @@ test.describe('History Sharing Tests', () => {
     expect(messages.length).toBeGreaterThan(2);
 
     // And: User can continue conversation with context
-    await sendTextMessage(page, '私の趣味は何でしたか？');
+    await sendTextMessage(page, "私の趣味は何でしたか？");
     await waitForAssistantResponse(page);
 
-    const lastMessage = await getMessages(page).then(msgs => msgs[msgs.length - 1]);
+    const lastMessage = await getMessages(page).then(
+      (msgs) => msgs[msgs.length - 1],
+    );
     const responseText = await getMessageText(lastMessage);
 
     // Response should reference programming hobby from earlier
     expect(responseText.toLowerCase()).toMatch(/プログラミング|python/);
   });
 
-  test('should preserve image history when switching backends', async ({ page }) => {
+  test("should preserve image history when switching backends", async ({
+    page,
+  }) => {
     // Given: User sends image in Gemini Direct mode
     await navigateToChat(page);
-    await selectBackendMode(page, 'gemini');
+    await selectBackendMode(page, "gemini");
 
-    const imagePath = getTestImagePath('test-image.png');
-    await sendImageMessage(page, imagePath, 'この画像には何が写っていますか？');
+    const imagePath = getTestImagePath("test-image.png");
+    await sendImageMessage(page, imagePath, "この画像には何が写っていますか？");
     await waitForAssistantResponse(page);
 
     let messages = await getMessages(page);
@@ -112,7 +122,7 @@ test.describe('History Sharing Tests', () => {
     expect(geminiMessageCount).toBeGreaterThan(1);
 
     // When: User switches to ADK SSE mode
-    await selectBackendMode(page, 'adk-sse');
+    await selectBackendMode(page, "adk-sse");
 
     await page.waitForTimeout(500);
 
@@ -121,38 +131,42 @@ test.describe('History Sharing Tests', () => {
     expect(messages.length).toBe(geminiMessageCount);
 
     // And: User can ask follow-up about the image
-    await sendTextMessage(page, 'この画像の詳細を教えてください');
+    await sendTextMessage(page, "この画像の詳細を教えてください");
     await waitForAssistantResponse(page);
 
-    const lastMessage = await getMessages(page).then(msgs => msgs[msgs.length - 1]);
+    const lastMessage = await getMessages(page).then(
+      (msgs) => msgs[msgs.length - 1],
+    );
     const responseText = await getMessageText(lastMessage);
 
     // Response should be contextual to the previously sent image
     expect(responseText.length).toBeGreaterThan(0);
   });
 
-  test('should handle complex history with images and text across backend switches', async ({ page }) => {
+  test("should handle complex history with images and text across backend switches", async ({
+    page,
+  }) => {
     // Given: User has complex conversation with both images and text
     await navigateToChat(page);
-    await selectBackendMode(page, 'gemini');
+    await selectBackendMode(page, "gemini");
 
     // Step 1: Text message
-    await sendTextMessage(page, 'こんにちは');
+    await sendTextMessage(page, "こんにちは");
     await waitForAssistantResponse(page);
 
     // Step 2: Image message
-    const imagePath = getTestImagePath('test-image.png');
-    await sendImageMessage(page, imagePath, 'この画像を見てください');
+    const imagePath = getTestImagePath("test-image.png");
+    await sendImageMessage(page, imagePath, "この画像を見てください");
     await waitForAssistantResponse(page);
 
     // Step 3: Follow-up text
-    await sendTextMessage(page, 'わかりました');
+    await sendTextMessage(page, "わかりました");
     await waitForAssistantResponse(page);
 
     const geminiMessages = await getMessages(page);
 
     // When: Switch to ADK SSE
-    await selectBackendMode(page, 'adk-sse');
+    await selectBackendMode(page, "adk-sse");
     await page.waitForTimeout(500);
 
     // Then: All messages preserved
@@ -160,11 +174,11 @@ test.describe('History Sharing Tests', () => {
     expect(messages.length).toBe(geminiMessages.length);
 
     // Continue conversation
-    await sendTextMessage(page, 'ありがとう');
+    await sendTextMessage(page, "ありがとう");
     await waitForAssistantResponse(page);
 
     // When: Switch back to Gemini Direct
-    await selectBackendMode(page, 'gemini');
+    await selectBackendMode(page, "gemini");
     await page.waitForTimeout(500);
 
     // Then: Full history still preserved
@@ -172,29 +186,31 @@ test.describe('History Sharing Tests', () => {
     expect(messages.length).toBeGreaterThan(geminiMessages.length);
 
     // Can still send messages
-    await sendTextMessage(page, 'さようなら');
+    await sendTextMessage(page, "さようなら");
     await waitForAssistantResponse(page);
 
     const finalMessages = await getMessages(page);
     expect(finalMessages.length).toBeGreaterThan(messages.length);
   });
 
-  test('should handle message schema correctly after backend switch', async ({ page }) => {
+  test("should handle message schema correctly after backend switch", async ({
+    page,
+  }) => {
     // This test specifically targets the message history compatibility bug
     // Given: User sends image in Gemini Direct
     await navigateToChat(page);
-    await selectBackendMode(page, 'gemini');
+    await selectBackendMode(page, "gemini");
 
-    const imagePath = getTestImagePath('test-image.png');
-    await sendImageMessage(page, imagePath, '画像テスト');
+    const imagePath = getTestImagePath("test-image.png");
+    await sendImageMessage(page, imagePath, "画像テスト");
     await waitForAssistantResponse(page);
 
     // When: Switch to ADK SSE and send follow-up
-    await selectBackendMode(page, 'adk-sse');
+    await selectBackendMode(page, "adk-sse");
     await page.waitForTimeout(500);
 
     // This should NOT fail with schema validation error
-    await sendTextMessage(page, 'フォローアップメッセージ');
+    await sendTextMessage(page, "フォローアップメッセージ");
     await waitForAssistantResponse(page);
 
     // Then: No error occurred
@@ -202,20 +218,24 @@ test.describe('History Sharing Tests', () => {
     await expect(errorElement).not.toBeVisible();
 
     // And response was successful
-    const lastMessage = await getMessages(page).then(msgs => msgs[msgs.length - 1]);
+    const lastMessage = await getMessages(page).then(
+      (msgs) => msgs[msgs.length - 1],
+    );
     const isUser = await isUserMessage(lastMessage);
     expect(isUser).toBe(false); // Last message is assistant response
 
     // When: Switch back to Gemini and continue
-    await selectBackendMode(page, 'gemini');
+    await selectBackendMode(page, "gemini");
     await page.waitForTimeout(500);
 
     // This should also work without error
-    await sendTextMessage(page, '最後のメッセージ');
+    await sendTextMessage(page, "最後のメッセージ");
     await waitForAssistantResponse(page);
 
     // Then: No error and conversation continues
-    const finalMessage = await getMessages(page).then(msgs => msgs[msgs.length - 1]);
+    const finalMessage = await getMessages(page).then(
+      (msgs) => msgs[msgs.length - 1],
+    );
     const finalIsUser = await isUserMessage(finalMessage);
     expect(finalIsUser).toBe(false);
   });

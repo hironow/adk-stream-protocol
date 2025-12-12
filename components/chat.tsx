@@ -1,10 +1,13 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { buildUseChatOptions, type BackendMode } from "@/lib/build-use-chat-options";
-import { MessageComponent } from "@/components/message";
 import { useState } from "react";
+import { MessageComponent } from "@/components/message";
 import { useAudio } from "@/lib/audio-context";
+import {
+  type BackendMode,
+  buildUseChatOptions,
+} from "@/lib/build-use-chat-options";
 
 interface ChatProps {
   mode: BackendMode;
@@ -49,7 +52,7 @@ export function Chat({ mode }: ChatProps) {
           text: input.trim() || " ",
           files: [
             {
-              type: 'file',
+              type: "file",
               filename: selectedFile.name,
               mediaType: selectedFile.type,
               url: dataUrl,
@@ -156,15 +159,18 @@ export function Chat({ mode }: ChatProps) {
         >
           <span>✓</span>
           <span>
-            Audio: {audioContext.voiceChannel.lastCompletion.duration.toFixed(2)}s
-            ({audioContext.voiceChannel.lastCompletion.chunks} chunks)
+            Audio:{" "}
+            {audioContext.voiceChannel.lastCompletion.duration.toFixed(2)}s (
+            {audioContext.voiceChannel.lastCompletion.chunks} chunks)
           </span>
         </div>
       )}
 
       <div style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
         {messages.length === 0 && (
-          <div style={{ textAlign: "center", color: "#666", marginTop: "2rem" }}>
+          <div
+            style={{ textAlign: "center", color: "#666", marginTop: "2rem" }}
+          >
             Start a conversation...
           </div>
         )}

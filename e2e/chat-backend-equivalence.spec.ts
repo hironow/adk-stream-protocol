@@ -15,24 +15,24 @@
  * - Parameterized tests for multiple backends
  */
 
-import { test, expect } from '@playwright/test';
+import { expect, test } from "@playwright/test";
 import {
-  navigateToChat,
-  selectBackendMode,
-  sendTextMessage,
-  sendImageMessage,
-  waitForAssistantResponse,
+  type BackendMode,
   getLastMessage,
   getMessageText,
-  isUserMessage,
   getTestImagePath,
-  type BackendMode,
-} from './helpers';
+  isUserMessage,
+  navigateToChat,
+  selectBackendMode,
+  sendImageMessage,
+  sendTextMessage,
+  waitForAssistantResponse,
+} from "./helpers";
 
 // Test both backends with same test cases
-const backends: BackendMode[] = ['gemini', 'adk-sse'];
+const backends: BackendMode[] = ["gemini", "adk-sse"];
 
-test.describe('Backend Equivalence Tests', () => {
+test.describe("Backend Equivalence Tests", () => {
   backends.forEach((backend) => {
     test.describe(`${backend.toUpperCase()} Backend`, () => {
       test.beforeEach(async ({ page }) => {
@@ -41,12 +41,12 @@ test.describe('Backend Equivalence Tests', () => {
         await selectBackendMode(page, backend);
       });
 
-      test('should handle text-only conversation', async ({ page }) => {
+      test("should handle text-only conversation", async ({ page }) => {
         // Given: Backend is ready
         // (already set in beforeEach)
 
         // When: User sends a text message
-        const userMessage = 'こんにちは';
+        const userMessage = "こんにちは";
         await sendTextMessage(page, userMessage);
 
         // Then: Assistant responds
@@ -60,12 +60,16 @@ test.describe('Backend Equivalence Tests', () => {
         expect(text.length).toBeGreaterThan(0); // Assistant provided a response
       });
 
-      test('should handle image upload with text', async ({ page }) => {
+      test("should handle image upload with text", async ({ page }) => {
         // Given: Backend is ready and test image exists
-        const imagePath = getTestImagePath('test-image.png');
+        const imagePath = getTestImagePath("test-image.png");
 
         // When: User uploads image with text
-        await sendImageMessage(page, imagePath, 'この画像には何が写っていますか？');
+        await sendImageMessage(
+          page,
+          imagePath,
+          "この画像には何が写っていますか？",
+        );
 
         // Then: Assistant analyzes the image
         await waitForAssistantResponse(page);
@@ -79,14 +83,18 @@ test.describe('Backend Equivalence Tests', () => {
         // Response should reference the image (though we can't verify exact content)
       });
 
-      test('should handle follow-up message after image', async ({ page }) => {
+      test("should handle follow-up message after image", async ({ page }) => {
         // Given: User has sent an image message and received response
-        const imagePath = getTestImagePath('test-image.png');
-        await sendImageMessage(page, imagePath, 'この画像には何が写っていますか？');
+        const imagePath = getTestImagePath("test-image.png");
+        await sendImageMessage(
+          page,
+          imagePath,
+          "この画像には何が写っていますか？",
+        );
         await waitForAssistantResponse(page);
 
         // When: User sends a follow-up text message
-        await sendTextMessage(page, 'この画像の詳細を教えてください');
+        await sendTextMessage(page, "この画像の詳細を教えてください");
 
         // Then: Assistant responds to follow-up in context
         await waitForAssistantResponse(page);
@@ -100,11 +108,11 @@ test.describe('Backend Equivalence Tests', () => {
         // This tests the critical message history compatibility bug
       });
 
-      test('should handle tool invocation (weather)', async ({ page }) => {
+      test("should handle tool invocation (weather)", async ({ page }) => {
         // Given: Backend supports get_weather tool
 
         // When: User asks about weather
-        await sendTextMessage(page, 'What is the weather in Tokyo?');
+        await sendTextMessage(page, "What is the weather in Tokyo?");
 
         // Then: Assistant invokes tool and provides weather info
         await waitForAssistantResponse(page);
@@ -112,21 +120,23 @@ test.describe('Backend Equivalence Tests', () => {
         const lastMessage = await getLastMessage(page);
         const text = await getMessageText(lastMessage);
 
-        expect(text.toLowerCase()).toContain('tokyo');
+        expect(text.toLowerCase()).toContain("tokyo");
         // Should contain weather-related terms (temperature, condition, etc.)
       });
 
-      test('should handle multiple text messages in sequence', async ({ page }) => {
+      test("should handle multiple text messages in sequence", async ({
+        page,
+      }) => {
         // Given: Backend is ready
 
         // When: User sends multiple messages
-        await sendTextMessage(page, '1+1は？');
+        await sendTextMessage(page, "1+1は？");
         await waitForAssistantResponse(page);
 
-        await sendTextMessage(page, 'では2+2は？');
+        await sendTextMessage(page, "では2+2は？");
         await waitForAssistantResponse(page);
 
-        await sendTextMessage(page, 'ありがとう');
+        await sendTextMessage(page, "ありがとう");
         await waitForAssistantResponse(page);
 
         // Then: All messages are handled correctly
@@ -139,15 +149,17 @@ test.describe('Backend Equivalence Tests', () => {
     });
   });
 
-  test('Gemini Direct and ADK SSE should produce equivalent responses', async ({ page }) => {
+  test("Gemini Direct and ADK SSE should produce equivalent responses", async ({
+    page,
+  }) => {
     // This test verifies that both backends handle the same input similarly
     // We don't expect identical responses, but both should succeed
 
-    const testMessage = 'こんにちは、元気ですか？';
+    const testMessage = "こんにちは、元気ですか？";
 
     // Test Gemini Direct
     await navigateToChat(page);
-    await selectBackendMode(page, 'gemini');
+    await selectBackendMode(page, "gemini");
     await sendTextMessage(page, testMessage);
     await waitForAssistantResponse(page);
 
@@ -157,7 +169,7 @@ test.describe('Backend Equivalence Tests', () => {
     // Clear and test ADK SSE
     await page.reload();
     await navigateToChat(page);
-    await selectBackendMode(page, 'adk-sse');
+    await selectBackendMode(page, "adk-sse");
     await sendTextMessage(page, testMessage);
     await waitForAssistantResponse(page);
 

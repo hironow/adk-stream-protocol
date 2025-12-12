@@ -22,8 +22,8 @@ dev:
     @echo "Frontend: http://localhost:3000"
     just --jobs 2 server frontend
 
-# Format all code (Python only - frontend has no format script)
-format: format-python
+# Format all code (Python + frontend)
+format: format-python format-frontend
 
 # Run linting for all code (Python + frontend)
 lint: lint-python lint-frontend
@@ -42,6 +42,14 @@ format-python:
 # Run type checking for Python
 typecheck-python:
     uv run mypy .
+
+# Run linting for frontend (Biome)
+lint-frontend:
+    pnpm run lint
+
+# Format frontend code (Biome)
+format-frontend:
+    pnpm run format
 
 # Run Python tests
 test-python:
@@ -82,10 +90,6 @@ test: test-python test-e2e
 
 # Run all Python checks
 check-python: lint-python typecheck-python test-python
-
-# Run Next.js linting
-lint-frontend:
-    pnpm lint
 
 # Run all checks
 check: check-python lint-frontend

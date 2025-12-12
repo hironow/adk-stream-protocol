@@ -52,7 +52,8 @@ function debugLog(message: string, ...args: any[]) {
 export function buildUseChatOptions({
   mode,
   initialMessages,
-  adkBackendUrl = typeof process !== "undefined" && process.env?.NEXT_PUBLIC_ADK_BACKEND_URL
+  adkBackendUrl = typeof process !== "undefined" &&
+  process.env?.NEXT_PUBLIC_ADK_BACKEND_URL
     ? process.env.NEXT_PUBLIC_ADK_BACKEND_URL
     : "http://localhost:8000",
   forceNewInstance = false,
@@ -121,12 +122,19 @@ export function buildUseChatOptions({
     id: chatId,
   };
 
-  debugLog("Building options for mode:", mode, "chatId:", chatId, "endpoint:", apiEndpoint);
+  debugLog(
+    "Building options for mode:",
+    mode,
+    "chatId:",
+    chatId,
+    "endpoint:",
+    apiEndpoint,
+  );
 
   // Use switch to completely separate each mode's configuration
   // This prevents accidental mixing of options between modes
   switch (mode) {
-    case "gemini":
+    case "gemini": {
       debugLog("Configuring useChat for Gemini Direct mode");
       // Create transport manually to pass prepareSendMessagesRequest
       const geminiTransport = new DefaultChatTransport({
@@ -137,10 +145,17 @@ export function buildUseChatOptions({
         ...baseOptions,
         transport: geminiTransport,
       };
-      debugLog("Gemini options:", JSON.stringify({ id: geminiOptions.id, messagesCount: geminiOptions.messages.length }));
+      debugLog(
+        "Gemini options:",
+        JSON.stringify({
+          id: geminiOptions.id,
+          messagesCount: geminiOptions.messages.length,
+        }),
+      );
       return geminiOptions;
+    }
 
-    case "adk-sse":
+    case "adk-sse": {
       debugLog("Configuring useChat for ADK SSE mode");
       // Create transport manually to pass prepareSendMessagesRequest
       const adkSseTransport = new DefaultChatTransport({
@@ -151,24 +166,35 @@ export function buildUseChatOptions({
         ...baseOptions,
         transport: adkSseTransport,
       };
-      debugLog("ADK SSE options:", JSON.stringify({ id: adkSseOptions.id, messagesCount: adkSseOptions.messages.length }));
+      debugLog(
+        "ADK SSE options:",
+        JSON.stringify({
+          id: adkSseOptions.id,
+          messagesCount: adkSseOptions.messages.length,
+        }),
+      );
       return adkSseOptions;
+    }
 
-    case "adk-bidi":
+    case "adk-bidi": {
       if (!websocketTransport) {
         throw new Error("WebSocket transport is required for ADK BIDI mode");
       }
-      debugLog("Configuring useChat for ADK BIDI mode with WebSocket transport");
+      debugLog(
+        "Configuring useChat for ADK BIDI mode with WebSocket transport",
+      );
       const adkBidiOptions = {
         ...baseOptions,
         transport: websocketTransport,
       };
       debugLog("ADK BIDI options:", adkBidiOptions);
       return adkBidiOptions;
+    }
 
-    default:
+    default: {
       // TypeScript will catch this at compile time if we add a new mode
       const exhaustiveCheck: never = mode;
       throw new Error(`Unhandled backend mode: ${exhaustiveCheck}`);
+    }
   }
 }

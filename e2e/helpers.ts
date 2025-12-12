@@ -5,17 +5,17 @@
  * These helpers interact with real UI elements (no mocks).
  */
 
-import { Page, expect } from '@playwright/test';
-import path from 'path';
+import { expect, type Page } from "@playwright/test";
+import path from "path";
 
-export type BackendMode = 'gemini' | 'adk-sse' | 'adk-bidi';
+export type BackendMode = "gemini" | "adk-sse" | "adk-bidi";
 
 /**
  * Navigate to the chat application
  */
 export async function navigateToChat(page: Page) {
-  await page.goto('/');
-  await expect(page.locator('h1')).toContainText('AI SDK v6 + ADK Integration');
+  await page.goto("/");
+  await expect(page.locator("h1")).toContainText("AI SDK v6 + ADK Integration");
 }
 
 /**
@@ -23,26 +23,27 @@ export async function navigateToChat(page: Page) {
  */
 export async function selectBackendMode(page: Page, mode: BackendMode) {
   const buttonMap = {
-    gemini: 'Gemini Direct',
-    'adk-sse': 'ADK SSE',
-    'adk-bidi': 'ADK BIDI ⚡',
+    gemini: "Gemini Direct",
+    "adk-sse": "ADK SSE",
+    "adk-bidi": "ADK BIDI ⚡",
   };
 
-  await page.getByRole('button', { name: buttonMap[mode] }).click();
+  await page.getByRole("button", { name: buttonMap[mode] }).click();
 
   // Wait for mode to be visually selected
-  await expect(
-    page.getByRole('button', { name: buttonMap[mode] })
-  ).toHaveCSS('font-weight', '600');
+  await expect(page.getByRole("button", { name: buttonMap[mode] })).toHaveCSS(
+    "font-weight",
+    "600",
+  );
 }
 
 /**
  * Send a text message
  */
 export async function sendTextMessage(page: Page, text: string) {
-  const input = page.getByPlaceholder('Type your message...');
+  const input = page.getByPlaceholder("Type your message...");
   await input.fill(text);
-  await page.getByRole('button', { name: 'Send' }).click();
+  await page.getByRole("button", { name: "Send" }).click();
 }
 
 /**
@@ -51,7 +52,7 @@ export async function sendTextMessage(page: Page, text: string) {
 export async function sendImageMessage(
   page: Page,
   imagePath: string,
-  text?: string
+  text?: string,
 ) {
   // Upload image
   const fileInput = page.locator('input[type="file"]');
@@ -62,12 +63,12 @@ export async function sendImageMessage(
 
   // Optionally add text
   if (text) {
-    const textInput = page.getByPlaceholder('Type your message...');
+    const textInput = page.getByPlaceholder("Type your message...");
     await textInput.fill(text);
   }
 
   // Send message
-  await page.getByRole('button', { name: 'Send' }).click();
+  await page.getByRole("button", { name: "Send" }).click();
 }
 
 /**
@@ -75,11 +76,13 @@ export async function sendImageMessage(
  */
 export async function waitForAssistantResponse(page: Page) {
   // Wait for "Thinking..." to appear (increased timeout for slower LLM responses)
-  await expect(page.getByText('Thinking...')).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText("Thinking...")).toBeVisible({ timeout: 10000 });
 
   // Wait for "Thinking..." to disappear (response complete)
   // Increased to 2 minutes to accommodate image processing and slower LLM responses
-  await expect(page.getByText('Thinking...')).not.toBeVisible({ timeout: 120000 });
+  await expect(page.getByText("Thinking...")).not.toBeVisible({
+    timeout: 120000,
+  });
 }
 
 /**
@@ -102,15 +105,22 @@ export async function getLastMessage(page: Page) {
  * Get message text content
  */
 export async function getMessageText(messageLocator: any): Promise<string> {
-  return await messageLocator.locator('[data-testid="message-text"]').first().textContent() || '';
+  return (
+    (await messageLocator
+      .locator('[data-testid="message-text"]')
+      .first()
+      .textContent()) || ""
+  );
 }
 
 /**
  * Check if message is from user or assistant
  */
 export async function isUserMessage(messageLocator: any): Promise<boolean> {
-  const sender = await messageLocator.locator('[data-testid="message-sender"]').textContent();
-  return sender?.includes('You') || false;
+  const sender = await messageLocator
+    .locator('[data-testid="message-sender"]')
+    .textContent();
+  return sender?.includes("You") || false;
 }
 
 /**
@@ -118,14 +128,14 @@ export async function isUserMessage(messageLocator: any): Promise<boolean> {
  */
 export async function clearChatHistory(page: Page) {
   await page.reload();
-  await expect(page.locator('h1')).toContainText('AI SDK v6 + ADK Integration');
+  await expect(page.locator("h1")).toContainText("AI SDK v6 + ADK Integration");
 }
 
 /**
  * Get test image path
  */
-export function getTestImagePath(filename: string = 'test-image.png'): string {
-  return path.join(__dirname, 'fixtures', filename);
+export function getTestImagePath(filename: string = "test-image.png"): string {
+  return path.join(__dirname, "fixtures", filename);
 }
 
 /**
@@ -134,8 +144,8 @@ export function getTestImagePath(filename: string = 'test-image.png'): string {
 export async function createTestImageFixture() {
   // This would typically be done in test setup
   // For now, we'll assume the image exists in tests/e2e/fixtures/
-  const fixturesDir = path.join(__dirname, 'fixtures');
-  const fs = await import('fs');
+  const fixturesDir = path.join(__dirname, "fixtures");
+  const fs = await import("fs");
   if (!fs.existsSync(fixturesDir)) {
     fs.mkdirSync(fixturesDir, { recursive: true });
   }

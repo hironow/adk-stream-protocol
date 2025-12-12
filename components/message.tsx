@@ -11,9 +11,9 @@
  */
 
 import type { UIMessage } from "@ai-sdk/react";
-import { ToolInvocationComponent } from "./tool-invocation";
-import { ImageDisplay } from "./image-display";
 import { useAudio } from "@/lib/audio-context";
+import { ImageDisplay } from "./image-display";
+import { ToolInvocationComponent } from "./tool-invocation";
 
 interface MessageComponentProps {
   message: UIMessage;
@@ -26,7 +26,8 @@ export function MessageComponent({ message }: MessageComponentProps) {
   // Check if this assistant message has audio (ADK BIDI mode)
   // Audio is detected by AudioContext chunk count, not message.parts
   // (PCM chunks go directly to AudioWorklet, bypassing message stream)
-  const hasAudio = message.role === "assistant" && audioContext.voiceChannel.chunkCount > 0;
+  const hasAudio =
+    message.role === "assistant" && audioContext.voiceChannel.chunkCount > 0;
 
   return (
     <div
@@ -68,40 +69,45 @@ export function MessageComponent({ message }: MessageComponentProps) {
       </div>
 
       {/* Message Content - handle both parts and experimental_attachments */}
-      <div data-testid="message-content" style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+      <div
+        data-testid="message-content"
+        style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}
+      >
         {/* Handle experimental_attachments (legacy v5 format - kept for backward compatibility) */}
         {/* Note: AI SDK v6 converts files to parts array, so this is rarely used */}
-        {(message as any).experimental_attachments?.map((attachment: any, index: number) => {
-          // Text attachment
-          if (attachment.type === "text") {
-            return (
-              <div
-                key={index}
-                data-testid="message-text"
-                style={{
-                  whiteSpace: "pre-wrap",
-                  lineHeight: "1.5",
-                }}
-              >
-                {attachment.text}
-              </div>
-            );
-          }
+        {(message as any).experimental_attachments?.map(
+          (attachment: any, index: number) => {
+            // Text attachment
+            if (attachment.type === "text") {
+              return (
+                <div
+                  key={index}
+                  data-testid="message-text"
+                  style={{
+                    whiteSpace: "pre-wrap",
+                    lineHeight: "1.5",
+                  }}
+                >
+                  {attachment.text}
+                </div>
+              );
+            }
 
-          // Image attachment
-          if (attachment.type === "image") {
-            return (
-              <ImageDisplay
-                key={index}
-                content={attachment.data}
-                mediaType={attachment.media_type}
-                alt="Uploaded image"
-              />
-            );
-          }
+            // Image attachment
+            if (attachment.type === "image") {
+              return (
+                <ImageDisplay
+                  key={index}
+                  content={attachment.data}
+                  mediaType={attachment.media_type}
+                  alt="Uploaded image"
+                />
+              );
+            }
 
-          return null;
-        })}
+            return null;
+          },
+        )}
 
         {/* Audio status indicator (ADK BIDI mode) */}
         {hasAudio && (
@@ -127,11 +133,15 @@ export function MessageComponent({ message }: MessageComponentProps) {
                   width: "8px",
                   height: "8px",
                   borderRadius: "50%",
-                  background: audioContext.voiceChannel.isPlaying ? "#10b981" : "#6b7280",
+                  background: audioContext.voiceChannel.isPlaying
+                    ? "#10b981"
+                    : "#6b7280",
                 }}
               />
               <span style={{ fontWeight: 600 }}>
-                {audioContext.voiceChannel.isPlaying ? "🔊 Playing Audio" : "🔇 Audio Ready"}
+                {audioContext.voiceChannel.isPlaying
+                  ? "🔊 Playing Audio"
+                  : "🔇 Audio Ready"}
               </span>
               <span style={{ fontSize: "0.875rem", color: "#888" }}>
                 ({audioContext.voiceChannel.chunkCount} chunks)
@@ -289,7 +299,9 @@ export function MessageComponent({ message }: MessageComponentProps) {
           // PCM audio content (data-pcm custom event) - Should not appear here
           // (bypassed to AudioWorklet in BIDI mode)
           if (part.type === "data-pcm" && part.data) {
-            console.warn("[MessageComponent] data-pcm in message.parts (should be bypassed to AudioWorklet)");
+            console.warn(
+              "[MessageComponent] data-pcm in message.parts (should be bypassed to AudioWorklet)",
+            );
             return null;
           }
 
@@ -316,8 +328,8 @@ export function MessageComponent({ message }: MessageComponentProps) {
               toolCallId: part.toolCallId,
               toolName: part.type.replace("tool-", ""),
               state: part.state,
-              input: part.input,  // Use 'input' instead of 'args'
-              output: part.output,  // Use 'output' instead of 'result'
+              input: part.input, // Use 'input' instead of 'args'
+              output: part.output, // Use 'output' instead of 'result'
             };
             return (
               <ToolInvocationComponent
@@ -403,16 +415,19 @@ export function MessageComponent({ message }: MessageComponentProps) {
       )}
 
       {/* Tool Invocations Summary (if available) */}
-      {(message as any).toolInvocations && (message as any).toolInvocations.length > 0 && (
-        <div style={{ marginTop: "0.75rem" }}>
-          {(message as any).toolInvocations.map((toolInvocation: any, index: number) => (
-            <ToolInvocationComponent
-              key={index}
-              toolInvocation={toolInvocation}
-            />
-          ))}
-        </div>
-      )}
+      {(message as any).toolInvocations &&
+        (message as any).toolInvocations.length > 0 && (
+          <div style={{ marginTop: "0.75rem" }}>
+            {(message as any).toolInvocations.map(
+              (toolInvocation: any, index: number) => (
+                <ToolInvocationComponent
+                  key={index}
+                  toolInvocation={toolInvocation}
+                />
+              ),
+            )}
+          </div>
+        )}
     </div>
   );
 }

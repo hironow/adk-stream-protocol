@@ -9,9 +9,9 @@
  * https://v6.ai-sdk.dev/docs/ai-sdk-ui/stream-protocol
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { WebSocketChatTransport } from "./websocket-chat-transport";
 import type { UIMessageChunk } from "ai";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { WebSocketChatTransport } from "./websocket-chat-transport";
 
 /**
  * Helper to create mock controller for ReadableStream
@@ -79,8 +79,13 @@ describe("WebSocketChatTransport - SSE Format Parsing", () => {
       },
       {
         name: "reasoning-delta event",
-        input: 'data: {"type":"reasoning-delta","id":"0","delta":"Let me think..."}\n\n',
-        expected: { type: "reasoning-delta", id: "0", delta: "Let me think..." },
+        input:
+          'data: {"type":"reasoning-delta","id":"0","delta":"Let me think..."}\n\n',
+        expected: {
+          type: "reasoning-delta",
+          id: "0",
+          delta: "Let me think...",
+        },
       },
       {
         name: "reasoning-end event",
@@ -104,12 +109,18 @@ describe("WebSocketChatTransport - SSE Format Parsing", () => {
     it.each([
       {
         name: "tool-input-start event (AI SDK v6)",
-        input: 'data: {"type":"tool-input-start","toolCallId":"call_0","toolName":"get_weather"}\n\n',
-        expected: { type: "tool-input-start", toolCallId: "call_0", toolName: "get_weather" },
+        input:
+          'data: {"type":"tool-input-start","toolCallId":"call_0","toolName":"get_weather"}\n\n',
+        expected: {
+          type: "tool-input-start",
+          toolCallId: "call_0",
+          toolName: "get_weather",
+        },
       },
       {
         name: "tool-input-available event (AI SDK v6)",
-        input: 'data: {"type":"tool-input-available","toolCallId":"call_0","toolName":"get_weather","input":{"location":"Tokyo"}}\n\n',
+        input:
+          'data: {"type":"tool-input-available","toolCallId":"call_0","toolName":"get_weather","input":{"location":"Tokyo"}}\n\n',
         expected: {
           type: "tool-input-available",
           toolCallId: "call_0",
@@ -119,7 +130,8 @@ describe("WebSocketChatTransport - SSE Format Parsing", () => {
       },
       {
         name: "tool-output-available event (AI SDK v6)",
-        input: 'data: {"type":"tool-output-available","toolCallId":"call_0","output":{"temperature":20,"condition":"sunny"}}\n\n',
+        input:
+          'data: {"type":"tool-output-available","toolCallId":"call_0","output":{"temperature":20,"condition":"sunny"}}\n\n',
         expected: {
           type: "tool-output-available",
           toolCallId: "call_0",
@@ -128,7 +140,8 @@ describe("WebSocketChatTransport - SSE Format Parsing", () => {
       },
       {
         name: "tool-output-error event (AI SDK v6)",
-        input: 'data: {"type":"tool-output-error","toolCallId":"call_0","errorText":"Failed to fetch weather data"}\n\n',
+        input:
+          'data: {"type":"tool-output-error","toolCallId":"call_0","errorText":"Failed to fetch weather data"}\n\n',
         expected: {
           type: "tool-output-error",
           toolCallId: "call_0",
@@ -169,9 +182,13 @@ describe("WebSocketChatTransport - SSE Format Parsing", () => {
       });
       const localController = createMockController();
 
-      const input = 'data: {"type":"data-pcm","data":{"content":"AAABAAACAAA=","sampleRate":24000,"channels":1,"bitDepth":16}}\n\n';
+      const input =
+        'data: {"type":"data-pcm","data":{"content":"AAABAAACAAA=","sampleRate":24000,"channels":1,"bitDepth":16}}\n\n';
 
-      (transportWithAudio as any).handleWebSocketMessage(input, localController);
+      (transportWithAudio as any).handleWebSocketMessage(
+        input,
+        localController,
+      );
 
       // Should NOT enqueue to useChat
       expect(localController.enqueue).not.toHaveBeenCalled();
@@ -189,7 +206,8 @@ describe("WebSocketChatTransport - SSE Format Parsing", () => {
        * Coverage: Fallback behavior when no AudioContext
        * - data-pcm should be enqueued normally if AudioContext is missing
        */
-      const input = 'data: {"type":"data-pcm","data":{"content":"AAABAAACAAA=","sampleRate":24000,"channels":1,"bitDepth":16}}\n\n';
+      const input =
+        'data: {"type":"data-pcm","data":{"content":"AAABAAACAAA=","sampleRate":24000,"channels":1,"bitDepth":16}}\n\n';
 
       (transport as any).handleWebSocketMessage(input, controller);
 
@@ -210,7 +228,8 @@ describe("WebSocketChatTransport - SSE Format Parsing", () => {
        * Coverage: reviews.md Section 4 - Audio Content
        * - data-audio (custom) - Standard enqueue
        */
-      const input = 'data: {"type":"data-audio","data":{"mediaType":"audio/mp3","content":"base64data"}}\n\n';
+      const input =
+        'data: {"type":"data-audio","data":{"mediaType":"audio/mp3","content":"base64data"}}\n\n';
 
       (transport as any).handleWebSocketMessage(input, controller);
 
@@ -228,7 +247,8 @@ describe("WebSocketChatTransport - SSE Format Parsing", () => {
     it.each([
       {
         name: "file event with data URL (AI SDK v6 standard)",
-        input: 'data: {"type":"file","url":"data:image/png;base64,iVBORw0KGgoAAAA...","mediaType":"image/png"}\n\n',
+        input:
+          'data: {"type":"file","url":"data:image/png;base64,iVBORw0KGgoAAAA...","mediaType":"image/png"}\n\n',
         expected: {
           type: "file",
           url: "data:image/png;base64,iVBORw0KGgoAAAA...",
@@ -237,7 +257,8 @@ describe("WebSocketChatTransport - SSE Format Parsing", () => {
       },
       {
         name: "file event with http URL",
-        input: 'data: {"type":"file","url":"https://example.com/image.jpg","mediaType":"image/jpeg"}\n\n',
+        input:
+          'data: {"type":"file","url":"https://example.com/image.jpg","mediaType":"image/jpeg"}\n\n',
         expected: {
           type: "file",
           url: "https://example.com/image.jpg",
@@ -246,7 +267,8 @@ describe("WebSocketChatTransport - SSE Format Parsing", () => {
       },
       {
         name: "data-image event (legacy custom format)",
-        input: 'data: {"type":"data-image","data":{"mediaType":"image/png","content":"iVBORw0KGgoAAAA..."}}\n\n',
+        input:
+          'data: {"type":"data-image","data":{"mediaType":"image/png","content":"iVBORw0KGgoAAAA..."}}\n\n',
         expected: {
           type: "data-image",
           data: {
@@ -271,7 +293,8 @@ describe("WebSocketChatTransport - SSE Format Parsing", () => {
     it.each([
       {
         name: "data-executable-code event",
-        input: 'data: {"type":"data-executable-code","data":{"language":"python","code":"print(hello)"}}\n\n',
+        input:
+          'data: {"type":"data-executable-code","data":{"language":"python","code":"print(hello)"}}\n\n',
         expected: {
           type: "data-executable-code",
           data: {
@@ -282,7 +305,8 @@ describe("WebSocketChatTransport - SSE Format Parsing", () => {
       },
       {
         name: "data-code-execution-result event",
-        input: 'data: {"type":"data-code-execution-result","data":{"outcome":"OUTCOME_OK","output":"hello"}}\n\n',
+        input:
+          'data: {"type":"data-code-execution-result","data":{"outcome":"OUTCOME_OK","output":"hello"}}\n\n',
         expected: {
           type: "data-code-execution-result",
           data: {
@@ -389,7 +413,8 @@ describe("WebSocketChatTransport - SSE Format Parsing", () => {
        * Coverage: P2-T8 - message-metadata event (Phase 3)
        * - Standalone metadata updates during streaming
        */
-      const input = 'data: {"type":"message-metadata","messageMetadata":{"custom":"value","telemetry":{"latency":150}}}\n\n';
+      const input =
+        'data: {"type":"message-metadata","messageMetadata":{"custom":"value","telemetry":{"latency":150}}}\n\n';
 
       (transport as any).handleWebSocketMessage(input, controller);
 
@@ -477,7 +502,8 @@ describe("WebSocketChatTransport - SSE Format Parsing", () => {
     });
 
     it("should preserve special characters in text content", () => {
-      const input = 'data: {"type":"text-delta","id":"0","delta":"Special: \\"quotes\\", \\n newlines, \\t tabs"}\n\n';
+      const input =
+        'data: {"type":"text-delta","id":"0","delta":"Special: \\"quotes\\", \\n newlines, \\t tabs"}\n\n';
 
       (transport as any).handleWebSocketMessage(input, controller);
 
@@ -575,8 +601,10 @@ describe("WebSocketChatTransport - SSE Format Parsing", () => {
       /**
        * Simulate high-frequency streaming
        */
-      const rapidEvents = Array.from({ length: 100 }, (_, i) =>
-        `data: {"type":"text-delta","id":"0","delta":"chunk${i}"}\n\n`
+      const rapidEvents = Array.from(
+        { length: 100 },
+        (_, i) =>
+          `data: {"type":"text-delta","id":"0","delta":"chunk${i}"}\n\n`,
       );
 
       rapidEvents.forEach((msg) => {
@@ -591,7 +619,9 @@ describe("WebSocketChatTransport - SSE Format Parsing", () => {
       /**
        * Test with large tool call arguments
        */
-      const largeArgs = { data: Array.from({ length: 1000 }, (_, i) => `item${i}`) };
+      const largeArgs = {
+        data: Array.from({ length: 1000 }, (_, i) => `item${i}`),
+      };
       const input = `data: {"type":"tool-call-available","toolCallId":"call_0","toolName":"process","input":${JSON.stringify(largeArgs)}}\n\n`;
 
       (transport as any).handleWebSocketMessage(input, controller);

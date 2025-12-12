@@ -25,7 +25,12 @@
  * https://github.com/vercel/ai/discussions/5607
  */
 
-import type { UIMessageChunk, ChatTransport, ChatRequestOptions, UIMessage } from "ai";
+import type {
+  ChatRequestOptions,
+  ChatTransport,
+  UIMessage,
+  UIMessageChunk,
+} from "ai";
 
 /**
  * AudioContext interface for PCM streaming
@@ -112,7 +117,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
           JSON.stringify({
             type: "ping",
             timestamp: this.lastPingTime,
-          })
+          }),
         );
       }
     }, 2000); // Ping every 2 seconds
@@ -145,12 +150,12 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
    */
   async sendMessages(
     options: {
-      trigger: 'submit-message' | 'regenerate-message';
+      trigger: "submit-message" | "regenerate-message";
       chatId: string;
       messageId: string | undefined;
       messages: UIMessage[];
       abortSignal: AbortSignal | undefined;
-    } & ChatRequestOptions
+    } & ChatRequestOptions,
   ): Promise<ReadableStream<UIMessageChunk>> {
     const { url, timeout } = this.config;
 
@@ -244,7 +249,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
    */
   private handleWebSocketMessage(
     data: string,
-    controller: ReadableStreamDefaultController<UIMessageChunk>
+    controller: ReadableStreamDefaultController<UIMessageChunk>,
   ): void {
     try {
       // Handle ping/pong for latency monitoring (not SSE format)
@@ -266,7 +271,9 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
         const jsonStr = data.substring(6).trim(); // Remove "data: " prefix and trim whitespace
 
         if (jsonStr === "[DONE]") {
-          console.log("[WS Transport] Turn complete, closing stream (WebSocket stays open)");
+          console.log(
+            "[WS Transport] Turn complete, closing stream (WebSocket stays open)",
+          );
 
           // Reset AudioContext for next turn (BIDI mode)
           if (this.config.audioContext) {
@@ -301,11 +308,15 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
         }
 
         // Special handling for finish event with audio: inject recorded audio BEFORE finish
-        if (chunk.type === "finish" && chunk.messageMetadata?.audio && this.pcmBuffer.length > 0) {
+        if (
+          chunk.type === "finish" &&
+          chunk.messageMetadata?.audio &&
+          this.pcmBuffer.length > 0
+        ) {
           try {
             console.log("[Audio Recording] Converting PCM to WAV...");
             const wavDataUri = this.convertPcmToWav();
-            const wavSizeKB = (wavDataUri.length * 0.75 / 1024).toFixed(2);
+            const wavSizeKB = ((wavDataUri.length * 0.75) / 1024).toFixed(2);
             console.log(`[Audio Recording] WAV created: ${wavSizeKB} KB`);
 
             // Enqueue audio file chunk BEFORE finish event
@@ -316,7 +327,10 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
             };
             controller.enqueue(audioChunk);
           } catch (err) {
-            console.error("[Audio Recording] Failed to convert PCM to WAV:", err);
+            console.error(
+              "[Audio Recording] Failed to convert PCM to WAV:",
+              err,
+            );
           }
         }
 
@@ -352,7 +366,10 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
     }
 
     // Calculate total samples
-    const totalSamples = this.pcmBuffer.reduce((sum, chunk) => sum + chunk.length, 0);
+    const totalSamples = this.pcmBuffer.reduce(
+      (sum, chunk) => sum + chunk.length,
+      0,
+    );
 
     // Merge all PCM chunks into single array
     const pcmData = new Int16Array(totalSamples);
@@ -402,7 +419,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
 
     // Convert to base64 data URI
     const bytes = new Uint8Array(wavBuffer);
-    let binary = '';
+    let binary = "";
     for (let i = 0; i < bytes.length; i++) {
       binary += String.fromCharCode(bytes[i]);
     }
@@ -423,7 +440,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
    */
   private handleCustomEventWithSkip(
     chunk: any,
-    _controller: ReadableStreamDefaultController<UIMessageChunk>
+    _controller: ReadableStreamDefaultController<UIMessageChunk>,
   ): boolean {
     // SPECIAL HANDLING: PCM audio chunks (ADK BIDI mode)
     // Following official ADK implementation pattern:
@@ -436,7 +453,9 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
       // Log audio stream start on first chunk
       if (this.audioChunkIndex === 0) {
         console.log("[Audio Stream] Audio streaming started (BIDI mode)");
-        console.log(`[Audio Stream] Sample rate: ${chunk.data.sampleRate}Hz, Channels: ${chunk.data.channels}, Bit depth: ${chunk.data.bitDepth}`);
+        console.log(
+          `[Audio Stream] Sample rate: ${chunk.data.sampleRate}Hz, Channels: ${chunk.data.channels}, Bit depth: ${chunk.data.bitDepth}`,
+        );
 
         // Store audio format for WAV conversion
         this.pcmSampleRate = chunk.data.sampleRate;
@@ -469,7 +488,9 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
 
         // Periodic logging for long streams
         if (this.audioChunkIndex % 50 === 0) {
-          console.log(`[Audio Stream] Streaming... (${this.audioChunkIndex} chunks received)`);
+          console.log(
+            `[Audio Stream] Streaming... (${this.audioChunkIndex} chunks received)`,
+          );
         }
       } catch (err) {
         console.error("[Audio Stream] Error processing PCM chunk:", err);
@@ -516,8 +537,12 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
         console.log("[Audio Stream] Audio streaming completed");
         console.log(`[Audio Stream] Total chunks: ${metadata.audio.chunks}`);
         console.log(`[Audio Stream] Total bytes: ${metadata.audio.bytes}`);
-        console.log(`[Audio Stream] Sample rate: ${metadata.audio.sampleRate}Hz`);
-        console.log(`[Audio Stream] Duration: ${metadata.audio.duration.toFixed(2)}s`);
+        console.log(
+          `[Audio Stream] Sample rate: ${metadata.audio.sampleRate}Hz`,
+        );
+        console.log(
+          `[Audio Stream] Duration: ${metadata.audio.duration.toFixed(2)}s`,
+        );
 
         // Notify AudioContext of audio completion
         if (this.config.audioContext?.voiceChannel?.onComplete) {
@@ -532,12 +557,18 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
 
       // Log grounding sources (RAG, web search)
       if (metadata.grounding?.sources) {
-        console.log(`[Grounding] ${metadata.grounding.sources.length} sources:`, metadata.grounding.sources);
+        console.log(
+          `[Grounding] ${metadata.grounding.sources.length} sources:`,
+          metadata.grounding.sources,
+        );
       }
 
       // Log citations
       if (metadata.citations) {
-        console.log(`[Citations] ${metadata.citations.length} citations:`, metadata.citations);
+        console.log(
+          `[Citations] ${metadata.citations.length} citations:`,
+          metadata.citations,
+        );
       }
 
       // Log cache statistics
@@ -584,7 +615,9 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
    * Reconnect to stream (not supported for WebSocket)
    * WebSocket connections are stateful, reconnection requires new connection.
    */
-  async reconnectToStream(_options: { chatId: string } & ChatRequestOptions): Promise<ReadableStream<UIMessageChunk> | null> {
+  async reconnectToStream(
+    _options: { chatId: string } & ChatRequestOptions,
+  ): Promise<ReadableStream<UIMessageChunk> | null> {
     // WebSocket connections cannot be reconnected to specific streams
     // Client needs to establish new connection
     return null;
