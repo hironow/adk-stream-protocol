@@ -10,16 +10,19 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
 **Phase 2: アーキテクチャ安定化** - 🟡 In Progress
 - [P2-T1] WebSocket Timeout Investigation
 - [P2-T2] WebSocket Bidirectional Communication
+- [P2-T3] Immediate Error Detection (errorCode/errorMessage) - 🔴 High Priority
+- [P2-T4] Field Coverage Testing (Automated CI Checks) - 🔴 High Priority
 
 **Phase 3: 新機能検討（UI設計判断待ち）** - ⏸️ Awaiting Decision
 - [P3-T1] Live API Transcriptions
 - [P3-T2] Grounding & Citation Metadata
 
 **Phase 4: その他** - 🟢 Low Priority
-- [P4-T1] Multimodal Integration Testing
+- [P4-T1] Interruption Signal Support (BIDI UX)
 - [P4-T2] File References Support
 - [P4-T3] Advanced Metadata Features
-- [P4-T4] Documentation Updates
+- [P4-T4] Multimodal Integration Testing
+- [P4-T5] Documentation Updates
 
 ---
 
@@ -139,6 +142,177 @@ this.ws?.send(JSON.stringify(toolResult));
 
 ---
 
+### [P2-T3] Immediate Error Detection (errorCode/errorMessage)
+
+**Issue:** Error detection happens too late in stream processing
+
+**Current Behavior:**
+- `errorCode` and `errorMessage` only checked in `finalize()` method
+- Called at **end of stream** or when exception occurs
+- Mid-stream errors (quota exceeded, model errors) may not be detected immediately
+
+**Problem:**
+```python
+# stream_protocol.py - Current flow
+async def stream_adk_to_ai_sdk():
+    try:
+        async for event in event_stream:
+            async for sse_event in converter.convert_event(event):  # ← errorCode NOT checked here
+                yield sse_event
+    finally:
+        async for final_event in converter.finalize(error=error):  # ← errorCode checked here (too late)
+            yield final_event
+```
+
+**Required Fix:**
+
+Add error detection at the **start** of `convert_event()`:
+
+```python
+# stream_protocol.py:~180 (in convert_event method)
+async def convert_event(self, event: Event) -> AsyncGenerator[str, None]:
+    # Check for errors FIRST (before any other processing)
+    if hasattr(event, "error_code") and event.error_code:
+        error_message = getattr(event, "error_message", "Unknown error")
+        logger.error(f"[ERROR] ADK error detected: {event.error_code} - {error_message}")
+
+        # Send error event immediately
+        yield self._format_sse_event({
+            "type": "error",
+            "error": {
+                "code": event.error_code,
+                "message": error_message
+            }
+        })
+        return  # Stop processing this event
+
+    # ... rest of convert_event processing
+```
+
+**Testing Requirements:**
+- [ ] Test with simulated ADK error event (error_code set)
+- [ ] Verify error event sent immediately (not delayed until finalize)
+- [ ] Verify subsequent events after error are handled correctly
+- [ ] Add unit test: `test_convert_event_with_error_code()`
+
+**Priority:** 🔴 HIGH - Critical for proper error handling
+
+**Impact:** Users will see errors immediately instead of waiting for stream to finish
+
+**Reference:**
+- experiments/2025-12-12_adk_field_mapping_completeness.md - Section "Immediate Actions (Priority 1)"
+- Coverage analysis: errorCode/errorMessage marked as "⚠️ Partial" (only in finalize)
+
+---
+
+### [P2-T4] Field Coverage Testing (Automated CI Checks)
+
+**Issue:** New ADK fields may be added without detection (example: `output_transcription` was discovered by accident)
+
+**Goal:** Automatically detect when ADK SDK adds new fields that we're not handling
+
+**Implementation:** Create `tests/unit/test_field_coverage.py`
+
+**Test Strategy:**
+
+```python
+"""
+Test to ensure all ADK Event/Part fields are accounted for.
+This test should FAIL when ADK SDK adds new fields.
+"""
+import inspect
+from google.adk.events import Event
+from google.genai import types
+
+# Known fields we handle (update when implementing new fields)
+IMPLEMENTED_EVENT_FIELDS = {
+    "content", "turnComplete", "usageMetadata", "finishReason",
+    "outputTranscription",
+}
+
+# Fields we know about but haven't implemented yet (with justification)
+DOCUMENTED_EVENT_FIELDS = {
+    "errorCode": "TODO: Add immediate detection in convert_event()",
+    "errorMessage": "TODO: Add immediate detection in convert_event()",
+    "inputTranscription": "Low priority: Client already has user input",
+    "groundingMetadata": "Awaiting UI design decision",
+    "citationMetadata": "Awaiting UI design decision",
+    "interrupted": "Medium priority: BIDI UX feature",
+    # ... complete list with justifications
+}
+
+# Internal/metadata fields (low priority, document why skipped)
+METADATA_FIELDS = {
+    "author", "id", "timestamp", "invocationId", "branch",
+    "actions", "longRunningToolIds", "partial", "modelVersion",
+    "avgLogprobs", "logprobsResult", "cacheMetadata",
+    "liveSessionResumptionUpdate", "customMetadata"
+}
+
+def test_event_field_coverage():
+    """Verify all Event fields are either implemented or documented as TODO."""
+    event_sig = inspect.signature(Event)
+    all_fields = set(event_sig.parameters.keys())
+
+    known_fields = IMPLEMENTED_EVENT_FIELDS | set(DOCUMENTED_EVENT_FIELDS.keys()) | METADATA_FIELDS
+    unknown_fields = all_fields - known_fields
+
+    assert not unknown_fields, (
+        f"🚨 New ADK Event fields detected: {unknown_fields}\n"
+        f"Action required:\n"
+        f"1. Review new fields in ADK SDK documentation\n"
+        f"2. Decide: Implement now, document as TODO, or mark as metadata\n"
+        f"3. Update IMPLEMENTED_EVENT_FIELDS, DOCUMENTED_EVENT_FIELDS, or METADATA_FIELDS\n"
+        f"4. Update experiments/2025-12-12_adk_field_mapping_completeness.md\n"
+    )
+
+def test_part_field_coverage():
+    """Verify all Part fields are accounted for."""
+    # Similar pattern for Part fields
+    part_sig = inspect.signature(types.Part)
+    all_fields = set(part_sig.parameters.keys())
+
+    # ... similar logic for Part fields
+```
+
+**CI Integration:**
+
+Add to `.github/workflows/test.yaml` (or equivalent):
+```yaml
+- name: Check ADK field coverage
+  run: |
+    uv run pytest tests/unit/test_field_coverage.py -v
+```
+
+**Maintenance Workflow:**
+
+When test fails (ADK SDK updated):
+1. ✅ CI fails with "New ADK fields detected" message
+2. 🔍 Review new fields in ADK documentation
+3. 📊 Update coverage analysis in experiments/2025-12-12_adk_field_mapping_completeness.md
+4. 💬 Discuss AI SDK v6 mapping strategy
+5. ✅ Implement high-priority fields OR
+6. 📝 Document as TODO with justification
+7. ✅ Update test field lists
+8. ✅ CI passes again
+
+**Testing Requirements:**
+- [ ] Test passes with current ADK SDK version
+- [ ] Test fails when unknown field added (simulate by removing field from known list)
+- [ ] Error message is clear and actionable
+- [ ] Similar test for Part fields
+- [ ] CI integration working
+
+**Priority:** 🔴 HIGH - Prevents missing fields in future updates
+
+**Impact:** Proactive detection of new ADK features instead of accidental discovery
+
+**Reference:**
+- experiments/2025-12-12_adk_field_mapping_completeness.md - Section "Automated Completeness Checking"
+- scripts/check-adk-coverage-from-code.py - Current coverage detection (32.4%)
+
+---
+
 ## ✅ Completed Tasks (Phase 1)
 
 #### Task 4.4: Improve Type Safety with Real ADK Types
@@ -227,19 +401,42 @@ this.ws?.send(JSON.stringify(toolResult));
 
 ### [P3-T1] Live API Transcriptions Support
 
-**ADK Fields**: `Event.input_transcription`, `Event.output_transcription`
+**ADK Fields**:
+- ✅ `Event.output_transcription` - **IMPLEMENTED** (2025-12-12)
+- ❌ `Event.input_transcription` - Not implemented
 
-**Use Case**: Display real-time speech-to-text during voice conversations
+**Status:** Partially complete
 
-**Proposal**: Use custom `data-*` events
-- `data-input-transcription` - User speech → text
-- `data-output-transcription` - Model speech → text
+**Completed:**
+- ✅ `output_transcription` → `text-start/delta/end` events
+- ✅ Native-audio model audio responses are transcribed to text
+- ✅ UI displays transcribed text (no longer stuck on "Thinking...")
+- ✅ Tests: `test_output_transcription_real_response.py` (4 tests passing)
 
-**Challenge**: Need UI design decision for transcription display
+**Remaining Work:**
 
-**Priority:** 🟡 MEDIUM - Requires UI design decision
+**1. Input Transcription (`Event.input_transcription`)**
 
-**Reference:** IMPLEMENTATION.md - Section "1. Live API Transcriptions"
+**Use Case**: Display user's speech as text (accessibility, confirmation)
+
+**Proposal Options:**
+- **Option A**: Custom event `input-transcription-delta` (clear separation)
+- **Option B**: `message-annotations` (AI SDK v6 standard)
+- **Option C**: Don't implement (client already has user input)
+
+**Decision Needed**: Which option to implement? (Leaning toward Option C)
+
+**2. UI Design for Input Transcription Display**
+- Where to show user's speech transcription?
+- Real-time updates vs final transcription?
+- Accessibility features integration?
+
+**Priority:** 🟢 LOW - output_transcription (critical) is done, input_transcription (nice-to-have) deferred
+
+**Reference:**
+- IMPLEMENTATION.md - Section "1. Live API Transcriptions"
+- experiments/2025-12-12_adk_bidi_message_history_and_function_calling.md - Section "RESOLUTION: output_transcription Support Implemented"
+- experiments/2025-12-12_adk_field_mapping_completeness.md - inputTranscription marked as "Low priority"
 
 ---
 
@@ -260,6 +457,55 @@ this.ws?.send(JSON.stringify(toolResult));
 ---
 
 ## Phase 4: その他
+
+### [P4-T1] Interruption Signal Support (BIDI UX)
+
+**ADK Field**: `Event.interrupted`
+
+**Use Case**: Handle user interruptions during assistant speech in BIDI mode
+
+**Scenario**:
+1. User asks question
+2. Assistant starts speaking (audio response streaming)
+3. User interrupts mid-sentence with new question
+4. System should:
+   - Stop current response
+   - Signal UI that response was interrupted
+   - Start processing new question
+
+**Current Behavior**: Unknown if ADK sends `interrupted` events
+
+**Proposal**: Map to AI SDK v6 event
+- **Option A**: Custom event `{ type: "interrupted" }`
+- **Option B**: Extend finish event: `{ type: "finish", finishReason: "interrupted" }`
+- **Recommendation**: Option B (uses existing finish event with new reason)
+
+**Implementation:**
+
+```python
+# stream_protocol.py:~180 (in convert_event)
+if hasattr(event, "interrupted") and event.interrupted:
+    logger.info("[INTERRUPTED] User interrupted assistant response")
+    # Could send finish event with special reason
+    yield self._format_sse_event({
+        "type": "finish",
+        "finishReason": "interrupted",  # Custom reason
+        "messageMetadata": {...}
+    })
+    return
+```
+
+**Testing Requirements:**
+- [ ] Test with real ADK BIDI mode interruption
+- [ ] Verify UI handles interrupted state
+- [ ] Verify new message starts cleanly after interruption
+
+**Priority:** 🟡 MEDIUM - BIDI UX improvement (not critical)
+
+**Reference:**
+- experiments/2025-12-12_adk_field_mapping_completeness.md - interrupted marked as "Medium priority: BIDI UX feature"
+
+---
 
 ### [P4-T2] File References Support
 
@@ -293,7 +539,7 @@ this.ws?.send(JSON.stringify(toolResult));
 
 ---
 
-### [P4-T1] Multimodal Integration Testing
+### [P4-T4] Multimodal Integration Testing
 
 **Prerequisites:**
 - Server and frontend must be running
@@ -342,7 +588,7 @@ this.ws?.send(JSON.stringify(toolResult));
 
 ---
 
-### [P4-T4] Documentation Updates
+### [P4-T5] Documentation Updates
 
 **Pending integration testing completion**
 

@@ -24,7 +24,7 @@ dev:
 
 # Run linting for Python
 lint-python:
-    uv run ruff check .
+    uv run ruff check --fix .
 
 # Format Python code
 fmt-python:
@@ -80,6 +80,18 @@ lint-frontend:
 
 # Run all checks
 check: check-python lint-frontend
+
+# Check coverage (unified command - shows both ADK and AI SDK coverage)
+check-coverage:
+    uv run python scripts/check-coverage.py
+
+# Check coverage with detailed report (shows implemented fields)
+check-coverage-verbose:
+    uv run python scripts/check-coverage.py --verbose
+
+# Extract all type definitions (both ADK and AI SDK)
+extract-all-types:
+    uv run python scripts/check-coverage.py --extract-only all
 
 # Clean up generated files
 clean:
