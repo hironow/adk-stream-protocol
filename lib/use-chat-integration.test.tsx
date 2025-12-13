@@ -846,12 +846,6 @@ describe("useChat Integration", () => {
       expect(result.current.messages).toEqual([]);
       expect(options.transport).toBeUndefined(); // SSE mode has no transport reference
     });
-
-    // TODO: Add integration test for Step 1-2 (user message → fetch)
-    // Blocked by: Same as ADK BIDI - need to understand useChat API
-
-    // TODO: Add integration test for Step 6-8 (tool approval → fetch)
-    // Blocked by: Same as ADK BIDI - need approval flow setup
   });
 
   describe("Gemini Direct Mode with useChat", () => {

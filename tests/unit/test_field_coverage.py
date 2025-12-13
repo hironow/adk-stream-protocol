@@ -24,10 +24,15 @@ from google.genai import types
 
 # Fields we actively process in stream_protocol.py
 IMPLEMENTED_EVENT_FIELDS = {
+    "cacheMetadata",  # Context cache stats - implemented 2025-12-13
+    "citationMetadata",  # Citation info for RAG - implemented 2025-12-13
     "content",  # Core message content (text, tools, code, etc.)
     "errorCode",  # Error detection (immediate) - implemented 2025-12-12
     "errorMessage",  # Error details (immediate) - implemented 2025-12-12
     "finishReason",  # Why generation stopped
+    "groundingMetadata",  # Grounding sources for RAG - implemented 2025-12-13
+    "inputTranscription",  # User audio transcription - implemented 2025-12-13
+    "modelVersion",  # Model version info - implemented 2025-12-13
     "outputTranscription",  # Native-audio transcription - implemented 2025-12-12
     "turnComplete",  # Signals end of turn
     "usageMetadata",  # Token usage stats
@@ -35,9 +40,6 @@ IMPLEMENTED_EVENT_FIELDS = {
 
 # Fields we know about but haven't implemented yet (with justification)
 DOCUMENTED_EVENT_FIELDS = {
-    "citationMetadata": "Awaiting UI design decision for RAG sources display",
-    "groundingMetadata": "Awaiting UI design decision for RAG sources display",
-    "inputTranscription": "Low priority: Client already has user input",
     "interrupted": "Medium priority: BIDI UX feature for user interruption",
 }
 
@@ -47,7 +49,6 @@ METADATA_EVENT_FIELDS = {
     "author": "Message author metadata (not displayed)",
     "avgLogprobs": "Advanced feature: average log probabilities",
     "branch": "ADK conversation branching (not in AI SDK v6)",
-    "cacheMetadata": "Performance optimization metadata",
     "customMetadata": "User-defined metadata",
     "id": "Event ID (internal)",
     "interactionId": "Interactions API state management ID (added in ADK 1.21.0)",
@@ -55,7 +56,6 @@ METADATA_EVENT_FIELDS = {
     "liveSessionResumptionUpdate": "Live session state sync",
     "logprobsResult": "Advanced feature: token log probabilities",
     "longRunningToolIds": "ADK long-running tool tracking",
-    "modelVersion": "Model version info (logged but not forwarded)",
     "partial": "Partial event flag (internal)",
     "timestamp": "Event timestamp (internal)",
 }

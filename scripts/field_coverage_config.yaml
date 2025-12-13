@@ -1,0 +1,384 @@
+# ADK Field Coverage Configuration
+#
+# This file tracks the implementation status of ADK Event and Part fields
+# in the AI SDK v6 Data Stream Protocol implementation.
+#
+# Status values:
+#   IMPLEMENTED  - Field is fully implemented and tested
+#   DOCUMENTED   - Field is documented but implementation deferred (awaiting design decision)
+#   DEFERRED     - Field is low priority and deferred to future work
+#   NOT_STARTED  - Field is planned but not yet implemented
+#
+# Priority values:
+#   CRITICAL - Must be implemented for core functionality
+#   HIGH     - Important for user experience
+#   MEDIUM   - Nice to have, moderate impact
+#   LOW      - Low priority, minor impact
+#
+# Location format: "file:line" or "file:line-line" or null if not implemented
+
+version: "1.0"
+last_updated: "2025-12-13"
+
+event_fields:
+  # === CRITICAL Priority Fields (Core Functionality) ===
+
+  content:
+    status: IMPLEMENTED
+    priority: CRITICAL
+    location: "stream_protocol.py:main entry point"
+    ai_sdk_mapping: "Multiple events (text-*, tool-*, etc.)"
+    notes: "Main content processing - entry point for all content events"
+
+  errorCode:
+    status: IMPLEMENTED
+    priority: CRITICAL
+    location: "stream_protocol.py:181-187"
+    ai_sdk_mapping: "error event (immediate detection)"
+    notes: "Error signaling - detects ADK errors immediately"
+
+  errorMessage:
+    status: IMPLEMENTED
+    priority: CRITICAL
+    location: "stream_protocol.py:181-187"
+    ai_sdk_mapping: "error event (immediate detection)"
+    notes: "Error details - provides error message to user"
+
+  finishReason:
+    status: IMPLEMENTED
+    priority: CRITICAL
+    location: "stream_protocol.py:reason_map, finish event"
+    ai_sdk_mapping: "finish event finishReason field"
+    notes: "Finish reason mapping via reason_map (ADK → AI SDK)"
+
+  # === HIGH Priority Fields (Important for UX) ===
+
+  usageMetadata:
+    status: IMPLEMENTED
+    priority: HIGH
+    location: "stream_protocol.py:finish event"
+    ai_sdk_mapping: "finish event usage field"
+    notes: "Token usage information"
+
+  outputTranscription:
+    status: IMPLEMENTED
+    priority: HIGH
+    location: "stream_protocol.py:audio output handling"
+    ai_sdk_mapping: "text-start/text-delta/text-end events"
+    notes: "Audio output transcription (TEXT modality in AUDIO mode)"
+
+  turnComplete:
+    status: IMPLEMENTED
+    priority: HIGH
+    location: "stream_protocol.py:turn completion detection"
+    ai_sdk_mapping: "finish event (triggers turn completion)"
+    notes: "Turn completion signal"
+
+  # === MEDIUM Priority Fields (Nice to Have) ===
+
+  inputTranscription:
+    status: IMPLEMENTED
+    priority: MEDIUM
+    location: "stream_protocol.py:308-337"
+    ai_sdk_mapping: "text-start/text-delta/text-end events"
+    notes: "User audio transcription - converts ADK inputTranscription to text streaming events"
+    experiment: "experiments/2025-12-12_adk_field_mapping_completeness.md"
+
+  groundingMetadata:
+    status: IMPLEMENTED
+    priority: MEDIUM
+    location: "stream_protocol.py:744-760"
+    ai_sdk_mapping: "finish.messageMetadata.grounding"
+    notes: "RAG grounding sources/attributions - formatted as {type, uri, title}"
+    experiment: "experiments/2025-12-12_adk_field_mapping_completeness.md"
+
+  citationMetadata:
+    status: IMPLEMENTED
+    priority: MEDIUM
+    location: "stream_protocol.py:763-778"
+    ai_sdk_mapping: "finish.messageMetadata.citations"
+    notes: "Citation information - formatted as {startIndex, endIndex, uri}"
+    experiment: "experiments/2025-12-12_adk_field_mapping_completeness.md"
+
+  cacheMetadata:
+    status: IMPLEMENTED
+    priority: LOW
+    location: "stream_protocol.py:781-790"
+    ai_sdk_mapping: "finish.messageMetadata.cache"
+    notes: "Context caching info - processed and sent to frontend (displayed at components/message.tsx:507-531)"
+    experiment: "experiments/2025-12-12_adk_field_mapping_completeness.md"
+
+  modelVersion:
+    status: IMPLEMENTED
+    priority: LOW
+    location: "stream_protocol.py:793-795"
+    ai_sdk_mapping: "finish.messageMetadata.modelVersion"
+    notes: "Model version info - processed and sent to frontend (displayed at components/message.tsx:533-551)"
+    experiment: "experiments/2025-12-12_adk_field_mapping_completeness.md"
+
+  # === LOW Priority Fields (Deferred to Phase 4) ===
+
+  interrupted:
+    status: DEFERRED
+    priority: LOW
+    location: null
+    ai_sdk_mapping: "TBD (UI feedback event)"
+    notes: "P4-T1: Interruption signal support - BIDI UX improvement"
+    task: "agents/tasks.md [P4-T1]"
+
+  logprobsResult:
+    status: DEFERRED
+    priority: LOW
+    location: null
+    ai_sdk_mapping: "TBD"
+    notes: "P4-T3: Token log probabilities - Advanced metadata feature"
+    task: "agents/tasks.md [P4-T3]"
+
+  avgLogprobs:
+    status: DEFERRED
+    priority: LOW
+    location: null
+    ai_sdk_mapping: "TBD"
+    notes: "P4-T3: Average log probabilities - Advanced metadata feature"
+    task: "agents/tasks.md [P4-T3]"
+
+  liveSessionResumptionUpdate:
+    status: DEFERRED
+    priority: LOW
+    location: null
+    ai_sdk_mapping: "TBD"
+    notes: "P4-T3: Session resumption state - Advanced metadata feature"
+    task: "agents/tasks.md [P4-T3]"
+
+  customMetadata:
+    status: DEFERRED
+    priority: LOW
+    location: null
+    ai_sdk_mapping: "TBD"
+    notes: "P4-T3: User-defined metadata - Advanced metadata feature"
+    task: "agents/tasks.md [P4-T3]"
+
+  partial:
+    status: DEFERRED
+    priority: LOW
+    location: null
+    ai_sdk_mapping: "TBD"
+    notes: "P4-T3: Partial response flag - Advanced metadata feature"
+    task: "agents/tasks.md [P4-T3]"
+
+  # === Internal/Debug Fields (Low Priority - Not Implemented) ===
+
+  actions:
+    status: DEFERRED
+    priority: LOW
+    location: null
+    ai_sdk_mapping: "N/A"
+    notes: "Internal ADK field - EventActions object"
+
+  author:
+    status: DEFERRED
+    priority: LOW
+    location: null
+    ai_sdk_mapping: "N/A"
+    notes: "Internal ADK field - Author identifier"
+
+  branch:
+    status: DEFERRED
+    priority: LOW
+    location: null
+    ai_sdk_mapping: "N/A"
+    notes: "Internal ADK field - Branch identifier"
+
+  id:
+    status: DEFERRED
+    priority: LOW
+    location: null
+    ai_sdk_mapping: "N/A"
+    notes: "Internal ADK field - Event ID"
+
+  interactionId:
+    status: DEFERRED
+    priority: LOW
+    location: null
+    ai_sdk_mapping: "N/A"
+    notes: "Internal ADK field - Interaction identifier"
+
+  invocationId:
+    status: DEFERRED
+    priority: LOW
+    location: null
+    ai_sdk_mapping: "N/A"
+    notes: "Internal ADK field - Invocation identifier"
+
+  longRunningToolIds:
+    status: DEFERRED
+    priority: LOW
+    location: null
+    ai_sdk_mapping: "N/A"
+    notes: "Internal ADK field - Long-running tool IDs"
+
+  timestamp:
+    status: DEFERRED
+    priority: LOW
+    location: null
+    ai_sdk_mapping: "N/A"
+    notes: "Internal ADK field - Event timestamp"
+
+part_fields:
+  # === CRITICAL Priority Fields (Core Content) ===
+
+  text:
+    status: IMPLEMENTED
+    priority: CRITICAL
+    location: "stream_protocol.py:264-266, 430+"
+    ai_sdk_mapping: "text-start/text-delta/text-end events"
+    notes: "Text content - primary content type (processed via _process_text_part)"
+
+  # === HIGH Priority Fields (Multimodal) ===
+
+  inlineData:
+    status: IMPLEMENTED
+    priority: HIGH
+    location: "stream_protocol.py:288-294, 580+"
+    ai_sdk_mapping: "file event with data URLs"
+    notes: "Images → data URLs (image/png, image/jpeg, etc.) (processed via _process_inline_data_part)"
+    experiment: "experiments/2025-12-11_adk_bidi_multimodal_support.md"
+
+  functionCall:
+    status: IMPLEMENTED
+    priority: HIGH
+    location: "stream_protocol.py:269-271, 438+"
+    ai_sdk_mapping: "tool-call-start/tool-call-delta events"
+    notes: "Tool call requests (processed via _process_function_call)"
+
+  functionResponse:
+    status: IMPLEMENTED
+    priority: HIGH
+    location: "stream_protocol.py:274-276, 502+"
+    ai_sdk_mapping: "tool-result event"
+    notes: "Tool call responses (processed via _process_function_response)"
+
+  executableCode:
+    status: IMPLEMENTED
+    priority: MEDIUM
+    location: "stream_protocol.py:279-281, 560+"
+    ai_sdk_mapping: "code-start/code-delta events"
+    notes: "Code execution content (processed via _process_executable_code)"
+
+  codeExecutionResult:
+    status: IMPLEMENTED
+    priority: MEDIUM
+    location: "stream_protocol.py:283-285, 570+"
+    ai_sdk_mapping: "code-result event (custom extension)"
+    notes: "Code execution results (processed via _process_code_result)"
+
+  thought:
+    status: IMPLEMENTED
+    priority: MEDIUM
+    location: "stream_protocol.py:255-262, 434+"
+    ai_sdk_mapping: "thought-start/thought-delta events"
+    notes: "Thinking/reasoning content - Gemini 2.0 feature (detected and processed via _process_thought_part)"
+
+  # === MEDIUM Priority Fields (Planned) ===
+
+  fileData:
+    status: NOT_STARTED
+    priority: MEDIUM
+    location: null
+    ai_sdk_mapping: "TBD (file event vs source-document)"
+    notes: "P4-T2: File references beyond images (PDF, DOCX, etc.)"
+    task: "agents/tasks.md [P4-T2]"
+    experiment: "experiments/2025-12-12_adk_field_mapping_completeness.md"
+
+  # === Internal/Debug Fields (Low Priority - Not Implemented) ===
+
+  mediaResolution:
+    status: DEFERRED
+    priority: LOW
+    location: null
+    ai_sdk_mapping: "N/A"
+    notes: "Internal ADK field - Media resolution metadata"
+
+  thoughtSignature:
+    status: DEFERRED
+    priority: LOW
+    location: null
+    ai_sdk_mapping: "N/A"
+    notes: "Internal ADK field - Thought signature/ID"
+
+  value:
+    status: DEFERRED
+    priority: LOW
+    location: null
+    ai_sdk_mapping: "N/A"
+    notes: "Internal ADK field - Generic value field"
+
+  videoMetadata:
+    status: DEFERRED
+    priority: LOW
+    location: null
+    ai_sdk_mapping: "N/A"
+    notes: "Internal ADK field - Video metadata (Phase 4: Future)"
+
+# AI SDK v6 Event Types Coverage
+# (This section documents which AI SDK events we generate/consume)
+ai_sdk_event_types:
+  # Backend generates (stream_protocol.py)
+  backend_generated:
+    - "text-start"
+    - "text-delta"
+    - "text-end"
+    - "tool-call-start"
+    - "tool-call-delta"
+    - "tool-result"
+    - "code-start"
+    - "code-delta"
+    - "code-result"  # Custom extension
+    - "file"
+    - "finish"
+    - "error"
+    - "message-start"
+
+  # Frontend consumes (lib/websocket-chat-transport.ts)
+  frontend_consumed:
+    - "text-start"
+    - "text-delta"
+    - "text-end"
+    - "tool-call-start"
+    - "tool-call-delta"
+    - "tool-result"
+    - "code-start"
+    - "code-delta"
+    - "code-result"
+    - "file"
+    - "finish"
+    - "error"
+    - "message-start"
+    - "audio-start"  # BIDI mode only
+    - "audio-delta"  # BIDI mode only
+    - "audio-end"    # BIDI mode only
+
+  # Custom extensions (not in AI SDK spec)
+  custom_extensions:
+    - "audio-start"
+    - "audio-delta"
+    - "audio-end"
+    - "code-result"
+
+# FinishReason Mapping Coverage
+finish_reason_mapping:
+  # ADK → AI SDK v6 mappings (stream_protocol.py:reason_map)
+  mapped:
+    STOP: "stop"
+    MAX_TOKENS: "length"
+    SAFETY: "content-filter"
+    RECITATION: "content-filter"
+    OTHER: "other"
+    BLOCKLIST: "content-filter"
+    PROHIBITED_CONTENT: "content-filter"
+    SPII: "content-filter"
+    MALFORMED_FUNCTION_CALL: "error"
+
+  # AI SDK v6 finish reasons not yet produced
+  unmapped_targets:
+    - "tool-calls"  # Note: We generate tool events, but finish reason might differ

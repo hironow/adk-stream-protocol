@@ -96,10 +96,20 @@ check: check-python lint-frontend
 # Check coverage (unified command - shows both ADK and AI SDK coverage)
 check-coverage:
     uv run python scripts/check-coverage.py
+    @echo ""
+    @echo "💡 For detailed report with field locations, run:"
+    @echo "   uv run python scripts/check-coverage.py --verbose"
 
-# Check coverage with detailed report (shows implemented fields)
-check-coverage-verbose:
-    uv run python scripts/check-coverage.py --verbose
+# Validate field_coverage_config.yaml against actual implementation (CI/CD ready)
+check-coverage-validate:
+    uv run python scripts/check-coverage.py --validate
+
+# Check coverage with config-based priority grouping
+check-coverage-config:
+    uv run python scripts/check-coverage.py --use-config
+    @echo ""
+    @echo "💡 For detailed report with field locations, run:"
+    @echo "   uv run python scripts/check-coverage.py --use-config --verbose"
 
 # Extract all type definitions (both ADK and AI SDK)
 extract-all-types:

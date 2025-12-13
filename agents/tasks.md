@@ -10,6 +10,27 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
 
 ---
 
+## 📊 Priority Tiers Summary
+
+**Tier 1 - Immediate (Complete Today):**
+- [P4-T4.2] Field Coverage Test Updates (~30min)
+- [P4-T4.3] Integration Test TODO Comments (~15min)
+
+**Tier 2 - High Priority (1-2 weeks):**
+- [P4-T5] Documentation Updates (2-3 hours)
+- [P4-T4.1] ADK Response Fixture Files (3-4 hours)
+- [P4-T4.4] Systematic Model/Mode Testing (4-6 hours)
+
+**Tier 3 - Planned (When use case emerges):**
+- [P4-T2] File References Support
+
+**Tier 4-5 - Deferred:**
+- [P4-T1] Interruption Signal Support
+- [P4-T3] Advanced Metadata Features
+- [P4-T6.1] Review Skipped Tests
+
+---
+
 ## Phase 4: Low Priority Tasks
 
 ### [P4-T1] Interruption Signal Support (BIDI UX)
@@ -18,7 +39,7 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
 
 **Status:** Not Started
 
-**Priority:** Low
+**Priority:** Low (Tier 4 - Deferred)
 
 **Related Experiments:** None
 
@@ -35,7 +56,7 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
 
 **Status:** Not Started
 
-**Priority:** Medium
+**Priority:** Medium (Tier 3 - Planned, when use case emerges)
 
 **Related Experiments:**
 - `experiments/2025-12-12_adk_field_mapping_completeness.md`
@@ -63,7 +84,7 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
 
 **Status:** Not Started
 
-**Priority:** Low
+**Priority:** Low (Tier 5 - Deferred)
 
 **Related Experiments:**
 - `experiments/2025-12-12_adk_field_mapping_completeness.md`
@@ -86,7 +107,7 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
 
 **Status:** Partial
 
-**Priority:** Medium
+**Priority:** Mixed (T4.2/T4.3: Tier 1 Immediate, T4.1/T4.4: Tier 2 High Priority)
 
 **Related Experiments:**
 - `experiments/2025-12-13_lib_test_coverage_investigation.md`
@@ -94,7 +115,7 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
 
 **Tasks:**
 
-**T4.1: ADK Response Fixture Files**
+**T4.1: ADK Response Fixture Files** (Tier 2 - High Priority, 3-4 hours)
 - Create `tests/fixtures/adk_events/` directory
 - Capture real ADK responses for different modes:
   - TEXT mode responses
@@ -102,19 +123,19 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
   - Different models (gemini-2.0-flash-exp, etc.)
 - Document expected event sequences
 
-**T4.2: Field Coverage Test Updates**
+**T4.2: Field Coverage Test Updates** (Tier 1 - IMMEDIATE, ~30min)
 - Update `tests/unit/test_field_coverage.py` with newly implemented fields:
   - Mark inputTranscription, groundingMetadata, citationMetadata as IMPLEMENTED
   - Mark errorCode, errorMessage, cacheMetadata, modelVersion as IMPLEMENTED
 - Ensure test fails when new ADK fields are added
 
-**T4.3: Integration Test TODO Comments**
+**T4.3: Integration Test TODO Comments** (Tier 1 - IMMEDIATE, ~15min)
 - Update `lib/use-chat-integration.test.tsx:850, 853`
 - Current TODOs reference Step 1-2 and Step 6-8
 - Actual tests already exist at lines 139-183 and 185-265
 - Action: Remove outdated TODOs or update with specific missing scenarios
 
-**T4.4: Systematic Model/Mode Testing**
+**T4.4: Systematic Model/Mode Testing** (Tier 2 - High Priority, 4-6 hours)
 - Test each ADK model/mode combination:
   - TEXT vs AUDIO modality
   - Different model versions
@@ -129,7 +150,7 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
 
 **Status:** Not Started
 
-**Priority:** Low
+**Priority:** Medium (Tier 2 - High Priority, 2-3 hours)
 
 **Related Experiments:**
 - `experiments/2025-12-11_adk_bidi_multimodal_support.md`
@@ -156,7 +177,7 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
 
 **Status:** Optional
 
-**Priority:** Low
+**Priority:** Low (Tier 5 - Deferred, T6.2 merged into T4.3)
 
 **Related Experiments:**
 - `experiments/2025-12-13_lib_test_coverage_investigation.md`
