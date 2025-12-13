@@ -2,6 +2,7 @@ import type { UIMessage } from "@ai-sdk/react";
 import {
   DefaultChatTransport,
   lastAssistantMessageIsCompleteWithApprovalResponses,
+  type PrepareSendMessagesRequest,
 } from "ai";
 import { WebSocketChatTransport } from "@/lib/websocket-chat-transport";
 
@@ -141,9 +142,9 @@ function buildUseChatOptionsInternal({
 
   // WORKAROUND: Use prepareSendMessagesRequest to override endpoint
   // This is the proper extension point in AI SDK v6 for dynamic endpoint routing
-  const prepareSendMessagesRequest = async (
-    options: Record<string, unknown>,
-  ) => {
+  const prepareSendMessagesRequest: PrepareSendMessagesRequest<
+    UIMessage
+  > = async (options) => {
     // IMPORTANT: Don't return `body` field - let AI SDK construct it
     // If we return body: {}, AI SDK will use that empty object instead of building the proper request
     const { body: _body, ...restOptions } = options;
