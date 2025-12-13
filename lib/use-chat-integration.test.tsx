@@ -449,6 +449,134 @@ describe("useChat Integration", () => {
       // - Result: Automatic resubmission triggered
     }, 10000); // Increased timeout for WebSocket connection
 
+    it("should verify tool rejection (approved: false) triggers auto-submit with error output (ADK BIDI)", async () => {
+      // Given: ADK BIDI mode with tool waiting for approval
+      const initialMessages: UIMessage[] = [
+        {
+          id: "msg-1",
+          role: "user" as const,
+          parts: [
+            {
+              type: "text" as const,
+              text: "Change BGM to lofi",
+            },
+          ],
+        },
+        {
+          id: "msg-2",
+          role: "assistant" as const,
+          parts: [
+            {
+              type: "tool-change_bgm" as const,
+              toolCallId: "call-1",
+              toolName: "change_bgm",
+              args: { track_name: "lofi" },
+              state: "approval-requested" as const,
+              approval: {
+                id: "approval-1",
+                approved: undefined,
+                reason: undefined,
+              },
+            },
+          ],
+        },
+      ];
+
+      const options = buildUseChatOptions({
+        mode: "adk-bidi",
+        initialMessages,
+        adkBackendUrl: "http://localhost:8000",
+      });
+
+      const transport = options.transport!;
+      const sendMessagesSpy = vi.spyOn(transport, 'sendMessages');
+
+      // When: Using with useChat and rejecting the tool
+      const { result } = renderHook(() => useChat(options.useChatOptions));
+
+      // Step 1: User rejects tool
+      await act(async () => {
+        result.current.addToolApprovalResponse({
+          id: "approval-1",
+          approved: false,
+          reason: "User denied permission",
+        });
+      });
+
+      // ✅ IMPORTANT DISCOVERY: Auto-submit happens IMMEDIATELY after rejection!
+      // Reason: approval-responded (even with approved=false) satisfies both conditions:
+      //   - Condition 1: Has approval-responded ✅
+      //   - Condition 2: All tools complete (approval-responded is a complete state) ✅
+      await vi.waitFor(() => {
+        expect(sendMessagesSpy).toHaveBeenCalledTimes(1);
+      });
+
+      // Verify the first call (after rejection, before addToolOutput)
+      const firstCall = sendMessagesSpy.mock.calls[0];
+      const firstMessage = firstCall[0].messages[firstCall[0].messages.length - 1];
+      const firstToolPart = firstMessage.parts.find((p: any) => p.toolCallId === "call-1");
+
+      expect(firstToolPart).toBeDefined();
+      expect(firstToolPart).toMatchObject({
+        type: "tool-change_bgm",
+        toolCallId: "call-1",
+        state: "approval-responded",
+        approval: {
+          id: "approval-1",
+          approved: false,
+          reason: "User denied permission",
+        },
+      });
+
+      // Step 2: Optionally provide error output (simulating frontend's handleRejectTool behavior)
+      // Note: This is optional because auto-submit already happened
+      await act(async () => {
+        result.current.addToolOutput({
+          toolCallId: "call-1",
+          tool: "change_bgm",
+          state: "output-available",
+          output: {
+            success: false,
+            error: "User denied permission",
+            denied: true,
+          },
+        });
+      });
+
+      // Wait a bit to confirm no second auto-submit
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // ✅ CRITICAL DISCOVERY: addToolOutput does NOT trigger second auto-submit
+      // Reason: sendAutomaticallyWhen was already satisfied after Step 1
+      //   - status is now "submitted" (from first auto-submit)
+      //   - status guard prevents duplicate submission
+      expect(sendMessagesSpy).toHaveBeenCalledTimes(1);
+
+      // Verify message state was updated (even though no new submit)
+      const messages = result.current.messages;
+      const assistantMessage = messages.find(m => m.role === "assistant");
+      const toolPart = assistantMessage?.parts?.find((p: any) => p.toolCallId === "call-1");
+
+      expect(toolPart).toBeDefined();
+      expect((toolPart as any)?.state).toBe("output-available");
+      expect((toolPart as any)?.output).toEqual({
+        success: false,
+        error: "User denied permission",
+        denied: true,
+      });
+
+      // Note: This verifies ACTUAL rejection flow behavior:
+      // - Step 1: addToolApprovalResponse({ approved: false })
+      //   → Auto-submit: Backend receives rejection (approval-responded state)
+      //   → status becomes "submitted"
+      // - Step 2: addToolOutput({ output: { success: false } })
+      //   → Updates message state to output-available
+      //   → NO auto-submit (status guard: already "submitted")
+      // - CONCLUSION: Backend receives approval-responded state ONLY
+      // - Frontend's addToolOutput is for local state update only
+      // - This is different from approval flow where both APIs send together
+    }, 10000); // Increased timeout for WebSocket connection
+
     it("should verify useChat receives and processes tool-approval-request from backend (ADK BIDI)", async () => {
       // Given: ADK BIDI mode
       const options = buildUseChatOptions({
