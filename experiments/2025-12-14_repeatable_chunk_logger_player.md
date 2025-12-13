@@ -1,7 +1,7 @@
 # Repeatable Chunk Logger & Player Implementation
 
 **作成日**: 2025-12-14
-**ステータス**: 🟡 In Progress
+**ステータス**: 🟡 In Progress (Phase 1-3 完了、Phase 4 Golden File Pattern 実装中)
 
 ---
 
@@ -740,14 +740,15 @@ async for entry in player.play(mode="fast-forward"):
 
 ---
 
-## 次のステップ
+## 完了状況
 
 1. ✅ 実験ノート作成 (このファイル)
 2. ✅ Phase 1: Backend Logger 実装完了 (commit 5dc2d14)
 3. ✅ Phase 2: Frontend Logger 実装完了 (commit bd83e26)
 4. ✅ Phase 3: Player 機構実装完了 (commit d3b5797)
-5. ⬜ 手動操作で chunk 記録のテスト
-6. ⬜ Phase 4: Mock injection points & E2E テスト統合
+5. ✅ Frontend build fix & 使用例追加 (commit 70019e0)
+6. ⬜ 手動操作で chunk 記録のテスト (Optional - 実運用でテスト)
+7. ⬜ Phase 4: Mock injection points & E2E テスト統合 (Optional - Low Priority)
 
 ---
 
@@ -761,6 +762,14 @@ async for entry in player.play(mode="fast-forward"):
 
 ## 変更履歴
 
+- 2025-12-14 (continued): Frontend build fix & 使用例追加 (commit 70019e0)
+  - 実験ノートに使用例セクション追加（Backend/Frontend/デバッグワークフロー）
+  - Frontend build エラーを修正（TypeScript 型推論の問題）
+  - tool-invocation.tsx: DynamicToolUIPart → any に変更
+  - message.tsx: 型ガードと型アサーションを追加
+  - route.ts: UIMessagePart.text への型ガード追加
+  - build-use-chat-options.ts: PrepareSendMessagesRequest の body フィールド追加
+  - 全ての TypeScript エラー解決、ビルド成功 ✅
 - 2025-12-14 (continued): Phase 3 実装完了 (commit d3b5797)
   - chunk_player.py 作成（Backend ChunkPlayer, 8 tests passing）
   - lib/chunk-player.ts 作成（Frontend ChunkPlayer, 10 tests passing）
