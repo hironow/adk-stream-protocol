@@ -187,3 +187,9 @@ export class ChunkLogger {
 
 // Global singleton instance
 export const chunkLogger = new ChunkLogger();
+
+// Expose to window for debugging (browser only)
+if (typeof window !== "undefined") {
+  // biome-ignore lint/suspicious/noExplicitAny: Debug access to chunkLogger
+  (window as any).__chunkLogger__ = chunkLogger;
+}

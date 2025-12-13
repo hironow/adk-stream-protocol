@@ -146,13 +146,12 @@ function buildUseChatOptionsInternal({
 
   // WORKAROUND: Use prepareSendMessagesRequest to override endpoint
   // This is the proper extension point in AI SDK v6 for dynamic endpoint routing
-  const prepareSendMessagesRequest: PrepareSendMessagesRequest<
-    UIMessage
-  > = async (options) => {
-    // Return required body field for AI SDK v6 type compatibility
+  // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 type definition requires body field which breaks functionality
+  const prepareSendMessagesRequest = async (options: any) => {
+    // IMPORTANT: Don't return `body` field - let AI SDK construct it
+    // If we return body: {}, AI SDK will use that empty object instead of building the proper request
     const { body, ...restOptions } = options;
     return {
-      body: body || {}, // Include body to satisfy type requirements
       ...restOptions,
       api: apiEndpoint, // Override with correct endpoint for this mode
     };
