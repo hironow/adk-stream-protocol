@@ -575,6 +575,171 @@ for await (const entry of player.play({ mode: "real-time" })) {
 
 ---
 
+## 実際の使用例（備忘）
+
+### Backend での使用例
+
+#### 1. Chunk の記録（Logger）
+
+```python
+# 環境変数で有効化
+# export CHUNK_LOGGER_ENABLED=true
+# export CHUNK_LOGGER_OUTPUT_DIR=./chunk_logs
+# export CHUNK_LOGGER_SESSION_ID=debug-session-001
+
+from chunk_logger import chunk_logger
+
+# stream_protocol.py 内で自動的に記録される
+# 手動で記録する場合：
+chunk_logger.log_chunk(
+    location="backend-adk-event",
+    direction="in",
+    chunk=repr(event),  # ADK Event object
+    mode="adk-sse",
+    metadata={"note": "Debugging tool call issue"}
+)
+```
+
+**出力**:
+```
+chunk_logs/
+  └─ debug-session-001/
+      ├─ backend-adk-event.jsonl
+      └─ backend-sse-event.jsonl
+```
+
+#### 2. Chunk の再生（Player）
+
+```python
+from chunk_player import ChunkPlayer
+
+# セッションディレクトリから再生
+player = ChunkPlayer(
+    session_dir="./chunk_logs/debug-session-001",
+    location="backend-adk-event"
+)
+
+# 統計情報を確認
+stats = player.get_stats()
+print(f"Total chunks: {stats['count']}")
+print(f"Duration: {stats['duration_ms']}ms")
+
+# Fast-forward mode で再生（最速）
+async for entry in player.play(mode="fast-forward"):
+    print(f"[{entry.sequence_number}] {entry.chunk}")
+    # Process chunk here
+
+# Real-time mode で再生（元のタイミングで）
+async for entry in player.play(mode="real-time"):
+    # 元の時間間隔を保って再生される
+    process_chunk(entry.chunk)
+```
+
+### Frontend での使用例
+
+#### 1. Chunk の記録（Logger）
+
+```typescript
+// localStorage で有効化
+// localStorage.setItem('CHUNK_LOGGER_ENABLED', 'true');
+// localStorage.setItem('CHUNK_LOGGER_SESSION_ID', 'debug-session-001');
+
+import { chunkLogger } from './lib/chunk-logger';
+
+// WebSocketChatTransport と ChunkLoggingTransport で自動記録される
+// 手動で記録する場合は不要（自動統合済み）
+
+// セッション終了時にエクスポート
+chunkLogger.export(); // debug-session-001.jsonl としてダウンロード
+```
+
+#### 2. Chunk の再生（Player）
+
+```typescript
+import { ChunkPlayer } from './lib/chunk-player';
+
+// 方法1: アップロードファイルから再生
+const fileInput = document.getElementById('jsonl-file') as HTMLInputElement;
+const file = fileInput.files[0];
+const player = await ChunkPlayer.fromFile(file);
+
+// 方法2: サーバーから取得して再生
+const player = await ChunkPlayer.fromUrl('/fixtures/debug-session-001.jsonl');
+
+// 統計情報を確認
+const stats = player.getStats();
+console.log(`Total chunks: ${stats.count}`);
+console.log(`Duration: ${stats.duration_ms}ms`);
+
+// Fast-forward mode で再生
+for await (const entry of player.play({ mode: 'fast-forward' })) {
+    console.log(`[${entry.sequence_number}]`, entry.chunk);
+    // Process chunk - inject into mock transport, etc.
+}
+
+// Real-time mode で再生（デバッグ時に有用）
+for await (const entry of player.play({ mode: 'real-time' })) {
+    // 元のタイミングで再生される
+    await processChunk(entry.chunk);
+}
+```
+
+### デバッグワークフロー例
+
+#### シナリオ: Tool call が失敗する問題の調査
+
+**Step 1: 問題を再現して記録**
+```bash
+# Logger を有効化
+export CHUNK_LOGGER_ENABLED=true
+export CHUNK_LOGGER_SESSION_ID=tool-call-bug-001
+
+# アプリケーションを実行して問題を再現
+uv run python server.py
+```
+
+Frontend:
+```typescript
+localStorage.setItem('CHUNK_LOGGER_ENABLED', 'true');
+localStorage.setItem('CHUNK_LOGGER_SESSION_ID', 'tool-call-bug-001');
+// アプリケーションで問題を再現
+// 完了後
+chunkLogger.export();
+```
+
+**Step 2: 記録された chunk を確認**
+```bash
+# Backend chunks
+cat chunk_logs/tool-call-bug-001/backend-adk-event.jsonl | jq '.'
+
+# Frontend chunks (ダウンロードしたファイル)
+cat ~/Downloads/tool-call-bug-001.jsonl | jq '.'
+```
+
+**Step 3: Player で再生して調査**
+```python
+player = ChunkPlayer(
+    session_dir="./chunk_logs/tool-call-bug-001",
+    location="backend-adk-event"
+)
+
+async for entry in player.play(mode="step"):
+    print(f"\n=== Chunk {entry.sequence_number} ===")
+    print(entry.chunk)
+    input("Press Enter for next chunk...")  # 手動ステップ実行
+```
+
+**Step 4: 修正して再テスト**
+```python
+# 同じ chunk で何度もテスト
+async for entry in player.play(mode="fast-forward"):
+    # 修正したコードでテスト
+    result = process_with_fix(entry.chunk)
+    assert result.success
+```
+
+---
+
 ## 次のステップ
 
 1. ✅ 実験ノート作成 (このファイル)

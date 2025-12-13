@@ -250,7 +250,7 @@ export async function POST(req: Request) {
       role: msg.role,
       parts: msg.parts?.map((p) => ({
         type: p.type,
-        text: p.text?.substring(0, 50),
+        text: "text" in p ? p.text?.substring(0, 50) : undefined,
       })),
       metadata: msg.metadata,
     });

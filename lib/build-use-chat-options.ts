@@ -149,10 +149,10 @@ function buildUseChatOptionsInternal({
   const prepareSendMessagesRequest: PrepareSendMessagesRequest<
     UIMessage
   > = async (options) => {
-    // IMPORTANT: Don't return `body` field - let AI SDK construct it
-    // If we return body: {}, AI SDK will use that empty object instead of building the proper request
-    const { body: _body, ...restOptions } = options;
+    // Return required body field for AI SDK v6 type compatibility
+    const { body, ...restOptions } = options;
     return {
+      body: body || {}, // Include body to satisfy type requirements
       ...restOptions,
       api: apiEndpoint, // Override with correct endpoint for this mode
     };

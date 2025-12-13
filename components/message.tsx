@@ -213,7 +213,7 @@ export function MessageComponent({ message }: MessageComponentProps) {
                     lineHeight: "1.5",
                   }}
                 >
-                  {part.text || part.content}
+                  {part.text}
                 </div>
               </details>
             );
@@ -290,11 +290,12 @@ export function MessageComponent({ message }: MessageComponentProps) {
 
           // Image content (data-image custom event)
           if (part.type === "data-image" && part.data) {
+            const imageData = part.data as { content: string; mediaType: string };
             return (
               <ImageDisplay
                 key={`${part.type}-${index}`}
-                content={part.data.content}
-                mediaType={part.data.mediaType}
+                content={imageData.content}
+                mediaType={imageData.mediaType}
                 alt="Image from assistant"
               />
             );
@@ -316,24 +317,37 @@ export function MessageComponent({ message }: MessageComponentProps) {
 
           // Tool Invocation (any tool)
           // AI SDK useChat converts tool events to part.type = "tool-{toolName}"
-          if (part.type === "tool-call" && part.toolInvocation) {
+          if (
+            part.type === "tool-call" &&
+            "toolInvocation" in part &&
+            part.toolInvocation
+          ) {
+            // biome-ignore lint/suspicious/noExplicitAny: Dynamic tool invocation structure
+            const toolInvocation = part.toolInvocation as any;
             return (
               <ToolInvocationComponent
                 key={`${part.type}-${index}`}
-                toolInvocation={part.toolInvocation}
+                toolInvocation={toolInvocation}
               />
             );
           }
 
           // Tool invocation in "tool-*" format (from AI SDK useChat)
-          if (typeof part.type === "string" && part.type.startsWith("tool-")) {
+          if (
+            typeof part.type === "string" &&
+            part.type.startsWith("tool-") &&
+            "toolCallId" in part &&
+            "state" in part
+          ) {
             // Extract tool invocation data from part
-            const toolInvocation = {
+            // biome-ignore lint/suspicious/noExplicitAny: Dynamic tool invocation structure
+            const toolInvocation: any = {
+              type: "dynamic-tool",
               toolCallId: part.toolCallId,
               toolName: part.type.replace("tool-", ""),
               state: part.state,
-              input: part.input, // Use 'input' instead of 'args'
-              output: part.output, // Use 'output' instead of 'result'
+              input: "input" in part ? part.input : undefined,
+              output: "output" in part ? part.output : undefined,
             };
             return (
               <ToolInvocationComponent
@@ -344,7 +358,12 @@ export function MessageComponent({ message }: MessageComponentProps) {
           }
 
           // Step markers (Gemini 3 Pro feature) - skip or show minimal indicator
-          if (part.type === "step-start" || part.type === "step-end") {
+          // Note: step-start/step-end are not in current type definitions but may appear in runtime
+          // biome-ignore lint/suspicious/noExplicitAny: Runtime check for step markers
+          if (
+            typeof part.type === "string" &&
+            ((part as any).type === "step-start" || (part as any).type === "step-end")
+          ) {
             return null; // Don't display step markers
           }
 
