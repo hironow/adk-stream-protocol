@@ -52,9 +52,7 @@ def test_chunk_logger_creates_session_directory():
         session_id = "test-session-001"
 
         # when
-        logger = ChunkLogger(
-            enabled=True, output_dir=tmpdir, session_id=session_id
-        )
+        logger = ChunkLogger(enabled=True, output_dir=tmpdir, session_id=session_id)
 
         # then
         session_dir = Path(tmpdir) / session_id
@@ -68,9 +66,7 @@ def test_chunk_logger_writes_jsonl():
     # given
     with tempfile.TemporaryDirectory() as tmpdir:
         session_id = "test-session-002"
-        logger = ChunkLogger(
-            enabled=True, output_dir=tmpdir, session_id=session_id
-        )
+        logger = ChunkLogger(enabled=True, output_dir=tmpdir, session_id=session_id)
 
         # when
         logger.log_chunk(
@@ -104,9 +100,7 @@ def test_chunk_logger_increments_sequence_number():
     # given
     with tempfile.TemporaryDirectory() as tmpdir:
         session_id = "test-session-003"
-        logger = ChunkLogger(
-            enabled=True, output_dir=tmpdir, session_id=session_id
-        )
+        logger = ChunkLogger(enabled=True, output_dir=tmpdir, session_id=session_id)
 
         # when
         logger.log_chunk(
@@ -149,9 +143,7 @@ def test_chunk_logger_separate_files_per_location():
     # given
     with tempfile.TemporaryDirectory() as tmpdir:
         session_id = "test-session-004"
-        logger = ChunkLogger(
-            enabled=True, output_dir=tmpdir, session_id=session_id
-        )
+        logger = ChunkLogger(enabled=True, output_dir=tmpdir, session_id=session_id)
 
         # when
         logger.log_chunk(
@@ -179,9 +171,7 @@ def test_chunk_logger_no_files_when_disabled():
     # given
     with tempfile.TemporaryDirectory() as tmpdir:
         session_id = "test-session-005"
-        logger = ChunkLogger(
-            enabled=False, output_dir=tmpdir, session_id=session_id
-        )
+        logger = ChunkLogger(enabled=False, output_dir=tmpdir, session_id=session_id)
 
         # when
         logger.log_chunk(
@@ -204,9 +194,7 @@ def test_chunk_logger_context_manager():
         session_id = "test-session-006"
 
         # when
-        with ChunkLogger(
-            enabled=True, output_dir=tmpdir, session_id=session_id
-        ) as logger:
+        with ChunkLogger(enabled=True, output_dir=tmpdir, session_id=session_id) as logger:
             logger.log_chunk(
                 location="backend-adk-event",
                 direction="in",
@@ -286,9 +274,7 @@ def test_chunk_logger_metadata():
     # given
     with tempfile.TemporaryDirectory() as tmpdir:
         session_id = "test-session-008"
-        logger = ChunkLogger(
-            enabled=True, output_dir=tmpdir, session_id=session_id
-        )
+        logger = ChunkLogger(enabled=True, output_dir=tmpdir, session_id=session_id)
 
         # when
         logger.log_chunk(

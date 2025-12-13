@@ -290,7 +290,10 @@ export function MessageComponent({ message }: MessageComponentProps) {
 
           // Image content (data-image custom event)
           if (part.type === "data-image" && part.data) {
-            const imageData = part.data as { content: string; mediaType: string };
+            const imageData = part.data as {
+              content: string;
+              mediaType: string;
+            };
             return (
               <ImageDisplay
                 key={`${part.type}-${index}`}
@@ -359,10 +362,12 @@ export function MessageComponent({ message }: MessageComponentProps) {
 
           // Step markers (Gemini 3 Pro feature) - skip or show minimal indicator
           // Note: step-start/step-end are not in current type definitions but may appear in runtime
-          // biome-ignore lint/suspicious/noExplicitAny: Runtime check for step markers
           if (
             typeof part.type === "string" &&
-            ((part as any).type === "step-start" || (part as any).type === "step-end")
+            // biome-ignore lint/suspicious/noExplicitAny: Dynamic part type
+            ((part as any).type === "step-start" ||
+              // biome-ignore lint/suspicious/noExplicitAny: Dynamic part type
+              (part as any).type === "step-end")
           ) {
             return null; // Don't display step markers
           }

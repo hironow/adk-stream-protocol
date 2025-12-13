@@ -2,7 +2,6 @@ import type { UIMessage } from "@ai-sdk/react";
 import {
   DefaultChatTransport,
   lastAssistantMessageIsCompleteWithApprovalResponses,
-  type PrepareSendMessagesRequest,
 } from "ai";
 import { ChunkLoggingTransport } from "@/lib/chunk-logging-transport";
 import { WebSocketChatTransport } from "@/lib/websocket-chat-transport";
@@ -150,7 +149,7 @@ function buildUseChatOptionsInternal({
   const prepareSendMessagesRequest = async (options: any) => {
     // IMPORTANT: Don't return `body` field - let AI SDK construct it
     // If we return body: {}, AI SDK will use that empty object instead of building the proper request
-    const { body, ...restOptions } = options;
+    const { body: _body, ...restOptions } = options;
     return {
       ...restOptions,
       api: apiEndpoint, // Override with correct endpoint for this mode

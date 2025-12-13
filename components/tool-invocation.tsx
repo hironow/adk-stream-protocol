@@ -1,14 +1,4 @@
 /**
- * Tool Invocation Component
- *
- * Displays tool calls and their results with visual states.
- * Handles all tool visualization complexity internally.
- */
-
-import React from "react";
-import type { DynamicToolUIPart } from "ai";
-
-/**
  * Tool invocation state for UI display.
  * Uses AI SDK v6's DynamicToolUIPart type which handles all tool states:
  * - input-streaming, input-available, output-available, output-error
@@ -115,7 +105,11 @@ export function ToolInvocationComponent({
               color: "#d1d5db",
             }}
           >
-            {JSON.stringify(toolInvocation.input as Record<string, unknown>, null, 2)}
+            {JSON.stringify(
+              toolInvocation.input as Record<string, unknown>,
+              null,
+              2,
+            )}
           </pre>
         </div>
       )}
@@ -145,7 +139,11 @@ export function ToolInvocationComponent({
               color: "#d1d5db",
             }}
           >
-            {JSON.stringify(toolInvocation.output as Record<string, unknown>, null, 2)}
+            {JSON.stringify(
+              toolInvocation.output as Record<string, unknown>,
+              null,
+              2,
+            )}
           </pre>
         </div>
       )}

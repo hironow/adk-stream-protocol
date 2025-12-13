@@ -98,13 +98,15 @@ class ChunkLogger:
             else os.getenv("CHUNK_LOGGER_ENABLED", "false").lower() == "true"
         )
 
-        output_dir_str = output_dir if output_dir is not None else os.getenv("CHUNK_LOGGER_OUTPUT_DIR", "./chunk_logs")
+        output_dir_str = (
+            output_dir
+            if output_dir is not None
+            else os.getenv("CHUNK_LOGGER_OUTPUT_DIR", "./chunk_logs")
+        )
         self._output_dir = Path(output_dir_str)
 
         self._session_id = (
-            session_id
-            or os.getenv("CHUNK_LOGGER_SESSION_ID")
-            or self._generate_session_id()
+            session_id or os.getenv("CHUNK_LOGGER_SESSION_ID") or self._generate_session_id()
         )
 
         # Sequence counter per location
