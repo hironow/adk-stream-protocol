@@ -107,3 +107,32 @@ class FrontendToolDelegate:
                 f"[FrontendDelegate] Received result for unknown "
                 f"tool_call_id={tool_call_id}"
             )
+
+    def reject_tool_call(self, tool_call_id: str, reason: str) -> None:
+        """
+        Reject a pending tool call (user denied permission).
+
+        Called by WebSocket handler when frontend sends tool_result with approved=false.
+
+        Args:
+            tool_call_id: The tool call ID to reject
+            reason: Reason for rejection (e.g., "User denied permission")
+        """
+        if tool_call_id in self._pending_calls:
+            logger.info(
+                f"[FrontendDelegate] Rejecting tool_call_id={tool_call_id}, "
+                f"reason: {reason}"
+            )
+            # Resolve with rejection error dict
+            rejection_result = {
+                "success": False,
+                "error": reason,
+                "denied": True,
+            }
+            self._pending_calls[tool_call_id].set_result(rejection_result)
+            del self._pending_calls[tool_call_id]
+        else:
+            logger.warning(
+                f"[FrontendDelegate] Received rejection for unknown "
+                f"tool_call_id={tool_call_id}"
+            )

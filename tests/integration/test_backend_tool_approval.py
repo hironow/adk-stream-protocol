@@ -18,7 +18,6 @@ Test Strategy (TDD):
 from __future__ import annotations
 
 import asyncio
-import json
 from typing import Any
 
 import pytest
@@ -139,7 +138,6 @@ async def test_resolve_unknown_tool_call_id_does_not_crash(
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="RED: Rejection handling not implemented yet")
 async def test_reject_tool_call_resolves_with_error_result(
     delegate: FrontendToolDelegate, tool_call_id: str
 ) -> None:
@@ -152,7 +150,7 @@ async def test_reject_tool_call_resolves_with_error_result(
     3. Future resolves with rejection error dict
     4. Tool function returns error to AI
 
-    This test is RED until reject_tool_call() is implemented.
+    This test verifies the GREEN implementation of reject_tool_call().
     """
     # given: Pending tool call
     tool_name = "change_bgm"
@@ -165,17 +163,8 @@ async def test_reject_tool_call_resolves_with_error_result(
     await asyncio.sleep(0.01)
 
     # when: User rejects (approved=false)
-    # Note: reject_tool_call() doesn't exist yet - this is RED
     reason = "User denied permission"
-    # delegate.reject_tool_call(tool_call_id, reason)  # ← Will implement this
-
-    # Temporary workaround for RED test: manually set rejection result
-    rejection_result = {
-        "success": False,
-        "error": reason,
-        "denied": True,
-    }
-    delegate.resolve_tool_result(tool_call_id, rejection_result)
+    delegate.reject_tool_call(tool_call_id, reason)
 
     # then: Task completes with rejection error
     result = await execution_task

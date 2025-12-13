@@ -852,7 +852,6 @@ async def live_chat(websocket: WebSocket):
     - Reasoning (thought)
     - Usage metadata
     """
-    import asyncio
 
     await websocket.accept()
     logger.info("[BIDI] WebSocket connection established")
@@ -1071,21 +1070,36 @@ async def live_chat(websocket: WebSocket):
                         result_data = event.get("data", {})
                         tool_call_id = result_data.get("toolCallId")
                         result = result_data.get("result")
+                        approved = result_data.get("approved")
                         status = result_data.get("status", "approved")
 
                         logger.info(
-                            f"[Tool] Received result for {tool_call_id} (status: {status})"
+                            f"[Tool] Received result for {tool_call_id} "
+                            f"(approved: {approved}, status: {status})"
                         )
 
-                        # Phase 4: Resolve awaitable tool execution
-                        if tool_call_id and result is not None:
-                            frontend_delegate.resolve_tool_result(tool_call_id, result)
-                            logger.info(
-                                f"[Tool] Resolved pending tool call {tool_call_id}"
-                            )
+                        # Phase 4: Handle tool approval/rejection
+                        if tool_call_id:
+                            if approved is False:
+                                # User rejected the tool (approved=false)
+                                reason = result_data.get("reason", "User denied permission")
+                                frontend_delegate.reject_tool_call(tool_call_id, reason)
+                                logger.info(
+                                    f"[Tool] Rejected pending tool call {tool_call_id}: {reason}"
+                                )
+                            elif result is not None:
+                                # User approved or approval not required
+                                frontend_delegate.resolve_tool_result(tool_call_id, result)
+                                logger.info(
+                                    f"[Tool] Resolved pending tool call {tool_call_id}"
+                                )
+                            else:
+                                logger.warning(
+                                    f"[Tool] Missing result for approved tool: {result_data}"
+                                )
                         else:
                             logger.warning(
-                                f"[Tool] Missing tool_call_id or result in tool_result event: {result_data}"
+                                f"[Tool] Missing tool_call_id in tool_result event: {result_data}"
                             )
 
                     # Unknown event type
