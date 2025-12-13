@@ -270,6 +270,12 @@ async def change_bgm(track: int, tool_context: ToolContext) -> dict[str, Any]:
     Returns:
         Result of BGM change operation from frontend
     """
+    # Phase 3: Access connection-specific delegate from session state
+    # Fall back to global delegate for SSE mode (backward compatibility)
+    delegate = tool_context.state.get("temp:delegate") or frontend_delegate
+    client_id = tool_context.state.get("client_identifier", "sse_mode")
+
+    # Get tool_call_id from ToolContext
     tool_call_id = tool_context.function_call_id
     if not tool_call_id:
         error_msg = "Missing function_call_id in ToolContext"
@@ -277,17 +283,17 @@ async def change_bgm(track: int, tool_context: ToolContext) -> dict[str, Any]:
         return {"success": False, "error": error_msg}
 
     logger.info(
-        f"[change_bgm] Delegating to frontend: tool_call_id={tool_call_id}, track={track}"
+        f"[change_bgm] client={client_id}, tool_call_id={tool_call_id}, track={track}"
     )
 
     # Delegate execution to frontend and await result
-    result = await frontend_delegate.execute_on_frontend(
+    result = await delegate.execute_on_frontend(
         tool_call_id=tool_call_id,
         tool_name="change_bgm",
-        args={"track": track}
+        args={"track": track},
     )
 
-    logger.info(f"[change_bgm] Received result from frontend: {result}")
+    logger.info(f"[change_bgm] client={client_id}, result={result}")
     return result
 
 
@@ -304,24 +310,28 @@ async def get_location(tool_context: ToolContext) -> dict[str, Any]:
     Returns:
         User's location information from browser Geolocation API
     """
+    # Phase 3: Access connection-specific delegate from session state
+    # Fall back to global delegate for SSE mode (backward compatibility)
+    delegate = tool_context.state.get("temp:delegate") or frontend_delegate
+    client_id = tool_context.state.get("client_identifier", "sse_mode")
+
+    # Get tool_call_id from ToolContext
     tool_call_id = tool_context.function_call_id
     if not tool_call_id:
         error_msg = "Missing function_call_id in ToolContext"
         logger.error(f"[get_location] {error_msg}")
         return {"success": False, "error": error_msg}
 
-    logger.info(
-        f"[get_location] Delegating to frontend: tool_call_id={tool_call_id}"
-    )
+    logger.info(f"[get_location] client={client_id}, tool_call_id={tool_call_id}")
 
     # Delegate execution to frontend and await result
-    result = await frontend_delegate.execute_on_frontend(
+    result = await delegate.execute_on_frontend(
         tool_call_id=tool_call_id,
         tool_name="get_location",
-        args={}
+        args={},
     )
 
-    logger.info(f"[get_location] Received result from frontend: {result}")
+    logger.info(f"[get_location] client={client_id}, result={result}")
     return result
 
 

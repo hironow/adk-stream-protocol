@@ -1624,13 +1624,54 @@ async def change_bgm(track: int, tool_context: ToolContext):
 
 ---
 
-#### ⏭️ Phase 3: Update Tools to Use tool_context.state
+#### ✅ Phase 3: Update Tools to Use tool_context.state [COMPLETED]
+
+**Status:** ✅ Complete (2025-12-13)
 
 **Goal:** Update `change_bgm()` and `get_location()` tools to access delegate via `tool_context.state`.
 
-**Location:** `server.py` - Tool definitions (around line 222-254)
+**Location:** `server.py` - Tool definitions (line 259-345)
 
-**Step-by-Step Implementation:**
+**Changes Made:**
+
+1. **Updated change_bgm() tool:**
+   - Access delegate via `tool_context.state.get("temp:delegate")`
+   - Added fallback to global `frontend_delegate` for SSE mode (backward compatibility)
+   - Extract `client_identifier` from state for logging
+   - Enhanced logging with client ID
+
+2. **Updated get_location() tool:**
+   - Applied same pattern as `change_bgm()`
+   - Access delegate via `tool_context.state` with SSE fallback
+   - Extract and log client identifier
+
+3. **Backward Compatibility for SSE Mode:**
+   ```python
+   # BIDI mode: Uses connection-specific delegate from session.state
+   # SSE mode: Falls back to global frontend_delegate
+   delegate = tool_context.state.get("temp:delegate") or frontend_delegate
+   client_id = tool_context.state.get("client_identifier", "sse_mode")
+   ```
+
+**Design Decision:**
+- Kept global `frontend_delegate` for SSE mode backward compatibility
+- BIDI mode uses per-connection delegate from `session.state["temp:delegate"]`
+- SSE mode falls back to global delegate (single connection per user)
+- This hybrid approach supports both modes without breaking existing functionality
+
+**Test Results:**
+- All 104 unit tests passing
+- No regressions introduced
+- Both SSE and BIDI modes supported
+
+**Files Modified:**
+- `server.py`: Updated `change_bgm()` and `get_location()` tools
+
+**Next Steps:** Phase 4 - Integration testing and manual verification
+
+---
+
+**Step-by-Step Implementation Reference:**
 
 1. **Update change_bgm() tool:**
 
@@ -1940,8 +1981,8 @@ Check logs for proper connection tracking:
 |-------|--------|----------------|-------|
 | Phase 1 | ✅ Complete | `server.py`, `test_session_management.py` | 4/4 passing |
 | Phase 2 | ✅ Complete | `server.py` (WebSocket endpoint) | 104/104 passing |
-| Phase 3 | ⏭️ Ready | `server.py` (Tools) | Existing tests should pass |
-| Phase 4 | ⏭️ Ready | `test_connection_isolation.py` (new) | TBD |
+| Phase 3 | ✅ Complete | `server.py` (change_bgm, get_location tools) | 104/104 passing |
+| Phase 4 | ⏭️ Ready | Manual testing & integration tests | TBD |
 
 ---
 
