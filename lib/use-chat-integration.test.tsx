@@ -184,7 +184,8 @@ describe("useChat Integration", () => {
     }, 10000); // Increased timeout for WebSocket connection
 
     it("should verify AI SDK v6 calls transport.sendMessages() on tool approval (ADK BIDI)", async () => {
-      // Given: ADK BIDI mode with initial message containing tool approval request
+      // Given: ADK BIDI mode with SINGLE tool waiting for approval
+      // Note: This test uses approved=true (see also: single-tool test with approved=false)
       const initialMessages: UIMessage[] = [
         {
           id: "msg-1",
@@ -237,8 +238,12 @@ describe("useChat Integration", () => {
         });
       });
 
-      // Then: AI SDK v6 should have called transport.sendMessages() (Step 7-8)
-      // sendAutomaticallyWhen triggers automatic resubmission after approval
+      // Then: Auto-submit happens IMMEDIATELY after addToolApprovalResponse
+      // Reason: This is a SINGLE tool scenario
+      //   - Condition 1: Has approval-responded ✅
+      //   - Condition 2: All tools complete ✅ (only 1 tool, now in approval-responded state)
+      // Note: approved=false would also trigger immediate auto-submit (see single-tool test)
+      // The key is NOT the approved value, but that ALL tools are now complete
       await vi.waitFor(() => {
         expect(sendMessagesSpy).toHaveBeenCalled();
       });
@@ -264,10 +269,16 @@ describe("useChat Integration", () => {
         ])
       );
 
-      // Note: This verifies Step 6-8 integration:
-      // Step 6: User approves in UI (addToolApprovalResponse)
-      // Step 7: AI SDK v6 checks sendAutomaticallyWhen → triggers makeRequest
-      // Step 8: AI SDK v6 calls transport.sendMessages() with approved message
+      // Note: This verifies single-tool approval flow (approved=true):
+      // - addToolApprovalResponse({ approved: true })
+      //   → state becomes "approval-responded"
+      //   → All tools complete (only 1 tool exists)
+      //   → Auto-submit triggered
+      //   → Backend receives approval-responded state with approved=true
+      //
+      // IMPORTANT: This is SINGLE tool behavior. In MULTIPLE tool scenarios,
+      // auto-submit would wait until ALL tools are complete (see mixed test).
+      // The approved value (true/false) does NOT affect auto-submit timing.
     }, 10000); // Increased timeout for WebSocket connection
 
     it("should verify addToolOutput updates message state but does NOT auto-submit (ADK BIDI)", async () => {
@@ -449,8 +460,9 @@ describe("useChat Integration", () => {
       // - Result: Automatic resubmission triggered
     }, 10000); // Increased timeout for WebSocket connection
 
-    it("should verify tool rejection (approved: false) triggers auto-submit with error output (ADK BIDI)", async () => {
-      // Given: ADK BIDI mode with tool waiting for approval
+    it("should verify single-tool approval-response triggers immediate auto-submit (ADK BIDI)", async () => {
+      // Given: ADK BIDI mode with SINGLE tool waiting for approval
+      // Note: This test uses approved=false, but approved=true would behave identically
       const initialMessages: UIMessage[] = [
         {
           id: "msg-1",
@@ -503,10 +515,12 @@ describe("useChat Integration", () => {
         });
       });
 
-      // ✅ IMPORTANT DISCOVERY: Auto-submit happens IMMEDIATELY after rejection!
-      // Reason: approval-responded (even with approved=false) satisfies both conditions:
+      // ✅ IMPORTANT: Auto-submit happens IMMEDIATELY after addToolApprovalResponse
+      // Reason: This is a SINGLE tool scenario
       //   - Condition 1: Has approval-responded ✅
-      //   - Condition 2: All tools complete (approval-responded is a complete state) ✅
+      //   - Condition 2: All tools complete ✅ (only 1 tool, now in approval-responded state)
+      // Note: approved=true would also trigger immediate auto-submit (see first test)
+      // The key is NOT the approved value, but that ALL tools are now complete
       await vi.waitFor(() => {
         expect(sendMessagesSpy).toHaveBeenCalledTimes(1);
       });
@@ -546,10 +560,10 @@ describe("useChat Integration", () => {
       // Wait a bit to confirm no second auto-submit
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // ✅ CRITICAL DISCOVERY: addToolOutput does NOT trigger second auto-submit
-      // Reason: sendAutomaticallyWhen was already satisfied after Step 1
+      // ✅ Verify: addToolOutput does NOT trigger second auto-submit
+      // Reason: status guard prevents duplicate submission
       //   - status is now "submitted" (from first auto-submit)
-      //   - status guard prevents duplicate submission
+      //   - AI SDK v6 checks: status !== "submitted" → false → no submit
       expect(sendMessagesSpy).toHaveBeenCalledTimes(1);
 
       // Verify message state was updated (even though no new submit)
@@ -565,16 +579,21 @@ describe("useChat Integration", () => {
         denied: true,
       });
 
-      // Note: This verifies ACTUAL rejection flow behavior:
+      // Note: This verifies single-tool rejection flow:
       // - Step 1: addToolApprovalResponse({ approved: false })
-      //   → Auto-submit: Backend receives rejection (approval-responded state)
-      //   → status becomes "submitted"
+      //   → state becomes "approval-responded"
+      //   → All tools complete (only 1 tool exists)
+      //   → Auto-submit triggered → status becomes "submitted"
+      //   → Backend receives approval-responded state with approved=false
+      //
       // - Step 2: addToolOutput({ output: { success: false } })
-      //   → Updates message state to output-available
-      //   → NO auto-submit (status guard: already "submitted")
-      // - CONCLUSION: Backend receives approval-responded state ONLY
-      // - Frontend's addToolOutput is for local state update only
-      // - This is different from approval flow where both APIs send together
+      //   → state becomes "output-available" (local update only)
+      //   → Status guard prevents auto-submit (status === "submitted")
+      //   → Backend does NOT receive this update
+      //
+      // IMPORTANT: This is SINGLE tool behavior. In MULTIPLE tool scenarios,
+      // auto-submit would wait until ALL tools are complete (see mixed test).
+      // The approved value (true/false) does NOT affect auto-submit timing.
     }, 10000); // Increased timeout for WebSocket connection
 
     it("should verify useChat receives and processes tool-approval-request from backend (ADK BIDI)", async () => {
