@@ -25,6 +25,7 @@ _No planned experiments_
 | 2025-12-11 | [ADK BIDI + AI SDK v6 Integration](./2025-12-11_adk_bidi_ai_sdk_v6_integration.md) | 🟢 Complete | Investigate compatibility between AI SDK v6 useChat and ADK BIDI mode for bidirectional streaming | ✅ **SUCCESS** - Full BIDI integration working with WebSocket transport, tool calling functional |
 | 2025-12-13 | [Bidirectional Protocol Investigation](./2025-12-13_bidirectional_protocol_investigation.md) | 🟢 Complete | Phase 4 Tool Approval - Client-side tool execution with user approval | ✅ **SUCCESS** - Awaitable delegation pattern implemented, AI SDK v6 standard API integration |
 | 2025-12-13 | [Tool Approval AI SDK Native Handling](./2025-12-13_tool_approval_ai_sdk_native_handling.md) | 🟢 Complete | Investigate whether onToolApprovalRequest callback is necessary or AI SDK v6 handles it natively | ✅ **CONFIRMED** - Removed custom callback, AI SDK v6 addToolApprovalResponse is native |
+| 2025-12-13 | [lib/ Test Coverage Investigation](./2025-12-13_lib_test_coverage_investigation.md) | 🟡 In Progress | Systematic gap analysis for lib/ test coverage to identify missing edge cases | 🔴 **CRITICAL GAPS FOUND** - websocket-chat-transport.ts has only 2 tests, core functionality untested |
 
 ## Critical Architecture Decisions
 
