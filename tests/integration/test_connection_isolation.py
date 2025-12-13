@@ -83,9 +83,7 @@ async def test_multiple_connections_get_isolated_delegates():
     assert delegate1 is not delegate2
 
     # then: Connection identifiers should be different
-    assert (
-        session1.state["client_identifier"] != session2.state["client_identifier"]
-    )
+    assert session1.state["client_identifier"] != session2.state["client_identifier"]
 
 
 @pytest.mark.asyncio

@@ -168,9 +168,7 @@ class TestInputTranscription:
         # All text events (start/delta/end) MUST use the same text block ID
         # This prevents accidental use of event.id which changes per event
         text_events = [
-            e
-            for e in parsed_events
-            if e["type"] in ["text-start", "text-delta", "text-end"]
+            e for e in parsed_events if e["type"] in ["text-start", "text-delta", "text-end"]
         ]
         unique_ids = {e["id"] for e in text_events}
         assert len(unique_ids) == 1, (
@@ -226,9 +224,7 @@ class TestInputTranscription:
         # then: Text block ID MUST be the same despite different event.id
         parsed_events = [parse_sse_event(e) for e in all_events]
         text_events = [
-            e
-            for e in parsed_events
-            if e["type"] in ["text-start", "text-delta", "text-end"]
+            e for e in parsed_events if e["type"] in ["text-start", "text-delta", "text-end"]
         ]
 
         # Extract unique text block IDs

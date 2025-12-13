@@ -79,9 +79,7 @@ class FrontendToolDelegate:
         # Await frontend result (blocks here until result arrives)
         result = await future
 
-        logger.info(
-            f"[FrontendDelegate] Received result for tool_call_id={tool_call_id}: {result}"
-        )
+        logger.info(f"[FrontendDelegate] Received result for tool_call_id={tool_call_id}: {result}")
 
         return result
 
@@ -97,15 +95,13 @@ class FrontendToolDelegate:
         """
         if tool_call_id in self._pending_calls:
             logger.info(
-                f"[FrontendDelegate] Resolving tool_call_id={tool_call_id} "
-                f"with result: {result}"
+                f"[FrontendDelegate] Resolving tool_call_id={tool_call_id} with result: {result}"
             )
             self._pending_calls[tool_call_id].set_result(result)
             del self._pending_calls[tool_call_id]
         else:
             logger.warning(
-                f"[FrontendDelegate] Received result for unknown "
-                f"tool_call_id={tool_call_id}"
+                f"[FrontendDelegate] Received result for unknown tool_call_id={tool_call_id}"
             )
 
     def reject_tool_call(self, tool_call_id: str, reason: str) -> None:
@@ -120,8 +116,7 @@ class FrontendToolDelegate:
         """
         if tool_call_id in self._pending_calls:
             logger.info(
-                f"[FrontendDelegate] Rejecting tool_call_id={tool_call_id}, "
-                f"reason: {reason}"
+                f"[FrontendDelegate] Rejecting tool_call_id={tool_call_id}, reason: {reason}"
             )
             # Resolve with rejection error dict
             rejection_result = {
@@ -133,6 +128,5 @@ class FrontendToolDelegate:
             del self._pending_calls[tool_call_id]
         else:
             logger.warning(
-                f"[FrontendDelegate] Received rejection for unknown "
-                f"tool_call_id={tool_call_id}"
+                f"[FrontendDelegate] Received rejection for unknown tool_call_id={tool_call_id}"
             )

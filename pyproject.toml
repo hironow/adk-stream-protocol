@@ -32,3 +32,32 @@ exclude = [
     "build",
     "dist",
 ]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+# see: https://docs.astral.sh/ruff/rules/
+select = [
+    "FAST", # FastAPI
+    "C90", # mccabe
+    "NPY", # numpy
+    "PD", # pandas
+    "B", # flake8-bugbear
+    "A", # flake8-builtins
+    "DTZ", # flake8-datetimez
+    "T20", # flake8-print
+    "N", # pep8-naming
+    "I",  # isort
+    "E",  # pycodestyle errors
+    "F",  # Pyflakes
+    "PLE", # Pylint errors
+    "PLR", # Pylint refactor
+    "UP", # pyupgrade
+    "FURB", # refurb
+    # "DOC", # pydoclint
+    # "D", # pydocstyle
+    "RUF", # Ruff-specific rules
+]
+extend-ignore = ["E501", "RUF002", "RUF003"]

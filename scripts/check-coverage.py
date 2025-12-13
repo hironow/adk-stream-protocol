@@ -36,7 +36,6 @@ from google.adk.events import Event
 from google.adk.events.event_actions import EventActions
 from google.genai import types
 
-
 # =============================================================================
 # Utilities
 # =============================================================================
@@ -95,9 +94,7 @@ class ADKExtractor:
             }
             if param.default != inspect.Parameter.empty:
                 default_val = param.default
-                field_info["default"] = (
-                    str(default_val) if default_val is not None else "None"
-                )
+                field_info["default"] = str(default_val) if default_val is not None else "None"
             fields[param_name] = field_info
         return fields
 
@@ -105,9 +102,7 @@ class ADKExtractor:
     def extract_finish_reasons() -> list[str]:
         """Extract all FinishReason enum values from ADK."""
         return [
-            attr
-            for attr in dir(types.FinishReason)
-            if attr.isupper() and not attr.startswith("_")
+            attr for attr in dir(types.FinishReason) if attr.isupper() and not attr.startswith("_")
         ]
 
     def extract_all(self) -> dict[str, Any]:
@@ -209,9 +204,7 @@ class AISdkExtractor:
         # Expected format: - `stop`: ...
         #                  - `length`: ...
         #                  - `content-filter`: ...
-        finish_reason_pattern = (
-            r"-\s+`(stop|length|content-filter|tool-calls|error|other)`:\s+"
-        )
+        finish_reason_pattern = r"-\s+`(stop|length|content-filter|tool-calls|error|other)`:\s+"
         matches = re.finditer(finish_reason_pattern, content)
 
         finish_reasons = set()
@@ -304,9 +297,7 @@ class ADKAnalyzer:
         # Find reason_map definition (Enum-based pattern)
         # Pattern: types.FinishReason.REASON_NAME: AISdkFinishReason.VALUE,
         reason_map = {}
-        reason_map_pattern = (
-            r"types\.FinishReason\.([A-Z_]+):\s*AISdkFinishReason\.([A-Z_]+)"
-        )
+        reason_map_pattern = r"types\.FinishReason\.([A-Z_]+):\s*AISdkFinishReason\.([A-Z_]+)"
         for match in re.finditer(reason_map_pattern, content):
             adk_reason = match.group(1)  # e.g., "STOP", "MAX_TOKENS"
             ai_sdk_enum = match.group(2)  # e.g., "STOP", "LENGTH"
@@ -346,7 +337,9 @@ class AISdkAnalyzer:
             event_types.add(match.group(1))
 
         # Pattern 2: Explicit event type strings
-        explicit_pattern = r"[\"']((?:text|tool|code|data|thought|start|finish|error|message)-[a-z-]+)[\"']"
+        explicit_pattern = (
+            r"[\"']((?:text|tool|code|data|thought|start|finish|error|message)-[a-z-]+)[\"']"
+        )
         for match in re.finditer(explicit_pattern, content):
             event_type = match.group(1)
             if (
@@ -410,9 +403,7 @@ class Reporter:
 
             for field_name, field_info in sorted(fields.items()):
                 has_default = "✅" if field_info["has_default"] else "❌"
-                lines.append(
-                    f"| `{field_name}` | `{field_info['type']}` | {has_default} |"
-                )
+                lines.append(f"| `{field_name}` | `{field_info['type']}` | {has_default} |")
 
             lines.append("")
 
@@ -470,8 +461,7 @@ class Reporter:
         print("## Event Field Coverage")
         print()
         print(
-            f"**Coverage**: {len(event_impl & event_all)}/{len(event_all)} "
-            f"({event_coverage:.1f}%)"
+            f"**Coverage**: {len(event_impl & event_all)}/{len(event_all)} ({event_coverage:.1f}%)"
         )
         print()
 
@@ -496,10 +486,7 @@ class Reporter:
 
         print("## Part Field Coverage")
         print()
-        print(
-            f"**Coverage**: {len(part_impl & part_all)}/{len(part_all)} "
-            f"({part_coverage:.1f}%)"
-        )
+        print(f"**Coverage**: {len(part_impl & part_all)}/{len(part_all)} ({part_coverage:.1f}%)")
         print()
 
         if verbose:
@@ -542,9 +529,7 @@ class Reporter:
         generated_coverage = len(generated) / len(all_types) * 100
         print("## Backend Event Generation")
         print()
-        print(
-            f"**Coverage**: {len(generated)}/{len(all_types)} ({generated_coverage:.1f}%)"
-        )
+        print(f"**Coverage**: {len(generated)}/{len(all_types)} ({generated_coverage:.1f}%)")
         print()
 
         if verbose:
@@ -566,9 +551,7 @@ class Reporter:
         consumed_coverage = len(consumed) / len(all_types) * 100
         print("## Frontend Event Handling")
         print()
-        print(
-            f"**Coverage**: {len(consumed)}/{len(all_types)} ({consumed_coverage:.1f}%)"
-        )
+        print(f"**Coverage**: {len(consumed)}/{len(all_types)} ({consumed_coverage:.1f}%)")
         print()
 
         if verbose:
@@ -638,10 +621,7 @@ class Reporter:
 
         print("## ADK FinishReason Coverage")
         print()
-        print(
-            f"**Coverage**: {len(mapped_adk_reasons)}/{len(adk_reasons)} "
-            f"({adk_coverage:.1f}%)"
-        )
+        print(f"**Coverage**: {len(mapped_adk_reasons)}/{len(adk_reasons)} ({adk_coverage:.1f}%)")
         print()
 
         if verbose:
@@ -666,9 +646,7 @@ class Reporter:
         if unmapped_ai_sdk_reasons:
             print("## ⚠️ AI SDK FinishReasons Not Produced")
             print()
-            print(
-                "These AI SDK finish reasons are defined but not produced by mapping:"
-            )
+            print("These AI SDK finish reasons are defined but not produced by mapping:")
             print()
             for reason in sorted(unmapped_ai_sdk_reasons):
                 print(f"- `{reason}`")
@@ -679,9 +657,7 @@ class Reporter:
         if unknown_values:
             print("## ⚠️ Unknown Target Values in Mapping")
             print()
-            print(
-                "These values are in reason_map but not defined in AI SDK FinishReason:"
-            )
+            print("These values are in reason_map but not defined in AI SDK FinishReason:")
             print()
             for value in sorted(unknown_values):
                 adk_sources = [k for k, v in reason_map.items() if v == value]
@@ -756,9 +732,7 @@ class CoverageChecker:
         adk_reasons = self.adk_extractor.get_finish_reasons()
         reason_map = self.adk_analyzer.analyze_finish_reasons()
         ai_sdk_reasons = self.ai_sdk_extractor.extract_finish_reasons()
-        self.reporter.print_finish_reason_coverage(
-            adk_reasons, reason_map, ai_sdk_reasons, verbose
-        )
+        self.reporter.print_finish_reason_coverage(adk_reasons, reason_map, ai_sdk_reasons, verbose)
 
 
 # =============================================================================
@@ -768,9 +742,7 @@ class CoverageChecker:
 
 def main() -> None:
     """Main entry point."""
-    parser = argparse.ArgumentParser(
-        description="Extract type definitions and check coverage"
-    )
+    parser = argparse.ArgumentParser(description="Extract type definitions and check coverage")
     parser.add_argument(
         "--extract-only",
         choices=["adk", "ai-sdk", "all"],

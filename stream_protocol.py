@@ -20,8 +20,9 @@ from __future__ import annotations
 import enum
 import json
 import uuid
+from collections.abc import AsyncGenerator
 from pprint import pformat
-from typing import Any, AsyncGenerator
+from typing import Any
 
 from google.adk.events import Event
 from google.genai import types
@@ -179,9 +180,7 @@ class StreamProtocolConverter:
         # Check for errors FIRST (before any other processing)
         if hasattr(event, "error_code") and event.error_code:
             error_message = getattr(event, "error_message", None) or "Unknown error"
-            logger.error(
-                f"[ERROR] ADK error detected: {event.error_code} - {error_message}"
-            )
+            logger.error(f"[ERROR] ADK error detected: {event.error_code} - {error_message}")
             yield self._format_sse_event(
                 {
                     "type": "error",
@@ -223,9 +222,7 @@ class StreamProtocolConverter:
                 if hasattr(part, "function_call") and part.function_call:
                     part_types.append(f"function_call({part.function_call.name})")
                 if hasattr(part, "function_response") and part.function_response:
-                    part_types.append(
-                        f"function_response({part.function_response.name})"
-                    )
+                    part_types.append(f"function_response({part.function_response.name})")
                 if hasattr(part, "inline_data") and part.inline_data:
                     part_types.append("inline_data")
                     # [DEBUG] Pretty print Part and inline_data to find transcription
@@ -235,27 +232,18 @@ class StreamProtocolConverter:
                             f"[convert_event INPUT]   Part[{idx}] attributes:\n{pformat(part_attrs, width=120, depth=2)}"
                         )
                     except Exception as e:
-                        logger.debug(
-                            f"[convert_event INPUT]   Part[{idx}] Could not pformat: {e}"
-                        )
+                        logger.debug(f"[convert_event INPUT]   Part[{idx}] Could not pformat: {e}")
                 if hasattr(part, "executable_code") and part.executable_code:
                     part_types.append("executable_code")
-                if (
-                    hasattr(part, "code_execution_result")
-                    and part.code_execution_result
-                ):
+                if hasattr(part, "code_execution_result") and part.code_execution_result:
                     part_types.append("code_execution_result")
 
                 if part_types:
-                    logger.debug(
-                        f"[convert_event INPUT]   Part[{idx}]: {', '.join(part_types)}"
-                    )
+                    logger.debug(f"[convert_event INPUT]   Part[{idx}]: {', '.join(part_types)}")
 
         # Send start event on first event
         if not self.has_started:
-            yield self._format_sse_event(
-                {"type": "start", "messageId": self.message_id}
-            )
+            yield self._format_sse_event({"type": "start", "messageId": self.message_id})
             self.has_started = True
 
         # Process event content parts
@@ -284,25 +272,16 @@ class StreamProtocolConverter:
 
                 # Function response (Tool result)
                 if hasattr(part, "function_response") and part.function_response:
-                    for sse_event in self._process_function_response(
-                        part.function_response
-                    ):
+                    for sse_event in self._process_function_response(part.function_response):
                         yield sse_event
 
                 # Code execution
                 if hasattr(part, "executable_code") and part.executable_code:
-                    for sse_event in self._process_executable_code(
-                        part.executable_code
-                    ):
+                    for sse_event in self._process_executable_code(part.executable_code):
                         yield sse_event
 
-                if (
-                    hasattr(part, "code_execution_result")
-                    and part.code_execution_result
-                ):
-                    for sse_event in self._process_code_result(
-                        part.code_execution_result
-                    ):
+                if hasattr(part, "code_execution_result") and part.code_execution_result:
+                    for sse_event in self._process_code_result(part.code_execution_result):
                         yield sse_event
 
                 # Inline data (images, etc.)
@@ -440,9 +419,7 @@ class StreamProtocolConverter:
         part_id = self._generate_part_id()
 
         events = [
-            self._format_sse_event(
-                {"type": f"{event_type_prefix}-start", "id": part_id}
-            ),
+            self._format_sse_event({"type": f"{event_type_prefix}-start", "id": part_id}),
             self._format_sse_event(
                 {"type": f"{event_type_prefix}-delta", "id": part_id, "delta": content}
             ),
@@ -517,14 +494,12 @@ class StreamProtocolConverter:
             # Reference: experiments/2025-12-13_bidirectional_protocol_investigation.md
             # SSE Format: event: tool-approval-request
             #             data: {"type":"tool-approval-request","approvalId":"...","toolCallId":"..."}
-            approval_event = f'event: tool-approval-request\ndata: {json.dumps({"type": "tool-approval-request", "approvalId": approval_id, "toolCallId": tool_call_id})}\n\n'
+            approval_event = f"event: tool-approval-request\ndata: {json.dumps({'type': 'tool-approval-request', 'approvalId': approval_id, 'toolCallId': tool_call_id})}\n\n"
             events.append(approval_event)
 
         return events
 
-    def _process_function_response(
-        self, function_response: types.FunctionResponse
-    ) -> list[str]:
+    def _process_function_response(self, function_response: types.FunctionResponse) -> list[str]:
         """Process function response into tool-output-available or tool-output-error event (AI SDK v6 spec)."""
         # Retrieve the tool call ID from the map to match with the function call
         tool_name = function_response.name
@@ -719,16 +694,12 @@ class StreamProtocolConverter:
                 logger.debug(
                     f"[INPUT TRANSCRIPTION] Closing text block in finalize: id={self._input_text_block_id}"
                 )
-                yield self._format_sse_event(
-                    {"type": "text-end", "id": self._input_text_block_id}
-                )
+                yield self._format_sse_event({"type": "text-end", "id": self._input_text_block_id})
                 self._input_text_block_started = False
 
             # Close any open text blocks (output transcription)
             if self._output_text_block_started and self._output_text_block_id:
-                yield self._format_sse_event(
-                    {"type": "text-end", "id": self._output_text_block_id}
-                )
+                yield self._format_sse_event({"type": "text-end", "id": self._output_text_block_id})
                 self._output_text_block_started = False
 
             # Build finish event
@@ -736,9 +707,7 @@ class StreamProtocolConverter:
 
             # Add finish reason if available
             if finish_reason:
-                finish_event["finishReason"] = map_adk_finish_reason_to_ai_sdk(
-                    finish_reason
-                )
+                finish_event["finishReason"] = map_adk_finish_reason_to_ai_sdk(finish_reason)
 
             # Build messageMetadata with usage and audio stats
             metadata: dict[str, Any] = {}
@@ -788,9 +757,7 @@ class StreamProtocolConverter:
                             )
                 if sources:
                     metadata["grounding"] = {"sources": sources}
-                    logger.debug(
-                        f"[GROUNDING] Added {len(sources)} grounding sources to metadata"
-                    )
+                    logger.debug(f"[GROUNDING] Added {len(sources)} grounding sources to metadata")
 
             # Add citations
             if citation_metadata:
@@ -808,9 +775,7 @@ class StreamProtocolConverter:
                         )
                 if citations:
                     metadata["citations"] = citations
-                    logger.debug(
-                        f"[CITATIONS] Added {len(citations)} citations to metadata"
-                    )
+                    logger.debug(f"[CITATIONS] Added {len(citations)} citations to metadata")
 
             # Add cache metadata (context cache statistics)
             if cache_metadata:
@@ -898,12 +863,8 @@ async def stream_adk_to_ai_sdk(
         error = error_list[-1] if error_list else None
         usage_metadata = usage_metadata_list[-1] if usage_metadata_list else None
         finish_reason = finish_reason_list[-1] if finish_reason_list else None
-        grounding_metadata = (
-            grounding_metadata_list[-1] if grounding_metadata_list else None
-        )
-        citation_metadata = (
-            citation_metadata_list[-1] if citation_metadata_list else None
-        )
+        grounding_metadata = grounding_metadata_list[-1] if grounding_metadata_list else None
+        citation_metadata = citation_metadata_list[-1] if citation_metadata_list else None
         cache_metadata = cache_metadata_list[-1] if cache_metadata_list else None
         model_version = model_version_list[-1] if model_version_list else None
 

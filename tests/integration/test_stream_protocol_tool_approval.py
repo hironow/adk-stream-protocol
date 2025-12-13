@@ -28,7 +28,6 @@ import pytest
 from stream_protocol import StreamProtocolConverter
 from tool_delegate import FrontendToolDelegate
 
-
 # ============================================================
 # Test Fixtures
 # ============================================================
@@ -266,7 +265,9 @@ async def test_frontend_multiple_tools_mixed_approval_rejection(
     tool_call_id_2 = "call_2"
 
     async def execute_tool_1() -> dict[str, Any]:
-        return await delegate.execute_on_frontend(tool_call_id_1, "web_search", {"query": "AI news"})
+        return await delegate.execute_on_frontend(
+            tool_call_id_1, "web_search", {"query": "AI news"}
+        )
 
     async def execute_tool_2() -> dict[str, Any]:
         return await delegate.execute_on_frontend(tool_call_id_2, "change_bgm", {"track": 0})

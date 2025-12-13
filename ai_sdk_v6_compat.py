@@ -37,7 +37,7 @@ from __future__ import annotations
 
 import base64
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Literal, Union
+from typing import TYPE_CHECKING, Any, Literal
 
 from google.genai import types
 from loguru import logger
@@ -142,10 +142,12 @@ class FilePart(BaseModel):
     - AI SDK v6 Source: packages/ui-utils/src/types.ts (FileUIPart)
     """
 
+    model_config = {"populate_by_name": True}
+
     type: Literal["file"] = "file"
     filename: str
     url: str  # data URL with base64 content (e.g., "data:image/png;base64,...")
-    mediaType: str  # MIME type (e.g., "image/png")
+    media_type: str = Field(alias="mediaType")  # MIME type (e.g., "image/png")
 
 
 # ============================================================
@@ -193,12 +195,16 @@ class ToolUsePart(BaseModel):
     - DynamicToolUIPart: "tool-use"
     """
 
+    model_config = {"populate_by_name": True}
+
     type: str  # e.g., "tool-web_search", "tool-change_bgm", or "tool-use"
-    toolCallId: str
-    toolName: str
+    tool_call_id: str = Field(alias="toolCallId")
+    tool_name: str = Field(alias="toolName")
     args: dict[str, Any] | None = None  # AI SDK v6: "input"
     state: ToolCallState
-    approval: ToolApproval | None = None  # Present when state="approval-requested" or "approval-responded"
+    approval: ToolApproval | None = (
+        None  # Present when state="approval-requested" or "approval-responded"
+    )
     output: dict[str, Any] | None = None  # Present when state="output-available"
 
 
@@ -207,7 +213,7 @@ class ToolUsePart(BaseModel):
 # ============================================================
 
 
-MessagePart = Union[TextPart, ImagePart, FilePart, ToolUsePart]
+MessagePart = TextPart | ImagePart | FilePart | ToolUsePart
 """
 Union type for all message parts (AI SDK v6 format).
 
@@ -248,9 +254,7 @@ class ChatMessage(BaseModel):
         if self.content:
             return self.content
         if self.parts is not None:
-            return "".join(
-                p.text or "" for p in self.parts if isinstance(p, TextPart)
-            )
+            return "".join(p.text or "" for p in self.parts if isinstance(p, TextPart))
         return ""
 
     def to_adk_content(self) -> types.Content:
@@ -290,6 +294,7 @@ class ChatMessage(BaseModel):
 
                     # Get image dimensions using PIL
                     from io import BytesIO
+
                     from PIL import Image
 
                     with Image.open(BytesIO(image_bytes)) as img:
@@ -305,9 +310,7 @@ class ChatMessage(BaseModel):
                     )
                     adk_parts.append(
                         types.Part(
-                            inline_data=types.Blob(
-                                mime_type=part.media_type, data=image_bytes
-                            )
+                            inline_data=types.Blob(mime_type=part.media_type, data=image_bytes)
                         )
                     )
                 elif isinstance(part, FilePart):
@@ -316,13 +319,14 @@ class ChatMessage(BaseModel):
                     if part.url.startswith("data:"):
                         # Extract base64 content after "base64,"
                         data_url_parts = part.url.split(",", 1)
-                        if len(data_url_parts) == 2:
+                        if len(data_url_parts) == 2:  # noqa: PLR2004 - data URL format: "data:type;base64,content"
                             base64_data = data_url_parts[1]
                             file_bytes = base64.b64decode(base64_data)
 
                             # Get image dimensions if it's an image
-                            if part.mediaType.startswith("image/"):
+                            if part.media_type.startswith("image/"):
                                 from io import BytesIO
+
                                 from PIL import Image
 
                                 with Image.open(BytesIO(file_bytes)) as img:
@@ -331,7 +335,7 @@ class ChatMessage(BaseModel):
 
                                 logger.info(
                                     f"[FILE INPUT] filename={part.filename}, "
-                                    f"mediaType={part.mediaType}, "
+                                    f"mediaType={part.media_type}, "
                                     f"size={len(file_bytes)} bytes, "
                                     f"dimensions={width}x{height}, "
                                     f"format={image_format}"
@@ -339,14 +343,14 @@ class ChatMessage(BaseModel):
                             else:
                                 logger.info(
                                     f"[FILE INPUT] filename={part.filename}, "
-                                    f"mediaType={part.mediaType}, "
+                                    f"mediaType={part.media_type}, "
                                     f"size={len(file_bytes)} bytes"
                                 )
 
                             adk_parts.append(
                                 types.Part(
                                     inline_data=types.Blob(
-                                        mime_type=part.mediaType, data=file_bytes
+                                        mime_type=part.media_type, data=file_bytes
                                     )
                                 )
                             )
@@ -359,7 +363,7 @@ class ChatMessage(BaseModel):
 # ============================================================
 
 
-def process_tool_use_parts(message: ChatMessage, delegate: "FrontendToolDelegate") -> None:
+def process_tool_use_parts(message: ChatMessage, delegate: FrontendToolDelegate) -> None:
     """
     Process tool-use parts from frontend messages and route to delegate.
 
@@ -381,7 +385,7 @@ def process_tool_use_parts(message: ChatMessage, delegate: "FrontendToolDelegate
 
     for part in message.parts:
         if isinstance(part, ToolUsePart):
-            tool_call_id = part.toolCallId
+            tool_call_id = part.tool_call_id
 
             # Handle approval-responded state (user approved/denied)
             if part.state == ToolCallState.APPROVAL_RESPONDED:
@@ -402,7 +406,7 @@ def process_tool_use_parts(message: ChatMessage, delegate: "FrontendToolDelegate
 
 def process_chat_message_for_bidi(
     message_data: dict,
-    delegate: "FrontendToolDelegate",
+    delegate: FrontendToolDelegate,
 ) -> tuple[list[types.Blob], types.Content | None]:
     """
     Process AI SDK v6 message data for BIDI streaming.
@@ -455,12 +459,12 @@ def process_chat_message_for_bidi(
                 # Decode data URL format: "data:image/png;base64,..."
                 if part.url.startswith("data:"):
                     data_url_parts = part.url.split(",", 1)
-                    if len(data_url_parts) == 2:
+                    if len(data_url_parts) == 2:  # noqa: PLR2004 - data URL format: "data:type;base64,content"
                         file_data_base64 = data_url_parts[1]
                         file_bytes = base64.b64decode(file_data_base64)
 
                         # Create Blob for ADK
-                        blob = types.Blob(mime_type=part.mediaType, data=file_bytes)
+                        blob = types.Blob(mime_type=part.media_type, data=file_bytes)
                         image_blobs.append(blob)
 
             # Handle text parts

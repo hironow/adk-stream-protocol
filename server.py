@@ -12,7 +12,7 @@ import asyncio
 import json
 import os
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -42,7 +42,7 @@ load_dotenv(".env.local")
 # Configure file logging
 log_dir = Path("logs")
 log_dir.mkdir(exist_ok=True)
-log_file = log_dir / f"server_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+log_file = log_dir / f"server_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.log"
 logger.add(
     log_file,
     rotation="10 MB",
@@ -179,7 +179,7 @@ async def get_weather(location: str) -> dict[str, Any]:
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(url, params=params) as response:
-                if response.status == 200:
+                if response.status == 200:  # noqa: PLR2004 - HTTP OK status code
                     data = await response.json()
                     weather = {
                         "temperature": round(data["main"]["temp"], 1),
@@ -191,15 +191,11 @@ async def get_weather(location: str) -> dict[str, Any]:
                     }
                     # Cache the result
                     await _set_weather_cache(location, weather)
-                    logger.info(
-                        f"Tool call: get_weather({location}) -> {weather} (API)"
-                    )
+                    logger.info(f"Tool call: get_weather({location}) -> {weather} (API)")
                     return weather
                 else:
                     error_msg = f"API returned status {response.status}"
-                    logger.error(
-                        f"Tool call: get_weather({location}) failed: {error_msg}"
-                    )
+                    logger.error(f"Tool call: get_weather({location}) failed: {error_msg}")
                     return {
                         "error": error_msg,
                         "location": location,
@@ -245,7 +241,7 @@ def get_current_time(timezone: str = "UTC") -> dict[str, Any]:
     Returns:
         Current time information
     """
-    now = datetime.now()
+    now = datetime.now(UTC)
     result = {
         "datetime": now.isoformat(),
         "timezone": timezone,
@@ -281,9 +277,7 @@ async def change_bgm(track: int, tool_context: ToolContext) -> dict[str, Any]:
         logger.error(f"[change_bgm] {error_msg}")
         return {"success": False, "error": error_msg}
 
-    logger.info(
-        f"[change_bgm] client={client_id}, tool_call_id={tool_call_id}, track={track}"
-    )
+    logger.info(f"[change_bgm] client={client_id}, tool_call_id={tool_call_id}, track={track}")
 
     # Delegate execution to frontend and await result
     result = await delegate.execute_on_frontend(
@@ -348,9 +342,7 @@ TOOLS_REQUIRING_APPROVAL = {"change_bgm", "get_location"}
 API_KEY = os.getenv("GOOGLE_API_KEY")
 if not API_KEY:
     logger.error("GOOGLE_API_KEY not found in environment! ADK will fail.")
-    logger.error(
-        "Note: ADK uses GOOGLE_API_KEY, while AI SDK uses GOOGLE_GENERATIVE_AI_API_KEY"
-    )
+    logger.error("Note: ADK uses GOOGLE_API_KEY, while AI SDK uses GOOGLE_GENERATIVE_AI_API_KEY")
 else:
     logger.info(f"ADK API key loaded: {API_KEY[:10]}...")
 
@@ -520,9 +512,7 @@ async def stream_agent_chat(messages: list[ChatMessage], user_id: str = "default
     if not last_user_message_text:
         return
 
-    logger.info(
-        f"Streaming chat for user {user_id}, message: {last_user_message_text[:50]}..."
-    )
+    logger.info(f"Streaming chat for user {user_id}, message: {last_user_message_text[:50]}...")
     logger.info(
         f"Agent model: {sse_agent.model}, tools: {[tool.__name__ if callable(tool) else str(tool) for tool in sse_agent.tools]}"
     )
@@ -600,19 +590,17 @@ async def chat(request: ChatRequest):
 
     if not last_message:
         return ChatResponse(message="No message provided")
-    
+
     user_id = "chat_user"
 
     # Run ADK agent and get response
     try:
-        response_text = await run_agent_chat(
-            last_message, user_id, sse_agent_runner, "agents"
-        )
+        response_text = await run_agent_chat(last_message, user_id, sse_agent_runner, "agents")
         logger.info(f"ADK agent response: {response_text[:100]}...")
         return ChatResponse(message=response_text)
     except Exception as e:
         logger.error(f"Error running ADK agent: {e}")
-        return ChatResponse(message=f"Error: {str(e)}")
+        return ChatResponse(message=f"Error: {e!s}")
 
 
 @app.post("/stream")
@@ -642,7 +630,7 @@ async def stream(request: ChatRequest):
                 "Connection": "keep-alive",
             },
         )
-        
+
     user_id = "stream_user"
 
     # Stream ADK agent response (pass full message history)
@@ -717,17 +705,14 @@ async def live_chat(websocket: WebSocket):
 
     # Create connection-specific FrontendToolDelegate
     connection_delegate = FrontendToolDelegate()
-    logger.info(
-        f"[BIDI] Created FrontendToolDelegate for connection: {connection_signature}"
-    )
+    logger.info(f"[BIDI] Created FrontendToolDelegate for connection: {connection_signature}")
 
     # Store delegate and client_identifier in session state
     # Using temp: prefix (not persisted, session-lifetime only)
     session.state["temp:delegate"] = connection_delegate
     session.state["client_identifier"] = connection_signature
     logger.info(
-        f"[BIDI] Stored delegate and client_identifier in session state "
-        f"(session_id={session.id})"
+        f"[BIDI] Stored delegate and client_identifier in session state (session_id={session.id})"
     )
 
     # Create LiveRequestQueue for bidirectional communication
@@ -748,12 +733,8 @@ async def live_chat(websocket: WebSocket):
         if use_vertexai:
             logger.info("[BIDI] Using Vertex AI with session resumption enabled")
         else:
-            logger.info(
-                "[BIDI] Using Google AI Studio (session resumption not available)"
-            )
-        logger.info(
-            "[BIDI] Context window compression enabled - unlimited session duration"
-        )
+            logger.info("[BIDI] Using Google AI Studio (session resumption not available)")
+        logger.info("[BIDI] Context window compression enabled - unlimited session duration")
 
         # Context window compression enables unlimited session duration
         # Reference: https://google.github.io/adk-docs/streaming/dev-guide/part4/#streamingmode-bidi-or-sse
@@ -764,9 +745,7 @@ async def live_chat(websocket: WebSocket):
             response_modalities=["AUDIO"],
             input_audio_transcription=types.AudioTranscriptionConfig(),
             output_audio_transcription=types.AudioTranscriptionConfig(),
-            session_resumption=types.SessionResumptionConfig()
-            if use_vertexai
-            else None,
+            session_resumption=types.SessionResumptionConfig() if use_vertexai else None,
             context_window_compression=types.ContextWindowCompressionConfig(
                 trigger_tokens=100000,
                 sliding_window=types.SlidingWindow(target_tokens=80000),
@@ -777,12 +756,8 @@ async def live_chat(websocket: WebSocket):
         if use_vertexai:
             logger.info("[BIDI] Using Vertex AI with session resumption enabled")
         else:
-            logger.info(
-                "[BIDI] Using Google AI Studio (session resumption not available)"
-            )
-        logger.info(
-            "[BIDI] Context window compression enabled - unlimited session duration"
-        )
+            logger.info("[BIDI] Using Google AI Studio (session resumption not available)")
+        logger.info("[BIDI] Context window compression enabled - unlimited session duration")
 
         # Context window compression enables unlimited session duration
         # Reference: https://google.github.io/adk-docs/streaming/dev-guide/part4/#streamingmode-bidi-or-sse
@@ -793,9 +768,7 @@ async def live_chat(websocket: WebSocket):
             response_modalities=["TEXT"],
             input_audio_transcription=None,
             output_audio_transcription=None,
-            session_resumption=types.SessionResumptionConfig()
-            if use_vertexai
-            else None,
+            session_resumption=types.SessionResumptionConfig() if use_vertexai else None,
             context_window_compression=types.ContextWindowCompressionConfig(
                 trigger_tokens=100000,
                 sliding_window=types.SlidingWindow(target_tokens=80000),
@@ -870,9 +843,7 @@ async def live_chat(websocket: WebSocket):
                         if action == "start":
                             logger.info("[BIDI] Audio input started (CMD key pressed)")
                         elif action == "stop":
-                            logger.info(
-                                "[BIDI] Audio input stopped (CMD key released, auto-send)"
-                            )
+                            logger.info("[BIDI] Audio input stopped (CMD key released, auto-send)")
                         # Note: Audio chunks are streamed separately via audio_chunk events
                         # ADK processes the audio in real-time through LiveRequestQueue
 
@@ -900,9 +871,7 @@ async def live_chat(websocket: WebSocket):
 
                             # Create audio blob for ADK
                             # Using audio/pcm mime type (raw PCM from AudioWorklet)
-                            audio_blob = types.Blob(
-                                mime_type="audio/pcm", data=audio_bytes
-                            )
+                            audio_blob = types.Blob(mime_type="audio/pcm", data=audio_bytes)
                             # Send to ADK via LiveRequestQueue
                             live_request_queue.send_realtime(audio_blob)
 

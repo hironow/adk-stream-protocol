@@ -27,9 +27,7 @@ from stream_protocol import (
 from tests.utils import parse_sse_event
 
 
-async def convert_and_collect(
-    converter: StreamProtocolConverter, event: Event
-) -> list[str]:
+async def convert_and_collect(converter: StreamProtocolConverter, event: Event) -> list[str]:
     """Helper to convert event and collect all SSE strings."""
     events = []
     async for sse_event in converter.convert_event(event):
@@ -87,9 +85,7 @@ def create_executable_code_part(language: types.Language, code: str) -> types.Pa
     return types.Part(executable_code=executable_code)
 
 
-def create_code_execution_result_part(
-    outcome: types.Outcome, output: str
-) -> types.Part:
+def create_code_execution_result_part(outcome: types.Outcome, output: str) -> types.Part:
     """Create real ADK Part with code execution result."""
     code_result = types.CodeExecutionResult(outcome=outcome, output=output)
     return types.Part(code_execution_result=code_result)
@@ -128,9 +124,7 @@ class TestTextContentConversion:
             ),
         ],
     )
-    def test_text_content_events(
-        self, text_content: str, expected_event_types: list[str]
-    ):
+    def test_text_content_events(self, text_content: str, expected_event_types: list[str]):
         """
         Test: ADK text content → AI SDK v6 text-start/delta/end events
 
@@ -183,9 +177,7 @@ class TestReasoningContentConversion:
             ),
         ],
     )
-    def test_reasoning_content_events(
-        self, thought_content: str, expected_event_types: list[str]
-    ):
+    def test_reasoning_content_events(self, thought_content: str, expected_event_types: list[str]):
         """
         Test: ADK thought content → AI SDK v6 reasoning-start/delta/end events
 
@@ -212,9 +204,7 @@ class TestReasoningContentConversion:
         assert actual_types == expected_event_types
 
         # then: Verify thought content in delta
-        reasoning_delta_events = [
-            e for e in parsed_events if e["type"] == "reasoning-delta"
-        ]
+        reasoning_delta_events = [e for e in parsed_events if e["type"] == "reasoning-delta"]
         assert len(reasoning_delta_events) == 1
         assert reasoning_delta_events[0]["delta"] == thought_content
 
@@ -270,9 +260,7 @@ class TestToolExecutionConversion:
         assert "toolCallId" in tool_start
 
         # Verify tool-input-available
-        tool_available = [
-            e for e in parsed_events if e["type"] == "tool-input-available"
-        ][0]
+        tool_available = [e for e in parsed_events if e["type"] == "tool-input-available"][0]
         assert tool_available["toolName"] == tool_name
         assert tool_available["input"] == tool_args
         assert tool_available["toolCallId"] == tool_start["toolCallId"]
@@ -292,9 +280,7 @@ class TestToolExecutionConversion:
             ),
         ],
     )
-    def test_tool_result_events(
-        self, tool_output: Any, expected_event_types: list[str]
-    ):
+    def test_tool_result_events(self, tool_output: Any, expected_event_types: list[str]):
         """
         Test: ADK function_response → AI SDK v6 tool-result-available event
 
@@ -317,9 +303,7 @@ class TestToolExecutionConversion:
         assert actual_types == expected_event_types
 
         # Verify tool-output-available
-        tool_result = [
-            e for e in parsed_events if e["type"] == "tool-output-available"
-        ][0]
+        tool_result = [e for e in parsed_events if e["type"] == "tool-output-available"][0]
         assert tool_result["output"] == tool_output
         assert "toolCallId" in tool_result
 
@@ -336,9 +320,7 @@ class TestToolExecutionConversion:
         converter = StreamProtocolConverter()
 
         # Create function call (using real ADK types)
-        function_call = types.FunctionCall(
-            name="get_weather", args={"location": "Tokyo"}
-        )
+        function_call = types.FunctionCall(name="get_weather", args={"location": "Tokyo"})
 
         # Create function response (for the same tool call)
         function_response = types.FunctionResponse(
@@ -357,12 +339,8 @@ class TestToolExecutionConversion:
 
         # Extract toolCallIds
         call_start = [e for e in call_parsed if e["type"] == "tool-input-start"][0]
-        call_available = [
-            e for e in call_parsed if e["type"] == "tool-input-available"
-        ][0]
-        result_available = [
-            e for e in result_parsed if e["type"] == "tool-output-available"
-        ][0]
+        call_available = [e for e in call_parsed if e["type"] == "tool-input-available"][0]
+        result_available = [e for e in result_parsed if e["type"] == "tool-output-available"][0]
 
         call_id = call_start["toolCallId"]
         available_id = call_available["toolCallId"]
@@ -397,9 +375,7 @@ class TestAudioContentConversion:
             ),
         ],
     )
-    def test_pcm_audio_events(
-        self, mime_type: str, audio_data: bytes, expected_event_type: str
-    ):
+    def test_pcm_audio_events(self, mime_type: str, audio_data: bytes, expected_event_type: str):
         """
         Test: ADK inline_data (PCM audio) → AI SDK v6 data-pcm custom event
 
@@ -451,9 +427,7 @@ class TestAudioContentConversion:
             ),
         ],
     )
-    def test_other_audio_formats(
-        self, mime_type: str, audio_data: bytes, expected_event_type: str
-    ):
+    def test_other_audio_formats(self, mime_type: str, audio_data: bytes, expected_event_type: str):
         """
         Test: ADK inline_data (non-PCM audio) → AI SDK v6 data-audio custom event
 
@@ -771,9 +745,7 @@ class TestMessageControlConversion:
         events = []
 
         async def collect():
-            async for event in converter.finalize(
-                usage_metadata=mock_usage, error=None
-            ):
+            async for event in converter.finalize(usage_metadata=mock_usage, error=None):
                 events.append(event)
 
         asyncio.run(collect())
@@ -787,17 +759,12 @@ class TestMessageControlConversion:
 
         finish_event = finish_events[0]
         assert finish_event["type"] == "finish"
-        assert "messageMetadata" in finish_event, (
-            "finish event must include messageMetadata field"
-        )
+        assert "messageMetadata" in finish_event, "finish event must include messageMetadata field"
         assert "usage" in finish_event["messageMetadata"], (
             "messageMetadata must include usage field"
         )
         assert finish_event["messageMetadata"]["usage"]["promptTokens"] == prompt_tokens
-        assert (
-            finish_event["messageMetadata"]["usage"]["completionTokens"]
-            == completion_tokens
-        )
+        assert finish_event["messageMetadata"]["usage"]["completionTokens"] == completion_tokens
         assert finish_event["messageMetadata"]["usage"]["totalTokens"] == expected_total
 
 
@@ -967,9 +934,7 @@ class TestToolErrorHandling:
         converter = StreamProtocolConverter()
 
         # Register tool_call_id
-        function_call = types.FunctionCall(
-            name="get_weather", args={"city": "InvalidCity123"}
-        )
+        function_call = types.FunctionCall(name="get_weather", args={"city": "InvalidCity123"})
         function_call_event = Mock(spec=Event)
         function_call_event.error_code = None
         function_call_event.content = types.Content(
@@ -1011,9 +976,7 @@ class TestToolErrorHandling:
         converter = StreamProtocolConverter()
 
         # Register tool_call_id
-        function_call = types.FunctionCall(
-            name="calculate", args={"expression": "2 + 2"}
-        )
+        function_call = types.FunctionCall(name="calculate", args={"expression": "2 + 2"})
         function_call_event = Mock(spec=Event)
         function_call_event.error_code = None
         function_call_event.content = types.Content(
@@ -1069,9 +1032,7 @@ class TestMetadataInFinishEvent:
         mock_event = Mock(spec=Event)
         mock_event.error_code = None
         mock_event.grounding_metadata = mock_grounding
-        mock_event.content = types.Content(
-            role="model", parts=[types.Part(text="Response")]
-        )
+        mock_event.content = types.Content(role="model", parts=[types.Part(text="Response")])
 
         # when: Stream events through converter
         events = []
@@ -1128,9 +1089,7 @@ class TestMetadataInFinishEvent:
         mock_event = Mock(spec=Event)
         mock_event.error_code = None
         mock_event.citation_metadata = mock_citation
-        mock_event.content = types.Content(
-            role="model", parts=[types.Part(text="Response")]
-        )
+        mock_event.content = types.Content(role="model", parts=[types.Part(text="Response")])
 
         # when: Stream events through converter
         events = []
@@ -1182,9 +1141,7 @@ class TestMetadataInFinishEvent:
         mock_event = Mock(spec=Event)
         mock_event.error_code = None
         mock_event.cache_metadata = mock_cache
-        mock_event.content = types.Content(
-            role="model", parts=[types.Part(text="Response")]
-        )
+        mock_event.content = types.Content(role="model", parts=[types.Part(text="Response")])
 
         # when: Stream events through converter
         events = []
@@ -1226,9 +1183,7 @@ class TestMetadataInFinishEvent:
         mock_event = Mock(spec=Event)
         mock_event.error_code = None
         mock_event.model_version = "gemini-2.0-flash-001"
-        mock_event.content = types.Content(
-            role="model", parts=[types.Part(text="Response")]
-        )
+        mock_event.content = types.Content(role="model", parts=[types.Part(text="Response")])
 
         # when: Stream events through converter
         events = []
@@ -1305,9 +1260,7 @@ class TestFinishReasonMapping:
         # when/then: All real enum values should map correctly
         for finish_reason, expected in test_cases:
             result = map_adk_finish_reason_to_ai_sdk(finish_reason)
-            assert result == expected, (
-                f"Expected {finish_reason.name} → {expected}, got {result}"
-            )
+            assert result == expected, f"Expected {finish_reason.name} → {expected}, got {result}"
 
     def test_finish_reason_unknown_fallback(self):
         """

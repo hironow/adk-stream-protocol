@@ -24,7 +24,6 @@ import pytest
 
 from tool_delegate import FrontendToolDelegate
 
-
 # ============================================================
 # Test Fixtures
 # ============================================================
@@ -223,6 +222,7 @@ async def test_resolve_same_tool_call_id_twice_only_uses_first(
 
     Scenario: Frontend accidentally sends duplicate result.
     """
+
     # given: Pending tool call
     async def execute_tool() -> dict[str, Any]:
         return await delegate.execute_on_frontend(tool_call_id, "test_tool", {})
