@@ -10,7 +10,7 @@ This is Phase 4 of per-connection state management implementation.
 from __future__ import annotations
 
 import uuid
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -131,8 +131,6 @@ async def test_connection_specific_session_creation():
     mock_session2.id = expected_session_id2
 
     # Mock create_session to return different sessions
-    from unittest.mock import AsyncMock
-
     mock_runner.session_service.create_session = AsyncMock(
         side_effect=[mock_session1, mock_session2]
     )
@@ -168,8 +166,6 @@ async def test_fallback_to_sse_mode_without_connection_signature():
     mock_session = MagicMock()
     expected_session_id = "session_alice_agents"
     mock_session.id = expected_session_id
-
-    from unittest.mock import AsyncMock
 
     mock_runner.session_service.create_session = AsyncMock(return_value=mock_session)
 

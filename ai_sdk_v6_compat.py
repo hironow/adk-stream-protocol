@@ -37,10 +37,12 @@ from __future__ import annotations
 
 import base64
 from enum import Enum
+from io import BytesIO
 from typing import TYPE_CHECKING, Any, Literal
 
 from google.genai import types
 from loguru import logger
+from PIL import Image
 from pydantic import BaseModel, Field, field_validator
 
 if TYPE_CHECKING:
@@ -116,8 +118,6 @@ class ImagePart(BaseModel):
     @classmethod
     def validate_data(cls, v: str) -> str:
         """Validate that data is not empty and is valid base64."""
-        import base64
-
         if not v or len(v.strip()) == 0:
             msg = "Image data cannot be empty"
             raise ValueError(msg)
@@ -275,8 +275,6 @@ class ChatMessage(BaseModel):
             types.Part(inline_data=InlineData(mime_type="image/png", data=bytes))
           ])
         """
-        import base64
-
         adk_parts = []
 
         # Handle simple text content
@@ -293,10 +291,6 @@ class ChatMessage(BaseModel):
                     image_bytes = base64.b64decode(part.data)
 
                     # Get image dimensions using PIL
-                    from io import BytesIO
-
-                    from PIL import Image
-
                     with Image.open(BytesIO(image_bytes)) as img:
                         width, height = img.size
                         image_format = img.format
@@ -325,10 +319,6 @@ class ChatMessage(BaseModel):
 
                             # Get image dimensions if it's an image
                             if part.media_type.startswith("image/"):
-                                from io import BytesIO
-
-                                from PIL import Image
-
                                 with Image.open(BytesIO(file_bytes)) as img:
                                     width, height = img.size
                                     image_format = img.format

@@ -24,7 +24,16 @@ import asyncio
 from typing import Any
 
 import pytest
+from google.adk.events import Event
+from google.genai import types
 
+from ai_sdk_v6_compat import (
+    ChatMessage,
+    ToolApproval,
+    ToolCallState,
+    ToolUsePart,
+    process_tool_use_parts,
+)
 from stream_protocol import StreamProtocolConverter
 from tool_delegate import FrontendToolDelegate
 
@@ -68,9 +77,6 @@ async def test_stream_protocol_generates_tool_approval_request(
     4. Frontend receives events and updates UI
     """
     # given: ADK tool_call event (function_call part)
-    from google.adk.events import Event
-    from google.genai import types
-
     # Create function_call part (ADK format)
     function_call = types.FunctionCall(
         name="change_bgm",
@@ -109,9 +115,6 @@ async def test_stream_protocol_tracks_pending_approvals(
     This verifies that converter maintains approvalId → toolCallId mapping.
     """
     # given: ADK tool_call event (function_call part)
-    from google.adk.events import Event
-    from google.genai import types
-
     # Create function_call part (ADK format)
     function_call = types.FunctionCall(
         name="change_bgm",
@@ -283,14 +286,6 @@ async def test_frontend_multiple_tools_mixed_approval_rejection(
     # Both sent in single sendMessages() call
 
     # Mock frontend message structure (from lib/use-chat-integration.test.tsx:557-575)
-    from ai_sdk_v6_compat import (
-        ChatMessage,
-        ToolApproval,
-        ToolCallState,
-        ToolUsePart,
-        process_tool_use_parts,
-    )
-
     frontend_message = ChatMessage(
         role="assistant",
         parts=[
