@@ -460,6 +460,137 @@ describe("useChat Integration", () => {
       // - Result: Automatic resubmission triggered
     }, 10000); // Increased timeout for WebSocket connection
 
+    it("should verify multiple-tool rejection does NOT auto-submit until all tools complete (ADK BIDI)", async () => {
+      // Given: ADK BIDI mode with MULTIPLE tools - one needs approval, one needs output
+      // Note: This test uses approved=false to verify rejection in multi-tool scenario
+      const initialMessages: UIMessage[] = [
+        {
+          id: "msg-1",
+          role: "user" as const,
+          parts: [
+            {
+              type: "text" as const,
+              text: "Search and change BGM",
+            },
+          ],
+        },
+        {
+          id: "msg-2",
+          role: "assistant" as const,
+          parts: [
+            {
+              type: "tool-web_search" as const,
+              toolCallId: "call-1",
+              toolName: "web_search",
+              args: { query: "AI news" },
+              state: "approval-requested" as const,
+              approval: {
+                id: "approval-1",
+                approved: undefined,
+                reason: undefined,
+              },
+            },
+            {
+              type: "tool-change_bgm" as const,
+              toolCallId: "call-2",
+              toolName: "change_bgm",
+              args: { track_name: "lofi" },
+              state: "call" as const, // Waiting for output
+            },
+          ],
+        },
+      ];
+
+      const options = buildUseChatOptions({
+        mode: "adk-bidi",
+        initialMessages,
+        adkBackendUrl: "http://localhost:8000",
+      });
+
+      const transport = options.transport!;
+      const sendMessagesSpy = vi.spyOn(transport, 'sendMessages');
+
+      // When: Using with useChat
+      const { result } = renderHook(() => useChat(options.useChatOptions));
+
+      // Step 1: Reject tool-1
+      await act(async () => {
+        result.current.addToolApprovalResponse({
+          id: "approval-1",
+          approved: false,
+          reason: "User denied permission",
+        });
+      });
+
+      // Wait a bit - should NOT auto-submit yet (Tool-2 still incomplete)
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // ✅ IMPORTANT: Auto-submit does NOT happen after rejection
+      // Reason: This is a MULTIPLE tool scenario
+      //   - Condition 1: Has approval-responded ✅ (call-1)
+      //   - Condition 2: All tools complete ❌ (call-2 still in "call" state)
+      // Note: approved=true would behave the same (see mixed approval test)
+      // The key is that Tool-2 is still incomplete
+      expect(sendMessagesSpy).not.toHaveBeenCalled();
+
+      // Step 2: Provide output for tool-2
+      await act(async () => {
+        result.current.addToolOutput({
+          toolCallId: "call-2",
+          tool: "change_bgm",
+          output: { success: true, track: "lofi" },
+        });
+      });
+
+      // Then: NOW both conditions satisfied → auto-submit should happen
+      // Condition 1: Has approval-responded (call-1 with approved=false)
+      // Condition 2: All tools complete (call-1: approval-responded, call-2: output-available)
+      await vi.waitFor(() => {
+        expect(sendMessagesSpy).toHaveBeenCalled();
+      });
+
+      // Verify the combined message includes both rejection and output
+      const calls = sendMessagesSpy.mock.calls;
+      const lastCall = calls[calls.length - 1];
+      const lastMessage = lastCall[0].messages[lastCall[0].messages.length - 1];
+
+      expect(lastMessage.parts).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: "tool-web_search",
+            toolCallId: "call-1",
+            state: "approval-responded",
+            approval: expect.objectContaining({
+              id: "approval-1",
+              approved: false,
+              reason: "User denied permission",
+            }),
+          }),
+          expect.objectContaining({
+            type: "tool-change_bgm",
+            toolCallId: "call-2",
+            state: "output-available",
+          }),
+        ])
+      );
+
+      // Note: This verifies multi-tool rejection flow:
+      // - Step 1: addToolApprovalResponse({ approved: false }) on Tool-1
+      //   → Tool-1 state becomes "approval-responded"
+      //   → Tool-2 still in "call" state (incomplete)
+      //   → Condition 2 fails → NO auto-submit
+      //
+      // - Step 2: addToolOutput on Tool-2
+      //   → Tool-2 state becomes "output-available"
+      //   → All tools now complete
+      //   → Auto-submit triggered → sends BOTH results
+      //
+      // IMPORTANT: This proves that approved=false does NOT cause immediate
+      // auto-submit in multi-tool scenarios. The behavior is identical to
+      // approved=true (see mixed approval test). Only ALL tools being complete
+      // triggers auto-submit.
+    }, 10000); // Increased timeout for WebSocket connection
+
     it("should verify single-tool approval-response triggers immediate auto-submit (ADK BIDI)", async () => {
       // Given: ADK BIDI mode with SINGLE tool waiting for approval
       // Note: This test uses approved=false, but approved=true would behave identically
