@@ -27,7 +27,7 @@ export function Chat({ mode }: ChatProps) {
     approvalId: string;
     toolCallId: string;
     toolName?: string;
-    args?: any;
+    args?: Record<string, unknown>;
   } | null>(null);
 
   const { useChatOptions, transport } = buildUseChatOptions({
@@ -69,7 +69,7 @@ export function Chat({ mode }: ChatProps) {
     });
 
     // Execute browser API based on tool name
-    let result: any;
+    let result: Record<string, unknown>;
     try {
       switch (pendingToolApproval.toolName) {
         case "change_bgm": {
@@ -315,6 +315,7 @@ export function Chat({ mode }: ChatProps) {
     <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       {/* BGM Switch Button (upper left) */}
       <button
+        type="button"
         onClick={() => audioContext.bgmChannel.switchTrack()}
         style={{
           position: "fixed",
@@ -398,6 +399,7 @@ export function Chat({ mode }: ChatProps) {
             )}
             <div style={{ display: "flex", gap: "0.5rem" }}>
               <button
+                type="button"
                 onClick={handleRejectTool}
                 style={{
                   flex: 1,
@@ -414,6 +416,7 @@ export function Chat({ mode }: ChatProps) {
                 Reject
               </button>
               <button
+                type="button"
                 onClick={handleApproveTools}
                 style={{
                   flex: 1,
@@ -599,12 +602,14 @@ export function Chat({ mode }: ChatProps) {
       >
         {previewUrl && (
           <div style={{ position: "relative", maxWidth: "200px" }}>
+            {/* biome-ignore lint/performance/noImgElement: Data URL preview requires img element */}
             <img
               src={previewUrl}
               alt="Preview"
               style={{ width: "100%", borderRadius: "8px" }}
             />
             <button
+              type="button"
               onClick={() => {
                 setSelectedFile(null);
                 setPreviewUrl(null);

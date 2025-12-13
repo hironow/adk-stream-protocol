@@ -16,6 +16,14 @@ import path from "node:path";
 const WEATHER_CACHE_TTL = 43200000; // 12 hours in milliseconds
 const CACHE_DIR = path.join(process.cwd(), ".cache");
 
+interface WeatherData {
+  temperature: number;
+  condition: string;
+  humidity: number;
+  cached?: boolean;
+  note?: string;
+}
+
 async function ensureCacheDir() {
   try {
     await fs.mkdir(CACHE_DIR, { recursive: true });
@@ -24,7 +32,9 @@ async function ensureCacheDir() {
   }
 }
 
-async function getWeatherFromCache(location: string): Promise<any | null> {
+async function getWeatherFromCache(
+  location: string,
+): Promise<WeatherData | null> {
   await ensureCacheDir();
   const cacheFile = path.join(
     CACHE_DIR,
@@ -43,7 +53,7 @@ async function getWeatherFromCache(location: string): Promise<any | null> {
   return null;
 }
 
-async function setWeatherCache(location: string, data: any) {
+async function setWeatherCache(location: string, data: WeatherData) {
   await ensureCacheDir();
   const cacheFile = path.join(
     CACHE_DIR,
@@ -85,7 +95,7 @@ const getWeatherTool = tool({
         "[Gemini Direct] OPENWEATHERMAP_API_KEY not set, using mock data",
       );
       // Fallback to mock data
-      const mockWeather: Record<string, any> = {
+      const mockWeather: Record<string, WeatherData> = {
         Tokyo: { temperature: 18, condition: "Cloudy", humidity: 65 },
         "San Francisco": { temperature: 15, condition: "Foggy", humidity: 80 },
         London: { temperature: 12, condition: "Rainy", humidity: 85 },
@@ -237,7 +247,7 @@ export async function POST(req: Request) {
   messages.forEach((msg, idx) => {
     console.log(`[Gemini Direct] Message ${idx}:`, {
       role: msg.role,
-      parts: msg.parts?.map((p: any) => ({
+      parts: msg.parts?.map((p) => ({
         type: p.type,
         text: p.text?.substring(0, 50),
       })),

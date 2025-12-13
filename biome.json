@@ -7,15 +7,16 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "experimentalScannerIgnores": [
-      ".next/**",
-      "node_modules/**",
-      ".venv/**",
-      "output/**",
-      "preprocessed/**",
-      "public/**/*.js",
-      "e2e/fixtures/**/*.js",
-      "pnpm-lock.yaml"
+    "includes": [
+      "**",
+      "!!**/.next",
+      "!!**/node_modules",
+      "!!**/.venv",
+      "!!**/output",
+      "!!**/preprocessed",
+      "!!**/public/**/*.js",
+      "!!**/e2e/fixtures/**/*.js",
+      "!!**/pnpm-lock.yaml"
     ]
   },
   "formatter": {

@@ -162,6 +162,7 @@ export function ImageUpload({
           }}
         >
           {/* Image preview */}
+          {/* biome-ignore lint/performance/noImgElement: Data URL preview requires img element */}
           <img
             src={selectedImage.preview}
             alt="Preview"
@@ -196,6 +197,7 @@ export function ImageUpload({
 
           {/* Remove button */}
           <button
+            type="button"
             onClick={handleRemove}
             style={{
               padding: "0.25rem 0.5rem",

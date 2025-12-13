@@ -25,6 +25,7 @@ export function ImageDisplay({ content, mediaType, alt }: ImageDisplayProps) {
         marginBottom: "0.5rem",
       }}
     >
+      {/* biome-ignore lint/performance/noImgElement: Data URL from AI requires img element */}
       <img
         src={dataUrl}
         alt={alt || "AI-generated image"}

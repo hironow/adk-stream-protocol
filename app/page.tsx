@@ -38,6 +38,7 @@ export default function ChatPage() {
             style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}
           >
             <button
+              type="button"
               onClick={() => {
                 console.log("[Mode Switch] Gemini Direct");
                 setMode("gemini");
@@ -67,6 +68,7 @@ export default function ChatPage() {
               </div>
             </button>
             <button
+              type="button"
               onClick={() => {
                 console.log("[Mode Switch] ADK SSE");
                 setMode("adk-sse");
@@ -96,6 +98,7 @@ export default function ChatPage() {
               </div>
             </button>
             <button
+              type="button"
               onClick={() => {
                 console.log("[Mode Switch] ADK BIDI");
                 setMode("adk-bidi");
