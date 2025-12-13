@@ -392,13 +392,54 @@ _sessions: dict[str, Any] = {}
 
 
 async def get_or_create_session(
-    user_id: str, agent_runner: InMemoryRunner, app_name: str = "agents"
+    user_id: str,
+    agent_runner: InMemoryRunner,
+    app_name: str = "agents",
+    connection_signature: str | None = None,
 ) -> Any:
-    """Get or create a session for a user with specific agent runner"""
-    session_id = f"session_{user_id}_{app_name}"
+    """
+    Get or create a session for a user with specific agent runner.
+
+    ADK Design Note: Session = Connection
+    In ADK's architecture, each WebSocket connection should have its own session
+    to avoid race conditions when run_live() is called concurrently. While ADK
+    treats 'session' and 'connection' as equivalent concepts, we use the term
+    'connection_signature' to emphasize this is not an operational ID but rather
+    a unique identifier to distinguish sessions for the same user.
+
+    Reference: https://github.com/google/adk-python/discussions/2784
+
+    Args:
+        user_id: User identifier
+        agent_runner: ADK agent runner instance
+        app_name: Application name (default: "agents")
+        connection_signature: Optional signature to create unique session per connection.
+                            Should be UUID v4 to prevent collisions.
+
+    Returns:
+        Session object
+
+    Usage:
+        # Traditional session (backward compatible, for SSE mode)
+        session = await get_or_create_session(user_id, runner, app_name)
+
+        # Connection-specific session (for WebSocket BIDI mode)
+        connection_signature = str(uuid.uuid4())
+        session = await get_or_create_session(user_id, runner, app_name, connection_signature)
+    """
+    # Generate session_id based on whether connection_signature is provided
+    if connection_signature:
+        # Each WebSocket connection gets unique session to prevent race conditions
+        session_id = f"session_{user_id}_{connection_signature}"
+    else:
+        # Traditional session for SSE mode (one session per user+app)
+        session_id = f"session_{user_id}_{app_name}"
 
     if session_id not in _sessions:
-        logger.info(f"Creating new session for user: {user_id} with app: {app_name}")
+        logger.info(
+            f"Creating new session for user: {user_id} with app: {app_name}"
+            + (f", connection: {connection_signature}" if connection_signature else "")
+        )
         session = await agent_runner.session_service.create_session(
             app_name=app_name,
             user_id=user_id,
@@ -767,9 +808,9 @@ async def live_chat(websocket: WebSocket):
                             last_msg = ChatMessage(**messages[-1])
 
                             # Process tool-use parts (approval/rejection responses from frontend)
-                            from tool_delegate import process_tool_use_parts
-
-                            process_tool_use_parts(last_msg, connection_delegate)
+                            # TODO: Phase 2 - Implement per-connection delegate
+                            # from tool_delegate import process_tool_use_parts
+                            # process_tool_use_parts(last_msg, connection_delegate)
 
                             # IMPORTANT: Live API requires separation of image/video blobs and text
                             # - Images/videos: Use send_realtime(blob)
