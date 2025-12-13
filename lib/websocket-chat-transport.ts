@@ -170,9 +170,6 @@ export interface WebSocketChatTransportConfig {
   /** WebSocket URL (e.g., ws://localhost:8000/live) */
   url: string;
 
-  /** Optional callback for handling tool calls on frontend */
-  toolCallCallback?: (toolCall: any) => Promise<any>;
-
   /** WebSocket connection timeout (ms) */
   timeout?: number;
 
@@ -727,6 +724,11 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
       return true; // Skip standard enqueue for PCM chunks
     }
 
+    // Phase 4: Tool approval request events
+    // AI SDK v6 handles tool-approval-request natively via UIMessageChunk stream
+    // The framework will call addToolApprovalResponse() when user approves/denies
+    // No special handling needed - just let it flow through to useChat
+
     // Add more custom events here that should skip standard enqueue
     // Example:
     // if (chunk.type === "data-custom-event") {
@@ -749,13 +751,6 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
    * Standard enqueue happens BEFORE this method is called.
    */
   private handleCustomEventWithoutSkip(chunk: any): void {
-    // Tool call event: Execute callback
-    if (chunk.type === "tool-input-available") {
-      if (this.config.toolCallCallback) {
-        this.handleToolCall(chunk);
-      }
-    }
-
     // Finish event: Log completion metrics (usage, audio, grounding, citations, cache, model version)
     if (chunk.type === "finish" && chunk.messageMetadata) {
       const metadata = chunk.messageMetadata;
@@ -811,29 +806,6 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
     }
   }
 
-  /**
-   * Handle tool call execution (if callback is provided)
-   */
-  private async handleToolCall(chunk: any): Promise<void> {
-    if (!this.config.toolCallCallback) return;
-
-    try {
-      const toolCall = {
-        toolCallId: chunk.toolCallId,
-        toolName: chunk.toolName,
-        args: chunk.args,
-      };
-
-      const result = await this.config.toolCallCallback(toolCall);
-
-      // Send tool result back to backend using structured event (P2-T2)
-      this.sendToolResult(chunk.toolCallId, result);
-    } catch (error) {
-      console.error("[WS Transport] Tool call error:", error);
-      // Send error status to backend
-      this.sendToolResult(chunk.toolCallId, { error: String(error) }, "error");
-    }
-  }
 
   /**
    * Reconnect to stream (not supported for WebSocket)

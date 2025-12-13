@@ -130,11 +130,6 @@ function buildUseChatOptionsInternal({
     debugLog("Creating WebSocket transport:", wsUrl);
     websocketTransport = new WebSocketChatTransport({
       url: wsUrl,
-      toolCallCallback: async (toolCall) => {
-        debugLog("Tool call:", toolCall);
-        // Tools are handled on backend for now
-        return { handled: "backend" };
-      },
       audioContext, // Pass AudioContext for PCM streaming
       latencyCallback: audioContext?.updateLatency, // Pass latency callback for WebSocket monitoring
     });

@@ -83,7 +83,8 @@ beforeEach(() => {
   }) as any;
 
   // Mock fetch for BGM loading
-  global.fetch = vi.fn((url: string) => {
+  global.fetch = vi.fn((input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : (input as Request).url;
     if (url === "/bgm.wav" || url === "/bgm2.wav") {
       return Promise.resolve({
         arrayBuffer: () => Promise.resolve(new ArrayBuffer(1024)),

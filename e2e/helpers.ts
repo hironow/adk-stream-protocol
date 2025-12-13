@@ -15,7 +15,8 @@ export type BackendMode = "gemini" | "adk-sse" | "adk-bidi";
  */
 export async function navigateToChat(page: Page) {
   await page.goto("/");
-  await expect(page.locator("h1")).toContainText("AI SDK v6 + ADK Integration");
+  // Wait for page to load by checking for Backend Mode switcher
+  await expect(page.getByText("Backend Mode")).toBeVisible();
 }
 
 /**
@@ -128,7 +129,7 @@ export async function isUserMessage(messageLocator: any): Promise<boolean> {
  */
 export async function clearChatHistory(page: Page) {
   await page.reload();
-  await expect(page.locator("h1")).toContainText("AI SDK v6 + ADK Integration");
+  await expect(page.getByText("Backend Mode")).toBeVisible();
 }
 
 /**

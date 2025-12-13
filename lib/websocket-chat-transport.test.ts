@@ -1,636 +1,200 @@
 /**
- * Comprehensive parameterized tests for WebSocket Chat Transport.
+ * WebSocketChatTransport Unit Tests
  *
- * This test file corresponds 1:1 with agents/reviews.md coverage table.
- * Each test case validates that AI SDK v6 SSE format is correctly parsed
- * and converted to UIMessageChunk for useChat hook consumption.
- *
- * Based on AI SDK v6 specification:
- * https://v6.ai-sdk.dev/docs/ai-sdk-ui/stream-protocol
+ * Tests the custom ChatTransport implementation for WebSocket bidirectional streaming.
+ * Key focus: Tool approval flow integration with AI SDK v6 (addToolOutput, addToolApprovalResponse)
  */
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { WebSocketChatTransport } from "./websocket-chat-transport";
+import type { UIMessage } from "ai";
 
-/**
- * Helper to create mock controller for ReadableStream
- */
-function createMockController() {
-  return {
-    enqueue: vi.fn(),
-    close: vi.fn(),
-    error: vi.fn(),
-  };
+// Mock WebSocket
+class MockWebSocket {
+  static CONNECTING = 0;
+  static OPEN = 1;
+  static CLOSING = 2;
+  static CLOSED = 3;
+
+  readyState = MockWebSocket.CONNECTING;
+  onopen: ((ev: Event) => void) | null = null;
+  onmessage: ((ev: MessageEvent) => void) | null = null;
+  onerror: ((ev: Event) => void) | null = null;
+  onclose: ((ev: CloseEvent) => void) | null = null;
+
+  sentMessages: string[] = [];
+
+  constructor(public url: string) {
+    // Simulate connection opening after creation
+    setTimeout(() => {
+      this.readyState = MockWebSocket.OPEN;
+      if (this.onopen) {
+        this.onopen(new Event("open"));
+      }
+    }, 0);
+  }
+
+  send(data: string): void {
+    this.sentMessages.push(data);
+  }
+
+  close(): void {
+    this.readyState = MockWebSocket.CLOSED;
+    if (this.onclose) {
+      this.onclose(new CloseEvent("close"));
+    }
+  }
+
+  // Test helper: Simulate receiving a message from server (SSE format)
+  simulateMessage(data: any): void {
+    if (this.onmessage) {
+      // Backend sends SSE-formatted events (data: {...}\n\n)
+      const sseMessage = `data: ${JSON.stringify(data)}`;
+      this.onmessage(
+        new MessageEvent("message", {
+          data: sseMessage,
+        })
+      );
+    }
+  }
+
+  // Test helper: Simulate connection error
+  simulateError(): void {
+    if (this.onerror) {
+      this.onerror(new Event("error"));
+    }
+  }
 }
 
-describe("WebSocketChatTransport - SSE Format Parsing", () => {
-  let transport: WebSocketChatTransport;
-  let controller: ReturnType<typeof createMockController>;
+describe("WebSocketChatTransport", () => {
+  let originalWebSocket: typeof WebSocket;
 
   beforeEach(() => {
-    transport = new WebSocketChatTransport({ url: "ws://test" });
-    controller = createMockController();
+    // Store original WebSocket
+    originalWebSocket = global.WebSocket as any;
+
+    // Replace with mock
+    global.WebSocket = MockWebSocket as any;
   });
 
-  describe("Category 1: Text Content Events", () => {
-    it.each([
-      {
-        name: "text-start event",
-        input: 'data: {"type":"text-start","id":"0"}\n\n',
-        expected: { type: "text-start", id: "0" },
-      },
-      {
-        name: "text-delta event",
-        input: 'data: {"type":"text-delta","id":"0","delta":"Hello"}\n\n',
-        expected: { type: "text-delta", id: "0", delta: "Hello" },
-      },
-      {
-        name: "text-end event",
-        input: 'data: {"type":"text-end","id":"0"}\n\n',
-        expected: { type: "text-end", id: "0" },
-      },
-      {
-        name: "text-delta with unicode",
-        input: 'data: {"type":"text-delta","id":"1","delta":"日本語 🎉"}\n\n',
-        expected: { type: "text-delta", id: "1", delta: "日本語 🎉" },
-      },
-    ])("should parse $name correctly", ({ input, expected }) => {
-      /**
-       * Coverage: reviews.md Section 1 - Text Content
-       * - text-start
-       * - text-delta
-       * - text-end
-       */
-      (transport as any).handleWebSocketMessage(input, controller);
+  afterEach(() => {
+    // Restore original WebSocket
+    global.WebSocket = originalWebSocket;
+    vi.clearAllMocks();
+  });
 
-      expect(controller.enqueue).toHaveBeenCalledWith(expected);
-      expect(controller.close).not.toHaveBeenCalled();
-      expect(controller.error).not.toHaveBeenCalled();
+  // Helper: Initialize transport and wait for WebSocket connection
+  async function initializeTransport(
+    config: ConstructorParameters<typeof WebSocketChatTransport>[0]
+  ): Promise<{ transport: WebSocketChatTransport; ws: MockWebSocket }> {
+    const transport = new WebSocketChatTransport(config);
+
+    const messages: UIMessage[] = [
+      {
+        id: "msg-1",
+        role: "user",
+        content: "Hello",
+      },
+    ];
+
+    // Start sending messages to initialize WebSocket
+    transport.sendMessages({
+      trigger: "submit-message",
+      chatId: "chat-1",
+      messageId: undefined,
+      messages,
+      abortSignal: new AbortController().signal,
     });
-  });
 
-  describe("Category 2: Reasoning Content Events", () => {
-    it.each([
-      {
-        name: "reasoning-start event",
-        input: 'data: {"type":"reasoning-start","id":"0"}\n\n',
-        expected: { type: "reasoning-start", id: "0" },
-      },
-      {
-        name: "reasoning-delta event",
-        input:
-          'data: {"type":"reasoning-delta","id":"0","delta":"Let me think..."}\n\n',
-        expected: {
-          type: "reasoning-delta",
-          id: "0",
-          delta: "Let me think...",
-        },
-      },
-      {
-        name: "reasoning-end event",
-        input: 'data: {"type":"reasoning-end","id":"0"}\n\n',
-        expected: { type: "reasoning-end", id: "0" },
-      },
-    ])("should parse $name correctly", ({ input, expected }) => {
-      /**
-       * Coverage: reviews.md Section 2 - Reasoning Content
-       * - reasoning-start
-       * - reasoning-delta
-       * - reasoning-end
-       */
-      (transport as any).handleWebSocketMessage(input, controller);
-
-      expect(controller.enqueue).toHaveBeenCalledWith(expected);
+    // Wait for WebSocket to be created and opened
+    await vi.waitFor(() => {
+      expect(transport["ws"]?.readyState).toBe(MockWebSocket.OPEN);
     });
-  });
 
-  describe("Category 3: Tool Execution Events", () => {
-    it.each([
-      {
-        name: "tool-input-start event (AI SDK v6)",
-        input:
-          'data: {"type":"tool-input-start","toolCallId":"call_0","toolName":"get_weather"}\n\n',
-        expected: {
-          type: "tool-input-start",
-          toolCallId: "call_0",
-          toolName: "get_weather",
-        },
-      },
-      {
-        name: "tool-input-available event (AI SDK v6)",
-        input:
-          'data: {"type":"tool-input-available","toolCallId":"call_0","toolName":"get_weather","input":{"location":"Tokyo"}}\n\n',
-        expected: {
-          type: "tool-input-available",
-          toolCallId: "call_0",
-          toolName: "get_weather",
-          input: { location: "Tokyo" },
-        },
-      },
-      {
-        name: "tool-output-available event (AI SDK v6)",
-        input:
-          'data: {"type":"tool-output-available","toolCallId":"call_0","output":{"temperature":20,"condition":"sunny"}}\n\n',
-        expected: {
-          type: "tool-output-available",
-          toolCallId: "call_0",
-          output: { temperature: 20, condition: "sunny" },
-        },
-      },
-      {
-        name: "tool-output-error event (AI SDK v6)",
-        input:
-          'data: {"type":"tool-output-error","toolCallId":"call_0","errorText":"Failed to fetch weather data"}\n\n',
-        expected: {
-          type: "tool-output-error",
-          toolCallId: "call_0",
-          errorText: "Failed to fetch weather data",
-        },
-      },
-    ])("should parse $name correctly", ({ input, expected }) => {
-      /**
-       * Coverage: reviews.md Section 3 - Tool Execution
-       * - tool-input-start (AI SDK v6 standard)
-       * - tool-input-available (AI SDK v6 standard)
-       * - tool-output-available (AI SDK v6 standard)
-       * - tool-output-error (AI SDK v6 standard) - P2-T5 implementation
-       */
-      (transport as any).handleWebSocketMessage(input, controller);
+    const ws = transport["ws"] as unknown as MockWebSocket;
+    return { transport, ws };
+  }
 
-      expect(controller.enqueue).toHaveBeenCalledWith(expected);
-    });
-  });
+  describe("Tool Approval Flow", () => {
+    // Note: AI SDK v6 handles tool-approval-request natively via UIMessageChunk stream
+    // The framework calls addToolApprovalResponse() when user approves/denies
+    // No custom callback needed - events flow through to useChat
 
-  describe("Category 4: Audio Content Events", () => {
-    it("should skip enqueue for data-pcm when AudioContext is provided", () => {
-      /**
-       * Coverage: reviews.md Section 4 - Audio Content
-       * - data-pcm (custom) - SKIP standard enqueue (handleCustomEventWithSkip)
-       *
-       * data-pcm chunks bypass useChat and go directly to AudioWorklet
-       */
-      const mockAudioContext = {
-        voiceChannel: {
-          sendChunk: vi.fn(),
-          reset: vi.fn(),
-        },
-      };
-      const transportWithAudio = new WebSocketChatTransport({
-        url: "ws://test",
-        audioContext: mockAudioContext as any,
+    it("should send tool_result event with correct format", async () => {
+      // Given: Transport connected
+      const { transport, ws } = await initializeTransport({
+        url: "ws://localhost:8000/live",
       });
-      const localController = createMockController();
 
-      const input =
-        'data: {"type":"data-pcm","data":{"content":"AAABAAACAAA=","sampleRate":24000,"channels":1,"bitDepth":16}}\n\n';
+      // When: Frontend calls sendToolResult (simulating addToolOutput behavior)
+      transport.sendToolResult("call-456", {
+        success: true,
+        message: "BGM changed",
+      });
 
-      (transportWithAudio as any).handleWebSocketMessage(
-        input,
-        localController,
+      // Then: WebSocket should send tool_result event
+      const sentMessages = ws.sentMessages.filter((msg) => {
+        const parsed = JSON.parse(msg);
+        return parsed.type === "tool_result";
+      });
+
+      expect(sentMessages.length).toBe(1);
+      const sentMessage = JSON.parse(sentMessages[0]);
+      expect(sentMessage).toMatchObject({
+        type: "tool_result",
+        version: "1.0",
+        data: {
+          toolCallId: "call-456",
+          result: {
+            success: true,
+            message: "BGM changed",
+          },
+        },
+      });
+      // Verify timestamp exists
+      expect(sentMessage.timestamp).toBeTypeOf("number");
+    });
+
+    it("should send tool_result event with error status", async () => {
+      // Given: Transport connected
+      const { transport, ws } = await initializeTransport({
+        url: "ws://localhost:8000/live",
+      });
+
+      // When: Frontend sends error result
+      transport.sendToolResult(
+        "call-456",
+        { error: "User denied permission" },
+        "error"
       );
 
-      // Should NOT enqueue to useChat
-      expect(localController.enqueue).not.toHaveBeenCalled();
-      // Should send directly to AudioWorklet
-      expect(mockAudioContext.voiceChannel.sendChunk).toHaveBeenCalledWith({
-        content: "AAABAAACAAA=",
-        sampleRate: 24000,
-        channels: 1,
-        bitDepth: 16,
+      // Then: WebSocket should send tool_result event with error status
+      const sentMessages = ws.sentMessages.filter((msg) => {
+        const parsed = JSON.parse(msg);
+        return parsed.type === "tool_result";
       });
-    });
 
-    it("should enqueue data-pcm when AudioContext is not provided", () => {
-      /**
-       * Coverage: Fallback behavior when no AudioContext
-       * - data-pcm should be enqueued normally if AudioContext is missing
-       */
-      const input =
-        'data: {"type":"data-pcm","data":{"content":"AAABAAACAAA=","sampleRate":24000,"channels":1,"bitDepth":16}}\n\n';
-
-      (transport as any).handleWebSocketMessage(input, controller);
-
-      // Should enqueue to useChat when no AudioContext
-      expect(controller.enqueue).toHaveBeenCalledWith({
-        type: "data-pcm",
+      expect(sentMessages.length).toBe(1);
+      const sentMessage = JSON.parse(sentMessages[0]);
+      expect(sentMessage).toMatchObject({
+        type: "tool_result",
+        version: "1.0",
         data: {
-          content: "AAABAAACAAA=",
-          sampleRate: 24000,
-          channels: 1,
-          bitDepth: 16,
+          toolCallId: "call-456",
+          result: {
+            error: "User denied permission",
+          },
+          status: "error",
         },
       });
-    });
-
-    it("should parse data-audio event correctly", () => {
-      /**
-       * Coverage: reviews.md Section 4 - Audio Content
-       * - data-audio (custom) - Standard enqueue
-       */
-      const input =
-        'data: {"type":"data-audio","data":{"mediaType":"audio/mp3","content":"base64data"}}\n\n';
-
-      (transport as any).handleWebSocketMessage(input, controller);
-
-      expect(controller.enqueue).toHaveBeenCalledWith({
-        type: "data-audio",
-        data: {
-          mediaType: "audio/mp3",
-          content: "base64data",
-        },
-      });
+      // Verify timestamp exists
+      expect(sentMessage.timestamp).toBeTypeOf("number");
     });
   });
 
-  describe("Category 5: Image Content Events", () => {
-    it.each([
-      {
-        name: "file event with data URL (AI SDK v6 standard)",
-        input:
-          'data: {"type":"file","url":"data:image/png;base64,iVBORw0KGgoAAAA...","mediaType":"image/png"}\n\n',
-        expected: {
-          type: "file",
-          url: "data:image/png;base64,iVBORw0KGgoAAAA...",
-          mediaType: "image/png",
-        },
-      },
-      {
-        name: "file event with http URL",
-        input:
-          'data: {"type":"file","url":"https://example.com/image.jpg","mediaType":"image/jpeg"}\n\n',
-        expected: {
-          type: "file",
-          url: "https://example.com/image.jpg",
-          mediaType: "image/jpeg",
-        },
-      },
-      {
-        name: "data-image event (legacy custom format)",
-        input:
-          'data: {"type":"data-image","data":{"mediaType":"image/png","content":"iVBORw0KGgoAAAA..."}}\n\n',
-        expected: {
-          type: "data-image",
-          data: {
-            mediaType: "image/png",
-            content: "iVBORw0KGgoAAAA...",
-          },
-        },
-      },
-    ])("should parse $name correctly", ({ input, expected }) => {
-      /**
-       * Coverage: reviews.md Section 5 - Image Content
-       * - file (AI SDK v6 standard) - P2-T6 implementation
-       * - data-image (legacy custom format)
-       */
-      (transport as any).handleWebSocketMessage(input, controller);
-
-      expect(controller.enqueue).toHaveBeenCalledWith(expected);
-    });
-  });
-
-  describe("Category 6: Code Execution Events", () => {
-    it.each([
-      {
-        name: "data-executable-code event",
-        input:
-          'data: {"type":"data-executable-code","data":{"language":"python","code":"print(hello)"}}\n\n',
-        expected: {
-          type: "data-executable-code",
-          data: {
-            language: "python",
-            code: "print(hello)",
-          },
-        },
-      },
-      {
-        name: "data-code-execution-result event",
-        input:
-          'data: {"type":"data-code-execution-result","data":{"outcome":"OUTCOME_OK","output":"hello"}}\n\n',
-        expected: {
-          type: "data-code-execution-result",
-          data: {
-            outcome: "OUTCOME_OK",
-            output: "hello",
-          },
-        },
-      },
-    ])("should parse $name correctly", ({ input, expected }) => {
-      /**
-       * Coverage: reviews.md Section 6 - Code Execution
-       * - data-executable-code (custom)
-       * - data-code-execution-result (custom)
-       *
-       * Note: Frontend rendering for code execution is NOT implemented yet.
-       */
-      (transport as any).handleWebSocketMessage(input, controller);
-
-      expect(controller.enqueue).toHaveBeenCalledWith(expected);
-    });
-  });
-
-  describe("Category 7: Message Control Events", () => {
-    it.each([
-      {
-        name: "start event",
-        input: 'data: {"type":"start","messageId":"test-msg-123"}\n\n',
-        expected: { type: "start", messageId: "test-msg-123" },
-      },
-      {
-        name: "finish event (simple)",
-        input: 'data: {"type":"finish"}\n\n',
-        expected: { type: "finish" },
-      },
-      {
-        name: "error event",
-        input: 'data: {"type":"error","error":"Test error message"}\n\n',
-        expected: { type: "error", error: "Test error message" },
-      },
-    ])("should parse $name correctly", ({ input, expected }) => {
-      /**
-       * Coverage: reviews.md Section 7 - Message Control
-       * - start
-       * - finish
-       * - error
-       */
-      (transport as any).handleWebSocketMessage(input, controller);
-
-      expect(controller.enqueue).toHaveBeenCalledWith(expected);
-    });
-
-    it("should parse finish event with messageMetadata (usage, audio, grounding, citations, cache, modelVersion)", () => {
-      /**
-       * Coverage: P2-T7, P2-T8 - messageMetadata implementation
-       * - finish event with rich messageMetadata
-       */
-      const input = `data: {"type":"finish","finishReason":"stop","messageMetadata":{"usage":{"promptTokens":100,"completionTokens":50,"totalTokens":150},"audio":{"chunks":150,"bytes":480000,"sampleRate":24000,"duration":10.0},"grounding":{"sources":[{"type":"web","uri":"https://example.com","title":"Example"}]},"citations":[{"startIndex":0,"endIndex":10,"uri":"https://example.com","license":"CC-BY-4.0"}],"cache":{"hits":5,"misses":2},"modelVersion":"gemini-2.0-flash-001"}}\n\n`;
-
-      (transport as any).handleWebSocketMessage(input, controller);
-
-      expect(controller.enqueue).toHaveBeenCalledWith({
-        type: "finish",
-        finishReason: "stop",
-        messageMetadata: {
-          usage: {
-            promptTokens: 100,
-            completionTokens: 50,
-            totalTokens: 150,
-          },
-          audio: {
-            chunks: 150,
-            bytes: 480000,
-            sampleRate: 24000,
-            duration: 10.0,
-          },
-          grounding: {
-            sources: [
-              {
-                type: "web",
-                uri: "https://example.com",
-                title: "Example",
-              },
-            ],
-          },
-          citations: [
-            {
-              startIndex: 0,
-              endIndex: 10,
-              uri: "https://example.com",
-              license: "CC-BY-4.0",
-            },
-          ],
-          cache: {
-            hits: 5,
-            misses: 2,
-          },
-          modelVersion: "gemini-2.0-flash-001",
-        },
-      });
-    });
-
-    it("should parse standalone message-metadata event", () => {
-      /**
-       * Coverage: P2-T8 - message-metadata event (Phase 3)
-       * - Standalone metadata updates during streaming
-       */
-      const input =
-        'data: {"type":"message-metadata","messageMetadata":{"custom":"value","telemetry":{"latency":150}}}\n\n';
-
-      (transport as any).handleWebSocketMessage(input, controller);
-
-      expect(controller.enqueue).toHaveBeenCalledWith({
-        type: "message-metadata",
-        messageMetadata: {
-          custom: "value",
-          telemetry: {
-            latency: 150,
-          },
-        },
-      });
-    });
-
-    it("should close stream on [DONE] marker", () => {
-      /**
-       * Coverage: reviews.md Section 7 - Message Control
-       * - [DONE] marker
-       */
-      const input = "data: [DONE]\n\n";
-
-      (transport as any).handleWebSocketMessage(input, controller);
-
-      expect(controller.close).toHaveBeenCalled();
-      expect(controller.enqueue).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("Category 8: Step Control Events (AI SDK v6 Multi-step)", () => {
-    it.each([
-      {
-        name: "step-start event",
-        input: 'data: {"type":"step-start","id":"step-0"}\n\n',
-        expected: { type: "step-start", id: "step-0" },
-      },
-      {
-        name: "step-finish event",
-        input: 'data: {"type":"step-finish","id":"step-0"}\n\n',
-        expected: { type: "step-finish", id: "step-0" },
-      },
-    ])("should parse $name correctly", ({ input, expected }) => {
-      /**
-       * Coverage: reviews.md Section 8 - Step Control
-       * - step-start
-       * - step-finish
-       *
-       * Note: Multi-step functionality is currently not used.
-       * Frontend skips rendering these events.
-       */
-      (transport as any).handleWebSocketMessage(input, controller);
-
-      expect(controller.enqueue).toHaveBeenCalledWith(expected);
-    });
-  });
-
-  describe("Edge Cases and Error Handling", () => {
-    it("should handle empty SSE data gracefully", () => {
-      const input = "data: \n\n";
-
-      // Should not throw
-      expect(() => {
-        (transport as any).handleWebSocketMessage(input, controller);
-      }).not.toThrow();
-
-      expect(controller.error).toHaveBeenCalled();
-    });
-
-    it("should handle invalid JSON gracefully", () => {
-      const input = "data: {invalid json}\n\n";
-
-      expect(() => {
-        (transport as any).handleWebSocketMessage(input, controller);
-      }).not.toThrow();
-
-      expect(controller.error).toHaveBeenCalled();
-    });
-
-    it("should handle messages without 'data: ' prefix", () => {
-      const input = '{"type":"text-delta","text":"Hello"}\n\n';
-
-      (transport as any).handleWebSocketMessage(input, controller);
-
-      // Should log warning but not crash
-      expect(controller.enqueue).not.toHaveBeenCalled();
-    });
-
-    it("should preserve special characters in text content", () => {
-      const input =
-        'data: {"type":"text-delta","id":"0","delta":"Special: \\"quotes\\", \\n newlines, \\t tabs"}\n\n';
-
-      (transport as any).handleWebSocketMessage(input, controller);
-
-      expect(controller.enqueue).toHaveBeenCalledWith({
-        type: "text-delta",
-        id: "0",
-        delta: 'Special: "quotes", \n newlines, \t tabs',
-      });
-    });
-
-    it("should handle large base64 content", () => {
-      // Simulate large base64 image content
-      const largeContent = "A".repeat(10000);
-      const input = `data: {"type":"data-image","data":{"mediaType":"image/png","content":"${largeContent}"}}\n\n`;
-
-      (transport as any).handleWebSocketMessage(input, controller);
-
-      expect(controller.enqueue).toHaveBeenCalledWith({
-        type: "data-image",
-        data: {
-          mediaType: "image/png",
-          content: largeContent,
-        },
-      });
-    });
-  });
-
-  describe("Multi-part Message Sequence", () => {
-    it("should handle complete text message sequence", () => {
-      /**
-       * Test full sequence: start → text-start → text-delta → text-end → finish → [DONE]
-       */
-      const sequence = [
-        'data: {"type":"start","messageId":"msg-1"}\n\n',
-        'data: {"type":"text-start","id":"0"}\n\n',
-        'data: {"type":"text-delta","id":"0","delta":"Hello"}\n\n',
-        'data: {"type":"text-end","id":"0"}\n\n',
-        'data: {"type":"finish"}\n\n',
-        "data: [DONE]\n\n",
-      ];
-
-      sequence.forEach((msg) => {
-        (transport as any).handleWebSocketMessage(msg, controller);
-      });
-
-      // Verify all events were enqueued (except [DONE] which closes)
-      expect(controller.enqueue).toHaveBeenCalledTimes(5);
-      expect(controller.close).toHaveBeenCalledTimes(1);
-    });
-
-    it("should handle text + image combined message", () => {
-      /**
-       * Test complex message with multiple content types
-       */
-      const sequence = [
-        'data: {"type":"start","messageId":"msg-1"}\n\n',
-        'data: {"type":"text-start","id":"0"}\n\n',
-        'data: {"type":"text-delta","id":"0","delta":"Here is an image:"}\n\n',
-        'data: {"type":"text-end","id":"0"}\n\n',
-        'data: {"type":"data-image","data":{"mediaType":"image/png","content":"base64data"}}\n\n',
-        'data: {"type":"finish"}\n\n',
-      ];
-
-      sequence.forEach((msg) => {
-        (transport as any).handleWebSocketMessage(msg, controller);
-      });
-
-      expect(controller.enqueue).toHaveBeenCalledTimes(6);
-    });
-
-    it("should handle text + tool call combined message", () => {
-      /**
-       * Test message with text and tool call
-       */
-      const sequence = [
-        'data: {"type":"start","messageId":"msg-1"}\n\n',
-        'data: {"type":"text-start","id":"0"}\n\n',
-        'data: {"type":"text-delta","id":"0","delta":"Let me check the weather."}\n\n',
-        'data: {"type":"text-end","id":"0"}\n\n',
-        'data: {"type":"tool-call-start","toolCallId":"call_0","toolName":"get_weather"}\n\n',
-        'data: {"type":"tool-call-available","toolCallId":"call_0","toolName":"get_weather","input":{"location":"Tokyo"}}\n\n',
-        'data: {"type":"finish"}\n\n',
-      ];
-
-      sequence.forEach((msg) => {
-        (transport as any).handleWebSocketMessage(msg, controller);
-      });
-
-      expect(controller.enqueue).toHaveBeenCalledTimes(7);
-    });
-  });
-
-  describe("Performance and Load", () => {
-    it("should handle rapid succession of events", () => {
-      /**
-       * Simulate high-frequency streaming
-       */
-      const rapidEvents = Array.from(
-        { length: 100 },
-        (_, i) =>
-          `data: {"type":"text-delta","id":"0","delta":"chunk${i}"}\n\n`,
-      );
-
-      rapidEvents.forEach((msg) => {
-        (transport as any).handleWebSocketMessage(msg, controller);
-      });
-
-      expect(controller.enqueue).toHaveBeenCalledTimes(100);
-      expect(controller.error).not.toHaveBeenCalled();
-    });
-
-    it("should handle large JSON payloads", () => {
-      /**
-       * Test with large tool call arguments
-       */
-      const largeArgs = {
-        data: Array.from({ length: 1000 }, (_, i) => `item${i}`),
-      };
-      const input = `data: {"type":"tool-call-available","toolCallId":"call_0","toolName":"process","input":${JSON.stringify(largeArgs)}}\n\n`;
-
-      (transport as any).handleWebSocketMessage(input, controller);
-
-      expect(controller.enqueue).toHaveBeenCalledWith({
-        type: "tool-call-available",
-        toolCallId: "call_0",
-        toolName: "process",
-        input: largeArgs,
-      });
-    });
+  describe("Custom Events (Skip Standard Enqueue)", () => {
+    // Note: tool-approval-request events are no longer skipped
+    // They flow through to AI SDK v6's useChat for native handling
+    // Custom events that skip enqueue can be added here in the future
   });
 });

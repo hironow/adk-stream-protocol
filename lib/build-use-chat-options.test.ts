@@ -1,144 +1,397 @@
-import type { UIMessage } from "@ai-sdk/react";
-import { describe, expect, it } from "vitest";
-import { buildUseChatOptions } from "./build-use-chat-options";
+/**
+ * Build useChat Options Unit Tests
+ *
+ * Tests the configuration builder for AI SDK v6 useChat hook.
+ * Verifies that each backend mode (Gemini Direct, ADK SSE, ADK BIDI)
+ * gets correct transport and configuration.
+ *
+ * Focus areas:
+ * - Correct transport type for each mode (DefaultChatTransport vs WebSocketChatTransport)
+ * - Correct API endpoint generation
+ * - Correct chatId generation
+ * - Tool approval callback integration (ADK BIDI only)
+ * - AudioContext integration (ADK BIDI only)
+ * - Invalid configuration prevention
+ */
+
+import { describe, it, expect, vi } from "vitest";
+import { buildUseChatOptions, type BackendMode } from "./build-use-chat-options";
+import type { UIMessage } from "ai";
 
 describe("buildUseChatOptions", () => {
-  const baseParams = {
-    initialMessages: [] as UIMessage[],
-  };
+  const initialMessages: UIMessage[] = [
+    {
+      id: "msg-1",
+      role: "user",
+      content: "Hello",
+    },
+  ];
 
-  describe("Gemini Direct mode", () => {
-    it("should return options with correct api endpoint and mode-specific chatId", () => {
-      const { useChatOptions } = buildUseChatOptions({
-        ...baseParams,
-        mode: "gemini",
+  describe("Gemini Direct Mode", () => {
+    it("should create DefaultChatTransport for gemini mode", () => {
+      // Given: Gemini Direct mode
+      const mode: BackendMode = "gemini";
+
+      // When: Building options
+      const result = buildUseChatOptions({
+        mode,
+        initialMessages,
       });
 
-      expect(useChatOptions.id).toContain("chat-gemini");
-      expect(useChatOptions.messages).toEqual([]);
-      expect(useChatOptions).toHaveProperty("transport");
+      // Then: Should use DefaultChatTransport
+      expect(result.useChatOptions.transport).toBeDefined();
+      expect(result.useChatOptions.transport.constructor.name).toBe(
+        "DefaultChatTransport",
+      );
+      expect(result.transport).toBeUndefined();
     });
 
-    it("should use default ADK backend URL when not provided", () => {
-      const { useChatOptions } = buildUseChatOptions({
-        ...baseParams,
-        mode: "gemini",
+    it("should generate correct chatId for gemini mode", () => {
+      // Given: Gemini Direct mode
+      const mode: BackendMode = "gemini";
+
+      // When: Building options
+      const result = buildUseChatOptions({
+        mode,
+        initialMessages,
       });
 
-      expect(useChatOptions).toHaveProperty("transport");
+      // Then: chatId should include mode and endpoint hash
+      expect(result.useChatOptions.id).toMatch(/^chat-gemini-/);
+      expect(result.useChatOptions.id).toContain("api-chat");
+    });
+
+    it("should include initial messages", () => {
+      // Given: Gemini Direct mode with messages
+      const mode: BackendMode = "gemini";
+
+      // When: Building options
+      const result = buildUseChatOptions({
+        mode,
+        initialMessages,
+      });
+
+      // Then: Messages should be preserved
+      expect(result.useChatOptions.messages).toEqual(initialMessages);
+    });
+
+    it("should generate unique chatId when forceNewInstance is true", async () => {
+      // Given: Gemini Direct mode with forceNewInstance
+      const mode: BackendMode = "gemini";
+
+      // When: Building options twice with slight delay to ensure different timestamps
+      const result1 = buildUseChatOptions({
+        mode,
+        initialMessages,
+        forceNewInstance: true,
+      });
+
+      // Small delay to ensure Date.now() returns different value
+      await new Promise((resolve) => setTimeout(resolve, 2));
+
+      const result2 = buildUseChatOptions({
+        mode,
+        initialMessages,
+        forceNewInstance: true,
+      });
+
+      // Then: chatIds should be different
+      expect(result1.useChatOptions.id).not.toBe(result2.useChatOptions.id);
+    });
+
+    it("should generate same chatId when forceNewInstance is false", () => {
+      // Given: Gemini Direct mode without forceNewInstance
+      const mode: BackendMode = "gemini";
+
+      // When: Building options twice
+      const result1 = buildUseChatOptions({
+        mode,
+        initialMessages,
+        forceNewInstance: false,
+      });
+
+      const result2 = buildUseChatOptions({
+        mode,
+        initialMessages,
+        forceNewInstance: false,
+      });
+
+      // Then: chatIds should be the same
+      expect(result1.useChatOptions.id).toBe(result2.useChatOptions.id);
     });
   });
 
-  describe("ADK SSE mode", () => {
-    it("should return options with correct api endpoint and mode-specific chatId using default backend URL", () => {
-      const { useChatOptions } = buildUseChatOptions({
-        ...baseParams,
-        mode: "adk-sse",
+  describe("ADK SSE Mode", () => {
+    it("should create DefaultChatTransport for adk-sse mode", () => {
+      // Given: ADK SSE mode
+      const mode: BackendMode = "adk-sse";
+
+      // When: Building options
+      const result = buildUseChatOptions({
+        mode,
+        initialMessages,
+        adkBackendUrl: "http://localhost:8000",
       });
 
-      expect(useChatOptions.id).toContain("chat-adk-sse");
-      expect(useChatOptions.messages).toEqual([]);
-      expect(useChatOptions).toHaveProperty("transport");
+      // Then: Should use DefaultChatTransport
+      expect(result.useChatOptions.transport).toBeDefined();
+      expect(result.useChatOptions.transport.constructor.name).toBe(
+        "DefaultChatTransport",
+      );
+      expect(result.transport).toBeUndefined();
     });
 
-    it("should use custom backend URL when provided", () => {
-      const { useChatOptions } = buildUseChatOptions({
-        ...baseParams,
-        mode: "adk-sse",
-        adkBackendUrl: "http://custom-backend:9000",
+    it("should generate correct chatId for adk-sse mode", () => {
+      // Given: ADK SSE mode
+      const mode: BackendMode = "adk-sse";
+
+      // When: Building options
+      const result = buildUseChatOptions({
+        mode,
+        initialMessages,
+        adkBackendUrl: "http://localhost:8000",
       });
 
-      expect(useChatOptions).toHaveProperty("transport");
-    });
-  });
-
-  describe("ADK BIDI mode", () => {
-    it("should return options with WebSocket transport and mode-specific chatId using default backend URL", () => {
-      const { useChatOptions, transport } = buildUseChatOptions({
-        ...baseParams,
-        mode: "adk-bidi",
-      });
-
-      expect(useChatOptions.id).toContain("chat-adk-bidi");
-      expect(useChatOptions.messages).toEqual([]);
-      expect(useChatOptions).toHaveProperty("transport");
-      expect(transport).toBeDefined();
+      // Then: chatId should include mode and endpoint hash
+      expect(result.useChatOptions.id).toMatch(/^chat-adk-sse-/);
+      expect(result.useChatOptions.id).toContain("localhost-8000-stream");
     });
 
-    it("should create WebSocket transport with custom backend URL when provided", () => {
-      const { useChatOptions, transport } = buildUseChatOptions({
-        ...baseParams,
-        mode: "adk-bidi",
-        adkBackendUrl: "http://custom-backend:9000",
+    it("should use custom adkBackendUrl", () => {
+      // Given: ADK SSE mode with custom backend URL
+      const mode: BackendMode = "adk-sse";
+      const customUrl = "http://backend.example.com:3000";
+
+      // When: Building options
+      const result = buildUseChatOptions({
+        mode,
+        initialMessages,
+        adkBackendUrl: customUrl,
       });
 
-      expect(useChatOptions).toHaveProperty("transport");
-      expect(transport).toBeDefined();
-    });
-  });
-
-  describe("Chat ID isolation", () => {
-    it("should generate different chatId for each mode to prevent state sharing", () => {
-      const { useChatOptions: geminiOptions } = buildUseChatOptions({
-        ...baseParams,
-        mode: "gemini",
-      });
-
-      const { useChatOptions: adkSseOptions } = buildUseChatOptions({
-        ...baseParams,
-        mode: "adk-sse",
-      });
-
-      const { useChatOptions: adkBidiOptions } = buildUseChatOptions({
-        ...baseParams,
-        mode: "adk-bidi",
-      });
-
-      // Each mode should have a unique chatId (with endpoint info)
-      expect(geminiOptions.id).toContain("chat-gemini");
-      expect(adkSseOptions.id).toContain("chat-adk-sse");
-      expect(adkBidiOptions.id).toContain("chat-adk-bidi");
-
-      // All IDs should be different
-      const ids = [geminiOptions.id, adkSseOptions.id, adkBidiOptions.id];
-      const uniqueIds = new Set(ids);
-      expect(uniqueIds.size).toBe(3);
+      // Then: chatId should reflect custom URL
+      expect(result.useChatOptions.id).toContain("backend-example-com-3000");
     });
   });
 
-  describe("Message history preservation", () => {
-    it("should preserve initialMessages in all modes", () => {
-      const messages: UIMessage[] = [
-        {
-          id: "msg-1",
-          role: "user",
-          parts: [{ type: "text", text: "Hello" }],
+  describe("ADK BIDI Mode", () => {
+    it("should create WebSocketChatTransport for adk-bidi mode", () => {
+      // Given: ADK BIDI mode
+      const mode: BackendMode = "adk-bidi";
+
+      // When: Building options
+      const result = buildUseChatOptions({
+        mode,
+        initialMessages,
+        adkBackendUrl: "http://localhost:8000",
+      });
+
+      // Then: Should use WebSocketChatTransport
+      expect(result.useChatOptions.transport).toBeDefined();
+      expect(result.useChatOptions.transport.constructor.name).toBe(
+        "WebSocketChatTransport",
+      );
+      // Transport reference should be returned for imperative control
+      expect(result.transport).toBe(result.useChatOptions.transport);
+    });
+
+    it("should generate correct chatId for adk-bidi mode", () => {
+      // Given: ADK BIDI mode
+      const mode: BackendMode = "adk-bidi";
+
+      // When: Building options
+      const result = buildUseChatOptions({
+        mode,
+        initialMessages,
+        adkBackendUrl: "http://localhost:8000",
+      });
+
+      // Then: chatId should include mode and endpoint hash
+      // Format: chat-adk-bidi-ws---localhost-8000-live (: and / become -)
+      expect(result.useChatOptions.id).toMatch(/^chat-adk-bidi-/);
+      expect(result.useChatOptions.id).toContain("ws---localhost");
+      expect(result.useChatOptions.id).toContain("8000-live");
+    });
+
+    it("should convert http to ws in WebSocket URL", () => {
+      // Given: ADK BIDI mode with http URL
+      const mode: BackendMode = "adk-bidi";
+
+      // When: Building options
+      const result = buildUseChatOptions({
+        mode,
+        initialMessages,
+        adkBackendUrl: "http://localhost:8000",
+      });
+
+      // Then: chatId should contain ws protocol (: and / become -)
+      expect(result.useChatOptions.id).toContain("ws---localhost");
+    });
+
+    it("should convert https to wss in WebSocket URL", () => {
+      // Given: ADK BIDI mode with https URL
+      const mode: BackendMode = "adk-bidi";
+
+      // When: Building options
+      const result = buildUseChatOptions({
+        mode,
+        initialMessages,
+        adkBackendUrl: "https://backend.example.com",
+      });
+
+      // Then: chatId should reflect wss protocol (: and / become -)
+      expect(result.useChatOptions.id).toContain("wss---backend");
+    });
+
+    it("should pass AudioContext to WebSocketChatTransport", () => {
+      // Given: ADK BIDI mode with AudioContext
+      const mode: BackendMode = "adk-bidi";
+      const mockAudioContext = {
+        voiceChannel: {
+          isPlaying: false,
+          chunkCount: 0,
+          sendChunk: vi.fn(),
+          reset: vi.fn(),
         },
-      ] as any;
+        isReady: true,
+        error: null,
+        wsLatency: null,
+        updateLatency: vi.fn(),
+      };
 
-      const { useChatOptions: geminiOptions } = buildUseChatOptions({
-        ...baseParams,
-        mode: "gemini",
-        initialMessages: messages,
+      // When: Building options
+      const result = buildUseChatOptions({
+        mode,
+        initialMessages,
+        adkBackendUrl: "http://localhost:8000",
+        audioContext: mockAudioContext,
       });
 
-      expect(geminiOptions.messages).toEqual(messages);
+      // Then: Transport should be created (implementation receives audioContext internally)
+      expect(result.transport).toBeDefined();
+      expect(result.transport?.constructor.name).toBe("WebSocketChatTransport");
+    });
 
-      const { useChatOptions: adkSseOptions } = buildUseChatOptions({
-        ...baseParams,
-        mode: "adk-sse",
-        initialMessages: messages,
+    it("should pass onToolApprovalRequest callback to WebSocketChatTransport", () => {
+      // Given: ADK BIDI mode with tool approval callback
+      const mode: BackendMode = "adk-bidi";
+      const onToolApprovalRequest = vi.fn();
+
+      // When: Building options
+      const result = buildUseChatOptions({
+        mode,
+        initialMessages,
+        adkBackendUrl: "http://localhost:8000",
+        onToolApprovalRequest,
       });
 
-      expect(adkSseOptions.messages).toEqual(messages);
+      // Then: Transport should be created (implementation receives callback internally)
+      expect(result.transport).toBeDefined();
+      expect(result.transport?.constructor.name).toBe("WebSocketChatTransport");
+    });
+  });
 
-      const { useChatOptions: adkBidiOptions } = buildUseChatOptions({
-        ...baseParams,
-        mode: "adk-bidi",
-        initialMessages: messages,
+  describe("Configuration Validation", () => {
+    it("should not mix gemini mode with WebSocketChatTransport", () => {
+      // Given: Gemini Direct mode
+      const mode: BackendMode = "gemini";
+
+      // When: Building options
+      const result = buildUseChatOptions({
+        mode,
+        initialMessages,
       });
 
-      expect(adkBidiOptions.messages).toEqual(messages);
+      // Then: Should NOT use WebSocketChatTransport
+      expect(result.useChatOptions.transport.constructor.name).not.toBe(
+        "WebSocketChatTransport",
+      );
+      expect(result.transport).toBeUndefined();
+    });
+
+    it("should not mix adk-sse mode with WebSocketChatTransport", () => {
+      // Given: ADK SSE mode
+      const mode: BackendMode = "adk-sse";
+
+      // When: Building options
+      const result = buildUseChatOptions({
+        mode,
+        initialMessages,
+        adkBackendUrl: "http://localhost:8000",
+      });
+
+      // Then: Should NOT use WebSocketChatTransport
+      expect(result.useChatOptions.transport.constructor.name).not.toBe(
+        "WebSocketChatTransport",
+      );
+      expect(result.transport).toBeUndefined();
+    });
+
+    it("should only use WebSocketChatTransport for adk-bidi mode", () => {
+      // Given: All three backend modes
+      const modes: BackendMode[] = ["gemini", "adk-sse", "adk-bidi"];
+
+      // When: Building options for each mode
+      const results = modes.map((mode) =>
+        buildUseChatOptions({
+          mode,
+          initialMessages,
+          adkBackendUrl: "http://localhost:8000",
+        }),
+      );
+
+      // Then: Only adk-bidi should use WebSocketChatTransport
+      expect(results[0].useChatOptions.transport.constructor.name).toBe(
+        "DefaultChatTransport",
+      ); // gemini
+      expect(results[1].useChatOptions.transport.constructor.name).toBe(
+        "DefaultChatTransport",
+      ); // adk-sse
+      expect(results[2].useChatOptions.transport.constructor.name).toBe(
+        "WebSocketChatTransport",
+      ); // adk-bidi
+    });
+
+    it("should generate different chatIds for different modes", () => {
+      // Given: All three backend modes
+      const modes: BackendMode[] = ["gemini", "adk-sse", "adk-bidi"];
+
+      // When: Building options for each mode
+      const results = modes.map((mode) =>
+        buildUseChatOptions({
+          mode,
+          initialMessages,
+          adkBackendUrl: "http://localhost:8000",
+        }),
+      );
+
+      // Then: All chatIds should be different
+      const chatIds = results.map((r) => r.useChatOptions.id);
+      const uniqueChatIds = new Set(chatIds);
+      expect(uniqueChatIds.size).toBe(3);
+    });
+
+    it("should generate different chatIds for different backend URLs", () => {
+      // Given: Same mode with different URLs
+      const mode: BackendMode = "adk-sse";
+      const url1 = "http://localhost:8000";
+      const url2 = "http://localhost:9000";
+
+      // When: Building options with different URLs
+      const result1 = buildUseChatOptions({
+        mode,
+        initialMessages,
+        adkBackendUrl: url1,
+      });
+
+      const result2 = buildUseChatOptions({
+        mode,
+        initialMessages,
+        adkBackendUrl: url2,
+      });
+
+      // Then: chatIds should be different
+      expect(result1.useChatOptions.id).not.toBe(result2.useChatOptions.id);
     });
   });
 });

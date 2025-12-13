@@ -17,21 +17,37 @@ interface ChatProps {
 export function Chat({ mode }: ChatProps) {
   const audioContext = useAudio();
 
-  const { useChatOptions, transport } = buildUseChatOptions({
-    mode,
-    initialMessages: [],
-    audioContext,
-  });
-
-  const { messages, sendMessage, status, error } = useChat(useChatOptions);
-
-  // Keep transport reference for imperative control (P2-T2 Phase 2)
-  const transportRef = useRef(transport);
-
   const [input, setInput] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [interrupted, setInterrupted] = useState(false);
+
+  // Phase 4: Tool approval state
+  const [pendingToolApproval, setPendingToolApproval] = useState<{
+    approvalId: string;
+    toolCallId: string;
+    toolName?: string;
+    args?: any;
+  } | null>(null);
+
+  const { useChatOptions, transport } = buildUseChatOptions({
+    mode,
+    initialMessages: [],
+    audioContext,
+    onToolApprovalRequest: setPendingToolApproval,
+  });
+
+  const {
+    messages,
+    sendMessage,
+    status,
+    error,
+    addToolOutput,
+    addToolApprovalResponse,
+  } = useChat(useChatOptions);
+
+  // Keep transport reference for imperative control (P2-T2 Phase 2)
+  const transportRef = useRef(transport);
 
   // Phase 3: Audio recording with custom hook (BIDI mode only)
   const { isRecording, startRecording, stopRecording } = useAudioRecorder({
@@ -39,6 +55,134 @@ export function Chat({ mode }: ChatProps) {
   });
 
   const isLoading = status === "submitted" || status === "streaming";
+
+  // Phase 4: Tool approval handlers
+  const handleApproveTools = useCallback(async () => {
+    if (!pendingToolApproval || !addToolOutput) return;
+
+    console.log("[Chat] User approved tool:", pendingToolApproval);
+
+    // Send approval response (AI SDK v6 format: uses 'id' not 'approvalId')
+    addToolApprovalResponse?.({
+      id: pendingToolApproval.approvalId,
+      approved: true,
+    });
+
+    // Execute browser API based on tool name
+    let result: any;
+    try {
+      switch (pendingToolApproval.toolName) {
+        case "change_bgm": {
+          // Execute AudioContext API
+          const track = pendingToolApproval.args?.track ?? 0;
+          console.log(`[Chat] Executing change_bgm: track=${track}`);
+          audioContext.bgmChannel.switchTrack();
+          result = {
+            success: true,
+            previous_track: track === 0 ? 1 : 0,
+            current_track: track,
+            message: `BGM changed to track ${track}`,
+          };
+          break;
+        }
+
+        case "get_location": {
+          // Execute Geolocation API
+          console.log("[Chat] Executing get_location");
+          result = await new Promise((resolve) => {
+            if (!navigator.geolocation) {
+              resolve({
+                success: false,
+                error: "Geolocation not supported",
+              });
+              return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+              (position) => {
+                resolve({
+                  success: true,
+                  latitude: position.coords.latitude,
+                  longitude: position.coords.longitude,
+                  accuracy: position.coords.accuracy,
+                  timestamp: position.timestamp,
+                });
+              },
+              (error) => {
+                resolve({
+                  success: false,
+                  error: error.message,
+                  code: error.code,
+                });
+              },
+              {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0,
+              }
+            );
+          });
+          break;
+        }
+
+        default: {
+          console.warn(`[Chat] Unknown tool: ${pendingToolApproval.toolName}`);
+          result = {
+            success: false,
+            error: `Unknown tool: ${pendingToolApproval.toolName}`,
+          };
+          break;
+        }
+      }
+
+      console.log("[Chat] Tool execution result:", result);
+
+      // Send result via AI SDK v6 standard API (Data Stream Protocol)
+      addToolOutput({
+        tool: pendingToolApproval.toolName || "unknown",
+        toolCallId: pendingToolApproval.toolCallId,
+        output: result,
+      });
+    } catch (error) {
+      console.error("[Chat] Tool execution error:", error);
+      addToolOutput({
+        tool: pendingToolApproval.toolName || "unknown",
+        toolCallId: pendingToolApproval.toolCallId,
+        output: {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      });
+    }
+
+    setPendingToolApproval(null);
+  }, [pendingToolApproval, addToolApprovalResponse, addToolOutput, audioContext]);
+
+  const handleRejectTool = useCallback(() => {
+    if (!pendingToolApproval || !addToolOutput) return;
+
+    console.log("[Chat] User rejected tool:", pendingToolApproval);
+
+    // Send rejection response (AI SDK v6 format: uses 'id' not 'approvalId')
+    addToolApprovalResponse?.({
+      id: pendingToolApproval.approvalId,
+      approved: false,
+      reason: "User denied permission",
+    });
+
+    // Send error result via addToolOutput
+    addToolOutput({
+      tool: pendingToolApproval.toolName || "unknown",
+      toolCallId: pendingToolApproval.toolCallId,
+      output: {
+        success: false,
+        error: "User denied permission",
+        denied: true,
+      },
+    });
+
+    setPendingToolApproval(null);
+  }, [pendingToolApproval, addToolApprovalResponse, addToolOutput]);
 
   // Phase 3: Audio recording handlers
   // Using useAudioRecorder hook for proper lifecycle management
@@ -188,6 +332,102 @@ export function Chat({ mode }: ChatProps) {
         <span>🎵</span>
         <span>BGM {audioContext.bgmChannel.currentTrack + 1}</span>
       </button>
+
+      {/* Phase 4: Tool Approval Dialog */}
+      {pendingToolApproval && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0, 0, 0, 0.8)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 2000,
+          }}
+        >
+          <div
+            style={{
+              background: "#1a1a1a",
+              border: "1px solid #333",
+              borderRadius: "12px",
+              padding: "2rem",
+              maxWidth: "500px",
+              width: "90%",
+            }}
+          >
+            <h3
+              style={{
+                margin: "0 0 1rem 0",
+                fontSize: "1.25rem",
+                fontWeight: 600,
+                color: "#fff",
+              }}
+            >
+              Tool Approval Required
+            </h3>
+            <p style={{ margin: "0 0 1rem 0", color: "#ccc" }}>
+              The AI wants to use:{" "}
+              <strong style={{ color: "#fff" }}>
+                {pendingToolApproval.toolName || "unknown tool"}
+              </strong>
+            </p>
+            {pendingToolApproval.args && (
+              <pre
+                style={{
+                  background: "#0a0a0a",
+                  border: "1px solid #333",
+                  borderRadius: "6px",
+                  padding: "0.75rem",
+                  fontSize: "0.875rem",
+                  color: "#ccc",
+                  overflow: "auto",
+                  marginBottom: "1rem",
+                }}
+              >
+                {JSON.stringify(pendingToolApproval.args, null, 2)}
+              </pre>
+            )}
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <button
+                onClick={handleRejectTool}
+                style={{
+                  flex: 1,
+                  padding: "0.75rem",
+                  background: "#dc2626",
+                  border: "1px solid #991b1b",
+                  borderRadius: "8px",
+                  color: "#fff",
+                  fontSize: "1rem",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Reject
+              </button>
+              <button
+                onClick={handleApproveTools}
+                style={{
+                  flex: 1,
+                  padding: "0.75rem",
+                  background: "#10b981",
+                  border: "1px solid #059669",
+                  borderRadius: "8px",
+                  color: "#fff",
+                  fontSize: "1rem",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Approve
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Recording Indicator (Phase 3, BIDI mode only) */}
       {mode === "adk-bidi" && isRecording && (
