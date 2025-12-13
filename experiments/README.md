@@ -19,6 +19,7 @@ _No planned experiments_
 
 | Date | Experiment | Status | Objective | Result |
 |------|-----------|--------|-----------|--------|
+| 2025-12-14 | [Analysis Target Verification](./2025-12-14_analysis_target_verification.md) | 🟢 Complete | Verify code-based analysis targets for ADK field coverage tracking | ✅ **SUCCESS** - Confirmed stream_protocol.py + server.py as correct targets, excluded ai_sdk_v6_compat.py (reverse conversion), improved regex patterns |
 | 2025-12-12 | [Audio Stream Completion Notification + Frontend Recording](./2025-12-12_audio_stream_completion_notification.md) | 🟢 Complete | Implement frontend notification when audio streaming completes + add audio recording for message replay ([ST-1]) | ✅ **SUCCESS** - Audio completion callback working, PCM buffering implemented, WAV conversion complete, HTML5 audio playback integrated |
 | 2025-12-12 | [AudioWorklet Investigation](./2025-12-12_audio_worklet_investigation.md) | 🟢 Complete | Fix audio playback restart bug and implement low-latency PCM streaming | ✅ **SUCCESS** - AudioWorklet-based player with ring buffer, dual-path routing (audio + UI), WebSocket latency monitoring |
 | 2025-12-13 | [Per-Connection State Management Investigation](./2025-12-13_per_connection_state_management_investigation.md) | 🟢 Complete | Investigate ADK recommended patterns for per-user/per-connection state management | ✅ **SUCCESS** - Connection-specific FrontendToolDelegate with session.state isolation, 8/8 tests passing |
@@ -28,7 +29,6 @@ _No planned experiments_
 | 2025-12-11 | [ADK BIDI + AI SDK v6 Integration](./2025-12-11_adk_bidi_ai_sdk_v6_integration.md) | 🟢 Complete | Investigate compatibility between AI SDK v6 useChat and ADK BIDI mode for bidirectional streaming | ✅ **SUCCESS** - Full BIDI integration working with WebSocket transport, tool calling functional |
 | 2025-12-13 | [Bidirectional Protocol Investigation](./2025-12-13_bidirectional_protocol_investigation.md) | 🟢 Complete | Phase 4 Tool Approval - Client-side tool execution with user approval | ✅ **SUCCESS** - Awaitable delegation pattern implemented, AI SDK v6 standard API integration |
 | 2025-12-13 | [Tool Approval AI SDK Native Handling](./2025-12-13_tool_approval_ai_sdk_native_handling.md) | 🟢 Complete | Investigate whether onToolApprovalRequest callback is necessary or AI SDK v6 handles it natively | ✅ **CONFIRMED** - Removed custom callback, AI SDK v6 addToolApprovalResponse is native |
-| 2025-12-13 | [lib/ Test Coverage Investigation](./2025-12-13_lib_test_coverage_investigation.md) | 🟡 In Progress | Systematic gap analysis for lib/ test coverage to identify missing edge cases | 🔴 **CRITICAL GAPS FOUND** - websocket-chat-transport.ts has only 2 tests, core functionality untested |
 
 ## Critical Architecture Decisions
 
