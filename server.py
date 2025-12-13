@@ -29,6 +29,7 @@ from loguru import logger
 from pydantic import BaseModel, Field, field_validator
 
 from stream_protocol import stream_adk_to_ai_sdk
+from tool_delegate import FrontendToolDelegate
 
 # Load environment variables from .env.local
 load_dotenv(".env.local")
@@ -77,94 +78,8 @@ app.add_middleware(
 # Implements AP2-style awaitable delegation for client-side tools
 
 
-class FrontendToolDelegate:
-    """
-    Makes frontend tool execution awaitable using asyncio.Future.
-
-    This enables AP2-style delegation where tools await results from
-    the frontend (browser), similar to how AP2 tools await results
-    from remote agents via A2A protocol.
-
-    Pattern:
-        1. Tool calls execute_on_frontend() with tool_call_id
-        2. Future is created and stored in _pending_calls
-        3. Tool awaits the Future (blocks)
-        4. Frontend executes tool and sends result via WebSocket
-        5. WebSocket handler calls resolve_tool_result()
-        6. Future is resolved, tool resumes and returns result
-    """
-
-    def __init__(self):
-        """Initialize the delegate with empty pending calls dict."""
-        self._pending_calls: dict[str, asyncio.Future] = {}
-
-    async def execute_on_frontend(
-        self, tool_call_id: str, tool_name: str, args: dict[str, Any]
-    ) -> dict[str, Any]:
-        """
-        Delegate tool execution to frontend and await result.
-
-        This method makes frontend delegation awaitable, similar to
-        AP2's `await send_a2a_message()` pattern.
-
-        Args:
-            tool_call_id: ADK's function_call.id (from ToolContext)
-            tool_name: Name of the tool to execute
-            args: Tool arguments
-
-        Returns:
-            Result dict from frontend execution
-
-        Flow:
-            1. Create Future for this tool_call_id
-            2. stream_protocol will send function_call event
-            3. Frontend receives event and executes tool
-            4. Frontend sends tool_result via WebSocket
-            5. WebSocket handler calls resolve_tool_result()
-            6. Future is resolved, this method returns result
-        """
-        future: asyncio.Future[dict[str, Any]] = asyncio.Future()
-        self._pending_calls[tool_call_id] = future
-
-        logger.info(
-            f"[FrontendDelegate] Awaiting result for tool_call_id={tool_call_id}, "
-            f"tool={tool_name}, args={args}"
-        )
-
-        # Await frontend result (blocks here until result arrives)
-        result = await future
-
-        logger.info(
-            f"[FrontendDelegate] Received result for tool_call_id={tool_call_id}: {result}"
-        )
-
-        return result
-
-    def resolve_tool_result(self, tool_call_id: str, result: dict[str, Any]) -> None:
-        """
-        Resolve a pending tool call with its result.
-
-        Called by WebSocket handler when frontend sends tool_result event.
-
-        Args:
-            tool_call_id: The tool call ID to resolve
-            result: Result dict from frontend execution
-        """
-        if tool_call_id in self._pending_calls:
-            logger.info(
-                f"[FrontendDelegate] Resolving tool_call_id={tool_call_id} "
-                f"with result: {result}"
-            )
-            self._pending_calls[tool_call_id].set_result(result)
-            del self._pending_calls[tool_call_id]
-        else:
-            logger.warning(
-                f"[FrontendDelegate] Received result for unknown "
-                f"tool_call_id={tool_call_id}"
-            )
-
-
 # Global frontend delegate instance
+# Note: FrontendToolDelegate is now defined in tool_delegate.py
 frontend_delegate = FrontendToolDelegate()
 
 
