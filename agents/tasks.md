@@ -17,7 +17,7 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
 - ✅ [P4-T4.3] Integration Test TODO Comments - **COMPLETED 2025-12-14** (Already removed in commit 40d01d6)
 
 **Tier 2 - High Priority (1-2 weeks):**
-- [P4-T7] Repeatable Chunk Logger & Player (8-12 hours) - **Phase 1-3 COMPLETE, Phase 4 IN PROGRESS**
+- ✅ [P4-T7] Repeatable Chunk Logger & Player (8-12 hours) - **COMPLETED 2025-12-14** (Phase 1-4 Complete, E2E Infrastructure Ready)
 - [P4-T5] Documentation Updates (2-3 hours)
 - [P4-T4.1] ADK Response Fixture Files (3-4 hours)
 - [P4-T4.4] Systematic Model/Mode Testing (4-6 hours)
@@ -272,7 +272,7 @@ Enable recording of actual chunk data during manual operations and replay them f
 - ✅ Tests for player functionality: 18/18 passing (8 Python + 10 TypeScript)
 - **Actual time**: 3 hours
 
-**Phase 4: Manual Verification & Polish** ✅ **COMPLETED 2025-12-14**
+**Phase 4: E2E Test Infrastructure** ✅ **COMPLETED 2025-12-14** (commit b624a75 + 9667e64)
 - ✅ Manual testing with Chrome DevTools MCP
 - ✅ Verified all 3 modes (Gemini Direct, ADK SSE, ADK BIDI)
 - ✅ Frontend: 113 chunks recorded, export successful
@@ -280,13 +280,24 @@ Enable recording of actual chunk data during manual operations and replay them f
 - ✅ Bug fixes: PrepareSendMessagesRequest type (commit 5adb5cb)
 - ✅ Bug fixes: Backend logger mode detection (commit 4f19a80)
 - ✅ Feature: Environment variable support (commit f3aec17)
-- ✅ Production ready: Chunk logger/player mechanism fully functional
+- ✅ E2E infrastructure complete:
+  - ChunkPlayerTransport (frontend mock transport)
+  - ChunkPlayerManager (backend E2E mode detection)
+  - Frontend E2E tests (Playwright) - 2/6 passing (empty fixture tests)
+  - Backend E2E tests (pytest) - 7/7 passing
+  - Fixture structure: 4 patterns (Gemini Direct, ADK SSE, ADK BIDI, Mode Switching)
+  - Symlink automation: `just setup-e2e-fixtures`
+  - Comprehensive documentation: E2E_FRONTEND_GUIDE.md, E2E_SERVER_GUIDE.md, tests/fixtures/e2e-chunks/README.md
+  - Recorder handoff: agents/recorder_handsoff.md
+- ✅ Type errors fixed: Mode type annotations, test file types, yaml import (commit 9667e64)
+- ✅ Production ready: E2E test infrastructure complete, awaiting fixture recording
 
-**Phase 4 Optional Extensions** (Deferred until use case emerges):
-- [ ] Create fixture directory `tests/fixtures/chunk_logs/`
-- [ ] Record representative golden file scenarios
-- [ ] Write E2E tests using player
-- [ ] Mock injection points for automated testing
+**Next Action:**
+- ⏳ Manual fixture recording for 4 patterns (see `agents/recorder_handsoff.md`)
+  - Pattern 1: Gemini Direct only
+  - Pattern 2: ADK SSE only
+  - Pattern 3: ADK BIDI only (with audio)
+  - Pattern 4: Mode switching (history preservation validation)
 
 **Expected Benefits:**
 - Manual operation → chunk record → automated test cycle
