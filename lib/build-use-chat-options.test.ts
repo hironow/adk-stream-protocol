@@ -14,9 +14,12 @@
  * - Invalid configuration prevention
  */
 
-import { describe, it, expect, vi } from "vitest";
-import { buildUseChatOptions, type BackendMode } from "./build-use-chat-options";
 import type { UIMessage } from "ai";
+import { describe, expect, it, vi } from "vitest";
+import {
+  type BackendMode,
+  buildUseChatOptions,
+} from "./build-use-chat-options";
 
 describe("buildUseChatOptions", () => {
   const initialMessages: UIMessage[] = [
@@ -414,7 +417,9 @@ describe("buildUseChatOptions", () => {
       // Then: sendAutomaticallyWhen should be configured
       // This enables automatic message resubmission after tool approval
       expect(result.useChatOptions.sendAutomaticallyWhen).toBeDefined();
-      expect(typeof result.useChatOptions.sendAutomaticallyWhen).toBe("function");
+      expect(typeof result.useChatOptions.sendAutomaticallyWhen).toBe(
+        "function",
+      );
     });
 
     it("should configure sendAutomaticallyWhen for ADK SSE mode", () => {
@@ -431,7 +436,9 @@ describe("buildUseChatOptions", () => {
 
       // Then: sendAutomaticallyWhen should be configured
       expect(result.useChatOptions.sendAutomaticallyWhen).toBeDefined();
-      expect(typeof result.useChatOptions.sendAutomaticallyWhen).toBe("function");
+      expect(typeof result.useChatOptions.sendAutomaticallyWhen).toBe(
+        "function",
+      );
     });
 
     it("should NOT configure sendAutomaticallyWhen for Gemini mode", () => {

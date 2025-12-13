@@ -119,7 +119,7 @@ export function Chat({ mode }: ChatProps) {
                 enableHighAccuracy: true,
                 timeout: 10000,
                 maximumAge: 0,
-              }
+              },
             );
           });
           break;
@@ -156,7 +156,12 @@ export function Chat({ mode }: ChatProps) {
     }
 
     setPendingToolApproval(null);
-  }, [pendingToolApproval, addToolApprovalResponse, addToolOutput, audioContext]);
+  }, [
+    pendingToolApproval,
+    addToolApprovalResponse,
+    addToolOutput,
+    audioContext,
+  ]);
 
   const handleRejectTool = useCallback(() => {
     if (!pendingToolApproval || !addToolOutput) return;

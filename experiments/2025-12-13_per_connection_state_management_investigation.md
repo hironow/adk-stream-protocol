@@ -1483,13 +1483,71 @@ async def change_bgm(track: int, tool_context: ToolContext):
 
 ---
 
-#### ⏭️ Phase 2: WebSocket Connection Setup
+#### ✅ Phase 2: WebSocket Connection Setup [COMPLETED]
+
+**Status:** ✅ Complete (2025-12-13)
 
 **Goal:** Initialize per-connection state when WebSocket connects.
 
-**Location:** `server.py` - `websocket_endpoint()` function (around line 667)
+**Location:** `server.py` - `live_chat()` WebSocket endpoint (line 653)
 
-**Step-by-Step Implementation:**
+**Changes Made:**
+
+1. **Added uuid import:**
+   ```python
+   import uuid
+   ```
+
+2. **Generate connection_signature on WebSocket accept:**
+   ```python
+   connection_signature = str(uuid.uuid4())
+   logger.info(f"[BIDI] New connection: {connection_signature}")
+   ```
+
+3. **Create connection-specific session:**
+   ```python
+   session = await get_or_create_session(
+       user_id,
+       bidi_agent_runner,
+       "agents",
+       connection_signature=connection_signature,
+   )
+   logger.info(f"[BIDI] Session created: {session.id}")
+   ```
+
+4. **Create and store FrontendToolDelegate:**
+   ```python
+   connection_delegate = FrontendToolDelegate()
+   logger.info(f"[BIDI] Created FrontendToolDelegate for connection: {connection_signature}")
+   ```
+
+5. **Store delegate and client_identifier in session.state:**
+   ```python
+   session.state["temp:delegate"] = connection_delegate
+   session.state["client_identifier"] = connection_signature
+   logger.info(f"[BIDI] Stored delegate and client_identifier in session state")
+   ```
+
+6. **Uncommented process_tool_use_parts() call:**
+   ```python
+   from tool_delegate import process_tool_use_parts
+   process_tool_use_parts(last_msg, connection_delegate)
+   ```
+
+**Test Results:**
+- All existing tests passing: 104/104 unit tests
+- No regressions introduced
+- Ruff linting: All checks passed
+- Mypy: No new errors (pre-existing errors unchanged)
+
+**Files Modified:**
+- `server.py`: Updated `live_chat()` WebSocket endpoint
+
+**Next Steps:** Phase 3 - Update tools to use `tool_context.state`
+
+---
+
+**Step-by-Step Implementation Reference:**
 
 1. **Generate connection_signature on WebSocket accept:**
    ```python
@@ -1881,7 +1939,7 @@ Check logs for proper connection tracking:
 | Phase | Status | Files Modified | Tests |
 |-------|--------|----------------|-------|
 | Phase 1 | ✅ Complete | `server.py`, `test_session_management.py` | 4/4 passing |
-| Phase 2 | ⏭️ Ready | `server.py` (WebSocket endpoint) | Manual testing |
+| Phase 2 | ✅ Complete | `server.py` (WebSocket endpoint) | 104/104 passing |
 | Phase 3 | ⏭️ Ready | `server.py` (Tools) | Existing tests should pass |
 | Phase 4 | ⏭️ Ready | `test_connection_isolation.py` (new) | TBD |
 

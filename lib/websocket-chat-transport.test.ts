@@ -5,9 +5,9 @@
  * Key focus: Tool approval flow integration with AI SDK v6 (addToolOutput, addToolApprovalResponse)
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { WebSocketChatTransport } from "./websocket-chat-transport";
 import type { UIMessage } from "ai";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { WebSocketChatTransport } from "./websocket-chat-transport";
 
 // Mock WebSocket
 class MockWebSocket {
@@ -53,7 +53,7 @@ class MockWebSocket {
       this.onmessage(
         new MessageEvent("message", {
           data: sseMessage,
-        })
+        }),
       );
     }
   }
@@ -85,7 +85,7 @@ describe("WebSocketChatTransport", () => {
 
   // Helper: Initialize transport and wait for WebSocket connection
   async function initializeTransport(
-    config: ConstructorParameters<typeof WebSocketChatTransport>[0]
+    config: ConstructorParameters<typeof WebSocketChatTransport>[0],
   ): Promise<{ transport: WebSocketChatTransport; ws: MockWebSocket }> {
     const transport = new WebSocketChatTransport(config);
 
@@ -612,7 +612,7 @@ describe("WebSocketChatTransport", () => {
         ws.onmessage(
           new MessageEvent("message", {
             data: "not-sse-format", // Missing "data: " prefix
-          })
+          }),
         );
       }
 
@@ -622,7 +622,7 @@ describe("WebSocketChatTransport", () => {
         const { value, done } = await Promise.race([
           reader.read(),
           new Promise<{ value: undefined; done: true }>((resolve) =>
-            setTimeout(() => resolve({ value: undefined, done: true }), 50)
+            setTimeout(() => resolve({ value: undefined, done: true }), 50),
           ),
         ]);
 
@@ -659,7 +659,7 @@ describe("WebSocketChatTransport", () => {
         const { done } = await Promise.race([
           reader.read(),
           new Promise<{ done: true }>((resolve) =>
-            setTimeout(() => resolve({ done: true }), 50)
+            setTimeout(() => resolve({ done: true }), 50),
           ),
         ]);
 
@@ -697,7 +697,7 @@ describe("WebSocketChatTransport", () => {
         const { done } = await Promise.race([
           reader.read(),
           new Promise<{ done: true }>((resolve) =>
-            setTimeout(() => resolve({ done: true }), 50)
+            setTimeout(() => resolve({ done: true }), 50),
           ),
         ]);
 
@@ -868,7 +868,7 @@ describe("WebSocketChatTransport", () => {
         const result = await Promise.race([
           reader.read(),
           new Promise<{ done: true }>((resolve) =>
-            setTimeout(() => resolve({ done: true }), 100)
+            setTimeout(() => resolve({ done: true }), 100),
           ),
         ]);
 
@@ -886,7 +886,9 @@ describe("WebSocketChatTransport", () => {
       });
 
       // When: Rapidly connecting and disconnecting
-      const messages = [{ id: "msg-1", role: "user" as const, content: "Hello" }];
+      const messages = [
+        { id: "msg-1", role: "user" as const, content: "Hello" },
+      ];
 
       // First connection
       const stream1 = await transport.sendMessages({
@@ -1251,7 +1253,7 @@ describe("WebSocketChatTransport", () => {
       // Then: All chunks should be sent to audioContext
       await vi.waitFor(() => {
         expect(mockAudioContext.voiceChannel.sendChunk).toHaveBeenCalledTimes(
-          3
+          3,
         );
       });
     });
@@ -1663,7 +1665,7 @@ describe("WebSocketChatTransport", () => {
               type: "pong",
               timestamp: pingTime,
             }),
-          })
+          }),
         );
       }
 

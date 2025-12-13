@@ -14,10 +14,13 @@
  * - Prevent invalid configuration patterns
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { buildUseChatOptions, type BackendMode } from "./build-use-chat-options";
-import { WebSocketChatTransport } from "./websocket-chat-transport";
 import type { UIMessage } from "ai";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  type BackendMode,
+  buildUseChatOptions,
+} from "./build-use-chat-options";
+import { WebSocketChatTransport } from "./websocket-chat-transport";
 
 // Mock WebSocket for transport testing
 class MockWebSocket {
@@ -130,12 +133,11 @@ describe("Transport Integration", () => {
 
       // Then: Transport should be created with AudioContext
       expect(result.transport).toBeInstanceOf(WebSocketChatTransport);
-      
+
       // AudioContext is passed internally to transport
       // We can verify this by checking that transport exists and is configured
       expect(result.transport).toBeDefined();
     });
-
 
     it("should allow imperative control via transport reference", async () => {
       // Given: ADK BIDI mode with transport reference
@@ -218,7 +220,9 @@ describe("Transport Integration", () => {
       // Then: Should NOT create WebSocketChatTransport
       expect(result.transport).toBeUndefined();
       expect(result.useChatOptions.transport).toBeDefined();
-      expect(result.useChatOptions.transport.constructor.name).toBe("DefaultChatTransport");
+      expect(result.useChatOptions.transport.constructor.name).toBe(
+        "DefaultChatTransport",
+      );
     });
 
     it("should use correct SSE endpoint", () => {
@@ -265,7 +269,9 @@ describe("Transport Integration", () => {
       // Then: Should NOT create WebSocketChatTransport
       expect(result.transport).toBeUndefined();
       expect(result.useChatOptions.transport).toBeDefined();
-      expect(result.useChatOptions.transport.constructor.name).toBe("DefaultChatTransport");
+      expect(result.useChatOptions.transport.constructor.name).toBe(
+        "DefaultChatTransport",
+      );
     });
 
     it("should use /api/chat endpoint", () => {
@@ -284,7 +290,6 @@ describe("Transport Integration", () => {
   });
 
   describe("Configuration Validation", () => {
-
     it("should prevent mixing AudioContext with non-BIDI modes", () => {
       // Given: Gemini Direct mode with AudioContext
       const mode: BackendMode = "gemini";
@@ -310,7 +315,9 @@ describe("Transport Integration", () => {
 
       // Then: AudioContext should be silently ignored (no WebSocketChatTransport created)
       expect(result.transport).toBeUndefined();
-      expect(result.useChatOptions.transport.constructor.name).toBe("DefaultChatTransport");
+      expect(result.useChatOptions.transport.constructor.name).toBe(
+        "DefaultChatTransport",
+      );
     });
 
     it("should only provide transport reference for BIDI mode", () => {

@@ -800,7 +800,6 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
     }
   }
 
-
   /**
    * Reconnect to stream (not supported for WebSocket)
    * WebSocket connections are stateful, reconnection requires new connection.

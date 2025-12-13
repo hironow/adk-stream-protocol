@@ -9,9 +9,9 @@
 
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useAudioRecorder } from "./use-audio-recorder";
-import type { BackendMode } from "./build-use-chat-options";
 import type { AudioChunk } from "./audio-recorder";
+import type { BackendMode } from "./build-use-chat-options";
+import { useAudioRecorder } from "./use-audio-recorder";
 
 // Mock AudioRecorder class
 let mockAudioRecorder: {
@@ -134,21 +134,21 @@ describe("useAudioRecorder", () => {
   });
 
   describe("startRecording() - Non-BIDI mode", () => {
-    it.each<BackendMode>(["gemini", "adk-sse"])(
-      "should warn and return early in %s mode",
-      async (mode) => {
-        const { result } = renderHook(() => useAudioRecorder({ mode }));
+    it.each<BackendMode>([
+      "gemini",
+      "adk-sse",
+    ])("should warn and return early in %s mode", async (mode) => {
+      const { result } = renderHook(() => useAudioRecorder({ mode }));
 
-        const onChunk = vi.fn();
-        await result.current.startRecording(onChunk);
+      const onChunk = vi.fn();
+      await result.current.startRecording(onChunk);
 
-        expect(console.warn).toHaveBeenCalledWith(
-          expect.stringContaining("Recording only available in BIDI mode"),
-        );
-        expect(mockAudioRecorder.initialize).not.toHaveBeenCalled();
-        expect(result.current.isRecording).toBe(false);
-      },
-    );
+      expect(console.warn).toHaveBeenCalledWith(
+        expect.stringContaining("Recording only available in BIDI mode"),
+      );
+      expect(mockAudioRecorder.initialize).not.toHaveBeenCalled();
+      expect(result.current.isRecording).toBe(false);
+    });
   });
 
   describe("startRecording() - Already recording", () => {
@@ -308,9 +308,7 @@ describe("useAudioRecorder", () => {
     });
 
     it("should handle close() error gracefully", async () => {
-      mockAudioRecorder.close.mockRejectedValueOnce(
-        new Error("Close failed"),
-      );
+      mockAudioRecorder.close.mockRejectedValueOnce(new Error("Close failed"));
 
       const { result } = renderHook(() =>
         useAudioRecorder({ mode: "adk-bidi" }),

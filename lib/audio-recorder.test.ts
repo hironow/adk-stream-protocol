@@ -6,8 +6,8 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AudioRecorder } from "./audio-recorder";
 import type { AudioChunk } from "./audio-recorder";
+import { AudioRecorder } from "./audio-recorder";
 
 // Mock Web Audio API
 class MockAudioContext {
@@ -62,7 +62,12 @@ beforeEach(() => {
   }) as any;
 
   // Mock AudioWorkletNode
-  global.AudioWorkletNode = vi.fn(function (this: any, context: any, name: string, options: any) {
+  global.AudioWorkletNode = vi.fn(function (
+    this: any,
+    context: any,
+    name: string,
+    options: any,
+  ) {
     return new MockAudioWorkletNode();
   }) as any;
 
@@ -125,9 +130,7 @@ describe("AudioRecorder", () => {
     it("should throw error if not initialized", async () => {
       const recorder = new AudioRecorder();
 
-      await expect(
-        recorder.start(() => {}),
-      ).rejects.toThrow(
+      await expect(recorder.start(() => {})).rejects.toThrow(
         "AudioRecorder not initialized. Call initialize() first.",
       );
     });
@@ -203,7 +206,9 @@ describe("AudioRecorder", () => {
 
       // Trigger port.onmessage
       if (workletNode.port.onmessage) {
-        workletNode.port.onmessage(new MessageEvent("message", { data: float32Samples }));
+        workletNode.port.onmessage(
+          new MessageEvent("message", { data: float32Samples }),
+        );
       }
 
       expect(onChunk).toHaveBeenCalledTimes(1);
@@ -323,14 +328,16 @@ describe("AudioRecorder", () => {
       await recorder.initialize();
 
       // Access private method via any
-      const convertFloat32ToPCM16 = (recorder as any).convertFloat32ToPCM16.bind(recorder);
+      const convertFloat32ToPCM16 = (
+        recorder as any
+      ).convertFloat32ToPCM16.bind(recorder);
 
       const float32Samples = new Float32Array([
-        0.0,    // 0
-        0.5,    // 16383
-        1.0,    // 32767
-        -0.5,   // -16383
-        -1.0,   // -32767
+        0.0, // 0
+        0.5, // 16383
+        1.0, // 32767
+        -0.5, // -16383
+        -1.0, // -32767
       ]);
 
       const pcm16 = convertFloat32ToPCM16(float32Samples);
@@ -348,13 +355,15 @@ describe("AudioRecorder", () => {
       const recorder = new AudioRecorder();
       await recorder.initialize();
 
-      const convertFloat32ToPCM16 = (recorder as any).convertFloat32ToPCM16.bind(recorder);
+      const convertFloat32ToPCM16 = (
+        recorder as any
+      ).convertFloat32ToPCM16.bind(recorder);
 
       const float32Samples = new Float32Array([
-        1.5,   // Should clamp to 1.0 → 32767
-        -1.5,  // Should clamp to -1.0 → -32767
-        2.0,   // Should clamp to 1.0 → 32767
-        -2.0,  // Should clamp to -1.0 → -32767
+        1.5, // Should clamp to 1.0 → 32767
+        -1.5, // Should clamp to -1.0 → -32767
+        2.0, // Should clamp to 1.0 → 32767
+        -2.0, // Should clamp to -1.0 → -32767
       ]);
 
       const pcm16 = convertFloat32ToPCM16(float32Samples);
@@ -369,7 +378,9 @@ describe("AudioRecorder", () => {
       const recorder = new AudioRecorder();
       await recorder.initialize();
 
-      const convertFloat32ToPCM16 = (recorder as any).convertFloat32ToPCM16.bind(recorder);
+      const convertFloat32ToPCM16 = (
+        recorder as any
+      ).convertFloat32ToPCM16.bind(recorder);
 
       const float32Samples = new Float32Array([]);
       const pcm16 = convertFloat32ToPCM16(float32Samples);
@@ -397,7 +408,9 @@ describe("AudioRecorder", () => {
       const workletNode = (recorder as any).workletNode;
       const float32Samples = new Float32Array([0.5, -0.5]);
       if (workletNode.port.onmessage) {
-        workletNode.port.onmessage(new MessageEvent("message", { data: float32Samples }));
+        workletNode.port.onmessage(
+          new MessageEvent("message", { data: float32Samples }),
+        );
       }
 
       expect(chunks.length).toBe(1);
@@ -423,17 +436,17 @@ describe("AudioRecorder", () => {
         new Error("Permission denied"),
       );
 
-      await expect(
-        recorder.start(() => {}),
-      ).rejects.toThrow("Permission denied");
+      await expect(recorder.start(() => {})).rejects.toThrow(
+        "Permission denied",
+      );
     });
 
     it("should handle AudioWorklet module loading failure", async () => {
       // Create a mock context that will fail on addModule
       const failingMockContext = new MockAudioContext();
-      failingMockContext.audioWorklet.addModule = vi.fn().mockRejectedValueOnce(
-        new Error("Failed to load module"),
-      );
+      failingMockContext.audioWorklet.addModule = vi
+        .fn()
+        .mockRejectedValueOnce(new Error("Failed to load module"));
 
       // Override global.AudioContext for this test only
       global.AudioContext = vi.fn(function (this: any, options: any) {
@@ -442,9 +455,9 @@ describe("AudioRecorder", () => {
 
       const recorder = new AudioRecorder();
 
-      await expect(
-        recorder.initialize(),
-      ).rejects.toThrow("Failed to load module");
+      await expect(recorder.initialize()).rejects.toThrow(
+        "Failed to load module",
+      );
     });
   });
 });

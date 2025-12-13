@@ -18,12 +18,12 @@
 
 import { expect, test } from "@playwright/test";
 import {
+  getLastMessage,
+  getMessageText,
   navigateToChat,
   selectBackendMode,
   sendTextMessage,
   waitForAssistantResponse,
-  getLastMessage,
-  getMessageText,
 } from "./helpers";
 
 test.describe("Tool Approval Flow (Phase 4)", () => {
@@ -42,7 +42,9 @@ test.describe("Tool Approval Flow (Phase 4)", () => {
     await sendTextMessage(page, "BGMを変更してください");
 
     // Then: Approval dialog appears
-    await expect(page.getByRole("heading", { name: "Tool Approval Required" })).toBeVisible({
+    await expect(
+      page.getByRole("heading", { name: "Tool Approval Required" }),
+    ).toBeVisible({
       timeout: 30000,
     });
 
@@ -63,7 +65,9 @@ test.describe("Tool Approval Flow (Phase 4)", () => {
     await sendTextMessage(page, "BGMを変更してください");
 
     // Then: Approval dialog appears
-    await expect(page.getByRole("heading", { name: "Tool Approval Required" })).toBeVisible({
+    await expect(
+      page.getByRole("heading", { name: "Tool Approval Required" }),
+    ).toBeVisible({
       timeout: 30000,
     });
 
@@ -71,7 +75,9 @@ test.describe("Tool Approval Flow (Phase 4)", () => {
     await page.getByRole("button", { name: "Approve" }).click();
 
     // Then: Dialog should close
-    await expect(page.getByRole("heading", { name: "Tool Approval Required" })).not.toBeVisible({
+    await expect(
+      page.getByRole("heading", { name: "Tool Approval Required" }),
+    ).not.toBeVisible({
       timeout: 5000,
     });
 
@@ -93,7 +99,9 @@ test.describe("Tool Approval Flow (Phase 4)", () => {
     await sendTextMessage(page, "BGMを変更してください");
 
     // Then: Approval dialog appears
-    await expect(page.getByRole("heading", { name: "Tool Approval Required" })).toBeVisible({
+    await expect(
+      page.getByRole("heading", { name: "Tool Approval Required" }),
+    ).toBeVisible({
       timeout: 30000,
     });
 
@@ -101,7 +109,9 @@ test.describe("Tool Approval Flow (Phase 4)", () => {
     await page.getByRole("button", { name: "Reject" }).click();
 
     // Then: Dialog should close
-    await expect(page.getByRole("heading", { name: "Tool Approval Required" })).not.toBeVisible({
+    await expect(
+      page.getByRole("heading", { name: "Tool Approval Required" }),
+    ).not.toBeVisible({
       timeout: 5000,
     });
 
@@ -116,7 +126,10 @@ test.describe("Tool Approval Flow (Phase 4)", () => {
     // AI should acknowledge denial (though exact wording varies)
   });
 
-  test("should handle get_location tool approval flow", async ({ page, context }) => {
+  test("should handle get_location tool approval flow", async ({
+    page,
+    context,
+  }) => {
     // Given: Grant geolocation permission
     await context.grantPermissions(["geolocation"]);
     await context.setGeolocation({ latitude: 35.6762, longitude: 139.6503 }); // Tokyo
@@ -125,7 +138,9 @@ test.describe("Tool Approval Flow (Phase 4)", () => {
     await sendTextMessage(page, "現在地を教えてください");
 
     // Then: Approval dialog appears
-    await expect(page.getByRole("heading", { name: "Tool Approval Required" })).toBeVisible({
+    await expect(
+      page.getByRole("heading", { name: "Tool Approval Required" }),
+    ).toBeVisible({
       timeout: 30000,
     });
 
@@ -136,7 +151,9 @@ test.describe("Tool Approval Flow (Phase 4)", () => {
     await page.getByRole("button", { name: "Approve" }).click();
 
     // Then: Dialog closes and AI continues
-    await expect(page.getByRole("heading", { name: "Tool Approval Required" })).not.toBeVisible({
+    await expect(
+      page.getByRole("heading", { name: "Tool Approval Required" }),
+    ).not.toBeVisible({
       timeout: 5000,
     });
 
@@ -159,7 +176,9 @@ test.describe("Tool Approval Flow (Phase 4)", () => {
     await sendTextMessage(page, "BGMを変更してください");
 
     // Then: First approval dialog appears
-    await expect(page.getByRole("heading", { name: "Tool Approval Required" })).toBeVisible({
+    await expect(
+      page.getByRole("heading", { name: "Tool Approval Required" }),
+    ).toBeVisible({
       timeout: 30000,
     });
 
@@ -167,7 +186,9 @@ test.describe("Tool Approval Flow (Phase 4)", () => {
     await page.getByRole("button", { name: "Approve" }).click();
 
     // Then: First response completes
-    await expect(page.getByRole("heading", { name: "Tool Approval Required" })).not.toBeVisible({
+    await expect(
+      page.getByRole("heading", { name: "Tool Approval Required" }),
+    ).not.toBeVisible({
       timeout: 5000,
     });
     await waitForAssistantResponse(page);
@@ -176,7 +197,9 @@ test.describe("Tool Approval Flow (Phase 4)", () => {
     await sendTextMessage(page, "もう一度BGMを変更してください");
 
     // Then: Second approval dialog appears
-    await expect(page.getByRole("heading", { name: "Tool Approval Required" })).toBeVisible({
+    await expect(
+      page.getByRole("heading", { name: "Tool Approval Required" }),
+    ).toBeVisible({
       timeout: 30000,
     });
 
@@ -184,7 +207,9 @@ test.describe("Tool Approval Flow (Phase 4)", () => {
     await page.getByRole("button", { name: "Approve" }).click();
 
     // Then: Second response completes
-    await expect(page.getByRole("heading", { name: "Tool Approval Required" })).not.toBeVisible({
+    await expect(
+      page.getByRole("heading", { name: "Tool Approval Required" }),
+    ).not.toBeVisible({
       timeout: 5000,
     });
     await waitForAssistantResponse(page);

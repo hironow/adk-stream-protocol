@@ -20,12 +20,12 @@
  * @vitest-environment jsdom
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { renderHook, act } from "@testing-library/react";
 import { useChat } from "@ai-sdk/react";
+import { act, renderHook } from "@testing-library/react";
+import type { UIMessage } from "ai";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildUseChatOptions } from "./build-use-chat-options";
 import { WebSocketChatTransport } from "./websocket-chat-transport";
-import type { UIMessage } from "ai";
 
 // Mock WebSocket for transport testing
 class MockWebSocket {
@@ -72,7 +72,7 @@ class MockWebSocket {
       this.onmessage(
         new MessageEvent("message", {
           data: sseMessage,
-        })
+        }),
       );
     }
   }
@@ -110,7 +110,6 @@ describe("useChat Integration", () => {
       expect(options.transport).toBeInstanceOf(WebSocketChatTransport);
     });
 
-
     it("should expose transport reference for imperative control", async () => {
       // Given: Options with transport reference
       const options = buildUseChatOptions({
@@ -146,7 +145,7 @@ describe("useChat Integration", () => {
       });
 
       const transport = options.transport!;
-      const sendMessagesSpy = vi.spyOn(transport, 'sendMessages');
+      const sendMessagesSpy = vi.spyOn(transport, "sendMessages");
 
       // When: Using with useChat and sending a message
       const { result } = renderHook(() => useChat(options.useChatOptions));
@@ -176,7 +175,7 @@ describe("useChat Integration", () => {
               }),
             ]),
           }),
-        ])
+        ]),
       );
 
       // Note: WebSocket functionality is tested in websocket-chat-transport.test.ts
@@ -224,7 +223,7 @@ describe("useChat Integration", () => {
       });
 
       const transport = options.transport!;
-      const sendMessagesSpy = vi.spyOn(transport, 'sendMessages');
+      const sendMessagesSpy = vi.spyOn(transport, "sendMessages");
 
       // When: Using with useChat and approving the tool
       const { result } = renderHook(() => useChat(options.useChatOptions));
@@ -266,7 +265,7 @@ describe("useChat Integration", () => {
               reason: "User approved",
             }),
           }),
-        ])
+        ]),
       );
 
       // Note: This verifies single-tool approval flow (approved=true):
@@ -316,7 +315,7 @@ describe("useChat Integration", () => {
       });
 
       const transport = options.transport!;
-      const sendMessagesSpy = vi.spyOn(transport, 'sendMessages');
+      const sendMessagesSpy = vi.spyOn(transport, "sendMessages");
 
       // When: Using with useChat and adding tool output
       const { result } = renderHook(() => useChat(options.useChatOptions));
@@ -330,16 +329,20 @@ describe("useChat Integration", () => {
       });
 
       // Wait a bit to ensure no automatic submission happens
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Then: Message state should be updated
       const messages = result.current.messages;
-      const assistantMessage = messages.find(m => m.role === "assistant");
-      const toolPart = assistantMessage?.parts?.find((p: any) => p.toolCallId === "call-1");
+      const assistantMessage = messages.find((m) => m.role === "assistant");
+      const toolPart = assistantMessage?.parts?.find(
+        (p: any) => p.toolCallId === "call-1",
+      );
 
       expect(toolPart).toBeDefined();
       expect((toolPart as any)?.state).toBe("output-available");
-      expect((toolPart as any)?.output).toEqual({ results: ["AI news 1", "AI news 2"] });
+      expect((toolPart as any)?.output).toEqual({
+        results: ["AI news 1", "AI news 2"],
+      });
 
       // But: sendMessages should NOT be called automatically
       // Current sendAutomaticallyWhen (lastAssistantMessageIsCompleteWithApprovalResponses)
@@ -400,7 +403,7 @@ describe("useChat Integration", () => {
       });
 
       const transport = options.transport!;
-      const sendMessagesSpy = vi.spyOn(transport, 'sendMessages');
+      const sendMessagesSpy = vi.spyOn(transport, "sendMessages");
 
       // When: Using with useChat
       const { result } = renderHook(() => useChat(options.useChatOptions));
@@ -415,7 +418,7 @@ describe("useChat Integration", () => {
       });
 
       // Wait a bit - should NOT auto-submit yet (only condition 1 satisfied)
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
       expect(sendMessagesSpy).not.toHaveBeenCalled();
 
       // Second: Provide output for tool-2
@@ -451,7 +454,7 @@ describe("useChat Integration", () => {
             toolCallId: "call-2",
             state: "output-available",
           }),
-        ])
+        ]),
       );
 
       // Note: This verifies the combined condition:
@@ -508,7 +511,7 @@ describe("useChat Integration", () => {
       });
 
       const transport = options.transport!;
-      const sendMessagesSpy = vi.spyOn(transport, 'sendMessages');
+      const sendMessagesSpy = vi.spyOn(transport, "sendMessages");
 
       // When: Using with useChat
       const { result } = renderHook(() => useChat(options.useChatOptions));
@@ -523,7 +526,7 @@ describe("useChat Integration", () => {
       });
 
       // Wait a bit - should NOT auto-submit yet (Tool-2 still incomplete)
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       // ✅ IMPORTANT: Auto-submit does NOT happen after rejection
       // Reason: This is a MULTIPLE tool scenario
@@ -571,7 +574,7 @@ describe("useChat Integration", () => {
             toolCallId: "call-2",
             state: "output-available",
           }),
-        ])
+        ]),
       );
 
       // Note: This verifies multi-tool rejection flow:
@@ -632,7 +635,7 @@ describe("useChat Integration", () => {
       });
 
       const transport = options.transport!;
-      const sendMessagesSpy = vi.spyOn(transport, 'sendMessages');
+      const sendMessagesSpy = vi.spyOn(transport, "sendMessages");
 
       // When: Using with useChat and rejecting the tool
       const { result } = renderHook(() => useChat(options.useChatOptions));
@@ -658,8 +661,11 @@ describe("useChat Integration", () => {
 
       // Verify the first call (after rejection, before addToolOutput)
       const firstCall = sendMessagesSpy.mock.calls[0];
-      const firstMessage = firstCall[0].messages[firstCall[0].messages.length - 1];
-      const firstToolPart = firstMessage.parts.find((p: any) => p.toolCallId === "call-1");
+      const firstMessage =
+        firstCall[0].messages[firstCall[0].messages.length - 1];
+      const firstToolPart = firstMessage.parts.find(
+        (p: any) => p.toolCallId === "call-1",
+      );
 
       expect(firstToolPart).toBeDefined();
       expect(firstToolPart).toMatchObject({
@@ -689,7 +695,7 @@ describe("useChat Integration", () => {
       });
 
       // Wait a bit to confirm no second auto-submit
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       // ✅ Verify: addToolOutput does NOT trigger second auto-submit
       // Reason: status guard prevents duplicate submission
@@ -699,8 +705,10 @@ describe("useChat Integration", () => {
 
       // Verify message state was updated (even though no new submit)
       const messages = result.current.messages;
-      const assistantMessage = messages.find(m => m.role === "assistant");
-      const toolPart = assistantMessage?.parts?.find((p: any) => p.toolCallId === "call-1");
+      const assistantMessage = messages.find((m) => m.role === "assistant");
+      const toolPart = assistantMessage?.parts?.find(
+        (p: any) => p.toolCallId === "call-1",
+      );
 
       expect(toolPart).toBeDefined();
       expect((toolPart as any)?.state).toBe("output-available");
@@ -779,32 +787,34 @@ describe("useChat Integration", () => {
       });
 
       // Step 5: Verify useChat received and processed the events
-      await vi.waitFor(() => {
-        const messages = result.current.messages;
-        expect(messages.length).toBeGreaterThan(1); // User message + assistant message
+      await vi.waitFor(
+        () => {
+          const messages = result.current.messages;
+          expect(messages.length).toBeGreaterThan(1); // User message + assistant message
 
-        // Find the assistant message
-        const assistantMessage = messages.find(m => m.role === "assistant");
-        expect(assistantMessage).toBeDefined();
-        expect(assistantMessage?.parts).toBeDefined();
+          // Find the assistant message
+          const assistantMessage = messages.find((m) => m.role === "assistant");
+          expect(assistantMessage).toBeDefined();
+          expect(assistantMessage?.parts).toBeDefined();
 
-        // Find the tool-use part with approval-requested state
-        // Note: AI SDK v6 creates dynamic type name "tool-{toolName}"
-        const toolPart = assistantMessage?.parts?.find((p: any) =>
-          p.toolCallId === "call-1"
-        );
-        expect(toolPart).toBeDefined();
-        expect((toolPart as any)?.type).toBe("tool-web_search"); // Dynamic type name
-        expect((toolPart as any)?.state).toBe("approval-requested");
-        expect((toolPart as any)?.approval?.id).toBe("approval-1");
-      }, { timeout: 5000 });
+          // Find the tool-use part with approval-requested state
+          // Note: AI SDK v6 creates dynamic type name "tool-{toolName}"
+          const toolPart = assistantMessage?.parts?.find(
+            (p: any) => p.toolCallId === "call-1",
+          );
+          expect(toolPart).toBeDefined();
+          expect((toolPart as any)?.type).toBe("tool-web_search"); // Dynamic type name
+          expect((toolPart as any)?.state).toBe("approval-requested");
+          expect((toolPart as any)?.approval?.id).toBe("approval-1");
+        },
+        { timeout: 5000 },
+      );
 
       // Note: This verifies Step 4-5 integration:
       // Step 4: Backend sends tool-approval-request via WebSocket
       // Step 5: useChat receives event, updates message state with approval-requested
       // (UI rendering is not tested here - that's for E2E tests)
     }, 15000); // Increased timeout for WebSocket connection and event processing
-
   });
 
   describe("ADK SSE Mode with useChat", () => {
@@ -842,7 +852,6 @@ describe("useChat Integration", () => {
 
     // TODO: Add integration test for Step 6-8 (tool approval → fetch)
     // Blocked by: Same as ADK BIDI - need approval flow setup
-
   });
 
   describe("Gemini Direct Mode with useChat", () => {
@@ -943,7 +952,9 @@ describe("useChat Integration", () => {
       // When: Using with useChat for each mode
       const bidiResult = renderHook(() => useChat(bidiOptions.useChatOptions));
       const sseResult = renderHook(() => useChat(sseOptions.useChatOptions));
-      const geminiResult = renderHook(() => useChat(geminiOptions.useChatOptions));
+      const geminiResult = renderHook(() =>
+        useChat(geminiOptions.useChatOptions),
+      );
 
       // Then: Each should have different chatId
       expect(bidiOptions.useChatOptions.id).toContain("adk-bidi");

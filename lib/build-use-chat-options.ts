@@ -1,5 +1,8 @@
 import type { UIMessage } from "@ai-sdk/react";
-import { DefaultChatTransport, lastAssistantMessageIsCompleteWithApprovalResponses } from "ai";
+import {
+  DefaultChatTransport,
+  lastAssistantMessageIsCompleteWithApprovalResponses,
+} from "ai";
 import { WebSocketChatTransport } from "@/lib/websocket-chat-transport";
 
 export type BackendMode = "gemini" | "adk-sse" | "adk-bidi";
@@ -197,7 +200,8 @@ function buildUseChatOptionsInternal({
         ...baseOptions,
         transport: adkSseTransport,
         // Enable automatic message resubmission after tool approval
-        sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
+        sendAutomaticallyWhen:
+          lastAssistantMessageIsCompleteWithApprovalResponses,
       };
       debugLog(
         "ADK SSE options:",
@@ -220,7 +224,8 @@ function buildUseChatOptionsInternal({
         ...baseOptions,
         transport: websocketTransport,
         // Enable automatic message resubmission after tool approval
-        sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses,
+        sendAutomaticallyWhen:
+          lastAssistantMessageIsCompleteWithApprovalResponses,
       };
       debugLog("ADK BIDI options:", adkBidiOptions);
       return { useChatOptions: adkBidiOptions, transport: websocketTransport };

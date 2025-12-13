@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -34,7 +35,7 @@ from ai_sdk_v6_compat import (
     TextPart,
 )
 from stream_protocol import stream_adk_to_ai_sdk
-from tool_delegate import FrontendToolDelegate
+from tool_delegate import FrontendToolDelegate, process_tool_use_parts
 
 # Load environment variables from .env.local
 load_dotenv(".env.local")
@@ -688,9 +689,37 @@ async def live_chat(websocket: WebSocket):
     await websocket.accept()
     logger.info("[BIDI] WebSocket connection established")
 
-    # Create session for BIDI mode
-    user_id = "live_user"
-    session = await get_or_create_session(user_id, bidi_agent_runner, "agents")
+    # Phase 2: Generate unique connection signature to prevent race conditions
+    # Each WebSocket connection gets its own session and delegate
+    # Reference: ADK Discussion #2784 - https://github.com/google/adk-python/discussions/2784
+    connection_signature = str(uuid.uuid4())
+    logger.info(f"[BIDI] New connection: {connection_signature}")
+
+    # Create connection-specific session
+    # ADK Design: session = connection (prevents concurrent run_live() race conditions)
+    user_id = "live_user"  # TODO: Get from auth/JWT token
+    session = await get_or_create_session(
+        user_id,
+        bidi_agent_runner,
+        "agents",
+        connection_signature=connection_signature,  # KEY: Creates unique session per connection
+    )
+    logger.info(f"[BIDI] Session created: {session.id}")
+
+    # Create connection-specific FrontendToolDelegate
+    connection_delegate = FrontendToolDelegate()
+    logger.info(
+        f"[BIDI] Created FrontendToolDelegate for connection: {connection_signature}"
+    )
+
+    # Store delegate and client_identifier in session state
+    # Using temp: prefix (not persisted, session-lifetime only)
+    session.state["temp:delegate"] = connection_delegate
+    session.state["client_identifier"] = connection_signature
+    logger.info(
+        f"[BIDI] Stored delegate and client_identifier in session state "
+        f"(session_id={session.id})"
+    )
 
     # Create LiveRequestQueue for bidirectional communication
     live_request_queue = LiveRequestQueue()
@@ -808,9 +837,8 @@ async def live_chat(websocket: WebSocket):
                             last_msg = ChatMessage(**messages[-1])
 
                             # Process tool-use parts (approval/rejection responses from frontend)
-                            # TODO: Phase 2 - Implement per-connection delegate
-                            # from tool_delegate import process_tool_use_parts
-                            # process_tool_use_parts(last_msg, connection_delegate)
+                            # Phase 2: Use connection-specific delegate from session state
+                            process_tool_use_parts(last_msg, connection_delegate)
 
                             # IMPORTANT: Live API requires separation of image/video blobs and text
                             # - Images/videos: Use send_realtime(blob)

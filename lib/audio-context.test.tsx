@@ -8,9 +8,9 @@
  */
 
 import { renderHook, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AudioProvider, useAudio } from "./audio-context";
-import type { ReactNode } from "react";
 
 // Mock Web Audio API
 class MockAudioContext {
@@ -78,13 +78,22 @@ beforeEach(() => {
   }) as any;
 
   // Mock AudioWorkletNode
-  global.AudioWorkletNode = vi.fn(function (this: any, context: any, name: string) {
+  global.AudioWorkletNode = vi.fn(function (
+    this: any,
+    context: any,
+    name: string,
+  ) {
     return new MockAudioWorkletNode();
   }) as any;
 
   // Mock fetch for BGM loading
   global.fetch = vi.fn((input: RequestInfo | URL) => {
-    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : (input as Request).url;
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : (input as Request).url;
     if (url === "/bgm.wav" || url === "/bgm2.wav") {
       return Promise.resolve({
         arrayBuffer: () => Promise.resolve(new ArrayBuffer(1024)),
@@ -166,9 +175,9 @@ describe("AudioProvider", () => {
     it("should handle initialization errors gracefully", async () => {
       // Mock addModule to fail
       const mockContext = new MockAudioContext();
-      mockContext.audioWorklet.addModule = vi.fn().mockRejectedValue(
-        new Error("Failed to load AudioWorklet module"),
-      );
+      mockContext.audioWorklet.addModule = vi
+        .fn()
+        .mockRejectedValue(new Error("Failed to load AudioWorklet module"));
 
       global.AudioContext = vi.fn(function (this: any, options: any) {
         return mockContext;
@@ -181,7 +190,9 @@ describe("AudioProvider", () => {
       });
 
       await waitFor(() => {
-        expect(result.current.error).toContain("Failed to load AudioWorklet module");
+        expect(result.current.error).toContain(
+          "Failed to load AudioWorklet module",
+        );
         expect(result.current.isReady).toBe(false);
       });
     });
@@ -247,7 +258,8 @@ describe("AudioProvider", () => {
       });
 
       // Verify postMessage was called
-      const mockWorkletNode = (global.AudioWorkletNode as any).mock.results[0].value;
+      const mockWorkletNode = (global.AudioWorkletNode as any).mock.results[0]
+        .value;
       expect(mockWorkletNode.port.postMessage).toHaveBeenCalled();
     });
 
@@ -323,7 +335,8 @@ describe("AudioProvider", () => {
         expect(result.current.isReady).toBe(true);
       });
 
-      const mockWorkletNode = (global.AudioWorkletNode as any).mock.results[0].value;
+      const mockWorkletNode = (global.AudioWorkletNode as any).mock.results[0]
+        .value;
       vi.clearAllMocks();
 
       // Reset
@@ -346,7 +359,8 @@ describe("AudioProvider", () => {
       });
 
       // Simulate playback-started message from AudioWorklet
-      const mockWorkletNode = (global.AudioWorkletNode as any).mock.results[0].value;
+      const mockWorkletNode = (global.AudioWorkletNode as any).mock.results[0]
+        .value;
       mockWorkletNode.port.onmessage?.(
         new MessageEvent("message", {
           data: { type: "playback-started" },
@@ -369,7 +383,8 @@ describe("AudioProvider", () => {
         expect(result.current.isReady).toBe(true);
       });
 
-      const mockWorkletNode = (global.AudioWorkletNode as any).mock.results[0].value;
+      const mockWorkletNode = (global.AudioWorkletNode as any).mock.results[0]
+        .value;
 
       // Start playback
       mockWorkletNode.port.onmessage?.(
@@ -489,8 +504,10 @@ describe("AudioProvider", () => {
         expect(result.current.isReady).toBe(true);
       });
 
-      const mockGain1 = (global.AudioContext as any).mock.results[0].value.createGain.mock.results[0].value;
-      const mockGain2 = (global.AudioContext as any).mock.results[0].value.createGain.mock.results[1].value;
+      const mockGain1 = (global.AudioContext as any).mock.results[0].value
+        .createGain.mock.results[0].value;
+      const mockGain2 = (global.AudioContext as any).mock.results[0].value
+        .createGain.mock.results[1].value;
 
       result.current.bgmChannel.switchTrack();
 
@@ -540,7 +557,8 @@ describe("AudioProvider", () => {
       });
 
       const mockContext = (global.AudioContext as any).mock.results[0].value;
-      const mockWorkletNode = (global.AudioWorkletNode as any).mock.results[0].value;
+      const mockWorkletNode = (global.AudioWorkletNode as any).mock.results[0]
+        .value;
       const mockSource1 = mockContext.createBufferSource.mock.results[0].value;
       const mockSource2 = mockContext.createBufferSource.mock.results[1].value;
 
