@@ -1,11 +1,19 @@
 # AI SDK v6 × Gemini Flash 2.5 Data Stream Protocol 対応状況
 
-**更新日**: 2025-12-12
+**作成日**: 2025-12-11 (スナップショット)
+
+> ⚠️ **注意**: このドキュメントは2025-12-11時点の実装状況を記録したスナップショットです。
+> **最新の実装状況は以下を参照してください**:
+> - **TEST_COVERAGE_AUDIT.md** - フィールドカバレッジ監査（2025-12-14更新）
+> - **field_coverage_config.yaml** - 実装ステータス管理（IMPLEMENTED/DEFERRED/DOCUMENTED）
+> - **agents/tasks.md** - Phase 4進捗状況
+> - **experiments/2025-12-14_adk_field_parametrized_test_coverage.md** - 最新テストカバレッジ
 
 このドキュメントは、AI SDK v6 Data Stream Protocol と Gemini Flash 2.5 の組み合わせで発生するすべてのイベントの対応状況を追跡します。
 
 **レビュー担当**: Claude Code (AI Assistant)
 **レビュー基準**: IMPLEMENTATION.md、agents/tasks.md、experiments/ の実装状況と整合性を検証
+**最終レビュー**: 2025-12-14 - スナップショットとして保持を推奨
 
 ## 対応状況の凡例
 
@@ -14,6 +22,12 @@
 - 🔧 **実装中**: 現在開発中
 - ❌ **未対応**: 未実装
 - ➖ **対象外**: 現在の要件では不要
+
+## 実装箇所参照について
+
+> ⚠️ **注**: 表中の実装箇所の行番号は2025-12-11時点のものです。
+> その後のコード変更により行番号が変更されている可能性があります。
+> 実装の詳細確認には、ファイル内でメソッド名・関数名で検索することを推奨します。
 
 ---
 
@@ -536,6 +550,13 @@
 ---
 
 ## 変更履歴
+
+### 2025-12-14 - スナップショット化とレビュー
+- **ドキュメントの位置づけ変更**: 現行ドキュメント → 2025-12-11時点のスナップショット
+- **注記追加**: 最新情報への参照先を明示（TEST_COVERAGE_AUDIT.md, field_coverage_config.yaml等）
+- **行番号参照の免責**: コード変更により行番号がずれている可能性を注記
+- **レビュー結果**: 実装内容は概ね正確、テスト数と行番号のみ古い
+- **推奨**: 最新の実装状況はTEST_COVERAGE_AUDIT.mdおよびfield_coverage_config.yamlを参照
 
 ### 2025-12-12 - 大幅更新 (Claude Code レビュー)
 - **実装状況の検証と更新**: IMPLEMENTATION.md、agents/tasks.md、experiments/ と整合性を確認
