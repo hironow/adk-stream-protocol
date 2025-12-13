@@ -348,3 +348,86 @@ class ChatMessage(BaseModel):
                             )
 
         return types.Content(role=self.role, parts=adk_parts)
+
+
+# ============================================================
+# WebSocket Message Processing for BIDI Mode
+# ============================================================
+
+
+def process_chat_message_for_bidi(
+    message_data: dict,
+    delegate: Any,  # FrontendToolDelegate, avoiding circular import
+) -> tuple[list[types.Blob], types.Content | None]:
+    """
+    Process AI SDK v6 message data for BIDI streaming.
+
+    This function handles AI SDK v6 message format conversion for WebSocket BIDI mode:
+    1. Parse ChatMessage from message data
+    2. Process tool-use parts (approval/rejection responses)
+    3. Separate image/video blobs from text parts
+    4. Return separated data ready for ADK LiveRequestQueue
+
+    Responsibility Separation:
+    - This function: AI SDK v6 message processing (protocol layer)
+    - Caller (server.py): ADK LiveRequestQueue operations (transport layer)
+
+    Args:
+        message_data: Message data from WebSocket event (AI SDK v6 format)
+                     Example: {"messages": [{"role": "user", "parts": [...]}]}
+        delegate: FrontendToolDelegate instance for tool approval handling
+
+    Returns:
+        (image_blobs, text_content): Tuple of separated message parts
+            - image_blobs: List of Blob objects to send via send_realtime()
+            - text_content: Content object to send via send_content(), or None if no text
+
+    Reference:
+    - ADK Live API requirements: https://google.github.io/adk-docs/streaming/dev-guide/part2/
+    - AI SDK v6 message format: https://ai-sdk.dev/docs/ai-sdk-ui/overview
+    """
+    import base64
+
+    from tool_delegate import process_tool_use_parts
+
+    messages = message_data.get("messages", [])
+    if not messages:
+        return ([], None)
+
+    # Parse last message from AI SDK v6 format
+    last_msg = ChatMessage(**messages[-1])
+
+    # Process tool-use parts (approval/rejection responses from frontend)
+    process_tool_use_parts(last_msg, delegate)
+
+    # Separate image/video blobs from text parts
+    # IMPORTANT: Live API requires separation
+    # - Images/videos: Send via send_realtime(blob)
+    # - Text: Send via send_content(content)
+    image_blobs: list[types.Blob] = []
+    text_parts: list[types.Part] = []
+
+    for part in last_msg.parts:
+        # Handle file parts (images/videos)
+        if isinstance(part, FilePart):
+            # Decode data URL format: "data:image/png;base64,..."
+            if part.url.startswith("data:"):
+                data_url_parts = part.url.split(",", 1)
+                if len(data_url_parts) == 2:
+                    file_data_base64 = data_url_parts[1]
+                    file_bytes = base64.b64decode(file_data_base64)
+
+                    # Create Blob for ADK
+                    blob = types.Blob(mime_type=part.mediaType, data=file_bytes)
+                    image_blobs.append(blob)
+
+        # Handle text parts
+        elif isinstance(part, TextPart):
+            text_parts.append(types.Part(text=part.text))
+
+    # Create text content if any text exists
+    text_content = None
+    if text_parts:
+        text_content = types.Content(role="user", parts=text_parts)
+
+    return (image_blobs, text_content)

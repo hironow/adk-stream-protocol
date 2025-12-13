@@ -31,11 +31,10 @@ from pydantic import BaseModel
 
 from ai_sdk_v6_compat import (
     ChatMessage,
-    FilePart,
-    TextPart,
+    process_chat_message_for_bidi,
 )
 from stream_protocol import stream_adk_to_ai_sdk
-from tool_delegate import FrontendToolDelegate, process_tool_use_parts
+from tool_delegate import FrontendToolDelegate
 
 # Load environment variables from .env.local
 load_dotenv(".env.local")
@@ -841,55 +840,21 @@ async def live_chat(websocket: WebSocket):
                     # Handle message event (chat messages)
                     if event_type == "message":
                         message_data = event.get("data", {})
-                        messages = message_data.get("messages", [])
-                        if messages:
-                            # Get last message
-                            last_msg = ChatMessage(**messages[-1])
 
-                            # Process tool-use parts (approval/rejection responses from frontend)
-                            # Phase 2: Use connection-specific delegate from session state
-                            process_tool_use_parts(last_msg, connection_delegate)
+                        # Process AI SDK v6 message format → ADK format
+                        # Separates image blobs from text parts (Live API requirement)
+                        image_blobs, text_content = process_chat_message_for_bidi(
+                            message_data, connection_delegate
+                        )
 
-                            # IMPORTANT: Live API requires separation of image/video blobs and text
-                            # - Images/videos: Use send_realtime(blob)
-                            # - Text: Use send_content(content)
-                            # Reference: https://google.github.io/adk-docs/streaming/dev-guide/part2/
+                        # Send to ADK LiveRequestQueue
+                        # Images/videos: send_realtime(blob)
+                        # Text: send_content(content)
+                        for blob in image_blobs:
+                            live_request_queue.send_realtime(blob)
 
-                            # Separate image/video blobs from text parts
-                            text_parts: list[types.Part] = []
-
-                            for part in last_msg.parts:
-                                # Handle file parts (images)
-                                if isinstance(part, FilePart):
-                                    # Send image blob via send_realtime()
-                                    import base64
-
-                                    # Decode data URL
-                                    if part.url.startswith("data:"):
-                                        data_url_parts = part.url.split(",", 1)
-                                        if len(data_url_parts) == 2:
-                                            image_data_base64 = data_url_parts[1]
-                                            image_bytes = base64.b64decode(
-                                                image_data_base64
-                                            )
-
-                                            # Create blob and send via send_realtime()
-                                            image_blob = types.Blob(
-                                                mime_type=part.mediaType,
-                                                data=image_bytes,
-                                            )
-                                            live_request_queue.send_realtime(image_blob)
-
-                                # Handle text parts
-                                elif isinstance(part, TextPart):
-                                    text_parts.append(types.Part(text=part.text))
-
-                            # Send text content via send_content() if any text exists
-                            if text_parts:
-                                text_content = types.Content(
-                                    role="user", parts=text_parts
-                                )
-                                live_request_queue.send_content(text_content)
+                        if text_content:
+                            live_request_queue.send_content(text_content)
 
                     # Handle interrupt event (P2-T2 Phase 2)
                     elif event_type == "interrupt":
