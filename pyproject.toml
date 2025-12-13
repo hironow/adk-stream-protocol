@@ -60,8 +60,9 @@ select = [
     # "D", # pydocstyle
     "RUF", # Ruff-specific rules
 ]
-extend-ignore = ["E501", "RUF002", "RUF003"]
+extend-ignore = ["E501", "RUF001", "RUF002", "RUF003"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["PLR2004"]
-"scripts/**/*.py" = ["T201","PLR2004","C901","PLR0912","PLR0915"]
+"tests/*.py" = ["PLR2004", "T201"]
+"tests/**/*.py" = ["PLR2004", "T201"]
+"scripts/**/*.py" = ["T201","PLR2004","C901","PLR0912","PLR0915", "PLR0911"]
