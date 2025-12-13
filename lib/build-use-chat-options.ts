@@ -4,6 +4,7 @@ import {
   lastAssistantMessageIsCompleteWithApprovalResponses,
   type PrepareSendMessagesRequest,
 } from "ai";
+import { ChunkLoggingTransport } from "@/lib/chunk-logging-transport";
 import { WebSocketChatTransport } from "@/lib/websocket-chat-transport";
 
 export type BackendMode = "gemini" | "adk-sse" | "adk-bidi";
@@ -59,7 +60,10 @@ function debugLog(message: string, ...args: unknown[]) {
  */
 export interface UseChatOptionsWithTransport {
   useChatOptions: {
-    transport: DefaultChatTransport | WebSocketChatTransport;
+    transport:
+      | DefaultChatTransport<UIMessage>
+      | WebSocketChatTransport
+      | ChunkLoggingTransport;
     messages: UIMessage[];
     id: string;
     sendAutomaticallyWhen?: (options: { messages: UIMessage[] }) => boolean;
@@ -174,10 +178,15 @@ function buildUseChatOptionsInternal({
     case "gemini": {
       debugLog("Configuring useChat for Gemini Direct mode");
       // Create transport manually to pass prepareSendMessagesRequest
-      const geminiTransport = new DefaultChatTransport({
+      const baseTransport = new DefaultChatTransport({
         api: apiEndpoint,
         prepareSendMessagesRequest,
       });
+      // Wrap with chunk logging transport
+      const geminiTransport = new ChunkLoggingTransport(
+        baseTransport,
+        "gemini",
+      );
       const geminiOptions = {
         ...baseOptions,
         transport: geminiTransport,
@@ -195,10 +204,15 @@ function buildUseChatOptionsInternal({
     case "adk-sse": {
       debugLog("Configuring useChat for ADK SSE mode");
       // Create transport manually to pass prepareSendMessagesRequest
-      const adkSseTransport = new DefaultChatTransport({
+      const baseTransport = new DefaultChatTransport({
         api: apiEndpoint,
         prepareSendMessagesRequest,
       });
+      // Wrap with chunk logging transport
+      const adkSseTransport = new ChunkLoggingTransport(
+        baseTransport,
+        "adk-sse",
+      );
       const adkSseOptions = {
         ...baseOptions,
         transport: adkSseTransport,

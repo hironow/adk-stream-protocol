@@ -5,7 +5,6 @@ Tests the chunk logging functionality for recording and debugging.
 """
 
 import json
-import os
 import tempfile
 from pathlib import Path
 

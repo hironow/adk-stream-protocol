@@ -807,7 +807,7 @@ class StreamProtocolConverter:
         yield "data: [DONE]\n\n"
 
 
-async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912, PLR0915
+async def stream_adk_to_ai_sdk(  # noqa: C901
     event_stream: AsyncGenerator[Event, None],
     message_id: str | None = None,
     tools_requiring_approval: set[str] | None = None,
@@ -849,21 +849,13 @@ async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912, PLR0915
             # Convert and yield event: all event should be processed here!!
             async for sse_event in converter.convert_event(event):
                 # Chunk Logger: Record SSE event (output)
-                # sse_event is already a string like: "data: {...}\n\n"
-                # Extract JSON part for logging
-                if sse_event.startswith("data: "):
-                    json_str = sse_event[6:].strip()  # Remove "data: " prefix and whitespace
-                    if json_str:
-                        try:
-                            event_data = json.loads(json_str)
-                            chunk_logger.log_chunk(
-                                location="backend-sse-event",
-                                direction="out",
-                                chunk=event_data,
-                                mode="adk-sse",
-                            )
-                        except json.JSONDecodeError:
-                            pass  # Skip if not valid JSON
+                # Log raw SSE string to avoid encoding/decoding issues
+                chunk_logger.log_chunk(
+                    location="backend-sse-event",
+                    direction="out",
+                    chunk=sse_event,
+                    mode="adk-sse",
+                )
 
                 yield sse_event
 
@@ -910,18 +902,12 @@ async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912, PLR0915
             model_version=model_version,
         ):
             # Chunk Logger: Record final SSE event (output)
-            if final_event.startswith("data: "):
-                json_str = final_event[6:].strip()
-                if json_str:
-                    try:
-                        event_data = json.loads(json_str)
-                        chunk_logger.log_chunk(
-                            location="backend-sse-event",
-                            direction="out",
-                            chunk=event_data,
-                            mode="adk-sse",
-                        )
-                    except json.JSONDecodeError:
-                        pass
+            # Log raw SSE string to avoid encoding/decoding issues
+            chunk_logger.log_chunk(
+                location="backend-sse-event",
+                direction="out",
+                chunk=final_event,
+                mode="adk-sse",
+            )
 
             yield final_event

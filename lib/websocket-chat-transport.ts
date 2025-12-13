@@ -31,6 +31,7 @@ import type {
   UIMessage,
   UIMessageChunk,
 } from "ai";
+import { chunkLogger } from "./chunk-logger";
 
 /**
  * AudioContext interface for PCM streaming
@@ -208,7 +209,17 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
       timestamp: event.timestamp ?? Date.now(),
     };
 
-    this.ws.send(JSON.stringify(eventWithTimestamp));
+    const message = JSON.stringify(eventWithTimestamp);
+    this.ws.send(message);
+
+    // Chunk Logger: Record WebSocket chunk (output)
+    chunkLogger.logChunk({
+      location: "frontend-ws-chunk",
+      direction: "out",
+      chunk: message,
+      mode: "adk-bidi",
+    });
+
     console.debug("[WS→Backend]", eventWithTimestamp.type, eventWithTimestamp);
   }
 
@@ -468,6 +479,14 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
     controller: ReadableStreamDefaultController<UIMessageChunk>,
   ): void {
     try {
+      // Chunk Logger: Record WebSocket chunk (input)
+      chunkLogger.logChunk({
+        location: "frontend-ws-chunk",
+        direction: "in",
+        chunk: data,
+        mode: "adk-bidi",
+      });
+
       // Handle ping/pong for latency monitoring (not SSE format)
       if (!data.startsWith("data: ")) {
         try {

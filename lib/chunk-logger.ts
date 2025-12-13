@@ -1,0 +1,189 @@
+/**
+ * Chunk Logger for ADK AI Data Protocol (Browser)
+ *
+ * Records chunks at various points in the data flow for debugging and testing.
+ * Outputs JSONL format (1 line = 1 chunk) for easy parsing and replay.
+ *
+ * Usage:
+ *     import { chunkLogger } from './chunk-logger';
+ *
+ *     // Log a chunk
+ *     chunkLogger.logChunk({
+ *         location: "frontend-sse-chunk",
+ *         direction: "in",
+ *         chunk: chunkData,
+ *         mode: "adk-sse"
+ *     });
+ *
+ * Environment Variables (via localStorage):
+ *     CHUNK_LOGGER_ENABLED: Enable/disable logging (default: false)
+ *     CHUNK_LOGGER_SESSION_ID: Session identifier (default: auto-generated)
+ *
+ * Output:
+ *     Downloads as {session_id}.jsonl when export() is called
+ */
+
+// Type definitions
+export type LogLocation =
+  | "backend-adk-event" // ADK raw event (input)
+  | "backend-sse-event" // SSE formatted event (output)
+  | "frontend-api-response" // Next.js API response (Gemini Direct)
+  | "frontend-sse-chunk" // SSE chunk (ADK SSE)
+  | "frontend-ws-chunk" // WebSocket chunk (ADK BIDI)
+  | "frontend-useChat-chunk"; // useChat chunk (all modes)
+
+export type Direction = "in" | "out";
+
+export type Mode = "gemini" | "adk-sse" | "adk-bidi";
+
+export interface ChunkLogEntry {
+  // Metadata
+  timestamp: number; // Unix timestamp (ms)
+  session_id: string; // Session identifier
+  mode: Mode; // Backend mode
+  location: LogLocation; // Recording point
+  direction: Direction; // Input/output
+  sequence_number: number; // Chunk order
+
+  // Chunk data
+  chunk: unknown; // Actual chunk data (type depends on location)
+
+  // Optional metadata
+  metadata?: Record<string, unknown>;
+}
+
+export interface LogChunkOptions {
+  location: LogLocation;
+  direction: Direction;
+  chunk: unknown;
+  mode?: Mode;
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Chunk logger for recording data flow in the browser.
+ *
+ * Stores chunks in memory and provides export functionality.
+ */
+export class ChunkLogger {
+  private _enabled: boolean;
+  private _sessionId: string;
+  private _sequenceCounters: Map<LogLocation, number> = new Map();
+  private _entries: ChunkLogEntry[] = [];
+
+  constructor(enabled?: boolean, sessionId?: string) {
+    // Read from localStorage if not provided
+    this._enabled =
+      enabled ?? this._getLocalStorageBoolean("CHUNK_LOGGER_ENABLED", false);
+    this._sessionId =
+      sessionId ??
+      this._getLocalStorageString("CHUNK_LOGGER_SESSION_ID") ??
+      this._generateSessionId();
+  }
+
+  private _getLocalStorageBoolean(key: string, defaultValue: boolean): boolean {
+    if (typeof window === "undefined") {
+      return defaultValue;
+    }
+    try {
+      const value = localStorage.getItem(key);
+      return value?.toLowerCase() === "true";
+    } catch {
+      return defaultValue;
+    }
+  }
+
+  private _getLocalStorageString(key: string): string | null {
+    if (typeof window === "undefined") {
+      return null;
+    }
+    try {
+      return localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  }
+
+  private _generateSessionId(): string {
+    const now = new Date();
+    const timestamp = now.toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    return `session-${timestamp}`;
+  }
+
+  isEnabled(): boolean {
+    return this._enabled;
+  }
+
+  logChunk(options: LogChunkOptions): void {
+    if (!this._enabled) {
+      return;
+    }
+
+    const { location, direction, chunk, mode = "adk-sse", metadata } = options;
+
+    // Increment sequence counter
+    const currentSeq = this._sequenceCounters.get(location) ?? 0;
+    const nextSeq = currentSeq + 1;
+    this._sequenceCounters.set(location, nextSeq);
+
+    // Create log entry
+    const entry: ChunkLogEntry = {
+      timestamp: Date.now(),
+      session_id: this._sessionId,
+      mode,
+      location,
+      direction,
+      sequence_number: nextSeq,
+      chunk,
+      metadata,
+    };
+
+    this._entries.push(entry);
+  }
+
+  /**
+   * Export all logged chunks as JSONL file download.
+   */
+  export(): void {
+    if (this._entries.length === 0) {
+      console.warn("ChunkLogger: No chunks to export");
+      return;
+    }
+
+    // Convert to JSONL format
+    const jsonl = this._entries
+      .map((entry) => JSON.stringify(entry))
+      .join("\n");
+
+    // Create Blob and trigger download
+    const blob = new Blob([jsonl], { type: "application/jsonl" });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${this._sessionId}.jsonl`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    URL.revokeObjectURL(url);
+  }
+
+  /**
+   * Get all logged entries (for testing).
+   */
+  getEntries(): ChunkLogEntry[] {
+    return [...this._entries];
+  }
+
+  /**
+   * Clear all logged entries.
+   */
+  clear(): void {
+    this._entries = [];
+    this._sequenceCounters.clear();
+  }
+}
+
+// Global singleton instance
+export const chunkLogger = new ChunkLogger();
