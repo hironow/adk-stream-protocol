@@ -174,3 +174,92 @@ class ChunkPlayer:
             "location": self._location,
             "session_dir": str(self._session_dir),
         }
+
+    @classmethod
+    def from_file(cls, file_path: str | Path) -> "ChunkPlayer":
+        """
+        Create player from a specific JSONL file.
+
+        Useful for E2E tests with fixture files.
+
+        Args:
+            file_path: Path to JSONL file
+
+        Returns:
+            ChunkPlayer instance configured for the file
+
+        Example:
+            player = ChunkPlayer.from_file("tests/fixtures/backend-chunks.jsonl")
+            async for entry in player.play():
+                process(entry.chunk)
+        """
+        path = Path(file_path)
+        if not path.exists():
+            msg = f"Fixture file not found: {file_path}"
+            raise FileNotFoundError(msg)
+
+        # Extract location from filename (e.g., "backend-adk-event.jsonl" -> "backend-adk-event")
+        location_str = path.stem
+
+        # Create a temporary ChunkPlayer instance
+        # Use parent directory as session_dir and filename stem as location
+        return cls(session_dir=path.parent, location=location_str)  # type: ignore
+
+
+class ChunkPlayerManager:
+    """
+    Manager for E2E test chunk player mode.
+
+    Detects E2E mode from environment variables and provides appropriate player.
+    """
+
+    @staticmethod
+    def is_enabled() -> bool:
+        """
+        Check if chunk player mode is enabled.
+
+        Returns:
+            True if E2E_CHUNK_PLAYER_MODE=true
+        """
+        import os
+
+        return os.getenv("E2E_CHUNK_PLAYER_MODE", "false").lower() == "true"
+
+    @staticmethod
+    def get_fixture_path() -> str | None:
+        """
+        Get fixture path from environment.
+
+        Returns:
+            Fixture path or None if not set
+        """
+        import os
+
+        return os.getenv("E2E_CHUNK_PLAYER_FIXTURE")
+
+    @classmethod
+    def create_player(cls) -> ChunkPlayer | None:
+        """
+        Create chunk player if E2E mode is enabled.
+
+        Returns:
+            ChunkPlayer instance if enabled, None otherwise
+
+        Raises:
+            ValueError: If E2E mode enabled but fixture path not set
+
+        Example:
+            player = ChunkPlayerManager.create_player()
+            if player:
+                async for entry in player.play(mode="fast-forward"):
+                    process(entry.chunk)
+        """
+        if not cls.is_enabled():
+            return None
+
+        fixture_path = cls.get_fixture_path()
+        if not fixture_path:
+            msg = "E2E_CHUNK_PLAYER_MODE is enabled but E2E_CHUNK_PLAYER_FIXTURE is not set"
+            raise ValueError(msg)
+
+        return ChunkPlayer.from_file(fixture_path)

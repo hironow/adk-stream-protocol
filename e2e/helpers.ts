@@ -152,3 +152,68 @@ export async function createTestImageFixture() {
   }
   // Image should be created manually or copied from test assets
 }
+
+/**
+ * Enable chunk player mode for E2E testing
+ * This makes the UI use ChunkPlayerTransport to replay pre-recorded chunks
+ */
+export async function enableChunkPlayerMode(page: Page, fixturePath: string) {
+  await page.evaluate(
+    ({ path }) => {
+      localStorage.setItem("E2E_CHUNK_PLAYER_MODE", "true");
+      localStorage.setItem("E2E_CHUNK_PLAYER_FIXTURE", path);
+    },
+    { path: fixturePath },
+  );
+}
+
+/**
+ * Disable chunk player mode
+ */
+export async function disableChunkPlayerMode(page: Page) {
+  await page.evaluate(() => {
+    localStorage.removeItem("E2E_CHUNK_PLAYER_MODE");
+    localStorage.removeItem("E2E_CHUNK_PLAYER_FIXTURE");
+  });
+}
+
+/**
+ * Get fixture path for chunk player tests
+ */
+export function getChunkPlayerFixturePath(patternName: string): string {
+  return `/fixtures/e2e-chunks/${patternName}/frontend-chunks.jsonl`;
+}
+
+/**
+ * Setup chunk player mode for E2E testing.
+ *
+ * This helper combines all the necessary steps:
+ * 1. Navigate to chat page
+ * 2. Enable chunk player mode with fixture
+ * 3. Reload page to apply settings
+ * 4. Wait for page to be ready
+ *
+ * Use this instead of manually calling enableChunkPlayerMode + reload.
+ *
+ * @param page - Playwright page object
+ * @param patternName - Pattern name (e.g., "pattern1-gemini-only")
+ *
+ * @example
+ * await setupChunkPlayerMode(page, "pattern1-gemini-only");
+ * // Now page is ready with chunk player mode enabled
+ */
+export async function setupChunkPlayerMode(page: Page, patternName: string) {
+  // Step 1: Navigate to page first (required for localStorage access)
+  await navigateToChat(page);
+
+  // Step 2: Enable chunk player mode
+  const fixturePath = getChunkPlayerFixturePath(patternName);
+  await enableChunkPlayerMode(page, fixturePath);
+
+  // Step 3: Reload to apply chunk player mode settings
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+
+  // Note: At this point, buildUseChatOptions will detect E2E mode
+  // and create ChunkPlayerTransport instead of real transport
+}

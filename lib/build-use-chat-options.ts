@@ -4,6 +4,7 @@ import {
   lastAssistantMessageIsCompleteWithApprovalResponses,
 } from "ai";
 import { ChunkLoggingTransport } from "@/lib/chunk-logging-transport";
+import { ChunkPlayerTransport } from "@/lib/chunk-player-transport";
 import { WebSocketChatTransport } from "@/lib/websocket-chat-transport";
 
 export type BackendMode = "gemini" | "adk-sse" | "adk-bidi";
@@ -109,6 +110,36 @@ function buildUseChatOptionsInternal({
   forceNewInstance?: boolean;
   audioContext?: AudioContextValue;
 }) {
+  // E2E Test Mode: Use ChunkPlayerTransport for deterministic testing
+  if (typeof window !== "undefined") {
+    const isChunkPlayerMode =
+      window.localStorage.getItem("E2E_CHUNK_PLAYER_MODE") === "true";
+    debugLog("E2E mode check:", {
+      isChunkPlayerMode,
+      localStorage: window.localStorage.getItem("E2E_CHUNK_PLAYER_MODE"),
+    });
+    if (isChunkPlayerMode) {
+      const fixturePath = window.localStorage.getItem(
+        "E2E_CHUNK_PLAYER_FIXTURE",
+      );
+      debugLog("E2E Chunk Player Mode enabled, fixture:", fixturePath);
+      if (fixturePath) {
+        // Create chunk player transport (lazy loading - fixture loaded on first sendMessages)
+        const transport = ChunkPlayerTransport.fromFixture(fixturePath);
+        const chatId = `chunk-player-${mode}`;
+        return {
+          useChatOptions: {
+            messages: initialMessages,
+            id: chatId,
+            // ChunkPlayerTransport implements ChatTransport
+            transport: transport as unknown as DefaultChatTransport<UIMessage>,
+          },
+          transport: undefined,
+        };
+      }
+    }
+  }
+
   // Compute API endpoint based on mode FIRST
   // (needed for chatId generation)
   let apiEndpoint: string;

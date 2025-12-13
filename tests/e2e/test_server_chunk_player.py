@@ -1,0 +1,280 @@
+"""
+Backend E2E Tests with Chunk Player
+
+Tests backend behavior by replaying pre-recorded chunks from fixture files.
+This enables deterministic testing without real LLM API calls.
+
+Test Patterns:
+- Pattern 1: Gemini Direct - No backend processing (frontend only)
+- Pattern 2: ADK SSE - Server-Sent Events with tool invocations
+- Pattern 3: ADK BIDI - WebSocket with audio chunks
+- Pattern 4: Mode switching - Multiple modes in single session
+
+Per CLAUDE.md guidelines:
+- No mocks allowed in E2E tests
+- Uses real ChunkPlayer for chunk replay
+- Given-When-Then structure
+- Tests critical backend integration points
+"""
+
+import os
+from pathlib import Path
+
+import pytest
+
+from chunk_player import ChunkPlayer, ChunkPlayerManager
+
+
+@pytest.fixture
+def fixture_dir() -> Path:
+    """Get E2E fixtures directory."""
+    return Path(__file__).parent.parent / "fixtures" / "e2e-chunks"
+
+
+class TestEmptyFixtures:
+    """
+    Tests for empty fixture files.
+
+    These tests verify that the system handles empty fixtures gracefully
+    before actual chunks are recorded.
+    """
+
+    def test_pattern1_empty_fixture_loads_without_error(self, fixture_dir: Path):
+        """Pattern 1: Gemini Direct - Empty fixture should load (no backend processing)."""
+        # Given: Empty backend fixture file (Gemini Direct has no backend processing)
+        fixture_path = fixture_dir / "pattern1-gemini-only" / "backend-chunks.jsonl"
+
+        # When: Create player from empty file
+        player = ChunkPlayer.from_file(fixture_path)
+
+        # Then: Player should be created without error
+        assert player is not None
+        # And: Should have 0 chunks
+        stats = player.get_stats()
+        assert stats["count"] == 0
+
+    def test_pattern2_empty_fixture_loads_without_error(self, fixture_dir: Path):
+        """Pattern 2: ADK SSE - Empty fixture should load (waiting for recording)."""
+        # Given: Empty backend fixture file
+        fixture_path = fixture_dir / "pattern2-adk-sse-only" / "backend-chunks.jsonl"
+
+        # When: Create player from empty file
+        player = ChunkPlayer.from_file(fixture_path)
+
+        # Then: Player should be created without error
+        assert player is not None
+        stats = player.get_stats()
+        assert stats["count"] == 0
+
+    def test_pattern3_empty_fixture_loads_without_error(self, fixture_dir: Path):
+        """Pattern 3: ADK BIDI - Empty fixture should load (waiting for recording)."""
+        # Given: Empty backend fixture file
+        fixture_path = fixture_dir / "pattern3-adk-bidi-only" / "backend-chunks.jsonl"
+
+        # When: Create player from empty file
+        player = ChunkPlayer.from_file(fixture_path)
+
+        # Then: Player should be created without error
+        assert player is not None
+        stats = player.get_stats()
+        assert stats["count"] == 0
+
+    def test_pattern4_empty_fixture_loads_without_error(self, fixture_dir: Path):
+        """Pattern 4: Mode switching - Empty fixture should load (waiting for recording)."""
+        # Given: Empty backend fixture file
+        fixture_path = fixture_dir / "pattern4-mode-switching" / "backend-chunks.jsonl"
+
+        # When: Create player from empty file
+        player = ChunkPlayer.from_file(fixture_path)
+
+        # Then: Player should be created without error
+        assert player is not None
+        stats = player.get_stats()
+        assert stats["count"] == 0
+
+
+class TestChunkPlayerManager:
+    """Tests for ChunkPlayerManager E2E mode detection."""
+
+    def test_manager_detects_disabled_mode(self):
+        """Manager should return None when E2E mode is disabled."""
+        # Given: E2E mode is disabled
+        os.environ.pop("E2E_CHUNK_PLAYER_MODE", None)
+
+        # When: Create player
+        player = ChunkPlayerManager.create_player()
+
+        # Then: Should return None
+        assert player is None
+
+    def test_manager_detects_enabled_mode_without_fixture_raises_error(self):
+        """Manager should raise error when E2E mode enabled but fixture not set."""
+        # Given: E2E mode enabled but fixture not set
+        os.environ["E2E_CHUNK_PLAYER_MODE"] = "true"
+        os.environ.pop("E2E_CHUNK_PLAYER_FIXTURE", None)
+
+        try:
+            # When: Create player
+            # Then: Should raise ValueError
+            with pytest.raises(ValueError, match="E2E_CHUNK_PLAYER_FIXTURE"):
+                ChunkPlayerManager.create_player()
+        finally:
+            # Cleanup
+            os.environ.pop("E2E_CHUNK_PLAYER_MODE", None)
+
+    def test_manager_creates_player_when_enabled(self, fixture_dir: Path):
+        """Manager should create player when E2E mode enabled with fixture."""
+        # Given: E2E mode enabled with fixture path
+        fixture_path = fixture_dir / "pattern2-adk-sse-only" / "backend-chunks.jsonl"
+        os.environ["E2E_CHUNK_PLAYER_MODE"] = "true"
+        os.environ["E2E_CHUNK_PLAYER_FIXTURE"] = str(fixture_path)
+
+        try:
+            # When: Create player
+            player = ChunkPlayerManager.create_player()
+
+            # Then: Should return ChunkPlayer instance
+            assert player is not None
+            assert isinstance(player, ChunkPlayer)
+        finally:
+            # Cleanup
+            os.environ.pop("E2E_CHUNK_PLAYER_MODE", None)
+            os.environ.pop("E2E_CHUNK_PLAYER_FIXTURE", None)
+
+
+# ============================================================================
+# Future Tests (After Fixtures Are Recorded)
+# ============================================================================
+
+# These tests are marked as skip until fixtures are recorded.
+# Once manual recording is complete, remove @pytest.mark.skip decorators.
+
+
+@pytest.mark.skip(reason="Waiting for fixture recording - see agents/recorder_handsoff.md")
+class TestPattern2ADKSSEOnly:
+    """
+    Tests for Pattern 2: ADK SSE Only.
+
+    Verifies backend SSE processing with tool invocations.
+    """
+
+    @pytest.mark.asyncio
+    async def test_replays_chunks_in_fast_forward_mode(self, fixture_dir: Path):
+        """Should replay all chunks without delays."""
+        # Given: Recorded fixture with ADK SSE chunks
+        fixture_path = fixture_dir / "pattern2-adk-sse-only" / "backend-chunks.jsonl"
+        player = ChunkPlayer.from_file(fixture_path)
+
+        # When: Play chunks in fast-forward mode
+        chunks = []
+        async for entry in player.play(mode="fast-forward"):
+            chunks.append(entry)
+
+        # Then: Should have replayed all chunks
+        assert len(chunks) > 0
+        # And: All chunks should have ADK SSE mode
+        for entry in chunks:
+            assert entry.mode in ["adk-sse"]
+
+    @pytest.mark.asyncio
+    async def test_contains_tool_invocation_chunks(self, fixture_dir: Path):
+        """Should contain tool invocation chunks (weather, calculator)."""
+        # Given: Recorded fixture with tool invocations
+        fixture_path = fixture_dir / "pattern2-adk-sse-only" / "backend-chunks.jsonl"
+        player = ChunkPlayer.from_file(fixture_path)
+
+        # When: Collect all chunks
+        chunks = []
+        async for entry in player.play(mode="fast-forward"):
+            chunks.append(entry)
+
+        # Then: Should find tool invocation chunks
+        tool_chunks = [c for c in chunks if "tool" in str(c.chunk).lower()]
+        assert len(tool_chunks) > 0
+
+
+@pytest.mark.skip(reason="Waiting for fixture recording - see agents/recorder_handsoff.md")
+class TestPattern3ADKBIDIOnly:
+    """
+    Tests for Pattern 3: ADK BIDI Only.
+
+    Verifies backend WebSocket processing with audio chunks.
+    """
+
+    @pytest.mark.asyncio
+    async def test_replays_chunks_in_fast_forward_mode(self, fixture_dir: Path):
+        """Should replay all chunks without delays."""
+        # Given: Recorded fixture with ADK BIDI chunks
+        fixture_path = fixture_dir / "pattern3-adk-bidi-only" / "backend-chunks.jsonl"
+        player = ChunkPlayer.from_file(fixture_path)
+
+        # When: Play chunks in fast-forward mode
+        chunks = []
+        async for entry in player.play(mode="fast-forward"):
+            chunks.append(entry)
+
+        # Then: Should have replayed all chunks
+        assert len(chunks) > 0
+        # And: All chunks should have ADK BIDI mode
+        for entry in chunks:
+            assert entry.mode in ["adk-bidi"]
+
+    @pytest.mark.asyncio
+    async def test_contains_audio_chunks(self, fixture_dir: Path):
+        """Should contain audio (PCM) chunks."""
+        # Given: Recorded fixture with audio chunks
+        fixture_path = fixture_dir / "pattern3-adk-bidi-only" / "backend-chunks.jsonl"
+        player = ChunkPlayer.from_file(fixture_path)
+
+        # When: Collect all chunks
+        chunks = []
+        async for entry in player.play(mode="fast-forward"):
+            chunks.append(entry)
+
+        # Then: Should find audio-related chunks
+        # Note: Actual assertion depends on chunk structure
+        assert len(chunks) > 0
+
+
+@pytest.mark.skip(reason="Waiting for fixture recording - see agents/recorder_handsoff.md")
+class TestPattern4ModeSwitching:
+    """
+    Tests for Pattern 4: Mode Switching.
+
+    Verifies backend handles mode transitions correctly.
+    """
+
+    @pytest.mark.asyncio
+    async def test_replays_chunks_from_multiple_modes(self, fixture_dir: Path):
+        """Should replay chunks from different modes."""
+        # Given: Recorded fixture with mode switches
+        fixture_path = fixture_dir / "pattern4-mode-switching" / "backend-chunks.jsonl"
+        player = ChunkPlayer.from_file(fixture_path)
+
+        # When: Collect all chunks
+        chunks = []
+        async for entry in player.play(mode="fast-forward"):
+            chunks.append(entry)
+
+        # Then: Should have chunks from multiple modes
+        modes = {entry.mode for entry in chunks}
+        # Should have at least ADK SSE and ADK BIDI (Gemini Direct has no backend)
+        assert "adk-sse" in modes or "adk-bidi" in modes
+
+    @pytest.mark.asyncio
+    async def test_preserves_chunk_order_across_mode_switches(self, fixture_dir: Path):
+        """Should maintain correct chunk order despite mode changes."""
+        # Given: Recorded fixture with mode switches
+        fixture_path = fixture_dir / "pattern4-mode-switching" / "backend-chunks.jsonl"
+        player = ChunkPlayer.from_file(fixture_path)
+
+        # When: Collect all chunks
+        chunks = []
+        async for entry in player.play(mode="fast-forward"):
+            chunks.append(entry)
+
+        # Then: Chunks should be in sequence order
+        for i, entry in enumerate(chunks):
+            if i > 0:
+                # Sequence numbers should be monotonically increasing
+                assert entry.sequence_number >= chunks[i - 1].sequence_number
