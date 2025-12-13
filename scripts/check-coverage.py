@@ -29,11 +29,11 @@ import argparse
 import inspect
 import json
 import re
+import sys
 from pathlib import Path
 from typing import Any, get_args, get_origin
 
 import yaml
-
 from google.adk.events import Event
 from google.adk.events.event_actions import EventActions
 from google.genai import types
@@ -236,9 +236,7 @@ class ConfigLoader:
     """Load and parse field_coverage_config.yaml."""
 
     def __init__(self, config_path: Path | None = None):
-        self.config_path = config_path or (
-            Path(__file__).parent / "field_coverage_config.yaml"
-        )
+        self.config_path = config_path or (Path(__file__).parent / "field_coverage_config.yaml")
 
     def load(self) -> dict[str, Any]:
         """Load configuration from YAML file."""
@@ -321,7 +319,7 @@ class ADKAnalyzer:
                 content += f"\n# === {file_path.name} ===\n"
                 content += file_path.read_text()
             else:
-                logger.warning(f"File not found, skipping: {file_path}")
+                print(f"Warning: File not found, skipping: {file_path}")
 
         if not content:
             raise FileNotFoundError(f"No valid files found in: {self.file_paths}")
@@ -529,7 +527,9 @@ class ConfigValidator:
         expected_deferred = self.config.get_expected_deferred(field_type)
         expected_documented = self.config.get_expected_documented(field_type)
         expected_not_started = self.config.get_expected_not_started(field_type)
-        all_configured = expected_implemented | expected_deferred | expected_documented | expected_not_started
+        all_configured = (
+            expected_implemented | expected_deferred | expected_documented | expected_not_started
+        )
 
         # Get actual state from code
         actual_implemented = self.analyzer.analyze()[field_type]
@@ -544,38 +544,46 @@ class ConfigValidator:
         # Check 1: Fields marked IMPLEMENTED should actually be in code
         not_actually_implemented = expected_implemented - actual_implemented
         if not_actually_implemented:
-            errors.append({
-                "type": "CLAIMED_BUT_NOT_IMPLEMENTED",
-                "fields": sorted(not_actually_implemented),
-                "message": f"Fields marked IMPLEMENTED in config but not found in code",
-            })
+            errors.append(
+                {
+                    "type": "CLAIMED_BUT_NOT_IMPLEMENTED",
+                    "fields": sorted(not_actually_implemented),
+                    "message": "Fields marked IMPLEMENTED in config but not found in code",
+                }
+            )
 
         # Check 2: Fields in code should be in config
         not_in_config = actual_implemented - all_configured
         if not_in_config:
-            warnings.append({
-                "type": "IMPLEMENTED_BUT_NOT_CONFIGURED",
-                "fields": sorted(not_in_config),
-                "message": f"Fields found in code but not in config file",
-            })
+            warnings.append(
+                {
+                    "type": "IMPLEMENTED_BUT_NOT_CONFIGURED",
+                    "fields": sorted(not_in_config),
+                    "message": "Fields found in code but not in config file",
+                }
+            )
 
         # Check 3: ADK fields not in config at all
         not_tracked = all_adk_fields - all_configured
         if not_tracked:
-            warnings.append({
-                "type": "ADK_FIELD_NOT_TRACKED",
-                "fields": sorted(not_tracked),
-                "message": f"ADK fields exist but not tracked in config",
-            })
+            warnings.append(
+                {
+                    "type": "ADK_FIELD_NOT_TRACKED",
+                    "fields": sorted(not_tracked),
+                    "message": "ADK fields exist but not tracked in config",
+                }
+            )
 
         # Check 4: Config references non-existent ADK fields
         invalid_fields = all_configured - all_adk_fields
         if invalid_fields:
-            errors.append({
-                "type": "INVALID_FIELD_IN_CONFIG",
-                "fields": sorted(invalid_fields),
-                "message": f"Config references fields that don't exist in ADK SDK",
-            })
+            errors.append(
+                {
+                    "type": "INVALID_FIELD_IN_CONFIG",
+                    "fields": sorted(invalid_fields),
+                    "message": "Config references fields that don't exist in ADK SDK",
+                }
+            )
 
         return {
             "expected_implemented": sorted(expected_implemented),
@@ -750,8 +758,12 @@ class Reporter:
         print()
         print("**Data Source**: Direct code analysis")
         print("**Backend Target**: `stream_protocol.py` (generates events from ADK)")
-        print("**Frontend Target**: `lib/websocket-chat-transport.ts` (receives events via WebSocket)")
-        print("**Purpose**: Verify backend generates and frontend consumes AI SDK v6 events correctly")
+        print(
+            "**Frontend Target**: `lib/websocket-chat-transport.ts` (receives events via WebSocket)"
+        )
+        print(
+            "**Purpose**: Verify backend generates and frontend consumes AI SDK v6 events correctly"
+        )
         print()
         print("**Backend Analysis Patterns**:")
         print("  - `_format_sse_event({'type': 'event-type'})`")
@@ -847,8 +859,12 @@ class Reporter:
         print("## Summary")
         print()
         print(f"- **Backend generates**: {len(generated)} event types")
-        print(f"- **Frontend explicitly handles**: {len(consumed)} event types (custom events + special cases)")
-        print(f"- **Frontend delegates to useChat**: {len(generated_not_consumed)} event types (standard AI SDK events)")
+        print(
+            f"- **Frontend explicitly handles**: {len(consumed)} event types (custom events + special cases)"
+        )
+        print(
+            f"- **Frontend delegates to useChat**: {len(generated_not_consumed)} event types (standard AI SDK events)"
+        )
         print(f"- **AI SDK defines**: {len(all_types)} event types")
         print()
 
@@ -878,9 +894,10 @@ class Reporter:
             # Show correctly implemented
             correctly_impl = validation["correctly_implemented"]
             expected_impl = validation["expected_implemented"]
-            actual_impl = validation["actual_implemented"]
 
-            print(f"**Status**: {len(correctly_impl)}/{len(expected_impl)} expected fields correctly implemented")
+            print(
+                f"**Status**: {len(correctly_impl)}/{len(expected_impl)} expected fields correctly implemented"
+            )
             print()
 
             # Show errors
@@ -1158,12 +1175,8 @@ class CoverageChecker:
         self.reporter.print_config_validation(results)
 
         # Determine exit code
-        has_errors = any(
-            len(v.get("errors", [])) > 0 for v in results.values()
-        )
-        has_warnings = any(
-            len(v.get("warnings", [])) > 0 for v in results.values()
-        )
+        has_errors = any(len(v.get("errors", [])) > 0 for v in results.values())
+        has_warnings = any(len(v.get("warnings", [])) > 0 for v in results.values())
 
         if has_errors:
             return 2
@@ -1231,7 +1244,7 @@ Examples:
 
     if args.validate:
         exit_code = checker.run_validation()
-        exit(exit_code)
+        sys.exit(exit_code)
     elif args.extract_only:
         checker.run_extraction(args.extract_only, args.format)
     else:

@@ -860,7 +860,9 @@ class TestMessageControlConversion:
                 assert "finishReason" in finish_event
                 assert finish_event["finishReason"] == "stop"
         else:
-            assert len(finish_events) == 0, "Should not generate finish event when turn_complete is not True"
+            assert len(finish_events) == 0, (
+                "Should not generate finish event when turn_complete is not True"
+            )
 
     def test_done_marker(self):
         """
