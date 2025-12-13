@@ -406,24 +406,81 @@ controller.enqueue(chunk as UIMessageChunk);
 
 **Commit**: bd83e26
 
-### Phase 3: Player 機構 ⬜ 優先度: Medium
+### Phase 3: Player 機構 ✅ COMPLETED 2025-12-14
 **目標**: 記録した chunk を再生
 
 **Tasks**:
-- [ ] `lib/chunk_player.py` (Backend)
-  - [ ] JSONL 読み込み
-  - [ ] Iterator インターフェース
-  - [ ] Timing 制御 (real-time/fast-forward/step)
-- [ ] `lib/chunk-player.ts` (Frontend)
-  - [ ] JSONL 読み込み
-  - [ ] AsyncIterator インターフェース
-  - [ ] Timing 制御
-- [ ] Mock injection points
+- [x] `chunk_player.py` (Backend)
+  - [x] JSONL 読み込み
+  - [x] AsyncIterator インターフェース (AsyncGenerator)
+  - [x] Timing 制御 (real-time/fast-forward/step)
+  - [x] Statistics API (count, duration, timestamps)
+- [x] `lib/chunk-player.ts` (Frontend)
+  - [x] JSONL 読み込み (parseJsonl)
+  - [x] AsyncIterator インターフェース (AsyncGenerator)
+  - [x] Timing 制御 (real-time/fast-forward/step)
+  - [x] Static factory methods (fromFile, fromUrl)
+  - [x] Statistics API
+- [x] Tests
+  - [x] Backend: 8/8 tests passing
+  - [x] Frontend: 10/10 tests passing
+  - [x] Recorded chunks が正しく再生されることを確認
+  - [x] Timing が正しいことを確認
+  - [x] Sequence number ordering
+  - [x] Error handling (file not found, invalid JSON)
+- [ ] Mock injection points (後続タスク - Phase 4で実装)
   - [ ] Backend: ADK event mock
   - [ ] Frontend: Transport mock
-- [ ] Tests
-  - [ ] Recorded chunks が正しく再生されることを確認
-  - [ ] Timing が正しいことを確認
+
+**Implementation Details**:
+
+**Backend ChunkPlayer** (`chunk_player.py`):
+- JSONL file読み込み (`session_dir / {location}.jsonl`)
+- `play(mode)` メソッド: AsyncGenerator[ChunkLogEntry, None]
+- Playback modes:
+  - `fast-forward`: 遅延なし、最速再生
+  - `real-time`: timestamp基準でオリジナルのタイミング再現
+  - `step`: 手動ステップ実行（100ms delay）
+- `get_stats()`: count, duration_ms, first/last timestamp
+- Sequence number自動ソート
+
+**Frontend ChunkPlayer** (`lib/chunk-player.ts`):
+- JSONL content文字列をパース
+- Static factory methods:
+  - `fromFile(file: File)`: アップロードされたファイルから
+  - `fromUrl(url: string)`: サーバーからfetch
+- `play(options)` メソッド: AsyncGenerator<ChunkLogEntry>
+- Playback modes: backend と同じ3モード
+- `getStats()`: backend と同じAPI
+- `getEntries()`: 全entryを取得（debugging用）
+
+**Usage Example**:
+```python
+# Backend
+player = ChunkPlayer(
+    session_dir="./chunk_logs/session-2025-12-14-123456",
+    location="backend-adk-event"
+)
+async for entry in player.play(mode="fast-forward"):
+    process_chunk(entry.chunk)
+```
+
+```typescript
+// Frontend
+const player = await ChunkPlayer.fromFile(uploadedFile);
+for await (const entry of player.play({ mode: "real-time" })) {
+    processChunk(entry.chunk);
+}
+```
+
+**Test Results**:
+- Python: 8/8 tests passing ✅
+- Python linting (ruff): All checks passed ✅
+- Python type checking (mypy): Success ✅
+- TypeScript: 10/10 tests passing (vitest) ✅
+- TypeScript linting (biome): All checks passed ✅
+
+**Commit**: d3b5797
 
 ### Phase 4: E2E テスト統合 ⬜ 優先度: Low
 **目標**: Player を使った E2E テスト作成
@@ -523,9 +580,9 @@ controller.enqueue(chunk as UIMessageChunk);
 1. ✅ 実験ノート作成 (このファイル)
 2. ✅ Phase 1: Backend Logger 実装完了 (commit 5dc2d14)
 3. ✅ Phase 2: Frontend Logger 実装完了 (commit bd83e26)
-4. ⬜ 手動操作で chunk 記録のテスト
-5. ⬜ Phase 3: Player 機構実装
-6. ⬜ Phase 4: E2E テスト統合
+4. ✅ Phase 3: Player 機構実装完了 (commit d3b5797)
+5. ⬜ 手動操作で chunk 記録のテスト
+6. ⬜ Phase 4: Mock injection points & E2E テスト統合
 
 ---
 
@@ -539,6 +596,15 @@ controller.enqueue(chunk as UIMessageChunk);
 
 ## 変更履歴
 
+- 2025-12-14 (continued): Phase 3 実装完了 (commit d3b5797)
+  - chunk_player.py 作成（Backend ChunkPlayer, 8 tests passing）
+  - lib/chunk-player.ts 作成（Frontend ChunkPlayer, 10 tests passing）
+  - AsyncGenerator interface による streaming playback
+  - 3つの playback modes: fast-forward, real-time, step
+  - Statistics API: count, duration, timestamps
+  - Static factory methods (fromFile, fromUrl) for frontend
+  - Robust error handling (file not found, invalid JSON)
+  - Automatic sequence number sorting
 - 2025-12-14 (continued): Phase 2 実装完了 (commit bd83e26)
   - lib/chunk-logger.ts 作成（ChunkLogger class for browser）
   - lib/chunk-logging-transport.ts 作成（DefaultChatTransport wrapper）
