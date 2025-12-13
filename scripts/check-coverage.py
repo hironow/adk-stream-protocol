@@ -33,7 +33,7 @@ import sys
 from pathlib import Path
 from typing import Any, get_args, get_origin
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 from google.adk.events import Event
 from google.adk.events.event_actions import EventActions
 from google.genai import types
@@ -966,7 +966,7 @@ class Reporter:
             fields_config = config_loader.get_field_config(field_type)
 
             # Group by priority
-            priority_groups = {}
+            priority_groups: dict[str, list[tuple[str, dict[str, Any]]]] = {}
             for field_name, config in fields_config.items():
                 priority = config.get("priority", "UNKNOWN")
                 if priority not in priority_groups:

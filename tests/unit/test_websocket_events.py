@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -445,12 +445,12 @@ async def test_audio_chunk_event_missing_chunk_data() -> None:
 @pytest.mark.asyncio
 async def test_event_with_missing_data_field() -> None:
     """Event without data field should handle gracefully."""
-    event = {
+    event: dict[str, Any] = {
         "type": "message",
         "version": "1.0",
     }
 
-    message_data = event.get("data", {})
+    message_data: dict[str, Any] = event.get("data", {})
     assert message_data == {}
 
 

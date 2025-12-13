@@ -28,7 +28,7 @@ from google.adk.events import Event
 from google.genai import types
 from loguru import logger
 
-from chunk_logger import chunk_logger
+from chunk_logger import Mode, chunk_logger
 
 
 class AISdkFinishReason(str, enum.Enum):
@@ -811,7 +811,7 @@ async def stream_adk_to_ai_sdk(  # noqa: C901
     event_stream: AsyncGenerator[Event, None],
     message_id: str | None = None,
     tools_requiring_approval: set[str] | None = None,
-    mode: str = "adk-sse",  # "adk-sse" or "adk-bidi" for chunk logger
+    mode: Mode = "adk-sse",  # "adk-sse" or "adk-bidi" for chunk logger
 ) -> AsyncGenerator[str, None]:
     """
     Convert ADK event stream to AI SDK v6 Data Stream Protocol.

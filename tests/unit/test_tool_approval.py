@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
@@ -208,7 +208,7 @@ def test_get_location_requires_approval(
 def test_regular_tool_does_not_require_approval() -> None:
     """Regular tools (not in approval list) should not require approval."""
     # given
-    tool_call = {
+    tool_call: dict[str, Any] = {
         "id": "call_regular",
         "type": "function",
         "function": {
@@ -265,7 +265,7 @@ def test_pending_approvals_storage() -> None:
     # given
     pending_approvals: dict[str, dict[str, object]] = {}
     approval_id = str(uuid.uuid4())
-    tool_call = {
+    tool_call: dict[str, Any] = {
         "id": "call_abc123",
         "function": {
             "name": "change_bgm",

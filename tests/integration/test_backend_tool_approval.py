@@ -92,7 +92,7 @@ async def test_resolve_tool_result_resolves_pending_call(
     """
     # given: Pending tool call
     tool_name = "get_location"
-    args = {}
+    args: dict[str, Any] = {}
 
     async def execute_tool() -> dict[str, Any]:
         return await delegate.execute_on_frontend(tool_call_id, tool_name, args)
