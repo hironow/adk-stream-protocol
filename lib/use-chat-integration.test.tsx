@@ -78,26 +78,20 @@ class MockWebSocket {
 }
 
 describe("useChat Integration", () => {
-  let originalWebSocket: typeof WebSocket;
-  let mockWebSocket: MockWebSocket | null = null;
-
-  beforeEach(() => {
-    originalWebSocket = global.WebSocket as typeof WebSocket;
-
-    // Mock WebSocket constructor to capture instance
-    global.WebSocket = vi.fn((url: string) => {
-      mockWebSocket = new MockWebSocket(url);
-      return mockWebSocket as typeof WebSocket;
-    }) as typeof WebSocket;
-  });
-
-  afterEach(() => {
-    global.WebSocket = originalWebSocket;
-    mockWebSocket = null;
-    vi.clearAllMocks();
-  });
-
   describe("ADK BIDI Mode with useChat", () => {
+    let originalWebSocket: typeof WebSocket;
+
+    // Setup WebSocket mock for BIDI tests only
+    beforeEach(() => {
+      originalWebSocket = global.WebSocket as typeof WebSocket;
+      // Replace with mock (same pattern as websocket-chat-transport.test.ts)
+      global.WebSocket = MockWebSocket as any;
+    });
+
+    afterEach(() => {
+      global.WebSocket = originalWebSocket;
+      vi.clearAllMocks();
+    });
     it("should accept buildUseChatOptions configuration for ADK BIDI mode", async () => {
       // Given: Build options for ADK BIDI mode
       const options = buildUseChatOptions({
@@ -132,81 +126,159 @@ describe("useChat Integration", () => {
       // Then: Transport reference should be available for imperative control
       expect(result.current.messages).toBeDefined();
       expect(transport).toBeDefined();
-      expect(transport.sendToolResult).toBeDefined();
       expect(transport.startAudio).toBeDefined();
       expect(transport.stopAudio).toBeDefined();
+      // Note: sendToolResult() removed - use addToolApprovalResponse() instead
       // Actual behavior tested in websocket-chat-transport.test.ts
     });
 
-    it("should handle tool approval flow with addToolApprovalResponse", async () => {
-      // Given: Options with transport
+    // Note: Tool approval is handled natively by AI SDK v6's addToolApprovalResponse
+    // The tool-approval-request events flow through UIMessageChunk stream to useChat
+    // See websocket-chat-transport.ts:handleCustomEventsWithSkip for implementation details
+
+    it("should verify AI SDK v6 calls transport.sendMessages() on user message (ADK BIDI)", async () => {
+      // Given: ADK BIDI mode
       const options = buildUseChatOptions({
         mode: "adk-bidi",
         initialMessages: [],
         adkBackendUrl: "http://localhost:8000",
       });
 
-      // When: Using with useChat
+      const transport = options.transport!;
+      const sendMessagesSpy = vi.spyOn(transport, 'sendMessages');
+
+      // When: Using with useChat and sending a message
       const { result } = renderHook(() => useChat(options.useChatOptions));
 
-      // Wait for initial render
-      await waitFor(() => {
-        expect(result.current).toBeDefined();
+      // Simulate user sending a message (Step 1)
+      // Note: Don't await sendMessage - it only resolves after the entire stream completes
+      await act(async () => {
+        result.current.sendMessage({ text: "Test message" });
       });
 
-      // Send a message to trigger tool approval request
+      // Then: AI SDK v6 should have called transport.sendMessages() (Step 2)
+      await vi.waitFor(() => {
+        expect(sendMessagesSpy).toHaveBeenCalled();
+      });
+
+      // Verify the call includes the user message
+      const calls = sendMessagesSpy.mock.calls;
+      const lastCall = calls[calls.length - 1];
+      expect(lastCall[0].messages).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            role: "user",
+            parts: expect.arrayContaining([
+              expect.objectContaining({
+                type: "text",
+                text: "Test message",
+              }),
+            ]),
+          }),
+        ])
+      );
+
+      // Note: WebSocket functionality is tested in websocket-chat-transport.test.ts
+      // This test verifies the integration: useChat → transport.sendMessages() → protocol conversion
+    }, 10000); // Increased timeout for WebSocket connection
+
+    it("should verify AI SDK v6 calls transport.sendMessages() on tool approval (ADK BIDI)", async () => {
+      // Given: ADK BIDI mode with initial message containing tool approval request
+      const initialMessages = [
+        {
+          id: "msg-1",
+          role: "user" as const,
+          content: "Search for latest AI news",
+        },
+        {
+          id: "msg-2",
+          role: "assistant" as const,
+          parts: [
+            {
+              type: "tool-use" as const,
+              toolCallId: "call-1",
+              toolName: "web_search",
+              args: { query: "latest AI news" },
+              state: "approval-requested" as const,
+              approval: {
+                id: "approval-1",
+                approved: undefined,
+                reason: undefined,
+              },
+            },
+          ],
+        },
+      ];
+
+      const options = buildUseChatOptions({
+        mode: "adk-bidi",
+        initialMessages,
+        adkBackendUrl: "http://localhost:8000",
+      });
+
+      const transport = options.transport!;
+      const sendMessagesSpy = vi.spyOn(transport, 'sendMessages');
+
+      // When: Using with useChat and approving the tool
+      const { result } = renderHook(() => useChat(options.useChatOptions));
+
+      // Simulate user approving the tool (Step 6)
       await act(async () => {
-        result.current.append({
-          role: "user",
-          content: "BGMを変更してください",
+        result.current.addToolApprovalResponse({
+          id: "approval-1",
+          approved: true,
+          reason: "User approved",
         });
       });
 
-      // Wait for WebSocket to be created and send message
-      await waitFor(() => {
-        expect(mockWebSocket).not.toBeNull();
-        expect(mockWebSocket?.sentMessages.length).toBeGreaterThan(0);
+      // Then: AI SDK v6 should have called transport.sendMessages() (Step 7-8)
+      // sendAutomaticallyWhen triggers automatic resubmission after approval
+      await vi.waitFor(() => {
+        expect(sendMessagesSpy).toHaveBeenCalled();
       });
 
-      // Simulate tool-approval-request from backend
-      await act(async () => {
-        mockWebSocket?.simulateMessage({
-          type: "tool-approval-request",
-          approvalId: "approval-123",
-          toolCallId: "call-456",
-          toolName: "change_bgm",
-          args: { track: 1 },
-        });
-      });
+      // Verify the call includes the approved message
+      const calls = sendMessagesSpy.mock.calls;
+      const lastCall = calls[calls.length - 1];
+      const lastMessage = lastCall[0].messages[lastCall[0].messages.length - 1];
 
-      // Then: addToolApprovalResponse should be available
-      await waitFor(() => {
-        expect(result.current.addToolApprovalResponse).toBeDefined();
-      });
+      // Check that the last message contains the approved tool part
+      expect(lastMessage.parts).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: "tool-use",
+            toolCallId: "call-1",
+            state: "approval-responded",
+            approval: expect.objectContaining({
+              id: "approval-1",
+              approved: true,
+              reason: "User approved",
+            }),
+          }),
+        ])
+      );
 
-      // Clear sent messages to isolate approval response
-      if (mockWebSocket) {
-        mockWebSocket.sentMessages = [];
-      }
-
-      // When: User approves the tool
-      await act(async () => {
-        result.current.addToolApprovalResponse("approval-123", true);
-      });
-
-      // Then: WebSocket should send approval response
-      await waitFor(() => {
-        const approvalMessages = mockWebSocket?.sentMessages.filter((msg) => {
-          const parsed = JSON.parse(msg);
-          return parsed.type === "tool_approval_response";
-        });
-        expect(approvalMessages?.length).toBe(1);
-      });
-    });
+      // Note: This verifies Step 6-8 integration:
+      // Step 6: User approves in UI (addToolApprovalResponse)
+      // Step 7: AI SDK v6 checks sendAutomaticallyWhen → triggers makeRequest
+      // Step 8: AI SDK v6 calls transport.sendMessages() with approved message
+    }, 10000); // Increased timeout for WebSocket connection
 
   });
 
   describe("ADK SSE Mode with useChat", () => {
+    let originalFetch: typeof global.fetch;
+
+    beforeEach(() => {
+      // Save original fetch
+      originalFetch = global.fetch;
+    });
+
+    afterEach(() => {
+      // Restore original fetch
+      global.fetch = originalFetch;
+    });
+
     it("should integrate buildUseChatOptions + DefaultChatTransport + useChat", async () => {
       // Given: Build options for ADK SSE mode
       const options = buildUseChatOptions({
@@ -219,9 +291,16 @@ describe("useChat Integration", () => {
       const { result } = renderHook(() => useChat(options.useChatOptions));
 
       // Then: useChat should work with DefaultChatTransport
+      expect(result.current).toBeDefined();
       expect(result.current.messages).toEqual([]);
       expect(options.transport).toBeUndefined(); // SSE mode has no transport reference
     });
+
+    // TODO: Add integration test for Step 1-2 (user message → fetch)
+    // Blocked by: Same as ADK BIDI - need to understand useChat API
+
+    // TODO: Add integration test for Step 6-8 (tool approval → fetch)
+    // Blocked by: Same as ADK BIDI - need approval flow setup
 
   });
 
@@ -243,6 +322,19 @@ describe("useChat Integration", () => {
   });
 
   describe("useChat API Compatibility", () => {
+    let originalWebSocket: typeof WebSocket;
+
+    // Setup WebSocket mock for BIDI compatibility tests
+    beforeEach(() => {
+      originalWebSocket = global.WebSocket as typeof WebSocket;
+      global.WebSocket = MockWebSocket as any;
+    });
+
+    afterEach(() => {
+      global.WebSocket = originalWebSocket;
+      vi.clearAllMocks();
+    });
+
     it("should accept configuration without errors for BIDI mode", async () => {
       // Given: Options for ADK BIDI mode
       const options = buildUseChatOptions({

@@ -128,21 +128,8 @@ interface AudioChunkEvent extends ClientEvent {
   };
 }
 
-/**
- * Tool result event: Send tool execution results with approval status
- * Use cases:
- *   - Auto-execute: Immediate result without user interaction
- *   - Manual approval: User approved/rejected tool call
- *   - Tool execution errors
- */
-interface ToolResultEvent extends ClientEvent {
-  type: "tool_result";
-  data: {
-    toolCallId: string;
-    result: any;
-    status?: "approved" | "rejected" | "error";
-  };
-}
+// ToolResultEvent removed - use AI SDK v6's standard addToolApprovalResponse flow
+// See experiments/2025-12-13_lib_test_coverage_investigation.md:1640-1679 for details
 
 /**
  * Ping event: Keep-alive and latency measurement
@@ -160,7 +147,6 @@ type ClientToServerEvent =
   | InterruptEvent
   | AudioControlEvent
   | AudioChunkEvent
-  | ToolResultEvent
   | PingEvent;
 
 /**
@@ -294,31 +280,9 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
     this.sendEvent(event);
   }
 
-  /**
-   * PUBLIC API: Send tool execution result with approval status
-   * Use cases:
-   *   - Auto-execute: Send result immediately
-   *   - Manual approval: Send result after user approves/rejects
-   */
-  public sendToolResult(
-    toolCallId: string,
-    result: any,
-    status?: "approved" | "rejected" | "error",
-  ): void {
-    const event: ToolResultEvent = {
-      type: "tool_result",
-      version: "1.0",
-      data: {
-        toolCallId,
-        result,
-        status,
-      },
-    };
-    this.sendEvent(event);
-    console.log(
-      `[WS Transport] Tool result sent: ${toolCallId} (${status ?? "auto"})`,
-    );
-  }
+  // sendToolResult() removed - use AI SDK v6's standard addToolApprovalResponse flow
+  // Tool approval flow: addToolApprovalResponse() → sendAutomaticallyWhen → transport.sendMessages()
+  // See experiments/2025-12-13_lib_test_coverage_investigation.md:1640-1679 for details
 
   /**
    * Start ping/pong for latency monitoring
@@ -378,53 +342,83 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
     return new ReadableStream<UIMessageChunk>({
       start: async (controller) => {
         try {
-          // Create WebSocket connection
-          this.ws = new WebSocket(url);
+          // Check if we can reuse existing connection
+          const needsNewConnection =
+            !this.ws ||
+            this.ws.readyState === WebSocket.CLOSED ||
+            this.ws.readyState === WebSocket.CLOSING;
 
-          // Connection timeout
-          const timeoutId = setTimeout(() => {
-            controller.error(new Error("WebSocket connection timeout"));
-            this.ws?.close();
-          }, timeout);
+          if (needsNewConnection) {
+            // Create WebSocket connection
+            this.ws = new WebSocket(url);
 
-          // Wait for connection to open
-          await new Promise<void>((resolve, reject) => {
-            if (!this.ws) {
-              reject(new Error("WebSocket not initialized"));
-              return;
+            // Connection timeout
+            const timeoutId = setTimeout(() => {
+              controller.error(new Error("WebSocket connection timeout"));
+              this.ws?.close();
+            }, timeout);
+
+            // Wait for connection to open
+            await new Promise<void>((resolve, reject) => {
+              if (!this.ws) {
+                reject(new Error("WebSocket not initialized"));
+                return;
+              }
+
+              this.ws.onopen = () => {
+                clearTimeout(timeoutId);
+                console.log("[WS Transport] Connected to", url);
+                this.startPing(); // Start latency monitoring
+                resolve();
+              };
+
+              this.ws.onerror = (error) => {
+                clearTimeout(timeoutId);
+                console.error("[WS Transport] Connection error:", error);
+                reject(new Error("WebSocket connection failed"));
+              };
+            });
+
+            // Set up message handler
+            if (this.ws) {
+              this.ws.onmessage = (event) => {
+                this.handleWebSocketMessage(event.data, controller);
+              };
+
+              this.ws.onerror = (error) => {
+                console.error("[WS Transport] Error:", error);
+                this.stopPing(); // Stop ping on error
+                controller.error(new Error("WebSocket error"));
+              };
+
+              this.ws.onclose = () => {
+                console.log("[WS Transport] Connection closed");
+                this.stopPing(); // Stop ping on close
+                controller.close();
+              };
             }
+          } else {
+            // Reuse existing connection
+            console.log("[WS Transport] Reusing existing connection");
 
-            this.ws.onopen = () => {
-              clearTimeout(timeoutId);
-              console.log("[WS Transport] Connected to", url);
-              this.startPing(); // Start latency monitoring
-              resolve();
-            };
+            // Update message handler for new stream
+            if (this.ws) {
+              this.ws.onmessage = (event) => {
+                this.handleWebSocketMessage(event.data, controller);
+              };
 
-            this.ws.onerror = (error) => {
-              clearTimeout(timeoutId);
-              console.error("[WS Transport] Connection error:", error);
-              reject(new Error("WebSocket connection failed"));
-            };
-          });
+              this.ws.onerror = (error) => {
+                console.error("[WS Transport] Error:", error);
+                this.stopPing(); // Stop ping on error
+                controller.error(new Error("WebSocket error"));
+              };
 
-          // Set up message handler
-          if (this.ws) {
-            this.ws.onmessage = (event) => {
-              this.handleWebSocketMessage(event.data, controller);
-            };
-
-            this.ws.onerror = (error) => {
-              console.error("[WS Transport] Error:", error);
-              this.stopPing(); // Stop ping on error
-              controller.error(new Error("WebSocket error"));
-            };
-
-            this.ws.onclose = () => {
-              console.log("[WS Transport] Connection closed");
-              this.stopPing(); // Stop ping on close
-              controller.close();
-            };
+              this.ws.onclose = () => {
+                console.log("[WS Transport] Connection closed");
+                this.stopPing(); // Stop ping on close
+                controller.close();
+              };
+            }
           }
 
           // Send messages to backend using structured event format (P2-T2)

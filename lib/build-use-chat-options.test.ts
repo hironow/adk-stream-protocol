@@ -394,4 +394,59 @@ describe("buildUseChatOptions", () => {
       expect(result1.useChatOptions.id).not.toBe(result2.useChatOptions.id);
     });
   });
+
+  describe("Tool Approval Auto-Submission", () => {
+    // RED Phase: This test should FAIL initially
+    // Verifies that sendAutomaticallyWhen is configured for automatic tool approval submission
+
+    it("should configure sendAutomaticallyWhen for ADK BIDI mode", () => {
+      // Given: ADK BIDI mode (supports tool approval)
+      const mode: BackendMode = "adk-bidi";
+      const adkBackendUrl = "http://localhost:8000";
+
+      // When: Building options
+      const result = buildUseChatOptions({
+        mode,
+        adkBackendUrl,
+        initialMessages,
+      });
+
+      // Then: sendAutomaticallyWhen should be configured
+      // This enables automatic message resubmission after tool approval
+      expect(result.useChatOptions.sendAutomaticallyWhen).toBeDefined();
+      expect(typeof result.useChatOptions.sendAutomaticallyWhen).toBe("function");
+    });
+
+    it("should configure sendAutomaticallyWhen for ADK SSE mode", () => {
+      // Given: ADK SSE mode (supports tool approval)
+      const mode: BackendMode = "adk-sse";
+      const adkBackendUrl = "http://localhost:8000";
+
+      // When: Building options
+      const result = buildUseChatOptions({
+        mode,
+        adkBackendUrl,
+        initialMessages,
+      });
+
+      // Then: sendAutomaticallyWhen should be configured
+      expect(result.useChatOptions.sendAutomaticallyWhen).toBeDefined();
+      expect(typeof result.useChatOptions.sendAutomaticallyWhen).toBe("function");
+    });
+
+    it("should NOT configure sendAutomaticallyWhen for Gemini mode", () => {
+      // Given: Gemini Direct mode (no tool approval support)
+      const mode: BackendMode = "gemini";
+
+      // When: Building options
+      const result = buildUseChatOptions({
+        mode,
+        initialMessages,
+      });
+
+      // Then: sendAutomaticallyWhen should be undefined
+      // Gemini mode doesn't use our tool approval flow
+      expect(result.useChatOptions.sendAutomaticallyWhen).toBeUndefined();
+    });
+  });
 });

@@ -10,7 +10,7 @@
  * Focus:
  * - Verify correct transport is created for each mode
  * - Verify transport configuration (URL, callbacks, AudioContext)
- * - Verify transport can be used imperatively (startAudio, stopAudio, sendToolResult)
+ * - Verify transport can be used imperatively (startAudio, stopAudio)
  * - Prevent invalid configuration patterns
  */
 
@@ -136,25 +136,6 @@ describe("Transport Integration", () => {
       expect(result.transport).toBeDefined();
     });
 
-    it("should pass onToolApprovalRequest callback to WebSocketChatTransport", () => {
-      // Given: ADK BIDI mode with tool approval callback
-      const mode: BackendMode = "adk-bidi";
-      const onToolApprovalRequest = vi.fn();
-
-      // When: Building options
-      const result = buildUseChatOptions({
-        mode,
-        initialMessages,
-        adkBackendUrl: "http://localhost:8000",
-        onToolApprovalRequest,
-      });
-
-      // Then: Transport should be created with callback
-      expect(result.transport).toBeInstanceOf(WebSocketChatTransport);
-      
-      // Callback is passed internally to transport
-      expect(result.transport).toBeDefined();
-    });
 
     it("should allow imperative control via transport reference", async () => {
       // Given: ADK BIDI mode with transport reference
@@ -185,7 +166,7 @@ describe("Transport Integration", () => {
       // Then: Should be able to call imperative methods
       expect(() => transport.startAudio()).not.toThrow();
       expect(() => transport.stopAudio()).not.toThrow();
-      expect(() => transport.sendToolResult("call-123", { success: true })).not.toThrow();
+      // Note: sendToolResult() removed - use addToolApprovalResponse() instead
     });
 
     it("should convert http to ws protocol", () => {
@@ -303,23 +284,6 @@ describe("Transport Integration", () => {
   });
 
   describe("Configuration Validation", () => {
-    it("should prevent mixing tool approval with non-BIDI modes", () => {
-      // Given: ADK SSE mode with tool approval callback
-      const mode: BackendMode = "adk-sse";
-      const onToolApprovalRequest = vi.fn();
-
-      // When: Building options
-      const result = buildUseChatOptions({
-        mode,
-        initialMessages,
-        adkBackendUrl: "http://localhost:8000",
-        onToolApprovalRequest, // This callback will be ignored in SSE mode
-      });
-
-      // Then: Callback should be silently ignored (no WebSocketChatTransport created)
-      expect(result.transport).toBeUndefined();
-      expect(result.useChatOptions.transport.constructor.name).toBe("DefaultChatTransport");
-    });
 
     it("should prevent mixing AudioContext with non-BIDI modes", () => {
       // Given: Gemini Direct mode with AudioContext
