@@ -308,27 +308,41 @@ controller.enqueue(chunk as UIMessageChunk);
 
 ## 実装計画
 
-### Phase 1: Backend Logger (Python) ✅ 優先度: High
+### Phase 1: Backend Logger (Python) ✅ **COMPLETED 2025-12-14**
 **目標**: ADK イベントと SSE イベントを記録
 
 **Tasks**:
-- [ ] `lib/chunk_logger.py` 作成
-  - [ ] `ChunkLogger` クラス実装
-  - [ ] JSONL 書き込み機能
-  - [ ] 環境変数による有効化
-  - [ ] Session ID 管理
-- [ ] `stream_protocol.py` に logger 差し込み
-  - [ ] ADK event logging
-  - [ ] SSE event logging
-- [ ] Tests
-  - [ ] Logger が正しく JSONL を生成することを確認
-  - [ ] 環境変数で ON/OFF できることを確認
+- [x] `chunk_logger.py` 作成（root に配置、lib/ は TypeScript 用）
+  - [x] `ChunkLogger` クラス実装
+  - [x] JSONL 書き込み機能
+  - [x] 環境変数による有効化
+  - [x] Session ID 管理
+- [x] `stream_protocol.py` に logger 差し込み
+  - [x] ADK event logging (stream_adk_to_ai_sdk, Line ~921-927)
+  - [x] SSE event logging (stream_adk_to_ai_sdk, Line ~854-869)
+  - [x] Final event logging (stream_adk_to_ai_sdk, Line ~915-928)
+- [x] Tests (`tests/test_chunk_logger.py`)
+  - [x] Logger が正しく JSONL を生成することを確認
+  - [x] 環境変数で ON/OFF できることを確認
+  - [x] 13 comprehensive tests, all passing
 
-**Expected Output**:
+**Implementation Details**:
+- **Injection Point**: `stream_adk_to_ai_sdk()` function
+  - ADK event: Uses `repr(event)` for simple string representation
+  - SSE event: Extracts JSON from SSE string format `"data: {...}\n\n"`
+  - Final event: Same extraction for finalize events
+- **Simplicity**: Moved from `convert_event()` to `stream_adk_to_ai_sdk()` for cleaner code
+  - No complex dict conversion needed
+  - All events pass through single point
+  - Easier to maintain
+
+**Actual Output**:
 ```jsonl
-{"timestamp":1702540800000,"sessionId":"session-001","mode":"adk-sse","location":"backend-adk-event","direction":"in","sequenceNumber":1,"chunk":{...}}
-{"timestamp":1702540800010,"sessionId":"session-001","mode":"adk-sse","location":"backend-sse-event","direction":"out","sequenceNumber":2,"chunk":{...}}
+{"timestamp":1702540800000,"session_id":"session-2025-12-14-123456","mode":"adk-sse","location":"backend-adk-event","direction":"in","sequence_number":1,"chunk":"Event(...)","metadata":null}
+{"timestamp":1702540800010,"session_id":"session-2025-12-14-123456","mode":"adk-sse","location":"backend-sse-event","direction":"out","sequence_number":2,"chunk":{"type":"text-delta","textDelta":"Hello"},"metadata":null}
 ```
+
+**Commit**: 5dc2d14
 
 ### Phase 2: Frontend Logger (TypeScript) ✅ 優先度: High
 **目標**: Frontend の各ポイントで chunk を記録
@@ -466,7 +480,7 @@ controller.enqueue(chunk as UIMessageChunk);
 ## 次のステップ
 
 1. ✅ 実験ノート作成 (このファイル)
-2. ⬜ Phase 1: Backend Logger 実装開始
+2. ✅ Phase 1: Backend Logger 実装完了 (commit 5dc2d14)
 3. ⬜ 手動操作で chunk 記録のテスト
 4. ⬜ Phase 2: Frontend Logger 実装
 5. ⬜ Phase 3: Player 機構実装
@@ -483,4 +497,8 @@ controller.enqueue(chunk as UIMessageChunk);
 
 ## 変更履歴
 
-- 2025-12-14: 初版作成、設計完了
+- 2025-12-14 (03:32): Phase 1 実装完了 (commit 5dc2d14)
+  - chunk_logger.py 作成、13 tests passing
+  - stream_protocol.py に logger 差し込み（stream_adk_to_ai_sdk 関数内）
+  - JSONL format で chunk 記録機能が動作
+- 2025-12-14 (01:55): 初版作成、設計完了 (commit 646080a)
