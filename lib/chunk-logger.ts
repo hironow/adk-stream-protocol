@@ -15,9 +15,11 @@
  *         mode: "adk-sse"
  *     });
  *
- * Environment Variables (via localStorage):
- *     CHUNK_LOGGER_ENABLED: Enable/disable logging (default: false)
- *     CHUNK_LOGGER_SESSION_ID: Session identifier (default: auto-generated)
+ * Configuration (Priority: env var > localStorage > default):
+ *     NEXT_PUBLIC_CHUNK_LOGGER_ENABLED: Enable/disable logging (default: false)
+ *     NEXT_PUBLIC_CHUNK_LOGGER_SESSION_ID: Session identifier (default: auto-generated)
+ *
+ *     Fallback: localStorage.setItem('CHUNK_LOGGER_ENABLED', 'true')
  *
  * Output:
  *     Downloads as {session_id}.jsonl when export() is called
@@ -72,13 +74,28 @@ export class ChunkLogger {
   private _entries: ChunkLogEntry[] = [];
 
   constructor(enabled?: boolean, sessionId?: string) {
-    // Read from localStorage if not provided
+    // Priority: constructor arg > env var > localStorage > default
     this._enabled =
-      enabled ?? this._getLocalStorageBoolean("CHUNK_LOGGER_ENABLED", false);
+      enabled ??
+      this._getEnvBoolean("NEXT_PUBLIC_CHUNK_LOGGER_ENABLED") ??
+      this._getLocalStorageBoolean("CHUNK_LOGGER_ENABLED", false);
     this._sessionId =
       sessionId ??
+      this._getEnvString("NEXT_PUBLIC_CHUNK_LOGGER_SESSION_ID") ??
       this._getLocalStorageString("CHUNK_LOGGER_SESSION_ID") ??
       this._generateSessionId();
+  }
+
+  private _getEnvBoolean(key: string): boolean | null {
+    // Read from Next.js environment variable (NEXT_PUBLIC_* are available client-side)
+    const value = process.env[key];
+    if (value === undefined) return null;
+    return value.toLowerCase() === "true";
+  }
+
+  private _getEnvString(key: string): string | null {
+    // Read from Next.js environment variable
+    return process.env[key] ?? null;
   }
 
   private _getLocalStorageBoolean(key: string, defaultValue: boolean): boolean {
