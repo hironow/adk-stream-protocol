@@ -1,7 +1,7 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MessageComponent } from "@/components/message";
 import { useAudio } from "@/lib/audio-context";
 import {
@@ -22,19 +22,10 @@ export function Chat({ mode }: ChatProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [interrupted, setInterrupted] = useState(false);
 
-  // Phase 4: Tool approval state
-  const [pendingToolApproval, setPendingToolApproval] = useState<{
-    approvalId: string;
-    toolCallId: string;
-    toolName?: string;
-    args?: Record<string, unknown>;
-  } | null>(null);
-
   const { useChatOptions, transport } = buildUseChatOptions({
     mode,
     initialMessages: [],
     audioContext,
-    onToolApprovalRequest: setPendingToolApproval,
   });
 
   const {
@@ -48,6 +39,47 @@ export function Chat({ mode }: ChatProps) {
 
   // Keep transport reference for imperative control (P2-T2 Phase 2)
   const transportRef = useRef(transport);
+
+  // Phase 4: AI SDK v6 standard flow - detect tool approval from messages
+  // Backend sends tool-approval-request event → useChat updates messages automatically
+  // Find tool part with state: "approval-requested" from messages array
+  const pendingToolApproval = useMemo(() => {
+    // Scan messages from newest to oldest to find pending approval
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const message = messages[i];
+      if (message.role === "assistant") {
+        // Check if message has tool call parts
+        const parts = message.parts as
+          | Array<{
+              type: string;
+              state?: string;
+              approvalId?: string;
+              toolCallId?: string;
+              toolName?: string;
+              args?: Record<string, unknown>;
+            }>
+          | undefined;
+
+        if (parts) {
+          for (const part of parts) {
+            // Find tool-call part awaiting approval
+            if (
+              part.type === "tool-call" &&
+              part.state === "approval-requested"
+            ) {
+              return {
+                approvalId: part.approvalId ?? "",
+                toolCallId: part.toolCallId ?? "",
+                toolName: part.toolName,
+                args: part.args,
+              };
+            }
+          }
+        }
+      }
+    }
+    return null;
+  }, [messages]);
 
   // Phase 3: Audio recording with custom hook (BIDI mode only)
   const { isRecording, startRecording, stopRecording } = useAudioRecorder({
@@ -155,7 +187,8 @@ export function Chat({ mode }: ChatProps) {
       });
     }
 
-    setPendingToolApproval(null);
+    // No need to clear state - pendingToolApproval is derived from messages
+    // After addToolOutput, AI SDK v6 will update messages and pendingToolApproval becomes null automatically
   }, [
     pendingToolApproval,
     addToolApprovalResponse,
@@ -186,7 +219,8 @@ export function Chat({ mode }: ChatProps) {
       },
     });
 
-    setPendingToolApproval(null);
+    // No need to clear state - pendingToolApproval is derived from messages
+    // After addToolOutput, AI SDK v6 will update messages and pendingToolApproval becomes null automatically
   }, [pendingToolApproval, addToolApprovalResponse, addToolOutput]);
 
   // Phase 3: Audio recording handlers

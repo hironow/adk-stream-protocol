@@ -274,24 +274,6 @@ describe("buildUseChatOptions", () => {
       expect(result.transport).toBeDefined();
       expect(result.transport?.constructor.name).toBe("WebSocketChatTransport");
     });
-
-    it("should pass onToolApprovalRequest callback to WebSocketChatTransport", () => {
-      // Given: ADK BIDI mode with tool approval callback
-      const mode: BackendMode = "adk-bidi";
-      const onToolApprovalRequest = vi.fn();
-
-      // When: Building options
-      const result = buildUseChatOptions({
-        mode,
-        initialMessages,
-        adkBackendUrl: "http://localhost:8000",
-        onToolApprovalRequest,
-      });
-
-      // Then: Transport should be created (implementation receives callback internally)
-      expect(result.transport).toBeDefined();
-      expect(result.transport?.constructor.name).toBe("WebSocketChatTransport");
-    });
   });
 
   describe("Configuration Validation", () => {
