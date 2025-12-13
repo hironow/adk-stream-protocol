@@ -5,29 +5,16 @@
  * Handles all tool visualization complexity internally.
  */
 
+import type { DynamicToolUIPart } from "ai";
+
 /**
  * Tool invocation state for UI display.
- * Based on AI SDK v6 ToolUIPart and DynamicToolUIPart types.
- *
- * Expected structure (from AI SDK):
- * - toolName: string
- * - toolCallId?: string
- * - state: 'input-streaming' | 'input-available' | 'output-available' | 'output-error' | ...
- * - input?: unknown
- * - output?: unknown
- * - errorText?: string (required when state is 'output-error')
+ * Uses AI SDK v6's DynamicToolUIPart type which handles all tool states:
+ * - input-streaming, input-available, output-available, output-error
+ * - approval-requested, approval-responded
  */
-interface ToolInvocation {
-  toolName: string;
-  toolCallId?: string;
-  state: string;
-  input?: unknown;
-  output?: unknown;
-  errorText?: string;
-}
-
 interface ToolInvocationProps {
-  toolInvocation: ToolInvocation;
+  toolInvocation: DynamicToolUIPart;
 }
 
 export function ToolInvocationComponent({

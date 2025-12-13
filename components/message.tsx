@@ -11,6 +11,7 @@
  */
 
 import type { UIMessage } from "@ai-sdk/react";
+import type { DynamicToolUIPart } from "ai";
 import { useAudio } from "@/lib/audio-context";
 import { ImageDisplay } from "./image-display";
 import { ToolInvocationComponent } from "./tool-invocation";
@@ -44,13 +45,7 @@ interface ExtendedUIMessage extends UIMessage {
     };
     modelVersion?: string;
   };
-  toolInvocations?: Array<{
-    toolCallId: string;
-    toolName: string;
-    args?: Record<string, unknown>;
-    state?: string;
-    result?: unknown;
-  }>;
+  toolInvocations?: DynamicToolUIPart[];
 }
 
 interface MessageComponentProps {
