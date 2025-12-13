@@ -690,6 +690,178 @@ class TestMessageControlConversion:
         assert len(error_events) == 1
         assert "Test error" in error_events[0]["error"]
 
+    @pytest.mark.parametrize(
+        "error_code,error_message,expected_code,expected_message",
+        [
+            pytest.param(
+                "INVALID_ARGUMENT",
+                "Missing required field",
+                "INVALID_ARGUMENT",
+                "Missing required field",
+                id="error-with-message",
+            ),
+            pytest.param(
+                "PERMISSION_DENIED",
+                "Access denied to resource",
+                "PERMISSION_DENIED",
+                "Access denied to resource",
+                id="permission-denied",
+            ),
+            pytest.param(
+                "INTERNAL",
+                None,
+                "INTERNAL",
+                "Unknown error",
+                id="error-without-message-uses-default",
+            ),
+            pytest.param(
+                "RESOURCE_EXHAUSTED",
+                "",
+                "RESOURCE_EXHAUSTED",
+                "Unknown error",
+                id="error-with-empty-message-uses-default",
+            ),
+        ],
+    )
+    def test_adk_error_code_and_message(
+        self,
+        error_code: str,
+        error_message: str | None,
+        expected_code: str,
+        expected_message: str,
+    ):
+        """
+        Test: ADK Event.error_code/error_message → AI SDK error event
+
+        Coverage: field_coverage_config.yaml - errorCode, errorMessage (CRITICAL fields)
+        Implementation: stream_protocol.py:181-187
+
+        This test verifies that when an ADK Event has error_code set:
+        1. Error is detected immediately (before other processing)
+        2. error_message is extracted (or defaults to "Unknown error")
+        3. AI SDK error event is generated with {code, message}
+        4. Processing stops early (no other events)
+        """
+        converter = StreamProtocolConverter()
+
+        # given: Mock ADK Event with error_code (and optional error_message)
+        mock_event = Mock(spec=Event)
+        mock_event.error_code = error_code
+        if error_message is not None:
+            mock_event.error_message = error_message
+        # Note: If error_message is None, attribute doesn't exist
+        # (getattr will return None, triggering "Unknown error" default)
+
+        # when: Convert event
+        events = asyncio.run(convert_and_collect(converter, mock_event))
+
+        # then: Should generate exactly one error event
+        assert len(events) == 1, "Error event should stop processing immediately"
+
+        parsed = parse_sse_event(events[0])
+        assert parsed["type"] == "error"
+        assert "error" in parsed
+        assert parsed["error"]["code"] == expected_code
+        assert parsed["error"]["message"] == expected_message
+
+    @pytest.mark.parametrize(
+        "turn_complete,has_usage,has_finish_reason,expect_finish_event",
+        [
+            pytest.param(
+                True,
+                True,
+                True,
+                True,
+                id="turn-complete-with-metadata",
+            ),
+            pytest.param(
+                True,
+                False,
+                False,
+                True,
+                id="turn-complete-without-metadata",
+            ),
+            pytest.param(
+                False,
+                True,
+                True,
+                False,
+                id="turn-not-complete-no-finish",
+            ),
+            pytest.param(
+                None,
+                True,
+                True,
+                False,
+                id="turn-complete-missing-no-finish",
+            ),
+        ],
+    )
+    def test_turn_complete_field(
+        self,
+        turn_complete: bool | None,
+        has_usage: bool,
+        has_finish_reason: bool,
+        expect_finish_event: bool,
+    ):
+        """
+        Test: ADK Event.turn_complete → finish event (BIDI mode)
+
+        Coverage: field_coverage_config.yaml - turnComplete (HIGH priority field)
+        Implementation: stream_protocol.py:385-399
+
+        This test verifies that when an ADK Event has turn_complete=True:
+        1. finish event is generated within convert_event (BIDI mode)
+        2. usage_metadata and finish_reason are included if present
+        3. No finish event if turn_complete is False or missing
+        """
+        converter = StreamProtocolConverter()
+
+        # given: Mock ADK Event with turn_complete
+        mock_event = Mock(spec=Event)
+        mock_event.error_code = None
+        mock_event.content = types.Content(role="model", parts=[types.Part(text="Response")])
+
+        if turn_complete is not None:
+            mock_event.turn_complete = turn_complete
+
+        if has_usage:
+            usage = Mock()
+            usage.prompt_token_count = 10
+            usage.candidates_token_count = 20
+            usage.total_token_count = 30
+            mock_event.usage_metadata = usage
+        else:
+            mock_event.usage_metadata = None
+
+        if has_finish_reason:
+            mock_event.finish_reason = types.FinishReason.STOP
+        else:
+            mock_event.finish_reason = None
+
+        # when: Convert event
+        events = asyncio.run(convert_and_collect(converter, mock_event))
+
+        # then: Check for finish event
+        parsed_events = [parse_sse_event(e) for e in events]
+        finish_events = [e for e in parsed_events if e["type"] == "finish"]
+
+        if expect_finish_event:
+            assert len(finish_events) == 1, "Should generate finish event when turn_complete=True"
+            finish_event = finish_events[0]
+
+            if has_usage:
+                assert "messageMetadata" in finish_event
+                assert "usage" in finish_event["messageMetadata"]
+                assert finish_event["messageMetadata"]["usage"]["promptTokens"] == 10
+                assert finish_event["messageMetadata"]["usage"]["completionTokens"] == 20
+
+            if has_finish_reason:
+                assert "finishReason" in finish_event
+                assert finish_event["finishReason"] == "stop"
+        else:
+            assert len(finish_events) == 0, "Should not generate finish event when turn_complete is not True"
+
     def test_done_marker(self):
         """
         Test: finalize() generates [DONE] marker

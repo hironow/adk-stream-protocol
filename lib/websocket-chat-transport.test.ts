@@ -1429,6 +1429,90 @@ describe("WebSocketChatTransport", () => {
 
       expect(value.type).toBe("finish");
     });
+
+    // Parametrized tests for messageMetadata fields
+    // Coverage: field_coverage_config.yaml - groundingMetadata, citationMetadata, cacheMetadata, modelVersion
+    it.each([
+      {
+        field: "grounding",
+        value: {
+          sources: [
+            {
+              startIndex: 0,
+              endIndex: 10,
+              uri: "https://example.com/source1",
+              title: "Example Source 1",
+            },
+            {
+              startIndex: 11,
+              endIndex: 20,
+              uri: "https://example.com/source2",
+              title: "Example Source 2",
+            },
+          ],
+        },
+        description: "grounding-with-multiple-sources",
+      },
+      {
+        field: "citations",
+        value: [
+          { startIndex: 0, endIndex: 10, uri: "https://example.com/cite1" },
+          { startIndex: 15, endIndex: 25, uri: "https://example.com/cite2" },
+        ],
+        description: "citations-with-multiple-entries",
+      },
+      {
+        field: "cache",
+        value: { hits: 5, misses: 2 },
+        description: "cache-with-hits-and-misses",
+      },
+      {
+        field: "modelVersion",
+        value: "gemini-2.0-flash-001",
+        description: "model-version-string",
+      },
+    ])(
+      "should forward messageMetadata.$field from backend to frontend ($description)",
+      async ({ field, value }) => {
+        // Given: Fresh transport
+        const transport = new WebSocketChatTransport({
+          url: "ws://localhost:8000/live",
+        });
+
+        const streamPromise = transport.sendMessages({
+          trigger: "submit-message",
+          chatId: "chat-1",
+          messageId: undefined,
+          messages: [{ id: "msg-1", role: "user", content: "Hello" }],
+          abortSignal: new AbortController().signal,
+        });
+
+        await vi.waitFor(() => {
+          expect(transport.ws?.readyState).toBe(MockWebSocket.OPEN);
+        });
+
+        const stream = await streamPromise;
+        const ws = transport.ws as unknown as MockWebSocket;
+
+        // When: Server sends finish event with messageMetadata field
+        const finishEvent: any = {
+          type: "finish",
+          messageMetadata: {},
+        };
+        finishEvent.messageMetadata[field] = value;
+
+        ws.simulateMessage(finishEvent);
+
+        // Then: Stream should emit finish chunk with messageMetadata field
+        const reader = stream.getReader();
+        const { value: chunk } = await reader.read();
+        reader.releaseLock();
+
+        expect(chunk.type).toBe("finish");
+        expect(chunk.messageMetadata).toBeDefined();
+        expect(chunk.messageMetadata[field]).toEqual(value);
+      },
+    );
   });
 
   describe("Audio Control Methods", () => {

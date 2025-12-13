@@ -5,6 +5,7 @@ AI SDK v6 and Google ADK integration example demonstrating SSE streaming impleme
 ## Project Overview
 
 This project demonstrates the integration between:
+
 - **Frontend**: Next.js 16 with AI SDK v6 beta
 - **Backend**: Google ADK with FastAPI
 
@@ -35,6 +36,7 @@ The project provides **three streaming modes** with real-time mode switching:
 ```
 
 Legend / 凡例:
+
 - Gemini Direct: Gemini APIへの直接接続モード
 - ADK SSE: ADKバックエンドを使用したSSE（Server-Sent Events）ストリーミングモード
 - ADK BIDI: ADKバックエンドを使用した双方向WebSocketストリーミングモード
@@ -53,6 +55,7 @@ Legend / 凡例:
 **Usage:** Both ADK SSE and ADK BIDI modes use the **same converter**
 
 **Key Events:**
+
 - Text streaming: `text-start`, `text-delta`, `text-end`
 - Reasoning/Thinking: `reasoning-start`, `reasoning-delta`, `reasoning-end` (Gemini 2.0)
 - Tool calls: `tool-input-start`, `tool-input-available`
@@ -64,11 +67,13 @@ Legend / 凡例:
 ### Transport Layer Differences
 
 **HTTP SSE (Gemini Direct / ADK SSE):**
+
 - Standard Server-Sent Events over HTTP
 - Browser `EventSource` API automatically parses SSE format
 - AI SDK v6 built-in support via `streamText()`
 
 **WebSocket (ADK BIDI):**
+
 - Real-time bidirectional communication
 - Backend sends **SSE format over WebSocket** (not raw JSON)
   - Format: `data: {"type":"text-delta","text":"..."}\n\n`
@@ -79,6 +84,7 @@ Legend / 凡例:
   - Makes WebSocket transparent to `useChat` hook
 
 **Why SSE format over WebSocket?**
+
 - **Protocol reuse:** Same `StreamProtocolConverter` works for both modes
 - **Compatibility:** AI SDK v6 expects Data Stream Protocol format
 - **Simplicity:** No need to maintain two different protocol implementations
@@ -96,6 +102,7 @@ const { messages, input, handleSubmit } = useChat({
 ```
 
 The `useChat` hook receives the same `UIMessageChunk` stream regardless of:
+
 - Backend implementation (Gemini Direct vs ADK)
 - Streaming mode (SSE vs BIDI)
 - Transport layer (HTTP SSE vs WebSocket)
@@ -103,12 +110,14 @@ The `useChat` hook receives the same `UIMessageChunk` stream regardless of:
 ## Current Status
 
 **Phase 1: Gemini Direct** ✅ Production Ready
+
 - Frontend: Next.js app with AI SDK v6 using `useChat` hook
 - Direct connection to Gemini API (no backend needed)
 - Built-in AI SDK v6 streaming support
 - Tool calling: `get_weather`, `calculate`, `get_current_time`
 
 **Phase 2: ADK SSE Streaming** ✅ Production Ready
+
 - Backend: FastAPI server with Google ADK integration
 - SSE streaming endpoint (`/stream`) using ADK's `run_async()`
 - Full AI SDK v6 Data Stream Protocol compatibility
@@ -116,6 +125,7 @@ The `useChat` hook receives the same `UIMessageChunk` stream regardless of:
 - Tool calling via ADK agent
 
 **Phase 3: ADK BIDI Streaming** ✅ **Production Ready**
+
 - Backend: WebSocket endpoint (`/live`) using ADK's `run_live()`
 - Bidirectional streaming via WebSocket
 - Custom `WebSocketChatTransport` for AI SDK v6 `useChat`
@@ -125,17 +135,31 @@ The `useChat` hook receives the same `UIMessageChunk` stream regardless of:
 - Multimodal support: images, audio, PCM streaming
 - **Architecture:** "SSE format over WebSocket" (100% protocol reuse)
 
-## Experimental Code
+**Test Coverage** ✅ **100% Field Coverage Achieved**
 
-Experimental implementations are archived in `experiments/`:
-- `experiments/phase2-jsonrpc/` - JSONRPC integration (non-streaming)
-- `experiments/phase4-websocket/` - WebSocket bidirectional communication
+- Python: 112 unit tests (all passing)
+- TypeScript: Integration tests with parametrized testing
+- E2E: Playwright tests for all three modes
+- **Field Coverage:** 12/12 Event fields, 7/7 Part fields (100%)
+- **Critical Coverage:** Error handling, BIDI turn completion, message metadata
+- See `TEST_COVERAGE_AUDIT.md` for detailed coverage report
 
-See README files in each directory for details and why they weren't adopted.
+## Experiments & Research
+
+All experiment notes and architectural investigations are documented in `experiments/`:
+
+- Bidirectional protocol investigations
+- Multimodal support (images, audio, video)
+- Tool approval flow implementations
+- Test coverage investigations
+- ADK field mapping completeness
+
+See `experiments/README.md` for the complete experiment index and results.
 
 ## Tech Stack
 
 ### Frontend
+
 - Next.js 16 (App Router)
 - React 19
 - AI SDK v6 beta (`ai`, `@ai-sdk/react`, `@ai-sdk/google`)
@@ -143,6 +167,7 @@ See README files in each directory for details and why they weren't adopted.
 - Biome (Linting & Formatting)
 
 ### Backend
+
 - Python 3.13
 - Google ADK >=1.20.0
 - FastAPI >=0.115.0
@@ -152,6 +177,7 @@ See README files in each directory for details and why they weren't adopted.
 ## Setup
 
 ### Prerequisites
+
 - Python 3.13+
 - Node.js 18+
 - pnpm (for Node.js packages)
@@ -162,22 +188,28 @@ See README files in each directory for details and why they weren't adopted.
 
 1. Clone the repository
 2. Install dependencies:
+
    ```bash
    just install
    ```
+
    Or manually:
+
    ```bash
    uv sync
    pnpm install
    ```
 
 3. Set up environment variables:
+
    ```bash
    cp .env.example .env.local
    ```
+
    Then edit `.env.local`:
 
    **For Phase 1 (Gemini Direct):**
+
    ```
    GOOGLE_GENERATIVE_AI_API_KEY=your_api_key_here
    BACKEND_MODE=gemini
@@ -185,6 +217,7 @@ See README files in each directory for details and why they weren't adopted.
    ```
 
    **For Phase 2 (ADK SSE - FINAL):**
+
    ```
    GOOGLE_API_KEY=your_api_key_here
    BACKEND_MODE=adk-sse
@@ -200,81 +233,45 @@ See README files in each directory for details and why they weren't adopted.
 ### Phase 1: Gemini Direct
 
 **Run frontend only:**
+
 ```bash
 pnpm dev
 ```
 
-Frontend will be available at: http://localhost:3000
+Frontend will be available at: <http://localhost:3000>
 
 ### Phase 2: ADK SSE Streaming
 
 **Run backend server:**
+
 ```bash
 just server
 # or
 uv run uvicorn server:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Backend will be available at: http://localhost:8000
+Backend will be available at: <http://localhost:8000>
 
 **Test backend:**
+
 ```bash
 curl http://localhost:8000/
 curl http://localhost:8000/health
 ```
 
 **Run frontend:**
+
 ```bash
 pnpm dev
 ```
 
 **Run both concurrently:**
+
 ```bash
 just dev
 ```
 
-## Project Structure
-
-```
-adk-ai-data-protocol/
-├── app/                    # Next.js App Router
-│   ├── api/
-│   │   ├── chat/
-│   │   │   └── route.ts   # AI SDK v6 Route Handler
-│   │   └── config/
-│   │       └── route.ts   # Backend configuration API
-│   ├── layout.tsx         # Root layout
-│   ├── page.tsx           # Main chat UI
-│   └── globals.css        # Global styles
-├── experiments/           # Archived experimental code
-│   ├── phase2-jsonrpc/    # JSONRPC integration
-│   └── phase4-websocket/  # WebSocket bidirectional
-├── server.py              # ADK FastAPI server
-├── package.json           # Node.js dependencies
-├── pyproject.toml         # Python dependencies
-├── justfile               # Task runner
-├── next.config.ts         # Next.js config
-├── tsconfig.json          # TypeScript config
-└── README.md              # This file
-```
-
-## Available Commands (just)
-
-```bash
-just install              # Install all dependencies (Python + Node.js)
-just server               # Run backend server
-just frontend             # Run frontend dev server
-just dev                  # Run both servers concurrently
-just format               # Format all code (Python + frontend)
-just lint                 # Lint all code (Python + frontend)
-just typecheck            # Run type checking (Python only)
-just test-python          # Run Python unit tests
-just test-e2e-clean       # Run E2E tests with clean server restart
-just check-coverage       # Check ADK field mapping coverage
-just clean                # Clean generated files
-just kill                 # Kill all servers on ports 3000/8000
-just info                 # Show project info
-```
+For available commands, run `just --list`.
 
 ## Architecture Overview
 
@@ -293,6 +290,7 @@ This project supports **three streaming modes**, all using the same frontend (`u
 ```
 
 Legend / 凡例:
+
 - Backend: バックエンド（処理を行うサーバー）
 - Transport: トランスポート層（通信方式）
 - Use Case: 利用ケース
@@ -326,10 +324,11 @@ Mode 1: Gemini Direct (SSE)      Mode 2: ADK SSE              Mode 3: ADK BIDI (
   │ │    API    │ │              │ │ run_async() │ │           │ │ run_live()    │ │
   │ └───────────┘ │              │ └─────────────┘ │           │ │ LiveQueue     │ │
   └───────────────┘              └─────────────────┘           │ └───────────────┘ │
-                                                                └───────────────────┘
+                                                               └───────────────────┘
 ```
 
 Legend / 凡例:
+
 - useChat Hook: AI SDKのReactフック（チャット状態管理）
 - HTTP/WS: 通信プロトコル（HTTP または WebSocket）
 - SSE: Server-Sent Events（サーバーからクライアントへの一方向ストリーミング）
@@ -345,7 +344,7 @@ Legend / 凡例:
 ┌─────────────────────────────────────────────────────────┐
 │                Frontend (Next.js + AI SDK v6)           │
 │                                                         │
-│  User Input → useChat.sendMessage({ text: "..." })     │
+│  User Input → useChat.sendMessage({ text: "..." })      │
 │                           ↓                             │
 │                    POST /api/chat                       │
 └───────────────────────────┬─────────────────────────────┘
@@ -359,11 +358,11 @@ Legend / 凡例:
 │  1. Receive messages (UIMessage[])                      │
 │  2. convertToModelMessages(messages)                    │
 │  3. streamText({                                        │
-│       model: google("gemini-3-pro-preview"),            │
+│       model: google("gemini-2.5-flash"),                │
 │       messages,                                         │
 │       tools: { get_weather, calculate, ... }            │
 │     })                                                  │
-│  4. return result.toUIMessageStreamResponse()          │
+│  4. return result.toUIMessageStreamResponse()           │
 └───────────────────────────┬─────────────────────────────┘
                             │
                             │ SSE Stream
@@ -372,13 +371,14 @@ Legend / 凡例:
 ┌─────────────────────────────────────────────────────────┐
 │                  Gemini API (Google Cloud)              │
 │                                                         │
-│  - Model: gemini-3-pro-preview                          │
+│  - Model: gemini-2.5-flash                              │
 │  - Tool execution: Server-side                          │
 │  - Streaming: Native SSE support                        │
 └─────────────────────────────────────────────────────────┘
 ```
 
 Legend / 凡例:
+
 - Frontend (Next.js + AI SDK v6): フロントエンド（Next.js + AI SDK v6）
 - User Input: ユーザー入力
 - useChat.sendMessage(): AI SDKのメッセージ送信メソッド
@@ -392,6 +392,7 @@ Legend / 凡例:
 - Tool execution: ツール実行機能
 
 **Key Points:**
+
 - No separate backend server required
 - AI SDK handles Gemini API directly
 - Tools executed on Next.js server
@@ -405,7 +406,7 @@ Legend / 凡例:
 ┌─────────────────────────────────────────────────────────┐
 │                Frontend (Next.js + AI SDK v6)           │
 │                                                         │
-│  User Input → useChat.sendMessage({ text: "..." })     │
+│  User Input → useChat.sendMessage({ text: "..." })      │
 │                           ↓                             │
 │                  POST http://localhost:8000/stream      │
 └───────────────────────────┬─────────────────────────────┘
@@ -457,10 +458,11 @@ Legend / 凡例:
 ```
 
 Legend / 凡例:
+
 - Frontend (Next.js + AI SDK v6): フロントエンド（Next.js + AI SDK v6）
 - User Input: ユーザー入力
 - useChat.sendMessage(): AI SDKのメッセージ送信メソッド
-- POST http://localhost:8000/stream: ストリーミングエンドポイントへのPOSTリクエスト
+- POST <http://localhost:8000/stream>: ストリーミングエンドポイントへのPOSTリクエスト
 - HTTP Request: HTTPリクエスト
 - ADK Backend (FastAPI server.py): ADKバックエンド（FastAPIサーバー）
 - ChatRequest: チャットリクエスト
@@ -478,11 +480,11 @@ Legend / 凡例:
 - tool-input-available: ツール入力利用可能イベント
 - tool-output-available: ツール出力利用可能イベント
 - finish: 完了イベント（finishReason付き）
-- [DONE]: ストリーム終了マーカー
 - HTTP SSE: HTTPサーバー送信イベント
 - Frontend useChat Hook (React State): フロントエンドのuseChatフック（Reactステート）
 
 **Key Points:**
+
 - ADK backend provides full agent capabilities
 - Session management and state preservation
 - Tool execution via ADK agent
@@ -497,7 +499,7 @@ Legend / 凡例:
 ┌─────────────────────────────────────────────────────────┐
 │                Frontend (Next.js + AI SDK v6)           │
 │                                                         │
-│  User Input → useChat.sendMessage({ text: "..." })     │
+│  User Input → useChat.sendMessage({ text: "..." })      │
 │                           ↓                             │
 │             WebSocketChatTransport.sendMessages()       │
 │                           ↓                             │
@@ -550,6 +552,7 @@ Legend / 凡例:
 ```
 
 Legend / 凡例:
+
 - Frontend (Next.js + AI SDK v6): フロントエンド（Next.js + AI SDK v6）
 - User Input: ユーザー入力
 - useChat.sendMessage(): AI SDKのメッセージ送信メソッド
@@ -581,6 +584,7 @@ Legend / 凡例:
 - useChat consumes → UI updates: useChatフックが消費してUI更新
 
 **Key Points:**
+
 - **Architecture: "SSE format over WebSocket"**
 - Protocol conversion: 100% reuses `stream_adk_to_ai_sdk()`
 - Bidirectional: Concurrent upstream/downstream message flow
@@ -589,6 +593,7 @@ Legend / 凡例:
 - Future: Can add audio/video streaming
 
 **Why This Design:**
+
 - **Code reuse:** Same protocol converter for SSE and BIDI modes
 - **Simplicity:** Only transport layer changes (HTTP → WebSocket)
 - **Compatibility:** AI SDK v6 Data Stream Protocol maintained
@@ -613,6 +618,7 @@ Legend / 凡例:
 | **Use Case** | Prototypes | Production | Voice agents |
 
 Legend / 凡例:
+
 - Transport: トランスポート（通信方式）
 - Latency: レイテンシ（応答速度）
 - Bidirectional: 双方向通信の可否
@@ -652,7 +658,7 @@ AI requests tool
      |     [WebSocket / Data Stream]        |
      |                                      |
      |     Step 1-3: Backend -> Frontend    |
-     |     ================================  |
+     |     ================================ |
      |                                      v
      |                         [useChat receives events]
      |                                      |
@@ -705,10 +711,10 @@ AI requests tool
      |     tool-result event                |
      |                                      |
      v                                      |
-[WebSocket handler receives]              |
+[WebSocket handler receives]                |
      |                                      |
      v                                      |
-FrontendToolDelegate.resolve_tool_result() |
+FrontendToolDelegate.resolve_tool_result()  |
      |                                      |
      v                                      |
 asyncio.Future resolves <-----------------+
@@ -721,6 +727,7 @@ AI continues with result
 ```
 
 Legend / 凡例:
+
 - Backend (server.py): バックエンド（Pythonサーバー）
 - Frontend (Next.js): フロントエンド（Next.jsアプリ）
 - AI requests tool: AIがツール実行をリクエスト
@@ -877,15 +884,68 @@ Frontend → tool-result event → Backend
 ```
 
 The transport layer (HTTP SSE vs WebSocket) is abstracted away by:
+
 - Backend: `StreamProtocolConverter` (same for SSE and BIDI)
 - Frontend: `ChatTransport` interface (HTTP vs WebSocket)
 
 ## Testing
 
-### Test Phase 2 SSE Streaming
+### Automated Test Suite
+
+**Python Unit Tests** (112 tests):
 
 ```bash
-# Direct backend test
+just test-python
+# Tests include:
+# - Stream protocol conversion (ADK → AI SDK v6)
+# - Event/Part field mapping (100% coverage)
+# - Error handling (errorCode, errorMessage)
+# - BIDI mode (turnComplete, message metadata)
+# - Tool calling and approval flow
+# - Image support, audio streaming, transcription
+```
+
+**TypeScript Integration Tests** (All modes):
+
+```bash
+pnpm exec vitest run
+# Tests include:
+# - WebSocket transport layer
+# - useChat integration
+# - Tool approval flow
+# - Message metadata forwarding
+# - Parametrized tests for all messageMetadata fields
+```
+
+**End-to-End Tests** (Playwright):
+
+```bash
+just test-e2e-clean  # Recommended: clean server restart
+just test-e2e-ui     # Interactive UI mode
+# Tests include:
+# - Full chat flows (Gemini Direct, ADK SSE, ADK BIDI)
+# - Real-time message streaming
+# - Tool calling with user approval
+# - Audio input/output (BIDI mode)
+```
+
+**Field Coverage Validation**:
+
+```bash
+just check-coverage           # Show field mapping coverage
+just check-coverage-validate  # CI/CD validation
+```
+
+### Manual Backend Testing
+
+```bash
+# Test health endpoint
+curl http://localhost:8000/health
+
+# Test root endpoint
+curl http://localhost:8000/
+
+# Test SSE streaming endpoint
 curl -N http://localhost:8000/stream \
   -H "Content-Type: application/json" \
   -d '{"messages":[{"role":"user","content":"What is 2+2?"}]}'
@@ -898,18 +958,6 @@ curl -N http://localhost:8000/stream \
 # data: [DONE]
 ```
 
-### Test Frontend Integration
-
-```bash
-# Test configuration
-curl http://localhost:3000/api/config
-
-# Test chat endpoint
-curl -N http://localhost:3000/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{"messages":[{"role":"user","parts":[{"type":"text","text":"Hello"}]}]}'
-```
-
 ## AI SDK v6 Migration Notes
 
 This project uses AI SDK v6 beta. While the official documentation states v6 has minimal breaking changes, we encountered several issues during implementation. These notes document the actual changes required.
@@ -919,6 +967,7 @@ This project uses AI SDK v6 beta. While the official documentation states v6 has
 #### 1. useChat Hook API Changes
 
 **Message sending:**
+
 ```typescript
 // ❌ v3/v4 style (doesn't work in v6)
 const { input, handleInputChange, handleSubmit } = useChat();
@@ -935,6 +984,7 @@ const handleSubmit = (e) => {
 ```
 
 **Loading state:**
+
 ```typescript
 // ❌ v3/v4: isLoading
 const isLoading = useChat().isLoading;
@@ -947,6 +997,7 @@ const isLoading = status === "submitted" || status === "streaming";
 #### 2. Message Structure Changes
 
 **Displaying messages:**
+
 ```typescript
 // ❌ v3/v4: message.content
 {messages.map(message => (
@@ -970,10 +1021,11 @@ const isLoading = status === "submitted" || status === "streaming";
 #### 3. Route Handler Changes
 
 **Message conversion required:**
+
 ```typescript
 // ❌ Passing messages directly causes validation errors
 const result = streamText({
-  model: google("gemini-2.0-flash-exp"),
+  model: google("gemini-2.5-flash"),
   messages, // UIMessage[] - wrong format!
 });
 
@@ -981,12 +1033,13 @@ const result = streamText({
 import { convertToModelMessages } from "ai";
 
 const result = streamText({
-  model: google("gemini-2.0-flash-exp"),
+  model: google("gemini-2.5-flash"),
   messages: convertToModelMessages(messages), // Correct!
 });
 ```
 
 **Type safety:**
+
 ```typescript
 import type { UIMessage } from "ai";
 
@@ -999,6 +1052,7 @@ export async function POST(req: Request) {
 #### 4. Stream Response Methods
 
 **Correct method for useChat:**
+
 ```typescript
 // ❌ Wrong methods
 return result.toTextStreamResponse();    // Plain text only
@@ -1015,11 +1069,13 @@ return result.toUIMessageStreamResponse();
 AI SDK v6 uses two streaming protocols:
 
 #### Text Stream Protocol
+
 - Simple text chunks concatenated together
 - Use `streamProtocol: 'text'` option in `useChat`
 - Response method: `toTextStreamResponse()`
 
 #### Data Stream Protocol (Default)
+
 - Server-Sent Events (SSE) format
 - Supports text, tool calls, reasoning blocks, files
 - Structured JSON messages with type fields
@@ -1027,6 +1083,7 @@ AI SDK v6 uses two streaming protocols:
 - Response method: `toUIMessageStreamResponse()`
 
 **SSE Format Example:**
+
 ```
 data: {"type":"text-start","id":"0"}
 data: {"type":"text-delta","id":"0","delta":"Hello"}
@@ -1039,16 +1096,19 @@ data: [DONE]
 ### Common Errors and Solutions
 
 **Error: "Invalid prompt: The messages do not match the ModelMessage[] schema"**
+
 - **Cause:** Not using `convertToModelMessages()`
 - **Solution:** Import and use `convertToModelMessages()` in route handler
 
 **Error: Messages not displaying in UI**
+
 - **Cause:** Using `message.content` instead of `message.parts`
 - **Solution:** Map over `message.parts` and render `part.text`
 
 ### Debug Tips
 
 1. **Clear Next.js cache** if changes don't apply:
+
    ```bash
    rm -rf .next && pnpm dev
    ```
@@ -1064,6 +1124,7 @@ data: [DONE]
 ### Backend Development
 
 The backend server (`server.py`) uses:
+
 - FastAPI for async HTTP handling
 - Pydantic for data validation
 - Loguru for logging
@@ -1072,6 +1133,7 @@ The backend server (`server.py`) uses:
 ### Frontend Development
 
 The frontend uses:
+
 - Next.js App Router for routing
 - AI SDK v6's `useChat` hook for chat UI
 - Server-side Route Handlers for API endpoints
@@ -1079,8 +1141,7 @@ The frontend uses:
 
 ## License
 
-ISC
-
+MIT License. See LICENSE file for details.
 
 ## References
 
