@@ -658,9 +658,19 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
    * @returns true if standard enqueue should be skipped, false otherwise
    */
   private handleCustomEventWithSkip(
-    chunk: any,
+    chunk: unknown,
     _controller: ReadableStreamDefaultController<UIMessageChunk>,
   ): boolean {
+    // Type guard for custom event chunks
+    if (
+      typeof chunk !== "object" ||
+      chunk === null ||
+      !("type" in chunk) ||
+      typeof chunk.type !== "string"
+    ) {
+      return false;
+    }
+
     // SPECIAL HANDLING: PCM audio chunks (ADK BIDI mode)
     // Following official ADK implementation pattern:
     // https://github.com/google/adk-samples/blob/main/python/agents/bidi-demo/app/static/js/app.js
@@ -668,32 +678,41 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
     // Dual-path audio architecture:
     // - Pipeline 1: Real-time playback via AudioWorklet (low-latency)
     // - Pipeline 2: Recording for message replay (this buffer)
-    if (chunk.type === "data-pcm" && this.config.audioContext) {
+    if (
+      chunk.type === "data-pcm" &&
+      this.config.audioContext &&
+      "data" in chunk &&
+      typeof chunk.data === "object" &&
+      chunk.data !== null
+    ) {
+      // biome-ignore lint/suspicious/noExplicitAny: PCM data structure is dynamic from backend
+      const pcmData = chunk.data as any;
+
       // Log audio stream start on first chunk
       if (this.audioChunkIndex === 0) {
         console.log("[Audio Stream] Audio streaming started (BIDI mode)");
         console.log(
-          `[Audio Stream] Sample rate: ${chunk.data.sampleRate}Hz, Channels: ${chunk.data.channels}, Bit depth: ${chunk.data.bitDepth}`,
+          `[Audio Stream] Sample rate: ${pcmData.sampleRate}Hz, Channels: ${pcmData.channels}, Bit depth: ${pcmData.bitDepth}`,
         );
 
         // Store audio format for WAV conversion
-        this.pcmSampleRate = chunk.data.sampleRate;
-        this.pcmChannels = chunk.data.channels;
-        this.pcmBitDepth = chunk.data.bitDepth;
+        this.pcmSampleRate = pcmData.sampleRate;
+        this.pcmChannels = pcmData.channels;
+        this.pcmBitDepth = pcmData.bitDepth;
       }
 
       // Low-latency audio path: directly to AudioWorklet (Pipeline 1)
       try {
         this.config.audioContext.voiceChannel.sendChunk({
-          content: chunk.data.content,
-          sampleRate: chunk.data.sampleRate,
-          channels: chunk.data.channels,
-          bitDepth: chunk.data.bitDepth,
+          content: pcmData.content,
+          sampleRate: pcmData.sampleRate,
+          channels: pcmData.channels,
+          bitDepth: pcmData.bitDepth,
         });
 
         // Recording path: buffer PCM for WAV conversion (Pipeline 2)
         // Decode base64 PCM data
-        const binaryString = atob(chunk.data.content);
+        const binaryString = atob(pcmData.content);
         const bytes = new Uint8Array(binaryString.length);
         for (let i = 0; i < binaryString.length; i++) {
           bytes[i] = binaryString.charCodeAt(i);
@@ -744,10 +763,26 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
    *
    * Standard enqueue happens BEFORE this method is called.
    */
-  private handleCustomEventWithoutSkip(chunk: any): void {
+  private handleCustomEventWithoutSkip(chunk: unknown): void {
+    // Type guard for custom event chunks
+    if (
+      typeof chunk !== "object" ||
+      chunk === null ||
+      !("type" in chunk) ||
+      typeof chunk.type !== "string"
+    ) {
+      return;
+    }
+
     // Finish event: Log completion metrics (usage, audio, grounding, citations, cache, model version)
-    if (chunk.type === "finish" && chunk.messageMetadata) {
-      const metadata = chunk.messageMetadata;
+    if (
+      chunk.type === "finish" &&
+      "messageMetadata" in chunk &&
+      typeof chunk.messageMetadata === "object" &&
+      chunk.messageMetadata !== null
+    ) {
+      // biome-ignore lint/suspicious/noExplicitAny: Message metadata structure is dynamic from backend
+      const metadata = chunk.messageMetadata as any;
 
       // Log audio stream completion with statistics
       if (metadata.audio) {

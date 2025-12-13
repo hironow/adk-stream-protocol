@@ -73,15 +73,15 @@ class MockAudioBuffer {
 // Setup global mocks
 beforeEach(() => {
   // Mock AudioContext
-  global.AudioContext = vi.fn(function (this: any, options: any) {
+  global.AudioContext = vi.fn(function (this: any, _options: any) {
     return new MockAudioContext();
   }) as any;
 
   // Mock AudioWorkletNode
   global.AudioWorkletNode = vi.fn(function (
     this: any,
-    context: any,
-    name: string,
+    _context: any,
+    _name: string,
   ) {
     return new MockAudioWorkletNode();
   }) as any;
@@ -103,7 +103,7 @@ beforeEach(() => {
   });
 
   // Mock atob for base64 decoding
-  global.atob = vi.fn((str: string) => {
+  global.atob = vi.fn((_str: string) => {
     // Simple mock that returns 4 bytes (2 int16 samples)
     return "\x00\x01\x02\x03";
   });
@@ -179,7 +179,7 @@ describe("AudioProvider", () => {
         .fn()
         .mockRejectedValue(new Error("Failed to load AudioWorklet module"));
 
-      global.AudioContext = vi.fn(function (this: any, options: any) {
+      global.AudioContext = vi.fn(function (this: any, _options: any) {
         return mockContext;
       }) as any;
 

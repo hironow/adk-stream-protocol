@@ -108,10 +108,10 @@ describe("WebSocketChatTransport", () => {
 
     // Wait for WebSocket to be created and opened
     await vi.waitFor(() => {
-      expect(transport["ws"]?.readyState).toBe(MockWebSocket.OPEN);
+      expect(transport.ws?.readyState).toBe(MockWebSocket.OPEN);
     });
 
-    const ws = transport["ws"] as unknown as MockWebSocket;
+    const ws = transport.ws as unknown as MockWebSocket;
     return { transport, ws };
   }
 
@@ -136,12 +136,12 @@ describe("WebSocketChatTransport", () => {
       });
 
       // Then: WebSocket should be created with correct URL
-      expect(transport["ws"]).toBeDefined();
-      expect(transport["ws"]?.url).toBe("ws://localhost:8000/live");
+      expect(transport.ws).toBeDefined();
+      expect(transport.ws?.url).toBe("ws://localhost:8000/live");
 
       // Wait for connection to open
       await vi.waitFor(() => {
-        expect(transport["ws"]?.readyState).toBe(MockWebSocket.OPEN);
+        expect(transport.ws?.readyState).toBe(MockWebSocket.OPEN);
       });
 
       // Should return ReadableStream
@@ -173,10 +173,10 @@ describe("WebSocketChatTransport", () => {
 
       // Wait for connection to open
       await vi.waitFor(() => {
-        expect(transport["ws"]?.readyState).toBe(MockWebSocket.OPEN);
+        expect(transport.ws?.readyState).toBe(MockWebSocket.OPEN);
       });
 
-      const ws = transport["ws"] as unknown as MockWebSocket;
+      const ws = transport.ws as unknown as MockWebSocket;
 
       // Then: Should send message event with full history
       const messageEvents = ws.sentMessages.filter((msg) => {
@@ -206,11 +206,11 @@ describe("WebSocketChatTransport", () => {
 
     it("should reuse existing connection for subsequent messages", async () => {
       // Given: Transport with established connection
-      const { transport, ws } = await initializeTransport({
+      const { transport } = await initializeTransport({
         url: "ws://localhost:8000/live",
       });
 
-      const firstWs = transport["ws"];
+      const firstWs = transport.ws;
 
       // When: Sending second message
       await transport.sendMessages({
@@ -222,7 +222,7 @@ describe("WebSocketChatTransport", () => {
       });
 
       // Then: Should reuse the same WebSocket instance
-      expect(transport["ws"]).toBe(firstWs);
+      expect(transport.ws).toBe(firstWs);
     });
 
     it("should handle abort signal during connection", async () => {
@@ -330,11 +330,11 @@ describe("WebSocketChatTransport", () => {
 
       // Wait for connection
       await vi.waitFor(() => {
-        expect(transport["ws"]?.readyState).toBe(MockWebSocket.OPEN);
+        expect(transport.ws?.readyState).toBe(MockWebSocket.OPEN);
       });
 
       const stream = await streamPromise;
-      const ws = transport["ws"] as unknown as MockWebSocket;
+      const ws = transport.ws as unknown as MockWebSocket;
       const reader = stream.getReader();
 
       // Start reading in background
@@ -395,10 +395,10 @@ describe("WebSocketChatTransport", () => {
 
       // Wait for connection
       await vi.waitFor(() => {
-        expect(transport["ws"]?.readyState).toBe(MockWebSocket.OPEN);
+        expect(transport.ws?.readyState).toBe(MockWebSocket.OPEN);
       });
 
-      const ws = transport["ws"] as unknown as MockWebSocket;
+      const ws = transport.ws as unknown as MockWebSocket;
 
       // Then: Should send message event (trigger doesn't affect message format)
       const messageEvents = ws.sentMessages.filter((msg) => {
@@ -435,11 +435,11 @@ describe("WebSocketChatTransport", () => {
 
       // Wait for connection
       await vi.waitFor(() => {
-        expect(transport["ws"]?.readyState).toBe(MockWebSocket.OPEN);
+        expect(transport.ws?.readyState).toBe(MockWebSocket.OPEN);
       });
 
       const stream = await streamPromise;
-      const ws = transport["ws"] as unknown as MockWebSocket;
+      const ws = transport.ws as unknown as MockWebSocket;
 
       // When: Server sends text-start event
       ws.simulateMessage({ type: "text-start", id: "block-1" });
@@ -470,11 +470,11 @@ describe("WebSocketChatTransport", () => {
       });
 
       await vi.waitFor(() => {
-        expect(transport["ws"]?.readyState).toBe(MockWebSocket.OPEN);
+        expect(transport.ws?.readyState).toBe(MockWebSocket.OPEN);
       });
 
       const stream = await streamPromise;
-      const ws = transport["ws"] as unknown as MockWebSocket;
+      const ws = transport.ws as unknown as MockWebSocket;
 
       // When: Server sends text-delta event
       ws.simulateMessage({
@@ -510,11 +510,11 @@ describe("WebSocketChatTransport", () => {
       });
 
       await vi.waitFor(() => {
-        expect(transport["ws"]?.readyState).toBe(MockWebSocket.OPEN);
+        expect(transport.ws?.readyState).toBe(MockWebSocket.OPEN);
       });
 
       const stream = await streamPromise;
-      const ws = transport["ws"] as unknown as MockWebSocket;
+      const ws = transport.ws as unknown as MockWebSocket;
 
       // When: Server sends text-end event
       ws.simulateMessage({ type: "text-end", id: "block-1" });
@@ -545,11 +545,11 @@ describe("WebSocketChatTransport", () => {
       });
 
       await vi.waitFor(() => {
-        expect(transport["ws"]?.readyState).toBe(MockWebSocket.OPEN);
+        expect(transport.ws?.readyState).toBe(MockWebSocket.OPEN);
       });
 
       const stream = await streamPromise;
-      const ws = transport["ws"] as unknown as MockWebSocket;
+      const ws = transport.ws as unknown as MockWebSocket;
       const reader = stream.getReader();
 
       // Start reading in background
@@ -619,7 +619,7 @@ describe("WebSocketChatTransport", () => {
       // Then: Should not crash, might skip or handle gracefully
       // (Implementation-dependent - verify no uncaught errors)
       try {
-        const { value, done } = await Promise.race([
+        const { value } = await Promise.race([
           reader.read(),
           new Promise<{ value: undefined; done: true }>((resolve) =>
             setTimeout(() => resolve({ value: undefined, done: true }), 50),
@@ -723,11 +723,11 @@ describe("WebSocketChatTransport", () => {
       });
 
       await vi.waitFor(() => {
-        expect(transport["ws"]?.readyState).toBe(MockWebSocket.OPEN);
+        expect(transport.ws?.readyState).toBe(MockWebSocket.OPEN);
       });
 
       const stream = await streamPromise;
-      const ws = transport["ws"] as unknown as MockWebSocket;
+      const ws = transport.ws as unknown as MockWebSocket;
 
       // When: Server sends finish event with usage metadata
       ws.simulateMessage({
@@ -774,11 +774,11 @@ describe("WebSocketChatTransport", () => {
       });
 
       // Then: Should transition CONNECTING → OPEN
-      expect(transport["ws"]).toBeDefined();
-      expect(transport["ws"]?.readyState).toBe(MockWebSocket.CONNECTING);
+      expect(transport.ws).toBeDefined();
+      expect(transport.ws?.readyState).toBe(MockWebSocket.CONNECTING);
 
       await vi.waitFor(() => {
-        expect(transport["ws"]?.readyState).toBe(MockWebSocket.OPEN);
+        expect(transport.ws?.readyState).toBe(MockWebSocket.OPEN);
       });
 
       const stream = await streamPromise;
@@ -834,7 +834,7 @@ describe("WebSocketChatTransport", () => {
         url: "ws://localhost:8000/live",
       });
 
-      expect(transport["ws"]).toBeDefined();
+      expect(transport.ws).toBeDefined();
       expect(ws.readyState).toBe(MockWebSocket.OPEN);
 
       // When: Closing connection
@@ -900,10 +900,10 @@ describe("WebSocketChatTransport", () => {
       });
 
       await vi.waitFor(() => {
-        expect(transport["ws"]?.readyState).toBe(MockWebSocket.OPEN);
+        expect(transport.ws?.readyState).toBe(MockWebSocket.OPEN);
       });
 
-      const firstWs = transport["ws"];
+      const firstWs = transport.ws;
 
       // Second message (should reuse connection)
       const stream2 = await transport.sendMessages({
@@ -915,7 +915,7 @@ describe("WebSocketChatTransport", () => {
       });
 
       // Then: Should reuse same connection
-      expect(transport["ws"]).toBe(firstWs);
+      expect(transport.ws).toBe(firstWs);
       expect(stream1).toBeInstanceOf(ReadableStream);
       expect(stream2).toBeInstanceOf(ReadableStream);
     });
@@ -1101,11 +1101,11 @@ describe("WebSocketChatTransport", () => {
       });
 
       await vi.waitFor(() => {
-        expect(transport["ws"]?.readyState).toBe(MockWebSocket.OPEN);
+        expect(transport.ws?.readyState).toBe(MockWebSocket.OPEN);
       });
 
-      const stream = await streamPromise;
-      const ws = transport["ws"] as unknown as MockWebSocket;
+      const _stream = await streamPromise;
+      const ws = transport.ws as unknown as MockWebSocket;
 
       // When: Server sends data-pcm event
       const pcmData = btoa("fake-pcm-data");
@@ -1152,11 +1152,11 @@ describe("WebSocketChatTransport", () => {
       });
 
       await vi.waitFor(() => {
-        expect(transport["ws"]?.readyState).toBe(MockWebSocket.OPEN);
+        expect(transport.ws?.readyState).toBe(MockWebSocket.OPEN);
       });
 
       const stream = await streamPromise;
-      const ws = transport["ws"] as unknown as MockWebSocket;
+      const ws = transport.ws as unknown as MockWebSocket;
       const reader = stream.getReader();
 
       // When: Server sends data-pcm event
@@ -1213,11 +1213,11 @@ describe("WebSocketChatTransport", () => {
       });
 
       await vi.waitFor(() => {
-        expect(transport["ws"]?.readyState).toBe(MockWebSocket.OPEN);
+        expect(transport.ws?.readyState).toBe(MockWebSocket.OPEN);
       });
 
       await streamPromise;
-      const ws = transport["ws"] as unknown as MockWebSocket;
+      const ws = transport.ws as unknown as MockWebSocket;
 
       // When: Server sends multiple PCM chunks
       ws.simulateMessage({
@@ -1274,11 +1274,11 @@ describe("WebSocketChatTransport", () => {
       });
 
       await vi.waitFor(() => {
-        expect(transport["ws"]?.readyState).toBe(MockWebSocket.OPEN);
+        expect(transport.ws?.readyState).toBe(MockWebSocket.OPEN);
       });
 
-      const stream = await streamPromise;
-      const ws = transport["ws"] as unknown as MockWebSocket;
+      const _stream = await streamPromise;
+      const ws = transport.ws as unknown as MockWebSocket;
 
       // When: Server sends data-pcm event
       ws.simulateMessage({
@@ -1313,11 +1313,11 @@ describe("WebSocketChatTransport", () => {
       });
 
       await vi.waitFor(() => {
-        expect(transport["ws"]?.readyState).toBe(MockWebSocket.OPEN);
+        expect(transport.ws?.readyState).toBe(MockWebSocket.OPEN);
       });
 
       const stream = await streamPromise;
-      const ws = transport["ws"] as unknown as MockWebSocket;
+      const ws = transport.ws as unknown as MockWebSocket;
 
       // When: Server sends tool-approval-request
       ws.simulateMessage({
@@ -1363,11 +1363,11 @@ describe("WebSocketChatTransport", () => {
       });
 
       await vi.waitFor(() => {
-        expect(transport["ws"]?.readyState).toBe(MockWebSocket.OPEN);
+        expect(transport.ws?.readyState).toBe(MockWebSocket.OPEN);
       });
 
       const stream = await streamPromise;
-      const ws = transport["ws"] as unknown as MockWebSocket;
+      const ws = transport.ws as unknown as MockWebSocket;
 
       // When: Server sends finish with audio metadata
       ws.simulateMessage({
@@ -1410,11 +1410,11 @@ describe("WebSocketChatTransport", () => {
       });
 
       await vi.waitFor(() => {
-        expect(transport["ws"]?.readyState).toBe(MockWebSocket.OPEN);
+        expect(transport.ws?.readyState).toBe(MockWebSocket.OPEN);
       });
 
       const stream = await streamPromise;
-      const ws = transport["ws"] as unknown as MockWebSocket;
+      const ws = transport.ws as unknown as MockWebSocket;
 
       // When: Server sends finish without metadata
       ws.simulateMessage({
@@ -1610,11 +1610,11 @@ describe("WebSocketChatTransport", () => {
       });
 
       await vi.waitFor(() => {
-        expect(transport["ws"]?.readyState).toBe(MockWebSocket.OPEN);
+        expect(transport.ws?.readyState).toBe(MockWebSocket.OPEN);
       });
 
       await streamPromise;
-      const ws = transport["ws"] as unknown as MockWebSocket;
+      const ws = transport.ws as unknown as MockWebSocket;
 
       // Then: Ping interval should be started
       // Wait a bit for ping to be sent
@@ -1646,15 +1646,15 @@ describe("WebSocketChatTransport", () => {
       });
 
       await vi.waitFor(() => {
-        expect(transport["ws"]?.readyState).toBe(MockWebSocket.OPEN);
+        expect(transport.ws?.readyState).toBe(MockWebSocket.OPEN);
       });
 
-      const stream = await streamPromise;
-      const ws = transport["ws"] as unknown as MockWebSocket;
+      const _stream = await streamPromise;
+      const ws = transport.ws as unknown as MockWebSocket;
 
       // Manually trigger ping
       const pingTime = Date.now();
-      transport["lastPingTime"] = pingTime;
+      transport.lastPingTime = pingTime;
 
       // When: Server sends pong response (NOT in SSE format)
       // Pong is sent as plain JSON, not SSE
@@ -1686,13 +1686,13 @@ describe("WebSocketChatTransport", () => {
       });
 
       // Verify ping interval exists
-      expect(transport["pingInterval"]).toBeDefined();
+      expect(transport.pingInterval).toBeDefined();
 
       // When: Closing connection
       transport.close();
 
       // Then: Ping interval should be cleared
-      expect(transport["pingInterval"]).toBeNull();
+      expect(transport.pingInterval).toBeNull();
     });
   });
 
@@ -1718,13 +1718,13 @@ describe("WebSocketChatTransport", () => {
         url: "ws://localhost:8000/live",
       });
 
-      expect(transport["ws"]).toBeDefined();
+      expect(transport.ws).toBeDefined();
 
       // When: Closing
       transport.close();
 
       // Then: ws should be null
-      expect(transport["ws"]).toBeNull();
+      expect(transport.ws).toBeNull();
     });
 
     it("should handle close when no connection exists", () => {

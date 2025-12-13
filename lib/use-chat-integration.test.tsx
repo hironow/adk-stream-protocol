@@ -68,7 +68,7 @@ class MockWebSocket {
   // Helper: Simulate receiving SSE message from server
   simulateMessage(data: Record<string, unknown>): void {
     if (this.onmessage) {
-      const sseMessage = "data: " + JSON.stringify(data);
+      const sseMessage = `data: ${JSON.stringify(data)}`;
       this.onmessage(
         new MessageEvent("message", {
           data: sseMessage,

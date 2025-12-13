@@ -57,16 +57,16 @@ class MockMediaStream {
 // Setup global mocks
 beforeEach(() => {
   // Mock AudioContext
-  global.AudioContext = vi.fn(function (this: any, options: any) {
+  global.AudioContext = vi.fn(function (this: any, _options: any) {
     return new MockAudioContext();
   }) as any;
 
   // Mock AudioWorkletNode
   global.AudioWorkletNode = vi.fn(function (
     this: any,
-    context: any,
-    name: string,
-    options: any,
+    _context: any,
+    _name: string,
+    _options: any,
   ) {
     return new MockAudioWorkletNode();
   }) as any;
@@ -449,7 +449,7 @@ describe("AudioRecorder", () => {
         .mockRejectedValueOnce(new Error("Failed to load module"));
 
       // Override global.AudioContext for this test only
-      global.AudioContext = vi.fn(function (this: any, options: any) {
+      global.AudioContext = vi.fn(function (this: any, _options: any) {
         return failingMockContext;
       }) as any;
 

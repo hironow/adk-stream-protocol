@@ -168,7 +168,7 @@ export function MessageComponent({ message }: MessageComponentProps) {
           if (part.type === "text") {
             return (
               <div
-                key={index}
+                key={`${part.type}-${index}`}
                 data-testid="message-text"
                 style={{
                   whiteSpace: "pre-wrap",
@@ -184,7 +184,7 @@ export function MessageComponent({ message }: MessageComponentProps) {
           if (part.type === "reasoning") {
             return (
               <details
-                key={index}
+                key={`${part.type}-${index}`}
                 style={{
                   padding: "0.75rem",
                   borderRadius: "6px",
@@ -224,7 +224,7 @@ export function MessageComponent({ message }: MessageComponentProps) {
             return (
               // biome-ignore lint/performance/noImgElement: File part URLs may be data URLs
               <img
-                key={index}
+                key={`${part.type}-image-${index}`}
                 src={part.url}
                 alt={part.filename || "Image"}
                 style={{
@@ -241,7 +241,7 @@ export function MessageComponent({ message }: MessageComponentProps) {
           if (part.type === "file" && part.mediaType?.startsWith("audio/")) {
             return (
               <div
-                key={index}
+                key={`${part.type}-audio-${index}`}
                 style={{
                   margin: "0.75rem 0",
                   padding: "0.75rem",
@@ -292,7 +292,7 @@ export function MessageComponent({ message }: MessageComponentProps) {
           if (part.type === "data-image" && part.data) {
             return (
               <ImageDisplay
-                key={index}
+                key={`${part.type}-${index}`}
                 content={part.data.content}
                 mediaType={part.data.mediaType}
                 alt="Image from assistant"
@@ -319,7 +319,7 @@ export function MessageComponent({ message }: MessageComponentProps) {
           if (part.type === "tool-call" && part.toolInvocation) {
             return (
               <ToolInvocationComponent
-                key={index}
+                key={`${part.type}-${index}`}
                 toolInvocation={part.toolInvocation}
               />
             );
@@ -337,7 +337,7 @@ export function MessageComponent({ message }: MessageComponentProps) {
             };
             return (
               <ToolInvocationComponent
-                key={index}
+                key={`${part.type}-${index}`}
                 toolInvocation={toolInvocation}
               />
             );
@@ -351,7 +351,8 @@ export function MessageComponent({ message }: MessageComponentProps) {
           // Unknown part type - debug view
           return (
             <details
-              key={index}
+              // biome-ignore lint/suspicious/noArrayIndexKey: Unknown parts have no stable identifier
+              key={`unknown-${index}`}
               style={{
                 padding: "0.5rem",
                 borderRadius: "4px",
@@ -434,7 +435,7 @@ export function MessageComponent({ message }: MessageComponentProps) {
           </div>
           {extendedMessage.metadata.grounding.sources.map((source, idx) => (
             <div
-              key={idx}
+              key={`source-${source.uri}-${idx}`}
               style={{
                 marginLeft: "1rem",
                 marginBottom: "0.25rem",
@@ -474,7 +475,7 @@ export function MessageComponent({ message }: MessageComponentProps) {
           </div>
           {extendedMessage.metadata.citations.map((citation, idx) => (
             <div
-              key={idx}
+              key={`citation-${citation.uri}-${citation.startIndex}-${idx}`}
               style={{
                 marginLeft: "1rem",
                 marginBottom: "0.25rem",
@@ -553,9 +554,9 @@ export function MessageComponent({ message }: MessageComponentProps) {
       {extendedMessage.toolInvocations &&
         extendedMessage.toolInvocations.length > 0 && (
           <div style={{ marginTop: "0.75rem" }}>
-            {extendedMessage.toolInvocations.map((toolInvocation, index) => (
+            {extendedMessage.toolInvocations.map((toolInvocation) => (
               <ToolInvocationComponent
-                key={index}
+                key={toolInvocation.toolCallId}
                 toolInvocation={toolInvocation}
               />
             ))}

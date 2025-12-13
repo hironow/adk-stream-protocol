@@ -133,7 +133,9 @@ export class AudioRecorder {
 
     // Stop media stream tracks
     if (this.mediaStream) {
-      this.mediaStream.getTracks().forEach((track) => track.stop());
+      this.mediaStream.getTracks().forEach((track) => {
+        track.stop();
+      });
       this.mediaStream = null;
     }
 

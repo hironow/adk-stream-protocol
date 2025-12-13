@@ -59,7 +59,10 @@
       "mcp__deepwiki__ask_question",
       "mcp__deepwiki__read_wiki_structure",
       "mcp__deepwiki__read_wiki_contents",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(pnpm run lint:*)",
+      "Bash(pnpm biome check:*)",
+      "Bash(pnpm exec biome check:*)"
     ],
     "deny": [
       "Read(.env.keys)",
