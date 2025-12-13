@@ -344,26 +344,67 @@ controller.enqueue(chunk as UIMessageChunk);
 
 **Commit**: 5dc2d14
 
-### Phase 2: Frontend Logger (TypeScript) ✅ 優先度: High
+### Phase 2: Frontend Logger (TypeScript) ✅ COMPLETED 2025-12-14
 **目標**: Frontend の各ポイントで chunk を記録
 
 **Tasks**:
-- [ ] `lib/chunk-logger.ts` 作成
-  - [ ] `ChunkLogger` クラス実装
-  - [ ] Browser での JSONL 保存 (Download or IndexedDB)
-  - [ ] 環境変数による有効化
-- [ ] 各 Transport に logger 差し込み
-  - [ ] WebSocketChatTransport (ADK BIDI)
-  - [ ] DefaultChatTransport wrapper (ADK SSE)
-  - [ ] Next.js API route (Gemini Direct)
-- [ ] Tests
+- [x] `lib/chunk-logger.ts` 作成
+  - [x] `ChunkLogger` クラス実装
+  - [x] Browser での JSONL 保存 (Blob + Download - Option B 採用)
+  - [x] localStorage による有効化 (`CHUNK_LOGGER_ENABLED`, `CHUNK_LOGGER_SESSION_ID`)
+- [x] 各 Transport に logger 差し込み
+  - [x] WebSocketChatTransport (ADK BIDI) - 入出力両方
+  - [x] ChunkLoggingTransport wrapper (ADK SSE + Gemini Direct) - useChat chunk
+- [ ] Tests (Phase 2 実装完了、テストは別途)
   - [ ] Logger が chunk を記録することを確認
   - [ ] 各モードで正しい location が記録されることを確認
 
-**Browser での保存方法**:
-- Option A: IndexedDB に保存 → Export ボタンで JSONL ダウンロード
-- Option B: 自動で Blob 生成 → 定期的にダウンロード
-- Option C: Backend に POST して保存
+**Implementation Details**:
+
+**ChunkLogger** (`lib/chunk-logger.ts`):
+- In-memory chunk storage (`ChunkLogEntry[]`)
+- Session ID auto-generation: `session-YYYY-MM-DD-HHMMSS`
+- Sequence numbering per location
+- `export()` method: Blob + Download as JSONL
+- localStorage configuration support
+
+**Transport Integration**:
+
+1. **WebSocketChatTransport** (ADK BIDI):
+   - `handleWebSocketMessage()`: Log incoming WS chunks
+     - Location: `frontend-ws-chunk`
+     - Direction: `in`
+     - Chunk: Raw SSE string from WebSocket
+   - `sendEvent()`: Log outgoing WS events
+     - Location: `frontend-ws-chunk`
+     - Direction: `out`
+     - Chunk: JSON stringified event
+
+2. **ChunkLoggingTransport wrapper** (ADK SSE + Gemini Direct):
+   - Created `lib/chunk-logging-transport.ts`
+   - Wraps `DefaultChatTransport<UIMessage>`
+   - Intercepts `UIMessageChunk` stream
+   - Location: `frontend-useChat-chunk`
+   - Direction: `in`
+   - Logs all chunks flowing to useChat hook
+
+3. **build-use-chat-options.ts**:
+   - Gemini mode: Wrap `DefaultChatTransport` with `ChunkLoggingTransport`
+   - ADK SSE mode: Wrap `DefaultChatTransport` with `ChunkLoggingTransport`
+   - ADK BIDI mode: Uses `WebSocketChatTransport` directly (already has logging)
+
+**Backend Logger Fix** (User Feedback):
+- `stream_protocol.py`: Log raw SSE strings instead of parsing/re-encoding
+- Prevents double-encoding issues in JSONL
+- Before: `json.loads(json_str)` → log → `json.dumps()`
+- After: Log `sse_event` string directly
+
+**Browser での保存方法** (Option B 採用):
+- メモリに蓄積 → `export()` で Blob 生成 → 自動ダウンロード
+- ファイル名: `{session_id}.jsonl`
+- 簡単で実装が楽、ユーザーが明示的にエクスポート可能
+
+**Commit**: bd83e26
 
 ### Phase 3: Player 機構 ⬜ 優先度: Medium
 **目標**: 記録した chunk を再生
@@ -481,9 +522,10 @@ controller.enqueue(chunk as UIMessageChunk);
 
 1. ✅ 実験ノート作成 (このファイル)
 2. ✅ Phase 1: Backend Logger 実装完了 (commit 5dc2d14)
-3. ⬜ 手動操作で chunk 記録のテスト
-4. ⬜ Phase 2: Frontend Logger 実装
+3. ✅ Phase 2: Frontend Logger 実装完了 (commit bd83e26)
+4. ⬜ 手動操作で chunk 記録のテスト
 5. ⬜ Phase 3: Player 機構実装
+6. ⬜ Phase 4: E2E テスト統合
 
 ---
 
@@ -497,6 +539,14 @@ controller.enqueue(chunk as UIMessageChunk);
 
 ## 変更履歴
 
+- 2025-12-14 (continued): Phase 2 実装完了 (commit bd83e26)
+  - lib/chunk-logger.ts 作成（ChunkLogger class for browser）
+  - lib/chunk-logging-transport.ts 作成（DefaultChatTransport wrapper）
+  - WebSocketChatTransport に logger 差し込み（入出力両方）
+  - build-use-chat-options.ts を更新（ChunkLoggingTransport wrapper 使用）
+  - stream_protocol.py 修正（raw SSE string logging）
+  - Frontend logging: frontend-ws-chunk, frontend-useChat-chunk
+  - Blob + Download での JSONL export 実装
 - 2025-12-14 (03:32): Phase 1 実装完了 (commit 5dc2d14)
   - chunk_logger.py 作成、13 tests passing
   - stream_protocol.py に logger 差し込み（stream_adk_to_ai_sdk 関数内）
