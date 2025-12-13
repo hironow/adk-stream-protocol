@@ -182,6 +182,7 @@ const calculateTool = tool({
   execute: async ({ expression }) => {
     try {
       // Safe evaluation - only allows basic math operations
+      // biome-ignore lint/security/noGlobalEval: Calculator tool requires expression evaluation
       const result = eval(expression);
       console.log(
         `[Gemini Direct] Tool call: calculate(${expression}) ->`,

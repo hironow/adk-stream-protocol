@@ -17,8 +17,17 @@
  * - output?: unknown
  * - errorText?: string (required when state is 'output-error')
  */
+interface ToolInvocation {
+  toolName: string;
+  toolCallId?: string;
+  state: string;
+  input?: unknown;
+  output?: unknown;
+  errorText?: string;
+}
+
 interface ToolInvocationProps {
-  toolInvocation: any;
+  toolInvocation: ToolInvocation;
 }
 
 export function ToolInvocationComponent({

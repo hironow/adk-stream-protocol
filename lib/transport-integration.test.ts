@@ -66,7 +66,9 @@ describe("Transport Integration", () => {
 
   beforeEach(() => {
     // Store and replace WebSocket
+    // biome-ignore lint/suspicious/noExplicitAny: Test mock requires type assertion
     originalWebSocket = global.WebSocket as any;
+    // biome-ignore lint/suspicious/noExplicitAny: Test mock requires type assertion
     global.WebSocket = MockWebSocket as any;
   });
 
@@ -149,6 +151,7 @@ describe("Transport Integration", () => {
       });
 
       // When: Using transport imperatively
+      // biome-ignore lint/style/noNonNullAssertion: Transport is always defined in BIDI mode
       const transport = result.transport!;
 
       // Initialize WebSocket by calling sendMessages

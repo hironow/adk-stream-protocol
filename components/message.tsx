@@ -15,6 +15,44 @@ import { useAudio } from "@/lib/audio-context";
 import { ImageDisplay } from "./image-display";
 import { ToolInvocationComponent } from "./tool-invocation";
 
+// Extended UIMessage with metadata properties
+interface ExtendedUIMessage extends UIMessage {
+  status?: string;
+  metadata?: {
+    usage?: {
+      promptTokens: number;
+      completionTokens: number;
+      totalTokens: number;
+    };
+    grounding?: {
+      sources: Array<{
+        title?: string;
+        uri?: string;
+      }>;
+    };
+    citations?: Array<{
+      text?: string;
+      sources?: Array<{ uri?: string }>;
+      startIndex?: number;
+      endIndex?: number;
+      uri?: string;
+      license?: string;
+    }>;
+    cache?: {
+      hits: number;
+      misses: number;
+    };
+    modelVersion?: string;
+  };
+  toolInvocations?: Array<{
+    toolCallId: string;
+    toolName: string;
+    args?: Record<string, unknown>;
+    state?: string;
+    result?: unknown;
+  }>;
+}
+
 interface MessageComponentProps {
   message: UIMessage;
 }
@@ -22,6 +60,7 @@ interface MessageComponentProps {
 export function MessageComponent({ message }: MessageComponentProps) {
   const isUser = message.role === "user";
   const audioContext = useAudio();
+  const extendedMessage = message as ExtendedUIMessage;
 
   // Check if this assistant message has audio (ADK BIDI mode)
   // Audio is detected by AudioContext chunk count, not message.parts
@@ -55,7 +94,7 @@ export function MessageComponent({ message }: MessageComponentProps) {
         <span data-testid="message-sender">{isUser ? "You" : "Assistant"}</span>
 
         {/* Status indicator for streaming */}
-        {(message as any).status === "in_progress" && (
+        {extendedMessage.status === "in_progress" && (
           <span
             style={{
               fontSize: "0.75rem",
@@ -73,42 +112,6 @@ export function MessageComponent({ message }: MessageComponentProps) {
         data-testid="message-content"
         style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}
       >
-        {/* Handle experimental_attachments (legacy v5 format - kept for backward compatibility) */}
-        {/* Note: AI SDK v6 converts files to parts array, so this is rarely used */}
-        {(message as any).experimental_attachments?.map(
-          (attachment: any, index: number) => {
-            // Text attachment
-            if (attachment.type === "text") {
-              return (
-                <div
-                  key={index}
-                  data-testid="message-text"
-                  style={{
-                    whiteSpace: "pre-wrap",
-                    lineHeight: "1.5",
-                  }}
-                >
-                  {attachment.text}
-                </div>
-              );
-            }
-
-            // Image attachment
-            if (attachment.type === "image") {
-              return (
-                <ImageDisplay
-                  key={index}
-                  content={attachment.data}
-                  mediaType={attachment.media_type}
-                  alt="Uploaded image"
-                />
-              );
-            }
-
-            return null;
-          },
-        )}
-
         {/* Audio status indicator (ADK BIDI mode) */}
         {hasAudio && (
           <div
@@ -161,7 +164,7 @@ export function MessageComponent({ message }: MessageComponentProps) {
         )}
 
         {/* Handle regular message parts (assistant responses) */}
-        {message.parts?.map((part: any, index: number) => {
+        {message.parts?.map((part, index) => {
           // Text content
           // [P3-T1] Live API Transcriptions display here as text-delta events
           // - Input transcription: User audio → text (BIDI mode, ADK Live API)
@@ -224,6 +227,7 @@ export function MessageComponent({ message }: MessageComponentProps) {
           // File content - Image (AI SDK v6 file part)
           if (part.type === "file" && part.mediaType?.startsWith("image/")) {
             return (
+              // biome-ignore lint/performance/noImgElement: File part URLs may be data URLs
               <img
                 key={index}
                 src={part.url}
@@ -265,6 +269,7 @@ export function MessageComponent({ message }: MessageComponentProps) {
                   <span>🎵</span>
                   <span>Recorded Audio</span>
                 </div>
+                {/* biome-ignore lint/a11y/useMediaCaption: Audio files don't have transcript */}
                 <audio
                   controls
                   src={part.url}
@@ -389,7 +394,7 @@ export function MessageComponent({ message }: MessageComponentProps) {
       </div>
 
       {/* Usage Metadata (if available) */}
-      {(message as any).metadata?.usage && (
+      {extendedMessage.metadata?.usage && (
         <div
           style={{
             marginTop: "0.75rem",
@@ -404,22 +409,22 @@ export function MessageComponent({ message }: MessageComponentProps) {
           <span>
             📊 Tokens:{" "}
             <span style={{ color: "#9ca3af" }}>
-              {(message as any).metadata.usage.promptTokens} in
+              {extendedMessage.metadata.usage.promptTokens} in
             </span>
             {" + "}
             <span style={{ color: "#9ca3af" }}>
-              {(message as any).metadata.usage.completionTokens} out
+              {extendedMessage.metadata.usage.completionTokens} out
             </span>
             {" = "}
             <span style={{ fontWeight: 600, color: "#d1d5db" }}>
-              {(message as any).metadata.usage.totalTokens} total
+              {extendedMessage.metadata.usage.totalTokens} total
             </span>
           </span>
         </div>
       )}
 
       {/* Grounding Sources (RAG, Web Search) */}
-      {(message as any).metadata?.grounding?.sources && (
+      {extendedMessage.metadata?.grounding?.sources && (
         <div
           style={{
             marginTop: "0.75rem",
@@ -430,38 +435,36 @@ export function MessageComponent({ message }: MessageComponentProps) {
           }}
         >
           <div style={{ marginBottom: "0.5rem", fontWeight: 600 }}>
-            🔍 Sources ({(message as any).metadata.grounding.sources.length}):
+            🔍 Sources ({extendedMessage.metadata.grounding.sources.length}):
           </div>
-          {(message as any).metadata.grounding.sources.map(
-            (source: any, idx: number) => (
-              <div
-                key={idx}
+          {extendedMessage.metadata.grounding.sources.map((source, idx) => (
+            <div
+              key={idx}
+              style={{
+                marginLeft: "1rem",
+                marginBottom: "0.25rem",
+                color: "#9ca3af",
+              }}
+            >
+              <a
+                href={source.uri}
+                target="_blank"
+                rel="noopener noreferrer"
                 style={{
-                  marginLeft: "1rem",
-                  marginBottom: "0.25rem",
-                  color: "#9ca3af",
+                  color: "#60a5fa",
+                  textDecoration: "none",
+                  wordBreak: "break-all",
                 }}
               >
-                <a
-                  href={source.uri}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    color: "#60a5fa",
-                    textDecoration: "none",
-                    wordBreak: "break-all",
-                  }}
-                >
-                  {source.title || source.uri}
-                </a>
-              </div>
-            ),
-          )}
+                {source.title || source.uri}
+              </a>
+            </div>
+          ))}
         </div>
       )}
 
       {/* Citations */}
-      {(message as any).metadata?.citations && (
+      {extendedMessage.metadata?.citations && (
         <div
           style={{
             marginTop: "0.75rem",
@@ -472,43 +475,41 @@ export function MessageComponent({ message }: MessageComponentProps) {
           }}
         >
           <div style={{ marginBottom: "0.5rem", fontWeight: 600 }}>
-            📝 Citations ({(message as any).metadata.citations.length}):
+            📝 Citations ({extendedMessage.metadata.citations.length}):
           </div>
-          {(message as any).metadata.citations.map(
-            (citation: any, idx: number) => (
-              <div
-                key={idx}
+          {extendedMessage.metadata.citations.map((citation, idx) => (
+            <div
+              key={idx}
+              style={{
+                marginLeft: "1rem",
+                marginBottom: "0.25rem",
+                color: "#9ca3af",
+              }}
+            >
+              <a
+                href={citation.uri}
+                target="_blank"
+                rel="noopener noreferrer"
                 style={{
-                  marginLeft: "1rem",
-                  marginBottom: "0.25rem",
-                  color: "#9ca3af",
+                  color: "#60a5fa",
+                  textDecoration: "none",
+                  wordBreak: "break-all",
                 }}
               >
-                <a
-                  href={citation.uri}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    color: "#60a5fa",
-                    textDecoration: "none",
-                    wordBreak: "break-all",
-                  }}
-                >
-                  [{citation.startIndex}-{citation.endIndex}] {citation.uri}
-                </a>
-                {citation.license && (
-                  <span style={{ marginLeft: "0.5rem", color: "#6b7280" }}>
-                    ({citation.license})
-                  </span>
-                )}
-              </div>
-            ),
-          )}
+                [{citation.startIndex}-{citation.endIndex}] {citation.uri}
+              </a>
+              {citation.license && (
+                <span style={{ marginLeft: "0.5rem", color: "#6b7280" }}>
+                  ({citation.license})
+                </span>
+              )}
+            </div>
+          ))}
         </div>
       )}
 
       {/* Cache Metadata */}
-      {(message as any).metadata?.cache && (
+      {extendedMessage.metadata?.cache && (
         <div
           style={{
             marginTop: "0.75rem",
@@ -523,18 +524,18 @@ export function MessageComponent({ message }: MessageComponentProps) {
           <span>
             💾 Cache:{" "}
             <span style={{ color: "#10b981" }}>
-              {(message as any).metadata.cache.hits} hits
+              {extendedMessage.metadata.cache.hits} hits
             </span>
             {" / "}
             <span style={{ color: "#ef4444" }}>
-              {(message as any).metadata.cache.misses} misses
+              {extendedMessage.metadata.cache.misses} misses
             </span>
           </span>
         </div>
       )}
 
       {/* Model Version */}
-      {(message as any).metadata?.modelVersion && (
+      {extendedMessage.metadata?.modelVersion && (
         <div
           style={{
             marginTop: "0.75rem",
@@ -547,24 +548,22 @@ export function MessageComponent({ message }: MessageComponentProps) {
           <span>
             🤖 Model:{" "}
             <span style={{ color: "#9ca3af" }}>
-              {(message as any).metadata.modelVersion}
+              {extendedMessage.metadata.modelVersion}
             </span>
           </span>
         </div>
       )}
 
       {/* Tool Invocations Summary (if available) */}
-      {(message as any).toolInvocations &&
-        (message as any).toolInvocations.length > 0 && (
+      {extendedMessage.toolInvocations &&
+        extendedMessage.toolInvocations.length > 0 && (
           <div style={{ marginTop: "0.75rem" }}>
-            {(message as any).toolInvocations.map(
-              (toolInvocation: any, index: number) => (
-                <ToolInvocationComponent
-                  key={index}
-                  toolInvocation={toolInvocation}
-                />
-              ),
-            )}
+            {extendedMessage.toolInvocations.map((toolInvocation, index) => (
+              <ToolInvocationComponent
+                key={index}
+                toolInvocation={toolInvocation}
+              />
+            ))}
           </div>
         )}
     </div>

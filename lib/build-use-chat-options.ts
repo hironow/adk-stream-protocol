@@ -32,7 +32,7 @@ interface AudioContextValue {
 // Set NEXT_PUBLIC_DEBUG_CHAT_OPTIONS=true to enable
 const DEBUG = process.env.NEXT_PUBLIC_DEBUG_CHAT_OPTIONS === "true";
 
-function debugLog(message: string, ...args: any[]) {
+function debugLog(message: string, ...args: unknown[]) {
   if (DEBUG) {
     console.log("[buildUseChatOptions]", message, ...args);
   }
@@ -58,7 +58,7 @@ function debugLog(message: string, ...args: any[]) {
  */
 export interface UseChatOptionsWithTransport {
   useChatOptions: {
-    transport: any;
+    transport: DefaultChatTransport | WebSocketChatTransport;
     messages: UIMessage[];
     id: string;
     sendAutomaticallyWhen?: (options: { messages: UIMessage[] }) => boolean;
@@ -141,10 +141,12 @@ function buildUseChatOptionsInternal({
 
   // WORKAROUND: Use prepareSendMessagesRequest to override endpoint
   // This is the proper extension point in AI SDK v6 for dynamic endpoint routing
-  const prepareSendMessagesRequest = async (options: any) => {
+  const prepareSendMessagesRequest = async (
+    options: Record<string, unknown>,
+  ) => {
     // IMPORTANT: Don't return `body` field - let AI SDK construct it
     // If we return body: {}, AI SDK will use that empty object instead of building the proper request
-    const { body, ...restOptions } = options;
+    const { body: _body, ...restOptions } = options;
     return {
       ...restOptions,
       api: apiEndpoint, // Override with correct endpoint for this mode

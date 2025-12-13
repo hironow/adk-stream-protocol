@@ -6,7 +6,7 @@
  */
 
 import path from "node:path";
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 
 export type BackendMode = "gemini" | "adk-sse" | "adk-bidi";
 
@@ -105,7 +105,7 @@ export async function getLastMessage(page: Page) {
 /**
  * Get message text content
  */
-export async function getMessageText(messageLocator: any): Promise<string> {
+export async function getMessageText(messageLocator: Locator): Promise<string> {
   return (
     (await messageLocator
       .locator('[data-testid="message-text"]')
@@ -117,7 +117,7 @@ export async function getMessageText(messageLocator: any): Promise<string> {
 /**
  * Check if message is from user or assistant
  */
-export async function isUserMessage(messageLocator: any): Promise<boolean> {
+export async function isUserMessage(messageLocator: Locator): Promise<boolean> {
   const sender = await messageLocator
     .locator('[data-testid="message-sender"]')
     .textContent();
