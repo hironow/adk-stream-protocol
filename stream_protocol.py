@@ -28,6 +28,8 @@ from google.adk.events import Event
 from google.genai import types
 from loguru import logger
 
+from chunk_logger import chunk_logger
+
 
 class AISdkFinishReason(str, enum.Enum):
     """
@@ -805,7 +807,7 @@ class StreamProtocolConverter:
         yield "data: [DONE]\n\n"
 
 
-async def stream_adk_to_ai_sdk(  # noqa: C901
+async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912, PLR0915
     event_stream: AsyncGenerator[Event, None],
     message_id: str | None = None,
     tools_requiring_approval: set[str] | None = None,
@@ -836,8 +838,33 @@ async def stream_adk_to_ai_sdk(  # noqa: C901
 
     try:
         async for event in event_stream:
+            # Chunk Logger: Record ADK event (input)
+            chunk_logger.log_chunk(
+                location="backend-adk-event",
+                direction="in",
+                chunk=repr(event),  # Use repr() for Event object
+                mode="adk-sse",
+            )
+
             # Convert and yield event: all event should be processed here!!
             async for sse_event in converter.convert_event(event):
+                # Chunk Logger: Record SSE event (output)
+                # sse_event is already a string like: "data: {...}\n\n"
+                # Extract JSON part for logging
+                if sse_event.startswith("data: "):
+                    json_str = sse_event[6:].strip()  # Remove "data: " prefix and whitespace
+                    if json_str:
+                        try:
+                            event_data = json.loads(json_str)
+                            chunk_logger.log_chunk(
+                                location="backend-sse-event",
+                                direction="out",
+                                chunk=event_data,
+                                mode="adk-sse",
+                            )
+                        except json.JSONDecodeError:
+                            pass  # Skip if not valid JSON
+
                 yield sse_event
 
             # But, extract metadata if present (for finalization)
@@ -882,4 +909,19 @@ async def stream_adk_to_ai_sdk(  # noqa: C901
             cache_metadata=cache_metadata,
             model_version=model_version,
         ):
+            # Chunk Logger: Record final SSE event (output)
+            if final_event.startswith("data: "):
+                json_str = final_event[6:].strip()
+                if json_str:
+                    try:
+                        event_data = json.loads(json_str)
+                        chunk_logger.log_chunk(
+                            location="backend-sse-event",
+                            direction="out",
+                            chunk=event_data,
+                            mode="adk-sse",
+                        )
+                    except json.JSONDecodeError:
+                        pass
+
             yield final_event
