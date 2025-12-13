@@ -8,7 +8,6 @@ This directory contains research, preliminary experiments, and exploratory imple
 
 | Date | Experiment | Status | Objective | Current Progress |
 |------|-----------|--------|-----------|------------------|
-| 2025-12-13 | [lib/ Test Coverage Investigation](./2025-12-13_lib_test_coverage_investigation.md) | 🟡 In Progress | Systematic gap analysis for lib/ test coverage to identify missing edge cases | Phase 1-3 Complete + Bug 1 Fixed (163 tests passing) |
 | 2025-12-12 | [ADK Field Mapping Completeness](./2025-12-12_adk_field_mapping_completeness.md) | 🟡 In Progress | Systematic review of all ADK Event/Part fields and their mapping to AI SDK v6 protocol | 4/5 Priority fields complete, Part.fileData remaining |
 
 ### ⚪ Planned
@@ -20,6 +19,7 @@ _No planned experiments_
 | Date | Experiment | Status | Objective | Result |
 |------|-----------|--------|-----------|--------|
 | 2025-12-14 | [Repeatable Chunk Logger & Player](./2025-12-14_repeatable_chunk_logger_player.md) | 🟢 Complete | Implement chunk recording/playback mechanism for E2E test automation and debugging | ✅ **SUCCESS** - Phase 1-4 complete: Logger (backend/frontend), Player (Python/TypeScript), E2E test infrastructure (Playwright + pytest), 4 test patterns, symlink automation, comprehensive documentation |
+| 2025-12-13 | [lib/ Test Coverage Investigation](./2025-12-13_lib_test_coverage_investigation.md) | 🟢 Complete | Systematic gap analysis for lib/ test coverage to identify missing edge cases | ✅ **SUCCESS** - Phase 1-3 complete + Bug 1 fixed, 163 tests passing (websocket-chat-transport, integration tests, sendAutomaticallyWhen complete coverage), production ready |
 | 2025-12-14 | [ADK Field Parametrized Test Coverage](./2025-12-14_adk_field_parametrized_test_coverage.md) | 🟢 Complete | Implement comprehensive parametrized test coverage for all IMPLEMENTED fields in field_coverage_config.yaml | ✅ **SUCCESS** - 100% field coverage achieved (12/12 Event fields, 7/7 Part fields), added 12 new parametrized tests (8 Python + 4 TypeScript), all critical gaps resolved |
 | 2025-12-14 | [Analysis Target Verification](./2025-12-14_analysis_target_verification.md) | 🟢 Complete | Verify code-based analysis targets for ADK field coverage tracking | ✅ **SUCCESS** - Confirmed stream_protocol.py + server.py as correct targets, excluded ai_sdk_v6_compat.py (reverse conversion), improved regex patterns |
 | 2025-12-12 | [Audio Stream Completion Notification + Frontend Recording](./2025-12-12_audio_stream_completion_notification.md) | 🟢 Complete | Implement frontend notification when audio streaming completes + add audio recording for message replay ([ST-1]) | ✅ **SUCCESS** - Audio completion callback working, PCM buffering implemented, WAV conversion complete, HTML5 audio playback integrated |
