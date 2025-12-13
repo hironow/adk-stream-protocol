@@ -767,20 +767,23 @@ Legend / 凡例:
 4. **Frontend**: User clicks [Approve]
    - Calls `addToolApprovalResponse({ id: "approval-1", approved: true })`
    - State updates to `"approval-responded"`
-   - **Note**: Auto-submit does NOT happen yet (condition 2 not satisfied)
+   - **Note**: If this is the ONLY tool, auto-submit happens immediately
+   - **Note**: If multiple tools exist, waits until ALL tools are complete
 5. **Frontend**: Execute browser API
    - AudioContext: `audioContext.switchTrack(...)`
    - Geolocation: `navigator.geolocation.getCurrentPosition(...)`
    - Calls `addToolOutput({ toolCallId: "call-1", output: {...} })`
    - State updates to `"output-available"`
-   - **Note**: Both conditions now satisfied → triggers auto-submit
+   - **Note**: Auto-submit timing depends on whether other tools are incomplete
 
 **Step 6-7: Frontend → Backend (Auto-Submit)**
 
-6. **Frontend**: `sendAutomaticallyWhen` triggers (after BOTH APIs called)
+6. **Frontend**: `sendAutomaticallyWhen` triggers when conditions are met
    - Condition 1: At least one `approval-responded` exists ✅
    - Condition 2: All tools are complete (`output-available`, `output-error`, or `approval-responded`) ✅
-   - **Sends once with BOTH results combined** (not sent twice)
+   - **Timing**: Depends on number of tools (see Auto-Submit Behavior section)
+   - **Single tool**: Auto-submit after `addToolApprovalResponse` (Step 4)
+   - **Multiple tools**: Auto-submit after last tool completes (Step 5 or later)
    - Auto-sends `tool-result` event to backend
 7. **Backend**: Receives result
    - `FrontendToolDelegate.resolve_tool_result(...)` called
@@ -801,7 +804,9 @@ addToolApprovalResponse({
   approved: true,
   reason: "User approved BGM change"
 });
-// ⚠️ Auto-submit does NOT happen yet (condition 2 not satisfied)
+// ⚠️ Auto-submit timing depends on number of tools:
+//    - Single tool: Auto-submit happens NOW (all tools complete)
+//    - Multiple tools: Waits until ALL tools complete
 
 // Step 5: Execute and provide result
 const result = await audioContext.switchTrack(args.track_name);
@@ -811,8 +816,9 @@ addToolOutput({
   output: { success: true, track: args.track_name }
 });
 
-// Step 6: Auto-submit happens automatically NOW
-// ✅ Sends once with BOTH approval response + tool output combined
+// Step 6: Auto-submit (if not already sent in Step 4)
+// Note: Single tool scenarios already sent in Step 4
+// Multiple tool scenarios send when last tool completes
 // (no manual call needed, no duplicate sends)
 ```
 
@@ -829,16 +835,29 @@ addToolOutput({
 
 Automatically sends results back to backend when **BOTH** conditions are met:
 
-1. **At least one `approval-responded` exists** (user approved at least one tool)
+1. **At least one `approval-responded` exists** (user approved/rejected at least one tool)
 2. **All tools are complete** (every tool is `output-available`, `output-error`, or `approval-responded`)
 
-**Examples:**
+**IMPORTANT:** The `approved` value (true/false) does NOT affect auto-submit timing. What matters is the **state** (`approval-responded`) and whether **ALL tools are complete**.
 
-| Scenario | Condition 1 | Condition 2 | Auto-Submit? |
-|----------|-------------|-------------|--------------|
-| User approves + provides output | ✅ | ✅ | ✅ YES |
-| Only `addToolOutput` (no approval) | ❌ | Partial | ❌ NO |
-| Mixed: Tool A approved + Tool B output | ✅ | ✅ | ✅ YES |
+**Timing Examples:**
+
+| Scenario | Tools | After `addToolApprovalResponse` | After `addToolOutput` | When Auto-Submit? |
+|----------|-------|--------------------------------|----------------------|-------------------|
+| **Single tool approval** | 1 tool | All complete ✅ | Already sent | ✅ Step 4 (immediate) |
+| **Single tool rejection** | 1 tool | All complete ✅ | Already sent | ✅ Step 4 (immediate) |
+| **Multiple tools (mixed)** | 2+ tools | Tool-1 complete, Tool-2 waiting ⏳ | All complete ✅ | ✅ When last tool completes |
+| **Output only (no approval)** | 1 tool | N/A | Condition 1 ❌ | ❌ Never (no approval-responded) |
+
+**Key Insights:**
+
+- **Single tool**: Auto-submit happens after `addToolApprovalResponse` (all tools complete)
+  - `approved: true` → immediate submit
+  - `approved: false` → immediate submit (same timing)
+- **Multiple tools**: Auto-submit waits until ALL tools are complete
+  - Doesn't matter which tool is approved/rejected
+  - Only matters that ALL tools reach complete state
+- **The `approved` value is sent to backend** but doesn't affect timing
 
 **Alternative:** If you need auto-submit on tool output only (without approval), use `lastAssistantMessageIsCompleteWithToolCalls` instead.
 

@@ -215,18 +215,22 @@ addToolOutput({
 
 ## Behavior Comparison Matrix
 
-### Scenario 1: Tool with Approval Only
+**IMPORTANT:** The `approved` value (true/false) in `approval-responded` state does NOT affect auto-submit behavior. Only the **state** and **all tools complete** conditions matter.
+
+### Scenario 1: Single Tool with Approval Response
 
 **State:**
 ```javascript
 parts: [
-  { toolCallId: "1", state: "approval-responded" }
+  { toolCallId: "1", state: "approval-responded", approval: { approved: true/false } }
 ]
 ```
 
+**Note:** This scenario applies to BOTH `approved: true` AND `approved: false`. The timing is identical.
+
 | Function | Result | Reason |
 |----------|--------|--------|
-| `...WithApprovalResponses` | ✅ **Auto-submit** | Condition 1: ✅ Condition 2: ✅ |
+| `...WithApprovalResponses` | ✅ **Auto-submit** | Condition 1: ✅ Condition 2: ✅ (only 1 tool, complete) |
 | `...WithToolCalls` | ❌ **No submit** | Not `output-available` |
 
 ### Scenario 2: Tool with Output Only
@@ -243,19 +247,21 @@ parts: [
 | `...WithApprovalResponses` | ❌ **No submit** | Condition 1: ❌ (no approval) |
 | `...WithToolCalls` | ✅ **Auto-submit** | Has output |
 
-### Scenario 3: Mixed - Approval + Output
+### Scenario 3: Multiple Tools - Mixed States
 
 **State:**
 ```javascript
 parts: [
-  { toolCallId: "1", state: "approval-responded" },
+  { toolCallId: "1", state: "approval-responded", approval: { approved: true/false } },
   { toolCallId: "2", state: "output-available", output: {...} }
 ]
 ```
 
+**Note:** This scenario applies regardless of `approved` value in Tool-1. What matters is that ALL tools are complete.
+
 | Function | Result | Reason |
 |----------|--------|--------|
-| `...WithApprovalResponses` | ✅ **Auto-submit** | Condition 1: ✅ Condition 2: ✅ |
+| `...WithApprovalResponses` | ✅ **Auto-submit** | Condition 1: ✅ Condition 2: ✅ (both tools complete) |
 | `...WithToolCalls` | ❌ **No submit** | Tool-1 has no output |
 
 ### Scenario 4: Incomplete Tools
@@ -459,11 +465,18 @@ Complete test matrix coverage for all conditional logic branches.
 |--------|----------------------|---------------|
 | **承認が必要** | ✅ Yes | ❌ No |
 | **出力が必要** | ⚠️ Optional | ✅ Yes |
-| **承認のみで送信** | ✅ Yes | ❌ No |
+| **承認のみで送信** | ✅ Yes (single tool) | ❌ No |
 | **出力のみで送信** | ❌ No | ✅ Yes |
-| **混在で送信** | ✅ Yes | ⚠️ Depends |
+| **混在で送信** | ✅ Yes (all tools complete) | ⚠️ Depends |
+| **approved値の影響** | ❌ No (timing unaffected) | N/A |
 | **ユースケース** | Frontend-delegated | Server-side |
 | **このプロジェクト** | ✅ 使用中 | - |
+
+**重要な注意点:**
+- `approved: true` と `approved: false` の動作は**完全に同じ**（タイミングに影響なし）
+- 単一ツール: `addToolApprovalResponse` 後に即座に送信
+- 複数ツール: 全ツール完了後に送信
+- `approved` 値はバックエンドに送信されるが、auto-submitのタイミングには影響しない
 
 ### Design Decision
 
