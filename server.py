@@ -648,7 +648,7 @@ async def stream(request: ChatRequest):
 
 
 @app.websocket("/live")
-async def live_chat(websocket: WebSocket):
+async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
     """
     WebSocket endpoint for bidirectional streaming with ADK BIDI mode (Phase 3).
 
@@ -787,7 +787,7 @@ async def live_chat(websocket: WebSocket):
         logger.info("[BIDI] ADK live stream started")
 
         # Task 1: Receive messages from WebSocket → send to LiveRequestQueue
-        async def receive_from_client():
+        async def receive_from_client():  # noqa: C901, PLR0912
             try:
                 while True:
                     data = await websocket.receive_text()

@@ -255,12 +255,12 @@ class TestToolExecutionConversion:
         assert actual_types == expected_event_types
 
         # Verify tool-input-start
-        tool_start = [e for e in parsed_events if e["type"] == "tool-input-start"][0]
+        tool_start = next(e for e in parsed_events if e["type"] == "tool-input-start")
         assert tool_start["toolName"] == tool_name
         assert "toolCallId" in tool_start
 
         # Verify tool-input-available
-        tool_available = [e for e in parsed_events if e["type"] == "tool-input-available"][0]
+        tool_available = next(e for e in parsed_events if e["type"] == "tool-input-available")
         assert tool_available["toolName"] == tool_name
         assert tool_available["input"] == tool_args
         assert tool_available["toolCallId"] == tool_start["toolCallId"]
@@ -303,7 +303,7 @@ class TestToolExecutionConversion:
         assert actual_types == expected_event_types
 
         # Verify tool-output-available
-        tool_result = [e for e in parsed_events if e["type"] == "tool-output-available"][0]
+        tool_result = next(e for e in parsed_events if e["type"] == "tool-output-available")
         assert tool_result["output"] == tool_output
         assert "toolCallId" in tool_result
 
@@ -338,9 +338,9 @@ class TestToolExecutionConversion:
         result_parsed = [parse_sse_event(e) for e in result_events]
 
         # Extract toolCallIds
-        call_start = [e for e in call_parsed if e["type"] == "tool-input-start"][0]
-        call_available = [e for e in call_parsed if e["type"] == "tool-input-available"][0]
-        result_available = [e for e in result_parsed if e["type"] == "tool-output-available"][0]
+        call_start = next(e for e in call_parsed if e["type"] == "tool-input-start")
+        call_available = next(e for e in call_parsed if e["type"] == "tool-input-available")
+        result_available = next(e for e in result_parsed if e["type"] == "tool-output-available")
 
         call_id = call_start["toolCallId"]
         available_id = call_available["toolCallId"]
@@ -807,11 +807,11 @@ class TestMultiPartMessages:
         ]
 
         # Verify text content
-        text_delta = [e for e in parsed_events if e["type"] == "text-delta"][0]
+        text_delta = next(e for e in parsed_events if e["type"] == "text-delta")
         assert text_delta["delta"] == "Here is an image:"
 
         # Verify image content
-        file_event = [e for e in parsed_events if e["type"] == "file"][0]
+        file_event = next(e for e in parsed_events if e["type"] == "file")
         assert file_event["mediaType"] == "image/png"
         assert file_event["url"].startswith("data:image/png;base64,")
 

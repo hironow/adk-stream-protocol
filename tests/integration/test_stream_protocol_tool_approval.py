@@ -134,7 +134,7 @@ async def test_stream_protocol_tracks_pending_approvals(
 
     # Extract approvalId from generated event
     # (In real implementation, frontend would use this)
-    approval_id = list(converter.pending_approvals.keys())[0]
+    approval_id = next(iter(converter.pending_approvals.keys()))
     tool_call_id = converter.pending_approvals[approval_id]
 
     assert tool_call_id == "call_abc123"

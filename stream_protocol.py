@@ -167,7 +167,7 @@ class StreamProtocolConverter:
         logger.debug(f"[ADK→SSE] {event_data}")
         return f"data: {json.dumps(event_data)}\n\n"
 
-    async def convert_event(self, event: Event) -> AsyncGenerator[str, None]:
+    async def convert_event(self, event: Event) -> AsyncGenerator[str, None]:  # noqa: C901, PLR0912, PLR0915
         """
         Convert a single ADK event to AI SDK v6 SSE events.
 
@@ -661,7 +661,7 @@ class StreamProtocolConverter:
         )
         return []
 
-    async def finalize(
+    async def finalize(  # noqa: C901, PLR0912, PLR0915, PLR0913
         self,
         usage_metadata: Any | None = None,
         error: Exception | None = None,
@@ -805,7 +805,7 @@ class StreamProtocolConverter:
         yield "data: [DONE]\n\n"
 
 
-async def stream_adk_to_ai_sdk(
+async def stream_adk_to_ai_sdk(  # noqa: C901
     event_stream: AsyncGenerator[Event, None],
     message_id: str | None = None,
     tools_requiring_approval: set[str] | None = None,
