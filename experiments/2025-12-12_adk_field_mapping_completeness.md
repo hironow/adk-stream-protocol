@@ -221,18 +221,18 @@ Transcription(
 | `usageMetadata` | ✅ Implemented | `finish.messageMetadata.usage` | High | Token usage stats |
 | `finishReason` | ✅ Implemented | `finish.finishReason` | High | Why generation stopped |
 | `outputTranscription` | ✅ Implemented (2025-12-12) | `text-start/delta/end` | High | Native-audio model transcription |
-| `inputTranscription` | ❌ Not implemented | TBD | Medium | User audio transcription |
-| `groundingMetadata` | ❌ Not implemented | TBD | Medium | Grounding sources/attributions |
-| `citationMetadata` | ❌ Not implemented | TBD | Medium | Citation information |
+| `inputTranscription` | ✅ Implemented (2025-12-13) | `text-start/delta/end` | Medium | User audio transcription (stream_protocol.py:308-349) |
+| `groundingMetadata` | ✅ Implemented (2025-12-13) | `finish.messageMetadata.grounding` | Medium | Grounding sources/attributions (stream_protocol.py:744-762) |
+| `citationMetadata` | ✅ Implemented (2025-12-13) | `finish.messageMetadata.citations` | Medium | Citation information (stream_protocol.py:763-781) |
 | `logprobsResult` | ❌ Not implemented | TBD | Low | Token log probabilities |
 | `avgLogprobs` | ❌ Not implemented | TBD | Low | Average log probabilities |
-| `cacheMetadata` | ❌ Not implemented | TBD | Low | Context caching info |
+| `cacheMetadata` | ✅ Implemented (2025-12-13) | `finish.messageMetadata.cache` | Low | Context caching info (components/message.tsx:506-529) |
 | `liveSessionResumptionUpdate` | ❌ Not implemented | TBD | Low | Session resumption state |
-| `errorCode` | ⚠️ Partial | `error` event (only via finalize) | Critical | Error signaling |
-| `errorMessage` | ⚠️ Partial | `error` event (only via finalize) | Critical | Error details |
+| `errorCode` | ✅ Implemented (2025-12-13) | `error` event (immediate detection) | Critical | Error signaling (stream_protocol.py:181-187) |
+| `errorMessage` | ✅ Implemented (2025-12-13) | `error` event (immediate detection) | Critical | Error details (stream_protocol.py:181-187) |
 | `interrupted` | ❌ Not implemented | TBD | Medium | Interruption signal |
 | `customMetadata` | ❌ Not implemented | TBD | Low | User-defined metadata |
-| `modelVersion` | ❌ Not implemented | TBD | Low | Model version info |
+| `modelVersion` | ✅ Implemented (2025-12-13) | `finish.messageMetadata.modelVersion` | Low | Model version info (components/message.tsx:531-548) |
 | `partial` | ❌ Not implemented | TBD | Low | Partial response flag |
 | `invocationId` | ❌ Not implemented | TBD | Low | Request tracking |
 | `author` | ❌ Not implemented | TBD | Low | Event author |

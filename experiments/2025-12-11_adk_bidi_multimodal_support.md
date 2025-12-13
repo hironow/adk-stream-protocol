@@ -1,7 +1,7 @@
 # ADK BIDI Multimodal Support in AI SDK v6 Data Stream Protocol
 
 **Date:** 2025-12-11
-**Status:** 🟡 In Progress
+**Status:** 🟢 Complete (Phase 1-3: Images, Audio Output, Audio Input)
 **Objective:** Investigate and implement ADK BIDI mode's multimodal capabilities (audio, video, images) within AI SDK v6 Data Stream Protocol constraints
 
 ## Background
@@ -712,7 +712,7 @@ See `agents/tasks.md` for complete task breakdown with code examples and accepta
 1. ✅ **Phase 1 (Image Support):** Complete - Working with custom UI
 2. ✅ **Phase 2 (Audio Output):** Complete - PCM direct streaming working
 3. ⏸️ **Phase 2.1 (Reconnection Fix):** Deferred - Known issue with workaround
-4. ⬜ **Phase 3 (Audio Input):** Future - Requires Web Audio API integration
+4. ✅ **Phase 3 (Audio Input):** Complete - AudioWorklet PCM recording, CMD key push-to-talk implemented (lib/audio-recorder.ts, components/chat.tsx:226-243)
 5. ⬜ **Phase 4 (Video):** Future - Similar approach to audio
 
 The "forcing" strategy works best for static multimodal content (images, documents) using AI SDK's extensible `data-*` event pattern. Real-time audio/video requires stepping outside `useChat` limitations with custom React components.

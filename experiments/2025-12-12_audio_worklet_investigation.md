@@ -2,7 +2,7 @@
 
 **Date**: 2025-12-12
 **Objective**: Fix audio playback in ADK BIDI mode that restarts on every chunk
-**Status**: 🟡 In Progress - Root cause identified
+**Status**: 🟢 Complete
 
 ## Background
 
