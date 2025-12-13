@@ -8,6 +8,7 @@ Phase 1 (gemini) uses direct Gemini API and doesn't require this backend.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 from datetime import datetime
@@ -22,6 +23,7 @@ from fastapi.responses import StreamingResponse
 from google.adk.agents import Agent, LiveRequestQueue
 from google.adk.agents.run_config import RunConfig, StreamingMode
 from google.adk.runners import InMemoryRunner
+from google.adk.tools.tool_context import ToolContext
 from google.genai import types
 from loguru import logger
 from pydantic import BaseModel, Field, field_validator
@@ -69,6 +71,101 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ========== Frontend Tool Delegation (Phase 4 - Awaitable Pattern) ==========
+# Implements AP2-style awaitable delegation for client-side tools
+
+
+class FrontendToolDelegate:
+    """
+    Makes frontend tool execution awaitable using asyncio.Future.
+
+    This enables AP2-style delegation where tools await results from
+    the frontend (browser), similar to how AP2 tools await results
+    from remote agents via A2A protocol.
+
+    Pattern:
+        1. Tool calls execute_on_frontend() with tool_call_id
+        2. Future is created and stored in _pending_calls
+        3. Tool awaits the Future (blocks)
+        4. Frontend executes tool and sends result via WebSocket
+        5. WebSocket handler calls resolve_tool_result()
+        6. Future is resolved, tool resumes and returns result
+    """
+
+    def __init__(self):
+        """Initialize the delegate with empty pending calls dict."""
+        self._pending_calls: dict[str, asyncio.Future] = {}
+
+    async def execute_on_frontend(
+        self, tool_call_id: str, tool_name: str, args: dict[str, Any]
+    ) -> dict[str, Any]:
+        """
+        Delegate tool execution to frontend and await result.
+
+        This method makes frontend delegation awaitable, similar to
+        AP2's `await send_a2a_message()` pattern.
+
+        Args:
+            tool_call_id: ADK's function_call.id (from ToolContext)
+            tool_name: Name of the tool to execute
+            args: Tool arguments
+
+        Returns:
+            Result dict from frontend execution
+
+        Flow:
+            1. Create Future for this tool_call_id
+            2. stream_protocol will send function_call event
+            3. Frontend receives event and executes tool
+            4. Frontend sends tool_result via WebSocket
+            5. WebSocket handler calls resolve_tool_result()
+            6. Future is resolved, this method returns result
+        """
+        future: asyncio.Future[dict[str, Any]] = asyncio.Future()
+        self._pending_calls[tool_call_id] = future
+
+        logger.info(
+            f"[FrontendDelegate] Awaiting result for tool_call_id={tool_call_id}, "
+            f"tool={tool_name}, args={args}"
+        )
+
+        # Await frontend result (blocks here until result arrives)
+        result = await future
+
+        logger.info(
+            f"[FrontendDelegate] Received result for tool_call_id={tool_call_id}: {result}"
+        )
+
+        return result
+
+    def resolve_tool_result(self, tool_call_id: str, result: dict[str, Any]) -> None:
+        """
+        Resolve a pending tool call with its result.
+
+        Called by WebSocket handler when frontend sends tool_result event.
+
+        Args:
+            tool_call_id: The tool call ID to resolve
+            result: Result dict from frontend execution
+        """
+        if tool_call_id in self._pending_calls:
+            logger.info(
+                f"[FrontendDelegate] Resolving tool_call_id={tool_call_id} "
+                f"with result: {result}"
+            )
+            self._pending_calls[tool_call_id].set_result(result)
+            del self._pending_calls[tool_call_id]
+        else:
+            logger.warning(
+                f"[FrontendDelegate] Received result for unknown "
+                f"tool_call_id={tool_call_id}"
+            )
+
+
+# Global frontend delegate instance
+frontend_delegate = FrontendToolDelegate()
 
 
 # ========== Tool Definitions ==========
@@ -238,6 +335,80 @@ def get_current_time(timezone: str = "UTC") -> dict[str, Any]:
     return result
 
 
+async def change_bgm(track: int, tool_context: ToolContext) -> dict[str, Any]:
+    """
+    Change background music track (executed on frontend via browser AudioContext API).
+
+    This tool requires user approval before execution and delegates actual
+    execution to the frontend browser.
+
+    Args:
+        track: Track number (0 or 1)
+        tool_context: ADK ToolContext (automatically injected)
+
+    Returns:
+        Result of BGM change operation from frontend
+    """
+    tool_call_id = tool_context.function_call_id
+    if not tool_call_id:
+        error_msg = "Missing function_call_id in ToolContext"
+        logger.error(f"[change_bgm] {error_msg}")
+        return {"success": False, "error": error_msg}
+
+    logger.info(
+        f"[change_bgm] Delegating to frontend: tool_call_id={tool_call_id}, track={track}"
+    )
+
+    # Delegate execution to frontend and await result
+    result = await frontend_delegate.execute_on_frontend(
+        tool_call_id=tool_call_id,
+        tool_name="change_bgm",
+        args={"track": track}
+    )
+
+    logger.info(f"[change_bgm] Received result from frontend: {result}")
+    return result
+
+
+async def get_location(tool_context: ToolContext) -> dict[str, Any]:
+    """
+    Get user's current location (executed on frontend via browser Geolocation API).
+
+    This tool requires user approval before execution due to privacy sensitivity
+    and delegates actual execution to the frontend browser.
+
+    Args:
+        tool_context: ADK ToolContext (automatically injected)
+
+    Returns:
+        User's location information from browser Geolocation API
+    """
+    tool_call_id = tool_context.function_call_id
+    if not tool_call_id:
+        error_msg = "Missing function_call_id in ToolContext"
+        logger.error(f"[get_location] {error_msg}")
+        return {"success": False, "error": error_msg}
+
+    logger.info(
+        f"[get_location] Delegating to frontend: tool_call_id={tool_call_id}"
+    )
+
+    # Delegate execution to frontend and await result
+    result = await frontend_delegate.execute_on_frontend(
+        tool_call_id=tool_call_id,
+        tool_name="get_location",
+        args={}
+    )
+
+    logger.info(f"[get_location] Received result from frontend: {result}")
+    return result
+
+
+# ========== Tool Approval Configuration ==========
+# Tools that require user approval before execution (Phase 4)
+TOOLS_REQUIRING_APPROVAL = {"change_bgm", "get_location"}
+
+
 # ========== ADK Agent Setup ==========
 # Based on official ADK quickstart examples
 # https://google.github.io/adk-docs/get-started/quickstart/
@@ -257,32 +428,38 @@ else:
 sse_agent = Agent(
     name="adk_assistant_agent_sse",
     model="gemini-2.5-flash",  # Stable Gemini 2.5 Flash for generateContent API (SSE mode)
-    description="An intelligent assistant that can check weather, perform calculations, and get current time",
+    description="An intelligent assistant that can check weather, perform calculations, control BGM, and access location",
     instruction=(
         "You are a helpful AI assistant with access to real-time tools. "
         "Use the available tools when needed to provide accurate information:\n"
         "- get_weather: Check weather for any city\n"
         "- calculate: Perform mathematical calculations\n"
-        "- get_current_time: Get the current time\n\n"
+        "- get_current_time: Get the current time\n"
+        "- change_bgm: Change background music track (requires user approval)\n"
+        "- get_location: Get user's location (requires user approval)\n\n"
+        "Note: change_bgm and get_location require user approval before execution.\n"
         "Always explain what you're doing when using tools."
     ),
-    tools=[get_weather, calculate, get_current_time],
+    tools=[get_weather, calculate, get_current_time, change_bgm, get_location],
 )
 
 # BIDI Agent: Uses Live API model for bidirectional streaming
 bidi_agent = Agent(
     name="adk_assistant_agent_bidi",
     model="gemini-2.5-flash-native-audio-preview-09-2025",  # Live API model for BIDI mode with audio support
-    description="An intelligent assistant that can check weather, perform calculations, and get current time",
+    description="An intelligent assistant that can check weather, perform calculations, control BGM, and access location",
     instruction=(
         "You are a helpful AI assistant with access to real-time tools. "
         "Use the available tools when needed to provide accurate information:\n"
         "- get_weather: Check weather for any city\n"
         "- calculate: Perform mathematical calculations\n"
-        "- get_current_time: Get the current time\n\n"
+        "- get_current_time: Get the current time\n"
+        "- change_bgm: Change background music track (requires user approval)\n"
+        "- get_location: Get user's location (requires user approval)\n\n"
+        "Note: change_bgm and get_location require user approval before execution.\n"
         "Always explain what you're doing when using tools."
     ),
-    tools=[get_weather, calculate, get_current_time],
+    tools=[get_weather, calculate, get_current_time, change_bgm, get_location],
 )
 
 # Initialize InMemoryRunners for each agent
@@ -390,8 +567,11 @@ async def stream_agent_chat(messages: list[ChatMessage], user_id: str = "default
     )
 
     # Convert ADK stream to AI SDK v6 format using protocol converter
+    # Phase 4: Pass tools_requiring_approval for tool approval flow
     event_count = 0
-    async for sse_event in stream_adk_to_ai_sdk(event_stream):
+    async for sse_event in stream_adk_to_ai_sdk(
+        event_stream, tools_requiring_approval=TOOLS_REQUIRING_APPROVAL
+    ):
         event_count += 1
         yield sse_event
 
@@ -975,15 +1155,23 @@ async def live_chat(websocket: WebSocket):
                     elif event_type == "tool_result":
                         result_data = event.get("data", {})
                         tool_call_id = result_data.get("toolCallId")
-                        # result = result_data.get("result")  # TODO: Use in Phase 4
+                        result = result_data.get("result")
                         status = result_data.get("status", "approved")
+
                         logger.info(
                             f"[Tool] Received result for {tool_call_id} (status: {status})"
                         )
-                        # TODO: Implement tool result handling in Phase 4
-                        # This will involve sending the result back to ADK
-                        # For now, just log the event - actual tool result forwarding
-                        # to ADK will be implemented in Phase 4
+
+                        # Phase 4: Resolve awaitable tool execution
+                        if tool_call_id and result is not None:
+                            frontend_delegate.resolve_tool_result(tool_call_id, result)
+                            logger.info(
+                                f"[Tool] Resolved pending tool call {tool_call_id}"
+                            )
+                        else:
+                            logger.warning(
+                                f"[Tool] Missing tool_call_id or result in tool_result event: {result_data}"
+                            )
 
                     # Unknown event type
                     else:
@@ -1007,7 +1195,10 @@ async def live_chat(websocket: WebSocket):
                 # This is the SAME converter used in SSE mode (/stream endpoint)
                 # We reuse 100% of the conversion logic - only transport layer differs
                 # WebSocket mode: Send SSE format over WebSocket (instead of HTTP SSE)
-                async for sse_event in stream_adk_to_ai_sdk(live_events):
+                # Phase 4: Pass tools_requiring_approval for tool approval flow
+                async for sse_event in stream_adk_to_ai_sdk(
+                    live_events, tools_requiring_approval=TOOLS_REQUIRING_APPROVAL
+                ):
                     event_count += 1
                     # Send SSE-formatted event as WebSocket text message
                     # Frontend will parse "data: {...}" format and extract UIMessageChunk

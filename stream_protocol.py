@@ -115,12 +115,17 @@ class StreamProtocolConverter:
     - Usage metadata
     """
 
-    def __init__(self, message_id: str | None = None):
+    def __init__(
+        self,
+        message_id: str | None = None,
+        tools_requiring_approval: set[str] | None = None,
+    ):
         """
         Initialize converter.
 
         Args:
             message_id: Optional message ID. Generated if not provided.
+            tools_requiring_approval: Set of tool names that require user approval before execution.
         """
         self.message_id = message_id or str(uuid.uuid4())
         self.part_id_counter = 0
@@ -138,6 +143,10 @@ class StreamProtocolConverter:
         # Track output transcription text blocks (AI audio response in native-audio models)
         self._output_text_block_id: str | None = None
         self._output_text_block_started = False
+        # Phase 4: Tool approval configuration
+        self.tools_requiring_approval = tools_requiring_approval or set()
+        # Track pending approvals (approvalId -> toolCallId mapping)
+        self.pending_approvals: dict[str, str] = {}
 
     def _generate_part_id(self) -> str:
         """Generate unique part ID."""
@@ -450,7 +459,10 @@ class StreamProtocolConverter:
         return self._create_streaming_events("reasoning", thought)
 
     def _process_function_call(self, function_call: types.FunctionCall) -> list[str]:
-        """Process function call into tool-input-* events (AI SDK v6 spec)."""
+        """Process function call into tool-input-* events (AI SDK v6 spec).
+
+        Phase 4: If tool requires approval, also generate tool-approval-request event.
+        """
         tool_call_id = self._generate_tool_call_id()
         tool_name = function_call.name
         tool_args = function_call.args
@@ -480,6 +492,23 @@ class StreamProtocolConverter:
                 }
             ),
         ]
+
+        # Phase 4: Generate tool-approval-request event if tool requires approval
+        if tool_name in self.tools_requiring_approval:
+            approval_id = str(uuid.uuid4())
+            self.pending_approvals[approval_id] = tool_call_id
+
+            logger.info(
+                f"[Tool Approval] Tool '{tool_name}' requires approval (approval_id={approval_id}, tool_call_id={tool_call_id})"
+            )
+
+            # Generate AI SDK v6 tool-approval-request event
+            # Reference: experiments/2025-12-13_bidirectional_protocol_investigation.md
+            # SSE Format: event: tool-approval-request
+            #             data: {"type":"tool-approval-request","approvalId":"...","toolCallId":"..."}
+            approval_event = f'event: tool-approval-request\ndata: {json.dumps({"type": "tool-approval-request", "approvalId": approval_id, "toolCallId": tool_call_id})}\n\n'
+            events.append(approval_event)
+
         return events
 
     def _process_function_response(
@@ -801,7 +830,9 @@ class StreamProtocolConverter:
 
 
 async def stream_adk_to_ai_sdk(
-    event_stream: AsyncGenerator[Event, None], message_id: str | None = None
+    event_stream: AsyncGenerator[Event, None],
+    message_id: str | None = None,
+    tools_requiring_approval: set[str] | None = None,
 ) -> AsyncGenerator[str, None]:
     """
     Convert ADK event stream to AI SDK v6 Data Stream Protocol.
@@ -809,6 +840,7 @@ async def stream_adk_to_ai_sdk(
     Args:
         event_stream: AsyncGenerator of ADK Event objects
         message_id: Optional message ID
+        tools_requiring_approval: Set of tool names that require user approval (Phase 4)
 
     Yields:
         SSE-formatted event strings
@@ -817,7 +849,7 @@ async def stream_adk_to_ai_sdk(
         >>> async for sse_event in stream_adk_to_ai_sdk(agent_runner.run_async(...)):
         ...     yield sse_event
     """
-    converter = StreamProtocolConverter(message_id)
+    converter = StreamProtocolConverter(message_id, tools_requiring_approval)
     error_list = []
     usage_metadata_list = []
     finish_reason_list = []

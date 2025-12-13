@@ -23,6 +23,73 @@ _No planned experiments_
 | 2025-12-11 | [E2E Test Timeout Investigation](./2025-12-11_e2e_test_timeout_investigation.md) | 🟢 Complete | Fix AI SDK v6 endpoint switching bug causing E2E test failures | ✅ **RESOLVED** - Manual DefaultChatTransport creation with prepareSendMessagesRequest hook |
 | 2025-12-11 | [ADK BIDI Multimodal Support](./2025-12-11_adk_bidi_multimodal_support.md) | 🟢 Complete | Investigate and implement ADK BIDI mode's multimodal capabilities (images, audio, video) | ✅ **SUCCESS** - Image support complete, AudioWorklet PCM streaming working, dual-path routing implemented |
 | 2025-12-11 | [ADK BIDI + AI SDK v6 Integration](./2025-12-11_adk_bidi_ai_sdk_v6_integration.md) | 🟢 Complete | Investigate compatibility between AI SDK v6 useChat and ADK BIDI mode for bidirectional streaming | ✅ **SUCCESS** - Full BIDI integration working with WebSocket transport, tool calling functional |
+| 2025-12-13 | [Bidirectional Protocol Investigation](./2025-12-13_bidirectional_protocol_investigation.md) | 🟢 Complete | Phase 4 Tool Approval - Client-side tool execution with user approval | ✅ **SUCCESS** - Awaitable delegation pattern implemented, AI SDK v6 standard API integration |
+
+## Critical Architecture Decisions
+
+### Phase 4: Tool Approval Architecture (2025-12-13)
+
+**CRITICAL UNDERSTANDING - DO NOT FORGET:**
+
+#### Why `onToolCall` is NOT Used
+
+**Frontend uses AI SDK v6 standard API:**
+```typescript
+const { messages, addToolOutput, addToolApprovalResponse } = useChat(useChatOptions);
+```
+
+**NOT:**
+```typescript
+const { onToolCall } = useChat({ ... }); // ❌ We don't use this
+```
+
+**Reason:**
+- `onToolCall` is for **client-side local tool execution** (tools defined only in frontend)
+- Our tools are defined in **backend (server.py)** for AI awareness
+- Backend **delegates execution** to frontend, not frontend executing independently
+- Tool call events come **from backend** → Frontend receives and executes → Sends results back
+
+#### Data Flow (Data Stream Protocol)
+
+```
+1. Backend (server.py):
+   - AI requests tool → ADK generates function_call
+   - Tool function: await frontend_delegate.execute_on_frontend(...)
+   - Awaits result from frontend (asyncio.Future)
+
+2. Frontend (useChat):
+   - Receives tool-call event (Data Stream Protocol)
+   - Shows approval dialog
+   - User approves → addToolApprovalResponse()
+   - Executes browser API (AudioContext, Geolocation)
+   - Sends result → addToolOutput()
+
+3. Backend (server.py):
+   - Receives tool-result event (Data Stream Protocol via WebSocket)
+   - FrontendToolDelegate.resolve_tool_result()
+   - Future resolves → Tool function returns result
+   - ADK continues with result
+```
+
+#### Key Components
+
+**Backend (server.py):**
+- `FrontendToolDelegate`: Creates asyncio.Future, awaits frontend execution
+- `change_bgm`, `get_location`: async tools with ToolContext
+- WebSocket handler: Resolves Future when tool-result received
+
+**Frontend:**
+- Uses AI SDK v6 **standard functions**: `addToolOutput`, `addToolApprovalResponse`
+- Does NOT use `onToolCall` callback
+- Browser APIs execute after approval: `audioContext.switchTrack()`, `navigator.geolocation.getCurrentPosition()`
+
+**Why This Works:**
+- `addToolOutput()` sends Data Stream Protocol `tool-result` event
+- Both ADK SSE and ADK BIDI use **same protocol format**
+- Transport layer (HTTP SSE vs WebSocket) is abstracted
+- Backend server.py processes events uniformly
+
+**Reference:** experiments/2025-12-13_bidirectional_protocol_investigation.md
 
 ## Directory Structure
 

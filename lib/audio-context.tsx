@@ -38,7 +38,7 @@ interface AudioMetadata {
   duration: number;
 }
 
-interface AudioContextValue {
+export interface AudioContextValue {
   // Voice channel (PCM streaming)
   voiceChannel: {
     isPlaying: boolean;
