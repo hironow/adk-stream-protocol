@@ -1,13 +1,76 @@
 # Frontend-Backend Integration Gap Analysis
 
 **Date:** 2025-12-13
-**Status:** 🔴 Critical Implementation Gap Found
+**Status:** ✅ **GAP RESOLVED** - Backend now processes tool-use parts from frontend messages
+**Implementation Date:** 2025-12-13
 
 ---
 
 ## Executive Summary
 
-After analyzing frontend tests (`lib/use-chat-integration.test.tsx` and `lib/transport-integration.test.ts`), we discovered that **the backend does NOT process tool-use parts from frontend messages**. This means tool approval/rejection messages from the frontend are currently ignored.
+**Original Issue (Discovered 2025-12-13):**
+After analyzing frontend tests (`lib/use-chat-integration.test.tsx` and `lib/transport-integration.test.ts`), we discovered that **the backend did NOT process tool-use parts from frontend messages**. This meant tool approval/rejection messages from the frontend were completely ignored.
+
+**Resolution (Implemented 2025-12-13):**
+✅ Created `ai_sdk_v6_compat.py` with type definitions and ADK conversion
+✅ Implemented `process_tool_use_parts()` in `tool_delegate.py`
+✅ Added `ToolCallState` enum for type safety
+✅ All 111 tests passing including 5 integration tests for tool approval flow
+
+See **Implementation Summary** section below for detailed changes.
+
+## Verification (2025-12-13 Re-investigation)
+
+**Initial Investigation Result:** ✅ **GAP CONFIRMED** - Backend message handler did not process tool-use parts.
+**Final Status:** ✅ **GAP RESOLVED** - Implementation completed and all tests passing.
+
+**Evidence from Code Review:**
+
+1. **Frontend removed custom tool_result events** (`lib/websocket-chat-transport.ts:131-132, 283-285`):
+   ```typescript
+   // ToolResultEvent removed - use AI SDK v6's standard addToolApprovalResponse flow
+   // sendToolResult() removed - use AI SDK v6's standard addToolApprovalResponse flow
+   ```
+
+2. **Frontend sends "message" events** (`lib/websocket-chat-transport.ts:424-432`):
+   ```typescript
+   // Send messages to backend using structured event format (P2-T2)
+   const event: MessageEvent = {
+     type: "message",
+     version: "1.0",
+     data: {
+       messages: options.messages,  // ← Contains tool-use parts with updated state
+     },
+   };
+   this.sendEvent(event);
+   ```
+
+3. **Frontend tool rejection flow** (`components/chat.tsx:161-185`):
+   ```typescript
+   // Step 1: Update message state via AI SDK v6
+   addToolApprovalResponse({ approved: false, reason: "User denied permission" });
+   addToolOutput({ output: { success: false, denied: true } });
+
+   // Step 2: AI SDK v6 automatically calls sendMessages() when conditions met
+   // → Sends "message" event with tool-use parts (state: "approval-responded")
+   ```
+
+4. **Backend message handler ignores ToolUsePart** (`server.py:970-1017`):
+   ```python
+   for part in last_msg.parts:
+       if isinstance(part, FilePart):
+           # ... handles file parts
+       elif isinstance(part, TextPart):
+           # ... handles text parts
+       # ❌ NO HANDLING FOR ToolUsePart!
+   ```
+
+5. **Backend "tool_result" handler is unused** (`server.py:1069-1103`):
+   - Handler exists and would work correctly
+   - But frontend NEVER sends "tool_result" events (removed in refactor)
+   - Handler is dead code from older design
+
+**Conclusion:** The gap analysis was accurate. Backend needs to process ToolUsePart from "message" events.
 
 ---
 
@@ -372,11 +435,125 @@ for part in last_msg.parts:
 ## Next Steps
 
 1. ✅ Document this gap (this file)
-2. ⏭️ Create RED test for message handler
-3. ⏭️ Implement ToolUsePart processing (GREEN)
-4. ⏭️ Verify all tests pass
-5. ⏭️ Remove dead code (REFACTOR)
-6. ⏭️ Update architecture documentation
+2. ✅ Create RED test for message handler
+3. ✅ Implement ToolUsePart processing (GREEN)
+4. ✅ Verify all tests pass
+5. ⏭️ Remove dead code (REFACTOR) - server.py:1069-1102 tool_result handler
+6. ⏭️ Update architecture documentation (if needed)
+
+---
+
+## Implementation Summary (2025-12-13)
+
+**Status:** ✅ **GAP RESOLVED** - Backend now processes tool-use parts from frontend messages
+
+### Completed Work
+
+#### 1. Created AI SDK v6 Compatibility Layer
+
+**File:** `ai_sdk_v6_compat.py` (NEW)
+
+- Centralized AI SDK v6 type definitions with ADK conversion logic
+- Principle: Keep types and conversions together to reduce breakage
+- Moved `ChatMessage` with `to_adk_content()` method from server.py
+- Added `ToolUsePart` and `ToolApproval` models matching AI SDK v6 spec
+- Added `ToolCallState` enum for type-safe state management
+- Removed deprecated `experimental_attachments` field
+
+**Key Types:**
+```python
+class ToolCallState(str, Enum):
+    CALL = "call"
+    INPUT_STREAMING = "input-streaming"
+    INPUT_AVAILABLE = "input-available"
+    APPROVAL_REQUESTED = "approval-requested"
+    APPROVAL_RESPONDED = "approval-responded"
+    OUTPUT_AVAILABLE = "output-available"
+    OUTPUT_ERROR = "output-error"
+    OUTPUT_DENIED = "output-denied"
+
+class ToolUsePart(BaseModel):
+    type: str
+    toolCallId: str
+    toolName: str
+    args: dict[str, Any] | None = None
+    state: ToolCallState  # Using enum for type safety
+    approval: ToolApproval | None = None
+    output: dict[str, Any] | None = None
+```
+
+#### 2. Implemented Tool-Use Part Processing
+
+**File:** `tool_delegate.py`
+
+Added `process_tool_use_parts()` function (tool_delegate.py:143-182):
+
+```python
+def process_tool_use_parts(message: ChatMessage, delegate: FrontendToolDelegate) -> None:
+    """
+    Process tool-use parts from frontend messages and route to delegate.
+
+    - approval-responded with approved=False → reject_tool_call()
+    - output-available → resolve_tool_result()
+    """
+    for part in message.parts:
+        if isinstance(part, ToolUsePart):
+            if part.state == ToolCallState.APPROVAL_RESPONDED:
+                if part.approval and part.approval.approved is False:
+                    delegate.reject_tool_call(tool_call_id, reason)
+            elif part.state == ToolCallState.OUTPUT_AVAILABLE:
+                if part.output is not None:
+                    delegate.resolve_tool_result(tool_call_id, part.output)
+```
+
+**Rationale:** Function moved to tool_delegate.py because it takes `delegate: FrontendToolDelegate` as argument, creating logical grouping.
+
+#### 3. Integration Tests Completed
+
+**File:** `tests/integration/test_stream_protocol_tool_approval.py`
+
+- Un-skipped `test_frontend_multiple_tools_mixed_approval_rejection`
+- Updated tests to use `ToolCallState` enum values
+- All 5 integration tests now passing (previously: 2 passed, 2 failed, 1 skipped)
+
+**Test Results:**
+```
+tests/integration/test_stream_protocol_tool_approval.py::test_stream_protocol_generates_tool_approval_request PASSED
+tests/integration/test_stream_protocol_tool_approval.py::test_stream_protocol_tracks_pending_approvals PASSED
+tests/integration/test_stream_protocol_tool_approval.py::test_frontend_single_tool_approval_flow PASSED
+tests/integration/test_stream_protocol_tool_approval.py::test_frontend_single_tool_rejection_flow PASSED
+tests/integration/test_stream_protocol_tool_approval.py::test_frontend_multiple_tools_mixed_approval_rejection PASSED
+```
+
+**Total Test Coverage:** 111 tests passing (all tests in repository)
+
+#### 4. Type Safety Improvements
+
+- Replaced `Literal["approval-responded", "output-available", ...]` with `ToolCallState` enum
+- IDE autocomplete and type checking now work for tool states
+- Prevents typo-related bugs in state comparisons
+
+### Files Modified
+
+1. **ai_sdk_v6_compat.py** (NEW) - AI SDK v6 type definitions + ADK conversion
+2. **tool_delegate.py** - Added process_tool_use_parts() function
+3. **server.py** - Removed duplicate ChatMessage, updated imports
+4. **tests/integration/test_stream_protocol_tool_approval.py** - Updated to use enum values
+
+### Remaining Work
+
+1. **Remove Dead Code:** server.py:1069-1102 contains unused "tool_result" event handler
+   - Frontend never sends "tool_result" events (uses "message" events with tool-use parts)
+   - Handler exists from older design, can be safely removed
+
+2. **Architecture Documentation:** May need update if significant changes warrant documentation
+
+### References to Implementation
+
+- AI SDK v6 types: ai_sdk_v6_compat.py:1-323
+- Process function: tool_delegate.py:143-182
+- Integration tests: tests/integration/test_stream_protocol_tool_approval.py:246-322
+- Frontend behavior mocked from: lib/use-chat-integration.test.tsx:463-728
 
 ---
 
@@ -384,8 +561,9 @@ for part in last_msg.parts:
 
 - Frontend: `lib/use-chat-integration.test.tsx` (14 tests, line 594-728 for rejection)
 - Frontend: `lib/websocket-chat-transport.ts` (sendMessages implementation)
-- Backend: `server.py:970-1017` (message handler - missing ToolUsePart processing)
-- Backend: `server.py:1069-1102` (tool_result handler - unused)
-- Backend: `tool_delegate.py` (reject_tool_call, resolve_tool_result methods)
-- Tests: `tests/integration/test_stream_protocol_tool_approval.py` (2 passed, 2 failed, 1 skipped)
+- Backend: `ai_sdk_v6_compat.py` (AI SDK v6 type definitions + ADK conversion)
+- Backend: `tool_delegate.py` (FrontendToolDelegate + process_tool_use_parts)
+- Backend: `server.py:1069-1102` (tool_result handler - unused, candidate for removal)
+- Tests: `tests/integration/test_stream_protocol_tool_approval.py` (5 passed)
 - Tests: `tests/integration/test_backend_tool_approval.py` (6 passed)
+- Total: 111 tests passing

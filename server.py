@@ -13,7 +13,7 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal, Union
+from typing import Any
 
 import aiohttp
 from dotenv import load_dotenv
@@ -26,8 +26,13 @@ from google.adk.runners import InMemoryRunner
 from google.adk.tools.tool_context import ToolContext
 from google.genai import types
 from loguru import logger
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel
 
+from ai_sdk_v6_compat import (
+    ChatMessage,
+    FilePart,
+    TextPart,
+)
 from stream_protocol import stream_adk_to_ai_sdk
 from tool_delegate import FrontendToolDelegate
 
@@ -493,229 +498,11 @@ async def stream_agent_chat(messages: list[ChatMessage], user_id: str = "default
     logger.info(f"Stream completed with {event_count} SSE events")
 
 
-class TextPart(BaseModel):
-    """Text part in message"""
-
-    type: Literal["text"] = "text"
-    text: str
-
-
-class ImagePart(BaseModel):
-    """Image part in message"""
-
-    type: Literal["image"] = "image"
-    data: str  # base64 encoded image
-    media_type: str = Field(default="image/png")  # image/png, image/jpeg, image/webp
-
-    @field_validator("media_type")
-    @classmethod
-    def validate_media_type(cls, v: str) -> str:
-        """Validate that media_type is one of the supported image formats."""
-        allowed_types = {"image/png", "image/jpeg", "image/webp"}
-        if v not in allowed_types:
-            msg = f"Unsupported media_type: {v}. Allowed types: {', '.join(allowed_types)}"
-            raise ValueError(msg)
-        return v
-
-    @field_validator("data")
-    @classmethod
-    def validate_data(cls, v: str) -> str:
-        """Validate that data is not empty and is valid base64."""
-        import base64
-
-        if not v or len(v.strip()) == 0:
-            msg = "Image data cannot be empty"
-            raise ValueError(msg)
-
-        # Validate base64 encoding
-        try:
-            base64.b64decode(v, validate=True)
-        except Exception as e:
-            msg = f"Invalid base64 encoding: {e}"
-            raise ValueError(msg) from e
-
-        return v
-
-
-class FilePart(BaseModel):
-    """File part in message (AI SDK v6 format)"""
-
-    type: Literal["file"] = "file"
-    filename: str
-    url: str  # data URL with base64 content (e.g., "data:image/png;base64,...")
-    mediaType: str  # MIME type (e.g., "image/png")
-
-
-# Union type for message parts
-MessagePart = Union[TextPart, ImagePart, FilePart]
-
-
-class ChatMessage(BaseModel):
-    """Chat message model - supports both simple content and AI SDK v6 parts format"""
-
-    role: str
-    content: str | None = None  # Simple format
-    parts: list[MessagePart] | None = None  # AI SDK v6 format with discriminated union
-    experimental_attachments: list[dict[str, Any]] | None = (
-        None  # AI SDK experimental_attachments format
-    )
-
-    @field_validator("experimental_attachments", mode="before")
-    @classmethod
-    def normalize_attachments(cls, v: Any) -> Any:
-        """Convert experimental_attachments to parts format if present."""
-        if v is not None and isinstance(v, list):
-            # Validate that each attachment has required fields
-            for attachment in v:
-                if not isinstance(attachment, dict):
-                    msg = f"Invalid attachment format: {attachment}"
-                    raise ValueError(msg)
-                if "type" not in attachment:
-                    msg = f"Attachment missing 'type' field: {attachment}"
-                    raise ValueError(msg)
-        return v
-
-    def get_text_content(self) -> str:
-        """Extract text content from either format"""
-        if self.content:
-            return self.content
-        if self.parts is not None:
-            return "".join(p.text or "" for p in self.parts if p.type == "text")
-        return ""
-
-    def to_adk_content(self) -> types.Content:
-        """
-        Convert AI SDK v6 message to ADK Content format.
-
-        AI SDK v6 format:
-        - Simple: { role: "user", content: "text" }
-        - Parts: { role: "user", parts: [
-            { type: "text", text: "..." },
-            { type: "image", data: "base64...", media_type: "image/png" }
-          ]}
-
-        ADK format:
-        - types.Content(role="user", parts=[types.Part(text="...")])
-        - types.Content(role="user", parts=[
-            types.Part(text="..."),
-            types.Part(inline_data=InlineData(mime_type="image/png", data=bytes))
-          ])
-        """
-        import base64
-
-        adk_parts = []
-
-        # Handle simple text content
-        if self.content:
-            adk_parts.append(types.Part(text=self.content))
-
-        # Handle experimental_attachments (convert to parts format)
-        if self.experimental_attachments:
-            for attachment in self.experimental_attachments:
-                if attachment.get("type") == "text":
-                    adk_parts.append(types.Part(text=attachment.get("text", "")))
-                elif attachment.get("type") == "image":
-                    # Decode base64 and create inline_data with Blob
-                    image_data = attachment.get("data", "")
-                    media_type = attachment.get("media_type", "image/png")
-                    image_bytes = base64.b64decode(image_data)
-
-                    # Get image dimensions using PIL
-                    from io import BytesIO
-                    from PIL import Image
-
-                    with Image.open(BytesIO(image_bytes)) as img:
-                        width, height = img.size
-                        image_format = img.format
-
-                    logger.info(
-                        f"[IMAGE INPUT] media_type={media_type}, "
-                        f"size={len(image_bytes)} bytes, "
-                        f"dimensions={width}x{height}, "
-                        f"format={image_format}, "
-                        f"base64_length={len(image_data)} chars"
-                    )
-                    adk_parts.append(
-                        types.Part(
-                            inline_data=types.Blob(
-                                mime_type=media_type, data=image_bytes
-                            )
-                        )
-                    )
-
-        # Handle parts array (multimodal)
-        if self.parts:
-            for part in self.parts:
-                if isinstance(part, TextPart):
-                    adk_parts.append(types.Part(text=part.text))
-                elif isinstance(part, ImagePart):
-                    # Decode base64 and create inline_data with Blob
-                    image_bytes = base64.b64decode(part.data)
-
-                    # Get image dimensions using PIL
-                    from io import BytesIO
-                    from PIL import Image
-
-                    with Image.open(BytesIO(image_bytes)) as img:
-                        width, height = img.size
-                        image_format = img.format
-
-                    logger.info(
-                        f"[IMAGE INPUT] media_type={part.media_type}, "
-                        f"size={len(image_bytes)} bytes, "
-                        f"dimensions={width}x{height}, "
-                        f"format={image_format}, "
-                        f"base64_length={len(part.data)} chars"
-                    )
-                    adk_parts.append(
-                        types.Part(
-                            inline_data=types.Blob(
-                                mime_type=part.media_type, data=image_bytes
-                            )
-                        )
-                    )
-                elif isinstance(part, FilePart):
-                    # AI SDK v6 file format: extract base64 from data URL
-                    # Format: "data:image/png;base64,iVBORw0..."
-                    if part.url.startswith("data:"):
-                        # Extract base64 content after "base64,"
-                        data_url_parts = part.url.split(",", 1)
-                        if len(data_url_parts) == 2:
-                            base64_data = data_url_parts[1]
-                            file_bytes = base64.b64decode(base64_data)
-
-                            # Get image dimensions if it's an image
-                            if part.mediaType.startswith("image/"):
-                                from io import BytesIO
-                                from PIL import Image
-
-                                with Image.open(BytesIO(file_bytes)) as img:
-                                    width, height = img.size
-                                    image_format = img.format
-
-                                logger.info(
-                                    f"[FILE INPUT] filename={part.filename}, "
-                                    f"mediaType={part.mediaType}, "
-                                    f"size={len(file_bytes)} bytes, "
-                                    f"dimensions={width}x{height}, "
-                                    f"format={image_format}"
-                                )
-                            else:
-                                logger.info(
-                                    f"[FILE INPUT] filename={part.filename}, "
-                                    f"mediaType={part.mediaType}, "
-                                    f"size={len(file_bytes)} bytes"
-                                )
-
-                            adk_parts.append(
-                                types.Part(
-                                    inline_data=types.Blob(
-                                        mime_type=part.mediaType, data=file_bytes
-                                    )
-                                )
-                            )
-
-        return types.Content(role=self.role, parts=adk_parts)
+# Message types imported from ai_sdk_v6_compat.py
+# - TextPart, ImagePart, FilePart: Content parts
+# - ToolUsePart, ToolApproval: Tool call parts
+# - MessagePart: Union of all part types
+# - ChatMessage: AI SDK v6 UIMessage with to_adk_content() conversion
 
 
 class ChatRequest(BaseModel):
@@ -762,11 +549,13 @@ async def chat(request: ChatRequest):
 
     if not last_message:
         return ChatResponse(message="No message provided")
+    
+    user_id = "chat_user"
 
     # Run ADK agent and get response
     try:
         response_text = await run_agent_chat(
-            last_message, "default_user", sse_agent_runner, "agents"
+            last_message, user_id, sse_agent_runner, "agents"
         )
         logger.info(f"ADK agent response: {response_text[:100]}...")
         return ChatResponse(message=response_text)
@@ -802,10 +591,12 @@ async def stream(request: ChatRequest):
                 "Connection": "keep-alive",
             },
         )
+        
+    user_id = "stream_user"
 
     # Stream ADK agent response (pass full message history)
     return StreamingResponse(
-        stream_agent_chat(request.messages),
+        stream_agent_chat(request.messages, user_id),
         media_type="text/event-stream",
         headers={
             "Content-Type": "text/event-stream",
@@ -857,7 +648,8 @@ async def live_chat(websocket: WebSocket):
     logger.info("[BIDI] WebSocket connection established")
 
     # Create session for BIDI mode
-    session = await get_or_create_session("live_user", bidi_agent_runner, "agents")
+    user_id = "live_user"
+    session = await get_or_create_session(user_id, bidi_agent_runner, "agents")
 
     # Create LiveRequestQueue for bidirectional communication
     live_request_queue = LiveRequestQueue()
@@ -934,7 +726,7 @@ async def live_chat(websocket: WebSocket):
     try:
         # Start ADK BIDI streaming
         live_events = bidi_agent_runner.run_live(
-            user_id="live_user",
+            user_id=user_id,
             session_id=session.id,
             live_request_queue=live_request_queue,
             run_config=run_config,

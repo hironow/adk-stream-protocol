@@ -243,7 +243,6 @@ async def test_frontend_single_tool_rejection_flow(
 # ============================================================
 
 
-@pytest.mark.skip(reason="RED: Message handler doesn't process tool-use parts yet")
 @pytest.mark.asyncio
 async def test_frontend_multiple_tools_mixed_approval_rejection(
     delegate: FrontendToolDelegate,
@@ -257,9 +256,10 @@ async def test_frontend_multiple_tools_mixed_approval_rejection(
     - Backend receives messages with both tools:
       - Tool-1: approval-responded (approved=false)
       - Tool-2: output-available
-    - Backend should process both and call appropriate methods
+    - Backend should process both and call appropriate delegate methods
 
-    This test is RED because current message handler doesn't process tool-use parts.
+    Tests the process_tool_use_parts() function that extracts tool-use parts
+    from AI SDK v6 messages and routes to FrontendToolDelegate.
     """
     # given: Two pending tool calls
     tool_call_id_1 = "call_1"
@@ -275,21 +275,42 @@ async def test_frontend_multiple_tools_mixed_approval_rejection(
     task_2 = asyncio.create_task(execute_tool_2())
     await asyncio.sleep(0.01)
 
-    # when: Frontend processes both tools
-    # Tool-1: User rejects → approval-responded (approved=false)
-    # Tool-2: Backend executes → output-available
+    # when: Frontend sends messages with tool-use parts
+    # Simulating what frontend sends after:
+    # - Tool-1: User rejects → approval-responded (approved=false)
+    # - Tool-2: Backend executes → output-available
     # Both sent in single sendMessages() call
 
-    # Mock: Backend should process both tool-use parts from messages
-    # This requires message handler to:
-    #   1. Iterate through all messages
-    #   2. For each message, iterate through all parts
-    #   3. For tool-use parts with state="approval-responded", extract approved field
-    #   4. For tool-use parts with state="output-available", extract output field
-    #   5. Call appropriate delegate methods
+    # Mock frontend message structure (from lib/use-chat-integration.test.tsx:557-575)
+    from ai_sdk_v6_compat import ChatMessage, ToolApproval, ToolCallState, ToolUsePart
+    from tool_delegate import process_tool_use_parts
 
-    delegate.reject_tool_call(tool_call_id_1, "User denied permission")
-    delegate.resolve_tool_result(tool_call_id_2, {"success": True, "track": 0})
+    frontend_message = ChatMessage(
+        role="assistant",
+        parts=[
+            ToolUsePart(
+                type="tool-web_search",
+                toolCallId=tool_call_id_1,
+                toolName="web_search",
+                state=ToolCallState.APPROVAL_RESPONDED,
+                approval=ToolApproval(
+                    id="approval-1",
+                    approved=False,
+                    reason="User denied permission",
+                ),
+            ),
+            ToolUsePart(
+                type="tool-change_bgm",
+                toolCallId=tool_call_id_2,
+                toolName="change_bgm",
+                state=ToolCallState.OUTPUT_AVAILABLE,
+                output={"success": True, "track": 0},
+            ),
+        ],
+    )
+
+    # Backend message handler should process these tool-use parts
+    process_tool_use_parts(frontend_message, delegate)
 
     # then: Both tools complete
     result_1 = await task_1

@@ -21,6 +21,8 @@ from typing import Any
 
 from loguru import logger
 
+from ai_sdk_v6_compat import ChatMessage, ToolCallState, ToolUsePart
+
 
 class FrontendToolDelegate:
     """
@@ -136,3 +138,44 @@ class FrontendToolDelegate:
                 f"[FrontendDelegate] Received rejection for unknown "
                 f"tool_call_id={tool_call_id}"
             )
+
+
+def process_tool_use_parts(message: ChatMessage, delegate: FrontendToolDelegate) -> None:
+    """
+    Process tool-use parts from frontend messages and route to delegate.
+
+    This function extracts tool-use parts from AI SDK v6 messages and calls
+    appropriate FrontendToolDelegate methods based on the tool state:
+    - "approval-responded" with approved=False → reject_tool_call()
+    - "output-available" → resolve_tool_result()
+
+    Args:
+        message: ChatMessage containing tool-use parts
+        delegate: FrontendToolDelegate instance to route tool results to
+
+    Reference:
+    - Frontend behavior: lib/use-chat-integration.test.tsx:463-592
+    - Gap analysis: experiments/2025-12-13_frontend_backend_integration_gap_analysis.md
+    """
+    if not message.parts:
+        return
+
+    for part in message.parts:
+        if isinstance(part, ToolUsePart):
+            tool_call_id = part.toolCallId
+
+            # Handle approval-responded state (user approved/denied)
+            if part.state == ToolCallState.APPROVAL_RESPONDED:
+                if part.approval and part.approval.approved is False:
+                    # User rejected the tool
+                    reason = part.approval.reason or "User denied permission"
+                    delegate.reject_tool_call(tool_call_id, reason)
+                    logger.info(f"[Tool] Rejected tool {tool_call_id}: {reason}")
+                # Note: approved=True doesn't trigger delegate action here
+                # Tool execution happens on backend, then output is sent via output-available
+
+            # Handle output-available state (tool execution completed)
+            elif part.state == ToolCallState.OUTPUT_AVAILABLE:
+                if part.output is not None:
+                    delegate.resolve_tool_result(tool_call_id, part.output)
+                    logger.info(f"[Tool] Resolved tool {tool_call_id} with output")

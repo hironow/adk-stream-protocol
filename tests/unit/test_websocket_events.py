@@ -17,13 +17,13 @@ from __future__ import annotations
 import base64
 import json
 from typing import TYPE_CHECKING
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from fastapi import WebSocket
 
 if TYPE_CHECKING:
-    from google.genai.live import LiveRequestQueue
+    pass
 
 
 # ============================================================
