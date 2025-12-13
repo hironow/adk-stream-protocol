@@ -463,7 +463,18 @@ class StreamProtocolConverter:
 
         Phase 4: If tool requires approval, also generate tool-approval-request event.
         """
-        tool_call_id = self._generate_tool_call_id()
+        # Use ADK's function_call.id if available, otherwise generate fallback
+        # Reference: experiments/2025-12-13_toolCallId_compatibility_investigation.md
+        if function_call.id:
+            tool_call_id = function_call.id  # e.g., "adk-2b9230a6-..."
+        else:
+            # Fallback for cases where ADK doesn't provide ID
+            tool_call_id = self._generate_tool_call_id()  # "call_0", "call_1", ...
+            logger.warning(
+                f"[FUNCTION CALL] function_call.id is None for tool '{function_call.name}', "
+                f"using fallback ID: {tool_call_id}"
+            )
+
         tool_name = function_call.name
         tool_args = function_call.args
 
