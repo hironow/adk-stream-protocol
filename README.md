@@ -623,6 +623,244 @@ Legend / 凡例:
 - Multimodal Input: マルチモーダル入力（テキスト、画像、音声など）
 - Complexity: 実装の複雑さ
 
+---
+
+## Tool Calling with User Approval
+
+This project implements **frontend-delegated tool execution** with user approval, leveraging AI SDK v6's native tool approval APIs.
+
+### Architecture: Backend Delegates, Frontend Executes
+
+```
+Backend (server.py)                    Frontend (Next.js)
+===================                    ==================
+
+AI requests tool
+     |
+     v
+[Tool Function]
+  change_bgm()
+  get_location()
+     |
+     +---> await frontend_delegate.execute_on_frontend(...)
+     |                   |
+     |                   | Creates asyncio.Future
+     |                   | Waits for frontend result
+     |                   |
+     |                   +------------------+
+     |                                      |
+     |     [WebSocket / Data Stream]        |
+     |                                      |
+     |     Step 1-3: Backend -> Frontend    |
+     |     ================================  |
+     |                                      v
+     |                         [useChat receives events]
+     |                                      |
+     |                         tool-input-start
+     |                         tool-input-available
+     |                         tool-approval-request
+     |                                      |
+     |                                      v
+     |                         [Message state updated]
+     |                         state: "approval-requested"
+     |                         approval: { id: "..." }
+     |                                      |
+     |                                      v
+     |                         [UI shows approval dialog]
+     |                         "Allow BGM change?"
+     |                         [Approve] [Deny]
+     |                                      |
+     |     Step 4-5: User Approves          |
+     |     =======================          v
+     |                         User clicks [Approve]
+     |                                      |
+     |                                      v
+     |                         addToolApprovalResponse({
+     |                           id: "approval-1",
+     |                           approved: true
+     |                         })
+     |                                      |
+     |                                      v
+     |                         [Execute browser API]
+     |                         audioContext.switchTrack(...)
+     |                         navigator.geolocation.getCurrentPosition(...)
+     |                                      |
+     |                                      v
+     |                         addToolOutput({
+     |                           toolCallId: "call-1",
+     |                           output: { success: true }
+     |                         })
+     |                                      |
+     |     Step 6-7: Auto-submit            |
+     |     =====================            v
+     |                         [sendAutomaticallyWhen triggered]
+     |                         Conditions met:
+     |                         1. approval-responded exists
+     |                         2. all tools complete
+     |                                      |
+     |                                      v
+     |                         [Auto-send to backend]
+     |                                      |
+     |     [WebSocket / Data Stream]        |
+     |     tool-result event                |
+     |                                      |
+     v                                      |
+[WebSocket handler receives]              |
+     |                                      |
+     v                                      |
+FrontendToolDelegate.resolve_tool_result() |
+     |                                      |
+     v                                      |
+asyncio.Future resolves <-----------------+
+     |
+     v
+Tool function returns result
+     |
+     v
+AI continues with result
+```
+
+Legend / 凡例:
+- Backend (server.py): バックエンド（Pythonサーバー）
+- Frontend (Next.js): フロントエンド（Next.jsアプリ）
+- AI requests tool: AIがツール実行をリクエスト
+- Tool Function: ツール関数（change_bgm, get_location など）
+- frontend_delegate.execute_on_frontend(): フロントエンドへの実行委譲メソッド
+- asyncio.Future: 非同期処理の未来値（結果待機）
+- WebSocket / Data Stream: WebSocket または SSE によるデータストリーム通信
+- useChat receives events: useChatフックがイベントを受信
+- tool-input-start: ツール入力開始イベント
+- tool-input-available: ツール入力利用可能イベント
+- tool-approval-request: ツール承認リクエストイベント
+- Message state updated: メッセージ状態の更新
+- approval-requested: 承認待ち状態
+- UI shows approval dialog: UIに承認ダイアログを表示
+- User clicks [Approve]: ユーザーが承認ボタンをクリック
+- addToolApprovalResponse(): ツール承認応答を追加（AI SDK v6 API）
+- Execute browser API: ブラウザAPIの実行（AudioContext、Geolocation など）
+- addToolOutput(): ツール出力を追加（AI SDK v6 API）
+- sendAutomaticallyWhen triggered: 自動送信条件が満たされた
+- approval-responded exists: approval-responded 状態が存在
+- all tools complete: すべてのツールが完了状態
+- Auto-send to backend: バックエンドへ自動送信
+- tool-result event: ツール結果イベント
+- FrontendToolDelegate.resolve_tool_result(): ツール結果の解決メソッド
+- AI continues with result: AIが結果を使って処理を継続
+
+### Step-by-Step Flow
+
+**Step 1-3: Backend → Frontend (Tool Approval Request)**
+
+1. **Backend**: AI requests tool execution
+   - Tool function: `await frontend_delegate.execute_on_frontend(...)`
+   - Creates `asyncio.Future` and waits
+2. **Backend**: Sends Data Stream Protocol events via WebSocket/SSE
+   - `tool-input-start` (toolCallId, toolName)
+   - `tool-input-available` (toolCallId, args)
+   - `tool-approval-request` (approvalId, toolCallId)
+3. **Frontend**: `useChat` receives events
+   - Message state updates to `"approval-requested"`
+   - UI shows approval dialog
+
+**Step 4-5: Frontend Execution (User Approval)**
+
+4. **Frontend**: User clicks [Approve]
+   - Calls `addToolApprovalResponse({ id: "approval-1", approved: true })`
+   - State updates to `"approval-responded"`
+   - **Note**: Auto-submit does NOT happen yet (condition 2 not satisfied)
+5. **Frontend**: Execute browser API
+   - AudioContext: `audioContext.switchTrack(...)`
+   - Geolocation: `navigator.geolocation.getCurrentPosition(...)`
+   - Calls `addToolOutput({ toolCallId: "call-1", output: {...} })`
+   - State updates to `"output-available"`
+   - **Note**: Both conditions now satisfied → triggers auto-submit
+
+**Step 6-7: Frontend → Backend (Auto-Submit)**
+
+6. **Frontend**: `sendAutomaticallyWhen` triggers (after BOTH APIs called)
+   - Condition 1: At least one `approval-responded` exists ✅
+   - Condition 2: All tools are complete (`output-available`, `output-error`, or `approval-responded`) ✅
+   - **Sends once with BOTH results combined** (not sent twice)
+   - Auto-sends `tool-result` event to backend
+7. **Backend**: Receives result
+   - `FrontendToolDelegate.resolve_tool_result(...)` called
+   - `asyncio.Future` resolves
+   - Tool function returns result to AI
+   - AI continues generation with tool result
+
+### Key APIs (AI SDK v6)
+
+**Frontend uses AI SDK v6 standard APIs (NOT custom callbacks):**
+
+```typescript
+const { messages, addToolApprovalResponse, addToolOutput } = useChat(options);
+
+// Step 4: User approves
+addToolApprovalResponse({
+  id: "approval-1",
+  approved: true,
+  reason: "User approved BGM change"
+});
+// ⚠️ Auto-submit does NOT happen yet (condition 2 not satisfied)
+
+// Step 5: Execute and provide result
+const result = await audioContext.switchTrack(args.track_name);
+addToolOutput({
+  toolCallId: "call-1",
+  tool: "change_bgm",
+  output: { success: true, track: args.track_name }
+});
+
+// Step 6: Auto-submit happens automatically NOW
+// ✅ Sends once with BOTH approval response + tool output combined
+// (no manual call needed, no duplicate sends)
+```
+
+**Why NOT `onToolCall`?**
+
+- `onToolCall` is for **client-side tools** defined in frontend only
+- Our tools are defined in **backend** (server.py) for AI awareness
+- Backend **delegates execution** to frontend, not frontend executing independently
+- Tool call events come **from backend** → Frontend receives and executes → Sends results back
+
+### Auto-Submit Behavior
+
+**Function:** `lastAssistantMessageIsCompleteWithApprovalResponses`
+
+Automatically sends results back to backend when **BOTH** conditions are met:
+
+1. **At least one `approval-responded` exists** (user approved at least one tool)
+2. **All tools are complete** (every tool is `output-available`, `output-error`, or `approval-responded`)
+
+**Examples:**
+
+| Scenario | Condition 1 | Condition 2 | Auto-Submit? |
+|----------|-------------|-------------|--------------|
+| User approves + provides output | ✅ | ✅ | ✅ YES |
+| Only `addToolOutput` (no approval) | ❌ | Partial | ❌ NO |
+| Mixed: Tool A approved + Tool B output | ✅ | ✅ | ✅ YES |
+
+**Alternative:** If you need auto-submit on tool output only (without approval), use `lastAssistantMessageIsCompleteWithToolCalls` instead.
+
+### Transport Layer Independence
+
+**The tool approval flow works identically across all modes:**
+
+- **ADK SSE**: HTTP Server-Sent Events (one-way streaming)
+- **ADK BIDI**: WebSocket (bidirectional streaming)
+- **Gemini Direct**: Not applicable (tools execute on server)
+
+**Why:** All modes use the same **AI SDK v6 Data Stream Protocol** format:
+
+```
+Backend → tool-approval-request event → Frontend
+Frontend → tool-result event → Backend
+```
+
+The transport layer (HTTP SSE vs WebSocket) is abstracted away by:
+- Backend: `StreamProtocolConverter` (same for SSE and BIDI)
+- Frontend: `ChatTransport` interface (HTTP vs WebSocket)
+
 ## Testing
 
 ### Test Phase 2 SSE Streaming

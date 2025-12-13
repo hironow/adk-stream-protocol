@@ -21,10 +21,11 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { renderHook, waitFor, act } from "@testing-library/react";
+import { renderHook, act } from "@testing-library/react";
 import { useChat } from "@ai-sdk/react";
 import { buildUseChatOptions } from "./build-use-chat-options";
 import { WebSocketChatTransport } from "./websocket-chat-transport";
+import type { UIMessage } from "ai";
 
 // Mock WebSocket for transport testing
 class MockWebSocket {
@@ -184,11 +185,16 @@ describe("useChat Integration", () => {
 
     it("should verify AI SDK v6 calls transport.sendMessages() on tool approval (ADK BIDI)", async () => {
       // Given: ADK BIDI mode with initial message containing tool approval request
-      const initialMessages = [
+      const initialMessages: UIMessage[] = [
         {
           id: "msg-1",
           role: "user" as const,
-          content: "Search for latest AI news",
+          parts: [
+            {
+              type: "text" as const,
+              text: "Search for latest AI news",
+            },
+          ],
         },
         {
           id: "msg-2",
@@ -263,6 +269,263 @@ describe("useChat Integration", () => {
       // Step 7: AI SDK v6 checks sendAutomaticallyWhen → triggers makeRequest
       // Step 8: AI SDK v6 calls transport.sendMessages() with approved message
     }, 10000); // Increased timeout for WebSocket connection
+
+    it("should verify addToolOutput updates message state but does NOT auto-submit (ADK BIDI)", async () => {
+      // Given: ADK BIDI mode with initial message containing tool call waiting for output
+      const initialMessages: UIMessage[] = [
+        {
+          id: "msg-1",
+          role: "user" as const,
+          parts: [
+            {
+              type: "text" as const,
+              text: "Search for AI news",
+            },
+          ],
+        },
+        {
+          id: "msg-2",
+          role: "assistant" as const,
+          parts: [
+            {
+              type: "tool-web_search" as const,
+              toolCallId: "call-1",
+              toolName: "web_search",
+              args: { query: "AI news" },
+              state: "call" as const, // Tool called but waiting for output
+            },
+          ],
+        },
+      ];
+
+      const options = buildUseChatOptions({
+        mode: "adk-bidi",
+        initialMessages,
+        adkBackendUrl: "http://localhost:8000",
+      });
+
+      const transport = options.transport!;
+      const sendMessagesSpy = vi.spyOn(transport, 'sendMessages');
+
+      // When: Using with useChat and adding tool output
+      const { result } = renderHook(() => useChat(options.useChatOptions));
+
+      await act(async () => {
+        result.current.addToolOutput({
+          toolCallId: "call-1",
+          tool: "web_search",
+          output: { results: ["AI news 1", "AI news 2"] },
+        });
+      });
+
+      // Wait a bit to ensure no automatic submission happens
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Then: Message state should be updated
+      const messages = result.current.messages;
+      const assistantMessage = messages.find(m => m.role === "assistant");
+      const toolPart = assistantMessage?.parts?.find((p: any) => p.toolCallId === "call-1");
+
+      expect(toolPart).toBeDefined();
+      expect((toolPart as any)?.state).toBe("output-available");
+      expect((toolPart as any)?.output).toEqual({ results: ["AI news 1", "AI news 2"] });
+
+      // But: sendMessages should NOT be called automatically
+      // Current sendAutomaticallyWhen (lastAssistantMessageIsCompleteWithApprovalResponses)
+      // only triggers on approval-responded, not on output-available
+      expect(sendMessagesSpy).not.toHaveBeenCalled();
+
+      // Note: This verifies current behavior:
+      // - addToolOutput updates message state to "output-available"
+      // - But does NOT trigger automatic resubmission
+      // - This is because sendAutomaticallyWhen is configured for approval flow only
+      // - For tool output without approval, user must manually call submit() or append()
+    }, 10000); // Increased timeout for WebSocket connection
+
+    it("should verify mixed approval + output triggers auto-submit (ADK BIDI)", async () => {
+      // Given: ADK BIDI mode with two tools - one needs approval, one needs output
+      const initialMessages: UIMessage[] = [
+        {
+          id: "msg-1",
+          role: "user" as const,
+          parts: [
+            {
+              type: "text" as const,
+              text: "Search and analyze",
+            },
+          ],
+        },
+        {
+          id: "msg-2",
+          role: "assistant" as const,
+          parts: [
+            {
+              type: "tool-web_search" as const,
+              toolCallId: "call-1",
+              toolName: "web_search",
+              args: { query: "AI news" },
+              state: "approval-requested" as const,
+              approval: {
+                id: "approval-1",
+                approved: undefined,
+                reason: undefined,
+              },
+            },
+            {
+              type: "tool-data_analyzer" as const,
+              toolCallId: "call-2",
+              toolName: "data_analyzer",
+              args: { data: "sample" },
+              state: "call" as const, // Waiting for output
+            },
+          ],
+        },
+      ];
+
+      const options = buildUseChatOptions({
+        mode: "adk-bidi",
+        initialMessages,
+        adkBackendUrl: "http://localhost:8000",
+      });
+
+      const transport = options.transport!;
+      const sendMessagesSpy = vi.spyOn(transport, 'sendMessages');
+
+      // When: Using with useChat
+      const { result } = renderHook(() => useChat(options.useChatOptions));
+
+      // First: Approve tool-1
+      await act(async () => {
+        result.current.addToolApprovalResponse({
+          id: "approval-1",
+          approved: true,
+          reason: "User approved",
+        });
+      });
+
+      // Wait a bit - should NOT auto-submit yet (only condition 1 satisfied)
+      await new Promise(resolve => setTimeout(resolve, 100));
+      expect(sendMessagesSpy).not.toHaveBeenCalled();
+
+      // Second: Provide output for tool-2
+      await act(async () => {
+        result.current.addToolOutput({
+          toolCallId: "call-2",
+          tool: "data_analyzer",
+          output: { result: "analyzed" },
+        });
+      });
+
+      // Then: NOW both conditions satisfied → auto-submit should happen
+      // Condition 1: Has approval-responded (call-1)
+      // Condition 2: All tools complete (call-1: approval-responded, call-2: output-available)
+      await vi.waitFor(() => {
+        expect(sendMessagesSpy).toHaveBeenCalled();
+      });
+
+      // Verify the call includes both completed tools
+      const calls = sendMessagesSpy.mock.calls;
+      const lastCall = calls[calls.length - 1];
+      const lastMessage = lastCall[0].messages[lastCall[0].messages.length - 1];
+
+      expect(lastMessage.parts).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: "tool-web_search",
+            toolCallId: "call-1",
+            state: "approval-responded",
+          }),
+          expect.objectContaining({
+            type: "tool-data_analyzer",
+            toolCallId: "call-2",
+            state: "output-available",
+          }),
+        ])
+      );
+
+      // Note: This verifies the combined condition:
+      // - Condition 1: At least one approval-responded exists (call-1)
+      // - Condition 2: All tools are complete (both call-1 and call-2)
+      // - Result: Automatic resubmission triggered
+    }, 10000); // Increased timeout for WebSocket connection
+
+    it("should verify useChat receives and processes tool-approval-request from backend (ADK BIDI)", async () => {
+      // Given: ADK BIDI mode
+      const options = buildUseChatOptions({
+        mode: "adk-bidi",
+        initialMessages: [],
+        adkBackendUrl: "http://localhost:8000",
+      });
+
+      const transport = options.transport!;
+
+      // When: Using with useChat
+      const { result } = renderHook(() => useChat(options.useChatOptions));
+
+      // Send initial message to establish connection
+      await act(async () => {
+        result.current.sendMessage({ text: "Search for AI news" });
+      });
+
+      // Wait for WebSocket to be ready
+      await vi.waitFor(() => {
+        const ws = (transport as any).ws;
+        expect(ws?.readyState).toBe(MockWebSocket.OPEN);
+      });
+
+      const ws = (transport as any).ws as MockWebSocket;
+
+      // Then: Simulate backend sending tool-approval-request (Step 4)
+      await act(async () => {
+        // Step 4a: Backend sends tool-input-start
+        ws.simulateMessage({
+          type: "tool-input-start",
+          toolCallId: "call-1",
+          toolName: "web_search",
+        });
+
+        // Step 4b: Backend sends tool-input-available with args
+        ws.simulateMessage({
+          type: "tool-input-available",
+          toolCallId: "call-1",
+          toolName: "web_search",
+          args: { query: "AI news" },
+        });
+
+        // Step 4c: Backend sends tool-approval-request
+        ws.simulateMessage({
+          type: "tool-approval-request",
+          toolCallId: "call-1",
+          approvalId: "approval-1",
+        });
+      });
+
+      // Step 5: Verify useChat received and processed the events
+      await vi.waitFor(() => {
+        const messages = result.current.messages;
+        expect(messages.length).toBeGreaterThan(1); // User message + assistant message
+
+        // Find the assistant message
+        const assistantMessage = messages.find(m => m.role === "assistant");
+        expect(assistantMessage).toBeDefined();
+        expect(assistantMessage?.parts).toBeDefined();
+
+        // Find the tool-use part with approval-requested state
+        // Note: AI SDK v6 creates dynamic type name "tool-{toolName}"
+        const toolPart = assistantMessage?.parts?.find((p: any) =>
+          p.toolCallId === "call-1"
+        );
+        expect(toolPart).toBeDefined();
+        expect((toolPart as any)?.type).toBe("tool-web_search"); // Dynamic type name
+        expect((toolPart as any)?.state).toBe("approval-requested");
+        expect((toolPart as any)?.approval?.id).toBe("approval-1");
+      }, { timeout: 5000 });
+
+      // Note: This verifies Step 4-5 integration:
+      // Step 4: Backend sends tool-approval-request via WebSocket
+      // Step 5: useChat receives event, updates message state with approval-requested
+      // (UI rendering is not tested here - that's for E2E tests)
+    }, 15000); // Increased timeout for WebSocket connection and event processing
 
   });
 
@@ -354,16 +617,16 @@ describe("useChat Integration", () => {
 
     it("should preserve initial messages in useChat", async () => {
       // Given: Options with initial messages
-      const initialMessages = [
+      const initialMessages: UIMessage[] = [
         {
           id: "msg-1",
           role: "user" as const,
-          content: "Hello",
+          parts: [{ type: "text" as const, text: "Hello" }],
         },
         {
           id: "msg-2",
           role: "assistant" as const,
-          content: "Hi there!",
+          parts: [{ type: "text" as const, text: "Hi there!" }],
         },
       ];
 

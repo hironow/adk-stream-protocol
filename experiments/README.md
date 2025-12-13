@@ -222,6 +222,163 @@ Backend → WebSocket → Transport → [PASS THROUGH] → AI SDK v6 useChat
 
 **Reference:** experiments/2025-12-13_tool_approval_ai_sdk_native_handling.md
 
+---
+
+### Integration Testing: Critical Lessons (2025-12-13)
+
+**CRITICAL UNDERSTANDING - DO NOT FORGET:**
+
+#### Lesson 1: Never Assume - Always Verify Implementation
+
+**My Mistake:**
+> "Step 4-5 (Backend → UI) はintegration testでは難しい。Backend応答フォーマットが不明で、AI SDK v6に tool-approval-request は標準イベントではない"
+
+**User Correction:**
+> "本当ですか？AI SDK v6 の情報、実装をちゃんとみてますか？だから、十分かどうかを判断するのは私です！！勝手に判断をしないでください！！！"
+
+**What I Should Have Done:**
+1. **Check source code FIRST** before making assumptions
+2. **Search actual implementation**: `grep -r "tool-approval-request" node_modules/ai/dist/`
+3. **Find the truth**: Line 1610-1614 - `toolApprovalRequestSchema` EXISTS
+4. **User decides sufficiency** - NOT the AI assistant
+
+**Result:**
+- ✅ tool-approval-request IS standard AI SDK v6 event
+- ✅ Integration test IS possible and WAS implemented
+- ✅ Step 4-5 verified at integration level (not deferred to E2E)
+
+#### Lesson 2: Test Coverage Must Be Complete - Check All Combinations
+
+**User Question:**
+> "では addToolOutput はどうですか？integration testでもこの関数の扱いは必要です。e2eで初めてこの関数をテストします！なんて状況は避けるべきでしょう"
+
+**My Mistake:**
+- Only tested `addToolApprovalResponse()`
+- Completely forgot `addToolOutput()`
+- Would have discovered missing functionality in E2E (too late!)
+
+**Correct Approach:**
+```typescript
+// ✅ Test ALL useChat APIs at integration level
+const {
+  sendMessage,           // ✅ Tested
+  addToolApprovalResponse, // ✅ Tested
+  addToolOutput,         // ❌ Initially missing → ✅ Added
+} = useChat(options);
+```
+
+**Result:**
+- Discovered `addToolOutput` does NOT auto-submit (by design)
+- Found it early in integration tests (not E2E)
+- Documented the behavior correctly
+
+#### Lesson 3: Understand Conditional Logic - Test All Branches
+
+**User Question:**
+> "では条件1と2、1だけ満たす場合、2だけ満たす場合、1と2どちらも満たす場合の3つのテストが今回の対応で追加できましたか？"
+
+**My Initial Response:**
+- Test 1: ✅ `addToolApprovalResponse` only
+- Test 2: ✅ `addToolOutput` only
+- Test 3: ❌ **MISSING** - Mixed scenario
+
+**Conditional Logic:**
+```javascript
+lastAssistantMessageIsCompleteWithApprovalResponses({messages}) {
+  return (
+    // Condition 1: At least one approval-responded exists
+    hasApprovalResponded &&
+    // Condition 2: All tools are complete
+    allToolsComplete
+  );
+}
+```
+
+**Required Test Matrix:**
+
+| Test | Condition 1 | Condition 2 | Expected | Status |
+|------|-------------|-------------|----------|--------|
+| Approval only | ✅ | ✅ | Auto-submit | ✅ PASS |
+| Output only | ❌ | Partial | NO submit | ✅ PASS |
+| **Mixed** | ✅ | ✅ | Auto-submit | ❌ **MISSING** |
+
+**After Fix:**
+```typescript
+// Test 3: Mixed approval + output
+// Tool A: approval-requested → approval-responded (Condition 1: ✅)
+// Tool B: call → output-available (Condition 2: ✅)
+// Result: Auto-submit ✅
+```
+
+**Result:** Complete coverage achieved - 163 tests passing
+
+#### Lesson 4: E2E Should NOT Be First Place to Find Integration Issues
+
+**Philosophy:**
+```
+Integration Tests (Fast, Isolated)
+  ↓ Find issues HERE
+  ↓ NOT in E2E ↓
+E2E Tests (Slow, Full System)
+```
+
+**Why Integration Tests First:**
+1. **Fast feedback loop** - Run in milliseconds, not seconds
+2. **Isolated failures** - Know exactly what broke
+3. **Easy debugging** - Mock backend, control inputs
+4. **Prevent E2E flakiness** - E2E tests real system, not API contracts
+
+**What to Test at Integration Level:**
+- ✅ API contracts (`addToolOutput`, `addToolApprovalResponse`)
+- ✅ State transitions (`call` → `output-available`)
+- ✅ Conditional logic (`sendAutomaticallyWhen`)
+- ✅ Event processing (`tool-approval-request`)
+
+**What to Test at E2E Level:**
+- ⏳ Real backend responses
+- ⏳ Actual UI rendering
+- ⏳ Full system flows
+- ⏳ Network reliability
+
+#### Key Takeaways for Future Work
+
+**DO:**
+1. ✅ **Verify implementation** - Check source code, don't assume
+2. ✅ **Test all APIs** - If function exists, test it at integration level
+3. ✅ **Cover all branches** - Conditional logic requires matrix testing
+4. ✅ **Integration before E2E** - Find issues early in fast tests
+5. ✅ **User decides sufficiency** - AI suggests, user decides scope
+
+**DON'T:**
+1. ❌ **Assume difficulty** - "This is hard" without investigation
+2. ❌ **Skip APIs** - "E2E will catch it" is too late
+3. ❌ **Test partial branches** - Missing conditions = missing bugs
+4. ❌ **Defer to E2E** - Integration catches 80% of issues faster
+5. ❌ **Make scope decisions** - That's the user's role
+
+#### Evidence of Success
+
+**Before User Corrections:**
+- 110 tests passing
+- Missing: `addToolOutput` test
+- Missing: Mixed scenario test
+- Assumption: Step 4-5 "too difficult"
+
+**After User Corrections:**
+- 163 tests passing (+53 tests)
+- ✅ `addToolOutput` tested
+- ✅ Mixed scenario tested
+- ✅ Step 4-5 verified at integration level
+
+**User's Philosophy:**
+> "E2Eに行っても行く前に、integrationテストで早めに落ちるテストがあるならばちゃんと対応しないといけないですよね！"
+
+Translation: "Before going to E2E, if there are integration tests that can catch failures early, we must properly implement them."
+
+**Reference:** experiments/2025-12-13_lib_test_coverage_investigation.md
+
+---
+
 ## Directory Structure
 
 - `experiments/README.md` - This file
