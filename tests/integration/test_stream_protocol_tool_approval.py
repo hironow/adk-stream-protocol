@@ -282,8 +282,13 @@ async def test_frontend_multiple_tools_mixed_approval_rejection(
     # Both sent in single sendMessages() call
 
     # Mock frontend message structure (from lib/use-chat-integration.test.tsx:557-575)
-    from ai_sdk_v6_compat import ChatMessage, ToolApproval, ToolCallState, ToolUsePart
-    from tool_delegate import process_tool_use_parts
+    from ai_sdk_v6_compat import (
+        ChatMessage,
+        ToolApproval,
+        ToolCallState,
+        ToolUsePart,
+        process_tool_use_parts,
+    )
 
     frontend_message = ChatMessage(
         role="assistant",

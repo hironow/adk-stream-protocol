@@ -35,12 +35,16 @@ Tool Call States (UIToolInvocation):
 
 from __future__ import annotations
 
+import base64
 from enum import Enum
-from typing import Any, Literal, Union
+from typing import TYPE_CHECKING, Any, Literal, Union
 
 from google.genai import types
 from loguru import logger
 from pydantic import BaseModel, Field, field_validator
+
+if TYPE_CHECKING:
+    from tool_delegate import FrontendToolDelegate
 
 
 # ============================================================
@@ -355,9 +359,50 @@ class ChatMessage(BaseModel):
 # ============================================================
 
 
+def process_tool_use_parts(message: ChatMessage, delegate: "FrontendToolDelegate") -> None:
+    """
+    Process tool-use parts from frontend messages and route to delegate.
+
+    This function extracts tool-use parts from AI SDK v6 messages and calls
+    appropriate FrontendToolDelegate methods based on the tool state:
+    - "approval-responded" with approved=False → reject_tool_call()
+    - "output-available" → resolve_tool_result()
+
+    Args:
+        message: ChatMessage containing tool-use parts
+        delegate: FrontendToolDelegate instance to route tool results to
+
+    Reference:
+    - Frontend behavior: lib/use-chat-integration.test.tsx:463-592
+    - Gap analysis: experiments/2025-12-13_frontend_backend_integration_gap_analysis.md
+    """
+    if not message.parts:
+        return
+
+    for part in message.parts:
+        if isinstance(part, ToolUsePart):
+            tool_call_id = part.toolCallId
+
+            # Handle approval-responded state (user approved/denied)
+            if part.state == ToolCallState.APPROVAL_RESPONDED:
+                if part.approval and part.approval.approved is False:
+                    # User rejected the tool
+                    reason = part.approval.reason or "User denied permission"
+                    delegate.reject_tool_call(tool_call_id, reason)
+                    logger.info(f"[Tool] Rejected tool {tool_call_id}: {reason}")
+                # Note: approved=True doesn't trigger delegate action here
+                # Tool execution happens on backend, then output is sent via output-available
+
+            # Handle output-available state (tool execution completed)
+            elif part.state == ToolCallState.OUTPUT_AVAILABLE:
+                if part.output is not None:
+                    delegate.resolve_tool_result(tool_call_id, part.output)
+                    logger.info(f"[Tool] Resolved tool {tool_call_id} with output")
+
+
 def process_chat_message_for_bidi(
     message_data: dict,
-    delegate: Any,  # FrontendToolDelegate, avoiding circular import
+    delegate: "FrontendToolDelegate",
 ) -> tuple[list[types.Blob], types.Content | None]:
     """
     Process AI SDK v6 message data for BIDI streaming.
@@ -386,10 +431,6 @@ def process_chat_message_for_bidi(
     - ADK Live API requirements: https://google.github.io/adk-docs/streaming/dev-guide/part2/
     - AI SDK v6 message format: https://ai-sdk.dev/docs/ai-sdk-ui/overview
     """
-    import base64
-
-    from tool_delegate import process_tool_use_parts
-
     messages = message_data.get("messages", [])
     if not messages:
         return ([], None)
@@ -407,23 +448,24 @@ def process_chat_message_for_bidi(
     image_blobs: list[types.Blob] = []
     text_parts: list[types.Part] = []
 
-    for part in last_msg.parts:
-        # Handle file parts (images/videos)
-        if isinstance(part, FilePart):
-            # Decode data URL format: "data:image/png;base64,..."
-            if part.url.startswith("data:"):
-                data_url_parts = part.url.split(",", 1)
-                if len(data_url_parts) == 2:
-                    file_data_base64 = data_url_parts[1]
-                    file_bytes = base64.b64decode(file_data_base64)
+    if last_msg.parts:
+        for part in last_msg.parts:
+            # Handle file parts (images/videos)
+            if isinstance(part, FilePart):
+                # Decode data URL format: "data:image/png;base64,..."
+                if part.url.startswith("data:"):
+                    data_url_parts = part.url.split(",", 1)
+                    if len(data_url_parts) == 2:
+                        file_data_base64 = data_url_parts[1]
+                        file_bytes = base64.b64decode(file_data_base64)
 
-                    # Create Blob for ADK
-                    blob = types.Blob(mime_type=part.mediaType, data=file_bytes)
-                    image_blobs.append(blob)
+                        # Create Blob for ADK
+                        blob = types.Blob(mime_type=part.mediaType, data=file_bytes)
+                        image_blobs.append(blob)
 
-        # Handle text parts
-        elif isinstance(part, TextPart):
-            text_parts.append(types.Part(text=part.text))
+            # Handle text parts
+            elif isinstance(part, TextPart):
+                text_parts.append(types.Part(text=part.text))
 
     # Create text content if any text exists
     text_content = None
