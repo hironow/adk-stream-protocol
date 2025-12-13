@@ -766,6 +766,11 @@ async def live_chat(websocket: WebSocket):
                             # Get last message
                             last_msg = ChatMessage(**messages[-1])
 
+                            # Process tool-use parts (approval/rejection responses from frontend)
+                            from tool_delegate import process_tool_use_parts
+
+                            process_tool_use_parts(last_msg, connection_delegate)
+
                             # IMPORTANT: Live API requires separation of image/video blobs and text
                             # - Images/videos: Use send_realtime(blob)
                             # - Text: Use send_content(content)
@@ -857,42 +862,10 @@ async def live_chat(websocket: WebSocket):
                             # Send to ADK via LiveRequestQueue
                             live_request_queue.send_realtime(audio_blob)
 
-                    # Handle tool result event (P2-T2 Phase 4)
-                    elif event_type == "tool_result":
-                        result_data = event.get("data", {})
-                        tool_call_id = result_data.get("toolCallId")
-                        result = result_data.get("result")
-                        approved = result_data.get("approved")
-                        status = result_data.get("status", "approved")
-
-                        logger.info(
-                            f"[Tool] Received result for {tool_call_id} "
-                            f"(approved: {approved}, status: {status})"
-                        )
-
-                        # Phase 4: Handle tool approval/rejection
-                        if tool_call_id:
-                            if approved is False:
-                                # User rejected the tool (approved=false)
-                                reason = result_data.get("reason", "User denied permission")
-                                frontend_delegate.reject_tool_call(tool_call_id, reason)
-                                logger.info(
-                                    f"[Tool] Rejected pending tool call {tool_call_id}: {reason}"
-                                )
-                            elif result is not None:
-                                # User approved or approval not required
-                                frontend_delegate.resolve_tool_result(tool_call_id, result)
-                                logger.info(
-                                    f"[Tool] Resolved pending tool call {tool_call_id}"
-                                )
-                            else:
-                                logger.warning(
-                                    f"[Tool] Missing result for approved tool: {result_data}"
-                                )
-                        else:
-                            logger.warning(
-                                f"[Tool] Missing tool_call_id in tool_result event: {result_data}"
-                            )
+                    # Note: "tool_result" event handler removed (dead code)
+                    # Frontend uses AI SDK v6's standard flow with tool-use parts in messages
+                    # Tool approval/rejection is now handled via process_tool_use_parts()
+                    # Reference: experiments/2025-12-13_frontend_backend_integration_gap_analysis.md
 
                     # Unknown event type
                     else:
