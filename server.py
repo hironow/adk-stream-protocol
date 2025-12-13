@@ -904,7 +904,9 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
                 # WebSocket mode: Send SSE format over WebSocket (instead of HTTP SSE)
                 # Phase 4: Pass tools_requiring_approval for tool approval flow
                 async for sse_event in stream_adk_to_ai_sdk(
-                    live_events, tools_requiring_approval=TOOLS_REQUIRING_APPROVAL
+                    live_events,
+                    tools_requiring_approval=TOOLS_REQUIRING_APPROVAL,
+                    mode="adk-bidi",  # Chunk logger: distinguish from adk-sse mode
                 ):
                     event_count += 1
                     # Send SSE-formatted event as WebSocket text message

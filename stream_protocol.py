@@ -811,6 +811,7 @@ async def stream_adk_to_ai_sdk(  # noqa: C901
     event_stream: AsyncGenerator[Event, None],
     message_id: str | None = None,
     tools_requiring_approval: set[str] | None = None,
+    mode: str = "adk-sse",  # "adk-sse" or "adk-bidi" for chunk logger
 ) -> AsyncGenerator[str, None]:
     """
     Convert ADK event stream to AI SDK v6 Data Stream Protocol.
@@ -843,7 +844,7 @@ async def stream_adk_to_ai_sdk(  # noqa: C901
                 location="backend-adk-event",
                 direction="in",
                 chunk=repr(event),  # Use repr() for Event object
-                mode="adk-sse",
+                mode=mode,
             )
 
             # Convert and yield event: all event should be processed here!!
@@ -854,7 +855,7 @@ async def stream_adk_to_ai_sdk(  # noqa: C901
                     location="backend-sse-event",
                     direction="out",
                     chunk=sse_event,
-                    mode="adk-sse",
+                    mode=mode,
                 )
 
                 yield sse_event
@@ -907,7 +908,7 @@ async def stream_adk_to_ai_sdk(  # noqa: C901
                 location="backend-sse-event",
                 direction="out",
                 chunk=final_event,
-                mode="adk-sse",
+                mode=mode,
             )
 
             yield final_event
