@@ -8,6 +8,7 @@ This directory contains research, preliminary experiments, and exploratory imple
 
 | Date | Experiment | Status | Objective | Current Progress |
 |------|-----------|--------|-----------|------------------|
+| 2025-12-14 | [Repeatable Chunk Logger & Player](./2025-12-14_repeatable_chunk_logger_player.md) | 🟡 In Progress | Implement chunk recording/playback mechanism for E2E test automation and debugging | Design complete, Phase 1 (Backend Logger) ready to start |
 | 2025-12-13 | [lib/ Test Coverage Investigation](./2025-12-13_lib_test_coverage_investigation.md) | 🟡 In Progress | Systematic gap analysis for lib/ test coverage to identify missing edge cases | Phase 1-3 Complete + Bug 1 Fixed (163 tests passing) |
 | 2025-12-12 | [ADK Field Mapping Completeness](./2025-12-12_adk_field_mapping_completeness.md) | 🟡 In Progress | Systematic review of all ADK Event/Part fields and their mapping to AI SDK v6 protocol | 4/5 Priority fields complete, Part.fileData remaining |
 

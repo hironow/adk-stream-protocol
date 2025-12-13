@@ -17,6 +17,7 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
 - ✅ [P4-T4.3] Integration Test TODO Comments - **COMPLETED 2025-12-14** (Already removed in commit 40d01d6)
 
 **Tier 2 - High Priority (1-2 weeks):**
+- [P4-T7] Repeatable Chunk Logger & Player (8-12 hours) - **STARTED 2025-12-14**
 - [P4-T5] Documentation Updates (2-3 hours)
 - [P4-T4.1] ADK Response Fixture Files (3-4 hours)
 - [P4-T4.4] Systematic Model/Mode Testing (4-6 hours)
@@ -200,6 +201,85 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
 - ✅ TODO comments removed in commit 40d01d6
 - ✅ Step 1-2 and Step 6-8 scenarios verified as fully covered
 - ✅ Comprehensive codebase scan confirmed no remaining TODOs
+
+---
+
+### [P4-T7] Repeatable Chunk Logger & Player
+
+**Description:** Implement chunk recording/playback mechanism for E2E test automation and debugging
+
+**Status:** In Progress - Design Complete
+
+**Priority:** High (Tier 2 - High Priority, 8-12 hours)
+
+**Related Experiments:**
+- `experiments/2025-12-14_repeatable_chunk_logger_player.md`
+
+**Objective:**
+Enable recording of actual chunk data during manual operations and replay them for:
+1. E2E test automation
+2. Debugging and issue reproduction
+3. Chunk conversion validation across 3 modes
+4. Regression testing with real data
+
+**Current State:**
+- Design complete in experiment note
+- Identified 5 injection points (2 backend, 3 frontend)
+- JSONL format chosen for chunk storage
+
+**Implementation Phases:**
+
+**Phase 1: Backend Logger (Python)** - Priority: High
+- [ ] Create `lib/chunk_logger.py`
+  - ChunkLogger class with JSONL writer
+  - Environment variable control
+  - Session ID management
+- [ ] Inject logger into `stream_protocol.py`
+  - ADK event logging (input)
+  - SSE event logging (output)
+- [ ] Tests for logger functionality
+- **Estimated**: 2-3 hours
+
+**Phase 2: Frontend Logger (TypeScript)** - Priority: High
+- [ ] Create `lib/chunk-logger.ts`
+  - ChunkLogger class for browser
+  - Blob + Download for chunk export
+  - Environment variable control
+- [ ] Inject logger into transports
+  - WebSocketChatTransport (ADK BIDI)
+  - DefaultChatTransport wrapper (ADK SSE)
+  - Next.js API route (Gemini Direct)
+- [ ] Tests for frontend logger
+- **Estimated**: 3-4 hours
+
+**Phase 3: Player Mechanism** - Priority: Medium
+- [ ] Create `lib/chunk_player.py` (Backend)
+  - JSONL reader with iterator interface
+  - Timing control (real-time/fast-forward/step)
+- [ ] Create `lib/chunk-player.ts` (Frontend)
+  - AsyncIterator interface
+  - Mock injection points
+- [ ] Tests for player functionality
+- **Estimated**: 2-3 hours
+
+**Phase 4: E2E Test Integration** - Priority: Low
+- [ ] Create fixture directory `tests/fixtures/chunk_logs/`
+- [ ] Record representative scenarios
+- [ ] Write E2E tests using player
+- [ ] Documentation
+- **Estimated**: 2-3 hours
+
+**Expected Benefits:**
+- Manual operation → chunk record → automated test cycle
+- Actual chunk data for debugging
+- Regression testing with real-world data
+- Cross-mode comparison (Gemini Direct vs ADK SSE vs ADK BIDI)
+- Documentation with real chunk examples
+
+**Technical Decisions:**
+- Format: JSONL (1 line = 1 chunk, human-readable, tool-friendly)
+- Frontend storage: Blob + Download (simple, no backend dependency)
+- Security: Disabled in production, chunk logs in .gitignore
 
 ---
 
