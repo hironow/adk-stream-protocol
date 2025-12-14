@@ -180,6 +180,11 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
   private pingInterval: NodeJS.Timeout | null = null; // Ping interval timer
   private lastPingTime: number | null = null; // Timestamp of last ping
 
+  // Controller lifecycle management (P4-T10)
+  // Tracks current ReadableStream controller to prevent orphaning on handler override
+  private currentController: ReadableStreamDefaultController<UIMessageChunk> | null =
+    null;
+
   // PCM recording buffer for message replay (Pipeline 2)
   private pcmBuffer: Int16Array[] = []; // Buffer PCM chunks for WAV conversion
   private pcmSampleRate = 24000; // Default sample rate (updated from first chunk)
@@ -392,6 +397,9 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
 
             // Set up message handler
             if (this.ws) {
+              // Save controller reference (P4-T10)
+              this.currentController = controller;
+
               this.ws.onmessage = (event) => {
                 this.handleWebSocketMessage(event.data, controller);
               };
@@ -411,6 +419,24 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
           } else {
             // Reuse existing connection
             console.log("[WS Transport] Reusing existing connection");
+
+            // Close previous controller to prevent orphaning (P4-T10)
+            if (this.currentController) {
+              console.warn(
+                "[WS Transport] Closing previous stream before reusing connection",
+              );
+              try {
+                this.currentController.close();
+              } catch (_err) {
+                // Controller already closed - ignore error
+                console.debug(
+                  "[WS Transport] Previous controller already closed",
+                );
+              }
+            }
+
+            // Save new controller reference (P4-T10)
+            this.currentController = controller;
 
             // Update message handler for new stream
             if (this.ws) {
@@ -517,6 +543,9 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
 
           controller.close();
 
+          // Clear controller reference (P4-T10)
+          this.currentController = null;
+
           // Reset audio state for next turn
           this.audioChunkIndex = 0;
           this.pcmBuffer = []; // Clear PCM recording buffer
@@ -591,6 +620,8 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
     } catch (error) {
       console.error("[WS Transport] Error handling message:", error);
       controller.error(error);
+      // Clear controller reference on error (P4-T10)
+      this.currentController = null;
     }
   }
 
