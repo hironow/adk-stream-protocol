@@ -18,7 +18,7 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
 
 **Tier 2 - High Priority (1-2 weeks):**
 - ✅ [P4-T7] Repeatable Chunk Logger & Player (8-12 hours) - **COMPLETED 2025-12-14** (Phase 1-4 Complete, E2E Infrastructure Ready)
-- [P4-T5] Documentation Updates (2-3 hours)
+- ✅ [P4-T5] Documentation Updates (2-3 hours) - **COMPLETED 2025-12-14** (ARCHITECTURE.md created, README.md updated)
 - [P4-T4.1] ADK Response Fixture Files (3-4 hours)
 - [P4-T4.4] Systematic Model/Mode Testing (4-6 hours)
 
@@ -155,26 +155,35 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
 
 **Description:** Document multimodal limitations and future work
 
-**Status:** Not Started
+**Status:** ✅ **COMPLETED 2025-12-14**
 
 **Priority:** Medium (Tier 2 - High Priority, 2-3 hours)
 
 **Related Experiments:**
 - `experiments/2025-12-11_adk_bidi_multimodal_support.md`
 
-**Documentation Tasks:**
-1. Document current multimodal support status:
+**Completed Documentation Tasks:**
+1. ✅ Document current multimodal support status:
    - ✅ Phase 1-3 Complete (Images, Audio Output, Audio Input)
    - ⬜ Phase 4 Future (Video)
-2. Document known limitations:
+2. ✅ Document known limitations:
    - WebSocket reconnection with unique session IDs (deferred)
    - No native Voice Activity Detection (CMD key workaround)
    - Cannot mix TEXT and AUDIO modalities in one session
-3. Create architecture documentation:
-   - How AudioWorklet PCM streaming works
+   - Progressive audio playback not implemented
+3. ✅ Create architecture documentation:
+   - ARCHITECTURE.md created with comprehensive technical details
+   - AudioWorklet PCM streaming architecture (lib/audio-recorder.ts)
    - Tool approval flow (frontend delegation pattern)
    - Per-connection state management pattern
-4. Update README.md with current capabilities
+   - Multimodal support architecture (Images, Audio I/O)
+   - Protocol flow diagrams with Japanese legends
+4. ✅ Update README.md with current capabilities:
+   - Added "Multimodal Capabilities" section
+   - Detailed feature matrix with status
+   - Architecture flow descriptions
+   - Known limitations documented
+   - Reference to ARCHITECTURE.md for technical details
 
 ---
 

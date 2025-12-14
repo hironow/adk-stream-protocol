@@ -153,6 +153,51 @@ The `useChat` hook receives the same `UIMessageChunk` stream regardless of:
 - **Critical Coverage:** Error handling, BIDI turn completion, message metadata
 - See `TEST_COVERAGE_AUDIT.md` for detailed coverage report
 
+## Multimodal Capabilities
+
+**Phase 1-3: Images, Audio I/O** ✅ **Complete**
+
+The project supports rich multimodal interactions through ADK's BIDI mode:
+
+### Supported Features
+
+| Feature | Status | Implementation | Notes |
+|---------|--------|----------------|-------|
+| **Text I/O** | ✅ Working | Native AI SDK v6 | Token-by-token streaming |
+| **Image Input** | ✅ Working | `data-image` custom events | PNG, JPEG, WebP supported |
+| **Image Output** | ✅ Working | `data-image` custom events | Gemini Vision responses |
+| **Audio Input** | ✅ Working | AudioWorklet PCM (16kHz) | CMD key push-to-talk |
+| **Audio Output** | ✅ Working | `data-pcm` custom events (24kHz) | WAV format playback |
+| **Audio Transcription** | ✅ Working | Native-audio models | Input + output speech-to-text |
+| **Tool Calling** | ✅ Working | Full ADK integration | With multimodal context |
+| **Video I/O** | ⬜ Future | Phase 4 planned | Similar to audio approach |
+
+### Architecture
+
+**Audio Input Flow:**
+- Microphone → AudioWorklet (16kHz PCM) → WebSocket → ADK Live API
+- Push-to-talk control (CMD/Ctrl key)
+- Echo cancellation, noise suppression, auto gain control
+
+**Audio Output Flow:**
+- ADK (24kHz PCM) → `data-pcm` events → WAV generation → Browser playback
+- Chunk accumulation for smooth playback
+
+**Image Flow:**
+- User upload → base64 encoding → `experimental_attachments` → ADK Gemini Vision
+- AI response → `data-image` events → Custom display component
+
+For detailed architecture documentation, see `ARCHITECTURE.md`.
+
+### Known Limitations
+
+1. **WebSocket Reconnection:** New sessions lose conversation history (workaround: manual refresh)
+2. **Voice Activity Detection:** No browser-based VAD (CMD key push-to-talk required)
+3. **Response Modality Mixing:** Cannot mix TEXT and AUDIO output in one session (ADK constraint)
+4. **Progressive Audio Playback:** Chunks are accumulated before playback (future: Web Audio API streaming)
+
+See `ARCHITECTURE.md` for complete technical details and implementation notes.
+
 ## Experiments & Research
 
 All experiment notes and architectural investigations are documented in `experiments/`:
