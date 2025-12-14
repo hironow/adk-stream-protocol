@@ -175,14 +175,14 @@ User Alice
 **Phase 1: Connection-Specific Session Management** - ✅ **COMPLETED**
 - Each WebSocket connection generates unique `connection_signature` (UUID)
 - Session ID format: `session_{user_id}_{connection_signature}`
-- Implemented in `server.py:689-704` (live_chat function)
+- Implemented in `server.py` (live_chat async function)
 - Implementation: `get_or_create_session()` accepts `connection_signature` parameter
 
 **Phase 2: Connection-Specific Tool Delegation** - ✅ **COMPLETED**
 - Each connection has isolated `FrontendToolDelegate`
 - Delegate stored in `session.state["temp:delegate"]`
 - Tool approval requests routed to source connection via session state
-- Implemented in `server.py:706-716` and tool functions (`change_bgm`, `get_location`)
+- Implemented in `server.py` (live_chat function) and tool functions (`change_bgm`, `get_location`)
 
 **Phase 3: Connection Registry** - ❌ **NOT IMPLEMENTED**
 - Global connection registry not yet implemented
@@ -205,7 +205,7 @@ These enhancements maintain the **Connection = Session** principle while improvi
 - **Investigation Document:** `experiments/2025-12-13_per_connection_state_management_investigation.md`
 - **ADK Discussion:** [#2784: Multi-client WebSocket](https://github.com/google/adk-python/discussions/2784)
 - **AI SDK v6 Discussion:** [#5607: WebSocket Support](https://github.com/vercel/ai/discussions/5607)
-- **Implementation:** `server.py:651-940`, `ARCHITECTURE.md`
+- **Implementation:** `server.py` (live_chat function), `docs/ARCHITECTURE.md`
 - **Original Specification:** `SPEC.md` (archived after this ADR)
 
 ---

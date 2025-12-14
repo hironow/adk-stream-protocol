@@ -24,21 +24,21 @@ This section provides the mapping from **ADK perspective** (what ADK provides) t
 | ADK Event Field | Type | Mapped To | Implementation | Notes |
 |-----------------|------|-----------|----------------|-------|
 | **Content & Parts** |
-| `content.parts[]` | Content | Multiple events | stream_protocol.py:125-179 | Processed per Part type (see Part mapping below) |
+| `content.parts[]` | Content | Multiple events | stream_protocol.py | Processed per Part type (see Part mapping below) |
 | **Metadata** |
-| `usage_metadata` | UsageMetadata | `finish` event `usage` field | stream_protocol.py:690-711 | Token counts in finish event |
-| `finish_reason` | FinishReason | ✅ Mapped | stream_protocol.py:392-395, 817-818 | Maps to `finishReason` field in finish event |
-| `grounding_metadata` | GroundingMetadata | ✅ `finish` event `messageMetadata.grounding` | stream_protocol.py:714-732 | Search grounding sources (RAG, web search) |
-| `citation_metadata` | CitationMetadata | ✅ `finish` event `messageMetadata.citations` | stream_protocol.py:735-751 | Citation information |
-| `cache_metadata` | CacheMetadata | ✅ `finish` event `messageMetadata.cache` | stream_protocol.py:755-762 | Context cache hit/miss statistics |
-| `model_version` | str | ✅ `finish` event `messageMetadata.modelVersion` | stream_protocol.py:767-769 | Model version string |
+| `usage_metadata` | UsageMetadata | `finish` event `usage` field | stream_protocol.py | Token counts in finish event |
+| `finish_reason` | FinishReason | ✅ Mapped | stream_protocol.py, 817-818 | Maps to `finishReason` field in finish event |
+| `grounding_metadata` | GroundingMetadata | ✅ `finish` event `messageMetadata.grounding` | stream_protocol.py | Search grounding sources (RAG, web search) |
+| `citation_metadata` | CitationMetadata | ✅ `finish` event `messageMetadata.citations` | stream_protocol.py | Citation information |
+| `cache_metadata` | CacheMetadata | ✅ `finish` event `messageMetadata.cache` | stream_protocol.py | Context cache hit/miss statistics |
+| `model_version` | str | ✅ `finish` event `messageMetadata.modelVersion` | stream_protocol.py | Model version string |
 | **Live API Specific** |
-| `input_transcription` | Transcription | ✅ `text-start/delta/end` events | stream_protocol.py:310-340 | User speech → text (Live API BIDI mode) |
-| `output_transcription` | Transcription | ✅ `text-start/delta/end` events | stream_protocol.py:343-378 | Model speech → text (Live API BIDI mode) |
+| `input_transcription` | Transcription | ✅ `text-start/delta/end` events | stream_protocol.py | User speech → text (Live API BIDI mode) |
+| `output_transcription` | Transcription | ✅ `text-start/delta/end` events | stream_protocol.py | Model speech → text (Live API BIDI mode) |
 | `live_session_resumption_update` | SessionUpdate | ❌ Not mapped | N/A | Session resumption info (Live API) |
 | **Error & Control** |
-| `error_code` | str | `error` event | stream_protocol.py:383-384 | Error handling |
-| `error_message` | str | `error` event | stream_protocol.py:383-384 | Error handling |
+| `error_code` | str | `error` event | stream_protocol.py | Error handling |
+| `error_message` | str | `error` event | stream_protocol.py | Error handling |
 | `partial` | bool | ❌ Not used | N/A | Streaming state flag (handled implicitly) |
 | `turn_complete` | bool | ❌ Not used | N/A | Turn completion flag (handled by finish event) |
 | `interrupted` | bool | ❌ Not mapped | N/A | Interruption flag |
@@ -61,19 +61,19 @@ This section provides the mapping from **ADK perspective** (what ADK provides) t
 | ADK Part Field | Type | Mapped To | Implementation | Notes |
 |----------------|------|-----------|----------------|-------|
 | **Text & Reasoning** |
-| `text` (thought=False/None) | str | `text-start/delta/end` | stream_protocol.py:139-141, 210-212 | Regular text content |
-| `text` + `thought=True` | str + bool | `reasoning-start/delta/end` | stream_protocol.py:130-137, 214-216 | Thinking/reasoning content (Gemini 2.0 Flash Thinking) |
+| `text` (thought=False/None) | str | `text-start/delta/end` | stream_protocol.py, 210-212 | Regular text content |
+| `text` + `thought=True` | str + bool | `reasoning-start/delta/end` | stream_protocol.py, 214-216 | Thinking/reasoning content (Gemini 2.0 Flash Thinking) |
 | `thought_signature` | bytes | ❌ Not mapped | N/A | Cryptographic signature for thought authenticity |
 | **Tool Execution** |
-| `function_call` | FunctionCall | `tool-input-start`, `tool-input-available` | stream_protocol.py:144-146, 218-244 | Tool invocation |
-| `function_response` | FunctionResponse | `tool-output-available` | stream_protocol.py:149-153, 246-270 | Tool execution result |
+| `function_call` | FunctionCall | `tool-input-start`, `tool-input-available` | stream_protocol.py, 218-244 | Tool invocation |
+| `function_response` | FunctionResponse | `tool-output-available` | stream_protocol.py, 246-270 | Tool execution result |
 | **Code Execution** (Gemini 2.0 Flash) |
-| `executable_code` | ExecutableCode | `data-executable-code` | stream_protocol.py:156-160, 272-280 | Code execution request |
-| `code_execution_result` | CodeExecutionResult | `data-code-execution-result` | stream_protocol.py:163-169, 282-290 | Code execution output |
+| `executable_code` | ExecutableCode | `data-executable-code` | stream_protocol.py, 272-280 | Code execution request |
+| `code_execution_result` | CodeExecutionResult | `data-code-execution-result` | stream_protocol.py, 282-290 | Code execution output |
 | **Multimodal Content** |
-| `inline_data` (audio/pcm) | Blob | `data-pcm` | stream_protocol.py:299-328 | PCM audio streaming (Live API) |
-| `inline_data` (audio/*) | Blob | `data-audio` | stream_protocol.py:331-344 | Other audio formats |
-| `inline_data` (image/*) | Blob | `data-image` | stream_protocol.py:347-360 | Image data |
+| `inline_data` (audio/pcm) | Blob | `data-pcm` | stream_protocol.py | PCM audio streaming (Live API) |
+| `inline_data` (audio/*) | Blob | `data-audio` | stream_protocol.py | Other audio formats |
+| `inline_data` (image/*) | Blob | `data-image` | stream_protocol.py | Image data |
 | `file_data` | FileData | ❌ Not mapped | N/A | File references (Cloud Storage URIs) - Not directly streamable |
 | **Video Metadata** |
 | `video_metadata` | VideoMetadata | ❌ Not mapped | N/A | Video metadata (frame timestamps, etc.) |
@@ -88,35 +88,35 @@ This section shows the AI SDK v6 protocol from **frontend perspective** (what AI
 | Event Type | Status | Implementation | ADK Source | Notes |
 |------------|--------|----------------|------------|-------|
 | **Message Control** |
-| `start` | ✅ Implemented | stream_protocol.py:119-122 | Auto-generated | Sent on first event |
-| `finish` | ✅ Implemented | stream_protocol.py:387-405 | Event.usage_metadata, Event.finish_reason | Includes token usage and finishReason |
-| `[DONE]` | ✅ Implemented | stream_protocol.py:407-408 | Auto-generated | Stream termination marker |
+| `start` | ✅ Implemented | stream_protocol.py | Auto-generated | Sent on first event |
+| `finish` | ✅ Implemented | stream_protocol.py | Event.usage_metadata, Event.finish_reason | Includes token usage and finishReason |
+| `[DONE]` | ✅ Implemented | stream_protocol.py | Auto-generated | Stream termination marker |
 | **Text Streaming** |
-| `text-start` | ✅ Implemented | stream_protocol.py:210-212 | Part.text (thought=False/None) | Start text block |
-| `text-delta` | ✅ Implemented | stream_protocol.py:210-212 | Part.text (thought=False/None) | Text content |
-| `text-end` | ✅ Implemented | stream_protocol.py:210-212 | Part.text (thought=False/None) | End text block |
+| `text-start` | ✅ Implemented | stream_protocol.py | Part.text (thought=False/None) | Start text block |
+| `text-delta` | ✅ Implemented | stream_protocol.py | Part.text (thought=False/None) | Text content |
+| `text-end` | ✅ Implemented | stream_protocol.py | Part.text (thought=False/None) | End text block |
 | **Reasoning Streaming** |
-| `reasoning-start` | ✅ Implemented | stream_protocol.py:259-265, 427-429 | Part.text + Part.thought=True | Start reasoning block (Gemini 2.0 Flash Thinking) |
-| `reasoning-delta` | ✅ Implemented | stream_protocol.py:259-265, 427-429 | Part.text + Part.thought=True | Reasoning content |
-| `reasoning-end` | ✅ Implemented | stream_protocol.py:259-265, 427-429 | Part.text + Part.thought=True | End reasoning block |
+| `reasoning-start` | ✅ Implemented | stream_protocol.py, 427-429 | Part.text + Part.thought=True | Start reasoning block (Gemini 2.0 Flash Thinking) |
+| `reasoning-delta` | ✅ Implemented | stream_protocol.py, 427-429 | Part.text + Part.thought=True | Reasoning content |
+| `reasoning-end` | ✅ Implemented | stream_protocol.py, 427-429 | Part.text + Part.thought=True | End reasoning block |
 | **Tool Execution** |
-| `tool-input-start` | ✅ Implemented | stream_protocol.py:218-244 | Part.function_call | Tool call begins |
+| `tool-input-start` | ✅ Implemented | stream_protocol.py | Part.function_call | Tool call begins |
 | `tool-input-delta` | ⚠️ Not Implemented | N/A | N/A | ADK doesn't stream tool input incrementally |
-| `tool-input-available` | ✅ Implemented | stream_protocol.py:218-244 | Part.function_call | Tool input complete |
-| `tool-output-available` | ✅ Implemented | stream_protocol.py:246-270 | Part.function_response | Tool execution result |
+| `tool-input-available` | ✅ Implemented | stream_protocol.py | Part.function_call | Tool input complete |
+| `tool-output-available` | ✅ Implemented | stream_protocol.py | Part.function_response | Tool execution result |
 | **Source References** |
 | `source-url` | ❌ Not Implemented | N/A | N/A | ADK doesn't provide source metadata |
 | `source-document` | ❌ Not Implemented | N/A | N/A | ADK doesn't provide source metadata |
 | **File References** |
 | `file` | ❌ Not Implemented | N/A | N/A | ADK doesn't provide file references |
 | **Custom Data** |
-| `data-pcm` | ✅ Implemented | stream_protocol.py:292-328 | Part.inline_data (audio/pcm) | PCM audio streaming (BIDI mode) |
-| `data-audio` | ✅ Implemented | stream_protocol.py:330-344 | Part.inline_data (audio/*) | Other audio formats |
-| `data-image` | ✅ Implemented | stream_protocol.py:346-360 | Part.inline_data (image/*) | Image data |
-| `data-executable-code` | ✅ Implemented | stream_protocol.py:272-280 | Part.executable_code | Code execution (Gemini 2.0) |
-| `data-code-execution-result` | ✅ Implemented | stream_protocol.py:282-290 | Part.code_execution_result | Code results (Gemini 2.0) |
+| `data-pcm` | ✅ Implemented | stream_protocol.py | Part.inline_data (audio/pcm) | PCM audio streaming (BIDI mode) |
+| `data-audio` | ✅ Implemented | stream_protocol.py | Part.inline_data (audio/*) | Other audio formats |
+| `data-image` | ✅ Implemented | stream_protocol.py | Part.inline_data (image/*) | Image data |
+| `data-executable-code` | ✅ Implemented | stream_protocol.py | Part.executable_code | Code execution (Gemini 2.0) |
+| `data-code-execution-result` | ✅ Implemented | stream_protocol.py | Part.code_execution_result | Code results (Gemini 2.0) |
 | **Error Handling** |
-| `error` | ✅ Implemented | stream_protocol.py:383-384 | Exception | Error messages |
+| `error` | ✅ Implemented | stream_protocol.py | Exception | Error messages |
 | **Multi-Step Control** |
 | `start-step` | ❌ Not Implemented | N/A | N/A | Not needed: ADK events are already step-based |
 | `finish-step` | ❌ Not Implemented | N/A | N/A | Not needed: Each ADK event is a discrete step |
@@ -189,19 +189,19 @@ These custom events follow the `data-*` pattern specified in the AI SDK v6 proto
 - Image upload (PNG, JPEG, WebP) via `experimental_attachments`
 - Image display with custom `ImageDisplay` component
 - Bidirectional image support (user → AI, AI → user)
-- Implementation: `stream_protocol.py:346-360`, `components/image-upload.tsx`, `components/image-display.tsx`
+- Implementation: `stream_protocol.py`, `components/image-upload.tsx`, `components/image-display.tsx`
 
 **Phase 2: Audio Output** ✅ **COMPLETE**
 - PCM audio streaming (24kHz) via `data-pcm` events
 - WAV format generation for browser playback
 - Audio transcription (output speech-to-text)
-- Implementation: `stream_protocol.py:292-328`, `components/audio-player.tsx`
+- Implementation: `stream_protocol.py`, `components/audio-player.tsx`
 
 **Phase 3: Audio Input** ✅ **COMPLETE**
 - Microphone recording via AudioWorklet (16kHz PCM)
 - Push-to-talk control (CMD/Ctrl key)
 - Audio transcription (input speech-to-text)
-- Implementation: `lib/audio-recorder.ts`, `components/chat.tsx`, `stream_protocol.py:310-340`
+- Implementation: `lib/audio-recorder.ts`, `components/chat.tsx`, `stream_protocol.py`
 
 **Phase 4: Video Support** ⬜ **FUTURE**
 - Planned similar approach to audio

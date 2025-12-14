@@ -19,20 +19,20 @@
 | Field | Test File | Test Type | Notes |
 |-------|-----------|-----------|-------|
 | `content` | `test_stream_protocol_comprehensive.py` | Multiple tests | 124 mentions - extensively tested |
-| `modelVersion` | `test_stream_protocol_comprehensive.py:1174` | Individual test | `test_message_metadata_with_model_version()` |
-| `groundingMetadata` | `test_stream_protocol_comprehensive.py:1015` | Individual test | `test_message_metadata_with_grounding()` |
-| `citationMetadata` | `test_stream_protocol_comprehensive.py:1071` | Individual test | `test_message_metadata_with_citations()` |
-| `cacheMetadata` | `test_stream_protocol_comprehensive.py:1127` | Individual test | `test_message_metadata_with_cache()` |
+| `modelVersion` | `test_stream_protocol_comprehensive.py` | Individual test | `test_message_metadata_with_model_version()` |
+| `groundingMetadata` | `test_stream_protocol_comprehensive.py` | Individual test | `test_message_metadata_with_grounding()` |
+| `citationMetadata` | `test_stream_protocol_comprehensive.py` | Individual test | `test_message_metadata_with_citations()` |
+| `cacheMetadata` | `test_stream_protocol_comprehensive.py` | Individual test | `test_message_metadata_with_cache()` |
 
 ### ✅ Additional Well-Tested Fields (Updated 2025-12-14)
 
 | Field | Test File | Test Type | Notes |
 |-------|-----------|-----------|-------|
-| `errorCode` | `test_stream_protocol_comprehensive.py:693` | Parametrized (4 cases) | ✅ **NEW**: error-with-message, permission-denied, error-without-message, error-with-empty-message |
-| `errorMessage` | `test_stream_protocol_comprehensive.py:693` | Parametrized (4 cases) | ✅ **NEW**: Tests error detection logic at stream_protocol.py:181-187 |
-| `turnComplete` | `test_stream_protocol_comprehensive.py:767` | Parametrized (4 cases) | ✅ **NEW**: turn-complete-with-metadata, turn-complete-without-metadata, turn-not-complete, turn-complete-missing |
+| `errorCode` | `test_stream_protocol_comprehensive.py` | Parametrized (4 cases) | ✅ **NEW**: error-with-message, permission-denied, error-without-message, error-with-empty-message |
+| `errorMessage` | `test_stream_protocol_comprehensive.py` | Parametrized (4 cases) | ✅ **NEW**: Tests error detection logic at stream_protocol.py |
+| `turnComplete` | `test_stream_protocol_comprehensive.py` | Parametrized (4 cases) | ✅ **NEW**: turn-complete-with-metadata, turn-complete-without-metadata, turn-not-complete, turn-complete-missing |
 | `finishReason` | `test_stream_protocol_comprehensive.py` | Parametrized (3 cases) | ✅ `TestFinishReasonMapping` class |
-| `usageMetadata` | `test_stream_protocol_comprehensive.py:725` | Parametrized (3 cases) | ✅ `test_usage_metadata_in_finish_event()` |
+| `usageMetadata` | `test_stream_protocol_comprehensive.py` | Parametrized (3 cases) | ✅ `test_usage_metadata_in_finish_event()` |
 | `outputTranscription` | `test_output_transcription.py` | Parametrized (5 cases) | ✅ Complete transcription flow testing |
 | `inputTranscription` | `test_input_transcription.py` | Parametrized (5 cases) | ✅ Complete transcription flow testing |
 
@@ -51,9 +51,9 @@
 
 | Field | Current Coverage | Recommendation |
 |-------|-----------------|----------------|
-| `inlineData` | `test_stream_protocol_comprehensive.py:469` | ✅ **HAS PARAMETRIZED TEST**: 3 formats (PNG, JPEG, WebP) |
-| `executableCode` | `test_stream_protocol_comprehensive.py:533` | ✅ **HAS PARAMETRIZED TEST**: `test_executable_code_events()` |
-| `codeExecutionResult` | `test_stream_protocol_comprehensive.py:583` | ✅ **HAS PARAMETRIZED TEST**: `test_code_execution_result_events()` |
+| `inlineData` | `test_stream_protocol_comprehensive.py` | ✅ **HAS PARAMETRIZED TEST**: 3 formats (PNG, JPEG, WebP) |
+| `executableCode` | `test_stream_protocol_comprehensive.py` | ✅ **HAS PARAMETRIZED TEST**: `test_executable_code_events()` |
+| `codeExecutionResult` | `test_stream_protocol_comprehensive.py` | ✅ **HAS PARAMETRIZED TEST**: `test_code_execution_result_events()` |
 
 ## TypeScript/Frontend Test Coverage
 
@@ -78,9 +78,9 @@
 **Original Issue**: `errorCode` and `errorMessage` fields were IMPLEMENTED but NOT tested
 
 **Resolution**:
-- ✅ Added 4 parametrized test cases in `test_stream_protocol_comprehensive.py:693-765`
+- ✅ Added 4 parametrized test cases in `test_stream_protocol_comprehensive.py`
 - ✅ Tests cover: error-with-message, permission-denied, error-without-message-uses-default, error-with-empty-message-uses-default
-- ✅ Coverage: stream_protocol.py:181-187 (error detection logic)
+- ✅ Coverage: stream_protocol.py (error detection logic)
 - ✅ All 4 test cases passing
 
 **Impact Resolved**:
@@ -165,24 +165,24 @@ describe.each([
 ### ✅ Completed
 
 - [x] **Add parametrized test for `errorCode` and `errorMessage` Event fields** ✅ DONE (2025-12-14)
-  - Added 4 parametrized test cases in `test_stream_protocol_comprehensive.py:693-765`
+  - Added 4 parametrized test cases in `test_stream_protocol_comprehensive.py`
   - Tests: error-with-message, permission-denied, error-without-message-uses-default, error-with-empty-message-uses-default
-  - Coverage: stream_protocol.py:181-187 (error detection logic)
+  - Coverage: stream_protocol.py (error detection logic)
   - All tests passing
 
 - [x] **Add parametrized test for `turnComplete` Event field** ✅ DONE (2025-12-14)
-  - Added 4 parametrized test cases in `test_stream_protocol_comprehensive.py:767-863`
+  - Added 4 parametrized test cases in `test_stream_protocol_comprehensive.py`
   - Tests: turn-complete-with-metadata, turn-complete-without-metadata, turn-not-complete-no-finish, turn-complete-missing-no-finish
-  - Coverage: stream_protocol.py:385-399 (BIDI turn completion logic)
+  - Coverage: stream_protocol.py (BIDI turn completion logic)
   - All tests passing
 
 - [x] **Add parametrized test for `inlineData` Part field with multiple image formats** ✅ ALREADY IMPLEMENTED
-  - Found existing parametrized tests in `test_stream_protocol_comprehensive.py:469-531`
+  - Found existing parametrized tests in `test_stream_protocol_comprehensive.py`
   - 3 image formats tested: PNG, JPEG, WebP
   - Coverage: Part.inline_data field
 
 - [x] **Add TypeScript parametrized tests for all messageMetadata fields** ✅ DONE (2025-12-14)
-  - Added 4 parametrized test cases in `lib/websocket-chat-transport.test.ts:1433-1516`
+  - Added 4 parametrized test cases in `lib/websocket-chat-transport.test.ts-1516`
   - Tests: grounding-with-multiple-sources, citations-with-multiple-entries, cache-with-hits-and-misses, model-version-string
   - Coverage: messageMetadata.grounding, messageMetadata.citations, messageMetadata.cache, messageMetadata.modelVersion
   - All tests passing
