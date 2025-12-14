@@ -21,7 +21,7 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
 - ✅ [P4-T5] Documentation Updates (2-3 hours) - **COMPLETED 2025-12-14** (ARCHITECTURE.md created, README.md updated, TEMP_FAQ.md with 14 Q&A sections)
 - ✅ [P4-T10] WebSocket Controller Lifecycle Management (1 hour) - **COMPLETED 2025-12-14** (Controller lifecycle management implemented)
 - ✅ [P4-T9] Mode Switching Message History Preservation (1-2 hours) - **COMPLETED 2025-12-14** (History preservation + Clear History button)
-- [P4-T4.1] ADK Response Fixture Files (3-4 hours)
+- 🟡 [P4-T4.1] E2E Chunk Fixture Recording (1-2 hours remaining) - **PARTIAL** (Infrastructure complete, manual recording pending)
 - [P4-T4.4] Systematic Model/Mode Testing (4-6 hours)
 
 **Tier 3 - Planned (When use case emerges):**
@@ -119,13 +119,101 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
 
 **Tasks:**
 
-**T4.1: ADK Response Fixture Files** (Tier 2 - High Priority, 3-4 hours)
-- Create `tests/fixtures/adk_events/` directory
-- Capture real ADK responses for different modes:
-  - TEXT mode responses
-  - AUDIO mode (native-audio) responses
-  - Different models (gemini-2.0-flash-exp, etc.)
-- Document expected event sequences
+**T4.1: E2E Chunk Fixture Recording** (Tier 2 - High Priority, 1-2 hours remaining)
+
+**Status:** 🟡 Partial (Infrastructure Complete, Manual Recording Pending)
+
+**Completed:**
+- ✅ Directory structure created: `tests/fixtures/e2e-chunks/pattern{1,2,3,4}-*/`
+- ✅ Comprehensive documentation:
+  - `tests/fixtures/e2e-chunks/README.md` - Recording procedures and test patterns
+  - `agents/recorder_handsoff.md` - Manual recording guide with checklists
+  - `E2E_FRONTEND_GUIDE.md` - Frontend E2E test guide
+- ✅ Empty fixture files created (8 files, all 0 bytes):
+  - `pattern1-gemini-only/frontend-chunks.jsonl` (0B)
+  - `pattern2-adk-sse-only/frontend-chunks.jsonl` (0B)
+  - `pattern3-adk-bidi-only/frontend-chunks.jsonl` (0B)
+  - `pattern4-mode-switching/frontend-chunks.jsonl` (0B)
+  - Each pattern also has `backend-chunks.jsonl` (0B, for future server-side recording)
+- ✅ E2E test infrastructure:
+  - ChunkPlayerTransport implementation
+  - Playwright test scenarios (e2e/chunk-player-ui-verification.spec.ts)
+  - Symlink automation (`just setup-e2e-fixtures`)
+- ✅ Chunk Logger implementation (Phase 1-2 complete)
+
+**Remaining Work (Manual Recording Required):**
+
+**Prerequisites:**
+1. Start backend server: `uv run uvicorn server:app --reload`
+2. Start frontend server: `pnpm dev`
+3. Open browser: `open http://localhost:3000`
+
+**Task: Record 4 Test Patterns (30-60 minutes total)**
+
+Each pattern requires:
+1. Enable Chunk Logger in browser console:
+   ```javascript
+   localStorage.setItem('CHUNK_LOGGER_ENABLED', 'true');
+   localStorage.setItem('CHUNK_LOGGER_SESSION_ID', 'pattern{N}-{name}');
+   location.reload();
+   ```
+2. Execute test scenario (follow recording steps in README.md)
+3. Export chunks: `window.__chunkLogger__.export()`
+4. Save to fixture directory: `mv ~/Downloads/pattern{N}-{name}.jsonl tests/fixtures/e2e-chunks/pattern{N}-{name}/frontend-chunks.jsonl`
+5. Verify file size > 0 bytes
+
+**Pattern Details:**
+
+**Pattern 1: Gemini Direct Only** (5-10 minutes)
+- Mode: Gemini Direct (default, no backend needed)
+- Messages: 4 steps (greeting, weather tool, calculator tool, thanks)
+- Expected: 8 messages (4 user + 4 assistant), 2 tool invocations
+- Session ID: `pattern1-gemini-only`
+
+**Pattern 2: ADK SSE Only** (5-10 minutes)
+- Mode: ADK SSE (requires backend)
+- Messages: Same 4 steps as Pattern 1
+- Expected: 8 messages + token count + model name display
+- Session ID: `pattern2-adk-sse-only`
+
+**Pattern 3: ADK BIDI Only** (5-10 minutes)
+- Mode: ADK BIDI (requires backend, WebSocket connection)
+- Messages: Same 4 steps as Pattern 1
+- Expected: 8 messages + 4 audio players + WebSocket latency display
+- Session ID: `pattern3-adk-bidi-only`
+
+**Pattern 4: Mode Switching (CRITICAL)** (10-20 minutes)
+- Modes: Gemini → ADK SSE → ADK BIDI → ADK SSE → Gemini
+- Messages: 5 steps (1 message per mode)
+- **Critical Verification:** Message history MUST be preserved after each mode switch
+- Expected: 10 messages (5 user + 5 assistant) all visible at the end
+- Session ID: `pattern4-mode-switching`
+- **If history is lost:** This is a bug - STOP recording and fix the bug first
+
+**Validation After Recording:**
+
+Run E2E tests to verify fixtures:
+```bash
+pnpm exec playwright test e2e/chunk-player-ui-verification.spec.ts -g "Pattern"
+```
+
+Expected results:
+- ✅ All 4 pattern tests pass
+- ✅ Pattern 4: Exactly 10 messages displayed with correct order
+- ✅ All fixture files > 0 bytes
+
+**Related Documentation:**
+- **Recording Guide:** `agents/recorder_handsoff.md`
+- **Fixture README:** `tests/fixtures/e2e-chunks/README.md`
+- **Test Implementation:** `e2e/chunk-player-ui-verification.spec.ts`
+
+**Blockers:**
+- None - all infrastructure complete, ready for manual recording
+
+**Next Steps After Completion:**
+- Commit fixture files to git
+- Enable E2E tests in CI/CD pipeline
+- Consider server-side chunk recording (backend-chunks.jsonl)
 
 **T4.2: Field Coverage Test Updates** ✅ **COMPLETED 2025-12-14**
 - ✅ Created `TEST_COVERAGE_AUDIT.md` - comprehensive field coverage audit
@@ -493,6 +581,15 @@ useEffect(() => {
 - ✅ TypeScript compilation successful
 - ✅ All modes use same UIMessage[] format (compatibility verified)
 
+**Test Coverage Improvement (2025-12-14 Session 4):**
+- ✅ Initial: 11 tests (88% code coverage, 80% functional coverage)
+- ✅ Final: 15 tests (100% code coverage, 95% functional coverage)
+- ✅ Added tests:
+  - Clear History button interaction (2 tests)
+  - key={mode} remount behavior (2 tests)
+- ✅ All 200 tests passing
+- ✅ Experiment note: `experiments/2025-12-14_p4_t9_t10_test_coverage_improvement.md`
+
 ---
 
 ### [P4-T10] WebSocket Controller Lifecycle Management
@@ -602,6 +699,17 @@ export class WebSocketChatTransport {
 - ✅ Build successful
 - ✅ No TypeScript errors in modified file
 - ✅ Prevents controller orphaning in all scenarios (reuse, error, completion)
+
+**Test Coverage Improvement (2025-12-14 Session 4):**
+- ✅ Initial: 5 tests (83% code coverage, 70% functional coverage)
+- ✅ Final: 7 tests (100% code coverage, 95% functional coverage)
+- ✅ Added tests:
+  - WebSocket onerror event handler (1 test)
+  - WebSocket onclose event handler (1 test)
+- ✅ Improved existing test:
+  - [DONE] message processing (manual simulation → real SSE flow)
+- ✅ All 200 tests passing
+- ✅ Experiment note: `experiments/2025-12-14_p4_t9_t10_test_coverage_improvement.md`
 
 ---
 
