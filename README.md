@@ -151,7 +151,7 @@ The `useChat` hook receives the same `UIMessageChunk` stream regardless of:
 - E2E: Playwright + pytest tests for all three modes
 - **Field Coverage:** 12/12 Event fields, 7/7 Part fields (100%)
 - **Critical Coverage:** Error handling, BIDI turn completion, message metadata
-- See `TEST_COVERAGE_AUDIT.md` for detailed coverage report
+- See `docs/testing/TEST_COVERAGE_AUDIT.md` for detailed coverage report
 
 ## Multimodal Capabilities
 
@@ -187,7 +187,7 @@ The project supports rich multimodal interactions through ADK's BIDI mode:
 - User upload → base64 encoding → `experimental_attachments` → ADK Gemini Vision
 - AI response → `data-image` events → Custom display component
 
-For detailed architecture documentation, see `ARCHITECTURE.md`.
+For detailed architecture documentation, see `docs/architecture/ARCHITECTURE.md`.
 
 ### Known Limitations
 
@@ -196,7 +196,7 @@ For detailed architecture documentation, see `ARCHITECTURE.md`.
 3. **Response Modality Mixing:** Cannot mix TEXT and AUDIO output in one session (ADK constraint)
 4. **Progressive Audio Playback:** Chunks are accumulated before playback (future: Web Audio API streaming)
 
-See `ARCHITECTURE.md` for complete technical details and implementation notes.
+See `docs/architecture/ARCHITECTURE.md` for complete technical details and implementation notes.
 
 ## Experiments & Research
 
@@ -1006,7 +1006,7 @@ PYTHONPATH=. uv run pytest tests/e2e/
 - **ChunkPlayerManager**: Backend E2E mode detection and chunk playback
 - **4 Test Patterns**: Gemini Direct, ADK SSE, ADK BIDI, Mode Switching
 - **Golden File Testing**: Regression testing with real recorded data
-- **Documentation**: See `E2E_FRONTEND_GUIDE.md`, `E2E_SERVER_GUIDE.md`, `tests/fixtures/e2e-chunks/README.md`
+- **Documentation**: See `docs/testing/E2E_FRONTEND_GUIDE.md`, `docs/testing/E2E_SERVER_GUIDE.md`, `tests/fixtures/e2e-chunks/README.md`
 
 **Field Coverage Validation**:
 
