@@ -98,19 +98,21 @@ We adopt **Option 1: Follow ADK Pattern (Connection = Session)**
 **Implementation:**
 ```python
 # Generate unique session_id per connection
-connection_id = str(uuid.uuid4())
-session_id = f"session_{user_id}_{connection_id}"
+connection_signature = str(uuid.uuid4())
+session_id = f"session_{user_id}_{connection_signature}"
 
 # Each tab/device gets independent session
-session = runner.create_session(user_id=user_id, session_id=session_id)
+session = await get_or_create_session(
+    user_id, runner, app_name, connection_signature=connection_signature
+)
 ```
 
 **Architecture:**
 ```
 User Alice
-├─ PC Tab 1 → connection_1 → session_1 → Independent conversation
-├─ PC Tab 2 → connection_2 → session_2 → Independent conversation
-└─ iPhone → connection_3 → session_3 → Independent conversation
+├─ PC Tab 1 → connection_signature_1 → session_1 → Independent conversation
+├─ PC Tab 2 → connection_signature_2 → session_2 → Independent conversation
+└─ iPhone → connection_signature_3 → session_3 → Independent conversation
 ```
 
 **Core Principle:** **Do not force ADK to behave in ways it was not designed for.**
@@ -171,19 +173,21 @@ User Alice
 ## Implementation Status
 
 **Phase 1: Connection-Specific Session Management** - ✅ **COMPLETED**
-- Each WebSocket connection generates unique `connection_id`
-- Session ID format: `session_{user_id}_{connection_id}`
-- Implemented in `server.py:651-940` (live_chat function)
+- Each WebSocket connection generates unique `connection_signature` (UUID)
+- Session ID format: `session_{user_id}_{connection_signature}`
+- Implemented in `server.py:689-704` (live_chat function)
+- Implementation: `get_or_create_session()` accepts `connection_signature` parameter
 
 **Phase 2: Connection-Specific Tool Delegation** - ✅ **COMPLETED**
-- Each connection has isolated `ToolApprovalDelegate`
-- Tool approval requests routed to source connection via closure pattern
-- Implemented in `server.py` and `stream_protocol.py`
+- Each connection has isolated `FrontendToolDelegate`
+- Delegate stored in `session.state["temp:delegate"]`
+- Tool approval requests routed to source connection via session state
+- Implemented in `server.py:706-716` and tool functions (`change_bgm`, `get_location`)
 
-**Phase 3: Connection Registry** - ✅ **COMPLETED** (Basic)
-- Active connections tracked per connection (not yet per user)
-- Connection cleanup on disconnect
-- Foundation for future enhancements
+**Phase 3: Connection Registry** - ❌ **NOT IMPLEMENTED**
+- Global connection registry not yet implemented
+- Connection tracking currently limited to session state
+- Planned for future enhancement (user-level connection tracking)
 
 ## Future Enhancements
 
