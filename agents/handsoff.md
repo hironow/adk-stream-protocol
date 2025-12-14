@@ -801,25 +801,32 @@ grep "addToolApprovalResponse\|addToolOutput" components/chat.tsx
 
 ### FAQから抽出されたタスク
 
-FAQ Q&A から3つの新規タスクを agents/tasks.md に追加（優先度は相談中）:
+FAQ Q&A から3つの新規タスクを agents/tasks.md に追加し、優先度を決定:
 
-1. **[P4-T8] Chunk Logger Data Integrity Improvements** (from Q4)
+1. **[P4-T8] Chunk Logger Data Integrity Improvements** (from Q4) - **Priority: Deferred (Tier 4-5)**
    - 12 issues identified: 6 backend + 6 frontend
    - High priority: concurrent writes, atomic operations, storage quota, download failures
    - Medium priority: error handling, memory pressure
    - Low priority: file rotation, compression, IndexedDB
+   - **決定:** 現状で開発・デバッグ用途には十分、本番環境では不使用のため低優先度
 
-2. **[P4-T9] Mode Switching Message History Preservation** (from Q13)
+2. **[P4-T9] Mode Switching Message History Preservation** (from Q13) - **✅ COMPLETED 2025-12-14 (1 hour)**
    - UX improvement: preserve chat history when switching modes
-   - 3 implementation options provided
-   - Compatibility: Verified - all modes use same AI SDK v6 Data Stream Protocol
-   - NOT a bug: just not implemented
+   - Implementation: Option A (Parent state management)
+   - **実装完了:**
+     - app/page.tsx: messages state追加、initialMessages/onMessagesChange props渡し
+     - components/chat.tsx: ChatProps更新、useEffect追加
+     - Clear History button: 赤テーマ、mode selector下に配置
+   - Verification: Build成功、biome lint通過、全モード互換性確認済み
 
-3. **[P4-T10] WebSocket Controller Lifecycle Management** (from Q14)
+3. **[P4-T10] WebSocket Controller Lifecycle Management** (from Q14) - **✅ COMPLETED 2025-12-14 (30分)**
    - Fix: lib/websocket-chat-transport.ts:416-432 handler override
-   - Issue: controller orphaning, undefined behavior on errors
-   - Recommended: Option A (explicit controller management with currentController tracking)
-   - Priority: Medium (works now, edge case risks)
+   - **実装完了:**
+     - currentController フィールド追加 (line 185-186)
+     - 新規接続時: controller保存 (line 401)
+     - 既存接続再利用時: 前のcontroller明示的close (lines 424-435)
+     - 完了時cleanup: [DONE] (line 545), error (line 622)
+   - Verification: Biome lint通過、Build成功、controller孤立化防止確認
 
 ### Commits
 

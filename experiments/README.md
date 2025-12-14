@@ -431,22 +431,24 @@ Translation: "Before going to E2E, if there are integration tests that can catch
 
 **Tasks Extracted from FAQ:**
 
-3つのタスクがFAQから抽出され、agents/tasks.mdに追加されました（優先度は相談中）:
+3つのタスクがFAQから抽出され、agents/tasks.mdに追加されました:
 
-- **[P4-T8]** Chunk Logger Data Integrity Improvements (from Q4)
+- **[P4-T8]** Chunk Logger Data Integrity Improvements (from Q4) - **Priority: Deferred (Tier 4-5)**
   - 12 issues identified (High/Medium/Low priority)
   - Backend: concurrent writes, atomic operations, error handling
   - Frontend: storage quota, download failures, memory pressure
+  - 現状で開発・デバッグ用途には十分、本番環境では不使用
 
-- **[P4-T9]** Mode Switching Message History Preservation (from Q13)
+- **[P4-T9]** Mode Switching Message History Preservation (from Q13) - **✅ COMPLETED 2025-12-14**
   - UX improvement: preserve chat history when switching modes
-  - 3 implementation options (Parent state, Remove key, localStorage)
-  - Compatibility verified: all modes use same AI SDK v6 format
+  - Implementation: Parent state management (Option A)
+  - **Implemented:** Clear history button (red-themed, below mode selector)
+  - Actual time: 1 hour
 
-- **[P4-T10]** WebSocket Controller Lifecycle Management (from Q14)
+- **[P4-T10]** WebSocket Controller Lifecycle Management (from Q14) - **✅ COMPLETED 2025-12-14**
   - Fix handler override issues to prevent controller orphaning
-  - Recommended: Option A (explicit controller management)
-  - Medium priority: works now, but edge case risks exist
+  - Implementation: Explicit controller management (Option A)
+  - Actual time: 30 minutes
 
 ## Directory Structure
 
