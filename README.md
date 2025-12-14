@@ -135,11 +135,20 @@ The `useChat` hook receives the same `UIMessageChunk` stream regardless of:
 - Multimodal support: images, audio, PCM streaming
 - **Architecture:** "SSE format over WebSocket" (100% protocol reuse)
 
+**Phase 4: E2E Test Infrastructure** ✅ **Production Ready**
+
+- Chunk Logger & Player for recording and replaying actual data
+- Frontend: ChunkPlayerTransport for mock transport layer
+- Backend: ChunkPlayerManager for E2E mode detection
+- 4 Test Patterns: Gemini Direct, ADK SSE, ADK BIDI, Mode Switching
+- Golden File Testing: Regression testing with real recorded chunks
+- Documentation: Complete guides for frontend and backend E2E testing
+
 **Test Coverage** ✅ **100% Field Coverage Achieved**
 
 - Python: 112 unit tests (all passing)
 - TypeScript: Integration tests with parametrized testing
-- E2E: Playwright tests for all three modes
+- E2E: Playwright + pytest tests for all three modes
 - **Field Coverage:** 12/12 Event fields, 7/7 Part fields (100%)
 - **Critical Coverage:** Error handling, BIDI turn completion, message metadata
 - See `TEST_COVERAGE_AUDIT.md` for detailed coverage report
@@ -928,6 +937,31 @@ just test-e2e-ui     # Interactive UI mode
 # - Tool calling with user approval
 # - Audio input/output (BIDI mode)
 ```
+
+**E2E Test Infrastructure - Chunk Logger & Player**:
+
+Record actual chunks during manual operations and replay them for automated testing:
+
+```bash
+# Setup E2E fixture symlinks (one-time setup)
+just setup-e2e-fixtures
+
+# Run E2E tests with recorded fixtures
+pnpm exec playwright test e2e/chunk-player-ui-verification.spec.ts
+PYTHONPATH=. uv run pytest tests/e2e/
+
+# Manual fixture recording (see agents/recorder_handsoff.md)
+# 1. Enable chunk logger (localStorage or env vars)
+# 2. Perform manual operations in browser
+# 3. Export and save chunks to tests/fixtures/e2e-chunks/
+```
+
+**Features:**
+- **ChunkPlayerTransport**: Mock transport for replaying frontend chunks
+- **ChunkPlayerManager**: Backend E2E mode detection and chunk playback
+- **4 Test Patterns**: Gemini Direct, ADK SSE, ADK BIDI, Mode Switching
+- **Golden File Testing**: Regression testing with real recorded data
+- **Documentation**: See `E2E_FRONTEND_GUIDE.md`, `E2E_SERVER_GUIDE.md`, `tests/fixtures/e2e-chunks/README.md`
 
 **Field Coverage Validation**:
 
