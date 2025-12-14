@@ -129,11 +129,11 @@ Legend / 凡例:
 
 ### Fixture Files
 - **tests/fixtures/e2e-chunks/**
-  - `README.md` - Documentation
-  - `scenario-description.md` - Pattern overview
-  - `pattern1-gemini-only/recording-steps.md` - Recording procedure
+  - `README.md` - Pattern overview and recording procedures for all patterns
   - `pattern1-gemini-only/frontend-chunks.jsonl` - Fixture (to be recorded)
-  - (Same structure for pattern2, pattern3, pattern4)
+  - `pattern2-adk-sse-only/frontend-chunks.jsonl` - Fixture (to be recorded)
+  - `pattern3-adk-bidi-only/frontend-chunks.jsonl` - Fixture (to be recorded)
+  - `pattern4-mode-switching/frontend-chunks.jsonl` - Fixture (to be recorded)
 
 - **public/fixtures/e2e-chunks/**
   - Symlinks to `tests/fixtures/e2e-chunks/pattern*/`
@@ -173,11 +173,11 @@ Legend / 凡例:
 
 2. **Execute Test Scenario**
 
-   Follow the detailed steps in:
-   - `tests/fixtures/e2e-chunks/pattern1-gemini-only/recording-steps.md`
-   - `tests/fixtures/e2e-chunks/pattern2-adk-sse-only/recording-steps.md`
-   - `tests/fixtures/e2e-chunks/pattern3-adk-bidi-only/recording-steps.md`
-   - `tests/fixtures/e2e-chunks/pattern4-mode-switching/recording-steps.md`
+   Follow the detailed steps in `tests/fixtures/e2e-chunks/README.md` for each pattern:
+   - Pattern 1: Gemini Direct only
+   - Pattern 2: ADK SSE only
+   - Pattern 3: ADK BIDI only
+   - Pattern 4: Mode switching
 
    **IMPORTANT for Pattern 4**:
    - Carefully switch modes between each message
@@ -307,7 +307,7 @@ Expected results:
    cat tests/fixtures/e2e-chunks/pattern1-gemini-only/frontend-chunks.jsonl | jq
    ```
 
-3. Re-record fixture following `recording-steps.md` exactly
+3. Re-record fixture following `tests/fixtures/e2e-chunks/README.md` exactly
 
 ### Recording Issues
 
@@ -344,7 +344,7 @@ Expected results:
    mkdir -p tests/fixtures/e2e-chunks/pattern5-new-scenario
    ```
 
-2. Create `recording-steps.md` with detailed procedure
+2. Document recording steps in `tests/fixtures/e2e-chunks/README.md`
 
 3. Create symlink in public:
    ```bash
@@ -354,7 +354,7 @@ Expected results:
 
 4. Add test case in `e2e/chunk-player-ui-verification.spec.ts`
 
-5. Record fixture following `recording-steps.md`
+5. Record fixture following `tests/fixtures/e2e-chunks/README.md`
 
 6. Run test and iterate
 
@@ -367,7 +367,7 @@ When UI or backend behavior changes:
    rm tests/fixtures/e2e-chunks/pattern1-gemini-only/frontend-chunks.jsonl
    ```
 
-2. Re-record using `recording-steps.md`
+2. Re-record using `tests/fixtures/e2e-chunks/README.md`
 
 3. Run tests to verify:
    ```bash
@@ -412,7 +412,7 @@ jobs:
 
 ### DO
 
-- ✅ Record fixtures following `recording-steps.md` exactly
+- ✅ Record fixtures following `tests/fixtures/e2e-chunks/README.md` exactly
 - ✅ Verify message history preservation in Pattern 4
 - ✅ Commit fixture files to git for CI
 - ✅ Re-record fixtures when UI/backend changes
@@ -429,8 +429,7 @@ jobs:
 
 ## Related Documentation
 
-- `tests/fixtures/e2e-chunks/README.md` - Fixture recording guide
-- `tests/fixtures/e2e-chunks/scenario-description.md` - Pattern details
+- `tests/fixtures/e2e-chunks/README.md` - Fixture recording guide and pattern details
 - `lib/chunk-player-transport.ts` - Transport implementation
 - `e2e/chunk-player-ui-verification.spec.ts` - Test implementation
 - `CLAUDE.md` - Project-wide development guidelines

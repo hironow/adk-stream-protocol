@@ -33,8 +33,8 @@ This section provides the mapping from **ADK perspective** (what ADK provides) t
 | `cache_metadata` | CacheMetadata | ✅ `finish` event `messageMetadata.cache` | stream_protocol.py:755-762 | Context cache hit/miss statistics |
 | `model_version` | str | ✅ `finish` event `messageMetadata.modelVersion` | stream_protocol.py:767-769 | Model version string |
 | **Live API Specific** |
-| `input_transcription` | Transcription | ✅ `data-input-transcription` custom event | stream_protocol.py:310-340 | User speech → text (Live API BIDI mode) |
-| `output_transcription` | Transcription | ✅ `data-output-transcription` custom event | stream_protocol.py:343-378 | Model speech → text (Live API BIDI mode) |
+| `input_transcription` | Transcription | ✅ `text-start/delta/end` events | stream_protocol.py:310-340 | User speech → text (Live API BIDI mode) |
+| `output_transcription` | Transcription | ✅ `text-start/delta/end` events | stream_protocol.py:343-378 | Model speech → text (Live API BIDI mode) |
 | `live_session_resumption_update` | SessionUpdate | ❌ Not mapped | N/A | Session resumption info (Live API) |
 | **Error & Control** |
 | `error_code` | str | `error` event | stream_protocol.py:383-384 | Error handling |
@@ -178,8 +178,8 @@ In addition to standard protocol events, we implement custom data events for Gem
 - **`data-image`**: ✅ **IMPLEMENTED** - Image data (png, jpeg, webp) - Phase 1 Complete
 - **`data-executable-code`**: ✅ **IMPLEMENTED** - Code execution requests (Gemini 2.0 code execution)
 - **`data-code-execution-result`**: ✅ **IMPLEMENTED** - Code execution results (Gemini 2.0 code execution)
-- **`data-input-transcription`**: ✅ **IMPLEMENTED** - User speech transcription (Live API BIDI mode) - Phase 3 Complete
-- **`data-output-transcription`**: ✅ **IMPLEMENTED** - Model speech transcription (Live API BIDI mode) - Phase 2 Complete
+
+**Note on Transcriptions**: Input and output transcriptions use standard `text-start/delta/end` events (not custom `data-*` events) as they represent standard text content from Live API BIDI mode - Phase 2-3 Complete
 
 These custom events follow the `data-*` pattern specified in the AI SDK v6 protocol and allow frontend handling of Gemini-specific capabilities.
 
@@ -264,7 +264,7 @@ This section discusses ADK fields that are currently unmapped but may be valuabl
 | **Error Handling** | ✅ Complete | Error events |
 | **Token Usage** | ✅ Complete | Usage metadata in finish event |
 | **Finish Reason** | ✅ Complete | All ADK FinishReasons mapped (17/17) |
-| **Live API Transcriptions** | ✅ Complete | Implemented as `data-input-transcription`, `data-output-transcription` custom events |
+| **Live API Transcriptions** | ✅ Complete | Implemented using standard `text-start/delta/end` events |
 | **Grounding/Citations** | ✅ Complete | Implemented in finish event metadata (grounding, citations) |
 | **Cache Metadata** | ✅ Complete | Implemented in finish event metadata (cache hits/misses) |
 | **Model Version** | ✅ Complete | Implemented in finish event metadata |

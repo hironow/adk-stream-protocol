@@ -179,10 +179,10 @@ Legend / 凡例:
 
 3. **Execute Test Scenario**
 
-   Follow the recording steps for the pattern:
-   - Pattern 2: `tests/fixtures/e2e-chunks/pattern2-adk-sse-only/recording-steps.md`
-   - Pattern 3: `tests/fixtures/e2e-chunks/pattern3-adk-bidi-only/recording-steps.md`
-   - Pattern 4: `tests/fixtures/e2e-chunks/pattern4-mode-switching/recording-steps.md`
+   Follow the recording steps in `tests/fixtures/e2e-chunks/README.md` for the pattern:
+   - Pattern 2: ADK SSE only
+   - Pattern 3: ADK BIDI only
+   - Pattern 4: Mode switching
 
 4. **Collect Backend Chunks**
 
