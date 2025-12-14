@@ -1,6 +1,6 @@
 # ADK-AI Data Protocol
 
-AI SDK v6 and Google ADK integration example demonstrating SSE streaming implementation.
+AI SDK v6 and Google ADK integration example demonstrating SSE and WebSocket streaming implementation.
 
 ## Project Overview
 
@@ -15,97 +15,7 @@ The project provides **three streaming modes** with real-time mode switching:
 2. **ADK SSE** - ADK backend with Server-Sent Events
 3. **ADK BIDI** ⚡ - ADK backend with WebSocket bidirectional streaming
 
-## Core Architecture
-
-**Key Insight:** All three modes use the same **AI SDK v6 Data Stream Protocol** format for communication, ensuring consistent frontend behavior regardless of backend implementation.
-
-### Protocol Flow
-
-```
-┌─────────────────┐
-│  Gemini Direct  │  AI SDK v6 → Gemini API → AI SDK v6 Data Stream Protocol → HTTP SSE
-└─────────────────┘
-
-┌─────────────────┐
-│    ADK SSE      │  ADK Events → StreamProtocolConverter → AI SDK v6 Data Stream Protocol → HTTP SSE
-└─────────────────┘
-
-┌─────────────────┐
-│   ADK BIDI      │  ADK Events → StreamProtocolConverter → AI SDK v6 Data Stream Protocol → WebSocket
-└─────────────────┘                                         (SSE format over WebSocket)
-```
-
-Legend / 凡例:
-
-- Gemini Direct: Gemini APIへの直接接続モード
-- ADK SSE: ADKバックエンドを使用したSSE（Server-Sent Events）ストリーミングモード
-- ADK BIDI: ADKバックエンドを使用した双方向WebSocketストリーミングモード
-- AI SDK v6: Vercel AI SDK バージョン6
-- Data Stream Protocol: AI SDK v6のデータストリーミングプロトコル
-- StreamProtocolConverter: ADKイベントをAI SDK v6形式に変換するコンバーター
-- HTTP SSE: HTTPサーバー送信イベント（一方向ストリーミング）
-- WebSocket: 双方向通信プロトコル
-
-### StreamProtocolConverter: The Heart of Integration
-
-**Location:** `stream_protocol.py`
-
-**Purpose:** Convert ADK-specific event formats to AI SDK v6 Data Stream Protocol
-
-**Usage:** Both ADK SSE and ADK BIDI modes use the **same converter**
-
-**Key Events:**
-
-- Text streaming: `text-start`, `text-delta`, `text-end`
-- Reasoning/Thinking: `reasoning-start`, `reasoning-delta`, `reasoning-end` (Gemini 2.0)
-- Tool calls: `tool-input-start`, `tool-input-available`
-- Tool results: `tool-output-available`
-- Audio (BIDI): `data-pcm` (PCM audio streaming)
-- Images: `data-image` (base64-encoded images)
-- Audio transcription: `text-*` events for input/output transcription (native-audio models)
-
-### Transport Layer Differences
-
-**HTTP SSE (Gemini Direct / ADK SSE):**
-
-- Standard Server-Sent Events over HTTP
-- Browser `EventSource` API automatically parses SSE format
-- AI SDK v6 built-in support via `streamText()`
-
-**WebSocket (ADK BIDI):**
-
-- Real-time bidirectional communication
-- Backend sends **SSE format over WebSocket** (not raw JSON)
-  - Format: `data: {"type":"text-delta","text":"..."}\n\n`
-  - Same format as HTTP SSE, just delivered via WebSocket
-- Custom `WebSocketChatTransport` (frontend):
-  - Parses SSE format from WebSocket messages
-  - Converts to `ReadableStream<UIMessageChunk>`
-  - Makes WebSocket transparent to `useChat` hook
-
-**Why SSE format over WebSocket?**
-
-- **Protocol reuse:** Same `StreamProtocolConverter` works for both modes
-- **Compatibility:** AI SDK v6 expects Data Stream Protocol format
-- **Simplicity:** No need to maintain two different protocol implementations
-
-### Frontend Transparency
-
-```typescript
-// Frontend code is identical for all modes:
-const { messages, input, handleSubmit } = useChat({
-  api: selectedMode === 'bidi' ? undefined : '/api/chat',
-  experimental_transform: selectedMode === 'bidi'
-    ? webSocketTransportRef.current
-    : undefined,
-});
-```
-
-The `useChat` hook receives the same `UIMessageChunk` stream regardless of:
-
-- Backend implementation (Gemini Direct vs ADK)
-- Streaming mode (SSE vs BIDI)
-- Transport layer (HTTP SSE vs WebSocket)
+**Key Insight:** All three modes use the same **AI SDK v6 Data Stream Protocol** format, ensuring consistent frontend behavior regardless of backend implementation.
 
 ## Current Status
 
@@ -119,14 +29,14 @@ The `useChat` hook receives the same `UIMessageChunk` stream regardless of:
 **Phase 2: ADK SSE Streaming** ✅ Production Ready
 
 - Backend: FastAPI server with Google ADK integration
-- SSE streaming endpoint (`/stream`) using ADK's `run_async()`
+- SSE streaming endpoint using ADK's `run_async()`
 - Full AI SDK v6 Data Stream Protocol compatibility
 - Real-time token-by-token streaming
 - Tool calling via ADK agent
 
-**Phase 3: ADK BIDI Streaming** ✅ **Production Ready**
+**Phase 3: ADK BIDI Streaming** ✅ Production Ready
 
-- Backend: WebSocket endpoint (`/live`) using ADK's `run_live()`
+- Backend: WebSocket endpoint using ADK's `run_live()`
 - Bidirectional streaming via WebSocket
 - Custom `WebSocketChatTransport` for AI SDK v6 `useChat`
 - Real-time voice agent with native-audio models (Gemini 2.5 Flash)
@@ -135,68 +45,165 @@ The `useChat` hook receives the same `UIMessageChunk` stream regardless of:
 - Multimodal support: images, audio, PCM streaming
 - **Architecture:** "SSE format over WebSocket" (100% protocol reuse)
 
-**Phase 4: E2E Test Infrastructure** ✅ **Production Ready**
+**Phase 4: E2E Test Infrastructure** ✅ Production Ready
 
 - Chunk Logger & Player for recording and replaying actual data
 - Frontend: ChunkPlayerTransport for mock transport layer
 - Backend: ChunkPlayerManager for E2E mode detection
 - 4 Test Patterns: Gemini Direct, ADK SSE, ADK BIDI, Mode Switching
 - Golden File Testing: Regression testing with real recorded chunks
-- Documentation: Complete guides for frontend and backend E2E testing
 
-**Test Coverage** ✅ **100% Field Coverage Achieved**
+**Test Coverage** ✅ 100% Field Coverage Achieved
 
 - Python: 112 unit tests (all passing)
 - TypeScript: Integration tests with parametrized testing
 - E2E: Playwright + pytest tests for all three modes
 - **Field Coverage:** 12/12 Event fields, 7/7 Part fields (100%)
 - **Critical Coverage:** Error handling, BIDI turn completion, message metadata
-- See `docs/testing/TEST_COVERAGE_AUDIT.md` for detailed coverage report
 
-## Multimodal Capabilities
+## Key Features
 
-**Phase 1-3: Images, Audio I/O** ✅ **Complete**
+### Multimodal Capabilities
 
-The project supports rich multimodal interactions through ADK's BIDI mode:
+- **Text I/O**: Token-by-token streaming with AI SDK v6
+- **Image Input/Output**: PNG, JPEG, WebP via `data-image` custom events
+- **Audio Input**: Microphone recording (16kHz PCM) with CMD key push-to-talk
+- **Audio Output**: PCM streaming (24kHz) with WAV playback
+- **Audio Transcription**: Input and output speech-to-text with native-audio models
+- **Tool Calling**: Full ADK integration with user approval flow
 
-### Supported Features
+### Architecture Highlights
 
-| Feature | Status | Implementation | Notes |
-|---------|--------|----------------|-------|
-| **Text I/O** | ✅ Working | Native AI SDK v6 | Token-by-token streaming |
-| **Image Input** | ✅ Working | `data-image` custom events | PNG, JPEG, WebP supported |
-| **Image Output** | ✅ Working | `data-image` custom events | Gemini Vision responses |
-| **Audio Input** | ✅ Working | AudioWorklet PCM (16kHz) | CMD key push-to-talk |
-| **Audio Output** | ✅ Working | `data-pcm` custom events (24kHz) | WAV format playback |
-| **Audio Transcription** | ✅ Working | Native-audio models | Input + output speech-to-text |
-| **Tool Calling** | ✅ Working | Full ADK integration | With multimodal context |
-| **Video I/O** | ⬜ Future | Phase 4 planned | Similar to audio approach |
+- **StreamProtocolConverter**: Converts ADK events to AI SDK v6 Data Stream Protocol
+- **SSE format over WebSocket**: Backend sends SSE format via WebSocket for BIDI mode
+- **Frontend Transparency**: Same `useChat` hook works across all three modes
+- **Tool Approval Flow**: Frontend-delegated execution with AI SDK v6 approval APIs
 
-### Architecture
+## Tech Stack
 
-**Audio Input Flow:**
-- Microphone → AudioWorklet (16kHz PCM) → WebSocket → ADK Live API
-- Push-to-talk control (CMD/Ctrl key)
-- Echo cancellation, noise suppression, auto gain control
+**Frontend:**
+- Next.js 16 (App Router)
+- React 19
+- AI SDK v6 beta (`ai`, `@ai-sdk/react`, `@ai-sdk/google`)
+- TypeScript 5.7
 
-**Audio Output Flow:**
-- ADK (24kHz PCM) → `data-pcm` events → WAV generation → Browser playback
-- Chunk accumulation for smooth playback
+**Backend:**
+- Python 3.13
+- Google ADK >=1.20.0
+- FastAPI >=0.115.0
+- Pydantic v2
 
-**Image Flow:**
-- User upload → base64 encoding → `experimental_attachments` → ADK Gemini Vision
-- AI response → `data-image` events → Custom display component
+**Development Tools:**
+- pnpm (Node.js packages)
+- uv (Python packages)
+- just (task automation)
 
-For detailed architecture documentation, see `docs/architecture/ARCHITECTURE.md`.
+## Quick Start
 
-### Known Limitations
+### Prerequisites
 
-1. **WebSocket Reconnection:** New sessions lose conversation history (workaround: manual refresh)
-2. **Voice Activity Detection:** No browser-based VAD (CMD key push-to-talk required)
-3. **Response Modality Mixing:** Cannot mix TEXT and AUDIO output in one session (ADK constraint)
-4. **Progressive Audio Playback:** Chunks are accumulated before playback (future: Web Audio API streaming)
+- Python 3.13+
+- Node.js 18+
+- pnpm, uv, just
 
-See `docs/architecture/ARCHITECTURE.md` for complete technical details and implementation notes.
+### Installation
+
+```bash
+# Install all dependencies
+just install
+
+# Or manually:
+uv sync
+pnpm install
+```
+
+### Environment Setup
+
+Copy the example file:
+
+```bash
+cp .env.example .env.local
+```
+
+Edit `.env.local`:
+
+**For Gemini Direct:**
+```
+GOOGLE_GENERATIVE_AI_API_KEY=your_api_key_here
+BACKEND_MODE=gemini
+NEXT_PUBLIC_BACKEND_MODE=gemini
+```
+
+**For ADK SSE/BIDI:**
+```
+GOOGLE_API_KEY=your_api_key_here
+BACKEND_MODE=adk-sse
+NEXT_PUBLIC_BACKEND_MODE=adk-sse
+ADK_BACKEND_URL=http://localhost:8000
+NEXT_PUBLIC_ADK_BACKEND_URL=http://localhost:8000
+```
+
+### Running
+
+**Gemini Direct (frontend only):**
+```bash
+pnpm dev
+```
+
+**ADK SSE/BIDI (backend + frontend):**
+```bash
+# Run both concurrently:
+just dev
+
+# Or separately:
+just server  # Backend on :8000
+pnpm dev     # Frontend on :3000
+```
+
+For all available commands:
+```bash
+just --list
+```
+
+## Testing
+
+**Python Unit Tests:**
+```bash
+just test-python
+```
+
+**TypeScript Integration Tests:**
+```bash
+pnpm exec vitest run
+```
+
+**End-to-End Tests:**
+```bash
+just test-e2e-clean  # Recommended: clean server restart
+just test-e2e-ui     # Interactive UI mode
+```
+
+**Field Coverage Validation:**
+```bash
+just check-coverage           # Show field mapping coverage
+just check-coverage-validate  # CI/CD validation
+```
+
+## Documentation
+
+Comprehensive documentation is available in the `docs/` directory:
+
+- **[Getting Started Guide](docs/GETTING_STARTED.md)** - Detailed setup, usage examples, troubleshooting, AI SDK v6 migration notes
+- **[Architecture Documentation](docs/ARCHITECTURE.md)** - Complete architecture diagrams, protocol flows, tool approval system, multimodal implementation
+- **[Implementation Status](docs/IMPLEMENTATION.md)** - ADK field mapping, AI SDK v6 protocol coverage, feature parity status
+- **[E2E Testing Guide](docs/E2E_GUIDE.md)** - Frontend and backend E2E testing, chunk logger/player system, golden file testing
+- **[Test Coverage Audit](docs/TEST_COVERAGE_AUDIT.md)** - Detailed test coverage report, parametrized test status
+- **[Architecture Decision Records](docs/adr/)** - ADR 0001: Per-Connection State Management
+
+Additional resources:
+
+- **[Experiments](experiments/README.md)** - Research notes, protocol investigations, multimodal support experiments
+- **[E2E Fixtures](tests/fixtures/e2e-chunks/README.md)** - E2E test chunks and recording guide
 
 ## Experiments & Research
 
@@ -209,1014 +216,6 @@ All experiment notes and architectural investigations are documented in `experim
 - ADK field mapping completeness
 
 See `experiments/README.md` for the complete experiment index and results.
-
-## Tech Stack
-
-### Frontend
-
-- Next.js 16 (App Router)
-- React 19
-- AI SDK v6 beta (`ai`, `@ai-sdk/react`, `@ai-sdk/google`)
-- TypeScript 5.7
-- Biome (Linting & Formatting)
-
-### Backend
-
-- Python 3.13
-- Google ADK >=1.20.0
-- FastAPI >=0.115.0
-- Pydantic v2
-- Uvicorn (ASGI server)
-
-## Setup
-
-### Prerequisites
-
-- Python 3.13+
-- Node.js 18+
-- pnpm (for Node.js packages)
-- uv (for Python packages)
-- just (for task automation)
-
-### Installation
-
-1. Clone the repository
-2. Install dependencies:
-
-   ```bash
-   just install
-   ```
-
-   Or manually:
-
-   ```bash
-   uv sync
-   pnpm install
-   ```
-
-3. Set up environment variables:
-
-   ```bash
-   cp .env.example .env.local
-   ```
-
-   Then edit `.env.local`:
-
-   **For Phase 1 (Gemini Direct):**
-
-   ```
-   GOOGLE_GENERATIVE_AI_API_KEY=your_api_key_here
-   BACKEND_MODE=gemini
-   NEXT_PUBLIC_BACKEND_MODE=gemini
-   ```
-
-   **For Phase 2 (ADK SSE - FINAL):**
-
-   ```
-   GOOGLE_API_KEY=your_api_key_here
-   BACKEND_MODE=adk-sse
-   NEXT_PUBLIC_BACKEND_MODE=adk-sse
-   ADK_BACKEND_URL=http://localhost:8000
-   NEXT_PUBLIC_ADK_BACKEND_URL=http://localhost:8000
-   ```
-
-   Note: Phase 2 does NOT require `GOOGLE_GENERATIVE_AI_API_KEY` (ADK uses `GOOGLE_API_KEY`).
-
-## Running the Project
-
-### Phase 1: Gemini Direct
-
-**Run frontend only:**
-
-```bash
-pnpm dev
-```
-
-Frontend will be available at: <http://localhost:3000>
-
-### Phase 2: ADK SSE Streaming
-
-**Run backend server:**
-
-```bash
-just server
-# or
-uv run uvicorn server:app --reload --host 0.0.0.0 --port 8000
-```
-
-Backend will be available at: <http://localhost:8000>
-
-**Test backend:**
-
-```bash
-curl http://localhost:8000/
-curl http://localhost:8000/health
-```
-
-**Run frontend:**
-
-```bash
-pnpm dev
-```
-
-**Run both concurrently:**
-
-```bash
-just dev
-```
-
-For available commands, run `just --list`.
-
-## Architecture Overview
-
-This project supports **three streaming modes**, all using the same frontend (`useChat` hook) with different backends and transports.
-
-### Quick Comparison
-
-```
-+------------------+------------------+------------------+------------------+
-| Mode             | Backend          | Transport        | Use Case         |
-+------------------+------------------+------------------+------------------+
-| Gemini Direct    | None (AI SDK)    | HTTP SSE         | Simple apps      |
-| ADK SSE          | ADK + FastAPI    | HTTP SSE         | Production apps  |
-| ADK BIDI         | ADK + FastAPI    | WebSocket        | Voice agents     |
-+------------------+------------------+------------------+------------------+
-```
-
-Legend / 凡例:
-
-- Backend: バックエンド（処理を行うサーバー）
-- Transport: トランスポート層（通信方式）
-- Use Case: 利用ケース
-
-### Architecture Diagrams
-
-#### Overview: All Three Modes
-
-```
-Mode 1: Gemini Direct (SSE)      Mode 2: ADK SSE              Mode 3: ADK BIDI (WebSocket)
-================================  ===========================  ================================
-
-┌─────────────────────┐          ┌─────────────────────┐      ┌─────────────────────┐
-│   Frontend (Next)   │          │   Frontend (Next)   │      │   Frontend (Next)   │
-│  ┌──────────────┐   │          │  ┌──────────────┐   │      │  ┌──────────────┐   │
-│  │   useChat    │   │          │  │   useChat    │   │      │  │   useChat    │   │
-│  │    Hook      │   │          │  │    Hook      │   │      │  │    Hook      │   │
-│  └──────┬───────┘   │          │  └──────┬───────┘   │      │  └──────┬───────┘   │
-│         │           │          │         │           │      │         │           │
-│         │ HTTP      │          │         │ HTTP      │      │         │ WS        │
-└─────────┼───────────┘          └─────────┼───────────┘      └─────────┼───────────┘
-          │                                │                            │
-          │ SSE                            │ SSE                        │ SSE format
-          ▼                                ▼                            │ over WS
-  ┌───────────────┐              ┌─────────────────┐           ┌────────▼──────────┐
-  │ /api/chat     │              │ /stream         │           │ /live (WebSocket) │
-  │ (Next.js API) │              │ (FastAPI)       │           │ (FastAPI)         │
-  │               │              │                 │           │                   │
-  │ ┌───────────┐ │              │ ┌─────────────┐ │           │ ┌───────────────┐ │
-  │ │  Gemini   │ │              │ │ ADK Agent   │ │           │ │ ADK Agent     │ │
-  │ │    API    │ │              │ │ run_async() │ │           │ │ run_live()    │ │
-  │ └───────────┘ │              │ └─────────────┘ │           │ │ LiveQueue     │ │
-  └───────────────┘              └─────────────────┘           │ └───────────────┘ │
-                                                               └───────────────────┘
-```
-
-Legend / 凡例:
-
-- useChat Hook: AI SDKのReactフック（チャット状態管理）
-- HTTP/WS: 通信プロトコル（HTTP または WebSocket）
-- SSE: Server-Sent Events（サーバーからクライアントへの一方向ストリーミング）
-- run_async(): ADKの通常ストリーミングメソッド
-- run_live(): ADKの双方向ストリーミングメソッド
-- LiveQueue: LiveRequestQueue（クライアント→エージェントのメッセージキュー）
-
----
-
-#### Mode 1: Gemini Direct (SSE) - Simple Architecture
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                Frontend (Next.js + AI SDK v6)           │
-│                                                         │
-│  User Input → useChat.sendMessage({ text: "..." })      │
-│                           ↓                             │
-│                    POST /api/chat                       │
-└───────────────────────────┬─────────────────────────────┘
-                            │
-                            │ HTTP Request
-                            │ { messages: [...] }
-                            ▼
-┌─────────────────────────────────────────────────────────┐
-│         Next.js API Route (/app/api/chat/route.ts)      │
-│                                                         │
-│  1. Receive messages (UIMessage[])                      │
-│  2. convertToModelMessages(messages)                    │
-│  3. streamText({                                        │
-│       model: google("gemini-2.5-flash"),                │
-│       messages,                                         │
-│       tools: { get_weather, calculate, ... }            │
-│     })                                                  │
-│  4. return result.toUIMessageStreamResponse()           │
-└───────────────────────────┬─────────────────────────────┘
-                            │
-                            │ SSE Stream
-                            │ data: {"type":"text-delta",...}
-                            ▼
-┌─────────────────────────────────────────────────────────┐
-│                  Gemini API (Google Cloud)              │
-│                                                         │
-│  - Model: gemini-2.5-flash                              │
-│  - Tool execution: Server-side                          │
-│  - Streaming: Native SSE support                        │
-└─────────────────────────────────────────────────────────┘
-```
-
-Legend / 凡例:
-
-- Frontend (Next.js + AI SDK v6): フロントエンド（Next.js + AI SDK v6）
-- User Input: ユーザー入力
-- useChat.sendMessage(): AI SDKのメッセージ送信メソッド
-- POST /api/chat: チャットAPIエンドポイントへのPOSTリクエスト
-- Next.js API Route: Next.jsのAPIルートハンドラー
-- convertToModelMessages(): UIメッセージをモデル用メッセージに変換する関数
-- streamText(): AI SDKのテキストストリーミング関数
-- toUIMessageStreamResponse(): UIメッセージストリームレスポンスに変換
-- SSE Stream: Server-Sent Eventsストリーム
-- Gemini API (Google Cloud): GoogleのGemini APIサービス
-- Tool execution: ツール実行機能
-
-**Key Points:**
-
-- No separate backend server required
-- AI SDK handles Gemini API directly
-- Tools executed on Next.js server
-- Simple setup, best for prototypes
-
----
-
-#### Mode 2: ADK SSE - Production Architecture
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                Frontend (Next.js + AI SDK v6)           │
-│                                                         │
-│  User Input → useChat.sendMessage({ text: "..." })      │
-│                           ↓                             │
-│                  POST http://localhost:8000/stream      │
-└───────────────────────────┬─────────────────────────────┘
-                            │
-                            │ HTTP Request
-                            │ { messages: [...] }
-                            ▼
-┌─────────────────────────────────────────────────────────┐
-│            ADK Backend (FastAPI server.py)              │
-│                                                         │
-│  1. Receive ChatRequest (messages)                      │
-│  2. Extract last user message                           │
-│  3. Create ADK Content:                                 │
-│     types.Content(role="user", parts=[...])             │
-│  4. Run agent:                                          │
-│     agent_runner.run_async(                             │
-│       session_id=session.id,                            │
-│       new_message=message_content                       │
-│     )                                                   │
-│  5. Convert ADK events → SSE format:                    │
-│     stream_adk_to_ai_sdk(event_stream)                  │
-│  6. Return StreamingResponse                            │
-└───────────────────────────┬─────────────────────────────┘
-                            │
-                            │ Protocol Conversion
-                            │ (stream_protocol.py)
-                            ▼
-┌─────────────────────────────────────────────────────────┐
-│            AI SDK v6 Data Stream Protocol               │
-│                                                         │
-│  SSE Format:                                            │
-│  data: {"type":"text-start","id":"0"}                   │
-│  data: {"type":"text-delta","id":"0","delta":"..."}     │
-│  data: {"type":"tool-input-available","toolName":"..."} │
-│  data: {"type":"tool-output-available","result":{...}}  │
-│  data: {"type":"finish","finishReason":"stop"}          │
-│  data: [DONE]                                           │
-└───────────────────────────┬─────────────────────────────┘
-                            │
-                            │ HTTP SSE
-                            ▼
-┌─────────────────────────────────────────────────────────┐
-│            Frontend useChat Hook (React State)          │
-│                                                         │
-│  - Parses SSE events                                    │
-│  - Updates messages array                               │
-│  - Renders UI components                                │
-└─────────────────────────────────────────────────────────┘
-```
-
-Legend / 凡例:
-
-- Frontend (Next.js + AI SDK v6): フロントエンド（Next.js + AI SDK v6）
-- User Input: ユーザー入力
-- useChat.sendMessage(): AI SDKのメッセージ送信メソッド
-- POST <http://localhost:8000/stream>: ストリーミングエンドポイントへのPOSTリクエスト
-- HTTP Request: HTTPリクエスト
-- ADK Backend (FastAPI server.py): ADKバックエンド（FastAPIサーバー）
-- ChatRequest: チャットリクエスト
-- ADK Content: ADKのコンテンツ型（types.Content）
-- agent_runner.run_async(): エージェントの非同期実行メソッド
-- session_id: セッションID（状態管理用）
-- new_message: 新規メッセージ
-- Convert ADK events → SSE format: ADKイベントをSSE形式に変換
-- stream_adk_to_ai_sdk(): ADKストリームをAI SDK形式に変換する関数
-- StreamingResponse: FastAPIのストリーミングレスポンス
-- Protocol Conversion (stream_protocol.py): プロトコル変換（stream_protocol.py）
-- AI SDK v6 Data Stream Protocol: AI SDK v6のデータストリームプロトコル
-- SSE Format: Server-Sent Events形式
-- text-start/delta: テキストストリーミングイベント
-- tool-input-available: ツール入力利用可能イベント
-- tool-output-available: ツール出力利用可能イベント
-- finish: 完了イベント（finishReason付き）
-- HTTP SSE: HTTPサーバー送信イベント
-- Frontend useChat Hook (React State): フロントエンドのuseChatフック（Reactステート）
-
-**Key Points:**
-
-- ADK backend provides full agent capabilities
-- Session management and state preservation
-- Tool execution via ADK agent
-- Protocol conversion to AI SDK v6 format
-- Production-ready with FastAPI
-
----
-
-#### Mode 3: ADK BIDI (WebSocket) - Bidirectional Architecture
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                Frontend (Next.js + AI SDK v6)           │
-│                                                         │
-│  User Input → useChat.sendMessage({ text: "..." })      │
-│                           ↓                             │
-│             WebSocketChatTransport.sendMessages()       │
-│                           ↓                             │
-│                WebSocket Connection                     │
-│                ws://localhost:8000/live                 │
-└─────────────────┬───────────────────────┬───────────────┘
-                  │                       │
-                  │ ↓ JSON Message        │ ↑ SSE format
-                  │   (Upstream)          │   over WebSocket
-                  │                       │   (Downstream)
-┌─────────────────▼───────────────────────▼───────────────┐
-│        ADK Backend WebSocket Handler (server.py)        │
-│                                                         │
-│  Concurrent Tasks (asyncio.gather):                     │
-│                                                         │
-│  Task 1: Receive from Client                            │
-│  ┌────────────────────────────────────────────┐         │
-│  │ 1. websocket.receive_text()                │         │
-│  │ 2. Parse JSON → ChatMessage                │         │
-│  │ 3. Convert: ChatMessage.to_adk_content()   │         │
-│  │ 4. Enqueue: live_request_queue.send_content() │      │
-│  └────────────────────────────────────────────┘         │
-│                       ↓                                 │
-│                 LiveRequestQueue                        │
-│                       ↓                                 │
-│  Task 2: Send to Client                                 │
-│  ┌────────────────────────────────────────────┐         │
-│  │ 1. agent_runner.run_live(                  │         │
-│  │      live_request_queue=...,               │         │
-│  │      run_config=RunConfig(...)             │         │
-│  │    )                                       │         │
-│  │ 2. stream_adk_to_ai_sdk(live_events)       │         │
-│  │    ★ SAME converter as SSE mode!           │         │
-│  │ 3. websocket.send_text(sse_event)          │         │
-│  └────────────────────────────────────────────┘         │
-└─────────────────┬───────────────────────┬───────────────┘
-                  │                       │
-                  │ WebSocket             │ WebSocket
-                  ▼                       ▼
-┌─────────────────────────────────────────────────────────┐
-│         WebSocketChatTransport (Frontend)               │
-│                                                         │
-│  handleWebSocketMessage():                              │
-│  1. Receive: data.startsWith("data: ")                  │
-│  2. Parse: JSON.parse(data.substring(6))                │
-│  3. Convert: chunk as UIMessageChunk                    │
-│  4. Enqueue: controller.enqueue(chunk)                  │
-│  5. useChat consumes → UI updates                       │
-└─────────────────────────────────────────────────────────┘
-```
-
-Legend / 凡例:
-
-- Frontend (Next.js + AI SDK v6): フロントエンド（Next.js + AI SDK v6）
-- User Input: ユーザー入力
-- useChat.sendMessage(): AI SDKのメッセージ送信メソッド
-- WebSocketChatTransport.sendMessages(): カスタムWebSocketトランスポートのメッセージ送信メソッド
-- WebSocket Connection: WebSocket接続
-- ws://localhost:8000/live: ライブ通信用WebSocketエンドポイント
-- JSON Message (Upstream): JSON形式メッセージ（上り：クライアント→サーバー）
-- SSE format over WebSocket (Downstream): WebSocket経由のSSE形式（下り：サーバー→クライアント）
-- ADK Backend WebSocket Handler (server.py): ADKバックエンドのWebSocketハンドラー
-- Concurrent Tasks (asyncio.gather): 並行処理タスク（asyncio.gather）
-- Receive from Client: クライアントからの受信タスク
-- websocket.receive_text(): WebSocketのテキスト受信メソッド
-- Parse JSON → ChatMessage: JSON解析してChatMessageオブジェクトに変換
-- ChatMessage.to_adk_content(): ChatMessageをADK Content型に変換するメソッド
-- live_request_queue.send_content(): ライブリクエストキューへのコンテンツ送信
-- LiveRequestQueue: ライブリクエストキュー（非同期通信用）
-- Send to Client: クライアントへの送信タスク
-- agent_runner.run_live(): エージェントのライブ実行メソッド（双方向ストリーミング）
-- RunConfig: 実行設定（セッション再開、ツール設定など）
-- stream_adk_to_ai_sdk(): ADKストリームをAI SDK形式に変換する関数
-- SAME converter as SSE mode: SSEモードと同じコンバーター（コード再利用）
-- websocket.send_text(): WebSocketのテキスト送信メソッド
-- WebSocketChatTransport (Frontend): フロントエンドのWebSocketトランスポート層
-- handleWebSocketMessage(): WebSocketメッセージハンドラー
-- data.startsWith("data: "): SSE形式の判定（"data: "で始まる）
-- JSON.parse(): JSON解析
-- UIMessageChunk: UIメッセージチャンク（AI SDK v6形式）
-- controller.enqueue(): ReadableStreamコントローラーへのエンキュー
-- useChat consumes → UI updates: useChatフックが消費してUI更新
-
-**Key Points:**
-
-- **Architecture: "SSE format over WebSocket"**
-- Protocol conversion: 100% reuses `stream_adk_to_ai_sdk()`
-- Bidirectional: Concurrent upstream/downstream message flow
-- Real-time: Low latency, suitable for voice agents
-- Tools: Same tool calling support as SSE mode
-- Future: Can add audio/video streaming
-
-**Why This Design:**
-
-- **Code reuse:** Same protocol converter for SSE and BIDI modes
-- **Simplicity:** Only transport layer changes (HTTP → WebSocket)
-- **Compatibility:** AI SDK v6 Data Stream Protocol maintained
-- **Flexibility:** Easy to extend with audio/video
-
----
-
-### Mode Comparison Table
-
-| Feature | Gemini Direct | ADK SSE | ADK BIDI |
-|---------|--------------|---------|----------|
-| **Backend** | None | FastAPI + ADK | FastAPI + ADK |
-| **Transport** | HTTP SSE | HTTP SSE | WebSocket |
-| **Latency** | Low | Low | Very Low |
-| **Bidirectional** | No | No | Yes |
-| **Tool Calling** | Next.js server | ADK agent | ADK agent |
-| **Session Management** | No | Yes | Yes |
-| **Audio I/O** | No | No | Yes (PCM 24kHz) |
-| **Audio Transcription** | No | No | Yes (input + output) |
-| **Multimodal Input** | Text, Images | Text, Images | Text, Images, Audio |
-| **Complexity** | Simple | Medium | Advanced |
-| **Use Case** | Prototypes | Production | Voice agents |
-
-Legend / 凡例:
-
-- Transport: トランスポート（通信方式）
-- Latency: レイテンシ（応答速度）
-- Bidirectional: 双方向通信の可否
-- Tool Calling: ツール実行機能
-- Session Management: セッション管理機能
-- Audio I/O: 音声入出力対応
-- Audio Transcription: 音声テキスト化（文字起こし）
-- Multimodal Input: マルチモーダル入力（テキスト、画像、音声など）
-- Complexity: 実装の複雑さ
-
----
-
-## Tool Calling with User Approval
-
-This project implements **frontend-delegated tool execution** with user approval, leveraging AI SDK v6's native tool approval APIs.
-
-### Architecture: Backend Delegates, Frontend Executes
-
-```
-Backend (server.py)                    Frontend (Next.js)
-===================                    ==================
-
-AI requests tool
-     |
-     v
-[Tool Function]
-  change_bgm()
-  get_location()
-     |
-     +---> await frontend_delegate.execute_on_frontend(...)
-     |                   |
-     |                   | Creates asyncio.Future
-     |                   | Waits for frontend result
-     |                   |
-     |                   +------------------+
-     |                                      |
-     |     [WebSocket / Data Stream]        |
-     |                                      |
-     |     Step 1-3: Backend -> Frontend    |
-     |     ================================ |
-     |                                      v
-     |                         [useChat receives events]
-     |                                      |
-     |                         tool-input-start
-     |                         tool-input-available
-     |                         tool-approval-request
-     |                                      |
-     |                                      v
-     |                         [Message state updated]
-     |                         state: "approval-requested"
-     |                         approval: { id: "..." }
-     |                                      |
-     |                                      v
-     |                         [UI shows approval dialog]
-     |                         "Allow BGM change?"
-     |                         [Approve] [Deny]
-     |                                      |
-     |     Step 4-5: User Approves          |
-     |     =======================          v
-     |                         User clicks [Approve]
-     |                                      |
-     |                                      v
-     |                         addToolApprovalResponse({
-     |                           id: "approval-1",
-     |                           approved: true
-     |                         })
-     |                                      |
-     |                                      v
-     |                         [Execute browser API]
-     |                         audioContext.switchTrack(...)
-     |                         navigator.geolocation.getCurrentPosition(...)
-     |                                      |
-     |                                      v
-     |                         addToolOutput({
-     |                           toolCallId: "call-1",
-     |                           output: { success: true }
-     |                         })
-     |                                      |
-     |     Step 6-7: Auto-submit            |
-     |     =====================            v
-     |                         [sendAutomaticallyWhen triggered]
-     |                         Conditions met:
-     |                         1. approval-responded exists
-     |                         2. all tools complete
-     |                                      |
-     |                                      v
-     |                         [Auto-send to backend]
-     |                                      |
-     |     [WebSocket / Data Stream]        |
-     |     tool-result event                |
-     |                                      |
-     v                                      |
-[WebSocket handler receives]                |
-     |                                      |
-     v                                      |
-FrontendToolDelegate.resolve_tool_result()  |
-     |                                      |
-     v                                      |
-asyncio.Future resolves <-----------------+
-     |
-     v
-Tool function returns result
-     |
-     v
-AI continues with result
-```
-
-Legend / 凡例:
-
-- Backend (server.py): バックエンド（Pythonサーバー）
-- Frontend (Next.js): フロントエンド（Next.jsアプリ）
-- AI requests tool: AIがツール実行をリクエスト
-- Tool Function: ツール関数（change_bgm, get_location など）
-- frontend_delegate.execute_on_frontend(): フロントエンドへの実行委譲メソッド
-- asyncio.Future: 非同期処理の未来値（結果待機）
-- WebSocket / Data Stream: WebSocket または SSE によるデータストリーム通信
-- useChat receives events: useChatフックがイベントを受信
-- tool-input-start: ツール入力開始イベント
-- tool-input-available: ツール入力利用可能イベント
-- tool-approval-request: ツール承認リクエストイベント
-- Message state updated: メッセージ状態の更新
-- approval-requested: 承認待ち状態
-- UI shows approval dialog: UIに承認ダイアログを表示
-- User clicks [Approve]: ユーザーが承認ボタンをクリック
-- addToolApprovalResponse(): ツール承認応答を追加（AI SDK v6 API）
-- Execute browser API: ブラウザAPIの実行（AudioContext、Geolocation など）
-- addToolOutput(): ツール出力を追加（AI SDK v6 API）
-- sendAutomaticallyWhen triggered: 自動送信条件が満たされた
-- approval-responded exists: approval-responded 状態が存在
-- all tools complete: すべてのツールが完了状態
-- Auto-send to backend: バックエンドへ自動送信
-- tool-result event: ツール結果イベント
-- FrontendToolDelegate.resolve_tool_result(): ツール結果の解決メソッド
-- AI continues with result: AIが結果を使って処理を継続
-
-### Step-by-Step Flow
-
-**Step 1-3: Backend → Frontend (Tool Approval Request)**
-
-1. **Backend**: AI requests tool execution
-   - Tool function: `await frontend_delegate.execute_on_frontend(...)`
-   - Creates `asyncio.Future` and waits
-2. **Backend**: Sends Data Stream Protocol events via WebSocket/SSE
-   - `tool-input-start` (toolCallId, toolName)
-   - `tool-input-available` (toolCallId, args)
-   - `tool-approval-request` (approvalId, toolCallId)
-3. **Frontend**: `useChat` receives events
-   - Message state updates to `"approval-requested"`
-   - UI shows approval dialog
-
-**Step 4-5: Frontend Execution (User Approval)**
-
-4. **Frontend**: User clicks [Approve]
-   - Calls `addToolApprovalResponse({ id: "approval-1", approved: true })`
-   - State updates to `"approval-responded"`
-   - **Note**: If this is the ONLY tool, auto-submit happens immediately
-   - **Note**: If multiple tools exist, waits until ALL tools are complete
-5. **Frontend**: Execute browser API
-   - AudioContext: `audioContext.switchTrack(...)`
-   - Geolocation: `navigator.geolocation.getCurrentPosition(...)`
-   - Calls `addToolOutput({ toolCallId: "call-1", output: {...} })`
-   - State updates to `"output-available"`
-   - **Note**: Auto-submit timing depends on whether other tools are incomplete
-
-**Step 6-7: Frontend → Backend (Auto-Submit)**
-
-6. **Frontend**: `sendAutomaticallyWhen` triggers when conditions are met
-   - Condition 1: At least one `approval-responded` exists ✅
-   - Condition 2: All tools are complete (`output-available`, `output-error`, or `approval-responded`) ✅
-   - **Timing**: Depends on number of tools (see Auto-Submit Behavior section)
-   - **Single tool**: Auto-submit after `addToolApprovalResponse` (Step 4)
-   - **Multiple tools**: Auto-submit after last tool completes (Step 5 or later)
-   - Auto-sends `tool-result` event to backend
-7. **Backend**: Receives result
-   - `FrontendToolDelegate.resolve_tool_result(...)` called
-   - `asyncio.Future` resolves
-   - Tool function returns result to AI
-   - AI continues generation with tool result
-
-### Key APIs (AI SDK v6)
-
-**Frontend uses AI SDK v6 standard APIs (NOT custom callbacks):**
-
-```typescript
-const { messages, addToolApprovalResponse, addToolOutput } = useChat(options);
-
-// Step 4: User approves
-addToolApprovalResponse({
-  id: "approval-1",
-  approved: true,
-  reason: "User approved BGM change"
-});
-// ⚠️ Auto-submit timing depends on number of tools:
-//    - Single tool: Auto-submit happens NOW (all tools complete)
-//    - Multiple tools: Waits until ALL tools complete
-
-// Step 5: Execute and provide result
-const result = await audioContext.switchTrack(args.track_name);
-addToolOutput({
-  toolCallId: "call-1",
-  tool: "change_bgm",
-  output: { success: true, track: args.track_name }
-});
-
-// Step 6: Auto-submit (if not already sent in Step 4)
-// Note: Single tool scenarios already sent in Step 4
-// Multiple tool scenarios send when last tool completes
-// (no manual call needed, no duplicate sends)
-```
-
-**Why NOT `onToolCall`?**
-
-- `onToolCall` is for **client-side tools** defined in frontend only
-- Our tools are defined in **backend** (server.py) for AI awareness
-- Backend **delegates execution** to frontend, not frontend executing independently
-- Tool call events come **from backend** → Frontend receives and executes → Sends results back
-
-### Auto-Submit Behavior
-
-**Function:** `lastAssistantMessageIsCompleteWithApprovalResponses`
-
-Automatically sends results back to backend when **BOTH** conditions are met:
-
-1. **At least one `approval-responded` exists** (user approved/rejected at least one tool)
-2. **All tools are complete** (every tool is `output-available`, `output-error`, or `approval-responded`)
-
-**IMPORTANT:** The `approved` value (true/false) does NOT affect auto-submit timing. What matters is the **state** (`approval-responded`) and whether **ALL tools are complete**.
-
-**Timing Examples:**
-
-| Scenario | Tools | After `addToolApprovalResponse` | After `addToolOutput` | When Auto-Submit? |
-|----------|-------|--------------------------------|----------------------|-------------------|
-| **Single tool approval** | 1 tool | All complete ✅ | Already sent | ✅ Step 4 (immediate) |
-| **Single tool rejection** | 1 tool | All complete ✅ | Already sent | ✅ Step 4 (immediate) |
-| **Multiple tools (mixed)** | 2+ tools | Tool-1 complete, Tool-2 waiting ⏳ | All complete ✅ | ✅ When last tool completes |
-| **Output only (no approval)** | 1 tool | N/A | Condition 1 ❌ | ❌ Never (no approval-responded) |
-
-**Key Insights:**
-
-- **Single tool**: Auto-submit happens after `addToolApprovalResponse` (all tools complete)
-  - `approved: true` → immediate submit
-  - `approved: false` → immediate submit (same timing)
-- **Multiple tools**: Auto-submit waits until ALL tools are complete
-  - Doesn't matter which tool is approved/rejected
-  - Only matters that ALL tools reach complete state
-- **The `approved` value is sent to backend** but doesn't affect timing
-
-**Alternative:** If you need auto-submit on tool output only (without approval), use `lastAssistantMessageIsCompleteWithToolCalls` instead.
-
-### Transport Layer Independence
-
-**The tool approval flow works identically across all modes:**
-
-- **ADK SSE**: HTTP Server-Sent Events (one-way streaming)
-- **ADK BIDI**: WebSocket (bidirectional streaming)
-- **Gemini Direct**: Not applicable (tools execute on server)
-
-**Why:** All modes use the same **AI SDK v6 Data Stream Protocol** format:
-
-```
-Backend → tool-approval-request event → Frontend
-Frontend → tool-result event → Backend
-```
-
-The transport layer (HTTP SSE vs WebSocket) is abstracted away by:
-
-- Backend: `StreamProtocolConverter` (same for SSE and BIDI)
-- Frontend: `ChatTransport` interface (HTTP vs WebSocket)
-
-## Testing
-
-### Automated Test Suite
-
-**Python Unit Tests** (112 tests):
-
-```bash
-just test-python
-# Tests include:
-# - Stream protocol conversion (ADK → AI SDK v6)
-# - Event/Part field mapping (100% coverage)
-# - Error handling (errorCode, errorMessage)
-# - BIDI mode (turnComplete, message metadata)
-# - Tool calling and approval flow
-# - Image support, audio streaming, transcription
-```
-
-**TypeScript Integration Tests** (All modes):
-
-```bash
-pnpm exec vitest run
-# Tests include:
-# - WebSocket transport layer
-# - useChat integration
-# - Tool approval flow
-# - Message metadata forwarding
-# - Parametrized tests for all messageMetadata fields
-```
-
-**End-to-End Tests** (Playwright):
-
-```bash
-just test-e2e-clean  # Recommended: clean server restart
-just test-e2e-ui     # Interactive UI mode
-# Tests include:
-# - Full chat flows (Gemini Direct, ADK SSE, ADK BIDI)
-# - Real-time message streaming
-# - Tool calling with user approval
-# - Audio input/output (BIDI mode)
-```
-
-**E2E Test Infrastructure - Chunk Logger & Player**:
-
-Record actual chunks during manual operations and replay them for automated testing:
-
-```bash
-# Setup E2E fixture symlinks (one-time setup)
-just setup-e2e-fixtures
-
-# Run E2E tests with recorded fixtures
-pnpm exec playwright test e2e/chunk-player-ui-verification.spec.ts
-PYTHONPATH=. uv run pytest tests/e2e/
-
-# Manual fixture recording (see agents/recorder_handsoff.md)
-# 1. Enable chunk logger (localStorage or env vars)
-# 2. Perform manual operations in browser
-# 3. Export and save chunks to tests/fixtures/e2e-chunks/
-```
-
-**Features:**
-- **ChunkPlayerTransport**: Mock transport for replaying frontend chunks
-- **ChunkPlayerManager**: Backend E2E mode detection and chunk playback
-- **4 Test Patterns**: Gemini Direct, ADK SSE, ADK BIDI, Mode Switching
-- **Golden File Testing**: Regression testing with real recorded data
-- **Documentation**: See `docs/testing/E2E_FRONTEND_GUIDE.md`, `docs/testing/E2E_SERVER_GUIDE.md`, `tests/fixtures/e2e-chunks/README.md`
-
-**Field Coverage Validation**:
-
-```bash
-just check-coverage           # Show field mapping coverage
-just check-coverage-validate  # CI/CD validation
-```
-
-### Manual Backend Testing
-
-```bash
-# Test health endpoint
-curl http://localhost:8000/health
-
-# Test root endpoint
-curl http://localhost:8000/
-
-# Test SSE streaming endpoint
-curl -N http://localhost:8000/stream \
-  -H "Content-Type: application/json" \
-  -d '{"messages":[{"role":"user","content":"What is 2+2?"}]}'
-
-# Expected output:
-# data: {"type": "text-start", "id": "0"}
-# data: {"type": "text-delta", "id": "0", "delta": "2 + 2 = 4"}
-# data: {"type": "text-end", "id": "0"}
-# data: {"type": "finish", "finishReason": "stop"}
-# data: [DONE]
-```
-
-## AI SDK v6 Migration Notes
-
-This project uses AI SDK v6 beta. While the official documentation states v6 has minimal breaking changes, we encountered several issues during implementation. These notes document the actual changes required.
-
-### Breaking Changes Encountered
-
-#### 1. useChat Hook API Changes
-
-**Message sending:**
-
-```typescript
-// ❌ v3/v4 style (doesn't work in v6)
-const { input, handleInputChange, handleSubmit } = useChat();
-
-// ✅ v6 style (correct)
-const { messages, sendMessage, status } = useChat();
-const [input, setInput] = useState("");
-
-const handleSubmit = (e) => {
-  e.preventDefault();
-  sendMessage({ text: input }); // Must pass object with 'text' property
-  setInput("");
-};
-```
-
-**Loading state:**
-
-```typescript
-// ❌ v3/v4: isLoading
-const isLoading = useChat().isLoading;
-
-// ✅ v6: status
-const status = useChat().status;
-const isLoading = status === "submitted" || status === "streaming";
-```
-
-#### 2. Message Structure Changes
-
-**Displaying messages:**
-
-```typescript
-// ❌ v3/v4: message.content
-{messages.map(message => (
-  <div>{message.content}</div>
-))}
-
-// ✅ v6: message.parts
-{messages.map(message => (
-  <div>
-    {message.parts.map((part, index) =>
-      part.type === "text" ? (
-        <span key={index}>{part.text}</span>
-      ) : null
-    )}
-  </div>
-))}
-```
-
-**Why:** AI SDK v6 introduced a new `parts` structure to support multiple content types (text, files, tool calls, etc.)
-
-#### 3. Route Handler Changes
-
-**Message conversion required:**
-
-```typescript
-// ❌ Passing messages directly causes validation errors
-const result = streamText({
-  model: google("gemini-2.5-flash"),
-  messages, // UIMessage[] - wrong format!
-});
-
-// ✅ Convert UIMessage[] to ModelMessage[]
-import { convertToModelMessages } from "ai";
-
-const result = streamText({
-  model: google("gemini-2.5-flash"),
-  messages: convertToModelMessages(messages), // Correct!
-});
-```
-
-**Type safety:**
-
-```typescript
-import type { UIMessage } from "ai";
-
-export async function POST(req: Request) {
-  const { messages }: { messages: UIMessage[] } = await req.json();
-  // ...
-}
-```
-
-#### 4. Stream Response Methods
-
-**Correct method for useChat:**
-
-```typescript
-// ❌ Wrong methods
-return result.toTextStreamResponse();    // Plain text only
-return result.toDataStreamResponse();    // Deprecated/not recommended
-
-// ✅ Correct for useChat with Data Stream Protocol
-return result.toUIMessageStreamResponse();
-```
-
-**Why:** `useChat` expects UI Message Stream format by default, which uses Server-Sent Events (SSE) with structured data.
-
-### Data Stream Protocol Details
-
-AI SDK v6 uses two streaming protocols:
-
-#### Text Stream Protocol
-
-- Simple text chunks concatenated together
-- Use `streamProtocol: 'text'` option in `useChat`
-- Response method: `toTextStreamResponse()`
-
-#### Data Stream Protocol (Default)
-
-- Server-Sent Events (SSE) format
-- Supports text, tool calls, reasoning blocks, files
-- Structured JSON messages with type fields
-- Terminates with `data: [DONE]` marker
-- Response method: `toUIMessageStreamResponse()`
-
-**SSE Format Example:**
-
-```
-data: {"type":"text-start","id":"0"}
-data: {"type":"text-delta","id":"0","delta":"Hello"}
-data: {"type":"text-delta","id":"0","delta":" world"}
-data: {"type":"text-end","id":"0"}
-data: {"type":"finish","finishReason":"stop"}
-data: [DONE]
-```
-
-### Common Errors and Solutions
-
-**Error: "Invalid prompt: The messages do not match the ModelMessage[] schema"**
-
-- **Cause:** Not using `convertToModelMessages()`
-- **Solution:** Import and use `convertToModelMessages()` in route handler
-
-**Error: Messages not displaying in UI**
-
-- **Cause:** Using `message.content` instead of `message.parts`
-- **Solution:** Map over `message.parts` and render `part.text`
-
-### Debug Tips
-
-1. **Clear Next.js cache** if changes don't apply:
-
-   ```bash
-   rm -rf .next && pnpm dev
-   ```
-
-2. **Check server logs** for actual errors (not just browser console)
-
-3. **Test API directly** with curl to isolate frontend/backend issues
-
-4. **Verify environment variables** are loaded (especially after changes)
-
-## Development
-
-### Backend Development
-
-The backend server (`server.py`) uses:
-
-- FastAPI for async HTTP handling
-- Pydantic for data validation
-- Loguru for logging
-- Google ADK for AI capabilities
-
-### Frontend Development
-
-The frontend uses:
-
-- Next.js App Router for routing
-- AI SDK v6's `useChat` hook for chat UI
-- Server-side Route Handlers for API endpoints
-- TypeScript for type safety
 
 ## License
 
