@@ -495,7 +495,152 @@ fa9aa8c docs: Complete P4-T5 Documentation Updates
 
 ---
 
-**Last Updated:** 2025-12-14 (Documentation Consolidation 完成)
+## 📋 Session 4: README.md Restructuring (2025-12-14)
+
+### 実施した作業の概要
+
+このセッションでは、README.md の大幅な簡潔化とdocs/GETTING_STARTED.md の新規作成を実施しました。
+
+### 主な成果
+
+1. ✅ **README.md 簡潔化完了** (commit: db10089)
+   - 1,227行 → 226行 (81.6%削減、目標75%超過達成)
+   - コア情報のみに絞り込み
+   - Documentation セクションで docs/ へのリンク集提供
+
+2. ✅ **docs/GETTING_STARTED.md 新規作成** (625行)
+   - 詳細なCore Conceptsとアーキテクチャ説明
+   - ステップバイステップのインストール・設定手順
+   - 全3モード（Gemini Direct, ADK SSE, ADK BIDI）の設定例
+   - 6つの詳細な使用例（Text Chat, Tool Calling, Voice Interaction, Image Upload）
+   - AI SDK v6 Migration Notes（Breaking Changes 4項目）
+   - Development ガイド
+   - Troubleshooting セクション（6つの一般的な問題と解決策）
+
+3. ✅ **実装との整合性検証完了**
+   - すべてのファイルパスを確認
+   - API endpoints (server.py) を検証
+   - 環境変数 (.env.example) を検証
+   - Just commands (justfile) を検証
+   - Frontend files (app/, lib/, components/) を検証
+
+### 新規作成ファイル
+
+1. **docs/GETTING_STARTED.md** (625行)
+   - Table of Contents: 8セクション
+   - Core Concepts: Protocol Flow, StreamProtocolConverter, Transport Layer
+   - Installation: Prerequisites, Quick Install, Manual Install
+   - Configuration: 3モード別の詳細設定
+   - Running: 各モードの起動方法
+   - Usage Examples: 6つの実践的シナリオ
+   - AI SDK v6 Migration Notes: Breaking Changes + Common Errors
+   - Development: Backend/Frontend 開発ガイド
+   - Troubleshooting: 6つの問題と Debug Tips
+
+### 更新ファイル
+
+1. **README.md** (1,227行 → 226行)
+   - **残したセクション:**
+     - Project Overview
+     - Current Status (Phase 1-4)
+     - Key Features (Multimodal + Architecture Highlights)
+     - Tech Stack (簡潔版)
+     - Quick Start (簡潔版)
+     - Testing (コマンドのみ)
+     - Documentation (docs/へのリンク集)
+     - Experiments & Research
+     - License & References
+   - **削除/移動したセクション:**
+     - 詳細なCore Architecture → docs/GETTING_STARTED.md
+     - Architecture Overview (359行) → 削除（docs/ARCHITECTURE.md に既存）
+     - Tool Calling詳細 (258行) → 削除（docs/ARCHITECTURE.md に既存）
+     - Testing詳細 (96行) → 削除（docs/E2E_GUIDE.md に既存）
+     - AI SDK v6 Migration (200行) → docs/GETTING_STARTED.md
+     - Development Guide → docs/GETTING_STARTED.md
+     - Setup詳細 → docs/GETTING_STARTED.md
+
+### 検証方法
+
+すべてのドキュメント内容を実装コードで検証:
+
+```bash
+# Key files existence
+ls -la stream_protocol.py server.py justfile .env.example
+
+# API endpoints
+grep -n "^@app\." server.py
+# → /, /health, /chat, /stream, /live 確認
+
+# Frontend files
+ls -la app/api/chat/route.ts app/page.tsx lib/websocket-chat-transport.ts
+
+# Constants
+grep -n "TOOLS_REQUIRING_APPROVAL" server.py
+# → Line 333: {"change_bgm", "get_location"}
+
+# Just commands
+just --list
+# → install, dev, server, test-python, test-e2e-clean, etc.
+
+# Directory structure
+ls -la docs/ tests/fixtures/e2e-chunks/ experiments/
+```
+
+### 期待される効果
+
+**README.md:**
+- 初見ユーザーが5分で全体把握可能
+- クイックスタートが明確
+- 詳細は docs/ へのリンクで誘導
+
+**docs/GETTING_STARTED.md:**
+- 0から始めるユーザー向けの完全ガイド
+- トラブルシューティングで問題解決を支援
+- AI SDK v6 移行時の注意点を網羅
+
+**ドキュメント構造:**
+- Single Source of Truth 確立
+- 重複排除（Architecture Overview, Tool Calling詳細）
+- 役割分担明確化（README = 概要、GETTING_STARTED = 詳細）
+
+### Commits
+
+```bash
+db10089 docs: Restructure README.md and create GETTING_STARTED guide
+```
+
+### 変更統計
+
+```
+README.md:               -1001 lines
+docs/GETTING_STARTED.md: +625 lines
+Total:                   -376 lines (net reduction)
+```
+
+### 次のセッションへの引き継ぎ
+
+**完了した作業:**
+- ✅ README.md 簡潔化完了（81.6%削減）
+- ✅ docs/GETTING_STARTED.md 新規作成完了
+- ✅ 実装との整合性検証完了
+- ✅ ドキュメント構造の最適化完了
+
+**ドキュメント状態:**
+- README.md: コア情報のみ（226行）
+- docs/GETTING_STARTED.md: 詳細ガイド（625行）
+- docs/ARCHITECTURE.md: アーキテクチャパターン（1,076行）
+- docs/IMPLEMENTATION.md: 実装ステータス（283行）
+- docs/E2E_GUIDE.md: E2Eテストガイド（985行）
+- docs/TEST_COVERAGE_AUDIT.md: カバレッジレポート（242行）
+- すべて実装と100%整合
+
+**残りの Tier 2 タスク:**
+- [P4-T4.1] ADK Response Fixture Files (3-4 hours) - Not Started
+- [P4-T4.4] Systematic Model/Mode Testing (4-6 hours) - Not Started
+
+---
+
+**Last Updated:** 2025-12-14 (README.md Restructuring 完成)
 **Next Action:**
 - E2E fixture の手動記録 (`agents/recorder_handsoff.md` 参照)
 - または P4-T4.1/P4-T4.4 の実施
