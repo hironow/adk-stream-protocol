@@ -41,10 +41,10 @@ describe("buildUseChatOptions", () => {
         initialMessages,
       });
 
-      // Then: Should use DefaultChatTransport
+      // Then: Should use ChunkLoggingTransport (wrapping DefaultChatTransport)
       expect(result.useChatOptions.transport).toBeDefined();
       expect(result.useChatOptions.transport.constructor.name).toBe(
-        "DefaultChatTransport",
+        "ChunkLoggingTransport",
       );
       expect(result.transport).toBeUndefined();
     });
@@ -136,10 +136,10 @@ describe("buildUseChatOptions", () => {
         adkBackendUrl: "http://localhost:8000",
       });
 
-      // Then: Should use DefaultChatTransport
+      // Then: Should use ChunkLoggingTransport (wrapping DefaultChatTransport)
       expect(result.useChatOptions.transport).toBeDefined();
       expect(result.useChatOptions.transport.constructor.name).toBe(
-        "DefaultChatTransport",
+        "ChunkLoggingTransport",
       );
       expect(result.transport).toBeUndefined();
     });
@@ -327,11 +327,11 @@ describe("buildUseChatOptions", () => {
 
       // Then: Only adk-bidi should use WebSocketChatTransport
       expect(results[0].useChatOptions.transport.constructor.name).toBe(
-        "DefaultChatTransport",
-      ); // gemini
+        "ChunkLoggingTransport",
+      ); // gemini (wrapped DefaultChatTransport)
       expect(results[1].useChatOptions.transport.constructor.name).toBe(
-        "DefaultChatTransport",
-      ); // adk-sse
+        "ChunkLoggingTransport",
+      ); // adk-sse (wrapped DefaultChatTransport)
       expect(results[2].useChatOptions.transport.constructor.name).toBe(
         "WebSocketChatTransport",
       ); // adk-bidi

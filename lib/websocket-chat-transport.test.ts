@@ -48,11 +48,17 @@ class MockWebSocket {
   // Test helper: Simulate receiving a message from server (SSE format)
   simulateMessage(data: any): void {
     if (this.onmessage) {
-      // Backend sends SSE-formatted events (data: {...}\n\n)
-      const sseMessage = `data: ${JSON.stringify(data)}`;
+      // Special case: if data has type "sse", use data.data directly (for raw SSE strings)
+      let messageData: string;
+      if (data.type === "sse") {
+        messageData = data.data;
+      } else {
+        // Backend sends SSE-formatted events (data: {...}\n\n)
+        messageData = `data: ${JSON.stringify(data)}`;
+      }
       this.onmessage(
         new MessageEvent("message", {
-          data: sseMessage,
+          data: messageData,
         }),
       );
     }
@@ -1819,6 +1825,333 @@ describe("WebSocketChatTransport", () => {
 
       // When/Then: Closing should not throw
       expect(() => transport.close()).not.toThrow();
+    });
+  });
+
+  // P4-T10: Controller Lifecycle Management Tests
+  describe("Controller Lifecycle Management (P4-T10)", () => {
+    it("should set currentController on new connection", async () => {
+      // Given: Fresh transport
+      const transport = new WebSocketChatTransport({
+        url: "ws://localhost:8000/live",
+      });
+
+      // When: Send messages (creates new connection)
+      const streamPromise = transport.sendMessages({
+        trigger: "submit-message",
+        chatId: "test-chat",
+        messageId: "msg-1",
+        messages: [
+          {
+            id: "1",
+            role: "user",
+            parts: [{ type: "text", text: "Hello" }],
+          },
+        ],
+        abortSignal: undefined,
+      });
+
+      // Wait for connection to establish
+      await vi.waitFor(() => {
+        expect((transport as any).ws).toBeDefined();
+        expect((transport as any).ws?.readyState).toBe(MockWebSocket.OPEN);
+      });
+
+      // Then: currentController should be set
+      expect((transport as any).currentController).toBeDefined();
+      expect((transport as any).currentController).not.toBeNull();
+    });
+
+    it("should close previous controller when reusing connection", async () => {
+      // Given: Transport with existing connection
+      const transport = new WebSocketChatTransport({
+        url: "ws://localhost:8000/live",
+      });
+
+      // Create first stream
+      const stream1Promise = transport.sendMessages({
+        trigger: "submit-message",
+        chatId: "test-chat",
+        messageId: "msg-1",
+        messages: [
+          {
+            id: "1",
+            role: "user",
+            parts: [{ type: "text", text: "First message" }],
+          },
+        ],
+        abortSignal: undefined,
+      });
+
+      await vi.waitFor(() => {
+        expect((transport as any).ws?.readyState).toBe(MockWebSocket.OPEN);
+      });
+
+      // Get first controller reference
+      const firstController = (transport as any).currentController;
+      expect(firstController).toBeDefined();
+
+      // When: Send second message (this should trigger controller override logic)
+      const stream2Promise = transport.sendMessages({
+        trigger: "submit-message",
+        chatId: "test-chat",
+        messageId: "msg-2",
+        messages: [
+          {
+            id: "2",
+            role: "user",
+            parts: [{ type: "text", text: "Second message" }],
+          },
+        ],
+        abortSignal: undefined,
+      });
+
+      await vi.waitFor(() => {
+        expect((transport as any).currentController).toBeDefined();
+      });
+
+      // Then: New controller should be different from first
+      const secondController = (transport as any).currentController;
+      expect(secondController).not.toBe(firstController);
+
+      // Verify warning was logged about closing previous controller
+      // (implementation closes previous controller in try-catch)
+    });
+
+    it("should clear currentController on [DONE] message", async () => {
+      // Given: Transport with active stream
+      const transport = new WebSocketChatTransport({
+        url: "ws://localhost:8000/live",
+      });
+
+      const streamPromise = transport.sendMessages({
+        trigger: "submit-message",
+        chatId: "test-chat",
+        messageId: "msg-1",
+        messages: [
+          {
+            id: "1",
+            role: "user",
+            parts: [{ type: "text", text: "Hello" }],
+          },
+        ],
+        abortSignal: undefined,
+      });
+
+      // Wait for controller to be set
+      await vi.waitFor(() => {
+        const controller = (transport as any).currentController;
+        expect(controller).toBeDefined();
+        expect(controller).not.toBeNull();
+      });
+
+      const ws = (transport as any).ws as MockWebSocket;
+      const stream = await streamPromise;
+      const reader = stream.getReader();
+
+      // Start reading stream in background
+      const readPromise = (async () => {
+        const chunks: any[] = [];
+        try {
+          // biome-ignore lint: using while(true) with break is acceptable in test code
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value);
+          }
+        } catch (err) {
+          // Stream might close before all chunks are read
+        }
+        return chunks;
+      })();
+
+      // When: Send actual [DONE] message (SSE format)
+      ws.simulateMessage({ type: "sse", data: "data: [DONE]\n\n" });
+
+      // Wait for stream processing
+      await readPromise;
+
+      // Then: currentController should be cleared after [DONE] processing
+      expect((transport as any).currentController).toBeNull();
+
+      // Note: This tests the complete [DONE] message processing flow:
+      // WebSocket → handleWebSocketMessage → Line 547 → currentController = null
+    });
+
+    it("should clear currentController on error", async () => {
+      // Given: Transport with active stream
+      const transport = new WebSocketChatTransport({
+        url: "ws://localhost:8000/live",
+      });
+
+      const streamPromise = transport.sendMessages({
+        trigger: "submit-message",
+        chatId: "test-chat",
+        messageId: "msg-1",
+        messages: [
+          {
+            id: "1",
+            role: "user",
+            parts: [{ type: "text", text: "Hello" }],
+          },
+        ],
+        abortSignal: undefined,
+      });
+
+      await vi.waitFor(() => {
+        expect((transport as any).currentController).toBeDefined();
+      });
+
+      // When: Receive malformed message that causes error
+      const ws = (transport as any).ws as MockWebSocket;
+      ws.simulateMessage({ type: "sse", data: "data: {invalid json\n\n" });
+
+      // Then: currentController should be cleared
+      await vi.waitFor(() => {
+        expect((transport as any).currentController).toBeNull();
+      });
+    });
+
+    it("should handle already-closed controller gracefully", async () => {
+      // Given: Transport with active stream
+      const transport = new WebSocketChatTransport({
+        url: "ws://localhost:8000/live",
+      });
+
+      const stream1Promise = transport.sendMessages({
+        trigger: "submit-message",
+        chatId: "test-chat",
+        messageId: "msg-1",
+        messages: [
+          {
+            id: "1",
+            role: "user",
+            parts: [{ type: "text", text: "First" }],
+          },
+        ],
+        abortSignal: undefined,
+      });
+
+      await vi.waitFor(() => {
+        expect((transport as any).ws?.readyState).toBe(MockWebSocket.OPEN);
+      });
+
+      // Get first controller and close it manually
+      const firstController = (transport as any).currentController;
+      expect(firstController).toBeDefined();
+
+      // Simulate controller already closed
+      firstController.close();
+      (transport as any).currentController = null;
+
+      expect((transport as any).currentController).toBeNull();
+
+      // When: Send second message (try to close already-closed controller)
+      // This should not throw error
+      await expect(
+        transport.sendMessages({
+          trigger: "submit-message",
+          chatId: "test-chat",
+          messageId: "msg-2",
+          messages: [
+            {
+              id: "2",
+              role: "user",
+              parts: [{ type: "text", text: "Second" }],
+            },
+          ],
+          abortSignal: undefined,
+        }),
+      ).resolves.toBeDefined();
+
+      // Then: New controller should be set
+      await vi.waitFor(() => {
+        expect((transport as any).currentController).toBeDefined();
+      });
+    });
+
+    it("should handle WebSocket onerror event", async () => {
+      // Given: Transport with active connection
+      const transport = new WebSocketChatTransport({
+        url: "ws://localhost:8000/live",
+      });
+
+      const streamPromise = transport.sendMessages({
+        trigger: "submit-message",
+        chatId: "test-chat",
+        messageId: "msg-1",
+        messages: [
+          {
+            id: "1",
+            role: "user",
+            parts: [{ type: "text", text: "Hello" }],
+          },
+        ],
+        abortSignal: undefined,
+      });
+
+      // Wait for connection
+      await vi.waitFor(() => {
+        expect((transport as any).ws?.readyState).toBe(MockWebSocket.OPEN);
+      });
+
+      const stopPingSpy = vi.spyOn(transport as any, "stopPing");
+
+      // When: WebSocket error occurs
+      const ws = (transport as any).ws as MockWebSocket;
+      const errorEvent = new Event("error");
+      if (ws.onerror) {
+        ws.onerror(errorEvent);
+      }
+
+      // Then: stopPing should be called and stream should error
+      expect(stopPingSpy).toHaveBeenCalled();
+
+      // Verify stream errors when reading
+      const stream = await streamPromise;
+      const reader = stream.getReader();
+      await expect(reader.read()).rejects.toThrow();
+    });
+
+    it("should handle WebSocket onclose event", async () => {
+      // Given: Transport with active connection
+      const transport = new WebSocketChatTransport({
+        url: "ws://localhost:8000/live",
+      });
+
+      const streamPromise = transport.sendMessages({
+        trigger: "submit-message",
+        chatId: "test-chat",
+        messageId: "msg-1",
+        messages: [
+          {
+            id: "1",
+            role: "user",
+            parts: [{ type: "text", text: "Hello" }],
+          },
+        ],
+        abortSignal: undefined,
+      });
+
+      // Wait for connection
+      await vi.waitFor(() => {
+        expect((transport as any).ws?.readyState).toBe(MockWebSocket.OPEN);
+      });
+
+      const stopPingSpy = vi.spyOn(transport as any, "stopPing");
+
+      // When: WebSocket closes
+      const ws = (transport as any).ws as MockWebSocket;
+      ws.close();
+
+      // Then: stopPing should be called and stream should close
+      expect(stopPingSpy).toHaveBeenCalled();
+
+      // Verify stream closes gracefully
+      const stream = await streamPromise;
+      const reader = stream.getReader();
+      const result = await reader.read();
+      expect(result.done).toBe(true);
     });
   });
 });

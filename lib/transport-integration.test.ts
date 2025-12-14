@@ -221,7 +221,7 @@ describe("Transport Integration", () => {
       expect(result.transport).toBeUndefined();
       expect(result.useChatOptions.transport).toBeDefined();
       expect(result.useChatOptions.transport.constructor.name).toBe(
-        "DefaultChatTransport",
+        "ChunkLoggingTransport",
       );
     });
 
@@ -270,7 +270,7 @@ describe("Transport Integration", () => {
       expect(result.transport).toBeUndefined();
       expect(result.useChatOptions.transport).toBeDefined();
       expect(result.useChatOptions.transport.constructor.name).toBe(
-        "DefaultChatTransport",
+        "ChunkLoggingTransport",
       );
     });
 
@@ -316,7 +316,7 @@ describe("Transport Integration", () => {
       // Then: AudioContext should be silently ignored (no WebSocketChatTransport created)
       expect(result.transport).toBeUndefined();
       expect(result.useChatOptions.transport.constructor.name).toBe(
-        "DefaultChatTransport",
+        "ChunkLoggingTransport",
       );
     });
 

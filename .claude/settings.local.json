@@ -63,7 +63,9 @@
       "Bash(pnpm run lint:*)",
       "Bash(pnpm biome check:*)",
       "Bash(pnpm exec biome check:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(pnpm exec biome format:*)",
+      "Bash(pnpm test:*)"
     ],
     "deny": [
       "Read(.env.keys)",
