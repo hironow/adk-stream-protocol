@@ -1,5 +1,6 @@
 "use client";
 
+import type { UIMessage } from "ai";
 import { useState } from "react";
 import { Chat } from "@/components/chat";
 import { AudioProvider } from "@/lib/audio-context";
@@ -7,6 +8,8 @@ import type { BackendMode } from "@/lib/build-use-chat-options";
 
 export default function ChatPage() {
   const [mode, setMode] = useState<BackendMode>("gemini");
+  // P4-T9: Message history preservation across mode switches
+  const [messages, setMessages] = useState<UIMessage[]>([]);
 
   return (
     <AudioProvider>
@@ -128,11 +131,41 @@ export default function ChatPage() {
               </div>
             </button>
           </div>
+
+          {/* P4-T9: Clear History Button */}
+          <button
+            type="button"
+            onClick={() => {
+              console.log("[Clear History] Clearing message history");
+              setMessages([]);
+            }}
+            style={{
+              marginTop: "0.75rem",
+              padding: "0.5rem 1rem",
+              borderRadius: "4px",
+              border: "1px solid #dc2626",
+              background: "#450a0a",
+              color: "#fca5a5",
+              fontSize: "0.875rem",
+              cursor: "pointer",
+              width: "100%",
+              textAlign: "center",
+              fontWeight: 500,
+            }}
+          >
+            Clear History
+          </button>
         </div>
 
         {/* Single unified Chat component with mode prop */}
         {/* buildUseChatOptions() creates appropriate transport based on mode */}
-        <Chat key={mode} mode={mode} />
+        {/* P4-T9: Pass initialMessages and onMessagesChange for history preservation */}
+        <Chat
+          key={mode}
+          mode={mode}
+          initialMessages={messages}
+          onMessagesChange={setMessages}
+        />
       </div>
     </AudioProvider>
   );

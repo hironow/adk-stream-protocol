@@ -1,6 +1,7 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
+import type { UIMessage } from "ai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MessageComponent } from "@/components/message";
 import { useAudio } from "@/lib/audio-context";
@@ -12,9 +13,16 @@ import { useAudioRecorder } from "@/lib/use-audio-recorder";
 
 interface ChatProps {
   mode: BackendMode;
+  // P4-T9: Message history preservation
+  initialMessages?: UIMessage[];
+  onMessagesChange?: (messages: UIMessage[]) => void;
 }
 
-export function Chat({ mode }: ChatProps) {
+export function Chat({
+  mode,
+  initialMessages = [],
+  onMessagesChange,
+}: ChatProps) {
   const audioContext = useAudio();
 
   const [input, setInput] = useState("");
@@ -24,7 +32,7 @@ export function Chat({ mode }: ChatProps) {
 
   const { useChatOptions, transport } = buildUseChatOptions({
     mode,
-    initialMessages: [],
+    initialMessages, // P4-T9: Pass initialMessages from parent
     audioContext,
   });
 
@@ -36,6 +44,13 @@ export function Chat({ mode }: ChatProps) {
     addToolOutput,
     addToolApprovalResponse,
   } = useChat(useChatOptions);
+
+  // P4-T9: Notify parent of messages change for history preservation
+  useEffect(() => {
+    if (onMessagesChange) {
+      onMessagesChange(messages);
+    }
+  }, [messages, onMessagesChange]);
 
   // Keep transport reference for imperative control (P2-T2 Phase 2)
   const transportRef = useRef(transport);
