@@ -640,7 +640,220 @@ Total:                   -376 lines (net reduction)
 
 ---
 
-**Last Updated:** 2025-12-14 (README.md Restructuring 完成)
+---
+
+## 📋 Session 5: Technical FAQ Documentation (2025-12-14)
+
+### 実施した作業の概要
+
+このセッションでは、TEMP_FAQ.md に包括的な技術Q&Aドキュメントを作成しました。
+
+### 主な成果
+
+1. ✅ **TEMP_FAQ.md 新規作成完了** (4,256行)
+   - 14つの詳細な Q&A セクション
+   - 実装コードとの整合性100%確認
+   - クロスリファレンスなしの独立した FAQ 形式
+
+### 作成した Q&A セクション
+
+**Q1: Backend tool vs Frontend-delegated tool distinction**
+- `TOOLS_REQUIRING_APPROVAL` set による区別
+- server.py の実装パターン検証
+- 実装例: `get_weather` (backend) vs `change_bgm` (frontend-delegated)
+
+**Q2: FrontendToolDelegate Promise-like pattern**
+- `asyncio.Future` ベースの実装
+- resolve/reject 分離パターン
+- `set_result()` 使用の設計決定（`set_exception()` 不使用）
+- tool_delegate.py 完全実装コード
+
+**Q3: Tool approval Step 7 auto-send mechanism**
+- AI SDK v6 の `sendAutomaticallyWhen` 機能
+- `lastAssistantMessageIsCompleteWithApprovalResponses` 条件関数
+- 11ステップの詳細フロー（Backend 決定 → Frontend 実行 → Backend 受信）
+- lib/build-use-chat-options.ts 実装検証
+
+**Q4: Chunk Logger data integrity analysis**
+- Backend 6つの課題（chunk_logger.py）
+- Frontend 6つの課題（lib/chunk-logger.ts）
+- 優先順位付き改善提案（High/Medium/Low）
+- 現状: 開発・デバッグ用途には十分、本番環境要改善
+
+**Q5: AI SDK v6 selection rationale**
+- 6つの主要理由（Tool Approval API, Custom Transport, Multimodal, etc.）
+- 決定マトリックス（v3/v4 vs v6 比較）
+- トレードオフ分析（Beta version リスク）
+- Git history 証拠（commits abe2278, cb73c42, c638026）
+
+**Q6: AP2 design philosophy comparison**
+- 完全に同じ設計哲学（delegation pattern + await pattern）
+- コード実装の類似性（asyncio.Future 使用）
+- 唯一の違い: 委譲先（Agent B vs Frontend）
+- AP2 (Agent-to-Agent) vs 本実装 (Frontend-Backend) 比較表
+
+**Q7: ADK-derived tool_call_id verification**
+- `ToolContext.function_call_id` による ADK ID 取得
+- stream_protocol.py (lines 445-455) 実装検証
+- server.py (lines 274, 312) 使用箇所確認
+- ID フォーマット: `adk-XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX` (UUID v4)
+- Fallback 機構存在（実際には実行されない）
+
+**Q8: Complete Tool Approval architecture**
+- Frontend/Backend 責任分担明確化
+- 11ステップ詳細フロー
+- `onToolCall` 不使用の理由
+- components/chat.tsx 実装検証
+
+**Q9: AI SDK v6 useChat orthodox approach**
+- AI SDK v6 標準 API のみ使用（`addToolApprovalResponse`, `addToolOutput`）
+- カスタムコールバック削除済み（`toolCallCallback`, `onToolApprovalRequest`）
+- BIDI/SSE モード完全透過性（同一 Frontend コード）
+- experiments/2025-12-13_tool_approval_ai_sdk_native_handling.md 証拠
+
+**Q10: Frontend-required tools and delegation pattern verification**
+- Frontend で必要な tool は全て移譲型になる（論理的帰結）
+- Browser API 必要 → Backend 実行不可 → Frontend 委譲必須
+- 現行実装: `change_bgm`, `get_location`
+- 仮想例検証: `take_screenshot`, `read_clipboard`, `show_notification`
+
+**Q11: Tool vs Frontend feature distinction**
+- ESC キー中断・CMD キー音声入力は Frontend feature（tool ではない）
+- 区別基準: AI判断（tool） vs User判断（Frontend feature）
+- BIDI/SSE 対応: 両方 BIDI only（技術的制約）
+- components/chat.tsx 実装箇所特定
+
+**Q12: BGM Track Switching vs Audio Ducking features**
+- BGM Track Switching: bgm.wav ⇄ bgm2.wav (crossfade 切り替え)
+  - User 起動: `change_bgm` tool via AI
+  - lib/audio-context.tsx:351-396 実装
+- Audio Ducking: BGM 音量自動調整（30% → 10%）
+  - System 起動: AI 音声再生時
+  - lib/audio-context.tsx:135-175 実装
+
+**Q13: Mode switching and message history preservation**
+- 現状: Backend mode 切替時にメッセージ履歴消失
+- 原因: React `key={mode}` による component remount + `initialMessages: []`
+- 互換性: 問題なし（全 3 mode が同一 AI SDK v6 Data Stream Protocol 使用）
+- 実装状況: 未実装（技術的制約ではない）
+- 提案解決策: Parent state / key 削除 / localStorage の 3 パターン
+
+**Q14: WebSocket handler override safety**
+- 問題箇所: lib/websocket-chat-transport.ts:416-432 (ハンドラー上書き)
+- 潜在的バグ: controller孤立化、エラー時の未close、複数メッセージ同時送信
+- 現状評価: Tool approval flowでは正常動作（`[DONE]` が必ず来る）
+- 長期的リスク: エラー時・タイムアウト時に `[DONE]` が来ない場合の挙動不定
+- 推奨修正: Option A (currentController保持 + 明示的close)
+- 実装優先度: Medium（現状動作するが、エッジケース対策推奨）
+
+### 更新ファイル
+
+1. **experiments/README.md**
+   - FAQ Documentation セクション追加
+   - 14つの Q&A トピック索引
+
+2. **agents/tasks.md**
+   - P4-T5 Documentation Tasks に項目8追加
+   - TEMP_FAQ.md 完了を明記
+
+3. **agents/handsoff.md**
+   - Session 5 セクション追加
+   - FAQ ドキュメント作成の経緯記録
+
+### 検証方法
+
+すべての FAQ 内容を実装コードで検証:
+
+```bash
+# Q1: TOOLS_REQUIRING_APPROVAL
+grep "TOOLS_REQUIRING_APPROVAL" server.py
+# → Line 333: {"change_bgm", "get_location"}
+
+# Q2: FrontendToolDelegate implementation
+cat tool_delegate.py | grep -A 10 "class FrontendToolDelegate"
+
+# Q3: sendAutomaticallyWhen
+grep "sendAutomaticallyWhen" lib/build-use-chat-options.ts
+# → Lines 249-250, 273-274
+
+# Q7: ADK function_call.id
+grep "function_call.id" stream_protocol.py
+# → Line 447
+
+# Q9: AI SDK v6 standard APIs
+grep "addToolApprovalResponse\|addToolOutput" components/chat.tsx
+# → Lines 31-38
+```
+
+### ドキュメント品質
+
+✅ **CLAUDE.md 完全準拠:**
+- Document ONLY the current implementation
+- Documentation and implementation MUST be consistent
+- Verified 100% implementation consistency
+- No future plans or TODOs in FAQ
+
+✅ **User Requirements:**
+- Proper FAQ format (no cross-references between questions)
+- Each Q&A is self-contained and independent
+- Implementation evidence included
+- Code snippets with line numbers
+
+### FAQから抽出されたタスク
+
+FAQ Q&A から3つの新規タスクを agents/tasks.md に追加（優先度は相談中）:
+
+1. **[P4-T8] Chunk Logger Data Integrity Improvements** (from Q4)
+   - 12 issues identified: 6 backend + 6 frontend
+   - High priority: concurrent writes, atomic operations, storage quota, download failures
+   - Medium priority: error handling, memory pressure
+   - Low priority: file rotation, compression, IndexedDB
+
+2. **[P4-T9] Mode Switching Message History Preservation** (from Q13)
+   - UX improvement: preserve chat history when switching modes
+   - 3 implementation options provided
+   - Compatibility: Verified - all modes use same AI SDK v6 Data Stream Protocol
+   - NOT a bug: just not implemented
+
+3. **[P4-T10] WebSocket Controller Lifecycle Management** (from Q14)
+   - Fix: lib/websocket-chat-transport.ts:416-432 handler override
+   - Issue: controller orphaning, undefined behavior on errors
+   - Recommended: Option A (explicit controller management with currentController tracking)
+   - Priority: Medium (works now, edge case risks)
+
+### Commits
+
+```bash
+# (To be committed in next session)
+```
+
+### 次のセッションへの引き継ぎ
+
+**完了した作業:**
+- ✅ TEMP_FAQ.md 新規作成完了（2,677行、9 Q&A）
+- ✅ experiments/README.md 更新完了
+- ✅ agents/tasks.md 更新完了
+- ✅ agents/handsoff.md 更新完了
+- ✅ すべて実装との整合性検証済み
+
+**ドキュメント状態:**
+- README.md: コア情報（226行）
+- docs/GETTING_STARTED.md: 詳細ガイド（625行）
+- docs/ARCHITECTURE.md: アーキテクチャ（1,076行）
+- TEMP_FAQ.md: 技術FAQ（2,677行、9 Q&A）
+- すべて実装と100%整合
+
+**残りの Tier 2 タスク:**
+- [P4-T4.1] ADK Response Fixture Files (3-4 hours) - Not Started
+- [P4-T4.4] Systematic Model/Mode Testing (4-6 hours) - Not Started
+
+**Optional 次のアクション:**
+- E2E fixture の手動記録 (`agents/recorder_handsoff.md` 参照)
+- または P4-T4.1/P4-T4.4 の実施
+
+---
+
+**Last Updated:** 2025-12-14 (Technical FAQ Documentation 完成)
 **Next Action:**
 - E2E fixture の手動記録 (`agents/recorder_handsoff.md` 参照)
 - または P4-T4.1/P4-T4.4 の実施

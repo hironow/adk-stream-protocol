@@ -410,6 +410,44 @@ Translation: "Before going to E2E, if there are integration tests that can catch
 
 ---
 
+## FAQ Documentation
+
+**TEMP_FAQ.md** - Technical FAQ covering implementation details and design decisions (14 Q&A sections):
+
+- **Q1**: Backend tool vs Frontend-delegated tool distinction
+- **Q2**: FrontendToolDelegate Promise-like pattern implementation
+- **Q3**: Tool approval Step 7 mechanism (`addToolApprovalResponse` auto-send)
+- **Q4**: Chunk Logger data integrity concerns and improvements
+- **Q5**: Why AI SDK v6 was chosen for this project
+- **Q6**: FrontendToolDelegate pattern vs AP2 design philosophy
+- **Q7**: ADK-derived tool_call_id generation
+- **Q8**: Complete Tool Approval architecture
+- **Q9**: AI SDK v6 useChat orthodox approach and transport transparency
+- **Q10**: Frontend-required tools and delegation pattern verification
+- **Q11**: Tool vs Frontend feature distinction (ESC interruption, CMD voice input)
+- **Q12**: BGM Track Switching vs Audio Ducking features
+- **Q13**: Mode switching and message history preservation
+- **Q14**: WebSocket handler override safety (controller lifecycle management)
+
+**Tasks Extracted from FAQ:**
+
+3つのタスクがFAQから抽出され、agents/tasks.mdに追加されました（優先度は相談中）:
+
+- **[P4-T8]** Chunk Logger Data Integrity Improvements (from Q4)
+  - 12 issues identified (High/Medium/Low priority)
+  - Backend: concurrent writes, atomic operations, error handling
+  - Frontend: storage quota, download failures, memory pressure
+
+- **[P4-T9]** Mode Switching Message History Preservation (from Q13)
+  - UX improvement: preserve chat history when switching modes
+  - 3 implementation options (Parent state, Remove key, localStorage)
+  - Compatibility verified: all modes use same AI SDK v6 format
+
+- **[P4-T10]** WebSocket Controller Lifecycle Management (from Q14)
+  - Fix handler override issues to prevent controller orphaning
+  - Recommended: Option A (explicit controller management)
+  - Medium priority: works now, but edge case risks exist
+
 ## Directory Structure
 
 - `experiments/README.md` - This file

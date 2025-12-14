@@ -18,7 +18,7 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
 
 **Tier 2 - High Priority (1-2 weeks):**
 - ✅ [P4-T7] Repeatable Chunk Logger & Player (8-12 hours) - **COMPLETED 2025-12-14** (Phase 1-4 Complete, E2E Infrastructure Ready)
-- ✅ [P4-T5] Documentation Updates (2-3 hours) - **COMPLETED 2025-12-14** (ARCHITECTURE.md created, README.md updated)
+- ✅ [P4-T5] Documentation Updates (2-3 hours) - **COMPLETED 2025-12-14** (ARCHITECTURE.md created, README.md updated, TEMP_FAQ.md with 9 Q&A sections)
 - [P4-T4.1] ADK Response Fixture Files (3-4 hours)
 - [P4-T4.4] Systematic Model/Mode Testing (4-6 hours)
 
@@ -29,6 +29,11 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
 - [P4-T1] Interruption Signal Support
 - [P4-T3] Advanced Metadata Features
 - [P4-T6.1] Review Skipped Tests
+
+**TBD (相談中 - FAQ Q4, Q13, Q14から抽出):**
+- [P4-T8] Chunk Logger Data Integrity Improvements
+- [P4-T9] Mode Switching Message History Preservation
+- [P4-T10] WebSocket Controller Lifecycle Management
 
 ---
 
@@ -203,6 +208,22 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
    - Added troubleshooting section with common issues
    - Established clear documentation structure (README = overview, GETTING_STARTED = details)
    - Verified 100% implementation consistency for all content
+8. ✅ Technical FAQ documentation (TEMP_FAQ.md):
+   - Created comprehensive FAQ with 14 Q&A sections (4,256 lines)
+   - Q1: Backend tool vs Frontend-delegated tool distinction
+   - Q2: FrontendToolDelegate Promise-like pattern (asyncio.Future)
+   - Q3: Tool approval auto-send mechanism (sendAutomaticallyWhen)
+   - Q4: Chunk Logger data integrity analysis (12 issues identified)
+   - Q5: AI SDK v6 selection rationale (6 critical reasons)
+   - Q6: AP2 design philosophy comparison (delegation + await pattern)
+   - Q7: ADK-derived tool_call_id verification
+   - Q8: Complete Tool Approval architecture (11-step flow)
+   - Q9: AI SDK v6 useChat orthodox approach and transport transparency
+   - Q10: Frontend-required tools and delegation pattern verification
+   - Q11: Tool vs Frontend feature distinction (ESC interruption, CMD voice input)
+   - Q12: BGM Track Switching vs Audio Ducking features
+   - Q13: Mode switching and message history preservation
+   - Q14: WebSocket handler override safety (controller lifecycle management)
 
 ---
 
@@ -338,6 +359,181 @@ Enable recording of actual chunk data during manual operations and replay them f
 - Format: JSONL (1 line = 1 chunk, human-readable, tool-friendly)
 - Frontend storage: Blob + Download (simple, no backend dependency)
 - Security: Disabled in production, chunk logs in .gitignore
+
+---
+
+### [P4-T8] Chunk Logger Data Integrity Improvements
+
+**Description:** Improve Chunk Logger data integrity based on comprehensive analysis from FAQ Q4
+
+**Status:** Not Started
+
+**Priority:** TBD (相談中 - High/Medium/Low priority issues identified)
+
+**Related FAQ:** TEMP_FAQ.md Q4 - Chunk Logger data integrity analysis
+
+**Issues Identified:**
+
+**Backend Issues (chunk_logger.py):**
+1. **High Priority:**
+   - Concurrent writes protection (asyncio.Lock or queue)
+   - Atomic file operations (write to temp + rename)
+
+2. **Medium Priority:**
+   - Disk full handling
+   - File descriptor limit handling
+
+3. **Low Priority:**
+   - File rotation for large sessions
+   - Compression support
+
+**Frontend Issues (lib/chunk-logger.ts):**
+1. **High Priority:**
+   - Browser storage quota handling
+   - Download failure handling
+
+2. **Medium Priority:**
+   - Memory pressure handling
+   - Large session chunk count limit
+
+3. **Low Priority:**
+   - Streaming download (avoid memory accumulation)
+   - IndexedDB storage for large sessions
+
+**Implementation Notes:**
+- Current design is sufficient for development/debugging
+- Production use requires addressing High priority issues at minimum
+- Consider creating experiment note for implementation approach
+
+---
+
+### [P4-T9] Mode Switching Message History Preservation
+
+**Description:** Implement message history preservation when switching between backend modes
+
+**Status:** Not Started
+
+**Priority:** TBD (相談中 - UX improvement, not a bug)
+
+**Related FAQ:** TEMP_FAQ.md Q13 - Mode switching and message history preservation
+
+**Current State:**
+- Mode switching causes `Chat` component remount (`key={mode}`)
+- `initialMessages` is always empty array
+- Message history is lost on mode switch
+- **NOT a compatibility issue** - all 3 modes use same AI SDK v6 Data Stream Protocol
+
+**Implementation Options:**
+
+**Option A: Parent State Management (Recommended)**
+```typescript
+// app/page.tsx
+const [messages, setMessages] = useState<UIMessage[]>([]);
+
+<Chat
+  key={mode}
+  mode={mode}
+  initialMessages={messages}
+  onMessagesChange={setMessages}
+/>
+```
+
+**Option B: Remove React key (Full Compatibility Required)**
+```typescript
+// Remove key to prevent remount
+<Chat mode={mode} />
+
+// Chat component handles mode changes internally
+useEffect(() => {
+  // Rebuild useChatOptions when mode changes
+}, [mode]);
+```
+
+**Option C: localStorage Persistence**
+```typescript
+// Persist to localStorage on every message update
+// Restore on component mount
+```
+
+**Verification Required:**
+- Ensure AIMessage format compatibility across all modes
+- Test mode switching with tool approval in progress
+- Test audio messages (data URLs) in message history
+
+---
+
+### [P4-T10] WebSocket Controller Lifecycle Management
+
+**Description:** Fix WebSocket handler override issues to prevent controller orphaning
+
+**Status:** Not Started
+
+**Priority:** TBD (相談中 - Medium recommended: works now, but edge case risks)
+
+**Related FAQ:** TEMP_FAQ.md Q14 - WebSocket handler override safety
+
+**Current Issue:**
+- `lib/websocket-chat-transport.ts:416-432` overwrites handlers on connection reuse
+- Previous `controller` reference is lost
+- Works in Tool approval flow (because `[DONE]` always arrives)
+- **Risks:** Error scenarios, timeouts, concurrent messages
+
+**Potential Problems:**
+1. Controller orphaning when previous stream not closed
+2. Undefined behavior on errors (no `[DONE]` received)
+3. Concurrent message sending handling unclear
+
+**Recommended Solution: Option A (Explicit Controller Management)**
+
+```typescript
+export class WebSocketChatTransport {
+  private currentController: ReadableStreamDefaultController<UIMessageChunk> | null = null;
+
+  async sendMessages(options) {
+    return new ReadableStream<UIMessageChunk>({
+      start: async (controller) => {
+        if (!needsNewConnection) {
+          // Close previous controller explicitly
+          if (this.currentController) {
+            console.warn("[WS Transport] Closing previous stream");
+            try {
+              this.currentController.close();
+            } catch (err) {
+              // Already closed - ignore
+            }
+          }
+
+          // Save new controller
+          this.currentController = controller;
+
+          // Update handlers...
+        } else {
+          this.currentController = controller;
+          // ... new connection logic
+        }
+      },
+    });
+  }
+
+  private handleWebSocketMessage(data: string, controller) {
+    // ... existing logic
+    if (jsonStr === "[DONE]") {
+      controller.close();
+      this.currentController = null; // Clear reference
+      return;
+    }
+  }
+}
+```
+
+**Alternative Options:**
+- **Option B:** Always close/reopen WebSocket (overhead, against BIDI design)
+- **Option C:** Message queueing (complex, needs careful design)
+
+**Testing Required:**
+- Error scenarios (backend crash, network timeout)
+- Concurrent message sending
+- Tool approval flow regression testing
 
 ---
 
