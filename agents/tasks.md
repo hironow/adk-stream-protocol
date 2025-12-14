@@ -184,6 +184,17 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
    - Architecture flow descriptions
    - Known limitations documented
    - Reference to ARCHITECTURE.md for technical details
+5. ✅ Documentation consolidation (Option A):
+   - Created docs/adr/0001-per-connection-state-management.md
+   - Migrated SPEC.md design decisions to ADR format
+   - Updated IMPLEMENTATION.md with Phase 1-3 completion status
+   - Deleted SPEC.md (663 lines) to reduce duplication
+   - Established ADR pattern for immutable design decisions
+6. ✅ Documentation-implementation consistency review:
+   - Fixed ADR 0001 terminology (connection_id → connection_signature)
+   - Corrected Phase 3 status (NOT IMPLEMENTED)
+   - Updated ARCHITECTURE.md code examples to match server.py
+   - Verified all docs match current implementation (CLAUDE.md compliance)
 
 ---
 

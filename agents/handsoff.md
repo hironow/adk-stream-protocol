@@ -1,10 +1,12 @@
 # 引き継ぎ書
 
 **Date:** 2025-12-14
-**Session:** Repeatable Chunk Logger & Player Implementation (Phase 1-4)
-**Status:** ✅ Complete - Phase 4 Manual Verification Successful
+**Current Session:** Documentation Consolidation & Architecture Documentation
+**Status:** ✅ Complete - All Documentation Updated and Reviewed
 
-**Previous Session:** 2025-12-14 - ADK Field Parametrized Test Coverage Implementation
+**Previous Sessions (2025-12-14):**
+1. ADK Field Parametrized Test Coverage Implementation
+2. Repeatable Chunk Logger & Player Implementation (Phase 1-4)
 
 ---
 
@@ -363,5 +365,137 @@ PYTHONPATH=. uv run pytest tests/e2e/ -v
 
 ---
 
-**Last Updated:** 2025-12-14 (E2E Infrastructure 完成)
-**Next Action:** E2E fixture の手動記録 (`agents/recorder_handsoff.md` 参照)
+---
+
+## 📋 Session 3: Documentation Consolidation & Architecture Documentation (2025-12-14)
+
+### 実施した作業の概要
+
+このセッションでは、P4-T5 Documentation Updates を完了し、ドキュメントの統合・削減、実装との整合性レビューを実施しました。
+
+### 主な成果
+
+1. ✅ **P4-T5 Documentation Updates 完了** (commits: fa9aa8c, f4e24aa)
+   - ARCHITECTURE.md 新規作成（617行）
+   - README.md に Multimodal Capabilities セクション追加
+   - agents/tasks.md の P4-T5 を COMPLETED にマーク
+
+2. ✅ **ドキュメント統合・削減 (Option A)** (commit: 1669e01)
+   - docs/adr/0001-per-connection-state-management.md 新規作成
+   - SPEC.md（663行）を削除、ADR に移行
+   - IMPLEMENTATION.md 更新（Phase 1-3 完了状況を反映）
+
+3. ✅ **ドキュメント実装整合性レビュー** (commits: 1ca4b46, 86ca300)
+   - ADR 0001 の用語修正（connection_id → connection_signature）
+   - ADR 0001 の Phase 3 ステータス修正（COMPLETED → NOT IMPLEMENTED）
+   - ARCHITECTURE.md の Per-Connection State セクション修正
+
+### 新規作成ファイル
+
+1. **ARCHITECTURE.md** (617行)
+   - AudioWorklet PCM Streaming アーキテクチャ
+   - Tool Approval Flow (Frontend Delegation Pattern)
+   - Per-Connection State Management
+   - Multimodal Support Architecture (Images, Audio I/O)
+   - Known Limitations (4項目)
+   - プロトコルフロー図（日本語凡例付き）
+
+2. **docs/adr/0001-per-connection-state-management.md**
+   - SPEC.md の設計決定内容を ADR フォーマットに移行
+   - 決定: "Connection = Session" パターン採用
+   - 5つのマルチデバイス/マルチタブシナリオ分析
+   - ADK 制約の詳細記録
+   - 実装状況（Phase 1-2 完了、Phase 3 未実装）
+
+### 更新ファイル
+
+1. **README.md**
+   - Multimodal Capabilities セクション追加
+   - 機能マトリックステーブル（8機能の実装状況）
+   - Audio Input/Output/Image フロー説明
+   - Known Limitations（4項目）
+
+2. **IMPLEMENTATION.md**
+   - ヘッダー更新（Last Updated, Status）
+   - Multimodal Support Implementation Status セクション追加
+   - Custom Extensions の実装状況を明記
+   - Phase 1-3 完了を反映
+
+3. **agents/tasks.md**
+   - P4-T5 を COMPLETED にマーク
+   - Documentation consolidation タスク追加
+   - Documentation-implementation consistency review タスク追加
+
+### 削除ファイル
+
+- **SPEC.md** (663行) - ADR 0001 に内容を移行
+
+### ドキュメント構成の明確化
+
+**現状を記述（常に最新に保つ）:**
+- ARCHITECTURE.md: アーキテクチャパターン
+- IMPLEMENTATION.md: 実装ステータス
+- DETAILS.md: 技術詳細
+- TEST_COVERAGE_AUDIT.md: テストカバレッジ
+
+**履歴を記録（不変）:**
+- docs/adr/: 設計決定の理由と経緯
+
+### CLAUDE.md 準拠確認
+
+✅ **docs-guidelines 完全準拠:**
+- Documentation and implementation MUST be consistent
+- Outdated documentation is considered a bug
+- Document ONLY the current implementation
+- When code changes, docs MUST be updated
+
+### 検証方法
+
+すべての修正内容を実装コードで検証:
+```bash
+# connection_signature の使用確認
+grep "connection_signature" server.py
+
+# FrontendToolDelegate の使用確認
+grep "FrontendToolDelegate" server.py
+
+# session.state の使用確認
+grep 'session.state\["temp:delegate"\]' server.py
+
+# connection_registry の不在確認（Phase 3 未実装）
+grep "connection_registry" server.py  # No results
+```
+
+### Commits
+
+```bash
+f4e24aa docs: Add E2E Test Infrastructure documentation to README.md
+fa9aa8c docs: Complete P4-T5 Documentation Updates
+1669e01 docs: Consolidate documentation with ADR and update implementation status
+1ca4b46 fix(docs): Correct ADR 0001 to match actual implementation
+86ca300 fix(docs): Correct ARCHITECTURE.md Per-Connection State section
+```
+
+### 次のセッションへの引き継ぎ
+
+**完了した作業:**
+- ✅ P4-T5 Documentation Updates 完了
+- ✅ ドキュメント統合・削減完了
+- ✅ 実装整合性レビュー完了
+- ✅ ADR パターン確立
+
+**残りの Tier 2 タスク:**
+- [P4-T4.1] ADK Response Fixture Files (3-4 hours) - Not Started
+- [P4-T4.4] Systematic Model/Mode Testing (4-6 hours) - Not Started
+
+**ドキュメント状態:**
+- すべてのドキュメントが現在の実装と一致
+- docs/ 構造が明確化（現状記述 vs 履歴記録）
+- 重複が解消され、役割が明確化
+
+---
+
+**Last Updated:** 2025-12-14 (Documentation Consolidation 完成)
+**Next Action:**
+- E2E fixture の手動記録 (`agents/recorder_handsoff.md` 参照)
+- または P4-T4.1/P4-T4.4 の実施
