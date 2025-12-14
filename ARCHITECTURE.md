@@ -240,8 +240,8 @@ ADK Agent Runner (shared)       ADK Agent Runner (shared)
 
 **Legend / 凡例:**
 - Client WebSocket: クライアントWebSocket接続
-- Session: セッション（接続ごとに一意）
-- ToolApprovalDelegate: ツール承認デリゲート
+- Session: セッション（接続ごとに一意、connection_signature使用）
+- ToolApprovalDelegate: ツール承認デリゲート（FrontendToolDelegate）
 - LiveRequestQueue: ライブリクエストキュー
 - ADK Agent Runner: ADKエージェントランナー（共有）
 
@@ -249,30 +249,44 @@ ADK Agent Runner (shared)       ADK Agent Runner (shared)
 
 **File:** `server.py:651-940` (live_chat function)
 
+**Key Implementation Points:**
+- Session creation: `get_or_create_session()` with `connection_signature` parameter
+- Delegate storage: `session.state["temp:delegate"]` (connection-specific)
+- Tool access: Tools retrieve delegate from `tool_context.state.get("temp:delegate")`
+- Session ID format: `session_{user_id}_{connection_signature}`
+
 **Per-Connection State:**
 
 ```python
 async def live_chat(websocket: WebSocket):
-    # 1. Each connection gets unique session
-    session = await agent_runner.create_session()
-    logger.info(f"[BIDI] Created session: {session.id}")
+    # 1. Generate unique connection signature
+    connection_signature = str(uuid.uuid4())
+    logger.info(f"[BIDI] New connection: {connection_signature}")
 
-    # 2. Each connection gets its own delegate
-    delegate = ToolApprovalDelegate(
-        websocket=websocket,
-        tools_requiring_approval=TOOLS_REQUIRING_APPROVAL,
+    # 2. Each connection gets unique session
+    user_id = "live_user"
+    session = await get_or_create_session(
+        user_id, bidi_agent_runner, "agents",
+        connection_signature=connection_signature
     )
+    logger.info(f"[BIDI] Session created: {session.id}")
 
-    # 3. Each connection gets its own queue
+    # 3. Each connection gets its own delegate
+    connection_delegate = FrontendToolDelegate()
+
+    # 4. Store delegate in session state
+    session.state["temp:delegate"] = connection_delegate
+    session.state["client_identifier"] = connection_signature
+
+    # 5. Each connection gets its own queue
     live_request_queue = LiveRequestQueue()
 
-    # 4. Run ADK agent with isolated state
-    live_events = agent_runner.run_live(
-        user_id="live_user",
-        session_id=session.id,  # Unique session
+    # 6. Run ADK agent with isolated state
+    live_events = bidi_agent_runner.run_live(
+        user_id=user_id,
+        session_id=session.id,  # Unique session per connection
         live_request_queue=live_request_queue,
         run_config=run_config,
-        delegate=delegate,  # Unique delegate
     )
 ```
 
@@ -285,10 +299,12 @@ async def live_chat(websocket: WebSocket):
 - Race conditions in queue processing
 
 **Solution:**
-1. **Unique Session ID:** Each connection creates a new ADK session
-2. **Isolated Delegate:** Tool approvals go to the correct client
-3. **Separate Queue:** Messages don't interfere across connections
+1. **Unique Session ID:** Each connection generates `connection_signature` (UUID) for unique session
+2. **Isolated Delegate:** `FrontendToolDelegate` stored in `session.state["temp:delegate"]`
+3. **Separate Queue:** Each connection has its own `LiveRequestQueue`
 4. **Clean Lifecycle:** When WebSocket closes, state is cleaned up
+
+**Design Decision:** See `docs/adr/0001-per-connection-state-management.md` for detailed rationale
 
 ### Session Lifecycle
 
