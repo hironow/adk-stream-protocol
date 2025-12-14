@@ -1,5 +1,8 @@
 # AI SDK v6 Data Stream Protocol Implementation Status
 
+**Last Updated:** 2025-12-14
+**Status:** Phase 1-3 Complete (Text, Images, Audio I/O)
+
 This document tracks the implementation status of [AI SDK v6 Data Stream Protocol](https://v6.ai-sdk.dev/docs/ai-sdk-ui/stream-protocol) in our ADK-to-AI-SDK converter.
 
 ## References
@@ -170,15 +173,41 @@ All implemented events are tested in `tests/unit/test_stream_protocol_comprehens
 
 In addition to standard protocol events, we implement custom data events for Gemini-specific features:
 
-- **`data-pcm`**: PCM audio streaming for BIDI mode (Gemini 2.0 Flash with multimodal audio)
-- **`data-audio`**: Other audio formats (mp3, wav, etc.)
-- **`data-image`**: Image data (png, jpeg, webp)
-- **`data-executable-code`**: Code execution requests (Gemini 2.0 code execution)
-- **`data-code-execution-result`**: Code execution results (Gemini 2.0 code execution)
-- **`data-input-transcription`**: User speech transcription (Live API BIDI mode)
-- **`data-output-transcription`**: Model speech transcription (Live API BIDI mode)
+- **`data-pcm`**: ✅ **IMPLEMENTED** - PCM audio streaming for BIDI mode (Gemini 2.0 Flash native-audio) - Phase 2 Complete
+- **`data-audio`**: ✅ **IMPLEMENTED** - Other audio formats (mp3, wav, etc.)
+- **`data-image`**: ✅ **IMPLEMENTED** - Image data (png, jpeg, webp) - Phase 1 Complete
+- **`data-executable-code`**: ✅ **IMPLEMENTED** - Code execution requests (Gemini 2.0 code execution)
+- **`data-code-execution-result`**: ✅ **IMPLEMENTED** - Code execution results (Gemini 2.0 code execution)
+- **`data-input-transcription`**: ✅ **IMPLEMENTED** - User speech transcription (Live API BIDI mode) - Phase 3 Complete
+- **`data-output-transcription`**: ✅ **IMPLEMENTED** - Model speech transcription (Live API BIDI mode) - Phase 2 Complete
 
 These custom events follow the `data-*` pattern specified in the AI SDK v6 protocol and allow frontend handling of Gemini-specific capabilities.
+
+### Multimodal Support Implementation Status
+
+**Phase 1: Image Support** ✅ **COMPLETE**
+- Image upload (PNG, JPEG, WebP) via `experimental_attachments`
+- Image display with custom `ImageDisplay` component
+- Bidirectional image support (user → AI, AI → user)
+- Implementation: `stream_protocol.py:346-360`, `components/image-upload.tsx`, `components/image-display.tsx`
+
+**Phase 2: Audio Output** ✅ **COMPLETE**
+- PCM audio streaming (24kHz) via `data-pcm` events
+- WAV format generation for browser playback
+- Audio transcription (output speech-to-text)
+- Implementation: `stream_protocol.py:292-328`, `components/audio-player.tsx`
+
+**Phase 3: Audio Input** ✅ **COMPLETE**
+- Microphone recording via AudioWorklet (16kHz PCM)
+- Push-to-talk control (CMD/Ctrl key)
+- Audio transcription (input speech-to-text)
+- Implementation: `lib/audio-recorder.ts`, `components/chat.tsx`, `stream_protocol.py:310-340`
+
+**Phase 4: Video Support** ⬜ **FUTURE**
+- Planned similar approach to audio
+- Requires `data-video-*` custom events
+
+For detailed architecture and protocol flows, see `ARCHITECTURE.md`.
 
 ---
 
@@ -243,5 +272,12 @@ This section discusses ADK fields that are currently unmapped but may be valuabl
 | **Advanced Metadata** | ❌ Missing | Low priority - debugging/optimization info (logprobs, video metadata) |
 
 **Recommendation**:
-1. **Current Status**: All major Gemini API features are implemented
-2. **Future Enhancements**: Consider file reference proxy if gs:// URL support is needed
+1. **Current Status**: All major Gemini API features are implemented (Phase 1-3 Complete)
+2. **Multimodal Capabilities**: Images, Audio I/O fully functional
+3. **Future Enhancements**:
+   - Phase 4: Video support (similar to audio approach)
+   - File reference proxy if gs:// URL support is needed
+
+**See Also:**
+- Architecture documentation: `ARCHITECTURE.md`
+- Multimodal experiment notes: `experiments/2025-12-11_adk_bidi_multimodal_support.md`
