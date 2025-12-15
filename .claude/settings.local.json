@@ -65,7 +65,13 @@
       "Bash(pnpm exec biome check:*)",
       "Bash(tree:*)",
       "Bash(pnpm exec biome format:*)",
-      "Bash(pnpm test:*)"
+      "Bash(pnpm test:*)",
+      "Skill(superpowers:using-superpowers)",
+      "mcp__serena__check_onboarding_performed",
+      "mcp__serena__onboarding",
+      "mcp__serena__list_dir",
+      "mcp__serena__find_symbol",
+      "mcp__serena__write_memory"
     ],
     "deny": [
       "Read(.env.keys)",
