@@ -388,16 +388,16 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
     connection_delegate = FrontendToolDelegate()
     logger.info(f"[BIDI] Created FrontendToolDelegate for connection: {connection_signature}")
 
-    from adk_compat import _sessions
-    session_id = session.id
-    if session_id in _sessions:
-        # Store delegate and client_identifier in session state
-        # Using temp: prefix (not persisted, session-lifetime only)
-        _sessions[session_id].state["temp:delegate"] = connection_delegate
-        _sessions[session_id].state["client_identifier"] = connection_signature
-        logger.info(
-            f"[BIDI] Stored delegate and client_identifier in session state (session_id={session_id})"
-        )
+    # Store delegate and client_identifier directly in the session state
+    # Using temp: prefix for delegate (not persisted, session-lifetime only)
+    # According to ADK docs, modifications to session.state before run_live()
+    # will be available in tool_context.state during tool execution
+    session.state["temp:delegate"] = connection_delegate
+    session.state["client_identifier"] = connection_signature
+    logger.info(
+        f"[BIDI] Stored delegate and client_identifier in session state (session_id={session.id})"
+    )
+    logger.info(f"[BIDI] Session state after modification: {dict(session.state)}")
 
     # Create LiveRequestQueue for bidirectional communication
     live_request_queue = LiveRequestQueue()
@@ -466,6 +466,7 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
             session_id=session.id,
             live_request_queue=live_request_queue,
             run_config=run_config,
+            session=session,  # IMPORTANT: Pass the session object explicitly. If not passed, tool_context.state will be empty
         )
 
         logger.info("[BIDI] ADK live stream started")

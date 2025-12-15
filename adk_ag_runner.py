@@ -203,8 +203,10 @@ async def change_bgm(track: int, tool_context: ToolContext) -> dict[str, Any]:
 
     # Phase 3: Access connection-specific delegate from session state
     # Fall back to global delegate for SSE mode (backward compatibility)
+    logger.info(f"[change_bgm] tool_context.state: {tool_context.state.to_dict()}")
     delegate = tool_context.state.get("temp:delegate") or frontend_delegate
     client_id = tool_context.state.get("client_identifier", "sse_mode")
+    logger.info(f"[change_bgm] Using delegate: {delegate}, client_id: {client_id}")
 
     # Get tool_call_id from ToolContext
     tool_call_id = tool_context.function_call_id
@@ -244,8 +246,10 @@ async def get_location(tool_context: ToolContext) -> dict[str, Any]:
 
     # Phase 3: Access connection-specific delegate from session state
     # Fall back to global delegate for SSE mode (backward compatibility)
+    logger.info(f"[get_location] tool_context.state: {tool_context.state.to_dict()}")
     delegate = tool_context.state.get("temp:delegate") or frontend_delegate
     client_id = tool_context.state.get("client_identifier", "sse_mode")
+    logger.info(f"[get_location] Using delegate: {delegate}, client_id: {client_id}")
 
     # Get tool_call_id from ToolContext
     tool_call_id = tool_context.function_call_id
