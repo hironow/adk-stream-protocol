@@ -57,70 +57,6 @@ export function Chat({
   // Keep transport reference for imperative control (P2-T2 Phase 2)
   const transportRef = useRef(transport);
 
-  // Phase 4: AI SDK v6 standard flow - detect tool approval from messages
-  // Backend sends tool-approval-request event → useChat updates messages automatically
-  // Find tool part with state: "approval-requested" from messages array
-  const pendingToolApproval = useMemo(() => {
-    console.log(`[pendingToolApproval] Scanning ${messages.length} messages for tool approval`);
-
-    // Scan messages from newest to oldest to find pending approval
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const message = messages[i];
-      if (message.role === "assistant") {
-        // Check if message has tool call parts
-        const parts = message.parts as
-          | Array<{
-              type: string;
-              state?: string;
-              approvalId?: string;
-              toolCallId?: string;
-              toolName?: string;
-              args?: Record<string, unknown>;
-            }>
-          | undefined;
-
-        if (parts) {
-          console.log(`[pendingToolApproval] Message ${i} has ${parts.length} parts`);
-          for (const part of parts) {
-            console.log(`[pendingToolApproval] Part: type=${part.type}, state=${part.state}, toolName=${part.toolName}`);
-
-            // Find tool-call part awaiting approval
-            // Check for different possible states that indicate approval is needed
-            if (part.type === "tool-call") {
-              // Log all tool-call parts to debug state values
-              console.log(`[pendingToolApproval] tool-call part found:`, {
-                state: part.state,
-                toolName: part.toolName,
-                toolCallId: part.toolCallId,
-                approvalId: part.approvalId,
-                fullPart: part,
-              });
-
-              // Check for various possible state values
-              if (
-                part.state === "approval-requested" ||
-                part.state === "requires-approval" ||
-                part.state === "pending-approval" ||
-                part.state === "awaiting-approval" ||
-                // Also check if state is undefined but approvalId exists
-                (!part.state && part.approvalId)
-              ) {
-                console.log(`[pendingToolApproval] Found pending approval:`, part);
-                return {
-                  approvalId: part.approvalId ?? "",
-                  toolCallId: part.toolCallId ?? "",
-                  toolName: part.toolName,
-                  args: part.args,
-                };
-              }
-            }
-          }
-        }
-      }
-    }
-    console.log(`[pendingToolApproval] No pending approval found`);
-    return null;
-  }, [messages]);
 
   // Phase 3: Audio recording with custom hook (BIDI mode only)
   const { isRecording, startRecording, stopRecording } = useAudioRecorder({
@@ -129,25 +65,19 @@ export function Chat({
 
   const isLoading = status === "submitted" || status === "streaming";
 
-  // Phase 4: Tool approval handlers
-  const handleApproveTools = useCallback(async () => {
-    if (!pendingToolApproval || !addToolOutput) return;
-
-    console.log("[Chat] User approved tool:", pendingToolApproval);
-
-    // Send approval response (AI SDK v6 format: uses 'id' not 'approvalId')
-    addToolApprovalResponse?.({
-      id: pendingToolApproval.approvalId,
-      approved: true,
-    });
-
-    // Execute browser API based on tool name
+  // Tool execution helper - execute frontend-delegated tools
+  // This is called after approval is sent to execute the actual tool
+  const executeToolCallback = useCallback(async (
+    toolName: string,
+    toolCallId: string,
+    args: Record<string, unknown>
+  ) => {
     let result: Record<string, unknown>;
     try {
-      switch (pendingToolApproval.toolName) {
+      switch (toolName) {
         case "change_bgm": {
           // Execute AudioContext API
-          const track = pendingToolApproval.args?.track ?? 0;
+          const track = args?.track ?? 0;
           console.log(`[Chat] Executing change_bgm: track=${track}`);
           audioContext.bgmChannel.switchTrack();
           result = {
@@ -199,10 +129,10 @@ export function Chat({
         }
 
         default: {
-          console.warn(`[Chat] Unknown tool: ${pendingToolApproval.toolName}`);
+          console.warn(`[Chat] Unknown tool: ${toolName}`);
           result = {
             success: false,
-            error: `Unknown tool: ${pendingToolApproval.toolName}`,
+            error: `Unknown tool: ${toolName}`,
           };
           break;
         }
@@ -210,59 +140,25 @@ export function Chat({
 
       console.log("[Chat] Tool execution result:", result);
 
-      // Send result via AI SDK v6 standard API (Data Stream Protocol)
+      // Send result via AI SDK v6 standard API
       addToolOutput({
-        tool: pendingToolApproval.toolName || "unknown",
-        toolCallId: pendingToolApproval.toolCallId,
+        tool: toolName,
+        toolCallId: toolCallId,
+        state: "output-available",
         output: result,
       });
     } catch (error) {
       console.error("[Chat] Tool execution error:", error);
       addToolOutput({
-        tool: pendingToolApproval.toolName || "unknown",
-        toolCallId: pendingToolApproval.toolCallId,
-        output: {
-          success: false,
-          error: error instanceof Error ? error.message : String(error),
-        },
+        tool: toolName,
+        toolCallId: toolCallId,
+        state: "output-error",
+        errorText: error instanceof Error ? error.message : String(error),
       });
     }
 
-    // No need to clear state - pendingToolApproval is derived from messages
-    // After addToolOutput, AI SDK v6 will update messages and pendingToolApproval becomes null automatically
-  }, [
-    pendingToolApproval,
-    addToolApprovalResponse,
-    addToolOutput,
-    audioContext,
-  ]);
-
-  const handleRejectTool = useCallback(() => {
-    if (!pendingToolApproval || !addToolOutput) return;
-
-    console.log("[Chat] User rejected tool:", pendingToolApproval);
-
-    // Send rejection response (AI SDK v6 format: uses 'id' not 'approvalId')
-    addToolApprovalResponse?.({
-      id: pendingToolApproval.approvalId,
-      approved: false,
-      reason: "User denied permission",
-    });
-
-    // Send error result via addToolOutput
-    addToolOutput({
-      tool: pendingToolApproval.toolName || "unknown",
-      toolCallId: pendingToolApproval.toolCallId,
-      output: {
-        success: false,
-        error: "User denied permission",
-        denied: true,
-      },
-    });
-
-    // No need to clear state - pendingToolApproval is derived from messages
-    // After addToolOutput, AI SDK v6 will update messages and pendingToolApproval becomes null automatically
-  }, [pendingToolApproval, addToolApprovalResponse, addToolOutput]);
+    console.info(`[Chat] Tool ${toolName} execution completed and output sent.`);
+  }, [addToolOutput, audioContext]);
 
   // Phase 3: Audio recording handlers
   // Using useAudioRecorder hook for proper lifecycle management
@@ -462,102 +358,6 @@ export function Chat({
       </button>
 
       {/* Phase 4: Tool Approval Dialog */}
-      {pendingToolApproval && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0, 0, 0, 0.8)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 2000,
-          }}
-        >
-          <div
-            style={{
-              background: "#1a1a1a",
-              border: "1px solid #333",
-              borderRadius: "12px",
-              padding: "2rem",
-              maxWidth: "500px",
-              width: "90%",
-            }}
-          >
-            <h3
-              style={{
-                margin: "0 0 1rem 0",
-                fontSize: "1.25rem",
-                fontWeight: 600,
-                color: "#fff",
-              }}
-            >
-              Tool Approval Required
-            </h3>
-            <p style={{ margin: "0 0 1rem 0", color: "#ccc" }}>
-              The AI wants to use:{" "}
-              <strong style={{ color: "#fff" }}>
-                {pendingToolApproval.toolName || "unknown tool"}
-              </strong>
-            </p>
-            {pendingToolApproval.args && (
-              <pre
-                style={{
-                  background: "#0a0a0a",
-                  border: "1px solid #333",
-                  borderRadius: "6px",
-                  padding: "0.75rem",
-                  fontSize: "0.875rem",
-                  color: "#ccc",
-                  overflow: "auto",
-                  marginBottom: "1rem",
-                }}
-              >
-                {JSON.stringify(pendingToolApproval.args, null, 2)}
-              </pre>
-            )}
-            <div style={{ display: "flex", gap: "0.5rem" }}>
-              <button
-                type="button"
-                onClick={handleRejectTool}
-                style={{
-                  flex: 1,
-                  padding: "0.75rem",
-                  background: "#dc2626",
-                  border: "1px solid #991b1b",
-                  borderRadius: "8px",
-                  color: "#fff",
-                  fontSize: "1rem",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                Reject
-              </button>
-              <button
-                type="button"
-                onClick={handleApproveTools}
-                style={{
-                  flex: 1,
-                  padding: "0.75rem",
-                  background: "#10b981",
-                  border: "1px solid #059669",
-                  borderRadius: "8px",
-                  color: "#fff",
-                  fontSize: "1rem",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                Approve
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Recording Indicator (Phase 3, BIDI mode only) */}
       {mode === "adk-bidi" && isRecording && (
@@ -704,7 +504,7 @@ export function Chat({
           </div>
         )}
         {messages.map((m) => (
-          <MessageComponent key={m.id} message={m} />
+          <MessageComponent key={m.id} message={m} addToolApprovalResponse={addToolApprovalResponse} executeToolCallback={executeToolCallback} />
         ))}
         {isLoading && (
           <div style={{ padding: "1rem", color: "#666" }}>Thinking...</div>

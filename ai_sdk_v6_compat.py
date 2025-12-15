@@ -433,10 +433,13 @@ def process_tool_use_parts(message: ChatMessage, delegate: FrontendToolDelegate)
     """
     if not message.parts:
         return
+    
+    logger.info(f"[Tool] Processing message parts for tool-use: {message.parts}")
 
     for part in message.parts:
         if isinstance(part, ToolUsePart):
             tool_call_id = part.tool_call_id
+            logger.info(f"[Tool] Processing tool call {tool_call_id} with state {part}")
 
             # Handle approval-responded state (user approved/denied)
             if part.state == ToolCallState.APPROVAL_RESPONDED:
@@ -451,8 +454,15 @@ def process_tool_use_parts(message: ChatMessage, delegate: FrontendToolDelegate)
             # Handle output-available state (tool execution completed)
             elif part.state == ToolCallState.OUTPUT_AVAILABLE:
                 if part.output is not None:
+                    logger.info(f"[Tool] Tool {tool_call_id} output available: {part.output}")
                     delegate.resolve_tool_result(tool_call_id, part.output)
                     logger.info(f"[Tool] Resolved tool {tool_call_id} with output")
+                    
+            elif part.state == ToolCallState.OUTPUT_ERROR:
+                error_msg = part.output.get("error") if part.output else "Unknown error"
+                delegate.reject_tool_call(tool_call_id, f"Tool execution error: {error_msg}")
+                logger.info(f"[Tool] Tool {tool_call_id} execution error: {error_msg}")
+                # Note: errorText might be present
 
 
 def process_chat_message_for_bidi(

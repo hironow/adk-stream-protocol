@@ -220,13 +220,7 @@ function buildUseChatOptionsInternal({
         ...baseOptions,
         transport: geminiTransport,
       };
-      debugLog(
-        "Gemini options:",
-        JSON.stringify({
-          id: geminiOptions.id,
-          messagesCount: geminiOptions.messages.length,
-        }),
-      );
+      debugLog("Gemini options:", geminiOptions);
       return { useChatOptions: geminiOptions, transport: undefined };
     }
 
@@ -249,13 +243,7 @@ function buildUseChatOptionsInternal({
         sendAutomaticallyWhen:
           lastAssistantMessageIsCompleteWithApprovalResponses,
       };
-      debugLog(
-        "ADK SSE options:",
-        JSON.stringify({
-          id: adkSseOptions.id,
-          messagesCount: adkSseOptions.messages.length,
-        }),
-      );
+      debugLog("ADK SSE options:", adkSseOptions);
       return { useChatOptions: adkSseOptions, transport: undefined };
     }
 

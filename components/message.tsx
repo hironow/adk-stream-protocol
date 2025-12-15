@@ -15,6 +15,7 @@ import type { DynamicToolUIPart } from "ai";
 import { useAudio } from "@/lib/audio-context";
 import { ImageDisplay } from "./image-display";
 import { ToolInvocationComponent } from "./tool-invocation";
+import { error } from "node:console";
 
 // Extended UIMessage with metadata properties
 interface ExtendedUIMessage extends UIMessage {
@@ -50,9 +51,19 @@ interface ExtendedUIMessage extends UIMessage {
 
 interface MessageComponentProps {
   message: UIMessage;
+  addToolApprovalResponse?: (response: {
+    id: string;
+    approved: boolean;
+    reason?: string;
+  }) => void;
+  executeToolCallback?: (
+    toolName: string,
+    toolCallId: string,
+    args: Record<string, unknown>
+  ) => Promise<void>;
 }
 
-export function MessageComponent({ message }: MessageComponentProps) {
+export function MessageComponent({ message, addToolApprovalResponse, executeToolCallback }: MessageComponentProps) {
   const isUser = message.role === "user";
   const audioContext = useAudio();
   const extendedMessage = message as ExtendedUIMessage;
@@ -331,6 +342,8 @@ export function MessageComponent({ message }: MessageComponentProps) {
               <ToolInvocationComponent
                 key={`${part.type}-${index}`}
                 toolInvocation={toolInvocation}
+                addToolApprovalResponse={addToolApprovalResponse}
+                executeToolCallback={executeToolCallback}
               />
             );
           }
@@ -351,11 +364,15 @@ export function MessageComponent({ message }: MessageComponentProps) {
               state: part.state,
               input: "input" in part ? part.input : undefined,
               output: "output" in part ? part.output : undefined,
+              approval: "approval" in part ? part.approval : undefined,
+              errorText: "errorText" in part ? part.errorText : undefined,
             };
             return (
               <ToolInvocationComponent
                 key={`${part.type}-${index}`}
                 toolInvocation={toolInvocation}
+                addToolApprovalResponse={addToolApprovalResponse}
+                executeToolCallback={executeToolCallback}
               />
             );
           }

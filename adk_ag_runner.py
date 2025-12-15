@@ -204,7 +204,13 @@ async def change_bgm(track: int, tool_context: ToolContext) -> dict[str, Any]:
     # Phase 3: Access connection-specific delegate from session state
     # Fall back to global delegate for SSE mode (backward compatibility)
     logger.info(f"[change_bgm] tool_context.state: {tool_context.state.to_dict()}")
-    delegate = tool_context.state.get("temp:delegate") or frontend_delegate
+    if tool_context.state.get("temp:delegate"):
+        delegate = tool_context.state.get("temp:delegate")
+        logger.info("[change_bgm] Using connection-specific delegate from session state")
+    else:
+        delegate = frontend_delegate
+        logger.info("[change_bgm] Using global frontend_delegate for SSE mode")
+
     client_id = tool_context.state.get("client_identifier", "sse_mode")
     logger.info(f"[change_bgm] Using delegate: {delegate}, client_id: {client_id}")
 

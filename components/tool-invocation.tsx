@@ -7,16 +7,38 @@
 interface ToolInvocationProps {
   // biome-ignore lint/suspicious/noExplicitAny: Testing type issue
   toolInvocation: any;
+  addToolApprovalResponse?: (response: {
+    id: string;
+    approved: boolean;
+    reason?: string;
+  }) => void;
+  executeToolCallback?: (
+    toolName: string,
+    toolCallId: string,
+    args: Record<string, unknown>
+  ) => Promise<void>;
 }
 
 export function ToolInvocationComponent({
   toolInvocation,
+  addToolApprovalResponse,
+  executeToolCallback,
 }: ToolInvocationProps) {
-  const { toolName, state } = toolInvocation;
+  // Extract toolName from type (e.g., "tool-change_bgm" -> "change_bgm")
+  const toolName = toolInvocation.toolName ||
+    (toolInvocation.type?.startsWith('tool-') ?
+      toolInvocation.type.substring(5) :
+      toolInvocation.type) ||
+    'unknown';
+  const { state } = toolInvocation;
 
-  // Tool call states: input-streaming, input-available, output-available, output-error
+  // Tool call states: input-streaming, input-available, output-available, output-error, approval-requested, approval-responded
   const getStateColor = () => {
     switch (state) {
+      case "approval-requested":
+        return "#a855f7"; // purple
+      case "approval-responded":
+        return "#6366f1"; // indigo
       case "input-streaming":
         return "#3b82f6"; // blue
       case "input-available":
@@ -32,6 +54,10 @@ export function ToolInvocationComponent({
 
   const getStateLabel = () => {
     switch (state) {
+      case "approval-requested":
+        return "Approval Required";
+      case "approval-responded":
+        return "Processing Approval...";
       case "input-streaming":
         return "Preparing...";
       case "input-available":
@@ -73,12 +99,89 @@ export function ToolInvocationComponent({
           }}
         />
         <span style={{ fontWeight: 600, color: getStateColor() }}>
-          {toolName}
+          {toolName} ({toolInvocation.type})
         </span>
         <span style={{ fontSize: "0.875rem", color: "#888" }}>
           {getStateLabel()}
         </span>
       </div>
+
+      {JSON.stringify(toolInvocation)}
+
+      {/* Approval UI */}
+      {state === "approval-requested" && "approval" in toolInvocation && toolInvocation.approval && (
+        <div style={{ marginBottom: "0.5rem" }}>
+          <div
+            style={{
+              fontSize: "0.875rem",
+              color: "#d1d5db",
+              marginBottom: "0.5rem",
+            }}
+          >
+            This tool requires your approval to execute:
+          </div>
+          <div
+            style={{
+              display: "flex",
+              gap: "0.5rem",
+              marginTop: "0.75rem",
+            }}
+          >
+            <button
+              onClick={async () => {
+                // Send approval
+                addToolApprovalResponse?.({
+                  id: toolInvocation.approval.id,
+                  approved: true,
+                  reason: "User approved the tool execution.",
+                });
+                // Execute the tool
+                if (executeToolCallback) {
+                  console.info(`[ToolInvocationComponent] Executing tool ${toolName} after approval`);
+                  await executeToolCallback(
+                    toolName,
+                    toolInvocation.toolCallId,
+                    toolInvocation.input || {}
+                  );
+                }
+              }}
+              style={{
+                padding: "0.5rem 1rem",
+                borderRadius: "4px",
+                background: "#10b981",
+                color: "white",
+                border: "none",
+                cursor: "pointer",
+                fontSize: "0.875rem",
+                fontWeight: 500,
+              }}
+            >
+              Approve
+            </button>
+            <button
+              onClick={() =>
+                addToolApprovalResponse?.({
+                  id: toolInvocation.approval.id,
+                  approved: false,
+                  reason: "User denied the tool execution.",
+                })
+              }
+              style={{
+                padding: "0.5rem 1rem",
+                borderRadius: "4px",
+                background: "#ef4444",
+                color: "white",
+                border: "none",
+                cursor: "pointer",
+                fontSize: "0.875rem",
+                fontWeight: 500,
+              }}
+            >
+              Deny
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Tool Input */}
       {"input" in toolInvocation && toolInvocation.input && (
