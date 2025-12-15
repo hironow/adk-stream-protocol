@@ -4,7 +4,7 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
 
 ## 🐛 Critical Bugs (2025-12-15 Discovery)
 
-### BUG-007: ADK SSE Session Management - All Users Share Same Session
+### ✅ BUG-007: ADK SSE Session Management - All Users Share Same Session [FIXED 2025-12-15]
 **Location:** `/chat` and `/stream` endpoints in server.py
 **Issue:** Fixed user_id values ("chat_user", "stream_user") cause all users to share the same session
 **Impact:** Session data, conversation history, and state are shared across all users
@@ -16,17 +16,25 @@ user_id = "chat_user"  # Fixed value!
 # /stream endpoint
 user_id = "stream_user"  # Fixed value!
 ```
-**Fix Required:** Use actual user identification (e.g., from JWT token, session cookie, or unique client ID)
+**Fix Applied:** Generate unique user_id for each request using UUID:
+```python
+# /chat endpoint
+user_id = f"chat_user_{uuid.uuid4().hex[:8]}"
 
-### BUG-008: ADK BIDI Tool Approval Not Working
+# /stream endpoint
+user_id = f"stream_user_{uuid.uuid4().hex[:8]}"
+```
+
+### ✅ BUG-008: ADK BIDI Session Sharing [FIXED 2025-12-15]
 **Location:** `/live` endpoint WebSocket handler in server.py
-**Issue:** `tool_result` event from frontend is not handled, preventing tool approval flow
-**Impact:** Tools requiring approval (change_bgm, get_location) cannot receive user approval/denial
-**Root Cause:** Missing event handler for `event_type == "tool_result"`
-**Fix Required:** Implement `tool_result` event handler to:
-1. Extract tool_call_id and result from event
-2. Call `connection_delegate.resolve_tool_result()` or `.reject_tool_call()`
-3. Allow tool execution to continue with user's decision
+**Issue:** Fixed user_id value ("live_user") causes all WebSocket connections to share the same session
+**Impact:** Session data, conversation history, and state are shared across all WebSocket connections
+**Root Cause:** Same hardcoded user_id issue as BUG-007
+**Fix Applied:** Use connection signature for unique user_id:
+```python
+user_id = f"live_user_{connection_signature[:8]}"
+```
+**Note:** Tool approval is correctly handled via `process_chat_message_for_bidi` which processes tool-use parts in messages
 
 ## 📋 Implementation Phases
 

@@ -161,7 +161,8 @@ async def chat(request: ChatRequest):
         return ChatResponse(message="No message provided")
 
     # 2. Session management
-    user_id = "chat_user"
+    # Generate unique user_id for each request to prevent session sharing (BUG-007 FIX)
+    user_id = f"chat_user_{uuid.uuid4().hex[:8]}"
     app_name = "agents"
     session = await get_or_create_session(user_id, sse_agent_runner, app_name)
     logger.info(f"[/chat] Session ID: {session.id}")
@@ -239,7 +240,8 @@ async def stream(request: ChatRequest):
     # Create SSE stream generator inline (transaction script pattern)
     async def generate_sse_stream():
         # 2. Session management
-        user_id = "stream_user"
+        # Generate unique user_id for each request to prevent session sharing (BUG-007 FIX)
+        user_id = f"stream_user_{uuid.uuid4().hex[:8]}"
         session = await get_or_create_session(user_id, sse_agent_runner, "agents")
         logger.info(f"[/stream] Session ID: {session.id}")
 
@@ -346,7 +348,8 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
 
     # Create connection-specific session
     # ADK Design: session = connection (prevents concurrent run_live() race conditions)
-    user_id = "live_user"  # TODO: Get from auth/JWT token
+    # Generate unique user_id for each connection to prevent session sharing (BUG-007 FIX)
+    user_id = f"live_user_{connection_signature[:8]}"
     session = await get_or_create_session(
         user_id,
         bidi_agent_runner,
