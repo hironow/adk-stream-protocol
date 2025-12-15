@@ -75,6 +75,7 @@ if isinstance(part, GenericPart):
 1. **Server-side validation should be flexible:** Unknown types should be logged and ignored rather than causing failures
 2. **Debugging before implementing:** The initial filter implementation worked but was unnecessary - proper investigation revealed the real issue
 3. **Extension points matter:** Using GenericPart as a catch-all allows the system to adapt to future AI SDK changes
+4. **Pydantic Union type order is critical:** GenericPart must be last in the union to act as a catch-all. Pydantic tries each type in order, so specific types must come before generic ones
 
 ## Testing Performed
 

@@ -174,6 +174,11 @@ export interface WebSocketChatTransportConfig {
  * Compatible with AI SDK v6 useChat hook.
  */
 export class WebSocketChatTransport implements ChatTransport<UIMessage> {
+  // Message history limits to prevent payload size issues
+  private static readonly MAX_MESSAGES_TO_SEND = 50; // Configurable limit
+  private static readonly WARN_SIZE_KB = 100; // Warn if message > 100KB
+  private static readonly ERROR_SIZE_MB = 5; // Error if message > 5MB
+
   private config: WebSocketChatTransportConfig;
   private ws: WebSocket | null = null;
   private audioChunkIndex = 0; // Track audio chunks for logging
@@ -215,6 +220,60 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
     };
 
     const message = JSON.stringify(eventWithTimestamp);
+
+    // Check message size and warn if large
+    const sizeBytes = new Blob([message]).size;
+    const sizeKB = sizeBytes / 1024;
+    const sizeMB = sizeKB / 1024;
+
+    if (sizeKB > WebSocketChatTransport.WARN_SIZE_KB) {
+      if (sizeMB > WebSocketChatTransport.ERROR_SIZE_MB) {
+        // Message exceeds error threshold
+        console.error(
+          `[WS Transport] ❌ Message too large: ${sizeMB.toFixed(2)}MB (max: ${WebSocketChatTransport.ERROR_SIZE_MB}MB)`,
+          {
+            type: eventWithTimestamp.type,
+            sizeBytes,
+            sizeKB: sizeKB.toFixed(2),
+            sizeMB: sizeMB.toFixed(2),
+            maxMB: WebSocketChatTransport.ERROR_SIZE_MB,
+          }
+        );
+        // Still send for now, but log as error
+        // In future, could throw error or implement chunking
+      } else if (sizeMB > 1) {
+        console.warn(
+          `[WS Transport] ⚠️ Large message: ${sizeMB.toFixed(2)}MB`,
+          {
+            type: eventWithTimestamp.type,
+            sizeBytes,
+            sizeKB: sizeKB.toFixed(2),
+            sizeMB: sizeMB.toFixed(2),
+          }
+        );
+
+        // Log details for message events
+        if (eventWithTimestamp.type === "message") {
+          const messageEvent = event as MessageEvent;
+          const firstMsg = messageEvent.data.messages[0];
+          const lastMsg = messageEvent.data.messages[messageEvent.data.messages.length - 1];
+          console.warn(
+            `[WS Transport] Message details:`,
+            {
+              messageCount: messageEvent.data.messages.length,
+              firstMessage: firstMsg ? `${firstMsg.role}: ${JSON.stringify(firstMsg).substring(0, 100)}...` : undefined,
+              lastMessage: lastMsg ? `${lastMsg.role}: ${JSON.stringify(lastMsg).substring(0, 100)}...` : undefined,
+            }
+          );
+        }
+      } else {
+        console.debug(
+          `[WS Transport] Message size: ${sizeKB.toFixed(2)}KB`,
+          { type: eventWithTimestamp.type }
+        );
+      }
+    }
+
     this.ws.send(message);
 
     // Chunk Logger: Record WebSocket chunk (output)
@@ -459,11 +518,28 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
           }
 
           // Send messages to backend using structured event format (P2-T2)
+          // Limit message history to prevent payload size issues
+          const allMessages = options.messages;
+          const truncatedMessages = allMessages.length > WebSocketChatTransport.MAX_MESSAGES_TO_SEND
+            ? allMessages.slice(-WebSocketChatTransport.MAX_MESSAGES_TO_SEND)
+            : allMessages;
+
+          if (allMessages.length > WebSocketChatTransport.MAX_MESSAGES_TO_SEND) {
+            console.info(
+              `[WS Transport] Truncating message history: ${allMessages.length} → ${truncatedMessages.length} messages`,
+              {
+                originalCount: allMessages.length,
+                sentCount: truncatedMessages.length,
+                droppedCount: allMessages.length - truncatedMessages.length,
+              }
+            );
+          }
+
           const event: MessageEvent = {
             type: "message",
             version: "1.0",
             data: {
-              messages: options.messages,
+              messages: truncatedMessages,
             },
           };
           this.sendEvent(event);

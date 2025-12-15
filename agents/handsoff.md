@@ -1080,7 +1080,76 @@ pnpm exec vitest run
 
 ---
 
-**Last Updated:** 2025-12-14 21:30 JST (P4-T9 & P4-T10 Test Coverage Improvement 完成)
+---
+
+## 📋 Session 7: AI SDK v6 Internal Chunks Handling Enhancement (2025-12-15)
+
+### 実施した作業の概要
+
+このセッションでは、AI SDK v6内部チャンクハンドリングの改善とドキュメント更新を実施しました。
+
+### 主な成果
+
+1. ✅ **AI SDK v6内部チャンクハンドリングの調査と改善**
+   - StepPartクラスを利用した既知の内部チャンクハンドリング
+   - 包括的なパラメタライズドテストの追加（21テスト）
+   - ログレベルをwarningからdebugに変更
+   - ImagePart検証失敗時のGenericPartへのフォールバック動作確認
+
+2. ✅ **Pydantic Union型の重要性に関するコメント追加**
+   - ai_sdk_v6_compat.py line 257-261
+   - GenericPartを最後に置くことの重要性を明確に記載
+   - Pydanticの型マッチング順序について説明追加
+
+3. ✅ **全Pythonユニットテストの成功確認**
+   - 133/133テスト成功
+   - mypy型チェック通過
+   - ruffリンティング通過
+
+### 技術的な学び
+
+1. **Pydantic Union型の処理順序**
+   - Union型は左から右へ順番に試される
+   - 具体的な型を汎用型より前に置く必要がある
+   - GenericPartを最後に置くことで、未知の型に対するキャッチオール機能を実現
+   - これにより422検証エラーを防ぐ
+
+2. **既知の内部チャンクタイプ**
+   - `start`: メッセージの開始
+   - `step-start`: 処理ステップの開始
+   - `start-step`: 処理ステップの開始（別表記）
+   - `finish-step`: 処理ステップの終了
+
+3. **match-case構文 vs Pydantic Union**
+   - 現在のPydantic Unionアプローチの方がバグ予防に優れている
+   - 早期検証（パース時）でデータ構造の正しさを保証
+   - GenericPartによる優雅な劣化
+   - スキーマ検証による型安全性
+
+### 更新ファイル
+
+1. **ai_sdk_v6_compat.py**
+   - line 257-261: Pydantic Union型順序の重要性コメント改善
+
+2. **experiments/2025-12-15_ai_sdk_v6_internal_chunks_handling.md**
+   - Key Learnings セクション更新（項目4追加）
+
+### 次のセッションへの引き継ぎ
+
+**残っているタスク:**
+- [P4-T4.4] Systematic Model/Mode Testing (4-6 hours) - Not Started
+- WebSocketペイロードサイズ超過の根本対策（詳細調査中）
+- E2Eテストのセレクタ修正（詳細調査中）
+
+**現在のドキュメント状態:**
+- すべてのドキュメントが現在の実装と一致
+- AI SDK v6内部チャンクハンドリングが完全に文書化済み
+- Pydantic Union型の設計決定が明確に記録済み
+
+---
+
+**Last Updated:** 2025-12-15 (AI SDK v6 Internal Chunks Handling Enhancement)
 **Next Action:**
 - E2E fixture の手動記録 (`agents/recorder_handsoff.md` 参照)
 - または P4-T4.4 の実施
+- WebSocketペイロードサイズ超過とE2Eテストセレクタの対策
