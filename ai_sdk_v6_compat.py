@@ -256,9 +256,9 @@ class GenericPart(BaseModel):
 
 # Use Union type with GenericPart as fallback for unknown types
 # IMPORTANT: GenericPart must be last in the union to act as a catch-all.
-# Pydantic tries each type in order, so known types are validated first.
-# StepPart handles known internal chunks (start, step-start, start-step, finish-step, step-end).
-# Only truly unknown types fall through to GenericPart as a catch-all.
+# Pydantic tries each type in order, so specific types must come before generic ones.
+# StepPart handles known internal chunks (start, step-start, start-step, finish-step).
+# Only truly unknown types fall through to GenericPart, preventing 422 validation errors.
 MessagePart = TextPart | ImagePart | FilePart | ToolUsePart | StepPart | GenericPart
 """
 Union type for all message parts (AI SDK v6 format).
