@@ -1571,5 +1571,52 @@ fix: Critical bug fixes for chunk recorder, WebSocket, BGM, and audio UI
 
 ---
 
-**Last Updated:** 2025-12-15 (Critical Bug Fixes Session)
+## セッション 2025-12-15 午後: テスト作成とセッション管理改善
+
+### 完了タスク
+
+1. **包括的テスト作成** ✅
+   - `ai_sdk_v6_compat.py`のユニットテスト作成
+   - 17個のテスト全てパス
+   - `process_tool_use_parts`: 9テスト（approval/rejection処理）
+   - `process_chat_message_for_bidi`: 8テスト（message/image処理）
+
+2. **セッション管理バグ修正** ✅
+   - BUG-007: SSE endpoints (`/chat`, `/stream`) - 固定user_id問題解決
+   - BUG-008: BIDI endpoint (`/live`) - WebSocket接続間のセッション共有問題解決
+
+3. **単一ユーザーデモモード実装** ✅
+   - `get_user()`関数実装
+   - DBなし環境に適した設計
+   - 意図的に単一ユーザー（`demo_user_001`）を使用
+   - プロダクション要件を明確にドキュメント化
+
+### 設計決定
+
+**セッション管理アプローチ:**
+```python
+def get_user() -> str:
+    """
+    デモ環境用の簡易実装。
+    本番環境では JWT/OAuth から user ID を抽出。
+    DBがないため、固定 user ID を使用。
+    """
+    return "demo_user_001"
+```
+
+**理由:**
+- 永続化層（DB）がない
+- デモ/開発環境向け
+- 会話履歴の永続化は機能として提供
+
+### コミット
+
+```bash
+commit cc0783d - fix: Fix critical session management bugs (BUG-007 & BUG-008)
+commit def7e1f - refactor: Implement single-user demo mode with get_user() function
+```
+
+---
+
+**Last Updated:** 2025-12-15 (Test Creation & Session Management)
 **Status:** 🟢 All Systems Operational
