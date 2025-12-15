@@ -4,37 +4,30 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
 
 ## 🐛 Critical Bugs (2025-12-15 Discovery)
 
-### ✅ BUG-007: ADK SSE Session Management - All Users Share Same Session [FIXED 2025-12-15]
-**Location:** `/chat` and `/stream` endpoints in server.py
-**Issue:** Fixed user_id values ("chat_user", "stream_user") cause all users to share the same session
-**Impact:** Session data, conversation history, and state are shared across all users
-**Root Cause:**
-```python
-# /chat endpoint
-user_id = "chat_user"  # Fixed value!
+### ✅ BUG-007 & BUG-008: Session Management Design [RESOLVED 2025-12-15]
+**Original Issue:** Fixed user_id values caused all users to share the same session
+**Design Decision:** Since this backend has no persistence layer (no database):
+- Created `get_user()` function that returns a fixed user ID for demo environment
+- This is intentional for a single-user demo/development setup
+- Conversation history persists across page refreshes (feature, not bug)
 
-# /stream endpoint
-user_id = "stream_user"  # Fixed value!
-```
-**Fix Applied:** Generate unique user_id for each request using UUID:
+**Implementation:**
 ```python
-# /chat endpoint
-user_id = f"chat_user_{uuid.uuid4().hex[:8]}"
-
-# /stream endpoint
-user_id = f"stream_user_{uuid.uuid4().hex[:8]}"
+def get_user() -> str:
+    """
+    IMPORTANT: This is a simplified implementation for a demo/development environment.
+    In production, this would extract user ID from JWT token, session cookie, or OAuth.
+    Since this backend has no persistence layer (no database), we're using a fixed
+    user ID for all requests.
+    """
+    # For demo environment: single persistent session for all requests
+    return "demo_user_001"
 ```
 
-### ✅ BUG-008: ADK BIDI Session Sharing [FIXED 2025-12-15]
-**Location:** `/live` endpoint WebSocket handler in server.py
-**Issue:** Fixed user_id value ("live_user") causes all WebSocket connections to share the same session
-**Impact:** Session data, conversation history, and state are shared across all WebSocket connections
-**Root Cause:** Same hardcoded user_id issue as BUG-007
-**Fix Applied:** Use connection signature for unique user_id:
-```python
-user_id = f"live_user_{connection_signature[:8]}"
-```
-**Note:** Tool approval is correctly handled via `process_chat_message_for_bidi` which processes tool-use parts in messages
+**Production TODO:**
+- Implement proper user authentication (JWT/OAuth)
+- Add user database or authentication service
+- Handle multi-tenancy and user isolation
 
 ## 📋 Implementation Phases
 

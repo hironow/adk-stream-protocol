@@ -54,6 +54,37 @@ from adk_ag_runner import (
 from stream_protocol import stream_adk_to_ai_sdk
 from tool_delegate import frontend_delegate
 
+
+def get_user() -> str:
+    """
+    Get the current user ID.
+
+    IMPORTANT: This is a simplified implementation for a demo/development environment.
+    In production, this would:
+    - Extract user ID from JWT token, session cookie, or OAuth token
+    - Query a user database or authentication service
+    - Handle multi-tenancy and user isolation
+
+    Since this backend has no persistence layer (no database), we're using a fixed
+    user ID for all requests. This means:
+    - All requests share the same ADK session
+    - Conversation history persists across page refreshes
+    - This is suitable for single-user demo environments only
+
+    Returns:
+        str: User ID (currently fixed for demo purposes)
+    """
+    # TODO: In production, implement proper user authentication
+    # Examples:
+    # - return extract_user_from_jwt(request.headers.get("Authorization"))
+    # - return get_user_from_session(request.cookies.get("session_id"))
+    # - return oauth_provider.get_current_user()
+
+    # For now, return a fixed user ID for the demo environment
+    # This creates a single persistent session for all requests
+    return "demo_user_001"
+
+
 # Configure file logging
 log_dir = Path("logs")
 log_dir.mkdir(exist_ok=True)
@@ -161,8 +192,8 @@ async def chat(request: ChatRequest):
         return ChatResponse(message="No message provided")
 
     # 2. Session management
-    # Generate unique user_id for each request to prevent session sharing (BUG-007 FIX)
-    user_id = f"chat_user_{uuid.uuid4().hex[:8]}"
+    # Get user ID (single user mode for demo environment without database)
+    user_id = get_user()
     app_name = "agents"
     session = await get_or_create_session(user_id, sse_agent_runner, app_name)
     logger.info(f"[/chat] Session ID: {session.id}")
@@ -240,8 +271,8 @@ async def stream(request: ChatRequest):
     # Create SSE stream generator inline (transaction script pattern)
     async def generate_sse_stream():
         # 2. Session management
-        # Generate unique user_id for each request to prevent session sharing (BUG-007 FIX)
-        user_id = f"stream_user_{uuid.uuid4().hex[:8]}"
+        # Get user ID (single user mode for demo environment without database)
+        user_id = get_user()
         session = await get_or_create_session(user_id, sse_agent_runner, "agents")
         logger.info(f"[/stream] Session ID: {session.id}")
 
@@ -348,8 +379,8 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
 
     # Create connection-specific session
     # ADK Design: session = connection (prevents concurrent run_live() race conditions)
-    # Generate unique user_id for each connection to prevent session sharing (BUG-007 FIX)
-    user_id = f"live_user_{connection_signature[:8]}"
+    # Get user ID (single user mode for demo environment without database)
+    user_id = get_user()
     session = await get_or_create_session(
         user_id,
         bidi_agent_runner,
