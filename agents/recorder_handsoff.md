@@ -72,7 +72,6 @@ tests/fixtures/e2e-chunks/
 
 ```bash
 # Terminal 1
-cd /Users/nino/workspace/r/oss/adk-ai-data-protocol
 uv run uvicorn server:app --reload
 ```
 
@@ -82,7 +81,6 @@ uv run uvicorn server:app --reload
 
 ```bash
 # Terminal 2
-cd /Users/nino/workspace/r/oss/adk-ai-data-protocol
 pnpm dev
 ```
 

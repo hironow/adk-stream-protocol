@@ -35,10 +35,10 @@ test.describe("History Sharing Tests", () => {
     await navigateToChat(page);
     await selectBackendMode(page, "gemini");
 
-    await sendTextMessage(page, "私の名前はhironowです");
+    await sendTextMessage(page, "私の名前はhogeです");
     await waitForAssistantResponse(page);
 
-    await sendTextMessage(page, "好きな色は青です");
+    await sendTextMessage(page, "好きな色は朱色です");
     await waitForAssistantResponse(page);
 
     // Verify we have messages
@@ -64,8 +64,8 @@ test.describe("History Sharing Tests", () => {
     );
     const responseText = await getMessageText(lastMessage);
 
-    // Response should reference the name "hironow" from earlier in conversation
-    expect(responseText.toLowerCase()).toContain("hironow");
+    // Response should reference the name "hoge" from earlier in conversation
+    expect(responseText.toLowerCase()).toContain("hoge");
   });
 
   test("should preserve history when switching from ADK SSE to Gemini Direct", async ({

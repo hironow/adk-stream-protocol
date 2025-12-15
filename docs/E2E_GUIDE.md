@@ -776,7 +776,7 @@ async def websocket_endpoint(websocket: WebSocket):
 ## File Structure
 
 ```
-/Users/nino/workspace/r/oss/adk-ai-data-protocol/
+/
 ├── chunk_logger.py                    # Chunk recording
 ├── chunk_player.py                    # Chunk playback (enhanced)
 ├── stream_protocol.py                 # To be modified for E2E

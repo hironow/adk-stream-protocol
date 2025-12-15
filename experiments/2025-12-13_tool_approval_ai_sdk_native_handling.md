@@ -70,7 +70,7 @@ if (chunk.type === "tool-approval-request") {
 
 ### Phase 1: AI SDK v6 API Research
 
-**Source**: `/Users/nino/workspace/r/oss/adk-ai-data-protocol/node_modules/ai/dist/index.d.ts`
+**Source**: `./node_modules/ai/dist/index.d.ts`
 
 **ChatTransport Interface**:
 ```typescript
