@@ -388,13 +388,16 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
     connection_delegate = FrontendToolDelegate()
     logger.info(f"[BIDI] Created FrontendToolDelegate for connection: {connection_signature}")
 
-    # Store delegate and client_identifier in session state
-    # Using temp: prefix (not persisted, session-lifetime only)
-    session.state["temp:delegate"] = connection_delegate
-    session.state["client_identifier"] = connection_signature
-    logger.info(
-        f"[BIDI] Stored delegate and client_identifier in session state (session_id={session.id})"
-    )
+    from adk_compat import _sessions
+    session_id = session.id
+    if session_id in _sessions:
+        # Store delegate and client_identifier in session state
+        # Using temp: prefix (not persisted, session-lifetime only)
+        _sessions[session_id].state["temp:delegate"] = connection_delegate
+        _sessions[session_id].state["client_identifier"] = connection_signature
+        logger.info(
+            f"[BIDI] Stored delegate and client_identifier in session state (session_id={session_id})"
+        )
 
     # Create LiveRequestQueue for bidirectional communication
     live_request_queue = LiveRequestQueue()
