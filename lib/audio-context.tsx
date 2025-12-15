@@ -112,7 +112,7 @@ export function AudioProvider({ children }: AudioProviderProps) {
 
     const initAudioWorklet = async () => {
       try {
-        console.log("[AudioContext] Initializing AudioWorklet...");
+        // console.log("[AudioContext] Initializing AudioWorklet...");
 
         // Create AudioContext with 24kHz sample rate (Gemini output format)
         const audioContext = new window.AudioContext({ sampleRate: 24000 });
@@ -130,7 +130,7 @@ export function AudioProvider({ children }: AudioProviderProps) {
         // Listen for playback state messages from AudioWorklet
         audioWorkletNode.port.onmessage = (event) => {
           if (event.data.type === "playback-started") {
-            console.log("[AudioContext] Playback started - ducking BGM");
+            // console.log("[AudioContext] Playback started - ducking BGM");
             if (mounted) {
               setIsPlaying(true);
               isPlayingRef.current = true;
@@ -156,7 +156,7 @@ export function AudioProvider({ children }: AudioProviderProps) {
               }
             }
           } else if (event.data.type === "playback-finished") {
-            console.log("[AudioContext] Playback finished - restoring BGM");
+            // console.log("[AudioContext] Playback finished - restoring BGM");
             if (mounted) {
               setIsPlaying(false);
               isPlayingRef.current = false;
@@ -185,7 +185,7 @@ export function AudioProvider({ children }: AudioProviderProps) {
         audioWorkletNode.connect(audioContext.destination);
 
         // Load both BGM tracks
-        console.log("[AudioContext] Loading BGM tracks...");
+        // console.log("[AudioContext] Loading BGM tracks...");
         const [response1, response2] = await Promise.all([
           fetch("/bgm.wav"),
           fetch("/bgm2.wav"),
@@ -240,9 +240,6 @@ export function AudioProvider({ children }: AudioProviderProps) {
           bgmSource2Ref.current = bgmSource2;
           bgmGain2Ref.current = bgmGain2;
           setIsReady(true);
-          console.log(
-            "[AudioContext] AudioWorklet and BGM tracks initialized successfully",
-          );
         }
       } catch (err) {
         console.error("[AudioContext] Failed to initialize AudioWorklet:", err);
@@ -266,7 +263,7 @@ export function AudioProvider({ children }: AudioProviderProps) {
 
       if (document.hidden) {
         // Tab is inactive - fade out BGM
-        console.log("[AudioContext] Tab inactive - pausing BGM");
+        // console.log("[AudioContext] Tab inactive - pausing BGM");
         const now = audioContext.currentTime;
 
         if (bgmGain1 && bgmGain1.gain.value > 0) {
@@ -277,7 +274,7 @@ export function AudioProvider({ children }: AudioProviderProps) {
         }
       } else {
         // Tab is active - restore BGM (unless ducked)
-        console.log("[AudioContext] Tab active - resuming BGM");
+        // console.log("[AudioContext] Tab active - resuming BGM");
         const now = audioContext.currentTime;
 
         // Check if BGM is currently ducked (audio is playing)
@@ -372,7 +369,7 @@ export function AudioProvider({ children }: AudioProviderProps) {
   };
 
   const reset = () => {
-    console.log("[AudioContext] Resetting voice channel");
+    // console.log("[AudioContext] Resetting voice channel");
 
     // Reset state first
     setIsPlaying(false);
@@ -408,9 +405,9 @@ export function AudioProvider({ children }: AudioProviderProps) {
 
     if (currentBgmTrack === 0) {
       // Switch from Track 1 to Track 2
-      console.log(
-        "[AudioContext] Switching BGM: Track 1 → Track 2 (crossfade)",
-      );
+      // console.log(
+      //   "[AudioContext] Switching BGM: Track 1 → Track 2 (crossfade)",
+      // );
 
       // Fade out Track 1
       bgmGain1Ref.current.gain.setTargetAtTime(0, now, fadeDuration);
@@ -426,9 +423,9 @@ export function AudioProvider({ children }: AudioProviderProps) {
       currentBgmTrackRef.current = 1;
     } else {
       // Switch from Track 2 to Track 1
-      console.log(
-        "[AudioContext] Switching BGM: Track 2 → Track 1 (crossfade)",
-      );
+      // console.log(
+      //   "[AudioContext] Switching BGM: Track 2 → Track 1 (crossfade)",
+      // );
 
       // Fade out Track 2
       bgmGain2Ref.current.gain.setTargetAtTime(0, now, fadeDuration);

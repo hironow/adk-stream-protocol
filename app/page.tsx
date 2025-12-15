@@ -43,7 +43,6 @@ export default function ChatPage() {
             <button
               type="button"
               onClick={() => {
-                console.log("[Mode Switch] Gemini Direct");
                 setMode("gemini");
               }}
               style={{
@@ -73,7 +72,6 @@ export default function ChatPage() {
             <button
               type="button"
               onClick={() => {
-                console.log("[Mode Switch] ADK SSE");
                 setMode("adk-sse");
               }}
               style={{
@@ -103,7 +101,6 @@ export default function ChatPage() {
             <button
               type="button"
               onClick={() => {
-                console.log("[Mode Switch] ADK BIDI");
                 setMode("adk-bidi");
               }}
               style={{
@@ -136,7 +133,6 @@ export default function ChatPage() {
           <button
             type="button"
             onClick={() => {
-              console.log("[Clear History] Clearing message history");
               setMessages([]);
             }}
             style={{

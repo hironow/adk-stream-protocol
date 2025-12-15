@@ -60,7 +60,7 @@ interface MessageComponentProps {
     toolName: string,
     toolCallId: string,
     args: Record<string, unknown>
-  ) => Promise<void>;
+  ) => Promise<boolean>;
 }
 
 export function MessageComponent({ message, addToolApprovalResponse, executeToolCallback }: MessageComponentProps) {

@@ -114,15 +114,15 @@ function buildUseChatOptionsInternal({
   if (typeof window !== "undefined") {
     const isChunkPlayerMode =
       window.localStorage.getItem("E2E_CHUNK_PLAYER_MODE") === "true";
-    debugLog("E2E mode check:", {
-      isChunkPlayerMode,
-      localStorage: window.localStorage.getItem("E2E_CHUNK_PLAYER_MODE"),
-    });
+    // debugLog("E2E mode check:", {
+    //   isChunkPlayerMode,
+    //   localStorage: window.localStorage.getItem("E2E_CHUNK_PLAYER_MODE"),
+    // });
     if (isChunkPlayerMode) {
       const fixturePath = window.localStorage.getItem(
         "E2E_CHUNK_PLAYER_FIXTURE",
       );
-      debugLog("E2E Chunk Player Mode enabled, fixture:", fixturePath);
+      // debugLog("E2E Chunk Player Mode enabled, fixture:", fixturePath);
       if (fixturePath) {
         // Create chunk player transport (lazy loading - fixture loaded on first sendMessages)
         const transport = ChunkPlayerTransport.fromFixture(fixturePath);
@@ -192,20 +192,19 @@ function buildUseChatOptionsInternal({
     id: chatId,
   };
 
-  debugLog(
-    "Building options for mode:",
-    mode,
-    "chatId:",
-    chatId,
-    "endpoint:",
-    apiEndpoint,
-  );
+  // debugLog(
+  //   "Building options for mode:",
+  //   mode,
+  //   "chatId:",
+  //   chatId,
+  //   "endpoint:",
+  //   apiEndpoint,
+  // );
 
   // Use switch to completely separate each mode's configuration
   // This prevents accidental mixing of options between modes
   switch (mode) {
     case "gemini": {
-      debugLog("Configuring useChat for Gemini Direct mode");
       // Create transport manually to pass prepareSendMessagesRequest
       const baseTransport = new DefaultChatTransport({
         api: apiEndpoint,
@@ -220,12 +219,11 @@ function buildUseChatOptionsInternal({
         ...baseOptions,
         transport: geminiTransport,
       };
-      debugLog("Gemini options:", geminiOptions);
+      // debugLog("Gemini options:", geminiOptions);
       return { useChatOptions: geminiOptions, transport: undefined };
     }
 
     case "adk-sse": {
-      debugLog("Configuring useChat for ADK SSE mode");
       // Create transport manually to pass prepareSendMessagesRequest
       const baseTransport = new DefaultChatTransport({
         api: apiEndpoint,
@@ -243,7 +241,7 @@ function buildUseChatOptionsInternal({
         sendAutomaticallyWhen:
           lastAssistantMessageIsCompleteWithApprovalResponses,
       };
-      debugLog("ADK SSE options:", adkSseOptions);
+      // debugLog("ADK SSE options:", adkSseOptions);
       return { useChatOptions: adkSseOptions, transport: undefined };
     }
 
@@ -251,9 +249,6 @@ function buildUseChatOptionsInternal({
       if (!websocketTransport) {
         throw new Error("WebSocket transport is required for ADK BIDI mode");
       }
-      debugLog(
-        "Configuring useChat for ADK BIDI mode with WebSocket transport",
-      );
       const adkBidiOptions = {
         ...baseOptions,
         transport: websocketTransport,
@@ -261,7 +256,7 @@ function buildUseChatOptionsInternal({
         sendAutomaticallyWhen:
           lastAssistantMessageIsCompleteWithApprovalResponses,
       };
-      debugLog("ADK BIDI options:", adkBidiOptions);
+      // debugLog("ADK BIDI options:", adkBidiOptions);
       return { useChatOptions: adkBidiOptions, transport: websocketTransport };
     }
 

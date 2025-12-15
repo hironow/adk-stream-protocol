@@ -16,7 +16,7 @@ interface ToolInvocationProps {
     toolName: string,
     toolCallId: string,
     args: Record<string, unknown>
-  ) => Promise<void>;
+  ) => Promise<boolean>;
 }
 
 export function ToolInvocationComponent({
@@ -129,20 +129,28 @@ export function ToolInvocationComponent({
           >
             <button
               onClick={async () => {
-                // Send approval
-                addToolApprovalResponse?.({
-                  id: toolInvocation.approval.id,
-                  approved: true,
-                  reason: "User approved the tool execution.",
-                });
-                // Execute the tool
+                let clientHandled = false;
+
+                // Execute the tool on client if callback provided
                 if (executeToolCallback) {
-                  console.info(`[ToolInvocationComponent] Executing tool ${toolName} after approval`);
-                  await executeToolCallback(
+                  console.info(`[ToolInvocationComponent] Attempting to execute tool ${toolName} on client`);
+                  clientHandled = await executeToolCallback(
                     toolName,
                     toolInvocation.toolCallId,
                     toolInvocation.input || {}
                   );
+                }
+
+                // Only send approval response if NOT handled by client
+                // If handled by client, executeToolCallback calls addToolOutput which triggers the send
+                // Calling addToolApprovalResponse here would cause a double-send and potential deadlock
+                if (!clientHandled) {
+                  console.info(`[ToolInvocationComponent] Tool ${toolName} not handled by client, sending approval response`);
+                  addToolApprovalResponse?.({
+                    id: toolInvocation.approval.id,
+                    approved: true,
+                    reason: "User approved the tool execution.",
+                  });
                 }
               }}
               style={{

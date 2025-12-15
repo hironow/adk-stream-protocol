@@ -71,8 +71,10 @@ export function Chat({
     toolName: string,
     toolCallId: string,
     args: Record<string, unknown>
-  ) => {
+  ): Promise<boolean> => {
     let result: Record<string, unknown>;
+    let handled = true;
+
     try {
       switch (toolName) {
         case "change_bgm": {
@@ -130,23 +132,29 @@ export function Chat({
 
         default: {
           console.warn(`[Chat] Unknown tool: ${toolName}`);
-          result = {
-            success: false,
-            error: `Unknown tool: ${toolName}`,
-          };
+          // Not handled by client
+          handled = false;
+          // We don't return result here because we want server to handle it if possible
+          // But effectively for this callback, we return false
           break;
         }
       }
 
-      console.log("[Chat] Tool execution result:", result);
+      if (!handled) {
+        return false;
+      }
+
+      console.log("[Chat] Tool execution result:", result!);
 
       // Send result via AI SDK v6 standard API
       addToolOutput({
         tool: toolName,
         toolCallId: toolCallId,
         state: "output-available",
-        output: result,
+        output: result!,
       });
+
+      return true;
     } catch (error) {
       console.error("[Chat] Tool execution error:", error);
       addToolOutput({
@@ -155,6 +163,7 @@ export function Chat({
         state: "output-error",
         errorText: error instanceof Error ? error.message : String(error),
       });
+      return true; // Handled but failed
     }
 
     console.info(`[Chat] Tool ${toolName} execution completed and output sent.`);

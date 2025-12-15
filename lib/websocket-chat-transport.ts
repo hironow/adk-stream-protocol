@@ -280,8 +280,6 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
       chunk: message,
       mode: "adk-bidi",
     });
-
-    console.debug("[WS→Backend]", eventWithTimestamp.type, eventWithTimestamp);
   }
 
   /**
@@ -298,7 +296,6 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
       reason,
     };
     this.sendEvent(event);
-    console.log("[WS Transport] Interrupt sent:", reason);
   }
 
   /**
@@ -312,7 +309,6 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
       action: "start",
     };
     this.sendEvent(event);
-    console.log("[WS Transport] Audio input started");
   }
 
   /**
@@ -326,7 +322,6 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
       action: "stop",
     };
     this.sendEvent(event);
-    console.log("[WS Transport] Audio input stopped");
   }
 
   /**
@@ -439,7 +434,6 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
 
               this.ws.onopen = () => {
                 clearTimeout(timeoutId);
-                console.log("[WS Transport] Connected to", url);
                 this.startPing(); // Start latency monitoring
                 resolve();
               };
@@ -467,14 +461,12 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
               };
 
               this.ws.onclose = () => {
-                console.log("[WS Transport] Connection closed");
                 this.stopPing(); // Stop ping on close
                 controller.close();
               };
             }
           } else {
             // Reuse existing connection
-            console.log("[WS Transport] Reusing existing connection");
 
             // Close previous controller to prevent orphaning (P4-T10)
             if (this.currentController) {
@@ -507,7 +499,6 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
               };
 
               this.ws.onclose = () => {
-                console.log("[WS Transport] Connection closed");
                 this.stopPing(); // Stop ping on close
                 controller.close();
               };
@@ -590,10 +581,6 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
         const jsonStr = data.substring(6).trim(); // Remove "data: " prefix and trim whitespace
 
         if (jsonStr === "[DONE]") {
-          console.log(
-            "[WS Transport] Turn complete, closing stream (WebSocket stays open)",
-          );
-
           // Reset AudioContext for next turn (BIDI mode)
           if (this.config.audioContext) {
             this.config.audioContext.voiceChannel.reset();
@@ -621,7 +608,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
         const chunk = JSON.parse(jsonStr);
 
         // Debug: Log chunk before processing
-        console.debug("[WS→useChat]", chunk);
+        // console.debug("[WS→useChat]", chunk);
 
         // Special logging for tool-approval-request events
         if (chunk.type === "tool-approval-request") {
