@@ -1148,8 +1148,150 @@ pnpm exec vitest run
 
 ---
 
-**Last Updated:** 2025-12-15 (AI SDK v6 Internal Chunks Handling Enhancement)
+## 📋 Session 8: WebSocket Payload Size Limitation Testing & Code Quality (2025-12-15)
+
+### 実施した作業の概要
+
+このセッションでは、WebSocketペイロードサイズ制限機能の包括的なテストスイート追加と、プロジェクト全体のコード品質向上を実施しました。
+
+### 主な成果
+
+1. ✅ **WebSocket Payload Size Limitation Test Suite 完成** (2025-12-15)
+   - 新規ファイル: `lib/websocket-chat-transport-payload.test.ts`
+   - 8つの包括的なテストを実装:
+     - Message history truncation (exceeding/within limits)
+     - Size warning checks (100KB, 1MB thresholds)
+     - Size error checks (5MB threshold)
+     - Message role preservation during truncation
+     - Complex message content handling
+   - 全8テスト passing ✅
+
+2. ✅ **コード品質向上 - Format/Lint/Check 完全通過** (2025-12-15)
+   - `just format`: 3ファイル再フォーマット（24ファイルは変更なし）
+   - `just lint`: 全Python/TypeScriptリント通過
+   - `just check`: 全TypeScript型チェック通過
+
+3. ✅ **テスト実行確認** (2025-12-15)
+   - Python テスト: 149/149 passing ✅
+   - TypeScript テスト: 208/208 passing (2 skipped) ✅
+   - **合計: 357テスト通過 + 2 スキップ**
+
+### 実装の詳細
+
+#### Phase 1: Test Suite Implementation
+
+**テスト内容:**
+1. Message truncation at 50 messages limit
+2. No truncation within limit
+3. Size warning for > 100KB
+4. Size warning for > 1MB
+5. Size error for > 5MB
+6. No warnings for small messages
+7. Role preservation in mixed message types
+8. Complex content (parts array) handling
+
+**技術的な課題と解決:**
+- **WebSocket Mock**: `global.WebSocket` を適切にコンストラクタとして実装
+- **ReadableStream**: `getReader()` で stream を消費してstart callbackをトリガー
+- **AsyncTiming**: `setTimeout` で非同期実行を待機
+- **Console Spies**: `vi.spyOn(console, ...)` でログ検証
+
+#### Phase 2: Code Quality (Format/Lint)
+
+**修正内容:**
+1. **Python Files:**
+   - Unused variables 削除 (`sample_rate`, `channels`, `bit_depth` in server.py)
+   - Cyclomatic complexity 削減 (12→10 in ai_sdk_v6_compat.py)
+   - Helper methods 抽出 (`_process_image_part()`, `_process_file_part()`, `_process_part()`)
+   - Type annotation 改善
+
+2. **TypeScript/Markdown:**
+   - Biome formatting pass
+   - Markdown linting rules 適用
+   - Blank lines around code blocks/lists 追加
+
+3. **Type Checking:**
+   - Fixed: `msg.parts` → `msg_context.parts` (server.py:622)
+   - All mypy checks: 28 files, zero errors ✅
+
+### 検証結果
+
+**Test Status:**
+```
+Python Unit Tests:  149/149 ✅
+TypeScript Tests:   208/208 ✅ (2 skipped)
+─────────────────────────
+Total:             357/357 ✅ (+ 2 skipped)
+```
+
+**Code Quality:**
+```
+Format:     ✅ All files compliant
+Lint:       ✅ Zero violations (ruff + biome)
+Type Check: ✅ All files pass (mypy)
+```
+
+### 新規追加/更新ファイル
+
+**新規作成:**
+1. `lib/websocket-chat-transport-payload.test.ts` (433行、8テスト)
+   - 包括的なペイロードサイズテスト
+   - WebSocket mocking と stream handling
+   - Console logging verification
+
+**更新:**
+1. `experiments/README.md` - WebSocket Payload Size エントリ更新
+2. `agents/tasks.md` - [P4-T11] WebSocket Payload Size セクション追加
+3. `experiments/2025-12-15_websocket_payload_size_issue.md` - Testing Phase 追加
+
+### 技術的な学習
+
+1. **WebSocket Mock の正しい実装:**
+   - グローバルな `global.WebSocket` は関数として設定可能
+   - `new WebSocket()` で呼び出される際の処理を正しく定義
+   - 静的プロパティ (OPEN, CLOSED など) を手動で設定
+
+2. **ReadableStream の非同期処理:**
+   - `start` callback はストリームの消費開始時に実行
+   - `getReader()` で初めてコントローラーにアクセス可能
+   - 非同期実行は `await` か `setTimeout` で待機が必要
+
+3. **Console Spy との組み合わせ:**
+   - `vi.spyOn()` で関数の呼び出しを追跡
+   - `toHaveBeenCalledWith()` で引数検証
+   - オブジェクト引数は `expect.objectContaining()` で部分マッチ
+
+### 次のセッションへの引き継ぎ
+
+**完了した作業:**
+- ✅ WebSocket Payload Size test suite 完成
+- ✅ プロジェクト全体のコード品質向上
+- ✅ 全テスト passing確認
+
+**ドキュメント状態:**
+- experiments/README.md: WebSocket Payload Size "8-test suite complete" に更新
+- agents/tasks.md: [P4-T11] WebSocket Payload Size セクション追加
+- agents/handsoff.md: Session 8 完了記録
+
+**残りのタスク:**
+- [ ] [P4-T4.1] E2E Chunk Fixture Recording (手動記録作業)
+- [ ] [P4-T4.4] Systematic Model/Mode Testing (4-6 hours)
+- [ ] Optional: Phase 2 (Compression) implementation
+
+**テスト状態:**
+- **357 tests passing** (Python 149 + TypeScript 208)
+- **2 tests skipped** (WebSocket E2E timing related)
+- **100% code quality** (format, lint, type check)
+
+**次のアクション (優先順):**
+1. E2E fixture 記録（`agents/recorder_handsoff.md` 参照）
+2. または P4-T4.4 (Systematic Model/Mode Testing)
+3. Optional: Compression Phase 実装
+
+---
+
+**Last Updated:** 2025-12-15 (WebSocket Payload Size Limitation Testing & Code Quality)
 **Next Action:**
 - E2E fixture の手動記録 (`agents/recorder_handsoff.md` 参照)
 - または P4-T4.4 の実施
-- WebSocketペイロードサイズ超過とE2Eテストセレクタの対策
+- 定期的なドキュメント更新

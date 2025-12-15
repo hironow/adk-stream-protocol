@@ -712,6 +712,79 @@ export class WebSocketChatTransport {
 
 ---
 
+### [P4-T11] WebSocket Payload Size Limitation & Testing
+
+**Description:** Implement and test payload size management for WebSocket messages to prevent transmission failures with large message histories
+
+**Status:** ✅ **Phase 1 Complete - Test Suite Added (2025-12-15)**
+
+**Priority:** Medium (Tier 2 - 1-2 hours completed)
+
+**Related Experiments:** `experiments/2025-12-15_websocket_payload_size_issue.md`
+
+**Implementation Summary:**
+
+**Phase 1: Size Management & Logging (COMPLETED)**
+- ✅ Added size constants (lib/websocket-chat-transport.ts:178-180):
+  - `MAX_MESSAGES_TO_SEND = 50`: Limit message history
+  - `WARN_SIZE_KB = 100`: Warning threshold
+  - `ERROR_SIZE_MB = 5`: Error threshold
+- ✅ Implemented size checking and logging (lines 224-273):
+  - Calculate message size in bytes/KB/MB
+  - Log warning for messages > 100KB
+  - Log error for messages > 5MB
+  - Display message details for large payloads
+- ✅ Added message history truncation (lines 505-520):
+  - Automatically limit to last 50 messages
+  - Log truncation info when limiting occurs
+  - Preserve most recent context while reducing payload
+
+**Phase 1: Test Suite (COMPLETED 2025-12-15)**
+- ✅ Created comprehensive test suite: `lib/websocket-chat-transport-payload.test.ts`
+- ✅ 8 tests covering all scenarios:
+  1. Message history truncation when exceeding 50 messages limit
+  2. No truncation when within 50 messages limit
+  3. Size warning for messages > 100KB but < 1MB
+  4. Size warning for messages > 1MB but < 5MB
+  5. Size error for messages > 5MB
+  6. No warnings for small messages
+  7. Truncation preserves message roles (user/assistant/system)
+  8. Truncation handles complex message content with parts
+- ✅ All 8 tests passing
+- ✅ Proper WebSocket mocking with numeric readyState constants
+- ✅ Stream reader lifecycle management working correctly
+
+**Test Implementation Details:**
+- Mock WebSocket with proper constants (OPEN=1, CLOSED=3, CLOSING=2, CONNECTING=0)
+- Handled async stream consumption with proper timeout
+- Fixed stream reader lifecycle (no releaseLock() on closed stream)
+- Verified console logging with vitest spies
+
+**Verification:**
+- ✅ All 8 tests passing
+- ✅ Code compiles without TypeScript errors
+- ✅ Format: pnpm run format
+- ✅ Lint: pnpm run lint (with biome checks)
+- ✅ All unit/integration tests: 357 passing + 2 skipped
+
+**Phase 2: Compression (Pending)**
+- [ ] Add compression for messages > 100KB
+- [ ] Monitor compression ratios
+- [ ] Implement metrics
+
+**Phase 3: Long-term (Pending)**
+- [ ] Design chunking protocol
+- [ ] Implement with backward compatibility
+- [ ] Gradual rollout
+
+**Next Steps After Completion:**
+- Test with large payloads in production scenario
+- Consider compression implementation (Phase 2)
+- Document solution in ARCHITECTURE.md if needed
+- Add configuration options (environment variables)
+
+---
+
 ## Future Work (Deferred / Nice-to-have)
 
 ### [FW-1] Progressive Audio Playback
