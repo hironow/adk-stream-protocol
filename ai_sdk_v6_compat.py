@@ -80,6 +80,7 @@ class ToolCallState(str, Enum):
 # Text and File Parts
 # ============================================================
 
+
 class StepPart(BaseModel):
     """
     Step part in message (AI SDK v6 format).
@@ -92,6 +93,7 @@ class StepPart(BaseModel):
     """
 
     type: Literal["start", "step-start", "start-step", "finish-step"]
+
 
 class TextPart(BaseModel):
     """
@@ -220,7 +222,6 @@ class ToolUsePart(BaseModel):
     output: dict[str, Any] | None = None  # Present when state="output-available"
 
 
-
 # ============================================================
 # Generic Part for AI SDK v6 Internal Chunks
 # ============================================================
@@ -244,6 +245,7 @@ class GenericPart(BaseModel):
     when sent through our Pydantic models (e.g., during mode switching
     with preserved message history).
     """
+
     type: str
     # Allow any additional fields without validation
     model_config = {"extra": "allow"}
@@ -303,6 +305,80 @@ class ChatMessage(BaseModel):
             return "".join(p.text or "" for p in self.parts if isinstance(p, TextPart))
         return ""
 
+    def _process_image_part(self, part: ImagePart) -> types.Part | None:
+        """Process ImagePart and return ADK Part."""
+        image_bytes = base64.b64decode(part.data)
+
+        # Get image dimensions using PIL
+        with Image.open(BytesIO(image_bytes)) as img:
+            width, height = img.size
+            image_format = img.format
+
+        logger.info(
+            f"[IMAGE INPUT] media_type={part.media_type}, "
+            f"size={len(image_bytes)} bytes, "
+            f"dimensions={width}x{height}, "
+            f"format={image_format}, "
+            f"base64_length={len(part.data)} chars"
+        )
+        return types.Part(inline_data=types.Blob(mime_type=part.media_type, data=image_bytes))
+
+    def _process_file_part(self, part: FilePart) -> types.Part | None:
+        """Process FilePart and return ADK Part."""
+        if not part.url.startswith("data:"):
+            return None
+
+        # Extract base64 content after "base64,"
+        data_url_parts = part.url.split(",", 1)
+        if len(data_url_parts) != 2:  # noqa: PLR2004
+            return None
+
+        base64_data = data_url_parts[1]
+        file_bytes = base64.b64decode(base64_data)
+
+        # Get image dimensions if it's an image
+        if part.media_type.startswith("image/"):
+            with Image.open(BytesIO(file_bytes)) as img:
+                width, height = img.size
+                image_format = img.format
+
+            logger.info(
+                f"[FILE INPUT] filename={part.filename}, "
+                f"mediaType={part.media_type}, "
+                f"size={len(file_bytes)} bytes, "
+                f"dimensions={width}x{height}, "
+                f"format={image_format}"
+            )
+        else:
+            logger.info(
+                f"[FILE INPUT] filename={part.filename}, "
+                f"mediaType={part.media_type}, "
+                f"size={len(file_bytes)} bytes"
+            )
+
+        return types.Part(inline_data=types.Blob(mime_type=part.media_type, data=file_bytes))
+
+    def _process_part(self, part: object, adk_parts: list[types.Part]) -> None:
+        """Process a single part and add to adk_parts if applicable."""
+        if isinstance(part, StepPart):
+            logger.debug(f"[AI SDK v6] Skipping known internal step chunk: '{part.type}'")
+        elif isinstance(part, GenericPart):
+            logger.warning(
+                f"[AI SDK v6] Ignoring internal chunk type: '{part.type}'. "
+                f"This is expected for step-start, start-step, finish-step, etc. "
+                f"Full part data: {part.model_dump()}"
+            )
+        elif isinstance(part, TextPart):
+            adk_parts.append(types.Part(text=part.text))
+        elif isinstance(part, ImagePart):
+            adk_part = self._process_image_part(part)
+            if adk_part:
+                adk_parts.append(adk_part)
+        elif isinstance(part, FilePart):
+            adk_part = self._process_file_part(part)
+            if adk_part:
+                adk_parts.append(adk_part)
+
     def to_adk_content(self) -> types.Content:
         """
         Convert AI SDK v6 message to ADK Content format.
@@ -323,91 +399,12 @@ class ChatMessage(BaseModel):
         """
         adk_parts = []
 
-        # Handle simple text content
         if self.content:
             adk_parts.append(types.Part(text=self.content))
 
-        # Handle parts array (AI SDK v6 multimodal format)
         if self.parts:
             for part in self.parts:
-                if isinstance(part, StepPart):
-                    # Skip known AI SDK v6 step chunks (start, step-start, start-step, finish-step)
-                    # These are internal markers from useChat hook that don't contain
-                    # actual message content and should not be sent to ADK backend.
-                    logger.debug(
-                        f"[AI SDK v6] Skipping known internal step chunk: '{part.type}'"
-                    )
-                    continue
-                elif isinstance(part, GenericPart):
-                    # Skip unknown AI SDK v6 internal chunks
-                    # These are internal markers from useChat hook that don't contain
-                    # actual message content and should not be sent to ADK backend.
-                    logger.warning(
-                        f"[AI SDK v6] Ignoring internal chunk type: '{part.type}'. "
-                        f"This is expected for step-start, start-step, finish-step, etc. "
-                        f"Full part data: {part.model_dump()}"
-                    )
-                    continue
-                elif isinstance(part, TextPart):
-                    adk_parts.append(types.Part(text=part.text))
-                elif isinstance(part, ImagePart):
-                    # Decode base64 and create inline_data with Blob
-                    image_bytes = base64.b64decode(part.data)
-
-                    # Get image dimensions using PIL
-                    with Image.open(BytesIO(image_bytes)) as img:
-                        width, height = img.size
-                        image_format = img.format
-
-                    logger.info(
-                        f"[IMAGE INPUT] media_type={part.media_type}, "
-                        f"size={len(image_bytes)} bytes, "
-                        f"dimensions={width}x{height}, "
-                        f"format={image_format}, "
-                        f"base64_length={len(part.data)} chars"
-                    )
-                    adk_parts.append(
-                        types.Part(
-                            inline_data=types.Blob(mime_type=part.media_type, data=image_bytes)
-                        )
-                    )
-                elif isinstance(part, FilePart):
-                    # AI SDK v6 file format: extract base64 from data URL
-                    # Format: "data:image/png;base64,iVBORw0..."
-                    if part.url.startswith("data:"):
-                        # Extract base64 content after "base64,"
-                        data_url_parts = part.url.split(",", 1)
-                        if len(data_url_parts) == 2:  # noqa: PLR2004 - data URL format: "data:type;base64,content"
-                            base64_data = data_url_parts[1]
-                            file_bytes = base64.b64decode(base64_data)
-
-                            # Get image dimensions if it's an image
-                            if part.media_type.startswith("image/"):
-                                with Image.open(BytesIO(file_bytes)) as img:
-                                    width, height = img.size
-                                    image_format = img.format
-
-                                logger.info(
-                                    f"[FILE INPUT] filename={part.filename}, "
-                                    f"mediaType={part.media_type}, "
-                                    f"size={len(file_bytes)} bytes, "
-                                    f"dimensions={width}x{height}, "
-                                    f"format={image_format}"
-                                )
-                            else:
-                                logger.info(
-                                    f"[FILE INPUT] filename={part.filename}, "
-                                    f"mediaType={part.media_type}, "
-                                    f"size={len(file_bytes)} bytes"
-                                )
-
-                            adk_parts.append(
-                                types.Part(
-                                    inline_data=types.Blob(
-                                        mime_type=part.media_type, data=file_bytes
-                                    )
-                                )
-                            )
+                self._process_part(part, adk_parts)
 
         return types.Content(role=self.role, parts=adk_parts)
 

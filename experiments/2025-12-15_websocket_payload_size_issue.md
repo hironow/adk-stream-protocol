@@ -7,6 +7,7 @@
 ## Background
 
 The current implementation doesn't have any payload size restrictions for WebSocket messages, which can cause issues when:
+
 1. Large message history is sent from frontend to backend
 2. Multiple images are included in messages
 3. Long conversation history accumulates
@@ -16,6 +17,7 @@ The current implementation doesn't have any payload size restrictions for WebSoc
 ### Frontend (lib/websocket-chat-transport.ts)
 
 **Message Sending (line 464-470):**
+
 ```typescript
 const event: MessageEvent = {
   type: "message",
@@ -28,6 +30,7 @@ this.sendEvent(event);
 ```
 
 **sendEvent Implementation (line 217-218):**
+
 ```typescript
 const message = JSON.stringify(eventWithTimestamp);
 this.ws.send(message);  // <-- No size check or chunking
@@ -36,6 +39,7 @@ this.ws.send(message);  // <-- No size check or chunking
 ### Backend (server.py)
 
 **WebSocket Endpoint (line 657):**
+
 ```python
 @app.websocket("/live")
 async def websocket_endpoint(websocket: WebSocket):
@@ -45,34 +49,42 @@ async def websocket_endpoint(websocket: WebSocket):
 ### Findings from Documentation
 
 From **agents/reviews.md (line 545-551):**
+
 - ❌ **Current State:** "入力サイズ制限: WebSocket/SSE payloadサイズ制限なし"
 - 🟡 **Recommendation:** "Payload制限: WebSocket message size limit（例: 10MB）"
 
 ## Problem Scenarios
 
 ### Scenario 1: Large Message History
+
 When users have long conversations, the entire message history is sent on each new message:
+
 - 10 messages with average 1KB each = 10KB
 - 100 messages = 100KB
 - 1000 messages = 1MB+
 - With images: Can easily exceed 10MB
 
 ### Scenario 2: Multiple Images
+
 Each image is base64-encoded, increasing size by ~33%:
+
 - 1MB image → 1.33MB base64
 - 5 images × 1MB = 6.65MB encoded
 
 ### Scenario 3: Tool Call Results
+
 Large tool outputs (e.g., file contents, API responses) accumulate in message history.
 
 ## WebSocket Limitations
 
 ### Browser Limitations
+
 - Chrome: Default max frame size ~100MB (but varies)
 - Firefox: Similar limits
 - Safari: More restrictive
 
 ### Server Limitations (uvicorn/FastAPI)
+
 - Default uvicorn WebSocket settings:
   - No explicit max message size by default
   - Depends on underlying WebSocket library (websockets)
@@ -82,7 +94,9 @@ Large tool outputs (e.g., file contents, API responses) accumulate in message hi
 ## Solution Options
 
 ### Option A: Message Truncation (Quick Fix)
+
 Limit the number of messages sent to backend:
+
 ```typescript
 // lib/websocket-chat-transport.ts
 const recentMessages = options.messages.slice(-20); // Keep last 20 messages
@@ -96,17 +110,21 @@ const event: MessageEvent = {
 ```
 
 **Pros:**
+
 - Simple to implement
 - Immediate payload reduction
 - No backend changes needed
 
 **Cons:**
+
 - Loss of context for AI
 - Arbitrary limit
 - Doesn't handle large individual messages
 
 ### Option B: Message Chunking (Complex)
+
 Split large messages into chunks and reassemble:
+
 ```typescript
 // Frontend: Split into chunks
 const chunks = splitIntoChunks(messages, MAX_CHUNK_SIZE);
@@ -125,17 +143,21 @@ while not complete:
 ```
 
 **Pros:**
+
 - No context loss
 - Handles any size
 - Robust solution
 
 **Cons:**
+
 - Complex implementation
 - Requires protocol changes
 - Error handling complexity
 
 ### Option C: Compression (Medium)
+
 Compress messages before sending:
+
 ```typescript
 // Frontend
 import pako from 'pako';
@@ -156,17 +178,21 @@ if event.get("compressed"):
 ```
 
 **Pros:**
+
 - 50-80% size reduction for text
 - Preserves all context
 - Relatively simple
 
 **Cons:**
+
 - Requires compression library
 - CPU overhead
 - Still has limits
 
 ### Option D: Server Configuration (Immediate)
+
 Increase WebSocket max message size on server:
+
 ```python
 # server.py
 @app.websocket("/live")
@@ -179,11 +205,13 @@ async def websocket_endpoint(websocket: WebSocket):
 **Note:** This requires checking uvicorn/websockets documentation for correct configuration method.
 
 **Pros:**
+
 - No code changes to message handling
 - Simple configuration change
 - Immediate relief
 
 **Cons:**
+
 - Doesn't solve root cause
 - Still has upper limit
 - Memory usage concerns
@@ -191,16 +219,19 @@ async def websocket_endpoint(websocket: WebSocket):
 ## Recommended Approach
 
 ### Phase 1: Immediate Relief (Option D + A)
+
 1. Configure server max message size to 10MB
 2. Implement client-side message limit (last 50 messages)
 3. Add size check before sending
 
 ### Phase 2: Robust Solution (Option C)
+
 1. Add compression for messages > 100KB
 2. Monitor compression ratios
 3. Implement metrics
 
 ### Phase 3: Long-term (Option B)
+
 1. Design chunking protocol
 2. Implement with backward compatibility
 3. Gradual rollout
@@ -208,6 +239,7 @@ async def websocket_endpoint(websocket: WebSocket):
 ## Implementation Plan
 
 ### Step 1: Add Size Check and Warning
+
 ```typescript
 // lib/websocket-chat-transport.ts
 private sendEvent(event: ClientToServerEvent): void {
@@ -231,6 +263,7 @@ private sendEvent(event: ClientToServerEvent): void {
 ```
 
 ### Step 2: Implement Message Limit
+
 ```typescript
 // lib/websocket-chat-transport.ts
 const MAX_MESSAGES = 50; // Configurable
@@ -249,6 +282,7 @@ const event: MessageEvent = {
 ```
 
 ### Step 3: Configure Server
+
 Research and implement proper uvicorn/FastAPI WebSocket configuration.
 
 ## Testing Plan

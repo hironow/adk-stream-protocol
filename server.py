@@ -618,7 +618,9 @@ async def stream(request: ChatRequest):
     # Debug: Log message parts to investigate why GenericPart warnings aren't appearing
     for i, msg in enumerate(request.messages):
         msg_context = msg.to_adk_content()
-        logger.info(f"Message {i}: role={msg_context.role}, parts={len(msg_context.parts) if msg.parts else 0}")
+        logger.info(
+            f"Message {i}: role={msg_context.role}, parts={len(msg_context.parts) if msg_context.parts else 0}"
+        )
         if msg_context.parts:
             for j, part in enumerate(msg_context.parts):
                 logger.info(f"  Part {j}: type={part}")
@@ -858,9 +860,6 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
                     elif event_type == "audio_chunk":
                         chunk_data = event.get("data", {})
                         chunk_base64 = chunk_data.get("chunk")
-                        sample_rate = chunk_data.get("sampleRate", 16000)
-                        channels = chunk_data.get("channels", 1)
-                        bit_depth = chunk_data.get("bitDepth", 16)
 
                         if chunk_base64:
                             import base64

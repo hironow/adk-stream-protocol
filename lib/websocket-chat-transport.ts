@@ -237,40 +237,38 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
             sizeKB: sizeKB.toFixed(2),
             sizeMB: sizeMB.toFixed(2),
             maxMB: WebSocketChatTransport.ERROR_SIZE_MB,
-          }
+          },
         );
         // Still send for now, but log as error
         // In future, could throw error or implement chunking
       } else if (sizeMB > 1) {
-        console.warn(
-          `[WS Transport] ⚠️ Large message: ${sizeMB.toFixed(2)}MB`,
-          {
-            type: eventWithTimestamp.type,
-            sizeBytes,
-            sizeKB: sizeKB.toFixed(2),
-            sizeMB: sizeMB.toFixed(2),
-          }
-        );
+        console.warn(`[WS Transport] ⚠️ Large message: ${sizeMB.toFixed(2)}MB`, {
+          type: eventWithTimestamp.type,
+          sizeBytes,
+          sizeKB: sizeKB.toFixed(2),
+          sizeMB: sizeMB.toFixed(2),
+        });
 
         // Log details for message events
         if (eventWithTimestamp.type === "message") {
           const messageEvent = event as MessageEvent;
           const firstMsg = messageEvent.data.messages[0];
-          const lastMsg = messageEvent.data.messages[messageEvent.data.messages.length - 1];
-          console.warn(
-            `[WS Transport] Message details:`,
-            {
-              messageCount: messageEvent.data.messages.length,
-              firstMessage: firstMsg ? `${firstMsg.role}: ${JSON.stringify(firstMsg).substring(0, 100)}...` : undefined,
-              lastMessage: lastMsg ? `${lastMsg.role}: ${JSON.stringify(lastMsg).substring(0, 100)}...` : undefined,
-            }
-          );
+          const lastMsg =
+            messageEvent.data.messages[messageEvent.data.messages.length - 1];
+          console.warn(`[WS Transport] Message details:`, {
+            messageCount: messageEvent.data.messages.length,
+            firstMessage: firstMsg
+              ? `${firstMsg.role}: ${JSON.stringify(firstMsg).substring(0, 100)}...`
+              : undefined,
+            lastMessage: lastMsg
+              ? `${lastMsg.role}: ${JSON.stringify(lastMsg).substring(0, 100)}...`
+              : undefined,
+          });
         }
       } else {
-        console.debug(
-          `[WS Transport] Message size: ${sizeKB.toFixed(2)}KB`,
-          { type: eventWithTimestamp.type }
-        );
+        console.debug(`[WS Transport] Message size: ${sizeKB.toFixed(2)}KB`, {
+          type: eventWithTimestamp.type,
+        });
       }
     }
 
@@ -520,18 +518,21 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
           // Send messages to backend using structured event format (P2-T2)
           // Limit message history to prevent payload size issues
           const allMessages = options.messages;
-          const truncatedMessages = allMessages.length > WebSocketChatTransport.MAX_MESSAGES_TO_SEND
-            ? allMessages.slice(-WebSocketChatTransport.MAX_MESSAGES_TO_SEND)
-            : allMessages;
+          const truncatedMessages =
+            allMessages.length > WebSocketChatTransport.MAX_MESSAGES_TO_SEND
+              ? allMessages.slice(-WebSocketChatTransport.MAX_MESSAGES_TO_SEND)
+              : allMessages;
 
-          if (allMessages.length > WebSocketChatTransport.MAX_MESSAGES_TO_SEND) {
+          if (
+            allMessages.length > WebSocketChatTransport.MAX_MESSAGES_TO_SEND
+          ) {
             console.info(
               `[WS Transport] Truncating message history: ${allMessages.length} → ${truncatedMessages.length} messages`,
               {
                 originalCount: allMessages.length,
                 sentCount: truncatedMessages.length,
                 droppedCount: allMessages.length - truncatedMessages.length,
-              }
+              },
             );
           }
 

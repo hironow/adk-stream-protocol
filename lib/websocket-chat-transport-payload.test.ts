@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import type { UIMessage } from "ai";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WebSocketChatTransport } from "./websocket-chat-transport";
 
 describe("WebSocketChatTransport - Payload Size Management", () => {
@@ -22,7 +22,9 @@ describe("WebSocketChatTransport - Payload Size Management", () => {
     };
 
     // Mock WebSocket constructor with proper constants
-    const MockWebSocket = vi.fn().mockImplementation(() => mockWebSocket) as any;
+    const MockWebSocket = vi
+      .fn()
+      .mockImplementation(() => mockWebSocket) as any;
     MockWebSocket.OPEN = 1;
     MockWebSocket.CLOSED = 3;
     MockWebSocket.CLOSING = 2;
@@ -47,11 +49,15 @@ describe("WebSocketChatTransport - Payload Size Management", () => {
   describe("Message History Truncation", () => {
     it("should truncate message history when exceeding MAX_MESSAGES_TO_SEND", async () => {
       // Create 60 messages (more than the 50 limit)
-      const messages: UIMessage[] = Array.from({ length: 60 }, (_, i) => ({
-        id: `msg-${i}`,
-        role: i % 2 === 0 ? "user" : "assistant",
-        content: `Message ${i}`,
-      } as UIMessage));
+      const messages: UIMessage[] = Array.from(
+        { length: 60 },
+        (_, i) =>
+          ({
+            id: `msg-${i}`,
+            role: i % 2 === 0 ? "user" : "assistant",
+            content: `Message ${i}`,
+          }) as UIMessage,
+      );
 
       // Create transport with mocked WebSocket
       transport = new WebSocketChatTransport({
@@ -77,19 +83,22 @@ describe("WebSocketChatTransport - Payload Size Management", () => {
       const reader = stream.getReader();
 
       // Try to read from the stream to trigger the start callback
-      const readPromise = reader.read();
+      // biome-ignore lint/correctness/noUnusedVariables: Start promise to trigger stream
+      const _readPromise = reader.read();
 
       // Wait a bit for the send to happen
       await new Promise((resolve) => setTimeout(resolve, 10));
 
       // Check that truncation was logged
       expect(consoleInfoSpy).toHaveBeenCalledWith(
-        expect.stringContaining("[WS Transport] Truncating message history: 60 → 50 messages"),
+        expect.stringContaining(
+          "[WS Transport] Truncating message history: 60 → 50 messages",
+        ),
         expect.objectContaining({
           originalCount: 60,
           sentCount: 50,
           droppedCount: 10,
-        })
+        }),
       );
 
       // Check that only 50 messages were sent
@@ -107,11 +116,15 @@ describe("WebSocketChatTransport - Payload Size Management", () => {
 
     it("should not truncate when messages are within limit", async () => {
       // Create 30 messages (less than the 50 limit)
-      const messages: UIMessage[] = Array.from({ length: 30 }, (_, i) => ({
-        id: `msg-${i}`,
-        role: i % 2 === 0 ? "user" : "assistant",
-        content: `Message ${i}`,
-      } as UIMessage));
+      const messages: UIMessage[] = Array.from(
+        { length: 30 },
+        (_, i) =>
+          ({
+            id: `msg-${i}`,
+            role: i % 2 === 0 ? "user" : "assistant",
+            content: `Message ${i}`,
+          }) as UIMessage,
+      );
 
       // Create transport with mocked WebSocket
       transport = new WebSocketChatTransport({
@@ -137,7 +150,8 @@ describe("WebSocketChatTransport - Payload Size Management", () => {
       const reader = stream.getReader();
 
       // Try to read from the stream to trigger the start callback
-      const readPromise = reader.read();
+      // biome-ignore lint/correctness/noUnusedVariables: Start promise to trigger stream
+      const _readPromise = reader.read();
 
       // Wait a bit for the send to happen
       await new Promise((resolve) => setTimeout(resolve, 10));
@@ -145,7 +159,7 @@ describe("WebSocketChatTransport - Payload Size Management", () => {
       // Check that truncation was NOT logged
       expect(consoleInfoSpy).not.toHaveBeenCalledWith(
         expect.stringContaining("[WS Transport] Truncating message history"),
-        expect.anything()
+        expect.anything(),
       );
 
       // Check that all 30 messages were sent
@@ -187,7 +201,7 @@ describe("WebSocketChatTransport - Payload Size Management", () => {
       // But we can verify no warning or error was called
       expect(consoleWarnSpy).not.toHaveBeenCalledWith(
         expect.stringContaining("[WS Transport] ⚠️ Large message"),
-        expect.anything()
+        expect.anything(),
       );
       expect(consoleErrorSpy).not.toHaveBeenCalled();
     });
@@ -223,7 +237,7 @@ describe("WebSocketChatTransport - Payload Size Management", () => {
           sizeBytes: expect.any(Number),
           sizeKB: expect.any(String),
           sizeMB: expect.any(String),
-        })
+        }),
       );
 
       // Should also log message details
@@ -233,7 +247,7 @@ describe("WebSocketChatTransport - Payload Size Management", () => {
           messageCount: 1,
           firstMessage: expect.any(String),
           lastMessage: expect.any(String),
-        })
+        }),
       );
     });
 
@@ -269,7 +283,7 @@ describe("WebSocketChatTransport - Payload Size Management", () => {
           sizeKB: expect.any(String),
           sizeMB: expect.any(String),
           maxMB: 5,
-        })
+        }),
       );
     });
 
@@ -297,7 +311,7 @@ describe("WebSocketChatTransport - Payload Size Management", () => {
       // Should not have any warnings or errors for small messages
       expect(consoleWarnSpy).not.toHaveBeenCalledWith(
         expect.stringContaining("[WS Transport]"),
-        expect.anything()
+        expect.anything(),
       );
       expect(consoleErrorSpy).not.toHaveBeenCalled();
     });
@@ -306,11 +320,15 @@ describe("WebSocketChatTransport - Payload Size Management", () => {
   describe("Message Truncation with Various Message Types", () => {
     it("should handle mixed message roles when truncating", async () => {
       // Create 60 messages with mixed roles
-      const messages: UIMessage[] = Array.from({ length: 60 }, (_, i) => ({
-        id: `msg-${i}`,
-        role: i % 3 === 0 ? "user" : i % 3 === 1 ? "assistant" : "system",
-        content: `Message ${i}`,
-      } as UIMessage));
+      const messages: UIMessage[] = Array.from(
+        { length: 60 },
+        (_, i) =>
+          ({
+            id: `msg-${i}`,
+            role: i % 3 === 0 ? "user" : i % 3 === 1 ? "assistant" : "system",
+            content: `Message ${i}`,
+          }) as UIMessage,
+      );
 
       // Create transport with mocked WebSocket
       transport = new WebSocketChatTransport({
@@ -336,7 +354,8 @@ describe("WebSocketChatTransport - Payload Size Management", () => {
       const reader = stream.getReader();
 
       // Try to read from the stream to trigger the start callback
-      const readPromise = reader.read();
+      // biome-ignore lint/correctness/noUnusedVariables: Start promise to trigger stream
+      const _readPromise = reader.read();
 
       // Wait a bit for the send to happen
       await new Promise((resolve) => setTimeout(resolve, 10));
@@ -355,15 +374,19 @@ describe("WebSocketChatTransport - Payload Size Management", () => {
 
     it("should handle messages with complex content when truncating", async () => {
       // Create messages with parts instead of simple content
-      const messages: UIMessage[] = Array.from({ length: 55 }, (_, i) => ({
-        id: `msg-${i}`,
-        role: i % 2 === 0 ? "user" : "assistant",
-        // Use parts array instead of content string
-        parts: [
-          { type: "text", text: `Message ${i} part 1` },
-          { type: "text", text: `Message ${i} part 2` },
-        ],
-      } as any));
+      const messages: UIMessage[] = Array.from(
+        { length: 55 },
+        (_, i) =>
+          ({
+            id: `msg-${i}`,
+            role: i % 2 === 0 ? "user" : "assistant",
+            // Use parts array instead of content string
+            parts: [
+              { type: "text", text: `Message ${i} part 1` },
+              { type: "text", text: `Message ${i} part 2` },
+            ],
+          }) as any,
+      );
 
       // Create transport with mocked WebSocket
       transport = new WebSocketChatTransport({
@@ -389,7 +412,8 @@ describe("WebSocketChatTransport - Payload Size Management", () => {
       const reader = stream.getReader();
 
       // Try to read from the stream to trigger the start callback
-      const readPromise = reader.read();
+      // biome-ignore lint/correctness/noUnusedVariables: Start promise to trigger stream
+      const _readPromise = reader.read();
 
       // Wait a bit for the send to happen
       await new Promise((resolve) => setTimeout(resolve, 10));
