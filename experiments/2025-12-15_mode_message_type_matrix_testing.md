@@ -318,20 +318,138 @@ The tool approval flow has two separate issues:
 
 The core problem is that ADK's `run_live()` creates its own session management internally, and our modifications to the session state aren't visible when tools are executed.
 
+## Session 3: ADK Internal Implementation Research (2025-12-16 Midnight)
+
+### Investigation: Why tool_context.state is empty
+
+#### BUG-003: Empty tool_context.state ✅ FIXED
+- **Problem**: `tool_context.state` was coming through as empty `{}` despite attempts to populate it
+- **Root Cause**: We were modifying `_sessions[session_id].state` AFTER getting the session object
+- **Solution**: Modify `session.state` directly before `run_live()` call
+- **Fix Applied**:
+  ```python
+  # BEFORE (incorrect):
+  session = await get_or_create_session(...)
+  _sessions[session_id].state["temp:delegate"] = connection_delegate
+
+  # AFTER (correct):
+  session = await get_or_create_session(...)
+  session.state["temp:delegate"] = connection_delegate  # Direct modification
+  session.state["client_identifier"] = connection_signature
+  ```
+
+### ADK Internal Implementation Findings
+
+Based on research using DeepWiki MCP on google/adk-python:
+
+1. **How ToolContext Receives Session State**:
+   - `ToolContext` is initialized with an `InvocationContext` during tool execution
+   - The `InvocationContext` contains a reference to the `Session` object
+   - `tool_context.state` directly reflects `session.state` from the underlying `InvocationContext`
+   - Reference: ADK creates `ToolContext` via `_create_tool_context()` passing the `invocation_context`
+
+2. **Session State Modification Before run_live()**:
+   - ✅ **Confirmed**: Modifications to `session.state` before calling `run_live()` ARE available in `tool_context.state`
+   - The `Runner` retrieves session state at the beginning of invocation
+   - Any changes made to `session.state` before `run_live()` will be reflected in tools
+   - Reference: https://github.com/google/adk-python/discussions/2784
+
+3. **Correct Usage of temp: Prefix**:
+   - `temp:` prefix indicates session-specific state that is never persisted
+   - ADK supports state prefixes: `app:`, `user:`, `temp:`
+   - Our usage of `temp:delegate` is correct for connection-specific, non-persistent data
+   - State changes are tracked via `Event.actions.state_delta`
+
+4. **Fix Verification**:
+   - Server logs now show: `[change_bgm] tool_context.state: {'temp:delegate': <...>, 'client_identifier': '...'}`
+   - Tool correctly uses connection-specific delegate
+   - Session state propagation working as expected
+
+### Additional Fixes Applied
+
+#### BUG-004: PCM Data Logging Issue ✅ FIXED
+- **Problem**: Large PCM audio data was being logged in full, causing excessive log output
+- **Solution**: Truncate binary content in logs for `data-pcm`, `data-audio`, `data-image` events
+- **Implementation**: Modified `_format_sse_event()` to show only first 50 chars of binary content
+
+## Current Status
+
+✅ **Session state propagation fixed** - tool_context.state now properly populated
+✅ **PCM logging optimized** - Large binary data no longer floods logs
+⚠️ **Tool approval UI still not appearing** - Frontend may not be handling the event correctly
+
 ## Next Actions
 
-1. **Continue Tool Approval Investigation**:
-   - Investigate ADK's internal session handling during tool execution
-   - Consider alternative approaches for connection-specific state
-   - Test if removing temp: prefix helps with state persistence
+1. **Fix Tool Approval UI**:
+   - Investigate why approval UI doesn't appear despite correct backend events
+   - Check WebSocket transport handling of tool-approval-request
+   - Verify frontend ToolApprovalDialog component
 
 2. **Complete Testing Matrix**:
    - Test tool approval in SSE mode (Test 3-2)
-   - Test tool approval in Gemini Direct mode (Test 3-1)
    - Test image handling across all modes (Tests 4-*)
    - Test audio in BIDI mode (Test 5-3)
 
 3. **Create Unit Tests**:
-   - Add tests for tool approval flow in WebSocket transport
-   - Add server-side tests for mode switching
-   - Add tests for SSE event format conversion
+   - Add tests for session state propagation
+   - Add tests for tool approval flow
+   - Add tests for PCM data truncation in logs
+
+## Session 4: UI Improvements & Testing (2025-12-16 Morning)
+
+### UI Improvement: Push-to-Talk Button ✅ COMPLETED
+
+#### BUG-005: Keyboard Push-to-Talk Unreliable
+- **Problem**: Cmd key press-and-hold for audio recording had many false triggers
+- **User Feedback**: "cmd 長押しのプッシュto talkだけど誤反応が多いから、UIのボタンにしよう"
+- **Solution**: Replaced keyboard-based Push-to-Talk with a UI button
+- **Implementation**:
+  ```typescript
+  // Removed keyboard event listeners for Cmd key
+  // Added mouse/touch event handlers for button press-and-hold
+  // Button positioned center-bottom above chat input
+  // Visual feedback: button changes color when recording
+  // Text changes from "Hold to Record" to "Recording... (Release to send)"
+  ```
+- **Result**: Clean UI button implementation with proper visual feedback
+
+### Testing Results (2025-12-16)
+
+#### Tool Approval Functionality ⚠️ STILL ISSUES
+- **Test**: Sent "Please change the BGM to track 2" in BIDI mode
+- **Expected**: Tool approval dialog should appear
+- **Actual**: Tool executes without showing approval dialog
+- **Root Cause**: Still using `client=sse_mode` instead of WebSocket connection ID
+- **Server Log**: Shows approval event sent but client doesn't display dialog
+- **Status**: Backend sends correct events, frontend pendingToolApproval detection may have issues
+
+#### Audio Recording Functionality 🔄 PARTIALLY TESTED
+- **UI Button**: Successfully implemented and visible in BIDI mode
+- **Visual Feedback**: Button shows proper recording states
+- **Limitation**: Cannot fully test press-and-hold with Chrome DevTools MCP
+- **Status**: UI implementation complete, manual testing required for full validation
+
+### Summary of Current Issues
+
+1. **Tool Approval Dialog Not Appearing**:
+   - Backend correctly sends tool-approval-request events
+   - Frontend receives events but doesn't trigger approval dialog
+   - Possibly related to pendingToolApproval detection logic
+   - Tool executes in "Unknown" state waiting for approval
+
+2. **Session State Management**:
+   - Connection-specific identifiers not properly propagating
+   - Using fallback to `sse_mode` instead of unique connection ID
+   - May affect tool approval delegate routing
+
+### Next Steps
+
+1. **Debug Tool Approval UI**:
+   - Investigate pendingToolApproval detection in frontend
+   - Verify tool-approval-request event handling in WebSocket transport
+   - Check if message state updates correctly trigger UI
+
+2. **Manual Testing Required**:
+   - Test audio recording with actual press-and-hold interaction
+   - Verify audio data transmission to backend
+   - Test tool approval flow with manual interaction

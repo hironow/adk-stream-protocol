@@ -61,6 +61,8 @@ export function Chat({
   // Backend sends tool-approval-request event → useChat updates messages automatically
   // Find tool part with state: "approval-requested" from messages array
   const pendingToolApproval = useMemo(() => {
+    console.log(`[pendingToolApproval] Scanning ${messages.length} messages for tool approval`);
+
     // Scan messages from newest to oldest to find pending approval
     for (let i = messages.length - 1; i >= 0; i--) {
       const message = messages[i];
@@ -78,23 +80,45 @@ export function Chat({
           | undefined;
 
         if (parts) {
+          console.log(`[pendingToolApproval] Message ${i} has ${parts.length} parts`);
           for (const part of parts) {
+            console.log(`[pendingToolApproval] Part: type=${part.type}, state=${part.state}, toolName=${part.toolName}`);
+
             // Find tool-call part awaiting approval
-            if (
-              part.type === "tool-call" &&
-              part.state === "approval-requested"
-            ) {
-              return {
-                approvalId: part.approvalId ?? "",
-                toolCallId: part.toolCallId ?? "",
+            // Check for different possible states that indicate approval is needed
+            if (part.type === "tool-call") {
+              // Log all tool-call parts to debug state values
+              console.log(`[pendingToolApproval] tool-call part found:`, {
+                state: part.state,
                 toolName: part.toolName,
-                args: part.args,
-              };
+                toolCallId: part.toolCallId,
+                approvalId: part.approvalId,
+                fullPart: part,
+              });
+
+              // Check for various possible state values
+              if (
+                part.state === "approval-requested" ||
+                part.state === "requires-approval" ||
+                part.state === "pending-approval" ||
+                part.state === "awaiting-approval" ||
+                // Also check if state is undefined but approvalId exists
+                (!part.state && part.approvalId)
+              ) {
+                console.log(`[pendingToolApproval] Found pending approval:`, part);
+                return {
+                  approvalId: part.approvalId ?? "",
+                  toolCallId: part.toolCallId ?? "",
+                  toolName: part.toolName,
+                  args: part.args,
+                };
+              }
             }
           }
         }
       }
     }
+    console.log(`[pendingToolApproval] No pending approval found`);
     return null;
   }, [messages]);
 
@@ -274,35 +298,56 @@ export function Chat({
     transportRef.current?.stopAudio();
   }, [stopRecording]);
 
-  // Phase 3: CMD key push-to-talk (BIDI mode only)
-  useEffect(() => {
-    if (mode !== "adk-bidi") return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // CMD key (Meta) pressed - start recording
-      if (e.metaKey && !isRecording) {
-        e.preventDefault();
-        console.log("[Chat] CMD key pressed - starting recording");
+  // Phase 3: Push-to-Talk button handlers (BIDI mode only)
+  // Using mouse and touch events for press-and-hold recording
+  const handleRecordingButtonDown = useCallback(
+    (e: React.MouseEvent | React.TouchEvent) => {
+      e.preventDefault();
+      if (mode === "adk-bidi" && !isRecording) {
+        console.log("[Chat] Recording button pressed - starting recording");
         handleStartRecording();
       }
-    };
+    },
+    [mode, isRecording, handleStartRecording],
+  );
 
-    const handleKeyUp = (e: KeyboardEvent) => {
-      // CMD key released - stop recording and auto-send
-      if (e.key === "Meta" && isRecording) {
-        e.preventDefault();
-        console.log("[Chat] CMD key released - stopping recording");
+  const handleRecordingButtonUp = useCallback(
+    (e: React.MouseEvent | React.TouchEvent) => {
+      e.preventDefault();
+      if (mode === "adk-bidi" && isRecording) {
+        console.log("[Chat] Recording button released - stopping recording");
+        handleStopRecording();
+      }
+    },
+    [mode, isRecording, handleStopRecording],
+  );
+
+  // Handle cases where the user moves cursor away while holding the button
+  useEffect(() => {
+    if (mode !== "adk-bidi" || !isRecording) return;
+
+    const handleGlobalMouseUp = () => {
+      if (isRecording) {
+        console.log("[Chat] Global mouse up - stopping recording");
         handleStopRecording();
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
+    const handleGlobalTouchEnd = () => {
+      if (isRecording) {
+        console.log("[Chat] Global touch end - stopping recording");
+        handleStopRecording();
+      }
     };
-  }, [mode, isRecording, handleStartRecording, handleStopRecording]);
+
+    window.addEventListener("mouseup", handleGlobalMouseUp);
+    window.addEventListener("touchend", handleGlobalTouchEnd);
+
+    return () => {
+      window.removeEventListener("mouseup", handleGlobalMouseUp);
+      window.removeEventListener("touchend", handleGlobalTouchEnd);
+    };
+  }, [mode, isRecording, handleStopRecording]);
 
   // Phase 2: ESC key interruption support
   useEffect(() => {
@@ -671,12 +716,59 @@ export function Chat({
         )}
       </div>
 
+      {/* Phase 3: Push-to-Talk Recording Button (BIDI mode only) */}
+      {mode === "adk-bidi" && (
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            padding: "0.5rem",
+            borderTop: "1px solid #333",
+            background: "#0a0a0a",
+          }}
+        >
+          <button
+            type="button"
+            onMouseDown={handleRecordingButtonDown}
+            onMouseUp={handleRecordingButtonUp}
+            onTouchStart={handleRecordingButtonDown}
+            onTouchEnd={handleRecordingButtonUp}
+            style={{
+              padding: "0.75rem 1.5rem",
+              background: isRecording ? "#dc2626" : "#1a1a1a",
+              border: isRecording ? "1px solid #991b1b" : "1px solid #333",
+              borderRadius: "8px",
+              color: "#fff",
+              fontSize: "1rem",
+              fontWeight: 600,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              transition: "all 0.2s ease",
+              transform: isRecording ? "scale(1.05)" : "scale(1)",
+            }}
+          >
+            <span
+              style={{
+                width: "12px",
+                height: "12px",
+                borderRadius: "50%",
+                background: isRecording ? "#fff" : "#ef4444",
+                animation: isRecording ? "pulse 1.5s ease-in-out infinite" : "none",
+              }}
+            />
+            <span>{isRecording ? "Recording... (Release to send)" : "Hold to Record"}</span>
+          </button>
+        </div>
+      )}
+
       <form
         onSubmit={onSubmit}
         style={{
           flexShrink: 0,
           padding: "1rem",
-          borderTop: "1px solid #333",
+          borderTop: mode === "adk-bidi" ? "none" : "1px solid #333",
           background: "#0a0a0a",
           display: "flex",
           flexDirection: "column",

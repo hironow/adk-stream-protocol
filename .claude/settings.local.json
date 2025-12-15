@@ -83,7 +83,8 @@
       "Bash(pnpm test:lib:*)",
       "Bash(pnpm vitest run:*)",
       "Bash(pnpx vitest run:*)",
-      "mcp__chrome-devtools__close_page"
+      "mcp__chrome-devtools__close_page",
+      "mcp__serena__find_referencing_symbols"
     ],
     "deny": [
       "Read(.env.keys)",

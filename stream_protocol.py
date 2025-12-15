@@ -166,7 +166,23 @@ class StreamProtocolConverter:
     def _format_sse_event(self, event_data: dict) -> str:
         """Format event data as SSE."""
         # Debug: Log event before SSE formatting
-        logger.debug(f"[ADK→SSE] {event_data}")
+        # For binary data events, truncate the content to avoid huge logs
+        log_data = event_data
+        event_type = event_data.get("type")
+
+        # Handle data-pcm, data-audio, and data-image events with large binary content
+        if event_type in ["data-pcm", "data-audio", "data-image"] and "data" in event_data:
+            log_data = event_data.copy()
+            data_copy = log_data["data"].copy()
+
+            # Truncate base64 content fields
+            for field in ["content", "data", "url"]:
+                if field in data_copy and isinstance(data_copy[field], str) and len(data_copy[field]) > 100:
+                    data_copy[field] = f"{data_copy[field][:50]}... (truncated {len(data_copy[field])} chars)"
+
+            log_data["data"] = data_copy
+
+        logger.debug(f"[ADK→SSE] {log_data}")
         return f"data: {json.dumps(event_data)}\n\n"
 
     async def convert_event(self, event: Event) -> AsyncGenerator[str, None]:  # noqa: C901, PLR0912, PLR0915

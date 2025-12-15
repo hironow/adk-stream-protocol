@@ -623,6 +623,13 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
         // Debug: Log chunk before processing
         console.debug("[WS→useChat]", chunk);
 
+        // Special logging for tool-approval-request events
+        if (chunk.type === "tool-approval-request") {
+          console.log(
+            `[WS Transport] Received tool-approval-request: approvalId=${chunk.approvalId}, toolCallId=${chunk.toolCallId}`,
+          );
+        }
+
         // Custom event handling (skip standard enqueue)
         // Returns true if standard enqueue should be skipped
         if (this.handleCustomEventWithSkip(chunk, controller)) {
