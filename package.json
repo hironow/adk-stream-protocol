@@ -10,7 +10,8 @@
     "format": "biome format --write .",
     "test:lib": "vitest run lib/",
     "test:app": "vitest run app/",
-    "test:components": "vitest run components/"
+    "test:components": "vitest run components/",
+    "test:e2e": "playwright test"
   },
   "keywords": [],
   "author": "",

@@ -130,3 +130,22 @@ class FrontendToolDelegate:
             logger.warning(
                 f"[FrontendDelegate] Received rejection for unknown tool_call_id={tool_call_id}"
             )
+
+
+# ========== Global Frontend Delegate Instance ==========
+# Singleton instance used by tools that delegate to frontend
+# This enables AP2-style awaitable delegation for browser-based tool execution
+#
+# IMPORTANT: This global instance is shared across all SSE mode connections!
+# In SSE mode (/chat and /stream endpoints), this delegate is used as a fallback
+# when tool_context.state["temp:delegate"] is not set, which means:
+#   - Multiple users' tool calls will share the same _pending_calls dictionary
+#   - tool_call_id collisions can occur between different users
+#   - One user might receive another user's tool results
+#
+# BIDI mode (/live endpoint) is safe because it creates a new FrontendToolDelegate
+# instance per WebSocket connection and stores it in tool_context.state["temp:delegate"].
+#
+# TODO: Consider creating per-session or per-connection delegate instances for SSE mode
+# to avoid cross-user interference.
+frontend_delegate = FrontendToolDelegate()

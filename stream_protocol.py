@@ -206,7 +206,8 @@ class StreamProtocolConverter:
 
         # [DEBUG] Pretty print entire Event object to find transcription fields
         try:
-            event_attrs = vars(event) if hasattr(event, "__dict__") else {}
+            # Filter out private attributes (starting with _) for cleaner logs
+            event_attrs = {k: v for k, v in vars(event).items() if not k.startswith('_')} if hasattr(event, "__dict__") else {}
             logger.debug(
                 f"[convert_event INPUT] Event attributes:\n{pformat(event_attrs, width=120, depth=3)}"
             )
@@ -229,7 +230,8 @@ class StreamProtocolConverter:
                     part_types.append("inline_data")
                     # [DEBUG] Pretty print Part and inline_data to find transcription
                     try:
-                        part_attrs = vars(part) if hasattr(part, "__dict__") else {}
+                        # Filter out private attributes (starting with _) for cleaner logs
+                        part_attrs = {k: v for k, v in vars(part).items() if not k.startswith('_')} if hasattr(part, "__dict__") else {}
                         logger.debug(
                             f"[convert_event INPUT]   Part[{idx}] attributes:\n{pformat(part_attrs, width=120, depth=2)}"
                         )

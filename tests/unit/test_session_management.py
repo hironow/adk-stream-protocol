@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 # Import the function we're testing and the global sessions dict
-from server import _sessions, get_or_create_session
+from adk_compat import _sessions, get_or_create_session
 
 
 @pytest.fixture(autouse=True)

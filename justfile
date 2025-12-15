@@ -56,9 +56,16 @@ lint-frontend:
 format-frontend:
     pnpm run format
 
-# Run Python tests
-test-python:
+# Run server-side tests (pytest)
+test-server:
     PYTHONPATH=. uv run pytest tests/unit/ -v
+    PYTHONPATH=. uv run pytest tests/integration/ -v
+
+# Run frontend tests (Vitest)
+test-frontend:
+    pnpm run test:lib
+    pnpm run test:app
+    pnpm run test:components
 
 # Setup E2E fixture symlinks (public/ -> tests/fixtures/)
 setup-e2e-fixtures:
@@ -79,30 +86,22 @@ setup-e2e-fixtures:
 
 # Run E2E tests (Playwright) - uses existing servers if running
 test-e2e:
-    pnpm exec playwright test
+    pnpm run test:e2e
+    PYTHONPATH=. uv run pytest tests/e2e/ -v
 
 # Run E2E tests with clean server restart - guarantees fresh servers
 test-e2e-clean: clean-port
     @echo "Playwright will start fresh servers automatically..."
     @echo "Running E2E tests..."
-    pnpm exec playwright test
-
-# Run E2E tests with UI (headed mode)
-test-e2e-ui:
-    pnpm exec playwright test --ui
-
-# Run E2E tests in headed mode (show browser) with clean servers
-test-e2e-headed: clean-port
-    @echo "Playwright will start fresh servers automatically..."
-    @echo "Running E2E tests in headed mode..."
-    pnpm exec playwright test --headed
+    pnpm run test:e2e
+    PYTHONPATH=. uv run pytest tests/e2e/ -v
 
 # Install Playwright browsers
 install-browsers:
     pnpm exec playwright install chromium
 
 # Run all tests
-test: test-python test-e2e
+test: test-server test-frontend test-e2e
 
 # Run all Python checks
 check-python: lint-python typecheck-python
@@ -172,11 +171,10 @@ kill:
 
 # Show project info
 info:
-    @echo "ADK-AI Data Protocol Project"
+    @echo "ADK Stream Protocol Project"
     @echo "============================="
-    @echo "Python version: $(cat .python-version)"
     @echo "Backend port: 8000"
     @echo "Frontend port: 3000"
     @echo ""
     @echo "Available commands:"
-    @just --list --unsorted
+    @just --list

@@ -2,6 +2,32 @@
 
 This file tracks current and future implementation tasks for the ADK AI Data Protocol project.
 
+## 🐛 Critical Bugs (2025-12-15 Discovery)
+
+### BUG-007: ADK SSE Session Management - All Users Share Same Session
+**Location:** `/chat` and `/stream` endpoints in server.py
+**Issue:** Fixed user_id values ("chat_user", "stream_user") cause all users to share the same session
+**Impact:** Session data, conversation history, and state are shared across all users
+**Root Cause:**
+```python
+# /chat endpoint
+user_id = "chat_user"  # Fixed value!
+
+# /stream endpoint
+user_id = "stream_user"  # Fixed value!
+```
+**Fix Required:** Use actual user identification (e.g., from JWT token, session cookie, or unique client ID)
+
+### BUG-008: ADK BIDI Tool Approval Not Working
+**Location:** `/live` endpoint WebSocket handler in server.py
+**Issue:** `tool_result` event from frontend is not handled, preventing tool approval flow
+**Impact:** Tools requiring approval (change_bgm, get_location) cannot receive user approval/denial
+**Root Cause:** Missing event handler for `event_type == "tool_result"`
+**Fix Required:** Implement `tool_result` event handler to:
+1. Extract tool_call_id and result from event
+2. Call `connection_delegate.resolve_tool_result()` or `.reject_tool_call()`
+3. Allow tool execution to continue with user's decision
+
 ## 📋 Implementation Phases
 
 **Phase 1-3:** ✅ Complete (All core features implemented)
@@ -22,7 +48,7 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
 - ✅ [P4-T10] WebSocket Controller Lifecycle Management (1 hour) - **COMPLETED 2025-12-14** (Controller lifecycle management implemented)
 - ✅ [P4-T9] Mode Switching Message History Preservation (1-2 hours) - **COMPLETED 2025-12-14** (History preservation + Clear History button)
 - ✅ [P4-T4.1] E2E Chunk Fixture Recording - **COMPLETED 2025-12-15** (All 4 patterns recorded successfully)
-- [P4-T4.4] Systematic Model/Mode Testing (4-6 hours)
+- ✅ [P4-T4.4] Systematic Model/Mode Testing - **COMPLETED 2025-12-15** (10/22 tests passing, found BUG-006)
 
 **Tier 3 - Planned (When use case emerges):**
 - [P4-T2] File References Support
@@ -887,6 +913,75 @@ export class WebSocketChatTransport {
 - Moved indicator to top (next to WebSocket latency display)
 - Added 3-second auto-hide with timer
 - Position: `top: "1rem", left: "calc(50% + 100px)"`
+
+---
+
+### [BUG-005] ADK BIDI Model Configuration
+
+**Date:** 2025-12-15
+**Status:** ✅ **RESOLVED** (By Design)
+**Severity:** Low (Documentation/expectation mismatch)
+
+**Resolution:**
+- ADK BIDI correctly uses `gemini-2.5-flash-native-audio-preview-09-2025` for audio support
+- This is the intended design - BIDI mode requires native-audio model
+- Made model configurable via `ADK_BIDI_MODEL` env var (defaults to native-audio)
+- Updated test expectations to match correct model
+
+**Remaining Issues:**
+- BIDI basic text test passes in isolation but fails in full test suite
+- Potential timing or initialization issue in test environment
+
+---
+
+### [BUG-006] ADK SSE Context Preservation Issue
+
+**Date:** 2025-12-15
+**Status:** ✅ **COMPLETED 2025-12-15** (Fixed with adk_compat module)
+**Severity:** High (Core functionality broken)
+
+**Investigation Results:**
+1. **Session Persistence**: ✅ Working correctly
+   - Sessions ARE being reused (no new session after initial creation)
+   - Session ID: `session_stream_user_agents` is consistent
+   - _sessions dict properly maintains session objects
+
+2. **Actual Problem**: ❌ Conversation history not maintained
+   - Code only sends last user message to ADK (line 514-515)
+   - Comment assumes "ADK session already has full history"
+   - But ADK is NOT maintaining conversation history internally
+   - Model explicitly says "I don't have memory of past conversations"
+
+**Root Cause:**
+- Implementation assumes ADK maintains conversation history in session
+- Reality: When switching from Gemini Direct (which doesn't use backend) to ADK modes, ADK has never seen the conversation history
+- ADK's `run_async()` only accepts `new_message` parameter, not full history
+- Need to sync conversation history to ADK session using session service
+
+**Resolution Implemented:**
+1. **Created `adk_compat.py` module** for ADK-specific session management
+2. **Function `sync_conversation_history_to_session()`**:
+   - Syncs frontend message history to ADK session via `session_service.append_event()`
+   - Tracks synced messages to prevent duplicates (`synced_message_count` in session state)
+   - Creates ADK Event objects for historical messages
+   - Works for both SSE and BIDI modes
+
+3. **Implementation Details:**
+   - **File:** `adk_compat.py` (new module)
+   - **Function:** `sync_conversation_history_to_session()`
+   - **Applied to:** Both `stream_agent_chat()` (SSE) and WebSocket handler (BIDI)
+   - **Key insight:** ADK sessions don't automatically get frontend history when switching modes
+
+4. **Test Verification:** ✅
+   - Started conversation in Gemini Direct (name: Alice, color: blue)
+   - Switched to ADK SSE mode
+   - ADK correctly recalled conversation context
+   - Server logs confirm: "Syncing 4 new messages" with proper role attribution
+
+**Impact Fixed:**
+- ✅ Context now preserved when switching from Gemini Direct to ADK modes
+- ✅ Multi-turn conversations work correctly across mode switches
+- ✅ Both SSE and BIDI modes handle history synchronization
 
 ---
 

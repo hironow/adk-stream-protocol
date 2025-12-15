@@ -1,0 +1,243 @@
+"""
+ADK (Agent Development Kit) Compatibility Functions
+
+This module contains ADK-specific functions for managing sessions,
+conversation history synchronization, and other ADK-related operations.
+These functions are used by both ADK SSE and ADK BIDI modes.
+"""
+
+from typing import Any, Optional
+from loguru import logger
+from google.adk.events import Event
+
+
+# Session storage (shared across all ADK modes)
+_sessions: dict[str, Any] = {}
+
+
+async def get_or_create_session(
+    user_id: str,
+    agent_runner: Any,  # InMemoryRunner type
+    app_name: str = "agents",
+    connection_signature: Optional[str] = None,
+) -> Any:
+    """
+    Get or create a session for a user with specific agent runner.
+
+    ADK Design Note: Session = Connection
+    In ADK's architecture, each WebSocket connection should have its own session
+    to avoid race conditions when run_live() is called concurrently. While ADK
+    treats 'session' and 'connection' as equivalent concepts, we use the term
+    'connection_signature' to emphasize this is not an operational ID but rather
+    a unique identifier to distinguish sessions for the same user.
+
+    Reference: https://github.com/google/adk-python/discussions/2784
+
+    Args:
+        user_id: User identifier
+        agent_runner: ADK agent runner instance
+        app_name: Application name (default: "agents")
+        connection_signature: Optional signature to create unique session per connection.
+                            Should be UUID v4 to prevent collisions.
+
+    Returns:
+        Session object
+
+    Usage:
+        # Traditional session (backward compatible, for SSE mode)
+        session = await get_or_create_session(user_id, runner, app_name)
+
+        # Connection-specific session (for WebSocket BIDI mode)
+        connection_signature = str(uuid.uuid4())
+        session = await get_or_create_session(user_id, runner, app_name, connection_signature)
+    """
+    # Generate session_id based on whether connection_signature is provided
+    if connection_signature:
+        # Each WebSocket connection gets unique session to prevent race conditions
+        session_id = f"session_{user_id}_{connection_signature}"
+    else:
+        # Traditional session for SSE mode (one session per user+app)
+        session_id = f"session_{user_id}_{app_name}"
+
+    if session_id not in _sessions:
+        logger.info(
+            f"Creating new session for user: {user_id} with app: {app_name}"
+            + (f", connection: {connection_signature}" if connection_signature else "")
+        )
+        session = await agent_runner.session_service.create_session(
+            app_name=app_name,
+            user_id=user_id,
+            session_id=session_id,
+        )
+        _sessions[session_id] = session
+
+    return _sessions[session_id]
+
+
+async def sync_conversation_history_to_session(
+    session: Any,
+    session_service: Any,
+    messages: list,
+    current_mode: str = "ADK",
+) -> int:
+    """
+    Synchronize frontend message history with ADK session events.
+
+    This function addresses the issue where ADK sessions don't have conversation
+    history when switching from other modes (e.g., Gemini Direct -> ADK SSE/BIDI).
+
+    The function:
+    1. Checks existing session events to avoid duplicates
+    2. Tracks synced messages using session state
+    3. Only syncs new messages that haven't been added yet
+    4. Creates proper ADK Events for historical messages
+
+    Args:
+        session: ADK session object
+        session_service: ADK session service for managing events
+        messages: List of ChatMessage objects from frontend
+        current_mode: Current backend mode ("SSE" or "BIDI")
+
+    Returns:
+        Number of messages synced
+
+    Note:
+        - Messages list includes both user and assistant messages
+        - The last message in the list is typically the new message
+        - This function syncs all except the last message
+    """
+    # Frontend sends all messages including the new one
+    # We need to sync all except the last message (which will be sent as new_message)
+    messages_to_sync = messages[:-1] if len(messages) > 1 else []
+
+    # Edge case: Check if we need to sync (avoid duplicates)
+    # We track synced message count in session state to prevent duplicates
+    synced_count = session.state.get("synced_message_count", 0)
+
+    # Calculate how many new messages need syncing
+    new_messages_to_sync = messages_to_sync[synced_count:] if synced_count < len(messages_to_sync) else []
+
+    # If there are new messages to sync
+    if new_messages_to_sync:
+        logger.info(
+            f"[{current_mode}] Syncing {len(new_messages_to_sync)} new messages "
+            f"(already synced: {synced_count})"
+        )
+
+        # Add only the new messages as events
+        for i, msg in enumerate(new_messages_to_sync):
+            msg_content = msg.to_adk_content()
+
+            # Create unique invocation ID based on absolute position
+            event_index = synced_count + i
+
+            # Create event for this historical message
+            event = Event(
+                invocation_id=f"sync_{event_index}_{msg_content.role}",
+                author=msg_content.role,
+                content=msg_content,
+            )
+
+            # Append to session via session service
+            await session_service.append_event(session=session, event=event)
+
+            logger.info(f"[{current_mode}] Synced message {event_index}: role={msg_content.role}")
+
+        # Update the synced count in session state
+        session.state["synced_message_count"] = len(messages_to_sync)
+        logger.info(f"[{current_mode}] Updated synced_message_count to {len(messages_to_sync)}")
+
+        return len(new_messages_to_sync)
+
+    return 0
+
+
+async def prepare_session_for_mode_switch(
+    session: Any,
+    session_service: Any,
+    messages: list,
+    from_mode: str,
+    to_mode: str,
+) -> None:
+    """
+    Prepare an ADK session when switching between modes.
+
+    This function ensures conversation continuity when switching between:
+    - Gemini Direct -> ADK SSE
+    - Gemini Direct -> ADK BIDI
+    - ADK SSE -> ADK BIDI
+    - ADK BIDI -> ADK SSE
+
+    Args:
+        session: ADK session object
+        session_service: ADK session service
+        messages: Full message history from frontend
+        from_mode: Previous mode ("gemini", "adk-sse", "adk-bidi")
+        to_mode: New mode ("adk-sse", "adk-bidi")
+    """
+    # If switching from Gemini Direct to any ADK mode, we need full sync
+    if from_mode == "gemini" and to_mode.startswith("adk"):
+        logger.info(f"Mode switch detected: {from_mode} -> {to_mode}, performing full history sync")
+
+        # Clear the synced count to force full sync
+        session.state["synced_message_count"] = 0
+
+        # Sync the conversation history
+        synced = await sync_conversation_history_to_session(
+            session=session,
+            session_service=session_service,
+            messages=messages,
+            current_mode=to_mode.upper().replace("-", "_"),
+        )
+
+        logger.info(f"Mode switch sync complete: {synced} messages synced")
+
+    # If switching between ADK modes, history should already be there
+    elif from_mode.startswith("adk") and to_mode.startswith("adk"):
+        logger.info(f"Switching between ADK modes: {from_mode} -> {to_mode}, history preserved")
+
+    # Track the current mode in session state
+    session.state["current_mode"] = to_mode
+
+
+def clear_sessions() -> None:
+    """
+    Clear all sessions. Useful for testing or cleanup.
+    """
+    global _sessions
+    _sessions.clear()
+    logger.info("Cleared all ADK sessions")
+
+
+def get_session_count() -> int:
+    """
+    Get the current number of active sessions.
+
+    Returns:
+        Number of active sessions
+    """
+    return len(_sessions)
+
+
+def detect_mode_switch(session: Any, current_mode: str) -> tuple[bool, str]:
+    """
+    Detect if a mode switch has occurred.
+
+    Args:
+        session: ADK session object
+        current_mode: Current backend mode
+
+    Returns:
+        Tuple of (mode_switched: bool, previous_mode: str)
+    """
+    previous_mode = session.state.get("current_mode", None)
+
+    if previous_mode is None:
+        # First time using this session
+        return False, ""
+
+    if previous_mode != current_mode:
+        # Mode has changed
+        return True, previous_mode
+
+    return False, previous_mode

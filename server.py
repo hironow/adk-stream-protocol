@@ -38,8 +38,21 @@ from ai_sdk_v6_compat import (
     ChatMessage,
     process_chat_message_for_bidi,
 )
+from adk_compat import (
+    get_or_create_session,
+    sync_conversation_history_to_session,
+    prepare_session_for_mode_switch,
+    detect_mode_switch,
+)
+from adk_ag_runner import (
+    sse_agent,
+    sse_agent_runner,
+    bidi_agent,
+    bidi_agent_runner,
+    TOOLS_REQUIRING_APPROVAL,
+)
 from stream_protocol import stream_adk_to_ai_sdk
-from tool_delegate import FrontendToolDelegate
+from tool_delegate import frontend_delegate
 
 # Configure file logging
 log_dir = Path("logs")
@@ -81,464 +94,12 @@ app.add_middleware(
 )
 
 
-# ========== Frontend Tool Delegation (Phase 4 - Awaitable Pattern) ==========
-# Implements AP2-style awaitable delegation for client-side tools
 
-
-# Global frontend delegate instance
-# Note: FrontendToolDelegate is now defined in tool_delegate.py
-frontend_delegate = FrontendToolDelegate()
-
-
-# ========== Tool Definitions ==========
-# Real-world example tools that demonstrate tool calling and tool results
-
-# File-based cache for weather data
-WEATHER_CACHE_TTL = 43200  # 12 hours in seconds
-CACHE_DIR = Path(".cache")
-
-
-async def _get_weather_from_cache(location: str) -> dict[str, Any] | None:
-    """Get weather data from file cache if available and not expired."""
-    import time
-
-    CACHE_DIR.mkdir(exist_ok=True)
-    cache_file = CACHE_DIR / f"weather_{location.lower().replace(' ', '_')}.json"
-
-    try:
-        if cache_file.exists():
-            cache_data = json.loads(cache_file.read_text())
-            if time.time() - cache_data["timestamp"] < WEATHER_CACHE_TTL:
-                return cache_data["data"]
-    except Exception as e:
-        logger.warning(f"Failed to read cache for {location}: {e}")
-
-    return None
-
-
-async def _set_weather_cache(location: str, data: dict[str, Any]) -> None:
-    """Save weather data to file cache."""
-    import time
-
-    CACHE_DIR.mkdir(exist_ok=True)
-    cache_file = CACHE_DIR / f"weather_{location.lower().replace(' ', '_')}.json"
-
-    try:
-        cache_data = {"data": data, "timestamp": time.time()}
-        cache_file.write_text(json.dumps(cache_data, indent=2))
-    except Exception as e:
-        logger.warning(f"Failed to write cache for {location}: {e}")
-
-
-async def get_weather(location: str) -> dict[str, Any]:
-    """
-    Get weather information for a location using OpenWeatherMap API.
-
-    Args:
-        location: City name or location to get weather for (must be in English)
-
-    Returns:
-        Weather information including temperature and conditions
-    """
-    # Check cache first
-    cached_data = await _get_weather_from_cache(location)
-    if cached_data:
-        logger.info(f"Tool call: get_weather({location}) -> {cached_data} (cached)")
-        return {**cached_data, "cached": True}
-
-    # Get API key from environment
-    api_key = os.getenv("OPENWEATHERMAP_API_KEY")
-
-    if not api_key:
-        logger.warning("OPENWEATHERMAP_API_KEY not set, using mock data")
-        # Fallback to mock data
-        mock_weather = {
-            "Tokyo": {"temperature": 18, "condition": "Cloudy", "humidity": 65},
-            "San Francisco": {"temperature": 15, "condition": "Foggy", "humidity": 80},
-            "London": {"temperature": 12, "condition": "Rainy", "humidity": 85},
-            "New York": {"temperature": 10, "condition": "Sunny", "humidity": 50},
-        }
-        weather = mock_weather.get(
-            location,
-            {
-                "temperature": 20,
-                "condition": "Unknown",
-                "humidity": 60,
-                "note": f"Mock data for {location}",
-            },
-        )
-        logger.info(f"Tool call: get_weather({location}) -> {weather} (mock)")
-        return weather
-
-    # Call OpenWeatherMap API
-    url = "https://api.openweathermap.org/data/2.5/weather"
-    params = {
-        "q": location,
-        "appid": api_key,
-        "units": "metric",  # Get temperature in Celsius
-    }
-
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, params=params) as response:
-                if response.status == 200:  # noqa: PLR2004 - HTTP OK status code
-                    data = await response.json()
-                    weather = {
-                        "temperature": round(data["main"]["temp"], 1),
-                        "condition": data["weather"][0]["main"],
-                        "description": data["weather"][0]["description"],
-                        "humidity": data["main"]["humidity"],
-                        "feels_like": round(data["main"]["feels_like"], 1),
-                        "wind_speed": data["wind"]["speed"],
-                    }
-                    # Cache the result
-                    await _set_weather_cache(location, weather)
-                    logger.info(f"Tool call: get_weather({location}) -> {weather} (API)")
-                    return weather
-                else:
-                    error_msg = f"API returned status {response.status}"
-                    logger.error(f"Tool call: get_weather({location}) failed: {error_msg}")
-                    return {
-                        "error": error_msg,
-                        "location": location,
-                        "note": "Failed to fetch weather data from API",
-                    }
-    except Exception as e:
-        logger.error(f"Tool call: get_weather({location}) exception: {e}")
-        return {
-            "error": str(e),
-            "location": location,
-            "note": "Exception occurred while fetching weather data",
-        }
-
-
-def calculate(expression: str) -> dict[str, Any]:
-    """
-    Calculate a mathematical expression.
-
-    Args:
-        expression: Mathematical expression to evaluate (e.g., "2 + 2", "10 * 5")
-
-    Returns:
-        Calculation result
-    """
-    try:
-        # Safe evaluation - only allows basic math operations
-        # In production, use a proper math expression parser
-        result = eval(expression, {"__builtins__": {}}, {})
-        logger.info(f"Tool call: calculate({expression}) -> {result}")
-        return {"expression": expression, "result": result, "success": True}
-    except Exception as e:
-        logger.error(f"Tool call: calculate({expression}) failed: {e}")
-        return {"expression": expression, "error": str(e), "success": False}
-
-
-def get_current_time(timezone: str = "UTC") -> dict[str, Any]:
-    """
-    Get the current time.
-
-    Args:
-        timezone: Timezone name (default: UTC)
-
-    Returns:
-        Current time information
-    """
-    now = datetime.now(UTC)
-    result = {
-        "datetime": now.isoformat(),
-        "timezone": timezone,
-        "formatted": now.strftime("%Y-%m-%d %H:%M:%S"),
-    }
-    logger.info(f"Tool call: get_current_time({timezone}) -> {result}")
-    return result
-
-
-async def change_bgm(track: int, tool_context: ToolContext) -> dict[str, Any]:
-    """
-    Change background music track (executed on frontend via browser AudioContext API).
-
-    This tool requires user approval before execution and delegates actual
-    execution to the frontend browser.
-
-    Args:
-        track: Track number (0 or 1)
-        tool_context: ADK ToolContext (automatically injected)
-
-    Returns:
-        Result of BGM change operation from frontend
-    """
-    # Phase 3: Access connection-specific delegate from session state
-    # Fall back to global delegate for SSE mode (backward compatibility)
-    delegate = tool_context.state.get("temp:delegate") or frontend_delegate
-    client_id = tool_context.state.get("client_identifier", "sse_mode")
-
-    # Get tool_call_id from ToolContext
-    tool_call_id = tool_context.function_call_id
-    if not tool_call_id:
-        error_msg = "Missing function_call_id in ToolContext"
-        logger.error(f"[change_bgm] {error_msg}")
-        return {"success": False, "error": error_msg}
-
-    logger.info(f"[change_bgm] client={client_id}, tool_call_id={tool_call_id}, track={track}")
-
-    # Delegate execution to frontend and await result
-    result = await delegate.execute_on_frontend(
-        tool_call_id=tool_call_id,
-        tool_name="change_bgm",
-        args={"track": track},
-    )
-
-    logger.info(f"[change_bgm] client={client_id}, result={result}")
-    return result
-
-
-async def get_location(tool_context: ToolContext) -> dict[str, Any]:
-    """
-    Get user's current location (executed on frontend via browser Geolocation API).
-
-    This tool requires user approval before execution due to privacy sensitivity
-    and delegates actual execution to the frontend browser.
-
-    Args:
-        tool_context: ADK ToolContext (automatically injected)
-
-    Returns:
-        User's location information from browser Geolocation API
-    """
-    # Phase 3: Access connection-specific delegate from session state
-    # Fall back to global delegate for SSE mode (backward compatibility)
-    delegate = tool_context.state.get("temp:delegate") or frontend_delegate
-    client_id = tool_context.state.get("client_identifier", "sse_mode")
-
-    # Get tool_call_id from ToolContext
-    tool_call_id = tool_context.function_call_id
-    if not tool_call_id:
-        error_msg = "Missing function_call_id in ToolContext"
-        logger.error(f"[get_location] {error_msg}")
-        return {"success": False, "error": error_msg}
-
-    logger.info(f"[get_location] client={client_id}, tool_call_id={tool_call_id}")
-
-    # Delegate execution to frontend and await result
-    result = await delegate.execute_on_frontend(
-        tool_call_id=tool_call_id,
-        tool_name="get_location",
-        args={},
-    )
-
-    logger.info(f"[get_location] client={client_id}, result={result}")
-    return result
-
-
-# ========== Tool Approval Configuration ==========
-# Tools that require user approval before execution (Phase 4)
-TOOLS_REQUIRING_APPROVAL = {"change_bgm", "get_location"}
-
-
-# ========== ADK Agent Setup ==========
-# Based on official ADK quickstart examples
-# https://google.github.io/adk-docs/get-started/quickstart/
-
-# Verify API key is set in environment
-# ADK reads GOOGLE_API_KEY (not GOOGLE_GENERATIVE_AI_API_KEY like AI SDK)
-API_KEY = os.getenv("GOOGLE_API_KEY")
-if not API_KEY:
-    logger.error("GOOGLE_API_KEY not found in environment! ADK will fail.")
-    logger.error("Note: ADK uses GOOGLE_API_KEY, while AI SDK uses GOOGLE_GENERATIVE_AI_API_KEY")
-else:
-    logger.info(f"ADK API key loaded: {API_KEY[:10]}...")
-
-# SSE Agent: Uses stable model for generateContent API (SSE streaming)
-sse_agent = Agent(
-    name="adk_assistant_agent_sse",
-    model="gemini-2.5-flash",  # Stable Gemini 2.5 Flash for generateContent API (SSE mode)
-    description="An intelligent assistant that can check weather, perform calculations, control BGM, and access location",
-    instruction=(
-        "You are a helpful AI assistant with access to real-time tools. "
-        "Use the available tools when needed to provide accurate information:\n"
-        "- get_weather: Check weather for any city\n"
-        "- calculate: Perform mathematical calculations\n"
-        "- get_current_time: Get the current time\n"
-        "- change_bgm: Change background music track (requires user approval)\n"
-        "- get_location: Get user's location (requires user approval)\n\n"
-        "Note: change_bgm and get_location require user approval before execution.\n"
-        "Always explain what you're doing when using tools."
-    ),
-    tools=[get_weather, calculate, get_current_time, change_bgm, get_location],
-)
-
-# BIDI Agent: Uses Live API model for bidirectional streaming
-bidi_agent = Agent(
-    name="adk_assistant_agent_bidi",
-    model="gemini-2.5-flash-native-audio-preview-09-2025",  # Live API model for BIDI mode with audio support
-    description="An intelligent assistant that can check weather, perform calculations, control BGM, and access location",
-    instruction=(
-        "You are a helpful AI assistant with access to real-time tools. "
-        "Use the available tools when needed to provide accurate information:\n"
-        "- get_weather: Check weather for any city\n"
-        "- calculate: Perform mathematical calculations\n"
-        "- get_current_time: Get the current time\n"
-        "- change_bgm: Change background music track (requires user approval)\n"
-        "- get_location: Get user's location (requires user approval)\n\n"
-        "Note: change_bgm and get_location require user approval before execution.\n"
-        "Always explain what you're doing when using tools."
-    ),
-    tools=[get_weather, calculate, get_current_time, change_bgm, get_location],
-)
-
-# Initialize InMemoryRunners for each agent
-sse_agent_runner = InMemoryRunner(agent=sse_agent, app_name="agents")
-bidi_agent_runner = InMemoryRunner(agent=bidi_agent, app_name="agents")
-
-# Global session management (in-memory for now)
-# In production, use persistent session storage
-_sessions: dict[str, Any] = {}
-
-
-async def get_or_create_session(
-    user_id: str,
-    agent_runner: InMemoryRunner,
-    app_name: str = "agents",
-    connection_signature: str | None = None,
-) -> Any:
-    """
-    Get or create a session for a user with specific agent runner.
-
-    ADK Design Note: Session = Connection
-    In ADK's architecture, each WebSocket connection should have its own session
-    to avoid race conditions when run_live() is called concurrently. While ADK
-    treats 'session' and 'connection' as equivalent concepts, we use the term
-    'connection_signature' to emphasize this is not an operational ID but rather
-    a unique identifier to distinguish sessions for the same user.
-
-    Reference: https://github.com/google/adk-python/discussions/2784
-
-    Args:
-        user_id: User identifier
-        agent_runner: ADK agent runner instance
-        app_name: Application name (default: "agents")
-        connection_signature: Optional signature to create unique session per connection.
-                            Should be UUID v4 to prevent collisions.
-
-    Returns:
-        Session object
-
-    Usage:
-        # Traditional session (backward compatible, for SSE mode)
-        session = await get_or_create_session(user_id, runner, app_name)
-
-        # Connection-specific session (for WebSocket BIDI mode)
-        connection_signature = str(uuid.uuid4())
-        session = await get_or_create_session(user_id, runner, app_name, connection_signature)
-    """
-    # Generate session_id based on whether connection_signature is provided
-    if connection_signature:
-        # Each WebSocket connection gets unique session to prevent race conditions
-        session_id = f"session_{user_id}_{connection_signature}"
-    else:
-        # Traditional session for SSE mode (one session per user+app)
-        session_id = f"session_{user_id}_{app_name}"
-
-    if session_id not in _sessions:
-        logger.info(
-            f"Creating new session for user: {user_id} with app: {app_name}"
-            + (f", connection: {connection_signature}" if connection_signature else "")
-        )
-        session = await agent_runner.session_service.create_session(
-            app_name=app_name,
-            user_id=user_id,
-            session_id=session_id,
-        )
-        _sessions[session_id] = session
-
-    return _sessions[session_id]
-
-
-async def run_agent_chat(
-    user_message: str,
-    user_id: str,
-    agent_runner: InMemoryRunner,
-    app_name: str = "agents",
-) -> str:
-    """
-    Run the ADK agent with a user message and return the response.
-    Based on official ADK examples using InMemoryRunner.
-    """
-    session = await get_or_create_session(user_id, agent_runner, app_name)
-
-    # Create message content
-    message_content = types.Content(role="user", parts=[types.Part(text=user_message)])
-
-    # Run agent and collect response
-    response_text = ""
-    async for event in agent_runner.run_async(
-        user_id=user_id,
-        session_id=session.id,
-        new_message=message_content,
-    ):
-        # Collect final response
-        if event.is_final_response() and event.content and event.content.parts:
-            for part in event.content.parts:
-                if hasattr(part, "text") and part.text:
-                    response_text += part.text
-
-    return response_text.strip()
-
-
-async def stream_agent_chat(messages: list[ChatMessage], user_id: str = "default_user"):
-    """
-    Stream ADK agent responses as SSE events in AI SDK v6 format.
-    Accepts full message history (AI SDK v6 Data Stream Protocol).
-    Converts to ADK format internally (implementation detail).
-    Yields SSE-formatted events compatible with AI SDK's Data Stream Protocol.
-
-    Note: ADK session management preserves conversation history internally.
-    Frontend sends full history (AI SDK protocol), but ADK uses session-based history.
-
-    This implementation now supports:
-    - Text streaming
-    - Tool calls (function_call/function_response)
-    - Reasoning (thought)
-    - Dynamic finish reasons
-    - Usage metadata
-    """
-    # Reuse session for the same user (ADK manages conversation history)
-    session = await get_or_create_session(user_id, sse_agent_runner, "agents")
-
-    # Extract last user message (ADK session already has full history)
-    if not messages:
-        return
-
-    last_user_message_obj = messages[-1]
-    last_user_message_text = last_user_message_obj.get_text_content()
-    if not last_user_message_text:
-        return
-
-    logger.info(f"Streaming chat for user {user_id}, message: {last_user_message_text[:50]}...")
-    logger.info(
-        f"Agent model: {sse_agent.model}, tools: {[tool.__name__ if callable(tool) else str(tool) for tool in sse_agent.tools]}"
-    )
-
-    # Create ADK message content for the latest user input (includes images!)
-    message_content = last_user_message_obj.to_adk_content()
-
-    # Create ADK event stream
-    event_stream = sse_agent_runner.run_async(
-        user_id=user_id,
-        session_id=session.id,
-        new_message=message_content,
-    )
-
-    # Convert ADK stream to AI SDK v6 format using protocol converter
-    # Phase 4: Pass tools_requiring_approval for tool approval flow
-    event_count = 0
-    async for sse_event in stream_adk_to_ai_sdk(
-        event_stream, tools_requiring_approval=TOOLS_REQUIRING_APPROVAL
-    ):
-        event_count += 1
-        yield sse_event
-
-    logger.info(f"Stream completed with {event_count} SSE events")
+# ========== Module Dependencies ==========
+# Agent and tool definitions have been moved to adk_ag_runner.py for better modularity
+# Session management has been moved to adk_compat.py
+# Frontend delegation is managed by tool_delegate.py
+# Helper functions have been inlined into endpoints for transaction script pattern
 
 
 # Message types imported from ai_sdk_v6_compat.py
@@ -581,27 +142,54 @@ async def chat(request: ChatRequest):
     """
     Non-streaming chat endpoint (NOT USED - for reference only)
 
+    Transaction Script Pattern:
+    1. Validate input
+    2. Get or create session
+    3. Create message content
+    4. Run agent and collect response
+    5. Return response
+
     Current architecture uses /stream endpoint exclusively.
     This endpoint is kept for reference but not actively used.
     Use /stream for production.
     """
-    logger.info(f"Received chat request with {len(request.messages)} messages")
+    logger.info(f"[/chat] Received request with {len(request.messages)} messages")
 
-    # Get the last user message
+    # 1. Validate input - get the last user message
     last_message = request.messages[-1].get_text_content() if request.messages else ""
-
     if not last_message:
         return ChatResponse(message="No message provided")
 
+    # 2. Session management
     user_id = "chat_user"
+    app_name = "agents"
+    session = await get_or_create_session(user_id, sse_agent_runner, app_name)
+    logger.info(f"[/chat] Session ID: {session.id}")
 
-    # Run ADK agent and get response
+    # 3. Create ADK message content from user input
+    message_content = types.Content(role="user", parts=[types.Part(text=last_message)])
+
+    # 4. Run ADK agent and collect response
+    response_text = ""
     try:
-        response_text = await run_agent_chat(last_message, user_id, sse_agent_runner, "agents")
-        logger.info(f"ADK agent response: {response_text[:100]}...")
+        async for event in sse_agent_runner.run_async(
+            user_id=user_id,
+            session_id=session.id,
+            new_message=message_content,
+        ):
+            # Collect final response text
+            if event.is_final_response() and event.content and event.content.parts:
+                for part in event.content.parts:
+                    if hasattr(part, "text") and part.text:
+                        response_text += part.text
+
+        # 5. Return collected response
+        response_text = response_text.strip()
+        logger.info(f"[/chat] Response: {response_text[:100]}...")
         return ChatResponse(message=response_text)
+
     except Exception as e:
-        logger.error(f"Error running ADK agent: {e}")
+        logger.error(f"[/chat] Error running ADK agent: {e}")
         return ChatResponse(message=f"Error: {e!s}")
 
 
@@ -610,25 +198,31 @@ async def stream(request: ChatRequest):
     """
     SSE streaming endpoint (Phase 2 - FINAL)
 
+    Transaction Script Pattern:
+    1. Validate input messages
+    2. Get or create session
+    3. Sync conversation history (mode switching support)
+    4. Create ADK message content from latest message
+    5. Run ADK agent in streaming mode
+    6. Convert ADK events to AI SDK format and stream
+
     AI SDK v6 Data Stream Protocol compliant endpoint.
     - Request: UIMessage[] (full message history)
     - Response: SSE stream (text-start, text-delta, text-end, finish)
-
-    Internal ADK processing is hidden from the API consumer.
     """
-    logger.info(f"Received stream request with {len(request.messages)} messages")
-    # Debug: Log message parts to investigate why GenericPart warnings aren't appearing
+    logger.info(f"[/stream] Received request with {len(request.messages)} messages")
+
+    # Debug logging for message parts
     for i, msg in enumerate(request.messages):
         msg_context = msg.to_adk_content()
         logger.info(
-            f"Message {i}: role={msg_context.role}, parts={len(msg_context.parts) if msg_context.parts else 0}"
+            f"[/stream] Message {i}: role={msg_context.role}, "
+            f"parts={len(msg_context.parts) if msg_context.parts else 0}"
         )
-        if msg_context.parts:
-            for j, part in enumerate(msg_context.parts):
-                logger.info(f"  Part {j}: type={part}")
 
+    # 1. Validate input messages
     if not request.messages:
-        # Return error as SSE
+        # Return error as SSE stream
         async def error_stream():
             yield f"data: {json.dumps({'type': 'error', 'error': 'No messages provided'})}\n\n"
             yield "data: [DONE]\n\n"
@@ -642,11 +236,58 @@ async def stream(request: ChatRequest):
             },
         )
 
-    user_id = "stream_user"
+    # Create SSE stream generator inline (transaction script pattern)
+    async def generate_sse_stream():
+        # 2. Session management
+        user_id = "stream_user"
+        session = await get_or_create_session(user_id, sse_agent_runner, "agents")
+        logger.info(f"[/stream] Session ID: {session.id}")
 
-    # Stream ADK agent response (pass full message history)
+        # 3. Sync conversation history (BUG-006 FIX)
+        # When switching modes (e.g., Gemini Direct -> ADK SSE), sync history
+        await sync_conversation_history_to_session(
+            session=session,
+            session_service=sse_agent_runner.session_service,
+            messages=request.messages,
+            current_mode="SSE",
+        )
+
+        # 4. Process the latest message
+        last_user_message_obj = request.messages[-1]
+        last_user_message_text = last_user_message_obj.get_text_content()
+        if not last_user_message_text:
+            logger.warning("[/stream] Last message has no text content")
+            return
+
+        logger.info(f"[/stream] Processing: {last_user_message_text[:50]}...")
+        logger.info(
+            f"[/stream] Agent model: {sse_agent.model}, "
+            f"tools: {[tool.__name__ if callable(tool) else str(tool) for tool in sse_agent.tools]}"
+        )
+
+        # Create ADK message content (includes images and other parts)
+        message_content = last_user_message_obj.to_adk_content()
+
+        # 5. Run ADK agent with streaming
+        event_stream = sse_agent_runner.run_async(
+            user_id=user_id,
+            session_id=session.id,
+            new_message=message_content,
+        )
+
+        # 6. Convert ADK events to AI SDK format and yield SSE events
+        event_count = 0
+        async for sse_event in stream_adk_to_ai_sdk(
+            event_stream, tools_requiring_approval=TOOLS_REQUIRING_APPROVAL
+        ):
+            event_count += 1
+            yield sse_event
+
+        logger.info(f"[/stream] Completed with {event_count} SSE events")
+
+    # Return streaming response
     return StreamingResponse(
-        stream_agent_chat(request.messages, user_id),
+        generate_sse_stream(),
         media_type="text/event-stream",
         headers={
             "Content-Type": "text/event-stream",
@@ -824,6 +465,21 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
                     # Handle message event (chat messages)
                     if event_type == "message":
                         message_data = event.get("data", {})
+
+                        # BUG-006 FIX: Also sync history for BIDI mode
+                        # When switching from Gemini Direct or ADK SSE to BIDI
+                        messages = message_data.get("messages", [])
+                        if messages:
+                            # Convert to ChatMessage objects for sync function
+                            chat_messages = [ChatMessage(**msg) for msg in messages]
+
+                            # Sync conversation history
+                            await sync_conversation_history_to_session(
+                                session=session,
+                                session_service=bidi_agent_runner.session_service,
+                                messages=chat_messages,
+                                current_mode="BIDI",
+                            )
 
                         # Process AI SDK v6 message format → ADK format
                         # Separates image blobs from text parts (Live API requirement)
