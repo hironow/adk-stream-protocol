@@ -816,7 +816,81 @@ export class WebSocketChatTransport {
 
 ---
 
-## 🐛 Error Tracking - Session 2025-12-15
+## 🐛 Error Tracking - Session 2025-12-15 (Morning)
+## Critical Bug Fixes - Session 2025-12-15 (Evening)
+
+### [BUG-001] Server Chunk Recorder Not Working
+
+**Date:** 2025-12-15
+**Status:** ✅ **FIXED**
+**Severity:** High (Core debugging feature broken)
+
+**Root Cause:**
+- `load_dotenv()` called after imports in server.py
+- `chunk_logger.py` imported before environment variables loaded
+- ChunkLogger singleton initialized with `CHUNK_LOGGER_ENABLED=false`
+
+**Fix:**
+- Moved `load_dotenv(".env.local")` to line 24, before local imports
+- Now ChunkLogger correctly reads environment variables
+
+---
+
+### [BUG-002] WebSocket Capacity Error Broke ADK BIDI
+
+**Date:** 2025-12-15
+**Status:** ✅ **FIXED**
+**Severity:** Critical (ADK BIDI mode broken)
+
+**Root Cause:**
+- Previous payload size management truncated messages to 50
+- ADK BIDI requires full conversation context
+- Truncation was causing context loss
+
+**Fix:**
+- Removed message truncation entirely
+- Adjusted warning thresholds: 100KB → 500KB, 5MB → 10MB
+- Preserved size monitoring without truncation
+- Deleted obsolete test file: `lib/websocket-chat-transport-payload.test.ts`
+
+---
+
+### [BUG-003] BGM Plays When Tab Inactive
+
+**Date:** 2025-12-15
+**Status:** ✅ **FIXED**
+**Severity:** Medium (Poor user experience)
+
+**Root Cause:**
+- No visibility change event listener
+- BGM continued playing when user switched tabs
+
+**Fix:**
+- Added `visibilitychange` event listener in lib/audio-context.tsx
+- BGM fades out when tab becomes hidden
+- BGM restores when tab becomes visible (respecting ducking state)
+- Added refs for state tracking: `currentBgmTrackRef`, `isPlayingRef`
+
+---
+
+### [BUG-004] Audio File UI Overlaps Send Button
+
+**Date:** 2025-12-15
+**Status:** ✅ **FIXED**
+**Severity:** Medium (UI overlap issue)
+
+**Root Cause:**
+- Audio completion indicator positioned at bottom-right
+- Overlapped with message send button
+
+**Fix:**
+- Moved indicator to top (next to WebSocket latency display)
+- Added 3-second auto-hide with timer
+- Position: `top: "1rem", left: "calc(50% + 100px)"`
+
+---
+
+## 🐛 Error Tracking - Session 2025-12-15 (Morning)
 
 ### [ERR-001] ReadableStream Error in BIDI Mode Switching
 

@@ -1462,5 +1462,114 @@ await expect(page.getByRole("button", { name: /ADK SSE/i })).toBeVisible();
 
 ---
 
-**Last Updated:** 2025-12-15 (E2E Chunk Logger Recording & Testing Completion)
-**Status:** 🟢 E2E Infrastructure Complete - Production Ready
+## 📋 Session 10: Critical Bug Fixes (2025-12-15 Evening)
+
+### 実施した作業の概要
+
+このセッションでは、ユーザーから報告された4つの重要なバグを体系的デバッグ手法を用いて修正しました。
+
+### 発見されたバグ
+
+1. **Server chunk recorder が動作しない** - 環境変数が読み込まれていない
+2. **WebSocket容量エラーでADK BIDIが動かない** - 前回の対応が過剰だった
+3. **非アクティブタブでもBGMが再生される** - visibility handling未実装
+4. **音声ファイルUIが送信ボタンと重なる** - 位置が不適切
+
+### 修正内容
+
+#### Bug 1: Server Chunk Recorder 修正
+**問題**: `load_dotenv()` がインポートの後に呼ばれていた
+```python
+# 修正前: ChunkLoggerが環境変数を読めない
+from stream_protocol import stream_adk_to_ai_sdk
+load_dotenv(".env.local")  # Too late!
+
+# 修正後: 環境変数を先に読み込む
+from dotenv import load_dotenv
+load_dotenv(".env.local")  # BEFORE imports
+from stream_protocol import stream_adk_to_ai_sdk
+```
+
+#### Bug 2: WebSocket Payload 修正
+**問題**: メッセージを50件に切り詰めていたためADK BIDIのコンテキストが失われた
+```typescript
+// 修正前: 過剰な切り詰め
+const truncatedMessages = allMessages.slice(-50);
+
+// 修正後: 全メッセージを送信
+messages: options.messages,  // Full history preserved
+
+// 警告閾値も調整
+WARN_SIZE_KB = 500;  // Was 100KB
+ERROR_SIZE_MB = 10;  // Was 5MB
+```
+
+**影響**:
+- 削除したテストファイル: `lib/websocket-chat-transport-payload.test.ts`
+- ADK BIDIが完全なコンテキストを維持できるようになった
+
+#### Bug 3: BGM Tab Visibility 修正
+**実装内容**:
+```typescript
+// lib/audio-context.tsx に追加
+const handleVisibilityChange = () => {
+  if (document.hidden) {
+    // タブ非アクティブ - BGMフェードアウト
+    bgmGain.gain.setTargetAtTime(0, now, 0.1);
+  } else {
+    // タブアクティブ - BGM復元（ダッキング状態考慮）
+    const targetVolume = isDucked ? 0.1 : 0.3;
+    bgmGain.gain.setTargetAtTime(targetVolume, now, 0.3);
+  }
+};
+document.addEventListener("visibilitychange", handleVisibilityChange);
+```
+
+#### Bug 4: Audio UI Position 修正
+**変更内容**:
+- 位置: bottom-right → top (WebSocketレイテンシの隣)
+- 3秒後に自動非表示
+- 送信ボタンとの重なりを解消
+
+### テスト結果
+
+```bash
+# Python tests
+============================= 133 passed in 1.84s ==============================
+
+# JavaScript/TypeScript tests
+Test Files  9 passed (13)
+Tests      200 passed | 2 skipped (202)
+```
+
+### 重要な教訓
+
+1. **インポート順序の重要性**: 環境変数は使用するモジュールのインポート前に読み込む
+2. **コンテキスト保持**: ADK BIDIは完全なメッセージ履歴が必要
+3. **UX考慮**: タブ非表示時のメディア処理は必須
+4. **過剰な最適化の危険性**: パフォーマンス改善が機能を壊すことがある
+
+### コミット
+
+```bash
+commit 08e2c37
+fix: Critical bug fixes for chunk recorder, WebSocket, BGM, and audio UI
+```
+
+### 次のセッションへの引き継ぎ
+
+**完了した作業**:
+- ✅ 4つの重要バグ全て修正完了
+- ✅ 体系的デバッグ手法の適用
+- ✅ テスト全パス（Python 133, JS/TS 200）
+- ✅ ドキュメント更新完了
+
+**次のアクション候補**:
+1. [ ] WebSocket圧縮実装（Phase 2）
+2. [ ] P4-T4.4 Systematic Model/Mode Testing
+3. [ ] Production deployment準備
+
+---
+
+**Last Updated:** 2025-12-15 (Critical Bug Fixes Session)
+**Status:** 🟢 All Systems Operational
