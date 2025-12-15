@@ -77,7 +77,8 @@
       "mcp__serena__read_memory",
       "mcp__serena__find_file",
       "Bash(pnpm run dev)",
-      "mcp__chrome-devtools__select_page"
+      "mcp__chrome-devtools__select_page",
+      "Skill(superpowers:systematic-debugging)"
     ],
     "deny": [
       "Read(.env.keys)",

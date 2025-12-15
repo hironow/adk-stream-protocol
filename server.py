@@ -18,6 +18,11 @@ from typing import Any
 
 import aiohttp
 from dotenv import load_dotenv
+
+# Load environment variables from .env.local BEFORE any local imports
+# This ensures ChunkLogger reads the correct environment variables
+load_dotenv(".env.local")
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -35,9 +40,6 @@ from ai_sdk_v6_compat import (
 )
 from stream_protocol import stream_adk_to_ai_sdk
 from tool_delegate import FrontendToolDelegate
-
-# Load environment variables from .env.local
-load_dotenv(".env.local")
 
 # Configure file logging
 log_dir = Path("logs")

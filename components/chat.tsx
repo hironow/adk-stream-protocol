@@ -29,6 +29,8 @@ export function Chat({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [interrupted, setInterrupted] = useState(false);
+  const [showAudioCompletion, setShowAudioCompletion] = useState(false);
+  const audioCompletionTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const { useChatOptions, transport } = buildUseChatOptions({
     mode,
@@ -318,6 +320,32 @@ export function Chat({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isLoading]);
 
+  // Show audio completion notification when audio completes
+  useEffect(() => {
+    if (mode === "adk-bidi" && audioContext.voiceChannel.lastCompletion) {
+      // Clear any existing timer
+      if (audioCompletionTimerRef.current) {
+        clearTimeout(audioCompletionTimerRef.current);
+      }
+
+      // Show the notification
+      setShowAudioCompletion(true);
+
+      // Auto-hide after 3 seconds
+      audioCompletionTimerRef.current = setTimeout(() => {
+        setShowAudioCompletion(false);
+        audioCompletionTimerRef.current = null;
+      }, 3000);
+    }
+
+    // Cleanup on unmount
+    return () => {
+      if (audioCompletionTimerRef.current) {
+        clearTimeout(audioCompletionTimerRef.current);
+      }
+    };
+  }, [mode, audioContext.voiceChannel.lastCompletion]);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -587,13 +615,14 @@ export function Chat({
         </div>
       )}
 
-      {/* Audio Completion Indicator (BIDI mode only) */}
-      {mode === "adk-bidi" && audioContext.voiceChannel.lastCompletion && (
+      {/* Audio Completion Indicator (BIDI mode only) - positioned next to WS latency */}
+      {mode === "adk-bidi" && showAudioCompletion && audioContext.voiceChannel.lastCompletion && (
         <div
           style={{
             position: "fixed",
-            bottom: "1rem",
-            right: "1rem",
+            top: "1rem",
+            left: audioContext.wsLatency !== null ? "calc(50% + 100px)" : "50%", // Position to the right of WS latency
+            transform: audioContext.wsLatency !== null ? "none" : "translateX(-50%)",
             padding: "0.5rem 1rem",
             background: "#0a0a0a",
             border: "1px solid #10b981",
@@ -605,6 +634,7 @@ export function Chat({
             display: "flex",
             alignItems: "center",
             gap: "0.5rem",
+            animation: "fadeIn 0.3s ease-in-out",
           }}
         >
           <span>✓</span>

@@ -174,10 +174,10 @@ export interface WebSocketChatTransportConfig {
  * Compatible with AI SDK v6 useChat hook.
  */
 export class WebSocketChatTransport implements ChatTransport<UIMessage> {
-  // Message history limits to prevent payload size issues
-  private static readonly MAX_MESSAGES_TO_SEND = 50; // Configurable limit
-  private static readonly WARN_SIZE_KB = 100; // Warn if message > 100KB
-  private static readonly ERROR_SIZE_MB = 5; // Error if message > 5MB
+  // Message size thresholds for logging only (no truncation)
+  // Adjusted to be less aggressive - only warn for truly large messages
+  private static readonly WARN_SIZE_KB = 500; // Warn if message > 500KB (was 100KB)
+  private static readonly ERROR_SIZE_MB = 10; // Error log if message > 10MB (was 5MB)
 
   private config: WebSocketChatTransportConfig;
   private ws: WebSocket | null = null;
@@ -228,19 +228,18 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
 
     if (sizeKB > WebSocketChatTransport.WARN_SIZE_KB) {
       if (sizeMB > WebSocketChatTransport.ERROR_SIZE_MB) {
-        // Message exceeds error threshold
-        console.error(
-          `[WS Transport] ❌ Message too large: ${sizeMB.toFixed(2)}MB (max: ${WebSocketChatTransport.ERROR_SIZE_MB}MB)`,
+        // Message exceeds warning threshold but we still send it
+        console.warn(
+          `[WS Transport] ⚠️ Very large message: ${sizeMB.toFixed(2)}MB (threshold: ${WebSocketChatTransport.ERROR_SIZE_MB}MB)`,
           {
             type: eventWithTimestamp.type,
             sizeBytes,
             sizeKB: sizeKB.toFixed(2),
             sizeMB: sizeMB.toFixed(2),
-            maxMB: WebSocketChatTransport.ERROR_SIZE_MB,
+            thresholdMB: WebSocketChatTransport.ERROR_SIZE_MB,
           },
         );
-        // Still send for now, but log as error
-        // In future, could throw error or implement chunking
+        // Message is sent anyway to preserve ADK BIDI functionality
       } else if (sizeMB > 1) {
         console.warn(`[WS Transport] ⚠️ Large message: ${sizeMB.toFixed(2)}MB`, {
           type: eventWithTimestamp.type,
@@ -516,31 +515,13 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
           }
 
           // Send messages to backend using structured event format (P2-T2)
-          // Limit message history to prevent payload size issues
-          const allMessages = options.messages;
-          const truncatedMessages =
-            allMessages.length > WebSocketChatTransport.MAX_MESSAGES_TO_SEND
-              ? allMessages.slice(-WebSocketChatTransport.MAX_MESSAGES_TO_SEND)
-              : allMessages;
-
-          if (
-            allMessages.length > WebSocketChatTransport.MAX_MESSAGES_TO_SEND
-          ) {
-            console.info(
-              `[WS Transport] Truncating message history: ${allMessages.length} → ${truncatedMessages.length} messages`,
-              {
-                originalCount: allMessages.length,
-                sentCount: truncatedMessages.length,
-                droppedCount: allMessages.length - truncatedMessages.length,
-              },
-            );
-          }
-
+          // Note: We send ALL messages without truncation to preserve context for ADK BIDI
+          // Size warnings are still logged but messages are not truncated
           const event: MessageEvent = {
             type: "message",
             version: "1.0",
             data: {
-              messages: truncatedMessages,
+              messages: options.messages,
             },
           };
           this.sendEvent(event);

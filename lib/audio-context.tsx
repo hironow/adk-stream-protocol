@@ -103,6 +103,8 @@ export function AudioProvider({ children }: AudioProviderProps) {
   const bgmGain2Ref = useRef<GainNode | null>(null);
   const bgmBuffer1Ref = useRef<AudioBuffer | null>(null);
   const bgmBuffer2Ref = useRef<AudioBuffer | null>(null);
+  const currentBgmTrackRef = useRef(0); // Track current BGM for visibility handler
+  const isPlayingRef = useRef(false); // Track playing state for visibility handler
 
   // Initialize AudioWorklet on mount
   useEffect(() => {
@@ -131,6 +133,7 @@ export function AudioProvider({ children }: AudioProviderProps) {
             console.log("[AudioContext] Playback started - ducking BGM");
             if (mounted) {
               setIsPlaying(true);
+              isPlayingRef.current = true;
 
               // Duck BGM: Fade volume down smoothly (current → 0.1 over 0.5s)
               // Duck whichever track is currently playing
@@ -156,6 +159,7 @@ export function AudioProvider({ children }: AudioProviderProps) {
             console.log("[AudioContext] Playback finished - restoring BGM");
             if (mounted) {
               setIsPlaying(false);
+              isPlayingRef.current = false;
 
               // Restore BGM: Fade volume back up smoothly
               // Restore to 0.3 or maintain current crossfade state
@@ -252,9 +256,51 @@ export function AudioProvider({ children }: AudioProviderProps) {
 
     initAudioWorklet();
 
+    // Add visibility change handler for BGM
+    const handleVisibilityChange = () => {
+      const bgmGain1 = bgmGain1Ref.current;
+      const bgmGain2 = bgmGain2Ref.current;
+      const audioContext = audioContextRef.current;
+
+      if (!audioContext) return;
+
+      if (document.hidden) {
+        // Tab is inactive - fade out BGM
+        console.log("[AudioContext] Tab inactive - pausing BGM");
+        const now = audioContext.currentTime;
+
+        if (bgmGain1 && bgmGain1.gain.value > 0) {
+          bgmGain1.gain.setTargetAtTime(0, now, 0.1); // Fade out quickly
+        }
+        if (bgmGain2 && bgmGain2.gain.value > 0) {
+          bgmGain2.gain.setTargetAtTime(0, now, 0.1); // Fade out quickly
+        }
+      } else {
+        // Tab is active - restore BGM (unless ducked)
+        console.log("[AudioContext] Tab active - resuming BGM");
+        const now = audioContext.currentTime;
+
+        // Check if BGM is currently ducked (audio is playing)
+        const isDucked = isPlayingRef.current;
+        const targetVolume = isDucked ? 0.1 : 0.3; // 10% if ducked, 30% normal
+
+        // Restore the currently active track (use ref to get current value)
+        const currentTrack = currentBgmTrackRef.current || 0;
+        if (currentTrack === 0 && bgmGain1) {
+          bgmGain1.gain.setTargetAtTime(targetVolume, now, 0.3);
+        } else if (currentTrack === 1 && bgmGain2) {
+          bgmGain2.gain.setTargetAtTime(targetVolume, now, 0.3);
+        }
+      }
+    };
+
+    // Add event listener
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     // Cleanup on unmount
     return () => {
       mounted = false;
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       if (bgmSource1Ref.current) {
         bgmSource1Ref.current.stop();
         bgmSource1Ref.current.disconnect();
@@ -330,6 +376,7 @@ export function AudioProvider({ children }: AudioProviderProps) {
 
     // Reset state first
     setIsPlaying(false);
+    isPlayingRef.current = false;
     setChunkCount(0);
 
     // Then reset AudioWorklet buffer
@@ -345,6 +392,7 @@ export function AudioProvider({ children }: AudioProviderProps) {
   const handleAudioComplete = (metadata: AudioMetadata) => {
     setLastCompletion(metadata);
     setIsPlaying(false);
+    isPlayingRef.current = false;
   };
 
   // BGM channel methods
@@ -375,6 +423,7 @@ export function AudioProvider({ children }: AudioProviderProps) {
       );
 
       setCurrentBgmTrack(1);
+      currentBgmTrackRef.current = 1;
     } else {
       // Switch from Track 2 to Track 1
       console.log(
@@ -392,6 +441,7 @@ export function AudioProvider({ children }: AudioProviderProps) {
       );
 
       setCurrentBgmTrack(0);
+      currentBgmTrackRef.current = 0;
     }
   };
 
