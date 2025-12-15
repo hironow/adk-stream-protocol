@@ -58,9 +58,25 @@ export class ChunkLoggingTransport implements ChatTransport<UIMessage> {
             // Forward chunk to useChat
             controller.enqueue(value);
           }
-          controller.close();
+          // Close controller, but handle case where it's already errored
+          try {
+            controller.close();
+          } catch (closeErr) {
+            console.debug(
+              "[Chunk Logging Transport] Stream already closed or errored:",
+              closeErr,
+            );
+          }
         } catch (error) {
-          controller.error(error);
+          // Only try to error the controller if it's not already closed/errored
+          try {
+            controller.error(error);
+          } catch (errorErr) {
+            console.debug(
+              "[Chunk Logging Transport] Could not error controller:",
+              errorErr,
+            );
+          }
         } finally {
           reader.releaseLock();
         }

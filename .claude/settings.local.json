@@ -75,7 +75,9 @@
       "mcp__serena__search_for_pattern",
       "mcp__serena__get_symbols_overview",
       "mcp__serena__read_memory",
-      "mcp__serena__find_file"
+      "mcp__serena__find_file",
+      "Bash(pnpm run dev)",
+      "mcp__chrome-devtools__select_page"
     ],
     "deny": [
       "Read(.env.keys)",
