@@ -2,10 +2,11 @@
  * Tests for Audio Completion UI auto-hide functionality
  * @vitest-environment jsdom
  */
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+
 import { render, screen, waitFor } from "@testing-library/react";
-import { Chat } from "./chat";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AudioProvider } from "../lib/audio-context";
+import { Chat } from "./chat";
 
 // Mock the useChat hook
 vi.mock("@ai-sdk/react-v6", () => ({
@@ -171,11 +172,7 @@ describe("Audio Completion UI - Auto-hide", () => {
   it("should not show audio completion UI in non-BIDI modes", () => {
     const { rerender } = render(
       <AudioProvider>
-        <Chat
-          mode="gemini"
-          initialMessages={[]}
-          onMessagesChange={() => {}}
-        />
+        <Chat mode="gemini" initialMessages={[]} onMessagesChange={() => {}} />
       </AudioProvider>,
     );
 
@@ -186,11 +183,7 @@ describe("Audio Completion UI - Auto-hide", () => {
     // Should not show in ADK SSE mode either
     rerender(
       <AudioProvider>
-        <Chat
-          mode="adk-sse"
-          initialMessages={[]}
-          onMessagesChange={() => {}}
-        />
+        <Chat mode="adk-sse" initialMessages={[]} onMessagesChange={() => {}} />
       </AudioProvider>,
     );
 

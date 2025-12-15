@@ -1,9 +1,10 @@
 /**
  * Tests for WebSocket message preservation (no truncation)
  */
+
+import type { UIMessage } from "@ai-sdk/react-v6";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WebSocketChatTransport } from "./websocket-chat-transport";
-import type { UIMessage } from "@ai-sdk/react-v6";
 
 describe("WebSocketChatTransport - Message Preservation", () => {
   let mockWebSocket: any;
@@ -11,7 +12,7 @@ describe("WebSocketChatTransport - Message Preservation", () => {
   let consoleWarnSpy: any;
 
   beforeEach(() => {
-    // Mock WebSocket
+    // Mock WebSocket with vi.fn() for tracking calls
     mockWebSocket = {
       send: vi.fn(),
       close: vi.fn(),
@@ -22,11 +23,34 @@ describe("WebSocketChatTransport - Message Preservation", () => {
       onclose: null,
     };
 
-    // Mock WebSocket constructor
-    const MockWebSocket = vi.fn().mockImplementation(() => mockWebSocket) as any;
-    MockWebSocket.OPEN = 1;
-    MockWebSocket.CLOSED = 3;
-    global.WebSocket = MockWebSocket;
+    // Mock WebSocket constructor that returns our tracked instance
+    class MockWebSocket {
+      static OPEN = 1;
+      static CLOSED = 3;
+
+      send: any;
+      close: any;
+      readyState: number;
+      onopen: any;
+      onmessage: any;
+      onerror: any;
+      onclose: any;
+
+      constructor() {
+        // Return the same mockWebSocket object for tracking
+        this.send = mockWebSocket.send;
+        this.close = mockWebSocket.close;
+        this.readyState = mockWebSocket.readyState;
+        this.onopen = mockWebSocket.onopen;
+        this.onmessage = mockWebSocket.onmessage;
+        this.onerror = mockWebSocket.onerror;
+        this.onclose = mockWebSocket.onclose;
+
+        // Store reference to this instance for tests
+        mockWebSocket = this;
+      }
+    }
+    global.WebSocket = MockWebSocket as any;
 
     consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
@@ -44,11 +68,12 @@ describe("WebSocketChatTransport - Message Preservation", () => {
     // Create a large number of messages (more than old limit of 50)
     const messages: UIMessage[] = Array.from(
       { length: 100 },
-      (_, i) => ({
-        id: `msg-${i}`,
-        role: i % 2 === 0 ? "user" : "assistant",
-        parts: [{ type: "text", text: `Message ${i}` }],
-      }) as UIMessage,
+      (_, i) =>
+        ({
+          id: `msg-${i}`,
+          role: i % 2 === 0 ? "user" : "assistant",
+          parts: [{ type: "text", text: `Message ${i}` }],
+        }) as UIMessage,
     );
 
     // Send messages using the transport
@@ -78,15 +103,16 @@ describe("WebSocketChatTransport - Message Preservation", () => {
   });
 
   it("should warn for large payloads but still send them", async () => {
-    // Create messages that will exceed warning threshold
-    const largeText = "x".repeat(10000); // 10KB per message
+    // Create messages that will exceed warning threshold (> 1MB)
+    const largeText = "x".repeat(20000); // 20KB per message
     const messages: UIMessage[] = Array.from(
       { length: 60 },
-      (_, i) => ({
-        id: `msg-${i}`,
-        role: "user",
-        parts: [{ type: "text", text: largeText }],
-      }) as UIMessage,
+      (_, i) =>
+        ({
+          id: `msg-${i}`,
+          role: "user",
+          parts: [{ type: "text", text: largeText }],
+        }) as UIMessage,
     );
 
     // Start the transport
@@ -227,11 +253,13 @@ describe("WebSocketChatTransport - Message Preservation", () => {
     // Test the new thresholds (500KB warning, 10MB error)
 
     // Small payload - no warning
-    const smallMessages: UIMessage[] = [{
-      id: "1",
-      role: "user",
-      parts: [{ type: "text", text: "Small message" }],
-    }] as UIMessage[];
+    const smallMessages: UIMessage[] = [
+      {
+        id: "1",
+        role: "user",
+        parts: [{ type: "text", text: "Small message" }],
+      },
+    ] as UIMessage[];
 
     transport.sendMessages({
       trigger: "submit-message",
@@ -258,11 +286,12 @@ describe("WebSocketChatTransport - Message Preservation", () => {
     const mediumText = "x".repeat(100000); // 100KB per message
     const mediumMessages: UIMessage[] = Array.from(
       { length: 6 }, // 600KB total
-      (_, i) => ({
-        id: `msg-${i}`,
-        role: "user",
-        parts: [{ type: "text", text: mediumText }],
-      }) as UIMessage,
+      (_, i) =>
+        ({
+          id: `msg-${i}`,
+          role: "user",
+          parts: [{ type: "text", text: mediumText }],
+        }) as UIMessage,
     );
 
     transport.sendMessages({

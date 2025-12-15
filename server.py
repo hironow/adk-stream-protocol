@@ -14,45 +14,41 @@ import os
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 
-import aiohttp
 from dotenv import load_dotenv
 
 # Load environment variables from .env.local BEFORE any local imports
 # This ensures ChunkLogger reads the correct environment variables
 load_dotenv(".env.local")
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
-from google.adk.agents import Agent, LiveRequestQueue
-from google.adk.agents.run_config import RunConfig, StreamingMode
-from google.adk.runners import InMemoryRunner
-from google.adk.tools.tool_context import ToolContext
-from google.genai import types
-from loguru import logger
-from pydantic import BaseModel
+# All following imports have
+# ChunkLogger and other modules depend on environment variables being loaded first
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from fastapi.responses import StreamingResponse  # noqa: E402
+from google.adk.agents import LiveRequestQueue  # noqa: E402
+from google.adk.agents.run_config import RunConfig, StreamingMode  # noqa: E402
+from google.genai import types  # noqa: E402
+from loguru import logger  # noqa: E402
+from pydantic import BaseModel  # noqa: E402
 
-from ai_sdk_v6_compat import (
+from adk_ag_runner import (  # noqa: E402
+    TOOLS_REQUIRING_APPROVAL,
+    bidi_agent,
+    bidi_agent_runner,
+    sse_agent,
+    sse_agent_runner,
+)
+from adk_compat import (  # noqa: E402
+    get_or_create_session,
+    sync_conversation_history_to_session,
+)
+from ai_sdk_v6_compat import (  # noqa: E402
     ChatMessage,
     process_chat_message_for_bidi,
 )
-from adk_compat import (
-    get_or_create_session,
-    sync_conversation_history_to_session,
-    prepare_session_for_mode_switch,
-    detect_mode_switch,
-)
-from adk_ag_runner import (
-    sse_agent,
-    sse_agent_runner,
-    bidi_agent,
-    bidi_agent_runner,
-    TOOLS_REQUIRING_APPROVAL,
-)
-from stream_protocol import stream_adk_to_ai_sdk
-from tool_delegate import frontend_delegate
+from stream_protocol import stream_adk_to_ai_sdk  # noqa: E402
+from tool_delegate import FrontendToolDelegate  # noqa: E402
 
 
 def get_user() -> str:
@@ -123,7 +119,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 
 # ========== Module Dependencies ==========
@@ -482,8 +477,6 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
                     event_type = event.get("type")
                     event_version = event.get("version", "1.0")
 
-                    logger.info(f"[BIDI] Received event: {event_type} (v{event_version})")
-
                     # Handle ping/pong for latency monitoring
                     if event_type == "ping":
                         await websocket.send_text(
@@ -495,6 +488,9 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
                             )
                         )
                         continue
+
+                    # ignore ping events in logs
+                    logger.info(f"[BIDI] Received event: {event_type} (v{event_version})")
 
                     # Handle message event (chat messages)
                     if event_type == "message":

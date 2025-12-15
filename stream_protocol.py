@@ -207,7 +207,11 @@ class StreamProtocolConverter:
         # [DEBUG] Pretty print entire Event object to find transcription fields
         try:
             # Filter out private attributes (starting with _) for cleaner logs
-            event_attrs = {k: v for k, v in vars(event).items() if not k.startswith('_')} if hasattr(event, "__dict__") else {}
+            event_attrs = (
+                {k: v for k, v in vars(event).items() if not k.startswith("_")}
+                if hasattr(event, "__dict__")
+                else {}
+            )
             logger.debug(
                 f"[convert_event INPUT] Event attributes:\n{pformat(event_attrs, width=120, depth=3)}"
             )
@@ -231,7 +235,11 @@ class StreamProtocolConverter:
                     # [DEBUG] Pretty print Part and inline_data to find transcription
                     try:
                         # Filter out private attributes (starting with _) for cleaner logs
-                        part_attrs = {k: v for k, v in vars(part).items() if not k.startswith('_')} if hasattr(part, "__dict__") else {}
+                        part_attrs = (
+                            {k: v for k, v in vars(part).items() if not k.startswith("_")}
+                            if hasattr(part, "__dict__")
+                            else {}
+                        )
                         logger.debug(
                             f"[convert_event INPUT]   Part[{idx}] attributes:\n{pformat(part_attrs, width=120, depth=2)}"
                         )
@@ -495,10 +503,10 @@ class StreamProtocolConverter:
             )
 
             # Generate AI SDK v6 tool-approval-request event
-            # Reference: experiments/2025-12-13_bidirectional_protocol_investigation.md
-            # SSE Format: event: tool-approval-request
-            #             data: {"type":"tool-approval-request","approvalId":"...","toolCallId":"..."}
-            approval_event = f"event: tool-approval-request\ndata: {json.dumps({'type': 'tool-approval-request', 'approvalId': approval_id, 'toolCallId': tool_call_id})}\n\n"
+            # Reference: AI SDK v6 Stream Protocol specification
+            # SSE Format: data: {"type":"tool-approval-request","approvalId":"...","toolCallId":"..."}
+            # Note: AI SDK v6 does NOT use "event:" prefix - all events use data: field only
+            approval_event = f"data: {json.dumps({'type': 'tool-approval-request', 'approvalId': approval_id, 'toolCallId': tool_call_id})}\n\n"
             events.append(approval_event)
 
         return events

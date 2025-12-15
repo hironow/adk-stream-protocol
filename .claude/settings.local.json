@@ -78,7 +78,12 @@
       "mcp__serena__find_file",
       "Bash(pnpm run dev)",
       "mcp__chrome-devtools__select_page",
-      "Skill(superpowers:systematic-debugging)"
+      "Skill(superpowers:systematic-debugging)",
+      "mcp__serena__replace_symbol_body",
+      "Bash(pnpm test:lib:*)",
+      "Bash(pnpm vitest run:*)",
+      "Bash(pnpx vitest run:*)",
+      "mcp__chrome-devtools__close_page"
     ],
     "deny": [
       "Read(.env.keys)",

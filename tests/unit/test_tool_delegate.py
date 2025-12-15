@@ -5,7 +5,6 @@ Tests the FrontendToolDelegate class for AP2-style awaitable delegation.
 """
 
 import asyncio
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -31,9 +30,7 @@ async def test_execute_on_frontend_creates_future(delegate):
     args = {"arg1": "value1"}
 
     # when: Start execution (but don't await yet)
-    task = asyncio.create_task(
-        delegate.execute_on_frontend(tool_call_id, tool_name, args)
-    )
+    task = asyncio.create_task(delegate.execute_on_frontend(tool_call_id, tool_name, args))
 
     # Give the task a chance to start
     await asyncio.sleep(0.01)
@@ -61,9 +58,7 @@ async def test_resolve_tool_result_completes_future(delegate):
     expected_result = {"success": True, "message": "BGM changed"}
 
     # when: Start execution (but don't await yet)
-    task = asyncio.create_task(
-        delegate.execute_on_frontend(tool_call_id, tool_name, args)
-    )
+    task = asyncio.create_task(delegate.execute_on_frontend(tool_call_id, tool_name, args))
 
     # Give the task a chance to create the future
     await asyncio.sleep(0.01)
@@ -93,9 +88,7 @@ async def test_reject_tool_call_returns_rejection(delegate):
     rejection_reason = "User denied location permission"
 
     # when: Start execution
-    task = asyncio.create_task(
-        delegate.execute_on_frontend(tool_call_id, tool_name, args)
-    )
+    task = asyncio.create_task(delegate.execute_on_frontend(tool_call_id, tool_name, args))
 
     # Give the task a chance to create the future
     await asyncio.sleep(0.01)
@@ -128,15 +121,9 @@ async def test_multiple_concurrent_tool_calls(delegate):
     call_3_id = "call_3"
 
     # when: Start three concurrent tool calls
-    task_1 = asyncio.create_task(
-        delegate.execute_on_frontend(call_1_id, "tool_1", {"param": 1})
-    )
-    task_2 = asyncio.create_task(
-        delegate.execute_on_frontend(call_2_id, "tool_2", {"param": 2})
-    )
-    task_3 = asyncio.create_task(
-        delegate.execute_on_frontend(call_3_id, "tool_3", {"param": 3})
-    )
+    task_1 = asyncio.create_task(delegate.execute_on_frontend(call_1_id, "tool_1", {"param": 1}))
+    task_2 = asyncio.create_task(delegate.execute_on_frontend(call_2_id, "tool_2", {"param": 2}))
+    task_3 = asyncio.create_task(delegate.execute_on_frontend(call_3_id, "tool_3", {"param": 3}))
 
     # Give tasks a chance to create futures
     await asyncio.sleep(0.01)
@@ -218,9 +205,7 @@ async def test_execute_on_frontend_blocks_until_resolved(delegate):
     resolve_task = asyncio.create_task(delayed_resolve())
 
     # This should block until resolved
-    result = await delegate.execute_on_frontend(
-        tool_call_id, "test_tool", {}
-    )
+    result = await delegate.execute_on_frontend(tool_call_id, "test_tool", {})
     result_received = True
 
     # then: Result should match what was resolved
@@ -245,12 +230,8 @@ async def test_concurrent_delegates_are_isolated():
     tool_call_id = "shared_id"  # Same ID for both
 
     # when: Both delegates handle the same tool_call_id
-    task_1 = asyncio.create_task(
-        delegate_1.execute_on_frontend(tool_call_id, "tool", {})
-    )
-    task_2 = asyncio.create_task(
-        delegate_2.execute_on_frontend(tool_call_id, "tool", {})
-    )
+    task_1 = asyncio.create_task(delegate_1.execute_on_frontend(tool_call_id, "tool", {}))
+    task_2 = asyncio.create_task(delegate_2.execute_on_frontend(tool_call_id, "tool", {}))
 
     await asyncio.sleep(0.01)
 
@@ -282,9 +263,7 @@ async def test_timeout_behavior_with_unresolved_future(delegate):
     tool_call_id = "timeout_test"
 
     # when: Start execution without resolving
-    task = asyncio.create_task(
-        delegate.execute_on_frontend(tool_call_id, "test_tool", {})
-    )
+    task = asyncio.create_task(delegate.execute_on_frontend(tool_call_id, "test_tool", {}))
 
     # Wait a bit to ensure future is created
     await asyncio.sleep(0.01)

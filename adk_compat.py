@@ -6,10 +6,10 @@ conversation history synchronization, and other ADK-related operations.
 These functions are used by both ADK SSE and ADK BIDI modes.
 """
 
-from typing import Any, Optional
-from loguru import logger
-from google.adk.events import Event
+from typing import Any
 
+from google.adk.events import Event
+from loguru import logger
 
 # Session storage (shared across all ADK modes)
 _sessions: dict[str, Any] = {}
@@ -19,7 +19,7 @@ async def get_or_create_session(
     user_id: str,
     agent_runner: Any,  # InMemoryRunner type
     app_name: str = "agents",
-    connection_signature: Optional[str] = None,
+    connection_signature: str | None = None,
 ) -> Any:
     """
     Get or create a session for a user with specific agent runner.
@@ -115,7 +115,9 @@ async def sync_conversation_history_to_session(
     synced_count = session.state.get("synced_message_count", 0)
 
     # Calculate how many new messages need syncing
-    new_messages_to_sync = messages_to_sync[synced_count:] if synced_count < len(messages_to_sync) else []
+    new_messages_to_sync = (
+        messages_to_sync[synced_count:] if synced_count < len(messages_to_sync) else []
+    )
 
     # If there are new messages to sync
     if new_messages_to_sync:

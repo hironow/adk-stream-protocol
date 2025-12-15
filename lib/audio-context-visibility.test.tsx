@@ -2,9 +2,10 @@
  * Tests for BGM tab visibility handling
  * @vitest-environment jsdom
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { act, renderHook } from "@testing-library/react";
-import { useAudio } from "./audio-context";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { AudioProvider, useAudio } from "./audio-context";
 
 describe("AudioContext - Tab Visibility Handling", () => {
   let mockAudioContext: any;
@@ -57,16 +58,24 @@ describe("AudioContext - Tab Visibility Handling", () => {
     };
 
     // Mock AudioWorkletNode
-    global.AudioWorkletNode = vi.fn().mockImplementation(() => ({
-      connect: vi.fn(),
-      disconnect: vi.fn(),
-      port: {
-        postMessage: vi.fn(),
-        onmessage: null,
-      },
-    }));
+    global.AudioWorkletNode = vi.fn(function (
+      this: any,
+      _context: any,
+      _name: string,
+    ) {
+      return {
+        connect: vi.fn(),
+        disconnect: vi.fn(),
+        port: {
+          postMessage: vi.fn(),
+          onmessage: null,
+        },
+      };
+    }) as any;
 
-    global.AudioContext = vi.fn().mockImplementation(() => mockAudioContext);
+    global.AudioContext = vi.fn(function (this: any, _options: any) {
+      return mockAudioContext;
+    }) as any;
 
     // Mock fetch for BGM files
     global.fetch = vi.fn().mockResolvedValue({
@@ -86,7 +95,9 @@ describe("AudioContext - Tab Visibility Handling", () => {
   });
 
   it("should fade out BGM when tab becomes hidden", async () => {
-    const { result } = renderHook(() => useAudio());
+    const { result } = renderHook(() => useAudio(), {
+      wrapper: AudioProvider,
+    });
 
     // Wait for initialization
     await act(async () => {
@@ -94,25 +105,38 @@ describe("AudioContext - Tab Visibility Handling", () => {
     });
 
     // Simulate tab becoming hidden
-    Object.defineProperty(document, "hidden", {
-      value: true,
-      writable: true,
+    act(() => {
+      Object.defineProperty(document, "hidden", {
+        value: true,
+        writable: true,
+      });
+
+      // Trigger visibility change event
+      const event = new Event("visibilitychange");
+      document.dispatchEvent(event);
     });
 
-    // Trigger visibility change event
-    const event = new Event("visibilitychange");
-    document.dispatchEvent(event);
+    // Wait for effect to complete
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
 
-    // Check that BGM gain was faded out
-    expect(mockGainNode.gain.setTargetAtTime).toHaveBeenCalledWith(
-      0, // Target value (fade to 0)
-      expect.any(Number), // Current time
-      0.1, // Fade out quickly
-    );
+    // Check that BGM gain was faded out (check any of the gain nodes created)
+    const allCreateGainCalls = mockAudioContext.createGain.mock.results;
+    const gainNodesCalled = allCreateGainCalls.some((result) => {
+      const node = result.value;
+      return node.gain.setTargetAtTime.mock.calls.some(
+        (call) => call[0] === 0 && call[2] === 0.1,
+      );
+    });
+
+    expect(gainNodesCalled).toBe(true);
   });
 
   it("should restore BGM when tab becomes visible", async () => {
-    const { result } = renderHook(() => useAudio());
+    const { result } = renderHook(() => useAudio(), {
+      wrapper: AudioProvider,
+    });
 
     // Wait for initialization
     await act(async () => {
@@ -145,7 +169,9 @@ describe("AudioContext - Tab Visibility Handling", () => {
   });
 
   it("should restore to ducked volume if audio is playing", async () => {
-    const { result } = renderHook(() => useAudio());
+    const { result } = renderHook(() => useAudio(), {
+      wrapper: AudioProvider,
+    });
 
     // Wait for initialization
     await act(async () => {
@@ -182,7 +208,9 @@ describe("AudioContext - Tab Visibility Handling", () => {
   });
 
   it("should handle visibility changes for both BGM tracks", async () => {
-    const { result } = renderHook(() => useAudio());
+    const { result } = renderHook(() => useAudio(), {
+      wrapper: AudioProvider,
+    });
 
     // Wait for initialization
     await act(async () => {
@@ -212,7 +240,9 @@ describe("AudioContext - Tab Visibility Handling", () => {
   it("should clean up visibility listener on unmount", () => {
     const removeEventListenerSpy = vi.spyOn(document, "removeEventListener");
 
-    const { unmount } = renderHook(() => useAudio());
+    const { unmount } = renderHook(() => useAudio(), {
+      wrapper: AudioProvider,
+    });
 
     unmount();
 

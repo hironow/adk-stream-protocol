@@ -231,7 +231,7 @@ def test_regular_tool_does_not_require_approval() -> None:
 
 
 def test_tool_approval_request_sse_format() -> None:
-    """Tool approval request should be formatted as SSE event."""
+    """Tool approval request should be formatted as SSE event per AI SDK v6 spec."""
     # given
     approval_id = str(uuid.uuid4())
     tool_call_id = "call_abc123"
@@ -242,10 +242,12 @@ def test_tool_approval_request_sse_format() -> None:
         "approvalId": approval_id,
         "toolCallId": tool_call_id,
     }
-    sse_line = f"event: tool-approval-request\ndata: {json.dumps(event_data)}\n\n"
+    # AI SDK v6 spec: No "event:" prefix, only data: field
+    sse_line = f"data: {json.dumps(event_data)}\n\n"
 
     # then
-    assert "event: tool-approval-request" in sse_line
+    assert "data: " in sse_line
+    assert "event:" not in sse_line  # AI SDK v6 doesn't use event: prefix
     assert approval_id in sse_line
     assert tool_call_id in sse_line
     # Verify JSON structure

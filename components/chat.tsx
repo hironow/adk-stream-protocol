@@ -616,35 +616,39 @@ export function Chat({
       )}
 
       {/* Audio Completion Indicator (BIDI mode only) - positioned next to WS latency */}
-      {mode === "adk-bidi" && showAudioCompletion && audioContext.voiceChannel.lastCompletion && (
-        <div
-          style={{
-            position: "fixed",
-            top: "1rem",
-            left: audioContext.wsLatency !== null ? "calc(50% + 100px)" : "50%", // Position to the right of WS latency
-            transform: audioContext.wsLatency !== null ? "none" : "translateX(-50%)",
-            padding: "0.5rem 1rem",
-            background: "#0a0a0a",
-            border: "1px solid #10b981",
-            borderRadius: "6px",
-            fontSize: "0.875rem",
-            fontWeight: 600,
-            color: "#10b981",
-            zIndex: 1000,
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            animation: "fadeIn 0.3s ease-in-out",
-          }}
-        >
-          <span>✓</span>
-          <span>
-            Audio:{" "}
-            {audioContext.voiceChannel.lastCompletion.duration.toFixed(2)}s (
-            {audioContext.voiceChannel.lastCompletion.chunks} chunks)
-          </span>
-        </div>
-      )}
+      {mode === "adk-bidi" &&
+        showAudioCompletion &&
+        audioContext.voiceChannel.lastCompletion && (
+          <div
+            style={{
+              position: "fixed",
+              top: "1rem",
+              left:
+                audioContext.wsLatency !== null ? "calc(50% + 100px)" : "50%", // Position to the right of WS latency
+              transform:
+                audioContext.wsLatency !== null ? "none" : "translateX(-50%)",
+              padding: "0.5rem 1rem",
+              background: "#0a0a0a",
+              border: "1px solid #10b981",
+              borderRadius: "6px",
+              fontSize: "0.875rem",
+              fontWeight: 600,
+              color: "#10b981",
+              zIndex: 1000,
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              animation: "fadeIn 0.3s ease-in-out",
+            }}
+          >
+            <span>✓</span>
+            <span>
+              Audio:{" "}
+              {audioContext.voiceChannel.lastCompletion.duration.toFixed(2)}s (
+              {audioContext.voiceChannel.lastCompletion.chunks} chunks)
+            </span>
+          </div>
+        )}
 
       <div style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
         {messages.length === 0 && (

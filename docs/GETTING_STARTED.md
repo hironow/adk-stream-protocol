@@ -1,6 +1,6 @@
 # Getting Started Guide
 
-This guide provides detailed instructions for setting up, running, and developing with the ADK-AI Data Protocol project.
+This guide provides detailed instructions for setting up, running, and developing with the ADK Stream Protocol project.
 
 ## Table of Contents
 
@@ -126,7 +126,7 @@ Clone the repository and install all dependencies:
 ```bash
 # Clone repository
 git clone <repository-url>
-cd adk-ai-data-protocol
+cd adk-stream-protocol
 
 # Install all dependencies (Python + Node.js)
 just install

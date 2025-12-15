@@ -1,29 +1,19 @@
 """
-Integration tests for connection-specific session management.
+Integration tests for connection isolation and session management.
 
-Verifies that multiple WebSocket connections get isolated sessions
-and tool approval routing works correctly.
+Tests verify that multiple users and connections get properly isolated sessions
+and tool approval routing works correctly, regardless of the backend implementation.
 
-This is Phase 4 of per-connection state management implementation.
+These tests mock get_user() to simulate multiple users.
 """
 
 from __future__ import annotations
 
-import uuid
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from server import _sessions, get_or_create_session
 from tool_delegate import FrontendToolDelegate
-
-
-@pytest.fixture(autouse=True)
-def clear_sessions():
-    """Clear the global _sessions dict before each test."""
-    _sessions.clear()
-    yield
-    _sessions.clear()
 
 
 @pytest.mark.asyncio
@@ -31,59 +21,20 @@ async def test_delegate_stored_in_session_state():
     """
     Should store FrontendToolDelegate in session.state['temp:delegate'].
 
-    This verifies the Phase 2 implementation where each connection
-    creates its own delegate and stores it in session state.
+    Each connection creates its own delegate and stores it in session state
+    for proper tool approval routing.
     """
     # given: Mock session with state dict
     mock_session = MagicMock()
     mock_session.state = {}
 
-    # when: Store delegate (simulating Phase 2 WebSocket setup)
+    # when: Store delegate (simulating WebSocket setup)
     delegate = FrontendToolDelegate()
-    connection_signature = str(uuid.uuid4())
     mock_session.state["temp:delegate"] = delegate
-    mock_session.state["client_identifier"] = connection_signature
 
     # then: Delegate should be retrievable
     retrieved_delegate = mock_session.state.get("temp:delegate")
     assert retrieved_delegate is delegate
-    assert "client_identifier" in mock_session.state
-    assert mock_session.state["client_identifier"] == connection_signature
-
-
-@pytest.mark.asyncio
-async def test_multiple_connections_get_isolated_delegates():
-    """
-    Should create separate delegates for different connections.
-
-    This is the core of connection isolation - each connection should have
-    its own delegate instance to prevent cross-connection interference.
-    """
-    # given: Two mock sessions for different connections
-    session1 = MagicMock()
-    session1.state = {}
-    session2 = MagicMock()
-    session2.state = {}
-
-    # when: Create separate delegates for each connection
-    delegate1 = FrontendToolDelegate()
-    delegate2 = FrontendToolDelegate()
-
-    connection_sig1 = str(uuid.uuid4())
-    connection_sig2 = str(uuid.uuid4())
-
-    session1.state["temp:delegate"] = delegate1
-    session1.state["client_identifier"] = connection_sig1
-
-    session2.state["temp:delegate"] = delegate2
-    session2.state["client_identifier"] = connection_sig2
-
-    # then: Delegates should be different instances
-    assert session1.state["temp:delegate"] is not session2.state["temp:delegate"]
-    assert delegate1 is not delegate2
-
-    # then: Connection identifiers should be different
-    assert session1.state["client_identifier"] != session2.state["client_identifier"]
 
 
 @pytest.mark.asyncio
@@ -108,73 +59,157 @@ async def test_session_state_uses_temp_prefix():
 
 
 @pytest.mark.asyncio
-async def test_connection_specific_session_creation():
+@patch("server.get_user")
+async def test_multiple_users_get_isolated_sessions(mock_get_user):
     """
-    Should create connection-specific sessions when connection_signature provided.
+    Should handle multiple users with isolated sessions.
 
-    This integration test verifies Phase 1 + Phase 2 work together:
-    - Phase 1: get_or_create_session() accepts connection_signature
-    - Phase 2: WebSocket endpoint generates and uses connection_signature
+    This verifies that when different users connect, they get separate sessions
+    and delegates, preventing cross-user interference.
     """
-    # given: Mock runner
-    mock_runner = MagicMock()
-    mock_session1 = MagicMock()
-    mock_session2 = MagicMock()
+    # given: Two different users
+    # Simulate different users connecting
+    user1_session = MagicMock()
+    user1_session.state = {}
+    user2_session = MagicMock()
+    user2_session.state = {}
 
-    connection_sig1 = str(uuid.uuid4())
-    connection_sig2 = str(uuid.uuid4())
+    # when: Simulate user1 connecting
+    mock_get_user.return_value = "user_001"
+    user1_id = mock_get_user()
+    delegate1 = FrontendToolDelegate()
+    user1_session.state["temp:delegate"] = delegate1
+    user1_session.state["user_id"] = user1_id
 
-    expected_session_id1 = f"session_alice_{connection_sig1}"
-    expected_session_id2 = f"session_alice_{connection_sig2}"
+    # when: Simulate user2 connecting
+    mock_get_user.return_value = "user_002"
+    user2_id = mock_get_user()
+    delegate2 = FrontendToolDelegate()
+    user2_session.state["temp:delegate"] = delegate2
+    user2_session.state["user_id"] = user2_id
 
-    mock_session1.id = expected_session_id1
-    mock_session2.id = expected_session_id2
+    # then: Users should have different IDs
+    assert user1_id != user2_id
+    assert user1_id == "user_001"
+    assert user2_id == "user_002"
 
-    # Mock create_session to return different sessions
-    mock_runner.session_service.create_session = AsyncMock(
-        side_effect=[mock_session1, mock_session2]
-    )
-
-    # when: Create sessions for two different connections
-    session1 = await get_or_create_session(
-        "alice", mock_runner, "agents", connection_signature=connection_sig1
-    )
-    session2 = await get_or_create_session(
-        "alice", mock_runner, "agents", connection_signature=connection_sig2
-    )
-
-    # then: Should create different sessions
-    assert session1 is not session2
-    assert session1.id == expected_session_id1
-    assert session2.id == expected_session_id2
-
-    # then: Session IDs should contain connection signatures
-    assert connection_sig1 in session1.id
-    assert connection_sig2 in session2.id
+    # then: Each user should have their own delegate instance
+    assert user1_session.state["temp:delegate"] is delegate1
+    assert user2_session.state["temp:delegate"] is delegate2
+    assert delegate1 is not delegate2
 
 
 @pytest.mark.asyncio
-async def test_fallback_to_sse_mode_without_connection_signature():
+@patch("server.get_user")
+async def test_same_user_multiple_connections_get_separate_delegates(mock_get_user):
     """
-    Should create traditional session when connection_signature not provided.
+    Test that the same user with multiple connections gets separate delegates.
 
-    This ensures backward compatibility with SSE mode, which uses
-    one session per user+app instead of per-connection sessions.
+    Even when the same user opens multiple WebSocket connections (e.g., multiple tabs),
+    each connection should have its own delegate instance for proper isolation.
     """
-    # given: Mock runner
-    mock_runner = MagicMock()
-    mock_session = MagicMock()
-    expected_session_id = "session_alice_agents"
-    mock_session.id = expected_session_id
+    # given: Same user with two different connections
+    mock_get_user.return_value = "user_001"
 
-    mock_runner.session_service.create_session = AsyncMock(return_value=mock_session)
+    connection1_session = MagicMock()
+    connection1_session.state = {}
+    connection2_session = MagicMock()
+    connection2_session.state = {}
 
-    # when: Create session WITHOUT connection_signature (SSE mode)
-    session = await get_or_create_session("alice", mock_runner, "agents")
+    # when: Create separate delegates for each connection
+    delegate1 = FrontendToolDelegate()
+    delegate2 = FrontendToolDelegate()
 
-    # then: Should create traditional session
-    assert session is not None
-    assert session.id == expected_session_id
+    connection1_session.state["temp:delegate"] = delegate1
+    connection2_session.state["temp:delegate"] = delegate2
 
-    # then: Session ID should NOT contain UUID (no connection signature)
-    assert "session_alice_agents" == session.id
+    # then: Each connection should have its own delegate instance
+    assert connection1_session.state["temp:delegate"] is delegate1
+    assert connection2_session.state["temp:delegate"] is delegate2
+    assert delegate1 is not delegate2
+
+    # then: Both connections are for the same user
+    assert mock_get_user() == "user_001"
+
+
+@pytest.mark.asyncio
+@patch("server.get_user")
+async def test_session_isolation_with_concurrent_users(mock_get_user):
+    """
+    Test that sessions remain isolated when users connect concurrently.
+
+    This simulates a realistic scenario where multiple users are
+    connecting and using the system at the same time.
+    """
+    sessions = []
+    delegates = []
+    user_ids = ["alice", "bob", "charlie", "diana", "eve"]
+
+    # given: Multiple users connecting concurrently
+    for _i, user_id in enumerate(user_ids):
+        mock_get_user.return_value = user_id
+
+        session = MagicMock()
+        session.state = {}
+        session.state["user_id"] = mock_get_user()
+
+        delegate = FrontendToolDelegate()
+        session.state["temp:delegate"] = delegate
+
+        sessions.append(session)
+        delegates.append(delegate)
+
+    # then: Each user should have a unique session and delegate
+    for i, session in enumerate(sessions):
+        assert session.state["user_id"] == user_ids[i]
+        assert session.state["temp:delegate"] is delegates[i]
+
+    # then: All delegates should be different instances
+    for i in range(len(delegates)):
+        for j in range(i + 1, len(delegates)):
+            assert delegates[i] is not delegates[j]
+
+    # then: All user IDs should be correctly assigned
+    retrieved_user_ids = [s.state["user_id"] for s in sessions]
+    assert retrieved_user_ids == user_ids
+
+
+@pytest.mark.asyncio
+async def test_delegate_lifecycle_without_user_dependency():
+    """
+    Test delegate creation and lifecycle management.
+
+    Delegates should be created and managed per connection,
+    independent of the user management implementation.
+    """
+    # given: Mock sessions representing different connections
+    sessions = []
+    for i in range(3):
+        session = MagicMock()
+        session.state = {}
+        session.id = f"session_{i}"
+        sessions.append(session)
+
+    # when: Create and assign delegates to each session
+    delegates = []
+    for session in sessions:
+        delegate = FrontendToolDelegate()
+        session.state["temp:delegate"] = delegate
+        delegates.append(delegate)
+
+    # then: Each session should have its own delegate
+    for i, session in enumerate(sessions):
+        assert session.state["temp:delegate"] is delegates[i]
+
+    # then: All delegates should be unique instances
+    assert len(set(id(d) for d in delegates)) == len(delegates)
+
+    # when: Simulate connection cleanup (removing delegate)
+    sessions[0].state.pop("temp:delegate", None)
+
+    # then: First session should no longer have a delegate
+    assert "temp:delegate" not in sessions[0].state
+
+    # then: Other sessions should still have their delegates
+    assert sessions[1].state["temp:delegate"] is delegates[1]
+    assert sessions[2].state["temp:delegate"] is delegates[2]

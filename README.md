@@ -1,4 +1,4 @@
-# ADK-AI Data Protocol
+# ADK Stream Protocol
 
 AI SDK v6 and Google ADK integration example demonstrating SSE and WebSocket streaming implementation.
 

@@ -66,12 +66,18 @@ test.describe("Systematic Mode/Model Testing (P4-T4.4)", () => {
       for (const model of MODELS) {
         // Skip unsupported combinations
         // ADK BIDI only works with native-audio model
-        if (mode === "adk-bidi" && model !== "gemini-2.5-flash-native-audio-preview-09-2025") {
+        if (
+          mode === "adk-bidi" &&
+          model !== "gemini-2.5-flash-native-audio-preview-09-2025"
+        ) {
           test.skip(`${mode} + ${model}: BIDI only supports native-audio model`, async () => {});
           continue;
         }
         // Other modes don't support native-audio model
-        if (mode !== "adk-bidi" && model === "gemini-2.5-flash-native-audio-preview-09-2025") {
+        if (
+          mode !== "adk-bidi" &&
+          model === "gemini-2.5-flash-native-audio-preview-09-2025"
+        ) {
           test.skip(`${mode} + ${model}: Native-audio model only for BIDI`, async () => {});
           continue;
         }
@@ -130,7 +136,10 @@ test.describe("Systematic Mode/Model Testing (P4-T4.4)", () => {
         await selectBackendMode(page, mode);
 
         // Send context-setting message
-        await sendTextMessage(page, "My name is TestUser. Please remember this.");
+        await sendTextMessage(
+          page,
+          "My name is TestUser. Please remember this.",
+        );
         await waitForAssistantResponse(page);
 
         // Send follow-up requiring context
@@ -197,11 +206,13 @@ test.describe("Systematic Mode/Model Testing (P4-T4.4)", () => {
         await sendTextMessage(page, TEST_PROMPTS.tool);
 
         // Wait for tool approval UI
-        await page.waitForSelector('[data-testid="tool-approval"]', {
-          timeout: 10000,
-        }).catch(() => {
-          // Tool approval might auto-approve in test mode
-        });
+        await page
+          .waitForSelector('[data-testid="tool-approval"]', {
+            timeout: 10000,
+          })
+          .catch(() => {
+            // Tool approval might auto-approve in test mode
+          });
 
         // If approval needed, approve it
         const approveButton = page.locator('button:has-text("Approve")');
@@ -215,7 +226,9 @@ test.describe("Systematic Mode/Model Testing (P4-T4.4)", () => {
         // Verify response contains weather info
         const messages = await getMessages(page);
         const lastMessage = messages[messages.length - 1];
-        await expect(lastMessage).toContainText(/weather|温度|天気|temperature/i);
+        await expect(lastMessage).toContainText(
+          /weather|温度|天気|temperature/i,
+        );
       });
     }
   });
@@ -232,11 +245,13 @@ test.describe("Systematic Mode/Model Testing (P4-T4.4)", () => {
       await sendTextMessage(page, "Test message");
 
       // Should show error state
-      await page.waitForSelector('[data-testid="error-message"], .error', {
-        timeout: 5000,
-      }).catch(() => {
-        // Error UI might vary
-      });
+      await page
+        .waitForSelector('[data-testid="error-message"], .error', {
+          timeout: 5000,
+        })
+        .catch(() => {
+          // Error UI might vary
+        });
 
       // Go back online
       await page.context().setOffline(false);
@@ -280,7 +295,9 @@ test.describe("Systematic Mode/Model Testing (P4-T4.4)", () => {
     console.log("Performance Results (ms):");
     for (const [mode, times] of Object.entries(performanceResults)) {
       const avg = times.reduce((a, b) => a + b, 0) / times.length;
-      console.log(`  ${mode}: avg=${avg.toFixed(0)}ms, times=${times.join(", ")}`);
+      console.log(
+        `  ${mode}: avg=${avg.toFixed(0)}ms, times=${times.join(", ")}`,
+      );
 
       // Assert reasonable response times
       expect(avg).toBeLessThan(10000); // 10 seconds max average
@@ -295,7 +312,10 @@ test.describe("Systematic Mode/Model Testing (P4-T4.4)", () => {
 
     // Send many messages to build up context
     for (let i = 0; i < 10; i++) {
-      await sendTextMessage(page, `Context message ${i + 1}: This is message number ${i + 1} in our conversation.`);
+      await sendTextMessage(
+        page,
+        `Context message ${i + 1}: This is message number ${i + 1} in our conversation.`,
+      );
       await waitForAssistantResponse(page);
 
       // Brief pause between messages
@@ -352,37 +372,43 @@ test.describe("Systematic Mode/Model Testing (P4-T4.4)", () => {
     console.log("\n=== Systematic Testing Summary ===\n");
     console.log("Test Results:");
 
-    const summary = testResults.reduce((acc, result) => {
-      const key = `${result.mode}-${result.feature}`;
-      if (!acc[key]) {
-        acc[key] = { pass: 0, fail: 0, skip: 0 };
-      }
-      acc[key][result.status]++;
-      return acc;
-    }, {} as Record<string, { pass: number; fail: number; skip: number }>);
+    const summary = testResults.reduce(
+      (acc, result) => {
+        const key = `${result.mode}-${result.feature}`;
+        if (!acc[key]) {
+          acc[key] = { pass: 0, fail: 0, skip: 0 };
+        }
+        acc[key][result.status]++;
+        return acc;
+      },
+      {} as Record<string, { pass: number; fail: number; skip: number }>,
+    );
 
     console.table(summary);
 
     // Log failures
-    const failures = testResults.filter(r => r.status === "fail");
+    const failures = testResults.filter((r) => r.status === "fail");
     if (failures.length > 0) {
       console.log("\nFailures:");
-      failures.forEach(f => {
+      failures.forEach((f) => {
         console.log(`  - ${f.mode}/${f.model}/${f.feature}: ${f.error}`);
       });
     }
 
     // Log performance metrics
     const performanceData = testResults
-      .filter(r => r.responseTime)
-      .reduce((acc, r) => {
-        const key = r.mode;
-        if (!acc[key]) {
-          acc[key] = [];
-        }
-        acc[key].push(r.responseTime!);
-        return acc;
-      }, {} as Record<string, number[]>);
+      .filter((r) => r.responseTime)
+      .reduce(
+        (acc, r) => {
+          const key = r.mode;
+          if (!acc[key]) {
+            acc[key] = [];
+          }
+          acc[key].push(r.responseTime!);
+          return acc;
+        },
+        {} as Record<string, number[]>,
+      );
 
     console.log("\nPerformance Metrics (ms):");
     for (const [mode, times] of Object.entries(performanceData)) {

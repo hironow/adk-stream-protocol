@@ -19,7 +19,6 @@ from google.adk.runners import InMemoryRunner
 from google.adk.tools.tool_context import ToolContext
 from loguru import logger
 
-
 # ========== Tool Definitions ==========
 # Real-world example tools that demonstrate tool calling and tool results
 
@@ -97,6 +96,8 @@ async def get_weather(location: str) -> dict[str, Any]:
                 "note": f"Mock data for {location}",
             },
         )
+        # Cache mock data as well
+        await _set_weather_cache(location, weather)
         logger.info(f"Tool call: get_weather({location}) -> {weather} (mock)")
         return weather
 
@@ -271,6 +272,33 @@ async def get_location(tool_context: ToolContext) -> dict[str, Any]:
 TOOLS_REQUIRING_APPROVAL = {"change_bgm", "get_location"}
 
 
+# ========== Constants for Agent Configuration ==========
+# Fixed values for reproducible behavior
+
+# Note: ADK Agent doesn't support seed and temperature parameters
+# These would be used for deterministic responses if supported:
+# ADK_SEED = 42
+# ADK_TEMPERATURE = 0.7
+
+# Common agent description
+AGENT_DESCRIPTION = "An intelligent assistant that can check weather, perform calculations, control BGM, and access location"
+
+# Common agent instruction
+AGENT_INSTRUCTION = (
+    "You are a helpful AI assistant with access to real-time tools. "
+    "Use the available tools when needed to provide accurate information:\n"
+    "- get_weather: Check weather for any city\n"
+    "- calculate: Perform mathematical calculations\n"
+    "- get_current_time: Get the current time\n"
+    "- change_bgm: Change background music track (requires user approval)\n"
+    "- get_location: Get user's location (requires user approval)\n\n"
+    "Note: change_bgm and get_location require user approval before execution.\n"
+    "Always explain what you're doing when using tools."
+)
+
+# Available tools list
+AGENT_TOOLS = [get_weather, calculate, get_current_time, change_bgm, get_location]
+
 # ========== ADK Agent Setup ==========
 # Based on official ADK quickstart examples
 # https://google.github.io/adk-docs/get-started/quickstart/
@@ -288,19 +316,10 @@ else:
 sse_agent = Agent(
     name="adk_assistant_agent_sse",
     model="gemini-2.5-flash",  # Stable Gemini 2.5 Flash for generateContent API (SSE mode)
-    description="An intelligent assistant that can check weather, perform calculations, control BGM, and access location",
-    instruction=(
-        "You are a helpful AI assistant with access to real-time tools. "
-        "Use the available tools when needed to provide accurate information:\n"
-        "- get_weather: Check weather for any city\n"
-        "- calculate: Perform mathematical calculations\n"
-        "- get_current_time: Get the current time\n"
-        "- change_bgm: Change background music track (requires user approval)\n"
-        "- get_location: Get user's location (requires user approval)\n\n"
-        "Note: change_bgm and get_location require user approval before execution.\n"
-        "Always explain what you're doing when using tools."
-    ),
-    tools=[get_weather, calculate, get_current_time, change_bgm, get_location],
+    description=AGENT_DESCRIPTION,
+    instruction=AGENT_INSTRUCTION,
+    tools=AGENT_TOOLS,
+    # Note: ADK Agent doesn't support seed and temperature parameters
 )
 
 # BIDI Agent: Uses Live API model for bidirectional streaming
@@ -309,19 +328,10 @@ bidi_model = os.getenv("ADK_BIDI_MODEL", "gemini-2.5-flash-native-audio-preview-
 bidi_agent = Agent(
     name="adk_assistant_agent_bidi",
     model=bidi_model,  # Configurable model for BIDI mode
-    description="An intelligent assistant that can check weather, perform calculations, control BGM, and access location",
-    instruction=(
-        "You are a helpful AI assistant with access to real-time tools. "
-        "Use the available tools when needed to provide accurate information:\n"
-        "- get_weather: Check weather for any city\n"
-        "- calculate: Perform mathematical calculations\n"
-        "- get_current_time: Get the current time\n"
-        "- change_bgm: Change background music track (requires user approval)\n"
-        "- get_location: Get user's location (requires user approval)\n\n"
-        "Note: change_bgm and get_location require user approval before execution.\n"
-        "Always explain what you're doing when using tools."
-    ),
-    tools=[get_weather, calculate, get_current_time, change_bgm, get_location],
+    description=AGENT_DESCRIPTION,
+    instruction=AGENT_INSTRUCTION,
+    tools=AGENT_TOOLS,
+    # Note: ADK Agent doesn't support seed and temperature parameters
 )
 
 # Initialize InMemoryRunners for each agent

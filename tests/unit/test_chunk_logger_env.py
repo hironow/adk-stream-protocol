@@ -2,13 +2,11 @@
 Tests for ChunkLogger environment variable loading.
 Verifies that dotenv is loaded before ChunkLogger initialization.
 """
+
 import os
 import sys
 import unittest
-from pathlib import Path
 from unittest.mock import Mock, patch
-
-import pytest
 
 
 class TestChunkLoggerEnvironment(unittest.TestCase):
@@ -90,7 +88,7 @@ class TestChunkLoggerEnvironment(unittest.TestCase):
                 location="backend-adk-event",
                 direction="in",
                 chunk={"test": "data"},
-                mode="adk-bidi"
+                mode="adk-bidi",
             )
 
     def test_server_loads_dotenv_before_imports(self):
@@ -172,10 +170,7 @@ class TestChunkLoggerEnvironment(unittest.TestCase):
         # Log a chunk
         test_chunk = {"type": "test", "data": "sample"}
         chunk_logger.log_chunk(
-            location="backend-sse-event",
-            direction="out",
-            chunk=test_chunk,
-            mode="adk-sse"
+            location="backend-sse-event", direction="out", chunk=test_chunk, mode="adk-sse"
         )
 
         # Should have called json.dumps
@@ -202,7 +197,7 @@ class TestChunkLoggerEnvironment(unittest.TestCase):
                     location="backend-adk-event",
                     direction="in",
                     chunk={"test": "data"},
-                    mode="adk-bidi"
+                    mode="adk-bidi",
                 )
 
                 # Should NOT have tried to open file or dump JSON

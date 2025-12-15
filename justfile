@@ -1,6 +1,9 @@
-# Development tasks for ADK-AI Data Protocol project
+# Development tasks for ADK Stream Protocol project
 
-default: info
+default: help
+
+help:
+    @just --list
 
 # Install all dependencies (both Python and Node.js)
 install:
@@ -58,8 +61,8 @@ format-frontend:
 
 # Run server-side tests (pytest)
 test-server:
-    PYTHONPATH=. uv run pytest tests/unit/ -v
-    PYTHONPATH=. uv run pytest tests/integration/ -v
+    uv run pytest tests/unit/ -v
+    uv run pytest tests/integration/ -v
 
 # Run frontend tests (Vitest)
 test-frontend:
@@ -87,14 +90,14 @@ setup-e2e-fixtures:
 # Run E2E tests (Playwright) - uses existing servers if running
 test-e2e:
     pnpm run test:e2e
-    PYTHONPATH=. uv run pytest tests/e2e/ -v
+    uv run pytest tests/e2e/ -v
 
 # Run E2E tests with clean server restart - guarantees fresh servers
 test-e2e-clean: clean-port
     @echo "Playwright will start fresh servers automatically..."
     @echo "Running E2E tests..."
     pnpm run test:e2e
-    PYTHONPATH=. uv run pytest tests/e2e/ -v
+    uv run pytest tests/e2e/ -v
 
 # Install Playwright browsers
 install-browsers:
@@ -146,18 +149,21 @@ clean-gen:
     rm -rf __pycache__
     find . -type d -name "*.egg-info" -exec rm -rf {} +
     find . -type d -name "__pycache__" -exec rm -rf {} +
+    @echo "Generated files cleaned."
 
 # Clean up installed dependencies
 clean-deps:
     @echo "Cleaning up installed dependencies..."
     rm -rf .venv
     rm -rf node_modules
+    @echo "Dependencies cleaned."
 
 # Clean up lock files
 clean-lock:
     @echo "Cleaning up lock files..."
     rm -f pnpm-lock.yaml
     rm -f uv.lock
+    @echo "Lock files cleaned."
 
 # Run E2E tests with clean server restart - guarantees fresh servers
 kill:
@@ -168,13 +174,4 @@ kill:
     -lsof -ti:8000 | xargs kill -9 2>/dev/null || true
     -lsof -ti:8001 | xargs kill -9 2>/dev/null || true
     -lsof -ti:8002 | xargs kill -9 2>/dev/null || true
-
-# Show project info
-info:
-    @echo "ADK Stream Protocol Project"
-    @echo "============================="
-    @echo "Backend port: 8000"
-    @echo "Frontend port: 3000"
-    @echo ""
-    @echo "Available commands:"
-    @just --list
+    @echo "Servers stopped."

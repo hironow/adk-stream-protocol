@@ -8,12 +8,9 @@ Tests the AI SDK v6 compatibility layer, focusing on:
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from ai_sdk_v6_compat import (
     ChatMessage,
     FilePart,
-    ImagePart,
     TextPart,
     ToolApproval,
     ToolCallState,
@@ -50,7 +47,7 @@ class TestProcessToolUseParts:
                     type="file",
                     filename="image.png",
                     url="data:image/png;base64,abc123",
-                    media_type="image/png"
+                    media_type="image/png",
                 ),
             ],
         )
@@ -119,9 +116,7 @@ class TestProcessToolUseParts:
         process_tool_use_parts(message, delegate)
 
         # then
-        delegate.reject_tool_call.assert_called_once_with(
-            tool_call_id, "User denied permission"
-        )
+        delegate.reject_tool_call.assert_called_once_with(tool_call_id, "User denied permission")
 
     def test_process_tool_use_parts_approval_accepted(self):
         """Should NOT call delegate when approval is accepted."""
@@ -211,7 +206,9 @@ class TestProcessToolUseParts:
                     tool_call_id="tool_1",
                     tool_name="get_location",
                     state=ToolCallState.APPROVAL_RESPONDED,
-                    approval=ToolApproval(id="approval_1", approved=False, reason="Privacy concern"),
+                    approval=ToolApproval(
+                        id="approval_1", approved=False, reason="Privacy concern"
+                    ),
                 ),
                 TextPart(type="text", text="Processing..."),
                 ToolUsePart(
@@ -289,14 +286,7 @@ class TestProcessChatMessageForBidi:
         """Should extract text content from text-only message."""
         # given
         message_data = {
-            "messages": [
-                {
-                    "role": "user",
-                    "parts": [
-                        {"type": "text", "text": "Hello, world!"}
-                    ]
-                }
-            ]
+            "messages": [{"role": "user", "parts": [{"type": "text", "text": "Hello, world!"}]}]
         }
         delegate = MagicMock()
 
@@ -323,7 +313,12 @@ class TestProcessChatMessageForBidi:
                     "role": "user",
                     "parts": [
                         {"type": "text", "text": "Look at this image:"},
-                        {"type": "file", "filename": "image.png", "url": image_data, "mediaType": "image/png"},
+                        {
+                            "type": "file",
+                            "filename": "image.png",
+                            "url": image_data,
+                            "mediaType": "image/png",
+                        },
                         {"type": "text", "text": "What do you see?"},
                     ],
                 }
@@ -365,7 +360,11 @@ class TestProcessChatMessageForBidi:
                             "toolCallId": "bgm_123",
                             "toolName": "change_bgm",
                             "state": "approval-responded",
-                            "approval": {"id": "approval_bgm", "approved": False, "reason": "Too loud"},
+                            "approval": {
+                                "id": "approval_bgm",
+                                "approved": False,
+                                "reason": "Too loud",
+                            },
                         }
                     ],
                 },
@@ -426,7 +425,12 @@ class TestProcessChatMessageForBidi:
                 {
                     "role": "user",
                     "parts": [
-                        {"type": "file", "filename": "image.png", "url": "invalid_data_url", "mediaType": "image/png"},
+                        {
+                            "type": "file",
+                            "filename": "image.png",
+                            "url": "invalid_data_url",
+                            "mediaType": "image/png",
+                        },
                         {"type": "text", "text": "This image is broken"},
                     ],
                 }
@@ -515,7 +519,11 @@ class TestProcessChatMessageForBidi:
                             "toolCallId": "bgm_2",
                             "toolName": "change_bgm",
                             "state": "approval-responded",
-                            "approval": {"id": "approval_bgm_2", "approved": False, "reason": "Not now"},
+                            "approval": {
+                                "id": "approval_bgm_2",
+                                "approved": False,
+                                "reason": "Not now",
+                            },
                         },
                     ],
                 }

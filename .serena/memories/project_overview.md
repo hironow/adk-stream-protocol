@@ -1,4 +1,4 @@
-# ADK-AI Data Protocol Project Overview
+# ADK Stream Protocol Project Overview
 
 ## Project Purpose
 AI SDK v6 and Google ADK integration example demonstrating SSE and WebSocket streaming implementation. The project bridges Vercel's AI SDK v6 with Google's ADK (AI Development Kit) to provide real-time multimodal AI interactions.

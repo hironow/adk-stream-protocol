@@ -4,9 +4,10 @@ Unit tests for adk_compat module
 This module tests the ADK compatibility functions for session management and history synchronization.
 """
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch, call
 import uuid
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 
 @pytest.fixture
@@ -46,7 +47,9 @@ def sample_messages():
 
 
 @pytest.mark.asyncio
-async def test_sync_conversation_history_first_sync(mock_session, mock_session_service, sample_messages):
+async def test_sync_conversation_history_first_sync(
+    mock_session, mock_session_service, sample_messages
+):
     """Test syncing conversation history for the first time"""
     from adk_compat import sync_conversation_history_to_session
 
@@ -74,14 +77,16 @@ async def test_sync_conversation_history_first_sync(mock_session, mock_session_s
 
     # Verify the events were created with correct roles
     calls = mock_session_service.append_event.call_args_list
-    assert calls[0][1]['event'].author == 'user'
-    assert calls[1][1]['event'].author == 'assistant'
-    assert calls[2][1]['event'].author == 'user'
-    assert calls[3][1]['event'].author == 'assistant'
+    assert calls[0][1]["event"].author == "user"
+    assert calls[1][1]["event"].author == "assistant"
+    assert calls[2][1]["event"].author == "user"
+    assert calls[3][1]["event"].author == "assistant"
 
 
 @pytest.mark.asyncio
-async def test_sync_conversation_history_incremental(mock_session, mock_session_service, sample_messages):
+async def test_sync_conversation_history_incremental(
+    mock_session, mock_session_service, sample_messages
+):
     """Test syncing only new messages when some are already synced"""
     from adk_compat import sync_conversation_history_to_session
 
@@ -138,7 +143,9 @@ async def test_sync_conversation_history_no_messages(mock_session, mock_session_
 
 
 @pytest.mark.asyncio
-async def test_sync_conversation_history_already_synced(mock_session, mock_session_service, sample_messages):
+async def test_sync_conversation_history_already_synced(
+    mock_session, mock_session_service, sample_messages
+):
     """Test when all messages are already synced"""
     from adk_compat import sync_conversation_history_to_session
 
@@ -208,7 +215,7 @@ async def test_prepare_session_for_mode_switch(mock_session, mock_session_servic
         messages.append(msg)
 
     # Test switching from Gemini to ADK SSE
-    with patch('adk_compat.sync_conversation_history_to_session') as mock_sync:
+    with patch("adk_compat.sync_conversation_history_to_session") as mock_sync:
         mock_sync.return_value = 1  # Return that 1 message was synced
 
         await prepare_session_for_mode_switch(
@@ -240,7 +247,7 @@ async def test_prepare_session_adk_to_adk_switch(mock_session, mock_session_serv
     msg.to_adk_content = MagicMock(return_value=MagicMock(role="user"))
     messages = [msg]
 
-    with patch('adk_compat.sync_conversation_history_to_session') as mock_sync:
+    with patch("adk_compat.sync_conversation_history_to_session") as mock_sync:
         await prepare_session_for_mode_switch(
             session=mock_session,
             session_service=mock_session_service,
@@ -279,8 +286,8 @@ async def test_event_creation_with_unique_ids(mock_session, mock_session_service
     invocation_ids = []
 
     for call_args in calls:
-        event = call_args[1]['event']
-        assert hasattr(event, 'invocation_id')
+        event = call_args[1]["event"]
+        assert hasattr(event, "invocation_id")
         invocation_ids.append(event.invocation_id)
 
     # All invocation IDs should be unique
@@ -296,7 +303,7 @@ async def test_event_creation_with_unique_ids(mock_session, mock_session_service
 @pytest.mark.asyncio
 async def test_get_or_create_session_creates_new_session():
     """Test that get_or_create_session creates a new session when needed"""
-    from adk_compat import get_or_create_session, clear_sessions
+    from adk_compat import clear_sessions, get_or_create_session
 
     # Clear any existing sessions
     clear_sessions()
@@ -326,7 +333,7 @@ async def test_get_or_create_session_creates_new_session():
 @pytest.mark.asyncio
 async def test_get_or_create_session_reuses_existing():
     """Test that get_or_create_session reuses existing sessions"""
-    from adk_compat import get_or_create_session, clear_sessions
+    from adk_compat import clear_sessions, get_or_create_session
 
     # Clear any existing sessions
     clear_sessions()
@@ -355,7 +362,7 @@ async def test_get_or_create_session_reuses_existing():
 @pytest.mark.asyncio
 async def test_get_or_create_session_with_connection_signature():
     """Test that connection_signature creates unique sessions"""
-    from adk_compat import get_or_create_session, clear_sessions
+    from adk_compat import clear_sessions, get_or_create_session
 
     # Clear any existing sessions
     clear_sessions()
@@ -390,7 +397,7 @@ async def test_get_or_create_session_with_connection_signature():
 
 def test_clear_sessions():
     """Test that clear_sessions removes all sessions"""
-    from adk_compat import clear_sessions, get_session_count, _sessions
+    from adk_compat import _sessions, clear_sessions, get_session_count
 
     # Clear any existing sessions first
     clear_sessions()
@@ -411,7 +418,7 @@ def test_clear_sessions():
 
 def test_get_session_count():
     """Test that get_session_count returns correct count"""
-    from adk_compat import get_session_count, clear_sessions, _sessions
+    from adk_compat import _sessions, clear_sessions, get_session_count
 
     # Clear first
     clear_sessions()
@@ -459,9 +466,9 @@ async def test_prepare_session_mode_combinations(mock_session, mock_session_serv
 
     # Test all possible mode combinations
     mode_pairs = [
-        ("gemini", "adk-sse", True),   # Should sync
+        ("gemini", "adk-sse", True),  # Should sync
         ("gemini", "adk-bidi", True),  # Should sync
-        ("gemini", "gemini", False),   # Same mode, no sync
+        ("gemini", "gemini", False),  # Same mode, no sync
         ("adk-sse", "adk-bidi", False),  # ADK to ADK, no sync
         ("adk-bidi", "adk-sse", False),  # ADK to ADK, no sync
         ("adk-sse", "gemini", False),  # Back to Gemini, no sync needed
@@ -470,7 +477,7 @@ async def test_prepare_session_mode_combinations(mock_session, mock_session_serv
     for from_mode, to_mode, should_sync in mode_pairs:
         mock_session.state = {}
 
-        with patch('adk_compat.sync_conversation_history_to_session') as mock_sync:
+        with patch("adk_compat.sync_conversation_history_to_session") as mock_sync:
             mock_sync.return_value = 0
 
             await prepare_session_for_mode_switch(
@@ -494,8 +501,9 @@ async def test_prepare_session_mode_combinations(mock_session, mock_session_serv
 @pytest.mark.asyncio
 async def test_get_or_create_session_concurrent_access():
     """Test that concurrent access to the same session is handled correctly"""
-    from adk_compat import get_or_create_session, clear_sessions
     import asyncio
+
+    from adk_compat import clear_sessions, get_or_create_session
 
     # Clear any existing sessions
     clear_sessions()
@@ -512,9 +520,7 @@ async def test_get_or_create_session_concurrent_access():
     # Create multiple concurrent tasks requesting the same session
     tasks = []
     for _ in range(10):
-        task = asyncio.create_task(
-            get_or_create_session("concurrent", mock_runner, "agents")
-        )
+        task = asyncio.create_task(get_or_create_session("concurrent", mock_runner, "agents"))
         tasks.append(task)
 
     # Wait for all tasks
@@ -598,8 +604,9 @@ def test_detect_mode_switch_edge_cases():
 @pytest.mark.asyncio
 async def test_connection_signature_uniqueness():
     """Test that connection signatures truly create unique sessions"""
-    from adk_compat import get_or_create_session, clear_sessions, get_session_count, _sessions
     import uuid
+
+    from adk_compat import clear_sessions, get_or_create_session, get_session_count
 
     # Clear any existing sessions
     clear_sessions()
@@ -635,7 +642,7 @@ async def test_connection_signature_uniqueness():
     assert len(set(session_ids)) == 5  # All unique
 
     # Verify the session IDs contain the connection signatures
-    for sig, session in zip(signatures, sessions):
+    for sig, session in zip(signatures, sessions, strict=False):
         assert sig in session.id
 
     # Verify we have 5 sessions in storage

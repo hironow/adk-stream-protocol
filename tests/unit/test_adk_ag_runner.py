@@ -4,10 +4,7 @@ Unit tests for adk_ag_runner module.
 Tests tool functions and agent configurations.
 """
 
-import json
-import os
 from datetime import UTC, datetime
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -101,32 +98,26 @@ class TestWeatherTool:
         # Mock API response
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={
-            "main": {
-                "temp": 22.5,
-                "feels_like": 21.0,
-                "humidity": 70,
-            },
-            "weather": [
-                {
-                    "main": "Partly Cloudy",
-                    "description": "scattered clouds"
-                }
-            ],
-            "wind": {"speed": 3.5}
-        })
+        mock_response.json = AsyncMock(
+            return_value={
+                "main": {
+                    "temp": 22.5,
+                    "feels_like": 21.0,
+                    "humidity": 70,
+                },
+                "weather": [{"main": "Partly Cloudy", "description": "scattered clouds"}],
+                "wind": {"speed": 3.5},
+            }
+        )
 
-        # Create a context manager mock for the get method
-        mock_get_context = AsyncMock()
-        mock_get_context.__aenter__ = AsyncMock(return_value=mock_response)
-        mock_get_context.__aexit__ = AsyncMock(return_value=None)
+        # Create the session mock with proper async context manager protocol
+        mock_session = MagicMock()
+        mock_session.get.return_value.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_session.get.return_value.__aexit__ = AsyncMock(return_value=None)
 
-        # Create the session mock
-        mock_session = AsyncMock()
-        mock_session.get.return_value = mock_get_context
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
-        mock_session_class.return_value = mock_session
+        # Configure ClientSession to return our mock session
+        mock_session_class.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session_class.return_value.__aexit__ = AsyncMock(return_value=None)
 
         # when: Request weather
         result = await get_weather("Paris")
@@ -159,17 +150,14 @@ class TestWeatherTool:
         mock_response = MagicMock()
         mock_response.status = 404  # City not found
 
-        # Create a context manager mock for the get method
-        mock_get_context = AsyncMock()
-        mock_get_context.__aenter__ = AsyncMock(return_value=mock_response)
-        mock_get_context.__aexit__ = AsyncMock(return_value=None)
+        # Create the session mock with proper async context manager protocol
+        mock_session = MagicMock()
+        mock_session.get.return_value.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_session.get.return_value.__aexit__ = AsyncMock(return_value=None)
 
-        # Create the session mock
-        mock_session = AsyncMock()
-        mock_session.get.return_value = mock_get_context
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
-        mock_session_class.return_value = mock_session
+        # Configure ClientSession to return our mock session
+        mock_session_class.return_value.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session_class.return_value.__aexit__ = AsyncMock(return_value=None)
 
         # when: Request weather
         result = await get_weather("NonExistentCity")
@@ -275,6 +263,7 @@ class TestGetCurrentTime:
 
         # Check format patterns
         import re
+
         # ISO format: 2024-01-15T10:30:45.123456+00:00
         assert re.match(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}", result["datetime"])
         # Formatted: 2024-01-15 10:30:45
@@ -304,9 +293,7 @@ class TestFrontendDelegatedTools:
         # then: Should delegate and return result
         assert result == expected_result
         mock_delegate.execute_on_frontend.assert_called_once_with(
-            tool_call_id="bgm_call_123",
-            tool_name="change_bgm",
-            args={"track": 1}
+            tool_call_id="bgm_call_123", tool_name="change_bgm", args={"track": 1}
         )
 
     @pytest.mark.asyncio
@@ -341,7 +328,7 @@ class TestFrontendDelegatedTools:
             "success": True,
             "latitude": 35.6762,
             "longitude": 139.6503,
-            "accuracy": 10
+            "accuracy": 10,
         }
         mock_delegate.execute_on_frontend = AsyncMock(return_value=expected_result)
 
@@ -351,9 +338,7 @@ class TestFrontendDelegatedTools:
         # then: Should delegate and return result
         assert result == expected_result
         mock_delegate.execute_on_frontend.assert_called_once_with(
-            tool_call_id="loc_call_456",
-            tool_name="get_location",
-            args={}
+            tool_call_id="loc_call_456", tool_name="get_location", args={}
         )
 
     @pytest.mark.asyncio
@@ -389,11 +374,7 @@ class TestFrontendDelegatedTools:
         tool_context.function_call_id = "bgm_denied_123"
         tool_context.state = {}
 
-        denial_result = {
-            "success": False,
-            "error": "User denied permission",
-            "denied": True
-        }
+        denial_result = {"success": False, "error": "User denied permission", "denied": True}
         mock_delegate.execute_on_frontend = AsyncMock(return_value=denial_result)
 
         # when: Try to change BGM
