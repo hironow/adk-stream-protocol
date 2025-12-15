@@ -740,10 +740,11 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
 
       // Log audio stream start on first chunk
       if (this.audioChunkIndex === 0) {
-        console.log("[Audio Stream] Audio streaming started (BIDI mode)");
-        console.log(
-          `[Audio Stream] Sample rate: ${pcmData.sampleRate}Hz, Channels: ${pcmData.channels}, Bit depth: ${pcmData.bitDepth}`,
-        );
+        // Commented out to reduce log noise during recording
+        // console.log("[Audio Stream] Audio streaming started (BIDI mode)");
+        // console.log(
+        //   `[Audio Stream] Sample rate: ${pcmData.sampleRate}Hz, Channels: ${pcmData.channels}, Bit depth: ${pcmData.bitDepth}`,
+        // );
 
         // Store audio format for WAV conversion
         this.pcmSampleRate = pcmData.sampleRate;
@@ -836,15 +837,16 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
 
       // Log audio stream completion with statistics
       if (metadata.audio) {
-        console.log("[Audio Stream] Audio streaming completed");
-        console.log(`[Audio Stream] Total chunks: ${metadata.audio.chunks}`);
-        console.log(`[Audio Stream] Total bytes: ${metadata.audio.bytes}`);
-        console.log(
-          `[Audio Stream] Sample rate: ${metadata.audio.sampleRate}Hz`,
-        );
-        console.log(
-          `[Audio Stream] Duration: ${metadata.audio.duration.toFixed(2)}s`,
-        );
+        // Commented out to reduce log noise during recording
+        // console.log("[Audio Stream] Audio streaming completed");
+        // console.log(`[Audio Stream] Total chunks: ${metadata.audio.chunks}`);
+        // console.log(`[Audio Stream] Total bytes: ${metadata.audio.bytes}`);
+        // console.log(
+        //   `[Audio Stream] Sample rate: ${metadata.audio.sampleRate}Hz`,
+        // );
+        // console.log(
+        //   `[Audio Stream] Duration: ${metadata.audio.duration.toFixed(2)}s`,
+        // );
 
         // Notify AudioContext of audio completion
         if (this.config.audioContext?.voiceChannel?.onComplete) {

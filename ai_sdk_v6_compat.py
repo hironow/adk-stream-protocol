@@ -80,6 +80,18 @@ class ToolCallState(str, Enum):
 # Text and File Parts
 # ============================================================
 
+class StepPart(BaseModel):
+    """
+    Step part in message (AI SDK v6 format).
+
+    These are internal chunks that AI SDK v6 adds during step processing:
+    - 'start': Beginning of a new message
+    - 'step-start': Beginning of a processing step (observed in logs)
+    - 'start-step': Beginning of a processing step (documented in AI SDK)
+    - 'finish-step': End of a processing step
+    """
+
+    type: Literal["start", "step-start", "start-step", "finish-step"]
 
 class TextPart(BaseModel):
     """
@@ -208,12 +220,46 @@ class ToolUsePart(BaseModel):
     output: dict[str, Any] | None = None  # Present when state="output-available"
 
 
+
+# ============================================================
+# Generic Part for AI SDK v6 Internal Chunks
+# ============================================================
+
+
+class GenericPart(BaseModel):
+    """
+    Generic part for AI SDK v6 internal chunks.
+
+    This handles internal chunk types that AI SDK v6 adds during processing:
+    - 'step-start' / 'start-step': Beginning of a processing step
+    - 'finish-step' / 'step-end': End of a processing step
+    - 'start' / 'finish': Stream lifecycle markers
+
+    These chunks are internal to AI SDK v6's useChat hook and appear when:
+    - Mode switching between Gemini Direct, ADK SSE, and ADK BIDI
+    - Tool calling sequences in Gemini Direct mode
+    - Stream processing state changes
+
+    Without this handler, these chunks would cause 422 validation errors
+    when sent through our Pydantic models (e.g., during mode switching
+    with preserved message history).
+    """
+    type: str
+    # Allow any additional fields without validation
+    model_config = {"extra": "allow"}
+
+
 # ============================================================
 # Message Part Union
 # ============================================================
 
 
-MessagePart = TextPart | ImagePart | FilePart | ToolUsePart
+# Use Union type with GenericPart as fallback for unknown types
+# IMPORTANT: GenericPart must be last in the union to act as a catch-all.
+# Pydantic tries each type in order, so known types are validated first.
+# StepPart handles known internal chunks (start, step-start, start-step, finish-step, step-end).
+# Only truly unknown types fall through to GenericPart as a catch-all.
+MessagePart = TextPart | ImagePart | FilePart | ToolUsePart | StepPart | GenericPart
 """
 Union type for all message parts (AI SDK v6 format).
 
@@ -284,7 +330,25 @@ class ChatMessage(BaseModel):
         # Handle parts array (AI SDK v6 multimodal format)
         if self.parts:
             for part in self.parts:
-                if isinstance(part, TextPart):
+                if isinstance(part, StepPart):
+                    # Skip known AI SDK v6 step chunks (start, step-start, start-step, finish-step)
+                    # These are internal markers from useChat hook that don't contain
+                    # actual message content and should not be sent to ADK backend.
+                    logger.debug(
+                        f"[AI SDK v6] Skipping known internal step chunk: '{part.type}'"
+                    )
+                    continue
+                elif isinstance(part, GenericPart):
+                    # Skip unknown AI SDK v6 internal chunks
+                    # These are internal markers from useChat hook that don't contain
+                    # actual message content and should not be sent to ADK backend.
+                    logger.warning(
+                        f"[AI SDK v6] Ignoring internal chunk type: '{part.type}'. "
+                        f"This is expected for step-start, start-step, finish-step, etc. "
+                        f"Full part data: {part.model_dump()}"
+                    )
+                    continue
+                elif isinstance(part, TextPart):
                     adk_parts.append(types.Part(text=part.text))
                 elif isinstance(part, ImagePart):
                     # Decode base64 and create inline_data with Blob

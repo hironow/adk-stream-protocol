@@ -615,6 +615,13 @@ async def stream(request: ChatRequest):
     Internal ADK processing is hidden from the API consumer.
     """
     logger.info(f"Received stream request with {len(request.messages)} messages")
+    # Debug: Log message parts to investigate why GenericPart warnings aren't appearing
+    for i, msg in enumerate(request.messages):
+        msg_context = msg.to_adk_content()
+        logger.info(f"Message {i}: role={msg_context.role}, parts={len(msg_context.parts) if msg.parts else 0}")
+        if msg_context.parts:
+            for j, part in enumerate(msg_context.parts):
+                logger.info(f"  Part {j}: type={part}")
 
     if not request.messages:
         # Return error as SSE
@@ -860,10 +867,11 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
 
                             # Decode base64 PCM audio data
                             audio_bytes = base64.b64decode(chunk_base64)
-                            logger.debug(
-                                f"[BIDI] Received PCM chunk: {len(audio_bytes)} bytes "
-                                f"({sample_rate}Hz, {channels}ch, {bit_depth}bit)"
-                            )
+                            # Commented out to reduce log noise during recording
+                            # logger.debug(
+                            #     f"[BIDI] Received PCM chunk: {len(audio_bytes)} bytes "
+                            #     f"({sample_rate}Hz, {channels}ch, {bit_depth}bit)"
+                            # )
 
                             # Frontend now sends raw PCM audio via AudioWorklet
                             # Format: 16-bit signed integer, 16kHz, mono
