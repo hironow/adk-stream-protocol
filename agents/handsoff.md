@@ -1,14 +1,109 @@
 # 引き継ぎ書
 
-**Date:** 2025-12-15
-**Current Session:** Test Verification & Code Quality Check
-**Status:** ✅ Complete - 99.5% Tests Passing, Zero Linting/Type Errors
+**Date:** 2025-12-16
+**Current Session:** E2E Test Simplification & Documentation Update
+**Status:** ✅ SSE Tests Complete (3/3 passing), ⚠️ BIDI Issues Remain (0/3 passing)
+
+---
+
+## 🎯 Current Session Summary (2025-12-16 Afternoon)
+
+### E2E Test Simplification & Helper Functions
+
+**User Request:** "何か今のe2eの構成を改めてシンプル化して、utilsも作りつつうまくできる方法を模索しましょう" (Let's simplify the E2E structure and create utilities)
+
+**Implementation:**
+1. ✅ **Created Helper Functions** (`e2e/helpers.ts`)
+   - `waitForToolApproval(page, options)` - Wait for approval dialog
+   - `approveToolCall(page)` - Click Approve button and wait for close
+   - `rejectToolCall(page)` - Click Deny button (not "Reject"!)
+   - `clearHistory(page)` - Reset conversation state
+
+2. ✅ **Simplified Test File** (`e2e/frontend-delegate-fix.spec.ts`)
+   - **Code reduction: 67%** (from ~30 lines to ~8-10 lines per test)
+   - Serial execution with `test.describe.serial()`
+   - Clean beforeEach: navigate → select mode → clear history
+
+3. ✅ **Bug Discoveries During Implementation**
+   - **Bug 1**: Backend BGM state persistence → Use alternating track numbers
+   - **Bug 2**: BGM tool only accepts tracks 0 and 1 (not 0-7)
+   - **Bug 3**: Button is called "Deny" not "Reject"
+
+**Test Results:**
+- ✅ **SSE Mode: 3/3 PASSING** (5.5s, 5.4s, 5.8s execution times)
+  - should process tool output and continue conversation in SSE mode
+  - should handle tool rejection in SSE mode
+  - should not hang when processing tool output in SSE mode
+
+- ❌ **BIDI Mode: 0/3 FAILING** - Conversation history persistence issue
+  - Tests look for message indices `.nth(3)` and `.nth(12)`
+  - Messages from previous test runs remain visible
+  - SSE mode does NOT have this issue → BIDI-specific state management
+
+- ❌ **Mode Switching: 0/1 FAILING** - Same history persistence issue
+
+**Documentation Updates:**
+- ✅ Updated `agents/add_tests.md` with detailed test status
+- ✅ Created `experiments/2025-12-16_frontend_delegate_e2e_test_simplification.md`
+- ✅ Updated `experiments/README.md` with experiment entry
+
+**Key Learnings:**
+1. Helper functions drastically improve test readability (67% reduction)
+2. Error context analysis reveals UI implementation details (button names)
+3. Test isolation strategies must be mode-specific (SSE vs BIDI)
+4. Testing reveals undocumented constraints (BGM tracks 0-1 only)
+
+**Outstanding Issue:**
+BIDI mode conversation history persistence prevents test isolation. This is NOT a test implementation problem - it indicates a BIDI-specific state management issue that requires separate investigation.
+
+---
+
+## 🎯 Previous Session Summary (2025-12-16 Morning)
+
+### Manual Send Tool Approval Fix
+**Status:** ✅ Complete - Tool approval flow working with manual send workaround
 
 **Previous Sessions:**
+- **2025-12-15:** Test Verification & Code Quality Check
 - **2025-12-15:** Test Verification & Bug Fixes (Morning Session)
 - **2025-12-14:** Documentation Consolidation & Architecture Documentation
 - **2025-12-14:** ADK Field Parametrized Test Coverage Implementation
 - **2025-12-14:** Repeatable Chunk Logger & Player Implementation (Phase 1-4)
+
+---
+
+## 🎯 Current Session Summary (2025-12-16)
+
+### Manual Send Tool Approval Workaround
+
+**Background:**
+- AI SDK v6 beta has a critical bug in `sendAutomaticallyWhen` feature
+- Even with `lastAssistantMessageIsCompleteWithApprovalResponses` configuration, automatic message sending after tool approval does not work
+- This affects all three operational modes (Gemini Direct, ADK SSE, ADK BIDI)
+
+**Implementation:**
+1. ✅ **Removed sendAutomaticallyWhen** from all mode configurations
+2. ✅ **Added manual send trigger** after tool approval/rejection with 100ms delay
+3. ✅ **Propagated sendMessage prop** through component hierarchy (Chat → MessageComponent → ToolInvocationComponent)
+4. ✅ **Created comprehensive test suite** (tests/integration/test_manual_send_tool_approval.test.tsx)
+5. ✅ **Added server-side logging** to tool_delegate.py for debugging delegation flow
+
+**Failed Attempt: regenerate():**
+- Attempted to use `regenerate()` instead of `sendMessage({})` to avoid empty "You" message
+- **Why it failed:** regenerate() regenerates the last assistant message rather than continuing the conversation
+- Created deadlock where backend waits forever for tool results
+- **Conclusion:** `sendMessage({})` is the correct approach despite temporary empty "You" message
+
+**Testing Results:**
+- ✅ Tool approval flow works correctly in ADK SSE mode
+- ✅ BGM change functionality tested and working
+- ⚠️ Empty "You" message briefly appears (cosmetic issue only)
+- ⏳ ADK BIDI mode testing still pending
+
+**Documentation:**
+- ✅ Created experiments/2025-12-16_manual_send_tool_approval_design.md
+- ✅ Documented failed regenerate() attempt
+- ✅ Updated experiments/README.md
 
 ---
 

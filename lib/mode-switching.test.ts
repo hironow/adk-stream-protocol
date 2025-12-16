@@ -4,8 +4,8 @@
  * Focus on SSE ↔ BIDI transitions
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import type { UIMessage, UIMessagePart } from "@ai-sdk/react-v6";
+import type { UIMessage } from "@ai-sdk/react-v6";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("Mode Switching - 5x3 Matrix Tests", () => {
   let mockWebSocket: any;
@@ -48,8 +48,8 @@ describe("Mode Switching - 5x3 Matrix Tests", () => {
           start(controller) {
             controller.enqueue(
               new TextEncoder().encode(
-                `data: {"type":"text","text":"Tokyo is the capital"}\n\n`
-              )
+                `data: {"type":"text","text":"Tokyo is the capital"}\n\n`,
+              ),
             );
             controller.close();
           },
@@ -65,7 +65,7 @@ describe("Mode Switching - 5x3 Matrix Tests", () => {
         "/api/chat",
         expect.objectContaining({
           method: "POST",
-        })
+        }),
       );
       expect(response.ok).toBe(true);
     });
@@ -77,8 +77,8 @@ describe("Mode Switching - 5x3 Matrix Tests", () => {
           start(controller) {
             controller.enqueue(
               new TextEncoder().encode(
-                `data: {"type":"text-delta","delta":"Response text"}\n\n`
-              )
+                `data: {"type":"text-delta","delta":"Response text"}\n\n`,
+              ),
             );
             controller.close();
           },
@@ -94,7 +94,7 @@ describe("Mode Switching - 5x3 Matrix Tests", () => {
         "/stream",
         expect.objectContaining({
           method: "POST",
-        })
+        }),
       );
       expect(response.ok).toBe(true);
     });
@@ -102,13 +102,15 @@ describe("Mode Switching - 5x3 Matrix Tests", () => {
     it("1-3: ADK BIDI mode should handle text messages", () => {
       const ws = new WebSocket("ws://localhost:8000/ws");
 
-      ws.send(JSON.stringify({
-        type: "message",
-        data: { messages: [textMessage] },
-      }));
+      ws.send(
+        JSON.stringify({
+          type: "message",
+          data: { messages: [textMessage] },
+        }),
+      );
 
       expect(mockWebSocket.send).toHaveBeenCalledWith(
-        expect.stringContaining('"type":"message"')
+        expect.stringContaining('"type":"message"'),
       );
       expect(mockWebSocket.readyState).toBe(1); // OPEN
     });
@@ -128,8 +130,8 @@ describe("Mode Switching - 5x3 Matrix Tests", () => {
           start(controller) {
             controller.enqueue(
               new TextEncoder().encode(
-                `data: {"type":"tool-call","toolName":"get_weather","args":{"location":"Tokyo"}}\n\n`
-              )
+                `data: {"type":"tool-call","toolName":"get_weather","args":{"location":"Tokyo"}}\n\n`,
+              ),
             );
             controller.close();
           },
@@ -151,8 +153,8 @@ describe("Mode Switching - 5x3 Matrix Tests", () => {
           start(controller) {
             controller.enqueue(
               new TextEncoder().encode(
-                `data: {"type":"tool-call-start","toolCallId":"call-1","toolName":"get_weather"}\n\n`
-              )
+                `data: {"type":"tool-call-start","toolCallId":"call-1","toolName":"get_weather"}\n\n`,
+              ),
             );
             controller.close();
           },
@@ -171,10 +173,12 @@ describe("Mode Switching - 5x3 Matrix Tests", () => {
       const ws = new WebSocket("ws://localhost:8000/ws");
 
       // Send message
-      ws.send(JSON.stringify({
-        type: "message",
-        data: { messages: [functionCallMessage] },
-      }));
+      ws.send(
+        JSON.stringify({
+          type: "message",
+          data: { messages: [functionCallMessage] },
+        }),
+      );
 
       // Simulate function call response
       if (mockWebSocket.onmessage) {
@@ -214,28 +218,30 @@ describe("Mode Switching - 5x3 Matrix Tests", () => {
       const ws = new WebSocket("ws://localhost:8000/ws");
 
       // Send messages with full history
-      ws.send(JSON.stringify({
-        type: "message",
-        data: {
-          messages: [
-            ...sseMessages,
-            {
-              id: "3",
-              role: "user",
-              parts: [{ type: "text", text: "New message in BIDI" }],
-            },
-          ],
-        },
-      }));
+      ws.send(
+        JSON.stringify({
+          type: "message",
+          data: {
+            messages: [
+              ...sseMessages,
+              {
+                id: "3",
+                role: "user",
+                parts: [{ type: "text", text: "New message in BIDI" }],
+              },
+            ],
+          },
+        }),
+      );
 
       expect(mockWebSocket.send).toHaveBeenCalledWith(
-        expect.stringContaining('"First message"')
+        expect.stringContaining('"First message"'),
       );
       expect(mockWebSocket.send).toHaveBeenCalledWith(
-        expect.stringContaining('"First response"')
+        expect.stringContaining('"First response"'),
       );
       expect(mockWebSocket.send).toHaveBeenCalledWith(
-        expect.stringContaining('"New message in BIDI"')
+        expect.stringContaining('"New message in BIDI"'),
       );
     });
 
@@ -254,7 +260,9 @@ describe("Mode Switching - 5x3 Matrix Tests", () => {
         body: new ReadableStream({
           start(controller) {
             controller.enqueue(
-              new TextEncoder().encode(`data: {"type":"text","text":"SSE response"}\n\n`)
+              new TextEncoder().encode(
+                `data: {"type":"text","text":"SSE response"}\n\n`,
+              ),
             );
             controller.close();
           },
@@ -271,7 +279,7 @@ describe("Mode Switching - 5x3 Matrix Tests", () => {
         "/stream",
         expect.objectContaining({
           body: expect.stringContaining('"First message"'),
-        })
+        }),
       );
     });
 
@@ -290,14 +298,20 @@ describe("Mode Switching - 5x3 Matrix Tests", () => {
         // Switch modes rapidly
         if (i % 3 === 0) {
           // Gemini mode
-          mockFetch.mockResolvedValueOnce({ ok: true, body: new ReadableStream() });
+          mockFetch.mockResolvedValueOnce({
+            ok: true,
+            body: new ReadableStream(),
+          });
           await fetch("/api/chat", {
             method: "POST",
             body: JSON.stringify({ messages: messageHistory }),
           });
         } else if (i % 3 === 1) {
           // SSE mode
-          mockFetch.mockResolvedValueOnce({ ok: true, body: new ReadableStream() });
+          mockFetch.mockResolvedValueOnce({
+            ok: true,
+            body: new ReadableStream(),
+          });
           await fetch("/stream", {
             method: "POST",
             body: JSON.stringify({ messages: messageHistory }),
@@ -305,10 +319,12 @@ describe("Mode Switching - 5x3 Matrix Tests", () => {
         } else {
           // BIDI mode
           const ws = new WebSocket("ws://localhost:8000/ws");
-          ws.send(JSON.stringify({
-            type: "message",
-            data: { messages: messageHistory },
-          }));
+          ws.send(
+            JSON.stringify({
+              type: "message",
+              data: { messages: messageHistory },
+            }),
+          );
           ws.close();
         }
       }
@@ -330,10 +346,12 @@ describe("Mode Switching - 5x3 Matrix Tests", () => {
         parts: [{ type: "text", text: "Generate audio response" }],
       };
 
-      ws.send(JSON.stringify({
-        type: "message",
-        data: { messages: [messageToSend] },
-      }));
+      ws.send(
+        JSON.stringify({
+          type: "message",
+          data: { messages: [messageToSend] },
+        }),
+      );
 
       // Verify audio is NOT sent to server
       const sentData = mockWebSocket.send.mock.calls[0][0];
@@ -379,7 +397,9 @@ describe("Mode Switching - 5x3 Matrix Tests", () => {
         body: new ReadableStream({
           start(controller) {
             controller.enqueue(
-              new TextEncoder().encode(`data: {"type":"text","text":"Partial"}\n\n`)
+              new TextEncoder().encode(
+                `data: {"type":"text","text":"Partial"}\n\n`,
+              ),
             );
             // Simulate stream interruption
             controller.error(new Error("Stream interrupted"));
@@ -400,7 +420,13 @@ describe("Mode Switching - 5x3 Matrix Tests", () => {
 
 describe("Message Type Matrix Coverage", () => {
   const modes = ["gemini", "adk-sse", "adk-bidi"] as const;
-  const messageTypes = ["text", "function", "approval", "image", "audio"] as const;
+  const messageTypes = [
+    "text",
+    "function",
+    "approval",
+    "image",
+    "audio",
+  ] as const;
 
   // Create a matrix of all combinations
   modes.forEach((mode) => {
@@ -417,10 +443,12 @@ describe("Message Type Matrix Coverage", () => {
 
         if (mode === "adk-bidi") {
           const ws = new WebSocket("ws://localhost:8000/ws");
-          ws.send(JSON.stringify({
-            type: "message",
-            data: { messages: [testMessage] },
-          }));
+          ws.send(
+            JSON.stringify({
+              type: "message",
+              data: { messages: [testMessage] },
+            }),
+          );
           expect(mockWebSocket.send).toHaveBeenCalled();
         } else {
           // For SSE and Gemini modes, we'd use fetch

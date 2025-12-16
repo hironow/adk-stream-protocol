@@ -30,6 +30,9 @@ from loguru import logger
 
 from chunk_logger import Mode, chunk_logger
 
+# Log truncation threshold for base64 and long content fields
+LOG_FIELD_TRUNCATE_THRESHOLD = 100
+
 
 class AISdkFinishReason(str, enum.Enum):
     """
@@ -177,8 +180,14 @@ class StreamProtocolConverter:
 
             # Truncate base64 content fields
             for field in ["content", "data", "url"]:
-                if field in data_copy and isinstance(data_copy[field], str) and len(data_copy[field]) > 100:
-                    data_copy[field] = f"{data_copy[field][:50]}... (truncated {len(data_copy[field])} chars)"
+                if (
+                    field in data_copy
+                    and isinstance(data_copy[field], str)
+                    and len(data_copy[field]) > LOG_FIELD_TRUNCATE_THRESHOLD
+                ):
+                    data_copy[field] = (
+                        f"{data_copy[field][:50]}... (truncated {len(data_copy[field])} chars)"
+                    )
 
             log_data["data"] = data_copy
 

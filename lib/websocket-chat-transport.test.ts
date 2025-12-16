@@ -1837,7 +1837,7 @@ describe("WebSocketChatTransport", () => {
       });
 
       // When: Send messages (creates new connection)
-      const streamPromise = transport.sendMessages({
+      const _streamPromise = transport.sendMessages({
         trigger: "submit-message",
         chatId: "test-chat",
         messageId: "msg-1",
@@ -1869,7 +1869,7 @@ describe("WebSocketChatTransport", () => {
       });
 
       // Create first stream
-      const stream1Promise = transport.sendMessages({
+      const _stream1Promise = transport.sendMessages({
         trigger: "submit-message",
         chatId: "test-chat",
         messageId: "msg-1",
@@ -1892,7 +1892,7 @@ describe("WebSocketChatTransport", () => {
       expect(firstController).toBeDefined();
 
       // When: Send second message (this should trigger controller override logic)
-      const stream2Promise = transport.sendMessages({
+      const _stream2Promise = transport.sendMessages({
         trigger: "submit-message",
         chatId: "test-chat",
         messageId: "msg-2",
@@ -1953,13 +1953,13 @@ describe("WebSocketChatTransport", () => {
       const readPromise = (async () => {
         const chunks: any[] = [];
         try {
-          // biome-ignore lint: using while(true) with break is acceptable in test code
+          // Using while(true) with break is acceptable in test code for async iteration
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
             chunks.push(value);
           }
-        } catch (err) {
+        } catch (_err) {
           // Stream might close before all chunks are read
         }
         return chunks;
@@ -1984,7 +1984,7 @@ describe("WebSocketChatTransport", () => {
         url: "ws://localhost:8000/live",
       });
 
-      const streamPromise = transport.sendMessages({
+      const _streamPromise = transport.sendMessages({
         trigger: "submit-message",
         chatId: "test-chat",
         messageId: "msg-1",
@@ -2018,7 +2018,7 @@ describe("WebSocketChatTransport", () => {
         url: "ws://localhost:8000/live",
       });
 
-      const stream1Promise = transport.sendMessages({
+      const _stream1Promise = transport.sendMessages({
         trigger: "submit-message",
         chatId: "test-chat",
         messageId: "msg-1",

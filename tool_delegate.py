@@ -75,9 +75,18 @@ class FrontendToolDelegate:
             f"[FrontendDelegate] Awaiting result for tool_call_id={tool_call_id}, "
             f"tool={tool_name}, args={args}"
         )
+        logger.debug(
+            f"[FrontendDelegate] Created future for {tool_call_id}, pending_calls={list(self._pending_calls.keys())}"
+        )
 
         # Await frontend result (blocks here until result arrives)
-        result = await future
+        try:
+            logger.debug(f"[FrontendDelegate] Starting await for {tool_call_id}...")
+            result = await future
+            logger.debug(f"[FrontendDelegate] Await completed for {tool_call_id}")
+        except Exception as e:
+            logger.error(f"[FrontendDelegate] Future failed for {tool_call_id}: {e}")
+            raise
 
         logger.info(f"[FrontendDelegate] Received result for tool_call_id={tool_call_id}: {result}")
 
@@ -93,15 +102,29 @@ class FrontendToolDelegate:
             tool_call_id: The tool call ID to resolve
             result: Result dict from frontend execution
         """
+        logger.debug(f"[FrontendDelegate] resolve_tool_result called for {tool_call_id}")
+        logger.debug(
+            f"[FrontendDelegate] Current pending_calls: {list(self._pending_calls.keys())}"
+        )
+
         if tool_call_id in self._pending_calls:
             logger.info(
                 f"[FrontendDelegate] Resolving tool_call_id={tool_call_id} with result: {result}"
             )
-            self._pending_calls[tool_call_id].set_result(result)
+            future = self._pending_calls[tool_call_id]
+            logger.debug(
+                f"[FrontendDelegate] Future state before set_result: done={future.done()}, cancelled={future.cancelled()}"
+            )
+            future.set_result(result)
+            logger.debug(f"[FrontendDelegate] Future resolved successfully for {tool_call_id}")
             del self._pending_calls[tool_call_id]
+            logger.debug(
+                f"[FrontendDelegate] Remaining pending_calls: {list(self._pending_calls.keys())}"
+            )
         else:
             logger.warning(
-                f"[FrontendDelegate] Received result for unknown tool_call_id={tool_call_id}"
+                f"[FrontendDelegate] Received result for unknown tool_call_id={tool_call_id}, "
+                f"pending_calls={list(self._pending_calls.keys())}"
             )
 
     def reject_tool_call(self, tool_call_id: str, reason: str) -> None:
@@ -114,6 +137,13 @@ class FrontendToolDelegate:
             tool_call_id: The tool call ID to reject
             reason: Reason for rejection (e.g., "User denied permission")
         """
+        logger.debug(
+            f"[FrontendDelegate] reject_tool_call called for {tool_call_id}, reason={reason}"
+        )
+        logger.debug(
+            f"[FrontendDelegate] Current pending_calls: {list(self._pending_calls.keys())}"
+        )
+
         if tool_call_id in self._pending_calls:
             logger.info(
                 f"[FrontendDelegate] Rejecting tool_call_id={tool_call_id}, reason: {reason}"
@@ -124,11 +154,20 @@ class FrontendToolDelegate:
                 "error": reason,
                 "denied": True,
             }
-            self._pending_calls[tool_call_id].set_result(rejection_result)
+            future = self._pending_calls[tool_call_id]
+            logger.debug(
+                f"[FrontendDelegate] Future state before set_result: done={future.done()}, cancelled={future.cancelled()}"
+            )
+            future.set_result(rejection_result)
+            logger.debug(f"[FrontendDelegate] Future resolved with rejection for {tool_call_id}")
             del self._pending_calls[tool_call_id]
+            logger.debug(
+                f"[FrontendDelegate] Remaining pending_calls: {list(self._pending_calls.keys())}"
+            )
         else:
             logger.warning(
-                f"[FrontendDelegate] Received rejection for unknown tool_call_id={tool_call_id}"
+                f"[FrontendDelegate] Received rejection for unknown tool_call_id={tool_call_id}, "
+                f"pending_calls={list(self._pending_calls.keys())}"
             )
 
 

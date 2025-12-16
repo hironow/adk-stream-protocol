@@ -203,7 +203,10 @@ async def change_bgm(track: int, tool_context: ToolContext) -> dict[str, Any]:
 
     # Phase 3: Access connection-specific delegate from session state
     # Fall back to global delegate for SSE mode (backward compatibility)
-    logger.info(f"[change_bgm] tool_context.state: {tool_context.state.to_dict()}")
+    state_dict = (
+        tool_context.state if isinstance(tool_context.state, dict) else tool_context.state.to_dict()
+    )
+    logger.info(f"[change_bgm] tool_context.state: {state_dict}")
     if tool_context.state.get("temp:delegate"):
         delegate = tool_context.state.get("temp:delegate")
         logger.info("[change_bgm] Using connection-specific delegate from session state")
@@ -252,7 +255,10 @@ async def get_location(tool_context: ToolContext) -> dict[str, Any]:
 
     # Phase 3: Access connection-specific delegate from session state
     # Fall back to global delegate for SSE mode (backward compatibility)
-    logger.info(f"[get_location] tool_context.state: {tool_context.state.to_dict()}")
+    state_dict = (
+        tool_context.state if isinstance(tool_context.state, dict) else tool_context.state.to_dict()
+    )
+    logger.info(f"[get_location] tool_context.state: {state_dict}")
     delegate = tool_context.state.get("temp:delegate") or frontend_delegate
     client_id = tool_context.state.get("client_identifier", "sse_mode")
     logger.info(f"[get_location] Using delegate: {delegate}, client_id: {client_id}")
@@ -328,7 +334,7 @@ sse_agent = Agent(
     model="gemini-2.5-flash",  # Stable Gemini 2.5 Flash for generateContent API (SSE mode)
     description=AGENT_DESCRIPTION,
     instruction=AGENT_INSTRUCTION,
-    tools=AGENT_TOOLS,
+    tools=AGENT_TOOLS,  # type: ignore[arg-type]  # ADK accepts functions at runtime
     # Note: ADK Agent doesn't support seed and temperature parameters
 )
 
@@ -340,7 +346,7 @@ bidi_agent = Agent(
     model=bidi_model,  # Configurable model for BIDI mode
     description=AGENT_DESCRIPTION,
     instruction=AGENT_INSTRUCTION,
-    tools=AGENT_TOOLS,
+    tools=AGENT_TOOLS,  # type: ignore[arg-type]  # ADK accepts functions at runtime
     # Note: ADK Agent doesn't support seed and temperature parameters
 )
 

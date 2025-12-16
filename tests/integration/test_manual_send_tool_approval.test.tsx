@@ -9,7 +9,7 @@
 
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import "@testing-library/jest-dom"; // Add jest-dom matchers
 import { ToolInvocationComponent } from "@/components/tool-invocation";
 
@@ -42,7 +42,7 @@ describe("Manual Send Tool Approval", () => {
           addToolApprovalResponse={mockAddToolApprovalResponse}
           executeToolCallback={mockExecuteToolCallback}
           sendMessage={mockSendMessage}
-        />
+        />,
       );
 
       // Find and click approve button
@@ -61,7 +61,7 @@ describe("Manual Send Tool Approval", () => {
         () => {
           expect(mockSendMessage).toHaveBeenCalled();
         },
-        { timeout: 200 }
+        { timeout: 200 },
       );
     });
 
@@ -81,7 +81,7 @@ describe("Manual Send Tool Approval", () => {
           toolInvocation={toolInvocation}
           addToolApprovalResponse={mockAddToolApprovalResponse}
           sendMessage={mockSendMessage}
-        />
+        />,
       );
 
       // Find and click deny button
@@ -100,7 +100,7 @@ describe("Manual Send Tool Approval", () => {
         () => {
           expect(mockSendMessage).toHaveBeenCalled();
         },
-        { timeout: 200 }
+        { timeout: 200 },
       );
     });
 
@@ -124,7 +124,7 @@ describe("Manual Send Tool Approval", () => {
           addToolApprovalResponse={mockAddToolApprovalResponse}
           executeToolCallback={mockExecute}
           sendMessage={mockSendMessage}
-        />
+        />,
       );
 
       const approveButton = screen.getByText("Approve");
@@ -134,7 +134,7 @@ describe("Manual Send Tool Approval", () => {
       expect(mockExecute).toHaveBeenCalledWith(
         "change_bgm",
         "test-tool-call-id-3",
-        { track: 0 }
+        { track: 0 },
       );
 
       // When client handles, approval response should NOT be sent
@@ -145,7 +145,7 @@ describe("Manual Send Tool Approval", () => {
         () => {
           expect(mockSendMessage).toHaveBeenCalled();
         },
-        { timeout: 200 }
+        { timeout: 200 },
       );
     });
   });
@@ -159,11 +159,11 @@ describe("Manual Send Tool Approval", () => {
         approval: { id: "approval-id" },
       };
 
-      const { container } = render(
+      const { container: _container } = render(
         <ToolInvocationComponent
           toolInvocation={toolInvocation}
           sendMessage={mockSendMessage}
-        />
+        />,
       );
 
       // Check that tool name is displayed correctly (component renders "toolName (type)")
@@ -183,7 +183,7 @@ describe("Manual Send Tool Approval", () => {
         <ToolInvocationComponent
           toolInvocation={toolInvocation}
           sendMessage={mockSendMessage}
-        />
+        />,
       );
 
       // Should use explicit toolName over type extraction
@@ -204,14 +204,14 @@ describe("Manual Send Tool Approval", () => {
         <ToolInvocationComponent
           toolInvocation={toolInvocation}
           sendMessage={mockSendMessage}
-        />
+        />,
       );
 
       expect(screen.getByText("Approval Required")).toBeInTheDocument();
       expect(screen.getByText("Approve")).toBeInTheDocument();
       expect(screen.getByText("Deny")).toBeInTheDocument();
       expect(
-        screen.getByText("This tool requires your approval to execute:")
+        screen.getByText("This tool requires your approval to execute:"),
       ).toBeInTheDocument();
     });
 
@@ -227,7 +227,7 @@ describe("Manual Send Tool Approval", () => {
         <ToolInvocationComponent
           toolInvocation={toolInvocation}
           sendMessage={mockSendMessage}
-        />
+        />,
       );
 
       expect(screen.getByText("Completed")).toBeInTheDocument();
@@ -246,7 +246,7 @@ describe("Manual Send Tool Approval", () => {
         <ToolInvocationComponent
           toolInvocation={toolInvocation}
           sendMessage={mockSendMessage}
-        />
+        />,
       );
 
       expect(screen.getByText("Failed")).toBeInTheDocument();

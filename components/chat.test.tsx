@@ -212,7 +212,7 @@ describe("Chat Component - Message History Preservation (P4-T9)", () => {
       });
 
       // When: Using with useChat (simulating Chat component behavior)
-      const { result } = renderHook(() => {
+      const { result: _result } = renderHook(() => {
         const chat = useChat(options.useChatOptions);
 
         // Simulate Chat component's useEffect
@@ -302,7 +302,7 @@ describe("Chat Component - Message History Preservation (P4-T9)", () => {
         },
       ];
 
-      const options = buildUseChatOptions({
+      const _options = buildUseChatOptions({
         mode: "adk-bidi",
         initialMessages: existingMessages,
         adkBackendUrl: "http://localhost:8000",

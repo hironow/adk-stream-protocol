@@ -1,7 +1,5 @@
 import type { UIMessage } from "@ai-sdk/react";
-import {
-  DefaultChatTransport,
-} from "ai";
+import { DefaultChatTransport } from "ai";
 import { ChunkLoggingTransport } from "@/lib/chunk-logging-transport";
 import { ChunkPlayerTransport } from "@/lib/chunk-player-transport";
 import { WebSocketChatTransport } from "@/lib/websocket-chat-transport";

@@ -95,7 +95,7 @@ describe("AudioContext - Tab Visibility Handling", () => {
   });
 
   it("should fade out BGM when tab becomes hidden", async () => {
-    const { result } = renderHook(() => useAudio(), {
+    const { result: _result } = renderHook(() => useAudio(), {
       wrapper: AudioProvider,
     });
 
@@ -134,7 +134,7 @@ describe("AudioContext - Tab Visibility Handling", () => {
   });
 
   it("should restore BGM when tab becomes visible", async () => {
-    const { result } = renderHook(() => useAudio(), {
+    const { result: _result } = renderHook(() => useAudio(), {
       wrapper: AudioProvider,
     });
 
@@ -169,7 +169,7 @@ describe("AudioContext - Tab Visibility Handling", () => {
   });
 
   it("should restore to ducked volume if audio is playing", async () => {
-    const { result } = renderHook(() => useAudio(), {
+    const { result: _result } = renderHook(() => useAudio(), {
       wrapper: AudioProvider,
     });
 

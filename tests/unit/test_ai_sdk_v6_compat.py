@@ -8,6 +8,8 @@ Tests the AI SDK v6 compatibility layer, focusing on:
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from ai_sdk_v6_compat import (
     ChatMessage,
     FilePart,
@@ -291,7 +293,9 @@ class TestProcessChatMessageForBidi:
         delegate = MagicMock()
 
         # when
-        image_blobs, text_content = process_chat_message_for_bidi(message_data, delegate)
+        image_blobs, text_content, approval_processed = process_chat_message_for_bidi(
+            message_data, delegate
+        )
 
         # then
         assert len(image_blobs) == 0
@@ -329,7 +333,9 @@ class TestProcessChatMessageForBidi:
         # when
         with patch("ai_sdk_v6_compat.base64.b64decode") as mock_decode:
             mock_decode.return_value = b"fake_image_data"
-            image_blobs, text_content = process_chat_message_for_bidi(message_data, delegate)
+            image_blobs, text_content, approval_processed = process_chat_message_for_bidi(
+                message_data, delegate
+            )
 
         # then
         # Should have one image blob
@@ -373,7 +379,9 @@ class TestProcessChatMessageForBidi:
         delegate = MagicMock()
 
         # when
-        image_blobs, text_content = process_chat_message_for_bidi(message_data, delegate)
+        image_blobs, text_content, approval_processed = process_chat_message_for_bidi(
+            message_data, delegate
+        )
 
         # then
         # Should process tool rejection
@@ -406,7 +414,9 @@ class TestProcessChatMessageForBidi:
         delegate = MagicMock()
 
         # when
-        image_blobs, text_content = process_chat_message_for_bidi(message_data, delegate)
+        image_blobs, text_content, approval_processed = process_chat_message_for_bidi(
+            message_data, delegate
+        )
 
         # then
         # No image blobs (file parts are skipped)
@@ -439,7 +449,9 @@ class TestProcessChatMessageForBidi:
         delegate = MagicMock()
 
         # when
-        image_blobs, text_content = process_chat_message_for_bidi(message_data, delegate)
+        image_blobs, text_content, approval_processed = process_chat_message_for_bidi(
+            message_data, delegate
+        )
 
         # then
         # Should skip invalid image
@@ -456,7 +468,9 @@ class TestProcessChatMessageForBidi:
         delegate = MagicMock()
 
         # when
-        image_blobs, text_content = process_chat_message_for_bidi(message_data, delegate)
+        image_blobs, text_content, approval_processed = process_chat_message_for_bidi(
+            message_data, delegate
+        )
 
         # then: Should return empty blobs and None content
         assert image_blobs == []
@@ -485,7 +499,9 @@ class TestProcessChatMessageForBidi:
         delegate = MagicMock()
 
         # when
-        image_blobs, text_content = process_chat_message_for_bidi(message_data, delegate)
+        image_blobs, text_content, approval_processed = process_chat_message_for_bidi(
+            message_data, delegate
+        )
 
         # then
         # Should resolve tool result
@@ -534,7 +550,9 @@ class TestProcessChatMessageForBidi:
         # when
         with patch("ai_sdk_v6_compat.base64.b64decode") as mock_decode:
             mock_decode.return_value = b"jpeg_data"
-            image_blobs, text_content = process_chat_message_for_bidi(message_data, delegate)
+            image_blobs, text_content, approval_processed = process_chat_message_for_bidi(
+                message_data, delegate
+            )
 
         # then
         # Should process tool parts
@@ -549,3 +567,158 @@ class TestProcessChatMessageForBidi:
         assert len(text_content.parts) == 2
         assert text_content.parts[0].text == "Processing your request..."
         assert text_content.parts[1].text == "Here's the result:"
+
+
+class TestToolUsePartValidation:
+    """Tests for ToolUsePart Pydantic model validation.
+
+    These tests verify the fix for frontend delegate issue where frontend
+    sends tool parts without explicit 'toolName' field.
+
+    Related: experiments/2025-12-16_frontend_delegate_fix.md
+    """
+
+    def test_tool_use_part_with_explicit_tool_name(self):
+        """Should validate successfully when tool_name is explicitly provided."""
+        # given
+        tool_data = {
+            "type": "tool-change_bgm",
+            "toolCallId": "adk-123",
+            "toolName": "change_bgm",  # Explicitly provided
+            "state": "output-available",
+            "output": {"success": True},
+        }
+
+        # when
+        tool_part = ToolUsePart(**tool_data)  # type: ignore[arg-type]  # Pydantic handles camelCase aliases
+
+        # then
+        assert tool_part.tool_name == "change_bgm"
+        assert tool_part.type == "tool-change_bgm"
+        assert tool_part.tool_call_id == "adk-123"
+
+    def test_tool_use_part_without_tool_name_derives_from_type(self):
+        """Should auto-derive tool_name from type when not provided.
+
+        This is the critical fix: frontend sends type='tool-change_bgm' but
+        no toolName field. We need to extract 'change_bgm' from the type.
+        """
+        # given
+        tool_data = {
+            "type": "tool-change_bgm",
+            "toolCallId": "adk-456",
+            # toolName is intentionally missing
+            "state": "output-available",
+            "output": {"success": True, "current_track": 1},
+        }
+
+        # when
+        tool_part = ToolUsePart(**tool_data)  # type: ignore[arg-type]  # Pydantic handles camelCase aliases
+
+        # then
+        assert tool_part.tool_name == "change_bgm"  # Auto-derived from type
+        assert tool_part.type == "tool-change_bgm"
+
+    @pytest.mark.parametrize(
+        "type_value,expected_tool_name",
+        [
+            ("tool-change_bgm", "change_bgm"),
+            ("tool-get_location", "get_location"),
+            ("tool-calculate", "calculate"),
+            ("tool-get_weather", "get_weather"),
+            ("tool-get_current_time", "get_current_time"),
+        ],
+    )
+    def test_tool_use_part_derives_tool_name_from_various_types(
+        self, type_value: str, expected_tool_name: str
+    ):
+        """Should correctly extract tool name from various type formats."""
+        # given
+        tool_data = {
+            "type": type_value,
+            "toolCallId": "test-id",
+            "state": "output-available",
+            "output": {},
+        }
+
+        # when
+        tool_part = ToolUsePart(**tool_data)  # type: ignore[arg-type]  # Pydantic handles camelCase aliases
+
+        # then
+        assert tool_part.tool_name == expected_tool_name
+
+    def test_tool_use_part_type_without_tool_prefix(self):
+        """Should leave tool_name as None when type lacks 'tool-' prefix.
+
+        In practice, frontend always sends type='tool-{name}' format, but
+        we should handle edge cases gracefully.
+        """
+        # given
+        tool_data = {
+            "type": "change_bgm",  # No 'tool-' prefix
+            "toolCallId": "test-id",
+            "state": "output-available",
+            "output": {},
+        }
+
+        # when
+        tool_part = ToolUsePart(**tool_data)  # type: ignore[arg-type]  # Pydantic handles camelCase aliases
+
+        # then
+        # Without 'tool-' prefix, tool_name stays None
+        assert tool_part.tool_name is None
+        assert tool_part.type == "change_bgm"
+
+    def test_tool_use_part_in_message_without_tool_name(self):
+        """Should validate tool-use part in a message without toolName field.
+
+        This simulates the exact scenario from the bug: frontend sends a
+        message with tool output, but no toolName field.
+        """
+        # given
+        message_data = {
+            "role": "assistant",
+            "parts": [
+                {
+                    "type": "tool-change_bgm",
+                    "toolCallId": "adk-789",
+                    # No toolName field
+                    "state": "output-available",
+                    "output": {
+                        "success": True,
+                        "previous_track": 0,
+                        "current_track": 1,
+                        "message": "BGM changed to track 1",
+                    },
+                }
+            ],
+        }
+
+        # when
+        message = ChatMessage(**message_data)
+
+        # then
+        assert len(message.parts) == 1
+        tool_part = message.parts[0]
+        assert isinstance(tool_part, ToolUsePart)
+        assert tool_part.tool_name == "change_bgm"  # Auto-derived
+        assert tool_part.state == ToolCallState.OUTPUT_AVAILABLE
+        assert tool_part.output["success"] is True
+
+    def test_tool_use_part_explicit_tool_name_takes_precedence(self):
+        """Should use explicit toolName even if type has 'tool-' prefix."""
+        # given
+        tool_data = {
+            "type": "tool-change_bgm",
+            "toolCallId": "test-id",
+            "toolName": "override_name",  # Explicit name different from type
+            "state": "output-available",
+            "output": {},
+        }
+
+        # when
+        tool_part = ToolUsePart(**tool_data)  # type: ignore[arg-type]  # Pydantic handles camelCase aliases
+
+        # then
+        # Explicit toolName should take precedence
+        assert tool_part.tool_name == "override_name"

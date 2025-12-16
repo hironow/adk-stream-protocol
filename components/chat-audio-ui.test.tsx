@@ -83,7 +83,7 @@ describe("Audio Completion UI - Auto-hide", () => {
   });
 
   it("should hide audio completion indicator after 3 seconds", async () => {
-    const { container, rerender } = render(
+    const { container: _container, rerender: _rerender } = render(
       <AudioProvider>
         <Chat
           mode="adk-bidi"

@@ -15,9 +15,9 @@ interface ToolInvocationProps {
   executeToolCallback?: (
     toolName: string,
     toolCallId: string,
-    args: Record<string, unknown>
+    args: Record<string, unknown>,
   ) => Promise<boolean>;
-  sendMessage?: () => void; // Manual send trigger for v6 beta bug workaround
+  sendMessage?: () => void; // Manual send after tool approval (v6 beta bug workaround)
 }
 
 export function ToolInvocationComponent({
@@ -27,11 +27,12 @@ export function ToolInvocationComponent({
   sendMessage,
 }: ToolInvocationProps) {
   // Extract toolName from type (e.g., "tool-change_bgm" -> "change_bgm")
-  const toolName = toolInvocation.toolName ||
-    (toolInvocation.type?.startsWith('tool-') ?
-      toolInvocation.type.substring(5) :
-      toolInvocation.type) ||
-    'unknown';
+  const toolName =
+    toolInvocation.toolName ||
+    (toolInvocation.type?.startsWith("tool-")
+      ? toolInvocation.type.substring(5)
+      : toolInvocation.type) ||
+    "unknown";
   const { state } = toolInvocation;
 
   // Tool call states: input-streaming, input-available, output-available, output-error, approval-requested, approval-responded
@@ -109,105 +110,122 @@ export function ToolInvocationComponent({
       </div>
 
       {/* Approval UI */}
-      {state === "approval-requested" && "approval" in toolInvocation && toolInvocation.approval && (
-        <div style={{ marginBottom: "0.5rem" }}>
-          <div
-            style={{
-              fontSize: "0.875rem",
-              color: "#d1d5db",
-              marginBottom: "0.5rem",
-            }}
-          >
-            This tool requires your approval to execute:
-          </div>
-          <div
-            style={{
-              display: "flex",
-              gap: "0.5rem",
-              marginTop: "0.75rem",
-            }}
-          >
-            <button
-              onClick={async () => {
-                let clientHandled = false;
+      {state === "approval-requested" &&
+        "approval" in toolInvocation &&
+        toolInvocation.approval && (
+          <div style={{ marginBottom: "0.5rem" }}>
+            <div
+              style={{
+                fontSize: "0.875rem",
+                color: "#d1d5db",
+                marginBottom: "0.5rem",
+              }}
+            >
+              This tool requires your approval to execute:
+            </div>
+            <div
+              style={{
+                display: "flex",
+                gap: "0.5rem",
+                marginTop: "0.75rem",
+              }}
+            >
+              <button
+                type="button"
+                onClick={async () => {
+                  let clientHandled = false;
 
-                // Execute the tool on client if callback provided
-                if (executeToolCallback) {
-                  console.info(`[ToolInvocationComponent] Attempting to execute tool ${toolName} on client`);
-                  clientHandled = await executeToolCallback(
-                    toolName,
-                    toolInvocation.toolCallId,
-                    toolInvocation.input || {}
-                  );
-                }
+                  // Execute the tool on client if callback provided
+                  if (executeToolCallback) {
+                    console.info(
+                      `[ToolInvocationComponent] Attempting to execute tool ${toolName} on client`,
+                    );
+                    clientHandled = await executeToolCallback(
+                      toolName,
+                      toolInvocation.toolCallId,
+                      toolInvocation.input || {},
+                    );
+                  }
 
-                // Only send approval response if NOT handled by client
-                // If handled by client, executeToolCallback calls addToolOutput which triggers the send
-                // Calling addToolApprovalResponse here would cause a double-send and potential deadlock
-                if (!clientHandled) {
-                  console.info(`[ToolInvocationComponent] Tool ${toolName} not handled by client, sending approval response`);
+                  // Only send approval response if NOT handled by client
+                  // If handled by client, executeToolCallback calls addToolOutput which triggers the send
+                  // Calling addToolApprovalResponse here would cause a double-send and potential deadlock
+                  if (!clientHandled) {
+                    console.info(
+                      `[ToolInvocationComponent] Tool ${toolName} not handled by client, sending approval response`,
+                    );
+                    addToolApprovalResponse?.({
+                      id: toolInvocation.approval.id,
+                      approved: true,
+                      reason: "User approved the tool execution.",
+                    });
+
+                    // Re-enable manual send as workaround for sendAutomaticallyWhen bug
+                    // We'll filter empty messages in the UI to hide them
+                    console.info(
+                      `[ToolInvocationComponent] Tool approval sent, triggering manual send`,
+                    );
+                    if (sendMessage) {
+                      setTimeout(() => {
+                        console.info(
+                          `[ToolInvocationComponent] Sending continuation message`,
+                        );
+                        sendMessage();
+                      }, 100);
+                    }
+                  }
+                }}
+                style={{
+                  padding: "0.5rem 1rem",
+                  borderRadius: "4px",
+                  background: "#10b981",
+                  color: "white",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: "0.875rem",
+                  fontWeight: 500,
+                }}
+              >
+                Approve
+              </button>
+              <button
+                type="button"
+                onClick={() => {
                   addToolApprovalResponse?.({
                     id: toolInvocation.approval.id,
-                    approved: true,
-                    reason: "User approved the tool execution.",
+                    approved: false,
+                    reason: "User denied the tool execution.",
                   });
-                }
 
-                // Manual send to continue conversation (v6 beta bug workaround)
-                // This replaces sendAutomaticallyWhen functionality
-                if (sendMessage) {
-                  console.info(`[ToolInvocationComponent] Triggering manual send after tool approval`);
-                  // Small delay to ensure state updates are processed
-                  setTimeout(() => {
-                    sendMessage();
-                  }, 100);
-                }
-              }}
-              style={{
-                padding: "0.5rem 1rem",
-                borderRadius: "4px",
-                background: "#10b981",
-                color: "white",
-                border: "none",
-                cursor: "pointer",
-                fontSize: "0.875rem",
-                fontWeight: 500,
-              }}
-            >
-              Approve
-            </button>
-            <button
-              onClick={() => {
-                addToolApprovalResponse?.({
-                  id: toolInvocation.approval.id,
-                  approved: false,
-                  reason: "User denied the tool execution.",
-                });
-
-                // Manual send after rejection (v6 beta bug workaround)
-                if (sendMessage) {
-                  console.info(`[ToolInvocationComponent] Triggering manual send after tool rejection`);
-                  setTimeout(() => {
-                    sendMessage();
-                  }, 100);
-                }
-              }}
-              style={{
-                padding: "0.5rem 1rem",
-                borderRadius: "4px",
-                background: "#ef4444",
-                color: "white",
-                border: "none",
-                cursor: "pointer",
-                fontSize: "0.875rem",
-                fontWeight: 500,
-              }}
-            >
-              Deny
-            </button>
+                  // Re-enable manual send for rejection as well
+                  console.info(
+                    `[ToolInvocationComponent] Tool rejection sent, triggering manual send`,
+                  );
+                  if (sendMessage) {
+                    setTimeout(() => {
+                      console.info(
+                        `[ToolInvocationComponent] Sending continuation message after rejection`,
+                      );
+                      sendMessage();
+                    }, 100);
+                  }
+                }}
+                style={{
+                  padding: "0.5rem 1rem",
+                  borderRadius: "4px",
+                  background: "#ef4444",
+                  color: "white",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: "0.875rem",
+                  fontWeight: 500,
+                }}
+              >
+                Deny
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* Tool Input */}
       {"input" in toolInvocation && toolInvocation.input && (

@@ -10,7 +10,6 @@
 import { expect, test } from "@playwright/test";
 import {
   clearChatHistory,
-  enableChunkPlayerMode,
   getMessages,
   navigateToChat,
   selectBackendMode,
@@ -28,7 +27,7 @@ const MODELS = [
 
 const MODES = ["gemini", "adk-sse", "adk-bidi"] as const;
 
-const TEST_TIMEOUT = 30000; // 30 seconds per test
+const _TEST_TIMEOUT = 30000; // 30 seconds per test
 
 // Test data
 const TEST_PROMPTS = {

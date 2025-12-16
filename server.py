@@ -40,15 +40,17 @@ from adk_ag_runner import (  # noqa: E402
     sse_agent_runner,
 )
 from adk_compat import (  # noqa: E402
+    clear_sessions,
     get_or_create_session,
     sync_conversation_history_to_session,
 )
 from ai_sdk_v6_compat import (  # noqa: E402
     ChatMessage,
     process_chat_message_for_bidi,
+    process_tool_use_parts,
 )
 from stream_protocol import stream_adk_to_ai_sdk  # noqa: E402
-from tool_delegate import FrontendToolDelegate  # noqa: E402
+from tool_delegate import FrontendToolDelegate, frontend_delegate  # noqa: E402
 
 
 def get_user() -> str:
@@ -161,6 +163,20 @@ async def root():
 async def health():
     """Health check endpoint"""
     return {"status": "healthy"}
+
+
+@app.post("/clear-sessions")
+async def clear_backend_sessions():
+    """
+    Clear all backend sessions (for testing/development)
+
+    This endpoint clears the global _sessions dictionary, resetting
+    all conversation history and session state. Useful for E2E tests
+    that need clean state between test runs.
+    """
+    logger.info("[/clear-sessions] Clearing all backend sessions")
+    clear_sessions()
+    return {"status": "success", "message": "All sessions cleared"}
 
 
 @app.post("/chat", response_model=ChatResponse)
@@ -279,6 +295,20 @@ async def stream(request: ChatRequest):
             messages=request.messages,
             current_mode="SSE",
         )
+
+        # 3.5. Process tool outputs from request messages (FRONTEND DELEGATE FIX)
+        # When frontend executes tools locally and sends results via addToolOutput,
+        # those results are included in the next request's messages array.
+        # We need to process these tool outputs BEFORE running the agent,
+        # otherwise the backend delegate will hang forever waiting for results.
+        logger.debug(f"[/stream] Processing tool outputs from {len(request.messages)} messages")
+        for i, msg in enumerate(request.messages):
+            if msg.role == "assistant":
+                # Process tool outputs and resolve pending delegate futures
+                # Note: msg is already a ChatMessage instance from ChatRequest.messages
+                approval_processed = process_tool_use_parts(msg, frontend_delegate)
+                if approval_processed:
+                    logger.info(f"[/stream] Processed tool approval response from message {i}")
 
         # 4. Process the latest message
         last_user_message_obj = request.messages[-1]
@@ -517,9 +547,16 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
 
                         # Process AI SDK v6 message format → ADK format
                         # Separates image blobs from text parts (Live API requirement)
-                        image_blobs, text_content = process_chat_message_for_bidi(
-                            message_data, connection_delegate
+                        image_blobs, text_content, approval_processed = (
+                            process_chat_message_for_bidi(message_data, connection_delegate)
                         )
+
+                        # Note: We don't send finish-step directly from backend
+                        # The model/agent should handle step completion naturally
+                        if approval_processed:
+                            logger.info(
+                                "[BIDI] Tool approval processed, agent will handle continuation"
+                            )
 
                         # Send to ADK LiveRequestQueue
                         # Images/videos: send_realtime(blob)

@@ -133,6 +133,85 @@ export async function clearChatHistory(page: Page) {
 }
 
 /**
+ * Cleanup all chat state: storage, cookies, and conversation history
+ */
+export async function cleanupChatState(page: Page) {
+  // Clear all browser storage
+  await page.evaluate(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+  await page.context().clearCookies();
+}
+
+/**
+ * Clear conversation history using the UI button AND backend sessions
+ *
+ * This clears both:
+ * 1. Frontend React state (via Clear History button)
+ * 2. Backend session storage (via /clear-sessions endpoint)
+ *
+ * Essential for E2E test isolation to prevent conversation history
+ * from leaking between tests.
+ */
+export async function clearHistory(page: Page) {
+  // Clear frontend UI state
+  const clearButton = page.getByRole("button", { name: "Clear History" });
+  const count = await clearButton.count();
+  if (count > 0) {
+    await clearButton.click();
+    await page.waitForTimeout(500);
+  }
+
+  // Clear backend sessions to prevent conversation history persistence
+  // Use page.request API instead of page.evaluate to avoid browser security restrictions
+  try {
+    await page.request.post("http://localhost:8000/clear-sessions");
+  } catch (error) {
+    console.warn("Failed to clear backend sessions:", error);
+    // Don't fail the test if backend clear fails
+  }
+
+  // Wait for state to settle
+  await page.waitForTimeout(500);
+}
+
+/**
+ * Wait for tool approval dialog to appear
+ */
+export async function waitForToolApproval(
+  page: Page,
+  options: { timeout?: number } = {},
+) {
+  const timeout = options.timeout ?? 30000;
+  await expect(page.getByText("Approval Required")).toBeVisible({
+    timeout,
+  });
+}
+
+/**
+ * Approve the tool call in the approval dialog
+ */
+export async function approveToolCall(page: Page) {
+  await page.getByRole("button", { name: "Approve" }).click();
+  // Wait for dialog to close
+  await expect(page.getByText("Approval Required")).not.toBeVisible({
+    timeout: 5000,
+  });
+}
+
+/**
+ * Reject/Deny the tool call in the approval dialog
+ */
+export async function rejectToolCall(page: Page) {
+  await page.getByRole("button", { name: "Deny" }).click();
+  // Wait for dialog to close
+  await expect(page.getByText("Approval Required")).not.toBeVisible({
+    timeout: 5000,
+  });
+}
+
+/**
  * Get test image path
  */
 export function getTestImagePath(filename: string = "test-image.png"): string {

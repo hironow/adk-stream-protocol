@@ -423,14 +423,130 @@ Created comprehensive test suite in `tests/integration/test_manual_send_tool_app
 - ✅ UI updates properly reflect tool execution
 - ✅ Conversation flow continues seamlessly
 
+## Failed Attempt: Using regenerate()
+
+### Issue Discovered (2025-12-16 09:45)
+
+Attempted to use `regenerate()` instead of `sendMessage({})` to avoid empty "You" message appearing in UI.
+
+**Why it failed:**
+1. `regenerate()` regenerates the **last assistant message** rather than continuing the conversation
+2. Server logs showed `execute_on_frontend` waiting but `resolve_tool_result` never called
+3. This created a deadlock where:
+   - Backend waits for tool result via Future
+   - Frontend regenerates assistant message (discarding tool context)
+   - Tool approval response never reaches backend
+   - Conversation stalls indefinitely
+
+**Server logs evidence:**
+```
+2025-12-16 09:37:57.107 | INFO | [FrontendDelegate] Awaiting result for tool_call_id=adk-4c4ebd1f...
+# resolve_tool_result never called after this point
+```
+
+**Conclusion:** `sendMessage({})` is the correct approach despite showing empty "You" message temporarily.
+
+## UI Filter Implementation (2025-12-16 10:45)
+
+### Problem Analysis
+After further consideration, backend sending `finish-step` events directly is not architecturally correct. The `finish-step` should come from the model/agent naturally as part of the stream protocol.
+
+### Revised Solution
+Re-enable manual send but filter empty messages in UI:
+
+1. **Frontend Changes**:
+   - Re-enabled manual `sendMessage()` after tool approval/rejection
+   - Added filter in `MessageComponent` to hide empty user messages
+   - Empty messages still trigger backend continuation but don't show in UI
+
+2. **Implementation Details**:
+```typescript
+// components/tool-invocation.tsx
+// Re-enable manual send after approval
+if (sendMessage) {
+  setTimeout(() => {
+    sendMessage(); // Triggers continuation
+  }, 100);
+}
+
+// components/message.tsx
+// Filter empty user messages in UI
+if (isUser) {
+  const hasContent = message.content && message.content.length > 0;
+  if (!hasContent && !hasAttachments && !hasToolInvocations) {
+    return null; // Hide empty continuation messages
+  }
+}
+```
+
+This approach:
+- Works around AI SDK v6's `sendAutomaticallyWhen` bug
+- Prevents empty "You" messages from appearing in UI
+- Allows proper conversation continuation after tool approval
+- Maintains architectural integrity (no fake events from backend)
+
+## Chrome DevTools MCP Testing Results (2025-12-16 10:30)
+
+### Test Environment
+- **Tester**: Claude (via Chrome DevTools MCP)
+- **Frontend**: http://localhost:3000
+- **Backend**: http://localhost:8000
+- **Mode**: ADK SSE
+
+### Bug Found and Fixed
+During testing, discovered that client-side tool execution wasn't triggering manual send, causing conversations to hang. Added manual send trigger in `executeToolCallback` after `addToolOutput`.
+
+### Test Results
+
+#### Approve Scenario ✅
+1. **Request**: "Please change the BGM to track 1"
+2. **Tool Approval UI**: Displayed correctly with "Approval Required"
+3. **After Approval**:
+   - BGM changed successfully (UI showed "🎵 BGM 2")
+   - Tool status: "Completed"
+   - Tool output displayed correctly
+   - Conversation continued without hanging
+   - Input field and Send button re-enabled
+   - **No empty "You" message appeared** ✅
+
+#### Deny Scenario ✅
+1. **Request**: "Please change the BGM to track 0"
+2. **Tool Approval UI**: Displayed correctly with "Approval Required"
+3. **After Denial**:
+   - BGM remained unchanged (stayed at "🎵 BGM 2")
+   - Tool status: "Processing Approval..." then completed
+   - Conversation continued without hanging
+   - Input field and Send button re-enabled
+   - Server logs confirmed: `approved: False, reason: 'User denied the tool execution.'`
+   - **No empty "You" message appeared** ✅
+
+### Code Changes Made
+1. **chat.tsx**: Added manual send after client-side tool execution
+   ```typescript
+   // Manual send after client-side tool execution (AI SDK v6 beta bug workaround)
+   console.info(`[Chat] Triggering manual send after client-side tool execution`);
+   setTimeout(() => {
+     sendMessage({ text: "" });
+   }, 100);
+   ```
+
+2. **message.tsx**: UI filter already in place to hide empty user messages
+
+### Summary
+✅ Tool approval flow working correctly in ADK SSE mode
+✅ Both approve and deny scenarios function properly
+✅ No empty "You" messages appearing in UI
+✅ Manual send workaround successfully bypasses AI SDK v6 beta bug
+
 ## Next Steps
 
 1. ✅ ~~Implement Phase 1: Remove sendAutomaticallyWhen~~
 2. ✅ ~~Implement Phase 2: Update tool approval handlers~~
 3. ✅ ~~Manual testing ADK SSE mode~~
-4. ⏳ Manual test ADK BIDI mode (pending)
-5. ✅ ~~Document findings~~
-6. Consider contributing fix to AI SDK v6 repository
+4. ✅ ~~Fix client-side tool execution manual send~~
+5. ⏳ Manual test ADK BIDI mode with new implementation
+6. ✅ ~~Prevent empty "You" message - solved with UI filtering~~
+7. Consider contributing fix to AI SDK v6 repository
 
 ---
 

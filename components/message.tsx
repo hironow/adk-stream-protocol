@@ -15,7 +15,6 @@ import type { DynamicToolUIPart } from "ai";
 import { useAudio } from "@/lib/audio-context";
 import { ImageDisplay } from "./image-display";
 import { ToolInvocationComponent } from "./tool-invocation";
-import { error } from "node:console";
 
 // Extended UIMessage with metadata properties
 interface ExtendedUIMessage extends UIMessage {
@@ -59,15 +58,38 @@ interface MessageComponentProps {
   executeToolCallback?: (
     toolName: string,
     toolCallId: string,
-    args: Record<string, unknown>
+    args: Record<string, unknown>,
   ) => Promise<boolean>;
-  sendMessage?: () => void; // Manual send trigger for v6 beta bug workaround
+  sendMessage?: () => void; // Manual send after tool approval (v6 beta bug workaround)
 }
 
-export function MessageComponent({ message, addToolApprovalResponse, executeToolCallback, sendMessage }: MessageComponentProps) {
+export function MessageComponent({
+  message,
+  addToolApprovalResponse,
+  executeToolCallback,
+  sendMessage,
+}: MessageComponentProps) {
   const isUser = message.role === "user";
   const audioContext = useAudio();
   const extendedMessage = message as ExtendedUIMessage;
+
+  // Hide empty user messages that are created just for continuation after tool approval
+  // These messages have no content and are just used to trigger the next step
+  if (isUser) {
+    const hasContent = message.content && message.content.length > 0;
+    const hasAttachments =
+      message.experimental_attachments &&
+      message.experimental_attachments.length > 0;
+    const hasToolInvocations =
+      message.toolInvocations && message.toolInvocations.length > 0;
+
+    if (!hasContent && !hasAttachments && !hasToolInvocations) {
+      console.debug(
+        "[MessageComponent] Hiding empty user message used for continuation",
+      );
+      return null; // Don't render empty user messages
+    }
+  }
 
   // Check if this assistant message has audio (ADK BIDI mode)
   // Audio is detected by AudioContext chunk count, not message.parts

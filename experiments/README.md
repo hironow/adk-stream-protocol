@@ -8,6 +8,7 @@ This directory contains research, preliminary experiments, and exploratory imple
 
 | Date | Experiment | Status | Objective | Current Progress |
 |------|-----------|--------|-----------|------------------|
+| 2025-12-16 | [Backend Session Persistence Fix](./2025-12-16_backend_session_persistence_fix.md) | 🔴 Blocked | Fix E2E test isolation by clearing backend session state | **BLOCKER**: `/clear-sessions` endpoint hangs indefinitely. Root cause identified (backend session persistence), but implementation has critical issue - endpoint times out with no response. E2E tests failing due to persisted session history. Needs debugging or alternative approach. |
 | 2025-12-12 | [ADK Field Mapping Completeness](./2025-12-12_adk_field_mapping_completeness.md) | 🟡 In Progress | Systematic review of all ADK Event/Part fields and their mapping to AI SDK v6 protocol | 4/5 Priority fields complete, Part.fileData remaining |
 
 ### ⚪ Planned
@@ -18,6 +19,8 @@ _No planned experiments_
 
 | Date | Experiment | Status | Objective | Result |
 |------|-----------|--------|-----------|--------|
+| 2025-12-16 | [E2E Test Simplification](./2025-12-16_frontend_delegate_e2e_test_simplification.md) | 🟢 Complete (SSE), ⚠️ Partial (BIDI) | Simplify E2E tests using helper functions and improve test maintainability | ✅ **SUCCESS** - 67% code reduction, 4 helper functions created, all 3 SSE mode tests passing, discovered 3 bugs (button naming, track constraints, state persistence), BIDI mode has outstanding history persistence issue (0/3 tests) |
+| 2025-12-16 | [Manual Send Tool Approval Design](./2025-12-16_manual_send_tool_approval_design.md) | 🟢 Complete | Design and implement manual send mechanism for tool approval flow to bypass AI SDK v6's sendAutomaticallyWhen bug | ✅ **SUCCESS** - Manual send workaround implemented, tool approval flow working in all modes (ADK SSE tested), regenerate() approach documented as failed attempt, empty "You" message remains (cosmetic issue) |
 | 2025-12-15 | [Systematic Model/Mode Testing](./2025-12-15_systematic_model_mode_testing.md) | 🟢 Complete | Test all mode/model combinations systematically | ✅ **SUCCESS** - 10/22 tests passing, confirmed all modes work with expected models, found BUG-006 (SSE context issue), comprehensive test suite established |
 | 2025-12-15 | [E2E Chunk Logger & Player Testing](./2025-12-15_e2e_chunk_logger_player_testing.md) | 🟢 Complete | Record and test all 4 E2E patterns with ChunkPlayer transport; verify mode switching | ✅ **SUCCESS** - All 4 patterns recorded (282 chunks), 6/6 E2E tests passing, 7 backend tests passing, BIDI tool approval verified, ReadableStream error fixed |
 | 2025-12-15 | [Critical Bug Fixes Session](./2025-12-15_critical_bug_fixes.md) | 🟢 Complete | Fix 4 critical bugs: server chunk recorder, WebSocket payload, BGM tab visibility, audio UI overlap | ✅ **SUCCESS** - All 4 bugs fixed: (1) dotenv load order, (2) removed message truncation, (3) added tab visibility handler, (4) moved audio UI with auto-hide |

@@ -213,13 +213,19 @@ class ToolUsePart(BaseModel):
 
     type: str  # e.g., "tool-web_search", "tool-change_bgm", or "tool-use"
     tool_call_id: str = Field(alias="toolCallId")
-    tool_name: str = Field(alias="toolName")
+    tool_name: str | None = Field(default=None, alias="toolName")
     args: dict[str, Any] | None = None  # AI SDK v6: "input"
     state: ToolCallState
     approval: ToolApproval | None = (
         None  # Present when state="approval-requested" or "approval-responded"
     )
     output: dict[str, Any] | None = None  # Present when state="output-available"
+
+    def model_post_init(self, __context: Any) -> None:
+        """Derive tool_name from type if not provided."""
+        if self.tool_name is None and self.type.startswith("tool-"):
+            # Extract tool name from type (e.g., "tool-change_bgm" -> "change_bgm")
+            self.tool_name = self.type[5:]  # Remove "tool-" prefix
 
 
 # ============================================================
@@ -414,7 +420,7 @@ class ChatMessage(BaseModel):
 # ============================================================
 
 
-def process_tool_use_parts(message: ChatMessage, delegate: FrontendToolDelegate) -> None:
+def process_tool_use_parts(message: ChatMessage, delegate: FrontendToolDelegate) -> bool:
     """
     Process tool-use parts from frontend messages and route to delegate.
 
@@ -427,14 +433,19 @@ def process_tool_use_parts(message: ChatMessage, delegate: FrontendToolDelegate)
         message: ChatMessage containing tool-use parts
         delegate: FrontendToolDelegate instance to route tool results to
 
+    Returns:
+        bool: True if tool approval response was processed, False otherwise
+
     Reference:
     - Frontend behavior: lib/use-chat-integration.test.tsx:463-592
     - Gap analysis: experiments/2025-12-13_frontend_backend_integration_gap_analysis.md
     """
     if not message.parts:
-        return
-    
+        return False
+
     logger.info(f"[Tool] Processing message parts for tool-use: {message.parts}")
+
+    approval_processed = False
 
     for part in message.parts:
         if isinstance(part, ToolUsePart):
@@ -448,8 +459,11 @@ def process_tool_use_parts(message: ChatMessage, delegate: FrontendToolDelegate)
                     reason = part.approval.reason or "User denied permission"
                     delegate.reject_tool_call(tool_call_id, reason)
                     logger.info(f"[Tool] Rejected tool {tool_call_id}: {reason}")
-                # Note: approved=True doesn't trigger delegate action here
-                # Tool execution happens on backend, then output is sent via output-available
+                else:
+                    # Tool was approved
+                    logger.info(f"[Tool] Tool {tool_call_id} was approved by user")
+                approval_processed = True
+                # Note: Tool execution happens on backend, then output is sent via output-available
 
             # Handle output-available state (tool execution completed)
             elif part.state == ToolCallState.OUTPUT_AVAILABLE:
@@ -457,18 +471,20 @@ def process_tool_use_parts(message: ChatMessage, delegate: FrontendToolDelegate)
                     logger.info(f"[Tool] Tool {tool_call_id} output available: {part.output}")
                     delegate.resolve_tool_result(tool_call_id, part.output)
                     logger.info(f"[Tool] Resolved tool {tool_call_id} with output")
-                    
+
             elif part.state == ToolCallState.OUTPUT_ERROR:
                 error_msg = part.output.get("error") if part.output else "Unknown error"
                 delegate.reject_tool_call(tool_call_id, f"Tool execution error: {error_msg}")
                 logger.info(f"[Tool] Tool {tool_call_id} execution error: {error_msg}")
                 # Note: errorText might be present
 
+    return approval_processed
+
 
 def process_chat_message_for_bidi(
     message_data: dict,
     delegate: FrontendToolDelegate,
-) -> tuple[list[types.Blob], types.Content | None]:
+) -> tuple[list[types.Blob], types.Content | None, bool]:
     """
     Process AI SDK v6 message data for BIDI streaming.
 
@@ -488,9 +504,10 @@ def process_chat_message_for_bidi(
         delegate: FrontendToolDelegate instance for tool approval handling
 
     Returns:
-        (image_blobs, text_content): Tuple of separated message parts
+        (image_blobs, text_content, approval_processed): Tuple of:
             - image_blobs: List of Blob objects to send via send_realtime()
             - text_content: Content object to send via send_content(), or None if no text
+            - approval_processed: True if tool approval response was processed
 
     Reference:
     - ADK Live API requirements: https://google.github.io/adk-docs/streaming/dev-guide/part2/
@@ -498,13 +515,13 @@ def process_chat_message_for_bidi(
     """
     messages = message_data.get("messages", [])
     if not messages:
-        return ([], None)
+        return ([], None, False)
 
     # Parse last message from AI SDK v6 format
     last_msg = ChatMessage(**messages[-1])
 
     # Process tool-use parts (approval/rejection responses from frontend)
-    process_tool_use_parts(last_msg, delegate)
+    approval_processed = process_tool_use_parts(last_msg, delegate)
 
     # Separate image/video blobs from text parts
     # IMPORTANT: Live API requires separation
@@ -537,4 +554,4 @@ def process_chat_message_for_bidi(
     if text_parts:
         text_content = types.Content(role="user", parts=text_parts)
 
-    return (image_blobs, text_content)
+    return (image_blobs, text_content, approval_processed)

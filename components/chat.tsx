@@ -2,7 +2,7 @@
 
 import { useChat } from "@ai-sdk/react";
 import type { UIMessage } from "ai";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { MessageComponent } from "@/components/message";
 import { useAudio } from "@/lib/audio-context";
 import {
@@ -57,7 +57,6 @@ export function Chat({
   // Keep transport reference for imperative control (P2-T2 Phase 2)
   const transportRef = useRef(transport);
 
-
   // Phase 3: Audio recording with custom hook (BIDI mode only)
   const { isRecording, startRecording, stopRecording } = useAudioRecorder({
     mode,
@@ -67,107 +66,125 @@ export function Chat({
 
   // Tool execution helper - execute frontend-delegated tools
   // This is called after approval is sent to execute the actual tool
-  const executeToolCallback = useCallback(async (
-    toolName: string,
-    toolCallId: string,
-    args: Record<string, unknown>
-  ): Promise<boolean> => {
-    let result: Record<string, unknown>;
-    let handled = true;
+  const executeToolCallback = useCallback(
+    async (
+      toolName: string,
+      toolCallId: string,
+      args: Record<string, unknown>,
+    ): Promise<boolean> => {
+      let result: Record<string, unknown>;
+      let handled = true;
 
-    try {
-      switch (toolName) {
-        case "change_bgm": {
-          // Execute AudioContext API
-          const track = args?.track ?? 0;
-          console.log(`[Chat] Executing change_bgm: track=${track}`);
-          audioContext.bgmChannel.switchTrack();
-          result = {
-            success: true,
-            previous_track: track === 0 ? 1 : 0,
-            current_track: track,
-            message: `BGM changed to track ${track}`,
-          };
-          break;
-        }
+      try {
+        switch (toolName) {
+          case "change_bgm": {
+            // Execute AudioContext API
+            const track = args?.track ?? 0;
+            console.log(`[Chat] Executing change_bgm: track=${track}`);
+            audioContext.bgmChannel.switchTrack();
+            result = {
+              success: true,
+              previous_track: track === 0 ? 1 : 0,
+              current_track: track,
+              message: `BGM changed to track ${track}`,
+            };
+            break;
+          }
 
-        case "get_location": {
-          // Execute Geolocation API
-          console.log("[Chat] Executing get_location");
-          result = await new Promise((resolve) => {
-            if (!navigator.geolocation) {
-              resolve({
-                success: false,
-                error: "Geolocation not supported",
-              });
-              return;
-            }
-
-            navigator.geolocation.getCurrentPosition(
-              (position) => {
-                resolve({
-                  success: true,
-                  latitude: position.coords.latitude,
-                  longitude: position.coords.longitude,
-                  accuracy: position.coords.accuracy,
-                  timestamp: position.timestamp,
-                });
-              },
-              (error) => {
+          case "get_location": {
+            // Execute Geolocation API
+            console.log("[Chat] Executing get_location");
+            result = await new Promise((resolve) => {
+              if (!navigator.geolocation) {
                 resolve({
                   success: false,
-                  error: error.message,
-                  code: error.code,
+                  error: "Geolocation not supported",
                 });
-              },
-              {
-                enableHighAccuracy: true,
-                timeout: 10000,
-                maximumAge: 0,
-              },
-            );
-          });
-          break;
+                return;
+              }
+
+              navigator.geolocation.getCurrentPosition(
+                (position) => {
+                  resolve({
+                    success: true,
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude,
+                    accuracy: position.coords.accuracy,
+                    timestamp: position.timestamp,
+                  });
+                },
+                (error) => {
+                  resolve({
+                    success: false,
+                    error: error.message,
+                    code: error.code,
+                  });
+                },
+                {
+                  enableHighAccuracy: true,
+                  timeout: 10000,
+                  maximumAge: 0,
+                },
+              );
+            });
+            break;
+          }
+
+          default: {
+            console.warn(`[Chat] Unknown tool: ${toolName}`);
+            // Not handled by client
+            handled = false;
+            // We don't return result here because we want server to handle it if possible
+            // But effectively for this callback, we return false
+            break;
+          }
         }
 
-        default: {
-          console.warn(`[Chat] Unknown tool: ${toolName}`);
-          // Not handled by client
-          handled = false;
-          // We don't return result here because we want server to handle it if possible
-          // But effectively for this callback, we return false
-          break;
+        if (!handled) {
+          return false;
         }
+
+        console.log("[Chat] Tool execution result:", result);
+
+        // Send result via AI SDK v6 standard API
+        addToolOutput({
+          tool: toolName,
+          toolCallId: toolCallId,
+          state: "output-available",
+          output: result,
+        });
+
+        // Manual send after client-side tool execution (AI SDK v6 beta bug workaround)
+        console.info(
+          `[Chat] Triggering manual send after client-side tool execution`,
+        );
+        setTimeout(() => {
+          sendMessage({ text: "" });
+        }, 100);
+
+        return true;
+      } catch (error) {
+        console.error("[Chat] Tool execution error:", error);
+        addToolOutput({
+          tool: toolName,
+          toolCallId: toolCallId,
+          state: "output-error",
+          errorText: error instanceof Error ? error.message : String(error),
+        });
+
+        // Manual send after client-side tool error (AI SDK v6 beta bug workaround)
+        console.info(
+          `[Chat] Triggering manual send after client-side tool error`,
+        );
+        setTimeout(() => {
+          sendMessage({ text: "" });
+        }, 100);
+
+        return true; // Handled but failed
       }
-
-      if (!handled) {
-        return false;
-      }
-
-      console.log("[Chat] Tool execution result:", result!);
-
-      // Send result via AI SDK v6 standard API
-      addToolOutput({
-        tool: toolName,
-        toolCallId: toolCallId,
-        state: "output-available",
-        output: result!,
-      });
-
-      return true;
-    } catch (error) {
-      console.error("[Chat] Tool execution error:", error);
-      addToolOutput({
-        tool: toolName,
-        toolCallId: toolCallId,
-        state: "output-error",
-        errorText: error instanceof Error ? error.message : String(error),
-      });
-      return true; // Handled but failed
-    }
-
-    console.info(`[Chat] Tool ${toolName} execution completed and output sent.`);
-  }, [addToolOutput, audioContext]);
+    },
+    [addToolOutput, audioContext, sendMessage],
+  );
 
   // Phase 3: Audio recording handlers
   // Using useAudioRecorder hook for proper lifecycle management
@@ -518,7 +535,7 @@ export function Chat({
             message={m}
             addToolApprovalResponse={addToolApprovalResponse}
             executeToolCallback={executeToolCallback}
-            sendMessage={() => sendMessage({})} // Pass empty object for manual send
+            sendMessage={() => sendMessage({ text: "" })} // Manual send after tool approval (v6 beta bug workaround)
           />
         ))}
         {isLoading && (
@@ -570,10 +587,16 @@ export function Chat({
                 height: "12px",
                 borderRadius: "50%",
                 background: isRecording ? "#fff" : "#ef4444",
-                animation: isRecording ? "pulse 1.5s ease-in-out infinite" : "none",
+                animation: isRecording
+                  ? "pulse 1.5s ease-in-out infinite"
+                  : "none",
               }}
             />
-            <span>{isRecording ? "Recording... (Release to send)" : "Hold to Record"}</span>
+            <span>
+              {isRecording
+                ? "Recording... (Release to send)"
+                : "Hold to Record"}
+            </span>
           </button>
         </div>
       )}

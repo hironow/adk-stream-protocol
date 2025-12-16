@@ -13,9 +13,11 @@ import pytest
 from chunk_logger import ChunkLogger
 
 
-def test_chunk_logger_disabled_by_default():
+def test_chunk_logger_disabled_by_default(monkeypatch: pytest.MonkeyPatch):
     """Chunk logger should be disabled by default."""
     # given
+    # Ensure CHUNK_LOGGER_ENABLED is not set (clean environment)
+    monkeypatch.delenv("CHUNK_LOGGER_ENABLED", raising=False)
     logger = ChunkLogger()
 
     # when/then
