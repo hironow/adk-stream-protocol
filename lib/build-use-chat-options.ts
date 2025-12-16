@@ -1,7 +1,6 @@
 import type { UIMessage } from "@ai-sdk/react";
 import {
   DefaultChatTransport,
-  lastAssistantMessageIsCompleteWithApprovalResponses,
 } from "ai";
 import { ChunkLoggingTransport } from "@/lib/chunk-logging-transport";
 import { ChunkPlayerTransport } from "@/lib/chunk-player-transport";
@@ -66,7 +65,7 @@ export interface UseChatOptionsWithTransport {
       | ChunkLoggingTransport;
     messages: UIMessage[];
     id: string;
-    sendAutomaticallyWhen?: (options: { messages: UIMessage[] }) => boolean;
+    // sendAutomaticallyWhen removed due to v6 beta bug - using manual send instead
   };
   transport?: WebSocketChatTransport;
 }
@@ -237,9 +236,7 @@ function buildUseChatOptionsInternal({
       const adkSseOptions = {
         ...baseOptions,
         transport: adkSseTransport,
-        // Enable automatic message resubmission after tool approval
-        sendAutomaticallyWhen:
-          lastAssistantMessageIsCompleteWithApprovalResponses,
+        // Manual send after tool approval (sendAutomaticallyWhen removed due to v6 beta bug)
       };
       // debugLog("ADK SSE options:", adkSseOptions);
       return { useChatOptions: adkSseOptions, transport: undefined };
@@ -252,9 +249,7 @@ function buildUseChatOptionsInternal({
       const adkBidiOptions = {
         ...baseOptions,
         transport: websocketTransport,
-        // Enable automatic message resubmission after tool approval
-        sendAutomaticallyWhen:
-          lastAssistantMessageIsCompleteWithApprovalResponses,
+        // Manual send after tool approval (sendAutomaticallyWhen removed due to v6 beta bug)
       };
       // debugLog("ADK BIDI options:", adkBidiOptions);
       return { useChatOptions: adkBidiOptions, transport: websocketTransport };

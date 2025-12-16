@@ -61,9 +61,10 @@ interface MessageComponentProps {
     toolCallId: string,
     args: Record<string, unknown>
   ) => Promise<boolean>;
+  sendMessage?: () => void; // Manual send trigger for v6 beta bug workaround
 }
 
-export function MessageComponent({ message, addToolApprovalResponse, executeToolCallback }: MessageComponentProps) {
+export function MessageComponent({ message, addToolApprovalResponse, executeToolCallback, sendMessage }: MessageComponentProps) {
   const isUser = message.role === "user";
   const audioContext = useAudio();
   const extendedMessage = message as ExtendedUIMessage;
@@ -344,6 +345,7 @@ export function MessageComponent({ message, addToolApprovalResponse, executeTool
                 toolInvocation={toolInvocation}
                 addToolApprovalResponse={addToolApprovalResponse}
                 executeToolCallback={executeToolCallback}
+                sendMessage={sendMessage}
               />
             );
           }
@@ -373,6 +375,7 @@ export function MessageComponent({ message, addToolApprovalResponse, executeTool
                 toolInvocation={toolInvocation}
                 addToolApprovalResponse={addToolApprovalResponse}
                 executeToolCallback={executeToolCallback}
+                sendMessage={sendMessage}
               />
             );
           }
@@ -599,6 +602,9 @@ export function MessageComponent({ message, addToolApprovalResponse, executeTool
               <ToolInvocationComponent
                 key={toolInvocation.toolCallId}
                 toolInvocation={toolInvocation}
+                addToolApprovalResponse={addToolApprovalResponse}
+                executeToolCallback={executeToolCallback}
+                sendMessage={sendMessage}
               />
             ))}
           </div>

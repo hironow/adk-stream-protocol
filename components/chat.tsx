@@ -513,7 +513,13 @@ export function Chat({
           </div>
         )}
         {messages.map((m) => (
-          <MessageComponent key={m.id} message={m} addToolApprovalResponse={addToolApprovalResponse} executeToolCallback={executeToolCallback} />
+          <MessageComponent
+            key={m.id}
+            message={m}
+            addToolApprovalResponse={addToolApprovalResponse}
+            executeToolCallback={executeToolCallback}
+            sendMessage={() => sendMessage({})} // Pass empty object for manual send
+          />
         ))}
         {isLoading && (
           <div style={{ padding: "1rem", color: "#666" }}>Thinking...</div>

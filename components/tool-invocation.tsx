@@ -17,12 +17,14 @@ interface ToolInvocationProps {
     toolCallId: string,
     args: Record<string, unknown>
   ) => Promise<boolean>;
+  sendMessage?: () => void; // Manual send trigger for v6 beta bug workaround
 }
 
 export function ToolInvocationComponent({
   toolInvocation,
   addToolApprovalResponse,
   executeToolCallback,
+  sendMessage,
 }: ToolInvocationProps) {
   // Extract toolName from type (e.g., "tool-change_bgm" -> "change_bgm")
   const toolName = toolInvocation.toolName ||
@@ -106,8 +108,6 @@ export function ToolInvocationComponent({
         </span>
       </div>
 
-      {JSON.stringify(toolInvocation)}
-
       {/* Approval UI */}
       {state === "approval-requested" && "approval" in toolInvocation && toolInvocation.approval && (
         <div style={{ marginBottom: "0.5rem" }}>
@@ -152,6 +152,16 @@ export function ToolInvocationComponent({
                     reason: "User approved the tool execution.",
                   });
                 }
+
+                // Manual send to continue conversation (v6 beta bug workaround)
+                // This replaces sendAutomaticallyWhen functionality
+                if (sendMessage) {
+                  console.info(`[ToolInvocationComponent] Triggering manual send after tool approval`);
+                  // Small delay to ensure state updates are processed
+                  setTimeout(() => {
+                    sendMessage();
+                  }, 100);
+                }
               }}
               style={{
                 padding: "0.5rem 1rem",
@@ -167,13 +177,21 @@ export function ToolInvocationComponent({
               Approve
             </button>
             <button
-              onClick={() =>
+              onClick={() => {
                 addToolApprovalResponse?.({
                   id: toolInvocation.approval.id,
                   approved: false,
                   reason: "User denied the tool execution.",
-                })
-              }
+                });
+
+                // Manual send after rejection (v6 beta bug workaround)
+                if (sendMessage) {
+                  console.info(`[ToolInvocationComponent] Triggering manual send after tool rejection`);
+                  setTimeout(() => {
+                    sendMessage();
+                  }, 100);
+                }
+              }}
               style={{
                 padding: "0.5rem 1rem",
                 borderRadius: "4px",
