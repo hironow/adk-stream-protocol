@@ -7,9 +7,8 @@
  * @vitest-environment jsdom
  */
 
-import { render, fireEvent } from "@testing-library/react";
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import React from "react";
+import { fireEvent, render } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock the ToolInvocationComponent
 // Note: This is a simplified test focusing on the manual send behavior
@@ -195,7 +194,7 @@ describe("ToolInvocation Manual Send Tests", () => {
           setTimeout(() => {
             sendMessage({ text: "" });
           }, 100);
-        } catch (error) {
+        } catch (_error) {
           // Handle error
         }
       };

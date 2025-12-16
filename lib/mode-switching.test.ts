@@ -32,8 +32,6 @@ describe("Mode Switching - 5x3 Matrix Tests", () => {
       onmessage = null;
       onerror = null;
       onclose = null;
-
-      constructor(url: string) {}
     } as any;
 
     // Mock fetch
@@ -454,8 +452,6 @@ describe("Message Type Matrix Coverage", () => {
       onmessage = null;
       onerror = null;
       onclose = null;
-
-      constructor(url: string) {}
     } as any;
 
     // Mock fetch

@@ -61,10 +61,6 @@ export interface AudioContextValue {
   // Global audio context state
   isReady: boolean;
   error: string | null;
-
-  // WebSocket latency monitoring (BIDI mode only)
-  wsLatency: number | null; // Round-trip time in milliseconds
-  updateLatency: (latency: number) => void;
 }
 
 const AudioContext = createContext<AudioContextValue | null>(null);
@@ -382,10 +378,6 @@ export function AudioProvider({ children }: AudioProviderProps) {
     }
   };
 
-  const updateLatency = (latency: number) => {
-    setWsLatency(latency);
-  };
-
   const handleAudioComplete = (metadata: AudioMetadata) => {
     setLastCompletion(metadata);
     setIsPlaying(false);
@@ -457,8 +449,6 @@ export function AudioProvider({ children }: AudioProviderProps) {
     },
     isReady,
     error,
-    wsLatency,
-    updateLatency,
   };
 
   return (

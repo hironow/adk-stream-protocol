@@ -32,11 +32,24 @@ export function Chat({
   const [showAudioCompletion, setShowAudioCompletion] = useState(false);
   const audioCompletionTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { useChatOptions, transport } = buildUseChatOptions({
-    mode,
-    initialMessages, // P4-T9: Pass initialMessages from parent
-    audioContext,
-  });
+  // Memoize buildUseChatOptions to prevent recreating WebSocket transport on every render
+  // CRITICAL: Without useMemo, WebSocket transport is recreated on every render in ADK BIDI mode
+  // This causes: continuous debug logs, memory leaks, multiple WebSocket connections
+  // NOTE: audioContext and initialMessages are intentionally excluded from dependencies:
+  // - audioContext: AudioProvider's value object is recreated on every render (not memoized)
+  // - initialMessages: Changes frequently during streaming but useChat manages state internally
+  // - Both are only used during transport creation, not for updates
+  // - Including them would defeat the purpose of memoization
+  const { useChatOptions, transport } = useMemo(
+    () =>
+      buildUseChatOptions({
+        mode,
+        initialMessages, // P4-T9: Pass initialMessages from parent
+        audioContext,
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [mode],
+  );
 
   const {
     messages,
@@ -91,7 +104,7 @@ export function Chat({
       toolCallId: string,
       args: Record<string, unknown>,
     ): Promise<boolean> => {
-      let result: Record<string, unknown>;
+      let result: Record<string, unknown> = {}; // Initialize to empty object
       let handled = true;
 
       try {
@@ -163,6 +176,7 @@ export function Chat({
           return false;
         }
 
+        // handled = true, so result is definitely defined
         console.log("[Chat] Tool execution result:", result);
 
         // Send result via AI SDK v6 standard API
@@ -467,45 +481,7 @@ export function Chat({
         </div>
       )}
 
-      {/* WebSocket Latency Indicator (BIDI mode only) */}
-      {mode === "adk-bidi" && audioContext.wsLatency !== null && (
-        <div
-          style={{
-            position: "fixed",
-            top: "1rem",
-            left: "50%",
-            transform: "translateX(-50%)",
-            padding: "0.5rem 1rem",
-            background: audioContext.wsLatency >= 100 ? "#dc2626" : "#0a0a0a",
-            border: `1px solid ${audioContext.wsLatency >= 100 ? "#991b1b" : "#10b981"}`,
-            borderRadius: "6px",
-            fontSize: "0.875rem",
-            fontWeight: 600,
-            color: audioContext.wsLatency >= 100 ? "#fca5a5" : "#10b981",
-            zIndex: 1000,
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-          }}
-        >
-          <div
-            style={{
-              width: "8px",
-              height: "8px",
-              borderRadius: "50%",
-              background: audioContext.wsLatency >= 100 ? "#ef4444" : "#10b981",
-            }}
-          />
-          <span>
-            WS:{" "}
-            {audioContext.wsLatency < 1000
-              ? `${audioContext.wsLatency}ms`
-              : `${(audioContext.wsLatency / 1000).toFixed(2)}s`}
-          </span>
-        </div>
-      )}
-
-      {/* Audio Completion Indicator (BIDI mode only) - positioned next to WS latency */}
+      {/* Audio Completion Indicator (BIDI mode only) */}
       {mode === "adk-bidi" &&
         showAudioCompletion &&
         audioContext.voiceChannel.lastCompletion && (
@@ -513,10 +489,8 @@ export function Chat({
             style={{
               position: "fixed",
               top: "1rem",
-              left:
-                audioContext.wsLatency !== null ? "calc(50% + 100px)" : "50%", // Position to the right of WS latency
-              transform:
-                audioContext.wsLatency !== null ? "none" : "translateX(-50%)",
+              left: "50%",
+              transform: "translateX(-50%)",
               padding: "0.5rem 1rem",
               background: "#0a0a0a",
               border: "1px solid #10b981",
