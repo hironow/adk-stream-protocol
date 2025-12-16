@@ -722,3 +722,186 @@ class TestToolUsePartValidation:
         # then
         # Explicit toolName should take precedence
         assert tool_part.tool_name == "override_name"
+
+
+class TestAdkRequestConfirmationConversion:
+    """Tests for Phase 5: ADK Tool Confirmation Flow.
+
+    Tests the conversion of `adk_request_confirmation` tool outputs
+    from AI SDK v6 format to ADK FunctionResponse format.
+
+    Related: experiments/2025-12-17_tool_architecture_refactoring.md (Phase 5)
+    """
+
+    def test_adk_request_confirmation_with_original_function_call_in_output(self):
+        """Should convert adk_request_confirmation with originalFunctionCall in output.
+
+        This is the STANDARD behavior - frontend includes originalFunctionCall in output
+        via lib/adk_compat.ts createAdkConfirmationOutput function.
+        """
+        # given
+        message = ChatMessage(
+            role="assistant",
+            parts=[
+                ToolUsePart(
+                    type="tool-adk_request_confirmation",
+                    tool_call_id="adk-confirmation-123",
+                    tool_name="adk_request_confirmation",
+                    args=None,  # Frontend doesn't set args
+                    state=ToolCallState.OUTPUT_AVAILABLE,
+                    output={
+                        "originalFunctionCall": {
+                            "id": "adk-payment-456",
+                            "name": "process_payment",
+                            "args": {"amount": 50, "recipient": "Hanako", "currency": "USD"},
+                        },
+                        "toolConfirmation": {"confirmed": True},
+                    },
+                )
+            ],
+        )
+
+        # when
+        adk_content = message.to_adk_content()
+
+        # then
+        # Should have one FunctionResponse part for the original payment tool
+        assert len(adk_content.parts) == 1
+        function_response = adk_content.parts[0].function_response
+        assert function_response is not None
+        assert function_response.id == "adk-payment-456"  # Original tool call ID
+        assert function_response.name == "adk_request_confirmation"
+        assert function_response.response == {"confirmed": True}
+
+
+    def test_adk_request_confirmation_with_args_none_and_no_original_in_output_should_skip(self):
+        """Should gracefully handle adk_request_confirmation missing originalFunctionCall entirely.
+
+        This is the error case - neither args nor output contain originalFunctionCall.
+        The conversion should skip creating FunctionResponse to prevent errors.
+        """
+        # given
+        message = ChatMessage(
+            role="assistant",
+            parts=[
+                ToolUsePart(
+                    type="tool-adk_request_confirmation",
+                    tool_call_id="adk-confirmation-error",
+                    tool_name="adk_request_confirmation",
+                    args=None,  # No args
+                    state=ToolCallState.OUTPUT_AVAILABLE,
+                    output={"toolConfirmation": {"confirmed": True}},  # No originalFunctionCall
+                )
+            ],
+        )
+
+        # when
+        adk_content = message.to_adk_content()
+
+        # then
+        # Should have 0 parts (skipped due to missing originalFunctionCall)
+        assert len(adk_content.parts) == 0
+
+    def test_adk_request_confirmation_denied(self):
+        """Should handle denied confirmation (confirmed=False)."""
+        # given
+        message = ChatMessage(
+            role="assistant",
+            parts=[
+                ToolUsePart(
+                    type="tool-adk_request_confirmation",
+                    tool_call_id="adk-confirmation-deny",
+                    tool_name="adk_request_confirmation",
+                    args=None,  # Frontend doesn't set args
+                    state=ToolCallState.OUTPUT_AVAILABLE,
+                    output={
+                        "originalFunctionCall": {
+                            "id": "adk-location-999",
+                            "name": "get_location",
+                            "args": {},
+                        },
+                        "toolConfirmation": {"confirmed": False},
+                    },
+                )
+            ],
+        )
+
+        # when
+        adk_content = message.to_adk_content()
+
+        # then
+        assert len(adk_content.parts) == 1
+        function_response = adk_content.parts[0].function_response
+        assert function_response is not None
+        assert function_response.id == "adk-location-999"
+        assert function_response.response == {"confirmed": False}
+
+    def test_adk_request_confirmation_missing_original_function_call_id(self):
+        """Should skip when originalFunctionCall.id is missing."""
+        # given
+        message = ChatMessage(
+            role="assistant",
+            parts=[
+                ToolUsePart(
+                    type="tool-adk_request_confirmation",
+                    tool_call_id="adk-confirmation-bad",
+                    tool_name="adk_request_confirmation",
+                    args={
+                        "originalFunctionCall": {
+                            # Missing 'id' field
+                            "name": "process_payment",
+                            "args": {"amount": 100},
+                        }
+                    },
+                    state=ToolCallState.OUTPUT_AVAILABLE,
+                    output={"toolConfirmation": {"confirmed": True}},
+                )
+            ],
+        )
+
+        # when
+        adk_content = message.to_adk_content()
+
+        # then
+        # Should skip creating FunctionResponse when ID is missing
+        assert len(adk_content.parts) == 0
+
+    def test_adk_request_confirmation_with_process_payment_pending(self):
+        """Should handle confirmation alongside pending tool (process_payment still waiting).
+
+        This is the EXACT scenario causing infinite loop:
+        - process_payment is INPUT_AVAILABLE (waiting for confirmation)
+        - adk_request_confirmation is OUTPUT_AVAILABLE (user approved)
+        - But args=None, so no FunctionResponse is created
+        """
+        # given
+        message = ChatMessage(
+            role="assistant",
+            parts=[
+                ToolUsePart(
+                    type="tool-process_payment",
+                    tool_call_id="adk-payment-pending",
+                    tool_name="process_payment",
+                    args=None,  # AI SDK v6 doesn't populate args for pending tools
+                    state=ToolCallState.INPUT_AVAILABLE,  # Still waiting
+                ),
+                ToolUsePart(
+                    type="tool-adk_request_confirmation",
+                    tool_call_id="adk-confirmation-approved",
+                    tool_name="adk_request_confirmation",
+                    args=None,  # BUG: Missing originalFunctionCall
+                    state=ToolCallState.OUTPUT_AVAILABLE,
+                    output={"toolConfirmation": {"confirmed": True}},
+                ),
+            ],
+        )
+
+        # when
+        adk_content = message.to_adk_content()
+
+        # then
+        # Should have 0 parts:
+        # - process_payment is skipped (INPUT_AVAILABLE state)
+        # - adk_request_confirmation is skipped (args=None)
+        # This results in "parts=0" log message and infinite loop
+        assert len(adk_content.parts) == 0

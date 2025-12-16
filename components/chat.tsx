@@ -126,31 +126,12 @@ export function Chat({
     }
   }, [messages, status]);
 
-  // Remove duplicate messages (same ID) - can occur due to AI SDK v6 beta bugs with manual send pattern
-  // This prevents React key warnings and ensures each message ID is unique in the rendered list
-  // Keep the LATEST message for each ID (in case of streaming updates)
-  const uniqueMessages = useMemo(() => {
-    const messageMap = new Map<string, UIMessage>();
-
-    // Iterate through messages and keep the latest one for each ID
-    for (const msg of messages) {
-      if (messageMap.has(msg.id)) {
-        console.warn(
-          `[Chat] Found duplicate message ID: ${msg.id}, keeping latest`,
-        );
-      }
-      messageMap.set(msg.id, msg); // Overwrite with latest
-    }
-
-    return Array.from(messageMap.values());
-  }, [messages]);
-
   // P4-T9: Notify parent of messages change for history preservation
   useEffect(() => {
     if (onMessagesChange) {
-      onMessagesChange(uniqueMessages);
+      onMessagesChange(messages);
     }
-  }, [uniqueMessages, onMessagesChange]);
+  }, [messages, onMessagesChange]);
 
   // Keep transport reference for imperative control (P2-T2 Phase 2)
   const transportRef = useRef(transport);
@@ -606,18 +587,19 @@ export function Chat({
         )}
 
       <div style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
-        {uniqueMessages.length === 0 && (
+        {messages.length === 0 && (
           <div
             style={{ textAlign: "center", color: "#666", marginTop: "2rem" }}
           >
             Start a conversation...
           </div>
         )}
-        {uniqueMessages.map((m) => (
+        {messages.map((m) => (
           <MessageComponent
             key={m.id}
             message={m}
             addToolApprovalResponse={addToolApprovalResponse}
+            addToolOutput={addToolOutput}
             executeToolCallback={executeToolCallback}
           />
         ))}

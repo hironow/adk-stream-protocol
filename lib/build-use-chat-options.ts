@@ -1,11 +1,9 @@
 import type { UIMessage } from "@ai-sdk/react";
-import {
-  DefaultChatTransport,
-  lastAssistantMessageIsCompleteWithApprovalResponses,
-} from "ai";
+import { DefaultChatTransport } from "ai";
 import { ChunkLoggingTransport } from "@/lib/chunk-logging-transport";
 import { ChunkPlayerTransport } from "@/lib/chunk-player-transport";
 import { WebSocketChatTransport } from "@/lib/websocket-chat-transport";
+import { sendAutomaticallyWhenAdkConfirmation } from "@/lib/adk_compat";
 
 export type BackendMode = "gemini" | "adk-sse" | "adk-bidi";
 
@@ -238,8 +236,7 @@ function buildUseChatOptionsInternal({
       const adkSseOptions = {
         ...baseOptions,
         transport: adkSseTransport,
-        sendAutomaticallyWhen:
-          lastAssistantMessageIsCompleteWithApprovalResponses,
+        sendAutomaticallyWhen: sendAutomaticallyWhenAdkConfirmation,
       };
       // debugLog("ADK SSE options:", adkSseOptions);
       return { useChatOptions: adkSseOptions, transport: undefined };
@@ -252,8 +249,7 @@ function buildUseChatOptionsInternal({
       const adkBidiOptions = {
         ...baseOptions,
         transport: websocketTransport,
-        sendAutomaticallyWhen:
-          lastAssistantMessageIsCompleteWithApprovalResponses,
+        sendAutomaticallyWhen: sendAutomaticallyWhenAdkConfirmation,
       };
       // debugLog("ADK BIDI options:", adkBidiOptions);
       return { useChatOptions: adkBidiOptions, transport: websocketTransport };

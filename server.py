@@ -89,7 +89,7 @@ log_dir.mkdir(exist_ok=True)
 log_file = log_dir / f"server_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.log"
 logger.add(
     log_file,
-    rotation="10 MB",
+    rotation="5 MB",
     retention="7 days",
     level="DEBUG",
     format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} - {message}",
@@ -257,11 +257,28 @@ async def stream(request: ChatRequest):
 
     # Debug logging for message parts
     for i, msg in enumerate(request.messages):
-        msg_context = msg.to_adk_content()
-        logger.info(
-            f"[/stream] Message {i}: role={msg_context.role}, "
-            f"parts={len(msg_context.parts) if msg_context.parts else 0}"
-        )
+        logger.info(f"[/stream] Processing Message {i}: role={msg.role}")
+        try:
+            msg_context = msg.to_adk_content()
+            logger.info(
+                f"[/stream] Message {i}: role={msg_context.role}, "
+                f"parts={len(msg_context.parts) if msg_context.parts else 0}"
+            )
+        except Exception as e:
+            logger.error(f"[/stream] Failed to convert Message {i}: {e}", exc_info=True)
+            # Return error immediately to prevent infinite request loop
+            async def error_stream():
+                yield f"data: {json.dumps({'type': 'error', 'error': f'Failed to convert message: {str(e)}'})}\n\n"
+                yield "data: [DONE]\n\n"
+
+            return StreamingResponse(
+                error_stream(),
+                media_type="text/event-stream",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                },
+            )
 
     # 1. Validate input messages
     if not request.messages:
@@ -314,20 +331,45 @@ async def stream(request: ChatRequest):
                     logger.info(f"[/stream] Processed tool approval response from message {i}")
 
         # 4. Process the latest message
-        last_user_message_obj = request.messages[-1]
-        last_user_message_text = last_user_message_obj.get_text_content()
-        if not last_user_message_text:
-            logger.warning("[/stream] Last message has no text content")
-            return
+        last_message_obj = request.messages[-1]
 
-        logger.info(f"[/stream] Processing: {last_user_message_text[:50]}...")
+        # Phase 5: Handle assistant messages with tool confirmations
+        # When user approves adk_request_confirmation, AI SDK sends assistant message back
+        # with tool output (not a new user message). We need to send the confirmation
+        # to ADK so it can continue processing.
+        if last_message_obj.role == "assistant":
+            # Check if this is a tool confirmation response
+            has_confirmation = any(
+                isinstance(part, ToolUsePart)
+                and part.tool_name == "adk_request_confirmation"
+                and part.state == ToolCallState.OUTPUT_AVAILABLE
+                for part in last_message_obj.parts
+            )
+
+            if has_confirmation:
+                # Convert confirmation to ADK content
+                # This will be a FunctionResponse that ADK can process
+                message_content = last_message_obj.to_adk_content()
+                logger.info(f"[/stream] Processing confirmation response: {message_content}")
+            else:
+                # Assistant message without confirmation output
+                logger.warning("[/stream] Last message is assistant but has no confirmation")
+                return
+        else:
+            # Normal user message processing
+            last_user_message_text = last_message_obj.get_text_content()
+            if not last_user_message_text:
+                logger.warning("[/stream] Last message has no text content")
+                return
+
+            logger.info(f"[/stream] Processing: {last_user_message_text[:50]}...")
+            # Create ADK message content (includes images and other parts)
+            message_content = last_message_obj.to_adk_content()
+
         logger.info(
             f"[/stream] Agent model: {sse_agent.model}, "
             f"tools: {[tool.__name__ if callable(tool) else str(tool) for tool in sse_agent.tools]}"
         )
-
-        # Create ADK message content (includes images and other parts)
-        message_content = last_user_message_obj.to_adk_content()
 
         # 5. Run ADK agent with streaming
         event_stream = sse_agent_runner.run_async(

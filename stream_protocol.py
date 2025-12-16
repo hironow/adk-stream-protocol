@@ -473,32 +473,37 @@ class StreamProtocolConverter:
         return self._create_streaming_events("reasoning", thought)
 
     def _process_function_call(self, function_call: types.FunctionCall) -> list[str]:
-        """Process function call into tool-input-* events (AI SDK v6 spec).
-
-        Phase 4: If tool requires approval, also generate tool-approval-request event.
         """
-        # Use ADK's function_call.id if available, otherwise generate fallback
-        # Reference: experiments/2025-12-13_toolCallId_compatibility_investigation.md
-        if function_call.id:
-            tool_call_id = function_call.id  # e.g., "adk-2b9230a6-..."
-        else:
-            # Fallback for cases where ADK doesn't provide ID
-            tool_call_id = self._generate_tool_call_id()  # "call_0", "call_1", ...
-            logger.warning(
-                f"[FUNCTION CALL] function_call.id is None for tool '{function_call.name}', "
-                f"using fallback ID: {tool_call_id}"
-            )
+        Process FunctionCall and generate AI SDK v6 SSE events.
 
+        For ADK RequestConfirmation (Phase 5):
+        - adk_request_confirmation is exposed as a regular tool call
+        - Frontend shows approval UI for this tool call
+        - User approval/denial is sent back as FunctionResponse for adk_request_confirmation
+
+        Args:
+            function_call: ADK FunctionCall object
+
+        Returns:
+            List of SSE event strings
+        """
         tool_name = function_call.name
-        tool_args = function_call.args
+        tool_call_id = function_call.id
+        tool_args = dict(function_call.args) if function_call.args else {}
 
-        # Ensure tool_name is not None
-        if tool_name is None:
-            logger.warning("[FUNCTION CALL] Tool name is None, skipping")
-            return []
+        logger.debug(f"[TOOL CALL] {tool_name}(id={tool_call_id}, args={tool_args})")
+
+        # Phase 5: adk_request_confirmation is treated as a regular tool call
+        # No special processing needed here - frontend handles it via lib/adk_compat.ts
+        # Backend conversion happens in ai_sdk_v6_compat.py
+        # Reference: assets/adk/action-confirmation.txt, experiments/2025-12-17_tool_architecture_refactoring.md
 
         # Store mapping so function_response can use the same ID
         self.tool_call_id_map[tool_name] = tool_call_id
+
+        # Debug: Log tool_args for adk_request_confirmation
+        if tool_name == "adk_request_confirmation":
+            logger.info(f"[DEBUG] adk_request_confirmation tool_args: {tool_args}")
 
         events = [
             self._format_sse_event(
@@ -518,26 +523,17 @@ class StreamProtocolConverter:
             ),
         ]
 
-        # Phase 4: Generate tool-approval-request event if tool requires approval
-        if tool_name in self.tools_requiring_approval:
-            approval_id = str(uuid.uuid4())
-            self.pending_approvals[approval_id] = tool_call_id
-
-            logger.info(
-                f"[Tool Approval] Tool '{tool_name}' requires approval (approval_id={approval_id}, tool_call_id={tool_call_id})"
-            )
-
-            # Generate AI SDK v6 tool-approval-request event
-            # Reference: AI SDK v6 Stream Protocol specification
-            # SSE Format: data: {"type":"tool-approval-request","approvalId":"...","toolCallId":"..."}
-            # Note: AI SDK v6 does NOT use "event:" prefix - all events use data: field only
-            approval_event = f"data: {json.dumps({'type': 'tool-approval-request', 'approvalId': approval_id, 'toolCallId': tool_call_id})}\n\n"
-            events.append(approval_event)
-
         return events
 
     def _process_function_response(self, function_response: types.FunctionResponse) -> list[str]:
-        """Process function response into tool-output-available or tool-output-error event (AI SDK v6 spec)."""
+        """
+        Process function response into tool-output-available or tool-output-error event (AI SDK v6 spec).
+        
+        Phase 5: Suppress ADK confirmation error responses
+        - When ADK generates RequestConfirmation, it also generates a FunctionResponse with error
+        - We suppress this error because we're exposing adk_request_confirmation as a normal tool call
+        - The frontend will handle the approval UI for adk_request_confirmation directly
+        """
         # Retrieve the tool call ID from the map to match with the function call
         tool_name = function_response.name
 
@@ -571,6 +567,16 @@ class StreamProtocolConverter:
             elif "error" in output and output.get("result") is None:
                 is_error = True
                 error_message = output.get("error", "Unknown tool error")
+
+        # Phase 5: Suppress ADK confirmation error
+        # When ADK generates RequestConfirmation, it sends an error FunctionResponse
+        # We suppress this because adk_request_confirmation is exposed as a normal tool call
+        if is_error and error_message == "This tool call requires confirmation, please approve or reject.":
+            logger.info(
+                f"[ADK Confirmation] Suppressing confirmation error for {tool_name} "
+                f"(handled by adk_request_confirmation tool call)"
+            )
+            return []
 
         # Send error event if error detected
         if is_error:

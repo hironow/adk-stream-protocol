@@ -22,6 +22,29 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
 
 ## 📊 Active Tasks
 
+### Tool Architecture Refactoring (2025-12-17)
+**Status:** 🟢 Complete (Investigation & Discovery - Phases 1-4)
+**Priority:** High
+**Description:** Align tool architecture with AI SDK v6 standard patterns
+- ✅ Reduced tool count from 5 to 4 (removed `calculate`, `get_current_time`)
+- ✅ Implemented `process_payment` tool
+- ✅ Discovered and fixed agent instruction issue (AI not calling tools)
+- ✅ Tested improved instructions (AI now calls tools correctly)
+- ✅ **Critical Discovery**: Found ADK native Tool Confirmation Flow
+**Related:** `experiments/2025-12-17_tool_architecture_refactoring.md`
+
+### ADK Tool Confirmation Implementation (2025-12-17)
+**Status:** 🟡 Partial Complete (Phase 5 - ADK-side Code Complete)
+**Priority:** High
+**Description:** Integrate ADK native Tool Confirmation Flow with AI SDK v6 protocol
+- ✅ Update `process_payment` to use `tool_context: ToolContext` → DONE (`adk_ag_runner.py:150`)
+- ✅ Wrap with `FunctionTool(process_payment, require_confirmation=True)` → DONE (SSE: lines 345-350, BIDI: lines 362-367)
+- ⏳ Handle `RequestConfirmation` event in `stream_protocol.py` → NOT STARTED
+- ⏳ Convert ADK confirmation to AI SDK v6 `tool-approval-request` → NOT STARTED
+- ⏳ Handle approval response conversion (AI SDK → ADK) → NOT STARTED
+- ⏳ Test end-to-end approval flow → NOT STARTED
+**Related:** `experiments/2025-12-17_tool_architecture_refactoring.md` (Phase 5)
+
 ### BIDI Mode History Persistence (E2E)
 **Status:** Blocked
 **Priority:** Medium

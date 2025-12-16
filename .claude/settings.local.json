@@ -87,7 +87,9 @@
       "mcp__serena__find_referencing_symbols",
       "mcp__serena__think_about_collected_information",
       "Bash(pnpm run format:*)",
-      "Bash(awk:*)"
+      "Bash(awk:*)",
+      "Bash(xargs grep -l adk_request_confirmation|originalFunctionCall)",
+      "Bash(xargs grep:*)"
     ],
     "deny": [
       "Read(.env.keys)",

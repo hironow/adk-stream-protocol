@@ -16,6 +16,7 @@ from typing import Any
 import aiohttp
 from google.adk.agents import Agent
 from google.adk.runners import InMemoryRunner
+from google.adk.tools.function_tool import FunctionTool
 from google.adk.tools.tool_context import ToolContext
 from loguru import logger
 
@@ -146,6 +147,7 @@ async def get_weather(location: str) -> dict[str, Any]:
 def process_payment(
     amount: float,
     recipient: str,
+    tool_context: ToolContext,
     currency: str = "USD",
     description: str = "",
 ) -> dict[str, Any]:
@@ -158,6 +160,7 @@ def process_payment(
     Args:
         amount: Payment amount (must be positive)
         recipient: Recipient identifier (email, username, or wallet address)
+        tool_context: ADK ToolContext (automatically injected)
         currency: Currency code (default: USD)
         description: Optional payment description
 
@@ -284,11 +287,11 @@ async def get_location(tool_context: ToolContext) -> dict[str, Any]:
 
 
 # ========== Tool Approval Configuration ==========
-# Tools that require user approval before execution
-# - process_payment: Server-side tool with approval (AI SDK v6 standard pattern)
-# - get_location: Frontend delegate tool with approval (custom pattern)
+# Tools that require user approval before execution (Phase 4 legacy approval logic)
+# Phase 5: process_payment now uses ADK Tool Confirmation Flow (FunctionTool with require_confirmation=True)
+# - get_location: Frontend delegate tool with approval (Phase 4 pattern)
 # Note: change_bgm is auto-execute client-side tool (no approval required)
-TOOLS_REQUIRING_APPROVAL = {"process_payment", "get_location"}
+TOOLS_REQUIRING_APPROVAL = {"get_location"}
 
 
 # ========== Constants for Agent Configuration ==========
@@ -339,7 +342,12 @@ sse_agent = Agent(
     model="gemini-2.5-flash",  # Stable Gemini 2.5 Flash for generateContent API (SSE mode)
     description=AGENT_DESCRIPTION,
     instruction=AGENT_INSTRUCTION,
-    tools=[get_weather, process_payment, change_bgm, get_location],
+    tools=[
+        get_weather,
+        FunctionTool(process_payment, require_confirmation=True),
+        change_bgm,
+        get_location,
+    ],
     # Note: ADK Agent doesn't support seed and temperature parameters
 )
 
@@ -351,7 +359,12 @@ bidi_agent = Agent(
     model=bidi_model,  # Configurable model for BIDI mode
     description=AGENT_DESCRIPTION,
     instruction=AGENT_INSTRUCTION,
-    tools=[get_weather, process_payment, change_bgm, get_location],
+    tools=[
+        get_weather,
+        FunctionTool(process_payment, require_confirmation=True),
+        change_bgm,
+        get_location,
+    ],
     # Note: ADK Agent doesn't support seed and temperature parameters
 )
 

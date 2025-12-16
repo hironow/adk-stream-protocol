@@ -384,6 +384,47 @@ class ChatMessage(BaseModel):
             adk_part = self._process_file_part(part)
             if adk_part:
                 adk_parts.append(adk_part)
+        elif isinstance(part, ToolUsePart):
+            # Phase 5: Handle adk_request_confirmation tool outputs
+            if part.tool_name == "adk_request_confirmation" and part.state == ToolCallState.OUTPUT_AVAILABLE:
+                # Extract confirmation from tool output
+                if part.output and isinstance(part.output, dict):
+                    tool_confirmation = part.output.get("toolConfirmation", {})
+                    confirmed = tool_confirmation.get("confirmed", False)
+
+                    # Get original function call from output (frontend sets it via lib/adk_compat.ts)
+                    original_function_call = part.output.get("originalFunctionCall", {})
+                    original_id = original_function_call.get("id") if isinstance(original_function_call, dict) else None
+
+                    if original_id:
+                        logger.info(
+                            f"[ADK Confirmation] Converting AI SDK tool output to ADK FunctionResponse "
+                            f"(id={original_id}, confirmed={confirmed})"
+                        )
+
+                        # Create ADK FunctionResponse for adk_request_confirmation
+                        # According to assets/adk/action-confirmation.txt line 192-197:
+                        # - id: must be the original function call ID
+                        # - name: "adk_request_confirmation"
+                        # - response: {"confirmed": true/false} (no toolConfirmation wrapper)
+                        function_response = types.FunctionResponse(
+                            id=original_id,
+                            name="adk_request_confirmation",
+                            response={"confirmed": confirmed}
+                        )
+                        adk_parts.append(types.Part(function_response=function_response))
+                    else:
+                        logger.error(
+                            f"[ADK Confirmation] Missing originalFunctionCall.id in adk_request_confirmation. "
+                            f"output={part.output}, args={part.args}"
+                        )
+                else:
+                    logger.error(
+                        f"[ADK Confirmation] Invalid output for adk_request_confirmation: output={part.output}"
+                    )
+            else:
+                # Other tool outputs are handled by process_tool_use_parts
+                logger.debug(f"[AI SDK v6] Skipping tool-use part: {part.tool_name} (state={part.state})")
 
     def to_adk_content(self) -> types.Content:
         """
@@ -468,6 +509,12 @@ def process_tool_use_parts(message: ChatMessage, delegate: FrontendToolDelegate)
             # Handle output-available state (tool execution completed)
             elif part.state == ToolCallState.OUTPUT_AVAILABLE:
                 if part.output is not None:
+                    # Phase 5: Skip delegate processing for adk_request_confirmation
+                    # It's handled directly in _process_part (converted to ADK FunctionResponse)
+                    if part.tool_name == "adk_request_confirmation":
+                        logger.info(f"[Tool] Skipping delegate for adk_request_confirmation (handled in _process_part)")
+                        continue
+
                     logger.info(f"[Tool] Tool {tool_call_id} output available: {part.output}")
                     delegate.resolve_tool_result(tool_call_id, part.output)
                     logger.info(f"[Tool] Resolved tool {tool_call_id} with output")

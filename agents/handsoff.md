@@ -1,10 +1,99 @@
 # 引き継ぎ書
 
-**Date:** 2025-12-16
-**Current Session:** Frontend Test Fixes & React Key Warning Resolution
-**Status:** ✅ Frontend Tests 100% Fixed, All Quality Gates Passing
+**Date:** 2025-12-17
+**Current Session:** Tool Architecture Refactoring & ADK Confirmation Implementation
+**Status:** 🟡 Phase 5 Partial Complete - ADK-side Code Complete
 
 ---
+
+## 🎯 Current Session Summary (2025-12-17 - Tool Architecture & ADK Confirmation)
+
+### Tool Architecture Aligned with AI SDK v6 Standard Patterns
+
+**User Request:** Refactor tool architecture to align with AI SDK v6 standard patterns and improve AI stability
+
+**Completed Work:**
+
+1. ✅ **Tool Count Reduction** (5 → 4 tools)
+   - Removed: `calculate`, `get_current_time` (causing AI instability)
+   - Added: `process_payment` (server-side approval, mock wallet $1000)
+   - Final tools: `get_weather`, `process_payment`, `change_bgm`, `get_location`
+   - Code: `adk_ag_runner.py:146-215, 291, 336, 348`
+
+2. ✅ **Server-Side Approval Tool Implementation**
+   - Mock wallet balance: $1000
+   - Validation: positive amount, sufficient funds
+   - Transaction ID generation
+   - Timestamp and balance tracking
+
+3. ✅ **Agent Instruction Improvement** (Critical Discovery #1)
+   - **Problem Discovered**: AI not calling tools (text response only)
+   - **Root Cause**: Weak instruction ("Use the available tools when needed")
+   - **Solution**: Explicit mandate with concrete examples
+   - **Fix Applied**: `adk_ag_runner.py:306-321`
+     - "You MUST use these tools"
+     - Japanese input examples
+     - Anti-pattern warning: "do not just describe what you would do"
+   - **Test Result**: ✅ AI now correctly calls `process_payment` tool
+
+4. ✅ **ADK Tool Confirmation Flow Discovery** (Critical Discovery #2)
+   - **Initial Conclusion**: "ADK doesn't support server-side approval" ❌ WRONG
+   - **User Correction**: "ADK has Tool Confirmation Flow"
+   - **Investigation Results**: ✅ Found ADK native confirmation feature
+     - Boolean Confirmation: `FunctionTool(func, require_confirmation=True)`
+     - Dynamic Confirmation: Conditional with threshold function
+     - Advanced Confirmation: `tool_context.request_confirmation()` with structured data
+   - **Key Finding**: ADK pauses tool execution and generates `RequestConfirmation` event
+   - **Documentation**: `assets/adk/action-confirmation.txt`, official ADK docs
+   - **Sample Code**: `human_tool_confirmation` example from ADK repo
+
+**Key Insights:**
+1. Agent instruction quality is CRITICAL for tool calling
+2. Concrete examples help AI understand requests
+3. Explicit instructions > soft suggestions
+4. Tool calling is NOT automatic
+5. ⭐ **ADK natively supports tool confirmation** (previous assumption was wrong)
+6. Need to convert ADK `RequestConfirmation` to AI SDK v6 `tool-approval-request`
+
+5. ✅ **Phase 5: ADK Tool Confirmation Implementation** (2025-12-17 01:45 JST)
+   - **Code Changes Completed**:
+     - Added `FunctionTool` import (`adk_ag_runner.py:19`)
+     - Updated `process_payment` signature to accept `tool_context: ToolContext` (line 150)
+     - Wrapped `process_payment` with `FunctionTool(require_confirmation=True)` in SSE agent (lines 345-350)
+     - Wrapped `process_payment` with `FunctionTool(require_confirmation=True)` in BIDI agent (lines 362-367)
+   - **Status**: 🟡 Partial Implementation - ADK-side code complete
+   - **What's Complete**: All ADK agent configuration and tool wrapping
+   - **What Remains**:
+     - Test `RequestConfirmation` event generation
+     - Implement event conversion in `stream_protocol.py`
+     - Handle approval responses from frontend
+     - End-to-end testing
+
+**Current Status:**
+- ✅ Investigation Phase Complete (Phases 1-4)
+- ✅ ADK-side Implementation Complete (Phase 5 - partial)
+- ⏳ Event Conversion & Integration Pending
+- ⏳ End-to-End Testing Pending
+
+**Next Steps (Remaining Implementation):**
+1. ✅ Update `process_payment` to accept `tool_context: ToolContext` → DONE
+2. ✅ Wrap with `FunctionTool(process_payment, require_confirmation=True)` → DONE
+3. ⏳ Handle `RequestConfirmation` event in `stream_protocol.py` → NOT STARTED
+4. ⏳ Convert ADK confirmation to AI SDK v6 `tool-approval-request` event → NOT STARTED
+5. ⏳ Handle approval response from frontend and send to ADK → NOT STARTED
+6. ⏳ Test end-to-end approval flow → NOT STARTED
+
+**Related Files:**
+- `experiments/2025-12-17_tool_architecture_refactoring.md`
+- `adk_ag_runner.py`
+- `stream_protocol.py`
+- `assets/adk/action-confirmation.txt`
+
+---
+
+## 📅 Previous Sessions
+
+### 🎯 2025-12-16 Late Evening - Frontend Test Fixes
 
 ## 🎯 Current Session Summary (2025-12-16 Late Evening - Frontend Test Fixes)
 
