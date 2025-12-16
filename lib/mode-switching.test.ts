@@ -23,7 +23,18 @@ describe("Mode Switching - 5x3 Matrix Tests", () => {
       onclose: null,
     };
 
-    global.WebSocket = vi.fn(() => mockWebSocket) as any;
+    // Mock WebSocket as a constructor
+    global.WebSocket = class MockWebSocket {
+      send = mockWebSocket.send;
+      close = mockWebSocket.close;
+      readyState = mockWebSocket.readyState;
+      onopen = null;
+      onmessage = null;
+      onerror = null;
+      onclose = null;
+
+      constructor(url: string) {}
+    } as any;
 
     // Mock fetch
     mockFetch = vi.fn();
@@ -419,6 +430,43 @@ describe("Mode Switching - 5x3 Matrix Tests", () => {
 });
 
 describe("Message Type Matrix Coverage", () => {
+  let mockWebSocket: any;
+  let mockFetch: any;
+
+  beforeEach(() => {
+    // Mock WebSocket
+    mockWebSocket = {
+      send: vi.fn(),
+      close: vi.fn(),
+      readyState: 1,
+      onopen: null,
+      onmessage: null,
+      onerror: null,
+      onclose: null,
+    };
+
+    // Mock WebSocket as a constructor
+    global.WebSocket = class MockWebSocket {
+      send = mockWebSocket.send;
+      close = mockWebSocket.close;
+      readyState = mockWebSocket.readyState;
+      onopen = null;
+      onmessage = null;
+      onerror = null;
+      onclose = null;
+
+      constructor(url: string) {}
+    } as any;
+
+    // Mock fetch
+    mockFetch = vi.fn();
+    global.fetch = mockFetch;
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
   const modes = ["gemini", "adk-sse", "adk-bidi"] as const;
   const messageTypes = [
     "text",

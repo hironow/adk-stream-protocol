@@ -75,21 +75,21 @@ export function MessageComponent({
 
   // Hide empty user messages that are created just for continuation after tool approval
   // These messages have no content and are just used to trigger the next step
-  if (isUser) {
-    const hasContent = message.content && message.content.length > 0;
-    const hasAttachments =
-      message.experimental_attachments &&
-      message.experimental_attachments.length > 0;
-    const hasToolInvocations =
-      message.toolInvocations && message.toolInvocations.length > 0;
+  // if (isUser) {
+  //   const hasContent = message.content && message.content.length > 0;
+  //   const hasAttachments =
+  //     message.experimental_attachments &&
+  //     message.experimental_attachments.length > 0;
+  //   const hasToolInvocations =
+  //     message.toolInvocations && message.toolInvocations.length > 0;
 
-    if (!hasContent && !hasAttachments && !hasToolInvocations) {
-      console.debug(
-        "[MessageComponent] Hiding empty user message used for continuation",
-      );
-      return null; // Don't render empty user messages
-    }
-  }
+  //   if (!hasContent && !hasAttachments && !hasToolInvocations) {
+  //     console.debug(
+  //       "[MessageComponent] Hiding empty user message used for continuation",
+  //     );
+  //     return null; // Don't render empty user messages
+  //   }
+  // }
 
   // Check if this assistant message has audio (ADK BIDI mode)
   // Audio is detected by AudioContext chunk count, not message.parts
@@ -97,7 +97,11 @@ export function MessageComponent({
   const hasAudio =
     message.role === "assistant" && audioContext.voiceChannel.chunkCount > 0;
 
-  return (
+  // Hide empty user messages that are created just for continuation after tool approval
+  const isDelegateEmptyUserMessage =
+    isUser && message.parts?.length === 1 && message.parts[0].type === "text" && !message.parts[0].text;
+  
+  return !isDelegateEmptyUserMessage && (
     <div
       data-testid={`message-${message.role}`}
       data-message-id={message.id}
@@ -202,7 +206,7 @@ export function MessageComponent({
           if (part.type === "text") {
             return (
               <div
-                key={`${part.type}-${index}`}
+                key={`${message.id}-${index}-${part.type}-text`}
                 data-testid="message-text"
                 style={{
                   whiteSpace: "pre-wrap",
@@ -218,7 +222,7 @@ export function MessageComponent({
           if (part.type === "reasoning") {
             return (
               <details
-                key={`${part.type}-${index}`}
+                key={`${message.id}-${index}-${part.type}-reasoning`}
                 style={{
                   padding: "0.75rem",
                   borderRadius: "6px",
@@ -258,7 +262,7 @@ export function MessageComponent({
             return (
               // biome-ignore lint/performance/noImgElement: File part URLs may be data URLs
               <img
-                key={`${part.type}-image-${index}`}
+                key={`${message.id}-${index}-${part.type}-file-image`}
                 src={part.url}
                 alt={part.filename || "Image"}
                 style={{
@@ -275,7 +279,7 @@ export function MessageComponent({
           if (part.type === "file" && part.mediaType?.startsWith("audio/")) {
             return (
               <div
-                key={`${part.type}-audio-${index}`}
+                key={`${message.id}-${index}-${part.type}-file-audio`}
                 style={{
                   margin: "0.75rem 0",
                   padding: "0.75rem",
@@ -330,7 +334,7 @@ export function MessageComponent({
             };
             return (
               <ImageDisplay
-                key={`${part.type}-${index}`}
+                key={`${message.id}-${index}-${part.type}-data-image`}
                 content={imageData.content}
                 mediaType={imageData.mediaType}
                 alt="Image from assistant"
@@ -363,7 +367,7 @@ export function MessageComponent({
             const toolInvocation = part.toolInvocation as any;
             return (
               <ToolInvocationComponent
-                key={`${part.type}-${index}`}
+                key={`${message.id}-${index}-${part.type}-tool-call`}
                 toolInvocation={toolInvocation}
                 addToolApprovalResponse={addToolApprovalResponse}
                 executeToolCallback={executeToolCallback}
@@ -393,7 +397,7 @@ export function MessageComponent({
             };
             return (
               <ToolInvocationComponent
-                key={`${part.type}-${index}`}
+                key={part.toolCallId}
                 toolInvocation={toolInvocation}
                 addToolApprovalResponse={addToolApprovalResponse}
                 executeToolCallback={executeToolCallback}
@@ -418,7 +422,7 @@ export function MessageComponent({
           return (
             <details
               // biome-ignore lint/suspicious/noArrayIndexKey: Unknown parts have no stable identifier
-              key={`unknown-${index}`}
+              key={`${message.id}-${index}-unknown`}
               style={{
                 padding: "0.5rem",
                 borderRadius: "4px",
@@ -541,7 +545,7 @@ export function MessageComponent({
           </div>
           {extendedMessage.metadata.citations.map((citation, idx) => (
             <div
-              key={`citation-${citation.uri}-${citation.startIndex}-${idx}`}
+              key={`metadata-citation-${citation.uri}-${citation.startIndex}-${idx}`}
               style={{
                 marginLeft: "1rem",
                 marginBottom: "0.25rem",
@@ -622,7 +626,7 @@ export function MessageComponent({
           <div style={{ marginTop: "0.75rem" }}>
             {extendedMessage.toolInvocations.map((toolInvocation) => (
               <ToolInvocationComponent
-                key={toolInvocation.toolCallId}
+                key={`toolInvocation-${toolInvocation.toolCallId}`}
                 toolInvocation={toolInvocation}
                 addToolApprovalResponse={addToolApprovalResponse}
                 executeToolCallback={executeToolCallback}
