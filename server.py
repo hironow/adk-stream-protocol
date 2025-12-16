@@ -642,6 +642,7 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
                 # We reuse 100% of the conversion logic - only transport layer differs
                 # WebSocket mode: Send SSE format over WebSocket (instead of HTTP SSE)
                 # Phase 4: Pass tools_requiring_approval for tool approval flow
+                logger.info("[BIDI] Starting to stream ADK events to WebSocket")
                 async for sse_event in stream_adk_to_ai_sdk(
                     live_events,
                     tools_requiring_approval=TOOLS_REQUIRING_APPROVAL,
@@ -650,6 +651,24 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
                     event_count += 1
                     # Send SSE-formatted event as WebSocket text message
                     # Frontend will parse "data: {...}" format and extract UIMessageChunk
+
+                    # [DEBUG] Log all event types to see what's being sent
+                    if sse_event.startswith("data:"):
+                        try:
+                            import json
+
+                            event_data = json.loads(sse_event[5:].strip())  # Remove "data:" prefix
+                            event_type = event_data.get("type", "unknown")
+                            logger.info(f"[BIDI-SEND] Sending event type: {event_type}")
+
+                            # Log tool-approval-request specifically with full data
+                            if event_type == "tool-approval-request":
+                                logger.warning(
+                                    f"[BIDI-SEND] ⚠️ ⚠️ ⚠️  SENDING tool-approval-request: {event_data}"
+                                )
+                        except Exception as e:
+                            logger.debug(f"[BIDI-SEND] Could not parse event data: {e}")
+
                     await websocket.send_text(sse_event)
 
                 logger.info(f"[BIDI] Sent {event_count} events to client")

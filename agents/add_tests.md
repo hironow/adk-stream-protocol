@@ -48,7 +48,206 @@ async def generate_sse_stream():
 - ✅ `/health` endpoint responding: `{"status":"healthy"}`
 - ✅ Tool approval flow completes successfully (verified in logs)
 - ✅ No NameError crashes observed
-- 🔄 E2E tests pending re-run to verify full fix
+- ✅ Python tests: 245/245 passing (100%) - 218 unit + 27 integration
+- ❌ E2E tests: 13/47 passing (27.7%) - **34 tests failing**
+
+---
+
+## 🔴 E2E Test Failures (2025-12-16 Evening) - Server Fix Completed
+
+**Total Result**: 34 failed / 13 passed (execution time: 19.9 minutes)
+
+### Failure Pattern Analysis
+
+Most failures fall into these categories:
+1. **Timeout errors** (180s) - `locator.textContent: Test timeout exceeded`
+2. **Element not found** - `expect(locator).toBeVisible() failed: element(s) not found`
+3. **Count/comparison failures** - `expect(received).toBeGreaterThan(expected)`
+4. **Undefined errors** - `TypeError: Cannot read properties of undefined (reading 'locator')`
+
+### E2E Test Failure List (Priority Order)
+
+#### Category A: Tool Approval Tests (Critical - Core Functionality)
+
+**E2E-001: Tool approval dialog not appearing**
+- File: `e2e/tool-approval.spec.ts:36`
+- Test: "should display approval dialog when AI requests change_bgm tool"
+- Error: `expect(locator).toBeVisible() failed: element(s) not found`
+- Duration: 31.3s
+- Priority: P0 (blocks all tool approval functionality)
+
+**E2E-002: Tool approval execution failure**
+- File: `e2e/tool-approval.spec.ts:59`
+- Test: "should execute change_bgm and complete conversation when user approves"
+- Error: `expect(locator).toBeVisible() failed: element(s) not found`
+- Priority: P0
+
+**E2E-003: Tool rejection flow failure**
+- File: `e2e/tool-approval.spec.ts:95`
+- Test: "should send error result when user rejects tool"
+- Error: `expect(locator).toBeVisible() failed: element(s) not found`
+- Duration: 31.0s
+- Priority: P0
+
+**E2E-004: Get location tool approval**
+- Test: "get_location tool approval flow"
+- Error: `expect(locator).toBeVisible() failed: element(s) not found`
+- Priority: P1
+
+**E2E-005: Multiple tool approval sequences**
+- Test: "Multiple approval requests in sequence"
+- Error: `expect(locator).toBeVisible() failed: element(s) not found`
+- Priority: P1
+
+#### Category B: Frontend Delegate Fix Tests (Directly Related to Server Fix)
+
+**E2E-006: SSE mode tool output processing**
+- File: `e2e/frontend-delegate-fix.spec.ts:42`
+- Test: "should process tool output and continue conversation in SSE mode"
+- Error: `expect(locator).toBeVisible() failed: element(s) not found`
+- Duration: 35.3s
+- Priority: P0 (validates server.py fix)
+
+**E2E-007: BIDI mode tool continuation**
+- Test: "continue conversation in BIDI mode"
+- Error: `locator.textContent: Test timeout of 180000ms exceeded`
+- Priority: P0
+
+**E2E-008: SSE to BIDI mode switching**
+- Test: "switching from SSE to BIDI"
+- Error: `expect(locator).toBeVisible() failed: element(s) not found`
+- Priority: P1
+
+#### Category C: Backend Equivalence Tests (Multi-mode compatibility)
+
+**E2E-009-013: Text conversation tests across backends (5 tests)**
+- Tests: "handle text-only conversation" (multiple backend combinations)
+- Error patterns:
+  - `locator.textContent: Test timeout of 180000ms exceeded` (3 tests)
+  - `TypeError: Cannot read properties of undefined (reading 'locator')` (2 tests)
+- Priority: P2
+
+**E2E-014-016: Image upload tests (3 tests)**
+- Tests: "handle image upload with text", "follow-up message after image"
+- Error patterns: Similar to text conversation timeouts
+- Priority: P2
+
+**E2E-017: Tool invocation test**
+- Test: "Simple tool invocation (weather)"
+- Error: Mix of timeout and undefined errors
+- Priority: P2
+
+**E2E-018: Multi-message sequences**
+- Test: "Multiple text messages in sequence"
+- Error: Timeout
+- Priority: P2
+
+**E2E-019: Response equivalence**
+- Test: "produce equivalent responses"
+- Error: Timeout
+- Priority: P3
+
+#### Category D: History Sharing Tests (State management)
+
+**E2E-020: Gemini Direct to ADK SSE**
+- File: `e2e/chat-history-sharing.spec.ts`
+- Test: "from Gemini Direct to ADK SSE"
+- Error: `locator.textContent: Test timeout of 180000ms exceeded`
+- Priority: P2
+
+**E2E-021: ADK SSE to Gemini Direct**
+- Test: "from ADK SSE to Gemini Direct"
+- Error: `expect(locator).toBeVisible() failed: element(s) not found`
+- Priority: P2
+
+**E2E-022: Preserves history when switching**
+- Test: "preserves history when switching backends"
+- Error: Timeout
+- Priority: P2
+
+**E2E-023: Context across switches**
+- Test: "maintains context across backend switches"
+- Error: `expect(received).toBeGreaterThan(expected)` - count assertion
+- Priority: P2
+
+**E2E-024: First message after switch**
+- Test: "sends first message correctly after backend switch"
+- Error: `expect(errorElement).not.toBeVisible()` - "Error: network error" is visible
+- Priority: P2
+
+**E2E-025: Multiple switches**
+- Test: "handles multiple backend switches"
+- Error: `expect(received).toBeGreaterThan(expected)` - count assertion
+- Priority: P3
+
+#### Category E: Chunk Player UI Tests (UI verification)
+
+**E2E-026: Pattern 1 - Gemini Direct messages**
+- File: `e2e/chunk-player-ui-verification.spec.ts:63`
+- Test: "Pattern 1: Gemini Direct only - should render all messages correctly"
+- Error: `expect(received).toBeGreaterThan(expected)` - message count
+- Priority: P2
+
+**E2E-027: Pattern 2 - Token counts**
+- File: `:99`
+- Test: "Pattern 2: ADK SSE only - should show token counts"
+- Error: `expect(received).toBeGreaterThanOrEqual(expected)` - token count
+- Priority: P2
+
+**E2E-028: Pattern 3 - Audio players**
+- File: `:132`
+- Test: "Pattern 3: ADK BIDI only - should show audio players"
+- Error: `expect(received).toBeGreaterThan(expected)` - audio player count
+- Priority: P2
+
+**E2E-029: Pattern 4 - Message history preservation**
+- File: `:162`
+- Test: "Pattern 4: Mode switching - should preserve message history"
+- Error: `expect(received).toBeGreaterThanOrEqual(expected)` - message count
+- Priority: P2
+
+**E2E-030: Pattern 4 Critical - Message accumulation**
+- File: `:222`
+- Test: "Pattern 4 Critical: Message count should accumulate across mode switches"
+- Error: `expect(received).toBeGreaterThan(expected)` - accumulated count
+- Priority: P2
+
+#### Category F: Systematic Mode/Model Tests
+
+**E2E-031: Mode switching history**
+- File: `e2e/systematic-mode-model-testing.spec.ts:157`
+- Test: "Mode switching preserves history"
+- Error: `ReferenceError: waitForResponse is not defined`
+- Priority: P2
+
+**E2E-032: Weather tool (ADK SSE)**
+- File: `:201`
+- Test: "Tool Usage › adk-sse: Weather tool"
+- Error: `expect(locator).toBeVisible() failed: element(s) not found`
+- Priority: P2
+
+**E2E-033: Error handling**
+- File: `:237`
+- Test: "Error Handling › Handles network error gracefully"
+- Error: `expect(received).toBeGreaterThan(expected)` - error message count
+- Priority: P2
+
+**E2E-034: Long context**
+- Test: "Long context (50 messages)"
+- Error: `expect(received).toBeGreaterThanOrEqual(expected)` - message count
+- Priority: P3
+
+**E2E-035: Special characters**
+- Test: "Code and special characters"
+- Error: `expect(received).toBeGreaterThan(expected)`
+- Priority: P3
+
+### Next Actions
+
+1. **Investigate root cause of timeouts** - Why are tests timing out at 180s?
+2. **Fix tool approval dialog visibility** - E2E-001 to E2E-005 (Category A)
+3. **Verify frontend delegate fix end-to-end** - E2E-006 to E2E-008 (Category B)
+4. **Address flakiness** - Many failures suggest non-deterministic behavior
 
 ## Problem Context
 

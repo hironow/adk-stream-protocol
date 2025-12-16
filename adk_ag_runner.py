@@ -312,9 +312,6 @@ AGENT_INSTRUCTION = (
     "Always explain what you're doing when using tools."
 )
 
-# Available tools list
-AGENT_TOOLS = [get_weather, calculate, get_current_time, change_bgm, get_location]
-
 # ========== ADK Agent Setup ==========
 # Based on official ADK quickstart examples
 # https://google.github.io/adk-docs/get-started/quickstart/
@@ -334,7 +331,7 @@ sse_agent = Agent(
     model="gemini-2.5-flash",  # Stable Gemini 2.5 Flash for generateContent API (SSE mode)
     description=AGENT_DESCRIPTION,
     instruction=AGENT_INSTRUCTION,
-    tools=AGENT_TOOLS,  # type: ignore[arg-type]  # ADK accepts functions at runtime
+    tools=[get_weather, calculate, get_current_time, change_bgm, get_location],
     # Note: ADK Agent doesn't support seed and temperature parameters
 )
 
@@ -346,7 +343,7 @@ bidi_agent = Agent(
     model=bidi_model,  # Configurable model for BIDI mode
     description=AGENT_DESCRIPTION,
     instruction=AGENT_INSTRUCTION,
-    tools=AGENT_TOOLS,  # type: ignore[arg-type]  # ADK accepts functions at runtime
+    tools=[get_weather, calculate, get_current_time, change_bgm, get_location],
     # Note: ADK Agent doesn't support seed and temperature parameters
 )
 

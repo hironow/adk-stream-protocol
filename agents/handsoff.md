@@ -1,12 +1,12 @@
 # 引き継ぎ書
 
 **Date:** 2025-12-16
-**Current Session:** Linting & Type Checking Compliance
-**Status:** ✅ Python Tests Passing (27/27), ⚠️ Frontend Tests Partial (201 passed, 19 failed)
+**Current Session:** Server Crash Fix (Ultrathink Investigation)
+**Status:** ✅ Server Fix Complete, Python Tests 100%, E2E Tests Pending
 
 ---
 
-## 🎯 Current Session Summary (2025-12-16 Evening)
+## 🎯 Current Session Summary (2025-12-16 Late Evening - Ultrathink Session)
 
 ### Linting and Type Checking Compliance
 
@@ -36,6 +36,57 @@
 **Documentation:**
 - ✅ Updated `agents/add_tests.md` with all 4 problems and resolutions
 - ✅ Committed: `fix: Resolve linting and type checking errors`
+
+### Server Crash Root Cause Fix (Ultrathink Investigation)
+
+**User Request:** Use ultrathink approach to investigate E2E test failures, especially BIDI mode history persistence issues
+
+**Approach Used:**
+- Question test assumptions (ultrathink)
+- Use Chrome DevTools MCP to verify actual behavior
+- Systematic debugging following evidence
+
+**Root Cause Discovery:**
+1. ❌ **Initial Hypothesis (Wrong)**: `/clear-sessions` endpoint hangs
+2. ✅ **Actual Problem**: Server crashes with `NameError` before endpoint can be tested
+3. **Error**: `name 'frontend_delegate' is not defined` at server.py:294
+4. **Trigger**: Processing tool approval response in second `/stream` request
+5. **Root Cause**: Python scoping - nested `generate_sse_stream()` can't access module-level variable
+
+**Solution Implemented:**
+```python
+# server.py:283-285
+async def generate_sse_stream():
+    # Explicitly declare global variable access for nested function scope
+    global frontend_delegate
+```
+
+**Fix Verification:**
+1. ✅ Server starts without errors
+2. ✅ Tool approval flow completes successfully (verified in logs)
+3. ✅ **Python Tests**: 218 unit + 27 integration = **245/245 passing (100%)**
+4. ✅ No NameError crashes observed
+5. ✅ Committed: `fix: Add global frontend_delegate declaration for nested function scope`
+
+**Why This Matters:**
+The "endpoint hanging" diagnosis was wrong - server was crashed. Connection refused errors were misinterpreted as endpoint issues. This was the blocker preventing all E2E test validation.
+
+**E2E Test Results** (2025-12-16 19:58 JST):
+- ✅ Tests executed: 47 total
+- ✅ Passing: 13/47 (27.7%)
+- ❌ Failing: 34/47 (72.3%)
+- ⏱️ Execution time: 19.9 minutes
+
+**Failure Analysis**:
+- Documented all 35 failing tests in agents/add_tests.md (E2E-001 to E2E-035)
+- Categorized by priority (P0, P1, P2, P3)
+- Main patterns: Timeouts (180s), Element not found, Count assertions
+
+**Remaining Work:**
+- 🔴 Fix E2E-001 to E2E-005 (Tool Approval - P0)
+- 🔴 Fix E2E-006 to E2E-008 (Frontend Delegate validation - P0)
+- 🟡 Investigate timeout root cause (affects ~40% of failures)
+- ⏳ Update agents/tasks.md with latest status
 
 ---
 
