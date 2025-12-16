@@ -381,13 +381,10 @@ describe("buildUseChatOptions", () => {
   });
 
   describe("Tool Approval Auto-Submission", () => {
-    // RED Phase: This test should FAIL initially
     // Verifies that sendAutomaticallyWhen is configured for automatic tool approval submission
+    // Uses AI SDK's lastAssistantMessageIsCompleteWithApprovalResponses helper
 
-    // SKIPPED: sendAutomaticallyWhen removed due to AI SDK v6 beta bug
-    // Manual send pattern implemented instead (see experiments/2025-12-16_manual_send_tool_approval_design.md)
-    // Tool approval now triggers manual sendMessage() call with 100ms timeout
-    it.skip("should configure sendAutomaticallyWhen for ADK BIDI mode", () => {
+    it("should configure sendAutomaticallyWhen for ADK BIDI mode", () => {
       // Given: ADK BIDI mode (supports tool approval)
       const mode: BackendMode = "adk-bidi";
       const adkBackendUrl = "http://localhost:8000";
@@ -407,10 +404,7 @@ describe("buildUseChatOptions", () => {
       );
     });
 
-    // SKIPPED: sendAutomaticallyWhen removed due to AI SDK v6 beta bug
-    // Manual send pattern implemented instead (see experiments/2025-12-16_manual_send_tool_approval_design.md)
-    // Tool approval now triggers manual sendMessage() call with 100ms timeout
-    it.skip("should configure sendAutomaticallyWhen for ADK SSE mode", () => {
+    it("should configure sendAutomaticallyWhen for ADK SSE mode", () => {
       // Given: ADK SSE mode (supports tool approval)
       const mode: BackendMode = "adk-sse";
       const adkBackendUrl = "http://localhost:8000";

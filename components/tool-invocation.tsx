@@ -17,14 +17,12 @@ interface ToolInvocationProps {
     toolCallId: string,
     args: Record<string, unknown>,
   ) => Promise<boolean>;
-  sendMessage?: () => void; // Manual send after tool approval (v6 beta bug workaround)
 }
 
 export function ToolInvocationComponent({
   toolInvocation,
   addToolApprovalResponse,
   executeToolCallback,
-  sendMessage,
 }: ToolInvocationProps) {
   // Extract toolName from type (e.g., "tool-change_bgm" -> "change_bgm")
   const toolName =
@@ -133,46 +131,30 @@ export function ToolInvocationComponent({
               <button
                 type="button"
                 onClick={async () => {
-                  let clientHandled = false;
+                  // CRITICAL: Always send approval response first
+                  // AI SDK v6's sendAutomaticallyWhen requires BOTH:
+                  // 1. Approval response (addToolApprovalResponse)
+                  // 2. Tool output (addToolOutput)
+                  // Without approval response, sendAutomaticallyWhen won't trigger
+                  console.info(
+                    `[ToolInvocationComponent] Sending approval response for tool ${toolName}`,
+                  );
+                  addToolApprovalResponse?.({
+                    id: toolInvocation.approval.id,
+                    approved: true,
+                    reason: "User approved the tool execution.",
+                  });
 
                   // Execute the tool on client if callback provided
                   if (executeToolCallback) {
                     console.info(
-                      `[ToolInvocationComponent] Attempting to execute tool ${toolName} on client`,
+                      `[ToolInvocationComponent] Executing tool ${toolName} on client`,
                     );
-                    clientHandled = await executeToolCallback(
+                    await executeToolCallback(
                       toolName,
                       toolInvocation.toolCallId,
                       toolInvocation.input || {},
                     );
-                  }
-
-                  // Only send approval response if NOT handled by client
-                  // If handled by client, executeToolCallback calls addToolOutput which triggers the send
-                  // Calling addToolApprovalResponse here would cause a double-send and potential deadlock
-                  if (!clientHandled) {
-                    console.info(
-                      `[ToolInvocationComponent] Tool ${toolName} not handled by client, sending approval response`,
-                    );
-                    addToolApprovalResponse?.({
-                      id: toolInvocation.approval.id,
-                      approved: true,
-                      reason: "User approved the tool execution.",
-                    });
-
-                    // Re-enable manual send as workaround for sendAutomaticallyWhen bug
-                    // We'll filter empty messages in the UI to hide them
-                    console.info(
-                      `[ToolInvocationComponent] Tool approval sent, triggering manual send`,
-                    );
-                    if (sendMessage) {
-                      setTimeout(() => {
-                        console.info(
-                          `[ToolInvocationComponent] Sending continuation message`,
-                        );
-                        sendMessage();
-                      }, 100);
-                    }
                   }
                 }}
                 style={{
@@ -196,19 +178,6 @@ export function ToolInvocationComponent({
                     approved: false,
                     reason: "User denied the tool execution.",
                   });
-
-                  // Re-enable manual send for rejection as well
-                  console.info(
-                    `[ToolInvocationComponent] Tool rejection sent, triggering manual send`,
-                  );
-                  if (sendMessage) {
-                    setTimeout(() => {
-                      console.info(
-                        `[ToolInvocationComponent] Sending continuation message after rejection`,
-                      );
-                      sendMessage();
-                    }, 100);
-                  }
                 }}
                 style={{
                   padding: "0.5rem 1rem",

@@ -404,6 +404,12 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
       abortSignal: AbortSignal | undefined;
     } & ChatRequestOptions,
   ): Promise<ReadableStream<UIMessageChunk>> {
+    console.log("[WS Transport] sendMessages() called:", {
+      trigger: options.trigger,
+      messageCount: options.messages.length,
+      lastMessage: options.messages[options.messages.length - 1],
+    });
+
     const { url, timeout } = this.config;
 
     return new ReadableStream<UIMessageChunk>({

@@ -517,32 +517,6 @@ describe("AudioProvider", () => {
     });
   });
 
-  describe("WebSocket Latency", () => {
-    it("should have null latency initially", async () => {
-      const { result } = renderHook(() => useAudio(), {
-        wrapper: ({ children }: { children: ReactNode }) => (
-          <AudioProvider>{children}</AudioProvider>
-        ),
-      });
-
-      expect(result.current.wsLatency).toBe(null);
-    });
-
-    it("should update latency", async () => {
-      const { result } = renderHook(() => useAudio(), {
-        wrapper: ({ children }: { children: ReactNode }) => (
-          <AudioProvider>{children}</AudioProvider>
-        ),
-      });
-
-      result.current.updateLatency(42);
-
-      await waitFor(() => {
-        expect(result.current.wsLatency).toBe(42);
-      });
-    });
-  });
-
   describe("Cleanup", () => {
     it("should cleanup audio resources on unmount", async () => {
       const { unmount } = renderHook(() => useAudio(), {

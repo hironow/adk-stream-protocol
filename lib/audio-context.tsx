@@ -18,8 +18,10 @@
 import {
   createContext,
   type ReactNode,
+  useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -334,7 +336,7 @@ export function AudioProvider({ children }: AudioProviderProps) {
   }, []);
 
   // Voice channel methods
-  const sendChunk = (chunk: PCMChunk) => {
+  const sendChunk = useCallback((chunk: PCMChunk) => {
     const audioWorkletNode = audioWorkletNodeRef.current;
     const audioContext = audioContextRef.current;
 
@@ -372,9 +374,9 @@ export function AudioProvider({ children }: AudioProviderProps) {
         `Error processing audio: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
-  };
+  }, []);
 
-  const reset = () => {
+  const reset = useCallback(() => {
     // console.log("[AudioContext] Resetting voice channel");
 
     // Reset state first
@@ -386,16 +388,16 @@ export function AudioProvider({ children }: AudioProviderProps) {
     if (audioWorkletNodeRef.current) {
       audioWorkletNodeRef.current.port.postMessage({ command: "reset" });
     }
-  };
+  }, []); // Empty deps - uses only refs and setState
 
-  const handleAudioComplete = (metadata: AudioMetadata) => {
+  const handleAudioComplete = useCallback((metadata: AudioMetadata) => {
     setLastCompletion(metadata);
     setIsPlaying(false);
     isPlayingRef.current = false;
-  };
+  }, []); // Empty deps - uses only setState and refs
 
   // Audio activation method (for browser autoplay policy)
-  const activate = async () => {
+  const activate = useCallback(async () => {
     const audioContext = audioContextRef.current;
     if (!audioContext) {
       console.warn(
@@ -410,10 +412,10 @@ export function AudioProvider({ children }: AudioProviderProps) {
       setNeedsUserActivation(false);
       console.log("[AudioContext] AudioContext activated successfully");
     }
-  };
+  }, []); // Empty deps - uses only ref and setState
 
   // BGM channel methods
-  const switchTrack = () => {
+  const switchTrack = useCallback(() => {
     const audioContext = audioContextRef.current;
     if (!audioContext || !bgmGain1Ref.current || !bgmGain2Ref.current) {
       console.warn("[AudioContext] Cannot switch BGM - audio not ready");
@@ -460,26 +462,42 @@ export function AudioProvider({ children }: AudioProviderProps) {
       setCurrentBgmTrack(0);
       currentBgmTrackRef.current = 0;
     }
-  };
+  }, [currentBgmTrack, isPlaying]); // Depends on currentBgmTrack and isPlaying state
 
-  const value: AudioContextValue = {
-    voiceChannel: {
+  const value: AudioContextValue = useMemo(
+    () => ({
+      voiceChannel: {
+        isPlaying,
+        chunkCount,
+        sendChunk,
+        reset,
+        onComplete: handleAudioComplete,
+        lastCompletion,
+      },
+      bgmChannel: {
+        currentTrack: currentBgmTrack,
+        switchTrack,
+      },
+      isReady,
+      error,
+      needsUserActivation,
+      activate,
+    }),
+    [
       isPlaying,
       chunkCount,
       sendChunk,
       reset,
-      onComplete: handleAudioComplete,
+      handleAudioComplete,
       lastCompletion,
-    },
-    bgmChannel: {
-      currentTrack: currentBgmTrack,
+      currentBgmTrack,
       switchTrack,
-    },
-    isReady,
-    error,
-    needsUserActivation,
-    activate,
-  };
+      isReady,
+      error,
+      needsUserActivation,
+      activate,
+    ],
+  );
 
   return (
     <AudioContext.Provider value={value}>{children}</AudioContext.Provider>

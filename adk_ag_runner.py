@@ -143,98 +143,98 @@ async def get_weather(location: str) -> dict[str, Any]:
         }
 
 
-def calculate(expression: str) -> dict[str, Any]:
+def process_payment(
+    amount: float,
+    recipient: str,
+    currency: str = "USD",
+    description: str = "",
+) -> dict[str, Any]:
     """
-    Calculate a mathematical expression.
+    Process a payment transaction (server-side execution with user approval required).
+
+    This tool requires user approval before execution. The actual payment
+    processing happens on the server after the user approves the transaction.
 
     Args:
-        expression: Mathematical expression to evaluate (e.g., "2 + 2", "10 * 5")
+        amount: Payment amount (must be positive)
+        recipient: Recipient identifier (email, username, or wallet address)
+        currency: Currency code (default: USD)
+        description: Optional payment description
 
     Returns:
-        Calculation result
+        Payment processing result with transaction details
     """
-    try:
-        # Safe evaluation - only allows basic math operations
-        # In production, use a proper math expression parser
-        result = eval(expression, {"__builtins__": {}}, {})
-        logger.info(f"Tool call: calculate({expression}) -> {result}")
-        return {"expression": expression, "result": result, "success": True}
-    except Exception as e:
-        logger.error(f"Tool call: calculate({expression}) failed: {e}")
-        return {"expression": expression, "error": str(e), "success": False}
+    logger.info(
+        f"[process_payment] Processing payment: {amount} {currency} to {recipient}"
+    )
 
+    # Mock wallet balance (in real app, this would come from a database)
+    MOCK_WALLET_BALANCE = 1000.0
 
-def get_current_time(timezone: str = "UTC") -> dict[str, Any]:
-    """
-    Get the current time.
+    # Validation
+    if amount <= 0:
+        error_msg = f"Invalid amount: {amount}. Amount must be positive."
+        logger.error(f"[process_payment] {error_msg}")
+        return {
+            "success": False,
+            "error": error_msg,
+            "transaction_id": None,
+        }
 
-    Args:
-        timezone: Timezone name (default: UTC)
+    if amount > MOCK_WALLET_BALANCE:
+        error_msg = (
+            f"Insufficient funds. Balance: {MOCK_WALLET_BALANCE} {currency}, "
+            f"Requested: {amount} {currency}"
+        )
+        logger.error(f"[process_payment] {error_msg}")
+        return {
+            "success": False,
+            "error": error_msg,
+            "transaction_id": None,
+            "wallet_balance": MOCK_WALLET_BALANCE,
+        }
 
-    Returns:
-        Current time information
-    """
-    now = datetime.now(UTC)
+    # Process payment (mock implementation)
+    import uuid
+
+    transaction_id = f"txn_{uuid.uuid4().hex[:12]}"
+    new_balance = MOCK_WALLET_BALANCE - amount
+
     result = {
-        "datetime": now.isoformat(),
-        "timezone": timezone,
-        "formatted": now.strftime("%Y-%m-%d %H:%M:%S"),
+        "success": True,
+        "transaction_id": transaction_id,
+        "amount": amount,
+        "currency": currency,
+        "recipient": recipient,
+        "description": description,
+        "wallet_balance": new_balance,
+        "timestamp": datetime.now(UTC).isoformat(),
     }
-    logger.info(f"Tool call: get_current_time({timezone}) -> {result}")
+
+    logger.info(f"[process_payment] Payment successful: {transaction_id}")
     return result
 
 
-async def change_bgm(track: int, tool_context: ToolContext) -> dict[str, Any]:
+def change_bgm(track: int) -> dict[str, Any]:
     """
-    Change background music track (executed on frontend via browser AudioContext API).
+    Change background music track (auto-executes on frontend via onToolCall).
 
-    This tool requires user approval before execution and delegates actual
-    execution to the frontend browser.
+    This tool auto-executes on the frontend without requiring approval.
+    The backend immediately returns success, while the actual BGM change
+    is handled by the frontend's onToolCall callback.
 
     Args:
         track: Track number (0 or 1)
-        tool_context: ADK ToolContext (automatically injected)
 
     Returns:
-        Result of BGM change operation from frontend
+        Success confirmation (actual execution happens on frontend)
     """
-    # Import here to avoid circular dependency
-    from tool_delegate import frontend_delegate
-
-    # Phase 3: Access connection-specific delegate from session state
-    # Fall back to global delegate for SSE mode (backward compatibility)
-    state_dict = (
-        tool_context.state if isinstance(tool_context.state, dict) else tool_context.state.to_dict()
-    )
-    logger.info(f"[change_bgm] tool_context.state: {state_dict}")
-    if tool_context.state.get("temp:delegate"):
-        delegate = tool_context.state.get("temp:delegate")
-        logger.info("[change_bgm] Using connection-specific delegate from session state")
-    else:
-        delegate = frontend_delegate
-        logger.info("[change_bgm] Using global frontend_delegate for SSE mode")
-
-    client_id = tool_context.state.get("client_identifier", "sse_mode")
-    logger.info(f"[change_bgm] Using delegate: {delegate}, client_id: {client_id}")
-
-    # Get tool_call_id from ToolContext
-    tool_call_id = tool_context.function_call_id
-    if not tool_call_id:
-        error_msg = "Missing function_call_id in ToolContext"
-        logger.error(f"[change_bgm] {error_msg}")
-        return {"success": False, "error": error_msg}
-
-    logger.info(f"[change_bgm] client={client_id}, tool_call_id={tool_call_id}, track={track}")
-
-    # Delegate execution to frontend and await result
-    result = await delegate.execute_on_frontend(
-        tool_call_id=tool_call_id,
-        tool_name="change_bgm",
-        args={"track": track},
-    )
-
-    logger.info(f"[change_bgm] client={client_id}, result={result}")
-    return result
+    logger.info(f"[change_bgm] Tool called with track={track} (frontend auto-executes)")
+    return {
+        "success": True,
+        "track": track,
+        "message": f"BGM change to track {track} initiated (frontend handles execution)",
+    }
 
 
 async def get_location(tool_context: ToolContext) -> dict[str, Any]:
@@ -284,8 +284,11 @@ async def get_location(tool_context: ToolContext) -> dict[str, Any]:
 
 
 # ========== Tool Approval Configuration ==========
-# Tools that require user approval before execution (Phase 4)
-TOOLS_REQUIRING_APPROVAL = {"change_bgm", "get_location"}
+# Tools that require user approval before execution
+# - process_payment: Server-side tool with approval (AI SDK v6 standard pattern)
+# - get_location: Frontend delegate tool with approval (custom pattern)
+# Note: change_bgm is auto-execute client-side tool (no approval required)
+TOOLS_REQUIRING_APPROVAL = {"process_payment", "get_location"}
 
 
 # ========== Constants for Agent Configuration ==========
@@ -297,19 +300,24 @@ TOOLS_REQUIRING_APPROVAL = {"change_bgm", "get_location"}
 # ADK_TEMPERATURE = 0.7
 
 # Common agent description
-AGENT_DESCRIPTION = "An intelligent assistant that can check weather, perform calculations, control BGM, and access location"
+AGENT_DESCRIPTION = "An intelligent assistant that can check weather, process payments, control BGM, and access location"
 
 # Common agent instruction
 AGENT_INSTRUCTION = (
-    "You are a helpful AI assistant with access to real-time tools. "
-    "Use the available tools when needed to provide accurate information:\n"
+    "You are a helpful AI assistant with access to the following tools:\n"
     "- get_weather: Check weather for any city\n"
-    "- calculate: Perform mathematical calculations\n"
-    "- get_current_time: Get the current time\n"
-    "- change_bgm: Change background music track (requires user approval)\n"
+    "- process_payment: Process payment transactions (requires user approval)\n"
+    "- change_bgm: Change background music track (auto-executes on client)\n"
     "- get_location: Get user's location (requires user approval)\n\n"
-    "Note: change_bgm and get_location require user approval before execution.\n"
-    "Always explain what you're doing when using tools."
+    "IMPORTANT: You MUST use these tools to perform the requested actions. "
+    "When a user asks you to check weather, send money, change BGM, or get location, "
+    "you must call the corresponding tool function - do not just describe what you would do.\n\n"
+    "For example:\n"
+    "- User: '東京の天気は?' → Call get_weather(location='Tokyo')\n"
+    "- User: '100ドルをAliceに送金して' → Call process_payment(amount=100, recipient='Alice', currency='USD')\n"
+    "- User: 'トラック1に変更して' → Call change_bgm(track=1)\n"
+    "- User: '私の位置を教えて' → Call get_location()\n\n"
+    "Note: process_payment and get_location require user approval before execution."
 )
 
 # ========== ADK Agent Setup ==========
@@ -331,7 +339,7 @@ sse_agent = Agent(
     model="gemini-2.5-flash",  # Stable Gemini 2.5 Flash for generateContent API (SSE mode)
     description=AGENT_DESCRIPTION,
     instruction=AGENT_INSTRUCTION,
-    tools=[get_weather, calculate, get_current_time, change_bgm, get_location],
+    tools=[get_weather, process_payment, change_bgm, get_location],
     # Note: ADK Agent doesn't support seed and temperature parameters
 )
 
@@ -343,7 +351,7 @@ bidi_agent = Agent(
     model=bidi_model,  # Configurable model for BIDI mode
     description=AGENT_DESCRIPTION,
     instruction=AGENT_INSTRUCTION,
-    tools=[get_weather, calculate, get_current_time, change_bgm, get_location],
+    tools=[get_weather, process_payment, change_bgm, get_location],
     # Note: ADK Agent doesn't support seed and temperature parameters
 )
 

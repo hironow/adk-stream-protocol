@@ -59,7 +59,72 @@ export function Chat({
     error,
     addToolOutput,
     addToolApprovalResponse,
-  } = useChat(useChatOptions);
+  } = useChat({
+    ...useChatOptions,
+    // AI SDK v6 standard pattern: Auto-execute client-side tools
+    async onToolCall({ toolCall }) {
+      // Check if it's a dynamic tool first for proper type narrowing
+      if (toolCall.dynamic) {
+        return;
+      }
+
+      // Auto-execute change_bgm tool
+      if (toolCall.toolName === "change_bgm") {
+        const track = Number(toolCall.input?.track ?? 1);
+
+        // Execute BGM change using AudioContext
+        audioContext.bgmChannel.switchTrack();
+
+        // No await - avoids potential deadlocks (per AI SDK v6 docs)
+        addToolOutput({
+          tool: "change_bgm",
+          toolCallId: toolCall.toolCallId,
+          output: {
+            success: true,
+            current_track: track,
+            message: `BGM changed to track ${track}`,
+          },
+        });
+      }
+    },
+  });
+
+  // DEBUG: Log messages array changes to understand sendAutomaticallyWhen behavior
+  useEffect(() => {
+    // Check if last assistant message has completed tool approvals
+    const lastAssistantMsg = messages
+      .slice()
+      .reverse()
+      .find((m) => m.role === "assistant");
+
+    if (lastAssistantMsg && "toolInvocations" in lastAssistantMsg) {
+      const toolInvocations = lastAssistantMsg.toolInvocations as any[];
+      const toolStates = toolInvocations?.map((t: any) => ({
+        type: t.type,
+        state: t.state,
+        hasApproval: "approval" in t,
+        hasApprovalResponse: "approvalResponse" in t,
+        hasOutput: "output" in t,
+      }));
+
+      console.log("[Chat] Tool invocation states:", JSON.stringify(toolStates, null, 2));
+      console.log("[Chat] Message count:", messages.length, "Status:", status);
+
+      // Check the condition that sendAutomaticallyWhen uses
+      const allApproved = toolInvocations?.every(
+        (t: any) => t.state !== "approval-requested"
+      );
+      const hasApprovals = toolInvocations?.some(
+        (t: any) => "approval" in t || "approvalResponse" in t
+      );
+
+      console.log("[Chat] sendAutomaticallyWhen conditions:", {
+        allApproved,
+        hasApprovals,
+        shouldTrigger: allApproved && hasApprovals,
+      });
+    }
+  }, [messages, status]);
 
   // Remove duplicate messages (same ID) - can occur due to AI SDK v6 beta bugs with manual send pattern
   // This prevents React key warnings and ensures each message ID is unique in the rendered list
@@ -188,14 +253,6 @@ export function Chat({
           output: result,
         });
 
-        // Manual send after client-side tool execution (AI SDK v6 beta bug workaround)
-        console.info(
-          `[Chat] Triggering manual send after client-side tool execution`,
-        );
-        setTimeout(() => {
-          sendMessage({ text: "" });
-        }, 100);
-
         return true;
       } catch (error) {
         console.error("[Chat] Tool execution error:", error);
@@ -206,18 +263,10 @@ export function Chat({
           errorText: error instanceof Error ? error.message : String(error),
         });
 
-        // Manual send after client-side tool error (AI SDK v6 beta bug workaround)
-        console.info(
-          `[Chat] Triggering manual send after client-side tool error`,
-        );
-        setTimeout(() => {
-          sendMessage({ text: "" });
-        }, 100);
-
         return true; // Handled but failed
       }
     },
-    [addToolOutput, audioContext, sendMessage],
+    [addToolOutput, audioContext],
   );
 
   // Phase 3: Audio recording handlers
@@ -570,7 +619,6 @@ export function Chat({
             message={m}
             addToolApprovalResponse={addToolApprovalResponse}
             executeToolCallback={executeToolCallback}
-            sendMessage={() => sendMessage({ text: "" })} // Manual send after tool approval (v6 beta bug workaround)
           />
         ))}
         {isLoading && (

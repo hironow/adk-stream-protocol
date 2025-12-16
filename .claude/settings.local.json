@@ -86,7 +86,8 @@
       "mcp__chrome-devtools__close_page",
       "mcp__serena__find_referencing_symbols",
       "mcp__serena__think_about_collected_information",
-      "Bash(pnpm run format:*)"
+      "Bash(pnpm run format:*)",
+      "Bash(awk:*)"
     ],
     "deny": [
       "Read(.env.keys)",
