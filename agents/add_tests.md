@@ -22,15 +22,33 @@
 - Integration tests working correctly with proper session handling
 
 **Issue Discovered** (2025-12-16 17:00 JST):
-- **Root Cause**: Backend `_sessions` dictionary persists across E2E test runs
+- **Initial Hypothesis**: Backend `_sessions` dictionary persists across E2E test runs
 - **Attempted Solution**: Created `/clear-sessions` endpoint to clear backend state
-- **Critical Blocker**: `/clear-sessions` endpoint hangs indefinitely when called
-  - Endpoint exists and is registered in FastAPI
-  - Curl requests timeout after 2 seconds with no response
-  - No log entry showing endpoint execution
-  - Endpoint was never successfully called during E2E tests
-- **Current Status**: E2E tests failing - AI sees persisted session history and responds with text instead of calling tools
-- **Next Steps**: Need to debug endpoint hanging issue or implement alternative session clearing approach
+- **Initial Blocker**: `/clear-sessions` endpoint appeared to "hang indefinitely" when called
+
+**Actual Root Cause Discovered** (2025-12-16 19:05 JST - Ultrathink Investigation):
+- **Real Problem**: Server was crashing with `NameError` BEFORE endpoint could be tested
+- **Error Location**: `server.py:294` (now line 311 after fix) in nested function `generate_sse_stream()`
+- **Error Message**: `NameError: name 'frontend_delegate' is not defined. Did you mean: 'FrontendToolDelegate'?`
+- **Trigger**: Server crashes when processing tool approval response in second `/stream` request
+- **Root Cause**: Python scoping issue - nested async function cannot access module-level `frontend_delegate` variable
+- **Why Misdiagnosed**: Connection refused error misinterpreted as "endpoint hanging" - server was actually crashed
+
+**Solution Applied** (2025-12-16 19:06 JST):
+```python
+# server.py:283-285
+async def generate_sse_stream():
+    # Explicitly declare global variable access for nested function scope
+    global frontend_delegate
+    # ... rest of function
+```
+
+**Fix Verification**:
+- ✅ Server starts without errors
+- ✅ `/health` endpoint responding: `{"status":"healthy"}`
+- ✅ Tool approval flow completes successfully (verified in logs)
+- ✅ No NameError crashes observed
+- 🔄 E2E tests pending re-run to verify full fix
 
 ## Problem Context
 

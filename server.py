@@ -281,6 +281,9 @@ async def stream(request: ChatRequest):
 
     # Create SSE stream generator inline (transaction script pattern)
     async def generate_sse_stream():
+        # Explicitly declare global variable access for nested function scope
+        global frontend_delegate
+
         # 2. Session management
         # Get user ID (single user mode for demo environment without database)
         user_id = get_user()
