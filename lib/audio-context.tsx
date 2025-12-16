@@ -61,6 +61,8 @@ export interface AudioContextValue {
   // Global audio context state
   isReady: boolean;
   error: string | null;
+  needsUserActivation: boolean; // True when AudioContext is suspended and needs user gesture
+  activate: () => Promise<void>; // Resume AudioContext after user gesture
 }
 
 const AudioContext = createContext<AudioContextValue | null>(null);
@@ -82,11 +84,11 @@ export function AudioProvider({ children }: AudioProviderProps) {
   const [error, setError] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [chunkCount, setChunkCount] = useState(0);
-  const [wsLatency, setWsLatency] = useState<number | null>(null);
   const [currentBgmTrack, setCurrentBgmTrack] = useState(0);
   const [lastCompletion, setLastCompletion] = useState<AudioMetadata | null>(
     null,
   );
+  const [needsUserActivation, setNeedsUserActivation] = useState(false);
 
   // Web Audio API instances
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -236,6 +238,14 @@ export function AudioProvider({ children }: AudioProviderProps) {
           bgmSource2Ref.current = bgmSource2;
           bgmGain2Ref.current = bgmGain2;
           setIsReady(true);
+
+          // Check if AudioContext is suspended (browser autoplay policy)
+          if (audioContext.state === "suspended") {
+            console.log(
+              "[AudioContext] AudioContext is suspended - user activation required",
+            );
+            setNeedsUserActivation(true);
+          }
         }
       } catch (err) {
         console.error("[AudioContext] Failed to initialize AudioWorklet:", err);
@@ -384,6 +394,24 @@ export function AudioProvider({ children }: AudioProviderProps) {
     isPlayingRef.current = false;
   };
 
+  // Audio activation method (for browser autoplay policy)
+  const activate = async () => {
+    const audioContext = audioContextRef.current;
+    if (!audioContext) {
+      console.warn(
+        "[AudioContext] Cannot activate - AudioContext not initialized",
+      );
+      return;
+    }
+
+    if (audioContext.state === "suspended") {
+      console.log("[AudioContext] Activating AudioContext after user gesture");
+      await audioContext.resume();
+      setNeedsUserActivation(false);
+      console.log("[AudioContext] AudioContext activated successfully");
+    }
+  };
+
   // BGM channel methods
   const switchTrack = () => {
     const audioContext = audioContextRef.current;
@@ -449,6 +477,8 @@ export function AudioProvider({ children }: AudioProviderProps) {
     },
     isReady,
     error,
+    needsUserActivation,
+    activate,
   };
 
   return (

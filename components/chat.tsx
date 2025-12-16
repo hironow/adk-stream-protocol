@@ -40,6 +40,7 @@ export function Chat({
   // - initialMessages: Changes frequently during streaming but useChat manages state internally
   // - Both are only used during transport creation, not for updates
   // - Including them would defeat the purpose of memoization
+  // biome-ignore lint/correctness/useExhaustiveDependencies: audioContext and initialMessages intentionally excluded to prevent WebSocket recreation
   const { useChatOptions, transport } = useMemo(
     () =>
       buildUseChatOptions({
@@ -390,6 +391,47 @@ export function Chat({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
+      {/* Audio Activation Button (center overlay) */}
+      {audioContext.needsUserActivation && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(0, 0, 0, 0.8)",
+            zIndex: 2000,
+          }}
+        >
+          <button
+            type="button"
+            onClick={async () => {
+              await audioContext.activate();
+            }}
+            style={{
+              padding: "1rem 2rem",
+              background: "#0070f3",
+              border: "none",
+              borderRadius: "8px",
+              fontSize: "1rem",
+              fontWeight: 600,
+              color: "#fff",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+            }}
+          >
+            <span>🔊</span>
+            <span>Enable Audio</span>
+          </button>
+        </div>
+      )}
+
       {/* BGM Switch Button (upper left) */}
       <button
         type="button"
