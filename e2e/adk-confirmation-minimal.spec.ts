@@ -37,7 +37,9 @@ test.describe("ADK Tool Confirmation - Minimal Test Suite", () => {
     await sendTextMessage(page, "花子さんに50ドル送金してください");
 
     console.log("[Test 1] Waiting for approval UI...");
-    await expect(page.getByRole("button", { name: "Approve" })).toBeVisible({
+    await expect(
+      page.getByRole("button", { name: "Approve" }).first(),
+    ).toBeVisible({
       timeout: 30000,
     });
 
@@ -46,7 +48,7 @@ test.describe("ADK Tool Confirmation - Minimal Test Suite", () => {
     console.log("[Test 1] Approval UI visible, clicking Approve...");
 
     // Approve
-    await page.getByRole("button", { name: "Approve" }).click();
+    await page.getByRole("button", { name: "Approve" }).first().click();
 
     console.log("[Test 1] Waiting for AI response...");
     await waitForAssistantResponse(page, { timeout: 30000 });
@@ -96,7 +98,9 @@ test.describe("ADK Tool Confirmation - Minimal Test Suite", () => {
     await sendTextMessage(page, "次郎さんに200ドル送金してください");
 
     console.log("[Test 2] Waiting for approval UI...");
-    await expect(page.getByRole("button", { name: "Deny" })).toBeVisible({
+    await expect(
+      page.getByRole("button", { name: "Deny" }).first(),
+    ).toBeVisible({
       timeout: 30000,
     });
 
@@ -106,7 +110,7 @@ test.describe("ADK Tool Confirmation - Minimal Test Suite", () => {
     console.log("[Test 2] Approval UI visible, clicking Deny...");
 
     // Deny
-    await page.getByRole("button", { name: "Deny" }).click();
+    await page.getByRole("button", { name: "Deny" }).first().click();
 
     console.log("[Test 2] Waiting for AI response...");
     await waitForAssistantResponse(page, { timeout: 30000 });
@@ -145,20 +149,24 @@ test.describe("ADK Tool Confirmation - Minimal Test Suite", () => {
     // Payment 1
     console.log("[Test 3] Payment 1: Alice...");
     await sendTextMessage(page, "Aliceさんに30ドル送金してください");
-    await expect(page.getByRole("button", { name: "Approve" })).toBeVisible({
+    await expect(
+      page.getByRole("button", { name: "Approve" }).first(),
+    ).toBeVisible({
       timeout: 30000,
     });
-    await page.getByRole("button", { name: "Approve" }).click();
+    await page.getByRole("button", { name: "Approve" }).first().click();
     await waitForAssistantResponse(page, { timeout: 30000 });
     console.log("[Test 3] Payment 1 completed");
 
     // Payment 2
     console.log("[Test 3] Payment 2: Bob...");
     await sendTextMessage(page, "Bobさんに40ドル送金してください");
-    await expect(page.getByRole("button", { name: "Approve" })).toBeVisible({
+    await expect(
+      page.getByRole("button", { name: "Approve" }).first(),
+    ).toBeVisible({
       timeout: 30000,
     });
-    await page.getByRole("button", { name: "Approve" }).click();
+    await page.getByRole("button", { name: "Approve" }).first().click();
     await waitForAssistantResponse(page, { timeout: 30000 });
     console.log("[Test 3] Payment 2 completed");
 
@@ -182,11 +190,13 @@ test.describe("ADK Tool Confirmation - Minimal Test Suite", () => {
     // Payment 1 - Deny
     console.log("[Test 4] Payment 1 (Deny): Charlie...");
     await sendTextMessage(page, "Charlieさんに100ドル送金してください");
-    await expect(page.getByRole("button", { name: "Deny" })).toBeVisible({
+    await expect(
+      page.getByRole("button", { name: "Deny" }).first(),
+    ).toBeVisible({
       timeout: 30000,
     });
     requestCount = 0;
-    await page.getByRole("button", { name: "Deny" }).click();
+    await page.getByRole("button", { name: "Deny" }).first().click();
     await waitForAssistantResponse(page, { timeout: 30000 });
     await page.waitForTimeout(2000);
 
@@ -197,11 +207,13 @@ test.describe("ADK Tool Confirmation - Minimal Test Suite", () => {
     // Payment 2 - Approve
     console.log("[Test 4] Payment 2 (Approve): Diana...");
     await sendTextMessage(page, "Dianaさんに50ドル送金してください");
-    await expect(page.getByRole("button", { name: "Approve" })).toBeVisible({
+    await expect(
+      page.getByRole("button", { name: "Approve" }).first(),
+    ).toBeVisible({
       timeout: 30000,
     });
     requestCount = 0;
-    await page.getByRole("button", { name: "Approve" }).click();
+    await page.getByRole("button", { name: "Approve" }).first().click();
     await waitForAssistantResponse(page, { timeout: 30000 });
     await page.waitForTimeout(2000);
 
@@ -227,11 +239,13 @@ test.describe("ADK Tool Confirmation - Minimal Test Suite", () => {
     // Payment 1 - Approve
     console.log("[Test 5] Payment 1 (Approve): Eve...");
     await sendTextMessage(page, "Eveさんに60ドル送金してください");
-    await expect(page.getByRole("button", { name: "Approve" })).toBeVisible({
+    await expect(
+      page.getByRole("button", { name: "Approve" }).first(),
+    ).toBeVisible({
       timeout: 30000,
     });
     requestCount = 0;
-    await page.getByRole("button", { name: "Approve" }).click();
+    await page.getByRole("button", { name: "Approve" }).first().click();
     await waitForAssistantResponse(page, { timeout: 30000 });
     await page.waitForTimeout(2000);
 
@@ -242,11 +256,13 @@ test.describe("ADK Tool Confirmation - Minimal Test Suite", () => {
     // Payment 2 - Deny
     console.log("[Test 5] Payment 2 (Deny): Frank...");
     await sendTextMessage(page, "Frankさんに70ドル送金してください");
-    await expect(page.getByRole("button", { name: "Deny" })).toBeVisible({
+    await expect(
+      page.getByRole("button", { name: "Deny" }).first(),
+    ).toBeVisible({
       timeout: 30000,
     });
     requestCount = 0;
-    await page.getByRole("button", { name: "Deny" }).click();
+    await page.getByRole("button", { name: "Deny" }).first().click();
     await waitForAssistantResponse(page, { timeout: 30000 });
     await page.waitForTimeout(2000);
 
