@@ -1,11 +1,47 @@
 # 引き継ぎ書
 
 **Date:** 2025-12-18
-**Current Status:** ⏳ Frontend Log Cleanup Fix Implemented & Design Plan Created
+**Current Status:** ✅ Frontend Unit Tests Fixed - All Tests Passing
 
 ---
 
-## 🎯 LATEST SESSION: Frontend Log Cleanup Fix & E2E Design Plan (2025-12-18)
+## 🎯 LATEST SESSION: Frontend Unit Test Fix - ADK Confirmation Flow (2025-12-18)
+
+### Summary
+Fixed 2 failing frontend unit tests in `lib/adk_compat.test.ts` by refactoring `sendAutomaticallyWhenAdkConfirmation()` logic. Changed from text content detection to original tool state detection for determining if backend has responded to confirmation.
+
+### Root Cause
+The function was checking message text content to detect backend response, but:
+1. Test mock data had placeholder text ("Response") that wasn't actual AI output
+2. Messages could have initial AI text from BEFORE confirmation was requested
+3. Couldn't distinguish between old text and new response text
+
+### Solution
+Instead of checking text content, now check the **original tool's state**:
+- If original tool is `output-available` → backend has processed confirmation (return `false`)
+- If original tool is `Failed` → confirmation was denied and processed (return `false`)
+- Otherwise → first time confirmation completed (return `true`)
+
+### Verification Process
+1. Started backend and ran E2E test to capture actual runtime message structure
+2. Examined frontend chunk log showing AI SDK v6 assembles `text-delta` chunks into `message.content` field
+3. Confirmed that checking original tool state is more reliable than text content
+
+### Test Results
+- ✅ **All 255 frontend unit tests passing** (7 skipped) - was 253/255 failing
+- ✅ **246 Python tests passing** (6 skipped)
+- ✅ All quality checks pass: `just format`, `just lint`, `just check`
+
+### Files Modified
+- `lib/adk_compat.ts:76-131` - Refactored backend response detection logic
+- `tests/test_chunk_logger.py` - Removed duplicate file (leftover from previous reorganization)
+
+### Git Commits
+- ✅ `4821902`: "fix: Check original tool state to detect backend response in ADK confirmation flow"
+
+---
+
+## 📋 PREVIOUS SESSION: Frontend Log Cleanup Fix & E2E Design Plan (2025-12-18)
 
 ### Summary
 Fixed chunk logger E2E test failures caused by stale frontend logs. Extended `clearBackendChunkLogs()` to also clear frontend logs matching the session ID pattern. Created comprehensive design plan for improving chunk logger E2E reference mechanism.
