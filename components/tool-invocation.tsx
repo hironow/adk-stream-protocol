@@ -40,7 +40,7 @@ export function ToolInvocationComponent({
       : toolInvocation.type) ||
     "unknown";
 
-  // Phase 5: Detect ADK RequestConfirmation as approval request
+  // Detect ADK RequestConfirmation as approval request
   // adk_request_confirmation tool calls should be rendered as approval UI
   const isAdkConfirmation = toolName === "adk_request_confirmation";
   const originalToolCall = isAdkConfirmation
@@ -123,94 +123,103 @@ export function ToolInvocationComponent({
         </span>
       </div>
 
-      {/* Phase 5: ADK RequestConfirmation Approval UI */}
-      {isAdkConfirmation && originalToolCall && (
-        <div style={{ marginBottom: "0.5rem" }}>
-          <div
-            style={{
-              fontSize: "0.875rem",
-              color: "#d1d5db",
-              marginBottom: "0.5rem",
-            }}
-          >
-            The tool <strong>{originalToolCall.name}</strong> requires your approval:
-          </div>
-          <div
-            style={{
-              background: "#1a1a1a",
-              padding: "0.5rem",
-              borderRadius: "4px",
-              fontSize: "0.75rem",
-              fontFamily: "monospace",
-              marginBottom: "0.75rem",
-            }}
-          >
-            {JSON.stringify(originalToolCall.args, null, 2)}
-          </div>
-          <div
-            style={{
-              display: "flex",
-              gap: "0.5rem",
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => {
-                console.info(
-                  `[ToolInvocationComponent] User approved ${originalToolCall.name}`,
-                );
-                console.info(
-                  `[DEBUG] toolInvocation.input:`,
-                  toolInvocation.input
-                );
-                console.info(
-                  `[DEBUG] originalToolCall extracted:`,
-                  originalToolCall
-                );
-                const output = createAdkConfirmationOutput(toolInvocation, true);
-                console.info(
-                  `[DEBUG] createAdkConfirmationOutput result:`,
-                  output
-                );
-                addToolOutput?.(output);
-              }}
+      {/* ADK RequestConfirmation Approval UI */}
+      {/* Only show approval buttons when NOT completed */}
+      {isAdkConfirmation &&
+        originalToolCall &&
+        state !== "output-available" && (
+          <div style={{ marginBottom: "0.5rem" }}>
+            <div
               style={{
-                padding: "0.5rem 1rem",
-                borderRadius: "4px",
-                background: "#10b981",
-                color: "white",
-                border: "none",
-                cursor: "pointer",
                 fontSize: "0.875rem",
-                fontWeight: 500,
+                color: "#d1d5db",
+                marginBottom: "0.5rem",
               }}
             >
-              Approve
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                console.info(
-                  `[ToolInvocationComponent] User denied ${originalToolCall.name}`,
-                );
-                addToolOutput?.(createAdkConfirmationOutput(toolInvocation, false));
-              }}
+              The tool <strong>{originalToolCall.name}</strong> requires your
+              approval:
+            </div>
+            <div
               style={{
-                padding: "0.5rem 1rem",
+                background: "#1a1a1a",
+                padding: "0.5rem",
                 borderRadius: "4px",
-                background: "#ef4444",
-                color: "white",
-                border: "none",
-                cursor: "pointer",
-                fontSize: "0.875rem",
-                fontWeight: 500,
+                fontSize: "0.75rem",
+                fontFamily: "monospace",
+                marginBottom: "0.75rem",
               }}
             >
-              Deny
-            </button>
+              {JSON.stringify(originalToolCall.args, null, 2)}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                gap: "0.5rem",
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  console.info(
+                    `[ToolInvocationComponent] User approved ${originalToolCall.name}`,
+                  );
+                  console.info(
+                    `[DEBUG] toolInvocation.input:`,
+                    toolInvocation.input,
+                  );
+                  console.info(
+                    `[DEBUG] originalToolCall extracted:`,
+                    originalToolCall,
+                  );
+                  const output = createAdkConfirmationOutput(
+                    toolInvocation,
+                    true,
+                  );
+                  console.info(
+                    `[DEBUG] createAdkConfirmationOutput result:`,
+                    output,
+                  );
+                  addToolOutput?.(output);
+                }}
+                style={{
+                  padding: "0.5rem 1rem",
+                  borderRadius: "4px",
+                  background: "#10b981",
+                  color: "white",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: "0.875rem",
+                  fontWeight: 500,
+                }}
+              >
+                Approve
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  console.info(
+                    `[ToolInvocationComponent] User denied ${originalToolCall.name}`,
+                  );
+                  addToolOutput?.(
+                    createAdkConfirmationOutput(toolInvocation, false),
+                  );
+                }}
+                style={{
+                  padding: "0.5rem 1rem",
+                  borderRadius: "4px",
+                  background: "#ef4444",
+                  color: "white",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: "0.875rem",
+                  fontWeight: 500,
+                }}
+              >
+                Deny
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* Approval UI */}
       {state === "approval-requested" &&
@@ -302,38 +311,41 @@ export function ToolInvocationComponent({
         )}
 
       {/* Tool Input */}
-      {"input" in toolInvocation && toolInvocation.input && (
-        <div style={{ marginBottom: "0.5rem" }}>
-          <div
-            style={{
-              fontSize: "0.75rem",
-              color: "#888",
-              marginBottom: "0.25rem",
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-            }}
-          >
-            Input
+      {/* Skip input display for adk_request_confirmation (shown in approval UI above) */}
+      {"input" in toolInvocation &&
+        toolInvocation.input &&
+        !isAdkConfirmation && (
+          <div style={{ marginBottom: "0.5rem" }}>
+            <div
+              style={{
+                fontSize: "0.75rem",
+                color: "#888",
+                marginBottom: "0.25rem",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+              }}
+            >
+              Input
+            </div>
+            <pre
+              style={{
+                margin: 0,
+                padding: "0.5rem",
+                borderRadius: "4px",
+                background: "#1a1a1a",
+                fontSize: "0.875rem",
+                overflow: "auto",
+                color: "#d1d5db",
+              }}
+            >
+              {JSON.stringify(
+                toolInvocation.input as Record<string, unknown>,
+                null,
+                2,
+              )}
+            </pre>
           </div>
-          <pre
-            style={{
-              margin: 0,
-              padding: "0.5rem",
-              borderRadius: "4px",
-              background: "#1a1a1a",
-              fontSize: "0.875rem",
-              overflow: "auto",
-              color: "#d1d5db",
-            }}
-          >
-            {JSON.stringify(
-              toolInvocation.input as Record<string, unknown>,
-              null,
-              2,
-            )}
-          </pre>
-        </div>
-      )}
+        )}
 
       {/* Tool Output */}
       {state === "output-available" && "output" in toolInvocation && (

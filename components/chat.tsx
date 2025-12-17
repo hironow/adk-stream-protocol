@@ -70,7 +70,9 @@ export function Chat({
 
       // Auto-execute change_bgm tool
       if (toolCall.toolName === "change_bgm") {
-        const track = Number(toolCall.input?.track ?? 1);
+        const track = Number(
+          (toolCall.input as { track?: number })?.track ?? 1,
+        );
 
         // Execute BGM change using AudioContext
         audioContext.bgmChannel.switchTrack();
@@ -98,24 +100,33 @@ export function Chat({
       .find((m) => m.role === "assistant");
 
     if (lastAssistantMsg && "toolInvocations" in lastAssistantMsg) {
+      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
       const toolInvocations = lastAssistantMsg.toolInvocations as any[];
-      const toolStates = toolInvocations?.map((t: any) => ({
-        type: t.type,
-        state: t.state,
-        hasApproval: "approval" in t,
-        hasApprovalResponse: "approvalResponse" in t,
-        hasOutput: "output" in t,
-      }));
+      const toolStates = toolInvocations?.map(
+        // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+        (t: any) => ({
+          type: t.type,
+          state: t.state,
+          hasApproval: "approval" in t,
+          hasApprovalResponse: "approvalResponse" in t,
+          hasOutput: "output" in t,
+        }),
+      );
 
-      console.log("[Chat] Tool invocation states:", JSON.stringify(toolStates, null, 2));
+      console.log(
+        "[Chat] Tool invocation states:",
+        JSON.stringify(toolStates, null, 2),
+      );
       console.log("[Chat] Message count:", messages.length, "Status:", status);
 
       // Check the condition that sendAutomaticallyWhen uses
       const allApproved = toolInvocations?.every(
-        (t: any) => t.state !== "approval-requested"
+        // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+        (t: any) => t.state !== "approval-requested",
       );
       const hasApprovals = toolInvocations?.some(
-        (t: any) => "approval" in t || "approvalResponse" in t
+        // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+        (t: any) => "approval" in t || "approvalResponse" in t,
       );
 
       console.log("[Chat] sendAutomaticallyWhen conditions:", {
@@ -133,10 +144,10 @@ export function Chat({
     }
   }, [messages, onMessagesChange]);
 
-  // Keep transport reference for imperative control (P2-T2 Phase 2)
+  // Keep transport reference for imperative control
   const transportRef = useRef(transport);
 
-  // Phase 3: Audio recording with custom hook (BIDI mode only)
+  // Audio recording with custom hook (BIDI mode only)
   const { isRecording, startRecording, stopRecording } = useAudioRecorder({
     mode,
   });
@@ -250,7 +261,7 @@ export function Chat({
     [addToolOutput, audioContext],
   );
 
-  // Phase 3: Audio recording handlers
+  // Audio recording handlers
   // Using useAudioRecorder hook for proper lifecycle management
   const handleStartRecording = useCallback(async () => {
     console.log("[Chat] Starting audio recording...");
@@ -284,7 +295,7 @@ export function Chat({
     transportRef.current?.stopAudio();
   }, [stopRecording]);
 
-  // Phase 3: Push-to-Talk button handlers (BIDI mode only)
+  // Push-to-Talk button handlers (BIDI mode only)
   // Using mouse and touch events for press-and-hold recording
   const handleRecordingButtonDown = useCallback(
     (e: React.MouseEvent | React.TouchEvent) => {
@@ -335,7 +346,7 @@ export function Chat({
     };
   }, [mode, isRecording, handleStopRecording]);
 
-  // Phase 2: ESC key interruption support
+  // ESC key interruption support
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && isLoading) {
@@ -488,9 +499,9 @@ export function Chat({
         <span>BGM {audioContext.bgmChannel.currentTrack + 1}</span>
       </button>
 
-      {/* Phase 4: Tool Approval Dialog */}
+      {/* Tool Approval Dialog */}
 
-      {/* Recording Indicator (Phase 3, BIDI mode only) */}
+      {/* Recording Indicator (BIDI mode only) */}
       {mode === "adk-bidi" && isRecording && (
         <div
           style={{
@@ -527,7 +538,7 @@ export function Chat({
         </div>
       )}
 
-      {/* Interrupt Indicator (Phase 2) */}
+      {/* Interrupt Indicator */}
       {interrupted && (
         <div
           style={{
@@ -613,7 +624,7 @@ export function Chat({
         )}
       </div>
 
-      {/* Phase 3: Push-to-Talk Recording Button (BIDI mode only) */}
+      {/* Push-to-Talk Recording Button (BIDI mode only) */}
       {mode === "adk-bidi" && (
         <div
           style={{

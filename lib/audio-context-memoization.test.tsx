@@ -119,7 +119,7 @@ describe("AudioContext Memoization", () => {
     // This test verifies that useMemo dependency array is correct
     // and new value is created when state changes
     let previousValue: ReturnType<typeof useAudio> | null = null;
-    let valueChangedOnStateChange = false;
+    let _valueChangedOnStateChange = false;
 
     function ChildComponent() {
       const audioContext = useAudio();
@@ -136,7 +136,7 @@ describe("AudioContext Memoization", () => {
         ) {
           // State changed - value SHOULD be different reference
           if (audioContext !== previousValue) {
-            valueChangedOnStateChange = true;
+            _valueChangedOnStateChange = true;
           }
         }
       }

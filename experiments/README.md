@@ -8,7 +8,7 @@ This directory contains research, preliminary experiments, and exploratory imple
 
 | Date | Experiment | Status | Objective | Current Progress |
 |------|-----------|--------|-----------|------------------|
-| 2025-12-17 | [Tool Architecture Refactoring](./2025-12-17_tool_architecture_refactoring.md) | 🟡 Phase 5 Testing | Align tool architecture with AI SDK v6 standard patterns | ✅ Phases 1-4 complete. ✅ Phase 5: Frontend/backend integration complete (33 Python + 28 TS tests passing). ✅ Fixed `originalFunctionCall` extraction from output. ⏳ E2E testing pending. |
+| 2025-12-17 | [Tool Architecture Refactoring](./2025-12-17_tool_architecture_refactoring.md) | 🔴 **BLOCKED - BIDI Bugs** | Align tool architecture with AI SDK v6 standard patterns | ✅ Phases 1-4 complete. ✅ Phase 5 complete (SSE mode ✅). ❌ **Phase 5 BIDI mode**: 2 critical bugs found - (1) Tool confirmation not working, (2) Missing AI text after tool execution. See `BUG-ADK-BIDI-TOOL-CONFIRMATION.md` |
 | 2025-12-16 | [Backend Session Persistence Fix](./2025-12-16_backend_session_persistence_fix.md) | 🔴 Blocked | Fix E2E test isolation by clearing backend session state | **BLOCKER**: `/clear-sessions` endpoint hangs indefinitely. Root cause identified (backend session persistence), but implementation has critical issue - endpoint times out with no response. E2E tests failing due to persisted session history. Needs debugging or alternative approach. |
 
 ### 🟢 Complete

@@ -32,6 +32,8 @@ from chunk_logger import Mode, chunk_logger
 
 # Log truncation threshold for base64 and long content fields
 LOG_FIELD_TRUNCATE_THRESHOLD = 100
+# Maximum length for debug log messages before truncation
+DEBUG_LOG_MAX_LENGTH = 200
 
 
 class AISdkFinishReason(str, enum.Enum):
@@ -124,14 +126,12 @@ class StreamProtocolConverter:
     def __init__(
         self,
         message_id: str | None = None,
-        tools_requiring_approval: set[str] | None = None,
     ):
         """
         Initialize converter.
 
         Args:
             message_id: Optional message ID. Generated if not provided.
-            tools_requiring_approval: Set of tool names that require user approval before execution.
         """
         self.message_id = message_id or str(uuid.uuid4())
         self.part_id_counter = 0
@@ -149,10 +149,6 @@ class StreamProtocolConverter:
         # Track output transcription text blocks (AI audio response in native-audio models)
         self._output_text_block_id: str | None = None
         self._output_text_block_started = False
-        # Phase 4: Tool approval configuration
-        self.tools_requiring_approval = tools_requiring_approval or set()
-        # Track pending approvals (approvalId -> toolCallId mapping)
-        self.pending_approvals: dict[str, str] = {}
 
     def _generate_part_id(self) -> str:
         """Generate unique part ID."""
@@ -191,7 +187,10 @@ class StreamProtocolConverter:
 
             log_data["data"] = data_copy
 
-        logger.debug(f"[ADK→SSE] {log_data}")
+        # If log_data is too long, show only the beginning
+        logger.debug(
+            f"[ADK→SSE] {str(log_data)[:DEBUG_LOG_MAX_LENGTH]}{'... (truncated)' if len(str(log_data)) > DEBUG_LOG_MAX_LENGTH else ''}"
+        )
         return f"data: {json.dumps(event_data)}\n\n"
 
     async def convert_event(self, event: Event) -> AsyncGenerator[str, None]:  # noqa: C901, PLR0912, PLR0915
@@ -476,7 +475,7 @@ class StreamProtocolConverter:
         """
         Process FunctionCall and generate AI SDK v6 SSE events.
 
-        For ADK RequestConfirmation (Phase 5):
+        For ADK RequestConfirmation
         - adk_request_confirmation is exposed as a regular tool call
         - Frontend shows approval UI for this tool call
         - User approval/denial is sent back as FunctionResponse for adk_request_confirmation
@@ -493,13 +492,14 @@ class StreamProtocolConverter:
 
         logger.debug(f"[TOOL CALL] {tool_name}(id={tool_call_id}, args={tool_args})")
 
-        # Phase 5: adk_request_confirmation is treated as a regular tool call
+        # adk_request_confirmation is treated as a regular tool call
         # No special processing needed here - frontend handles it via lib/adk_compat.ts
         # Backend conversion happens in ai_sdk_v6_compat.py
         # Reference: assets/adk/action-confirmation.txt, experiments/2025-12-17_tool_architecture_refactoring.md
 
         # Store mapping so function_response can use the same ID
-        self.tool_call_id_map[tool_name] = tool_call_id
+        if tool_name and tool_call_id:
+            self.tool_call_id_map[tool_name] = tool_call_id
 
         # Debug: Log tool_args for adk_request_confirmation
         if tool_name == "adk_request_confirmation":
@@ -528,28 +528,22 @@ class StreamProtocolConverter:
     def _process_function_response(self, function_response: types.FunctionResponse) -> list[str]:
         """
         Process function response into tool-output-available or tool-output-error event (AI SDK v6 spec).
-        
-        Phase 5: Suppress ADK confirmation error responses
+
+        Suppress ADK confirmation error responses
         - When ADK generates RequestConfirmation, it also generates a FunctionResponse with error
         - We suppress this error because we're exposing adk_request_confirmation as a normal tool call
         - The frontend will handle the approval UI for adk_request_confirmation directly
         """
-        # Retrieve the tool call ID from the map to match with the function call
+        # Use function_response.id directly (ADK provides correct ID)
+        # This ensures tool results are mapped to the correct tool invocation,
+        # especially important for confirmation flow where the same tool may be called multiple times
+        tool_call_id = function_response.id
         tool_name = function_response.name
 
         # Ensure tool_name is not None
         if tool_name is None:
             logger.warning("[FUNCTION RESPONSE] Tool name is None, skipping")
             return []
-
-        tool_call_id = self.tool_call_id_map.get(tool_name)
-
-        # Fallback: generate new ID if not found (shouldn't happen in normal flow)
-        if tool_call_id is None:
-            logger.warning(
-                f"[TOOL OUTPUT] No matching tool call ID found for {tool_name}, generating new ID"
-            )
-            tool_call_id = self._generate_tool_call_id()
 
         output = function_response.response
 
@@ -568,10 +562,13 @@ class StreamProtocolConverter:
                 is_error = True
                 error_message = output.get("error", "Unknown tool error")
 
-        # Phase 5: Suppress ADK confirmation error
+        # Suppress ADK confirmation error
         # When ADK generates RequestConfirmation, it sends an error FunctionResponse
         # We suppress this because adk_request_confirmation is exposed as a normal tool call
-        if is_error and error_message == "This tool call requires confirmation, please approve or reject.":
+        if (
+            is_error
+            and error_message == "This tool call requires confirmation, please approve or reject."
+        ):
             logger.info(
                 f"[ADK Confirmation] Suppressing confirmation error for {tool_name} "
                 f"(handled by adk_request_confirmation tool call)"
@@ -851,7 +848,6 @@ class StreamProtocolConverter:
 async def stream_adk_to_ai_sdk(  # noqa: C901
     event_stream: AsyncGenerator[Event, None],
     message_id: str | None = None,
-    tools_requiring_approval: set[str] | None = None,
     mode: Mode = "adk-sse",  # "adk-sse" or "adk-bidi" for chunk logger
 ) -> AsyncGenerator[str, None]:
     """
@@ -860,7 +856,6 @@ async def stream_adk_to_ai_sdk(  # noqa: C901
     Args:
         event_stream: AsyncGenerator of ADK Event objects
         message_id: Optional message ID
-        tools_requiring_approval: Set of tool names that require user approval (Phase 4)
 
     Yields:
         SSE-formatted event strings
@@ -869,7 +864,7 @@ async def stream_adk_to_ai_sdk(  # noqa: C901
         >>> async for sse_event in stream_adk_to_ai_sdk(agent_runner.run_async(...)):
         ...     yield sse_event
     """
-    converter = StreamProtocolConverter(message_id, tools_requiring_approval)
+    converter = StreamProtocolConverter(message_id)
     error_list = []
     usage_metadata_list = []
     finish_reason_list = []

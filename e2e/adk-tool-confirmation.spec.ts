@@ -49,7 +49,8 @@ test.describe("ADK Tool Confirmation Flow (Phase 5)", () => {
 
     // Then: Tool invocation should appear with approval buttons
     // Note: Phase 5 uses inline approval UI, not dialog
-    await expect(page.getByText(/process_payment/i)).toBeVisible({
+    // Both process_payment tool and adk_request_confirmation will show "process_payment" text
+    await expect(page.getByText(/process_payment/i).first()).toBeVisible({
       timeout: 30000,
     });
 
@@ -106,7 +107,7 @@ test.describe("ADK Tool Confirmation Flow (Phase 5)", () => {
     // In infinite loop: 10+ requests in rapid succession
     console.log(
       `[Test] Total requests after approval: ${requestCount}, timestamps:`,
-      requestTimestamps
+      requestTimestamps,
     );
 
     expect(requestCount).toBeLessThan(5);
@@ -240,9 +241,7 @@ test.describe("ADK Tool Confirmation Flow (Phase 5)", () => {
     expect(text.length).toBeGreaterThan(0);
 
     // Total requests should be reasonable (< 10 for two payments)
-    console.log(
-      `[Test] Total requests for two payments: ${totalRequestCount}`
-    );
+    console.log(`[Test] Total requests for two payments: ${totalRequestCount}`);
     expect(totalRequestCount).toBeLessThan(10);
     expect(totalRequestCount - countAfterFirst).toBeLessThan(5); // Second payment alone
   });
@@ -255,8 +254,10 @@ test.describe("ADK Tool Confirmation Flow (Phase 5)", () => {
     // When: User requests payment
     await sendTextMessage(page, "花子さんに50ドル送金してください");
 
-    // Then: Should see adk_request_confirmation tool
-    await expect(page.getByText(/adk_request_confirmation/i)).toBeVisible({
+    // Then: Should see adk_request_confirmation tool (may appear multiple times)
+    await expect(
+      page.getByText(/adk_request_confirmation/i).first(),
+    ).toBeVisible({
       timeout: 30000,
     });
 

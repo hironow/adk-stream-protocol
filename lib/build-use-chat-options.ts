@@ -1,9 +1,9 @@
 import type { UIMessage } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
+import { sendAutomaticallyWhenAdkConfirmation } from "@/lib/adk_compat";
 import { ChunkLoggingTransport } from "@/lib/chunk-logging-transport";
 import { ChunkPlayerTransport } from "@/lib/chunk-player-transport";
 import { WebSocketChatTransport } from "@/lib/websocket-chat-transport";
-import { sendAutomaticallyWhenAdkConfirmation } from "@/lib/adk_compat";
 
 export type BackendMode = "gemini" | "adk-sse" | "adk-bidi";
 

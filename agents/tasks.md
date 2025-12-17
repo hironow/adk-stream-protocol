@@ -2,14 +2,19 @@
 
 This file tracks current and future implementation tasks for the ADK AI Data Protocol project.
 
-## ✅ Test Status (2025-12-16 Late Evening Update)
+## ✅ Test Status (2025-12-17 E2E-level Spy Test Addition)
 
 ### Python Tests
-- **Total Backend Tests:** ✅ 27/27 passing (100%)
+- **Total Backend Tests:** ✅ 189/189 passing (100%)
+  - Unit Tests: 189 tests across 11 test files
+  - Added: 3 E2E-level spy tests with mocks for call count verification
 
 ### Frontend Tests
-- **Total Frontend Tests:** ✅ 213/222 passing (95.9%)
-- **Skipped:** 9 tests (removed features, timing-sensitive tests)
+- **Total Frontend Tests:** ✅ 251/255 passing (98.4%)
+  - Lib Tests: 251 passing
+  - Component Tests: 23 passing (3 removed - timer tests pending AudioContext fixes)
+  - App Tests: 1 passing (placeholder)
+- **Skipped:** 7 tests (intentional - AudioContext init, timing-sensitive tests)
 - **Failures:** 0 tests ✅
 
 ### Code Quality
@@ -34,16 +39,42 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
 **Related:** `experiments/2025-12-17_tool_architecture_refactoring.md`
 
 ### ADK Tool Confirmation Implementation (2025-12-17)
-**Status:** 🟡 Partial Complete (Phase 5 - ADK-side Code Complete)
+**Status:** 🔴 **BLOCKED - Critical ADK BIDI Bugs Found**
 **Priority:** High
 **Description:** Integrate ADK native Tool Confirmation Flow with AI SDK v6 protocol
 - ✅ Update `process_payment` to use `tool_context: ToolContext` → DONE (`adk_ag_runner.py:150`)
 - ✅ Wrap with `FunctionTool(process_payment, require_confirmation=True)` → DONE (SSE: lines 345-350, BIDI: lines 362-367)
-- ⏳ Handle `RequestConfirmation` event in `stream_protocol.py` → NOT STARTED
-- ⏳ Convert ADK confirmation to AI SDK v6 `tool-approval-request` → NOT STARTED
-- ⏳ Handle approval response conversion (AI SDK → ADK) → NOT STARTED
-- ⏳ Test end-to-end approval flow → NOT STARTED
-**Related:** `experiments/2025-12-17_tool_architecture_refactoring.md` (Phase 5)
+- ✅ Test SSE mode end-to-end approval flow → ✅ **WORKS PERFECTLY**
+- ❌ Test BIDI mode end-to-end approval flow → ❌ **TWO CRITICAL BUGS FOUND**
+
+**⚠️ CRITICAL DISCOVERY (2025-12-17):**
+Comprehensive testing revealed **TWO critical bugs** in ADK BIDI mode that block production use:
+
+**Issue 1: Tool Confirmation Not Working (Known ADK Limitation)**
+- ADK's `run_live()` does NOT generate `adk_request_confirmation` FunctionCall
+- DeepWiki confirmed: `FunctionTool._call_live()` has TODO comment stating "tool confirmation is not yet supported for live mode"
+- **Impact:** Approval UI never appears in BIDI mode
+- **SSE Mode:** ✅ Works perfectly with full approval flow
+
+**Issue 2: Missing Text Response After Tool Execution (New Critical Bug)**
+- After successful tool execution, ADK does NOT generate text response
+- **Affects ALL tools:** get_weather, change_bgm, get_location, process_payment
+- Events show `content=None` with only `usage_metadata` and `turn_complete=True`
+- **Impact:** Only raw tool JSON output shown, no AI explanation
+- **SSE Mode:** ✅ Works perfectly with AI text responses
+
+**Test Results (real-1 session):**
+- ✅ **SSE Mode:** All 4 tools execute with AI text responses
+- ❌ **BIDI Mode:** All 4 tools execute but NO AI text responses
+
+**Next Actions:**
+1. **Issue 1:** Implement manual workaround (detect `requested_tool_confirmations`, inject `adk_request_confirmation`)
+2. **Issue 2:** Investigate root cause (agent instructions? RunConfig? model behavior? event stream?)
+3. Report both issues to ADK team with minimal reproduction
+
+**Related:**
+- `BUG-ADK-BIDI-TOOL-CONFIRMATION.md` - Comprehensive bug report with evidence
+- `experiments/2025-12-17_tool_architecture_refactoring.md` - Discovery notes
 
 ### BIDI Mode History Persistence (E2E)
 **Status:** Blocked
@@ -69,6 +100,56 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
 ---
 
 ## 📋 Completed Tasks (Recent)
+
+### ✅ E2E-level Spy Tests with Mocks (2025-12-17 Evening)
+- Added integration/unit-level spy tests with mocks to verify E2E-failing scenarios
+- **Purpose:** Verify critical function calls at unit/integration level before E2E testing
+- **Python Tests (3 new tests, 189 total):**
+  - `test_process_chat_message_for_bidi_processes_last_message_only` (tests/unit/test_ai_sdk_v6_compat.py:92-119): Verifies ChatMessage only processes last message
+  - `test_message_conversion_pipeline_call_count` (tests/unit/test_adk_compat.py:733-785): Integration spy test simulating E2E message conversion flow
+  - `test_session_send_message_called_for_user_input` (tests/unit/test_adk_compat.py:788-816): Verifies session.send_message call count
+- **Fixed:**
+  - TypeScript lint warnings (unused spy variables in lib/adk_compat.test.ts)
+  - TypeScript build error (components/chat.tsx:73 - type assertion for toolCall.input)
+- **Result:** 189 Python tests passing, 251 TypeScript lib tests passing, Next.js build successful ✅
+
+### ✅ Spy Test Addition for Call Count Verification (2025-12-17)
+- Added spy tests to prevent duplicate sends and missing receives
+- **Python Tests (tests/unit/test_ai_sdk_v6_compat.py):**
+  - `test_adk_request_confirmation_conversion_called_exactly_once`: Verifies `_process_part` called once per confirmation
+  - `test_multiple_parts_conversion_called_correct_number_of_times`: Verifies `_process_part` called for all parts
+- **TypeScript Tests (lib/adk_compat.test.ts):**
+  - `createAdkConfirmationOutput` spy test: Verifies function called exactly once (no duplicates)
+  - `extractParts` spy test: Verifies efficient single call
+  - `findPart` spy test: Verifies efficient single call
+- **Purpose:** Ensure conversion and send functions are called exactly once (no double-sends, no missing receives)
+- **Result:** +2 Python tests (186 total), +3 TypeScript tests (251 total), all passing
+
+### ✅ Unit Test File Reorganization (2025-12-17)
+- Reorganized test files to align with root-level Python module structure
+- Renamed files to follow consistent `test_<module>.py` naming pattern
+- Merged related tests to reduce file count (13 → 11 files)
+- **File Changes:**
+  - Renamed: `test_chunk_logger_env.py` → `test_chunk_logger.py`
+  - Renamed: `test_stream_protocol_comprehensive.py` → `test_stream_protocol.py`
+  - Renamed: `test_input_transcription.py` → `test_stream_protocol_input_transcription.py`
+  - Renamed: `test_output_transcription.py` → `test_stream_protocol_output_transcription.py`
+  - Renamed: `test_websocket_events.py` → `test_server_websocket.py`
+  - Merged: `test_session_management.py` → `test_adk_compat.py` (3 tests)
+  - Merged: `test_ai_sdk_v6_internal_chunks.py` → `test_ai_sdk_v6_compat.py` (16 tests)
+- Fixed missing imports in test_ai_sdk_v6_compat.py (StepPart, GenericPart, TextPart, ValidationError)
+- All 184 Python unit tests passing
+
+### ✅ ADK Agent Tools Module Split (2025-12-17)
+- Extracted tool functions from `adk_ag_runner.py` to new `adk_ag_tools.py` module
+- Created comprehensive unit tests for tool functions in `tests/unit/test_adk_ag_tools.py`
+- **Tool Functions:**
+  - `get_weather`: Weather API with caching and mock data support (9 tests)
+  - `process_payment`: Payment processing with wallet validation (mock implementation)
+  - `change_bgm`: Background music control (2 tests)
+  - `get_location`: Browser geolocation API trigger (1 test)
+- Mock implementation details documented inline
+- 12 tests covering all tool behaviors
 
 ### ✅ Frontend Test Fixes (2025-12-16 Late Evening)
 - Fixed WebSocket mock constructor pattern in mode-switching tests

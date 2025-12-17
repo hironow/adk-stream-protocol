@@ -846,18 +846,6 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
       return true; // Skip standard enqueue for PCM chunks
     }
 
-    // Phase 4: Tool approval request events
-    // AI SDK v6 handles tool-approval-request natively via UIMessageChunk stream
-    // The framework will call addToolApprovalResponse() when user approves/denies
-    // No special handling needed - just let it flow through to useChat
-
-    // Add more custom events here that should skip standard enqueue
-    // Example:
-    // if (chunk.type === "data-custom-event") {
-    //   // Handle custom event
-    //   return true; // Skip standard enqueue
-    // }
-
     return false; // No skip, proceed with standard enqueue
   }
 

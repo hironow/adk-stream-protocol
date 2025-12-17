@@ -300,6 +300,10 @@ async def test_event_creation_with_unique_ids(mock_session, mock_session_service
     assert invocation_ids[3] == "sync_3_assistant"
 
 
+# ========== Session Management Tests ==========
+# Tests for get_or_create_session() function and session lifecycle
+
+
 @pytest.mark.asyncio
 async def test_get_or_create_session_creates_new_session():
     """Test that get_or_create_session creates a new session when needed"""
@@ -328,6 +332,80 @@ async def test_get_or_create_session_creates_new_session():
     )
 
     assert session == mock_session
+
+
+@pytest.mark.asyncio
+async def test_get_or_create_session_without_connection_signature():
+    """
+    Should create session with traditional session_id when connection_signature not provided.
+
+    This ensures backward compatibility with existing code.
+    """
+    from adk_compat import clear_sessions, get_or_create_session
+
+    clear_sessions()
+
+    # Mock agent runner with session service
+    mock_runner = MagicMock()
+    mock_session = MagicMock()
+    mock_session.id = "session_alice_agents"
+    mock_runner.session_service.create_session = AsyncMock(return_value=mock_session)
+
+    user_id = "alice"
+    app_name = "agents"
+
+    # Call without connection_signature
+    session = await get_or_create_session(user_id, mock_runner, app_name)
+
+    # Session created with traditional session_id format
+    assert session is not None
+    mock_runner.session_service.create_session.assert_called_once_with(
+        app_name=app_name,
+        user_id=user_id,
+        session_id="session_alice_agents",
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_or_create_session_different_connections_get_different_sessions():
+    """
+    Should create separate sessions for different connection_signatures.
+
+    This ensures connection isolation and prevents race conditions.
+    ADK design: Each connection = unique session to avoid concurrent run_live() issues.
+    """
+    from adk_compat import clear_sessions, get_or_create_session
+
+    clear_sessions()
+
+    # Mock agent runner
+    mock_runner = MagicMock()
+    mock_session_1 = MagicMock()
+    mock_session_1.id = "session_alice_conn_1"
+    mock_session_2 = MagicMock()
+    mock_session_2.id = "session_alice_conn_2"
+
+    # Mock create_session to return different sessions
+    mock_runner.session_service.create_session = AsyncMock(
+        side_effect=[mock_session_1, mock_session_2]
+    )
+
+    user_id = "alice"
+    app_name = "agents"
+
+    # Call with different connection_signatures
+    session_1 = await get_or_create_session(
+        user_id, mock_runner, app_name, connection_signature="conn_1"
+    )
+    session_2 = await get_or_create_session(
+        user_id, mock_runner, app_name, connection_signature="conn_2"
+    )
+
+    # Different sessions created
+    assert session_1 is not session_2
+    assert session_1.id == "session_alice_conn_1"
+    assert session_2.id == "session_alice_conn_2"
+    assert mock_runner.session_service.create_session.call_count == 2
 
 
 @pytest.mark.asyncio
@@ -647,3 +725,91 @@ async def test_connection_signature_uniqueness():
 
     # Verify we have 5 sessions in storage
     assert get_session_count() == 5
+
+
+# ========== Integration Spy Tests for E2E Simulation ==========
+
+
+@pytest.mark.asyncio
+async def test_message_conversion_pipeline_call_count():
+    """Integration spy test: Verify message conversion pipeline is called correctly (simulates E2E flow)."""
+    from unittest.mock import patch
+
+    from ai_sdk_v6_compat import process_chat_message_for_bidi
+
+    # given - simulate frontend sending messages in correct format
+    message_data = {
+        "messages": [
+            {"role": "user", "parts": [{"type": "text", "text": "Send 50 dollars to Hanako"}]},
+            {
+                "role": "assistant",
+                "parts": [
+                    {"type": "text", "text": "I'll process the payment"},
+                    {
+                        "type": "tool-process_payment",
+                        "toolCallId": "call-payment-1",
+                        "toolName": "process_payment",
+                        "state": "input-available",
+                        "input": {"amount": 50, "recipient": "Hanako", "currency": "USD"},
+                    },
+                    {
+                        "type": "tool-adk_request_confirmation",
+                        "toolCallId": "call-confirm-1",
+                        "toolName": "adk_request_confirmation",
+                        "state": "output-available",
+                        "output": {"confirmed": True},
+                    },
+                ],
+            },
+        ]
+    }
+
+    # when - spy on process_chat_message_for_bidi
+    with patch(
+        "ai_sdk_v6_compat.process_chat_message_for_bidi",
+        wraps=process_chat_message_for_bidi,
+    ) as spy_process:
+        image_blobs, text_content = spy_process(message_data)
+
+        # then - should be called exactly once
+        assert spy_process.call_count == 1, (
+            f"Expected process_chat_message_for_bidi to be called once, "
+            f"but was called {spy_process.call_count} times"
+        )
+
+        # Verify result correctness
+        assert image_blobs == []  # No images in this test
+        assert text_content is not None
+        assert text_content.role == "user"  # Function hardcodes role as "user"
+        assert len(text_content.parts) == 1  # Only text part (tool parts are ignored)
+        assert text_content.parts[0].text == "I'll process the payment"
+
+
+@pytest.mark.asyncio
+async def test_session_send_message_called_for_user_input():
+    """Integration spy test: Verify session.send_message is called when user sends message."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    from adk_compat import clear_sessions, get_or_create_session
+
+    # given
+    clear_sessions()
+    mock_runner = MagicMock()
+    mock_session = MagicMock()
+    mock_session.id = "session_test_user"
+    mock_session.send_message = AsyncMock()
+    mock_runner.session_service.create_session = AsyncMock(return_value=mock_session)
+
+    user_id = "test_user"
+    app_name = "test_app"
+
+    # when - get session and send message
+    session = await get_or_create_session(user_id, mock_runner, app_name)
+    await session.send_message("Send 50 dollars to Hanako")
+
+    # then - send_message should be called exactly once
+    assert session.send_message.call_count == 1, (
+        f"Expected session.send_message to be called once, "
+        f"but was called {session.send_message.call_count} times"
+    )
+    session.send_message.assert_called_once_with("Send 50 dollars to Hanako")

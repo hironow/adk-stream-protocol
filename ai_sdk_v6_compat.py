@@ -38,16 +38,12 @@ from __future__ import annotations
 import base64
 from enum import Enum
 from io import BytesIO
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
 from google.genai import types
 from loguru import logger
 from PIL import Image
 from pydantic import BaseModel, Field, field_validator
-
-if TYPE_CHECKING:
-    from tool_delegate import FrontendToolDelegate
-
 
 # ============================================================
 # Tool Call States
@@ -364,6 +360,44 @@ class ChatMessage(BaseModel):
 
         return types.Part(inline_data=types.Blob(mime_type=part.media_type, data=file_bytes))
 
+    def _process_tool_use_part(self, part: ToolUsePart, adk_parts: list[types.Part]) -> None:
+        """Process a ToolUsePart and add to adk_parts if applicable."""
+        # Handle adk_request_confirmation tool outputs
+        # Simplified: Use part.tool_call_id directly (no need for originalFunctionCall)
+        if (
+            part.tool_name == "adk_request_confirmation"
+            and part.state == ToolCallState.OUTPUT_AVAILABLE
+        ):
+            if part.output is not None and isinstance(part.output, dict):
+                # Extract confirmed directly from output (no toolConfirmation wrapper)
+                confirmed = part.output.get("confirmed", False)
+
+                logger.info(
+                    f"[ADK Confirmation] Converting AI SDK tool output to ADK FunctionResponse "
+                    f"(id={part.tool_call_id}, confirmed={confirmed})"
+                )
+
+                # Create ADK FunctionResponse for adk_request_confirmation
+                # According to assets/adk/action-confirmation.txt line 192-197:
+                # - id: tool_call_id (already available in part)
+                # - name: "adk_request_confirmation"
+                # - response: {"confirmed": true/false}
+                function_response = types.FunctionResponse(
+                    id=part.tool_call_id,
+                    name="adk_request_confirmation",
+                    response={"confirmed": confirmed},
+                )
+                adk_parts.append(types.Part(function_response=function_response))
+            else:
+                logger.warning(
+                    f"[ADK Confirmation] Invalid output format for adk_request_confirmation: {part.output}"
+                )
+        else:
+            # Other tool outputs are handled by process_tool_use_parts
+            logger.debug(
+                f"[AI SDK v6] Skipping tool-use part: {part.tool_name} (state={part.state})"
+            )
+
     def _process_part(self, part: object, adk_parts: list[types.Part]) -> None:
         """Process a single part and add to adk_parts if applicable."""
         if isinstance(part, StepPart):
@@ -385,46 +419,7 @@ class ChatMessage(BaseModel):
             if adk_part:
                 adk_parts.append(adk_part)
         elif isinstance(part, ToolUsePart):
-            # Phase 5: Handle adk_request_confirmation tool outputs
-            if part.tool_name == "adk_request_confirmation" and part.state == ToolCallState.OUTPUT_AVAILABLE:
-                # Extract confirmation from tool output
-                if part.output and isinstance(part.output, dict):
-                    tool_confirmation = part.output.get("toolConfirmation", {})
-                    confirmed = tool_confirmation.get("confirmed", False)
-
-                    # Get original function call from output (frontend sets it via lib/adk_compat.ts)
-                    original_function_call = part.output.get("originalFunctionCall", {})
-                    original_id = original_function_call.get("id") if isinstance(original_function_call, dict) else None
-
-                    if original_id:
-                        logger.info(
-                            f"[ADK Confirmation] Converting AI SDK tool output to ADK FunctionResponse "
-                            f"(id={original_id}, confirmed={confirmed})"
-                        )
-
-                        # Create ADK FunctionResponse for adk_request_confirmation
-                        # According to assets/adk/action-confirmation.txt line 192-197:
-                        # - id: must be the original function call ID
-                        # - name: "adk_request_confirmation"
-                        # - response: {"confirmed": true/false} (no toolConfirmation wrapper)
-                        function_response = types.FunctionResponse(
-                            id=original_id,
-                            name="adk_request_confirmation",
-                            response={"confirmed": confirmed}
-                        )
-                        adk_parts.append(types.Part(function_response=function_response))
-                    else:
-                        logger.error(
-                            f"[ADK Confirmation] Missing originalFunctionCall.id in adk_request_confirmation. "
-                            f"output={part.output}, args={part.args}"
-                        )
-                else:
-                    logger.error(
-                        f"[ADK Confirmation] Invalid output for adk_request_confirmation: output={part.output}"
-                    )
-            else:
-                # Other tool outputs are handled by process_tool_use_parts
-                logger.debug(f"[AI SDK v6] Skipping tool-use part: {part.tool_name} (state={part.state})")
+            self._process_tool_use_part(part, adk_parts)
 
     def to_adk_content(self) -> types.Content:
         """
@@ -461,85 +456,20 @@ class ChatMessage(BaseModel):
 # ============================================================
 
 
-def process_tool_use_parts(message: ChatMessage, delegate: FrontendToolDelegate) -> bool:
-    """
-    Process tool-use parts from frontend messages and route to delegate.
-
-    This function extracts tool-use parts from AI SDK v6 messages and calls
-    appropriate FrontendToolDelegate methods based on the tool state:
-    - "approval-responded" with approved=False → reject_tool_call()
-    - "output-available" → resolve_tool_result()
-
-    Args:
-        message: ChatMessage containing tool-use parts
-        delegate: FrontendToolDelegate instance to route tool results to
-
-    Returns:
-        bool: True if tool approval response was processed, False otherwise
-
-    Reference:
-    - Frontend behavior: lib/use-chat-integration.test.tsx:463-592
-    - Gap analysis: experiments/2025-12-13_frontend_backend_integration_gap_analysis.md
-    """
-    if not message.parts:
-        return False
-
-    logger.info(f"[Tool] Processing message parts for tool-use: {message.parts}")
-
-    approval_processed = False
-
-    for part in message.parts:
-        if isinstance(part, ToolUsePart):
-            tool_call_id = part.tool_call_id
-            logger.info(f"[Tool] Processing tool call {tool_call_id} with state {part}")
-
-            # Handle approval-responded state (user approved/denied)
-            if part.state == ToolCallState.APPROVAL_RESPONDED:
-                if part.approval and part.approval.approved is False:
-                    # User rejected the tool
-                    reason = part.approval.reason or "User denied permission"
-                    delegate.reject_tool_call(tool_call_id, reason)
-                    logger.info(f"[Tool] Rejected tool {tool_call_id}: {reason}")
-                else:
-                    # Tool was approved
-                    logger.info(f"[Tool] Tool {tool_call_id} was approved by user")
-                approval_processed = True
-                # Note: Tool execution happens on backend, then output is sent via output-available
-
-            # Handle output-available state (tool execution completed)
-            elif part.state == ToolCallState.OUTPUT_AVAILABLE:
-                if part.output is not None:
-                    # Phase 5: Skip delegate processing for adk_request_confirmation
-                    # It's handled directly in _process_part (converted to ADK FunctionResponse)
-                    if part.tool_name == "adk_request_confirmation":
-                        logger.info(f"[Tool] Skipping delegate for adk_request_confirmation (handled in _process_part)")
-                        continue
-
-                    logger.info(f"[Tool] Tool {tool_call_id} output available: {part.output}")
-                    delegate.resolve_tool_result(tool_call_id, part.output)
-                    logger.info(f"[Tool] Resolved tool {tool_call_id} with output")
-
-            elif part.state == ToolCallState.OUTPUT_ERROR:
-                error_msg = part.output.get("error") if part.output else "Unknown error"
-                delegate.reject_tool_call(tool_call_id, f"Tool execution error: {error_msg}")
-                logger.info(f"[Tool] Tool {tool_call_id} execution error: {error_msg}")
-                # Note: errorText might be present
-
-    return approval_processed
-
-
 def process_chat_message_for_bidi(
     message_data: dict,
-    delegate: FrontendToolDelegate,
-) -> tuple[list[types.Blob], types.Content | None, bool]:
+) -> tuple[list[types.Blob], types.Content | None]:
     """
     Process AI SDK v6 message data for BIDI streaming.
 
     This function handles AI SDK v6 message format conversion for WebSocket BIDI mode:
     1. Parse ChatMessage from message data
-    2. Process tool-use parts (approval/rejection responses)
-    3. Separate image/video blobs from text parts
-    4. Return separated data ready for ADK LiveRequestQueue
+    2. Separate image/video blobs from text parts
+    3. Return separated data ready for ADK LiveRequestQueue
+
+    Tool confirmation responses are handled in ChatMessage.to_adk_content()
+    via _process_tool_use_part, which converts adk_request_confirmation outputs
+    to ADK FunctionResponse format.
 
     Responsibility Separation:
     - This function: AI SDK v6 message processing (protocol layer)
@@ -548,13 +478,11 @@ def process_chat_message_for_bidi(
     Args:
         message_data: Message data from WebSocket event (AI SDK v6 format)
                      Example: {"messages": [{"role": "user", "parts": [...]}]}
-        delegate: FrontendToolDelegate instance for tool approval handling
 
     Returns:
-        (image_blobs, text_content, approval_processed): Tuple of:
+        (image_blobs, text_content): Tuple of:
             - image_blobs: List of Blob objects to send via send_realtime()
             - text_content: Content object to send via send_content(), or None if no text
-            - approval_processed: True if tool approval response was processed
 
     Reference:
     - ADK Live API requirements: https://google.github.io/adk-docs/streaming/dev-guide/part2/
@@ -562,13 +490,10 @@ def process_chat_message_for_bidi(
     """
     messages = message_data.get("messages", [])
     if not messages:
-        return ([], None, False)
+        return ([], None)
 
     # Parse last message from AI SDK v6 format
     last_msg = ChatMessage(**messages[-1])
-
-    # Process tool-use parts (approval/rejection responses from frontend)
-    approval_processed = process_tool_use_parts(last_msg, delegate)
 
     # Separate image/video blobs from text parts
     # IMPORTANT: Live API requires separation
@@ -601,4 +526,4 @@ def process_chat_message_for_bidi(
     if text_parts:
         text_content = types.Content(role="user", parts=text_parts)
 
-    return (image_blobs, text_content, approval_processed)
+    return (image_blobs, text_content)

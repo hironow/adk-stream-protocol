@@ -1,9 +1,9 @@
 """
-ADK Backend Server with FastAPI (Phase 2 - ADK SSE Streaming)
+ADK Backend Server with FastAPI
 
 This server provides AI capabilities using Google ADK.
-Frontend connects directly to this backend in Phase 2 mode (adk-sse).
-Phase 1 (gemini) uses direct Gemini API and doesn't require this backend.
+Frontend connects directly to this backend(adk-sse).
+gemini uses direct Gemini API and doesn't require this backend.
 """
 
 from __future__ import annotations
@@ -12,7 +12,6 @@ import asyncio
 import json
 import os
 import uuid
-from datetime import UTC, datetime
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -33,7 +32,6 @@ from loguru import logger  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
 from adk_ag_runner import (  # noqa: E402
-    TOOLS_REQUIRING_APPROVAL,
     bidi_agent,
     bidi_agent_runner,
     sse_agent,
@@ -46,11 +44,11 @@ from adk_compat import (  # noqa: E402
 )
 from ai_sdk_v6_compat import (  # noqa: E402
     ChatMessage,
+    ToolCallState,
+    ToolUsePart,
     process_chat_message_for_bidi,
-    process_tool_use_parts,
 )
 from stream_protocol import stream_adk_to_ai_sdk  # noqa: E402
-from tool_delegate import FrontendToolDelegate, frontend_delegate  # noqa: E402
 
 
 def get_user() -> str:
@@ -86,7 +84,7 @@ def get_user() -> str:
 # Configure file logging
 log_dir = Path("logs")
 log_dir.mkdir(exist_ok=True)
-log_file = log_dir / f"server_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.log"
+log_file = log_dir / "server_e2e-2.log"
 logger.add(
     log_file,
     rotation="5 MB",
@@ -102,6 +100,11 @@ logger.info(f"Logging to: {log_file}")
 if not os.getenv("GOOGLE_GENERATIVE_AI_API_KEY"):
     # Try loading again with override
     load_dotenv(".env.local", override=True)
+
+
+# Check if using Vertex AI (session_resumption is only supported on Vertex AI)
+use_vertexai = os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "0") == "1"
+
 
 app = FastAPI(
     title="ADK Data Protocol Server",
@@ -121,20 +124,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-# ========== Module Dependencies ==========
-# Agent and tool definitions have been moved to adk_ag_runner.py for better modularity
-# Session management has been moved to adk_compat.py
-# Frontend delegation is managed by tool_delegate.py
-# Helper functions have been inlined into endpoints for transaction script pattern
-
-
-# Message types imported from ai_sdk_v6_compat.py
-# - TextPart, ImagePart, FilePart: Content parts
-# - ToolUsePart, ToolApproval: Tool call parts
-# - MessagePart: Union of all part types
-# - ChatMessage: AI SDK v6 UIMessage with to_adk_content() conversion
 
 
 class ChatRequest(BaseModel):
@@ -236,10 +225,68 @@ async def chat(request: ChatRequest):
         return ChatResponse(message=f"Error: {e!s}")
 
 
+def _create_error_sse_response(error_message: str) -> StreamingResponse:
+    """Create an SSE error response with proper headers."""
+
+    async def error_stream():
+        yield f"data: {json.dumps({'type': 'error', 'error': error_message})}\n\n"
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(
+        error_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        },
+    )
+
+
+def _process_latest_message(last_message: ChatMessage) -> types.Content | None:
+    """
+    Process the latest message and convert to ADK Content.
+
+    Handle assistant messages with tool confirmations.
+    Returns None if message should be skipped.
+    """
+    # When user approves adk_request_confirmation, AI SDK sends assistant message back
+    # with tool output (not a new user message). We need to send the confirmation
+    # to ADK so it can continue processing.
+    if last_message.role == "assistant":
+        # Check if this is a tool confirmation response
+        has_confirmation = last_message.parts is not None and any(
+            isinstance(part, ToolUsePart)
+            and part.tool_name == "adk_request_confirmation"
+            and part.state == ToolCallState.OUTPUT_AVAILABLE
+            for part in last_message.parts
+        )
+
+        if has_confirmation:
+            # Convert confirmation to ADK content
+            # This will be a FunctionResponse that ADK can process
+            message_content = last_message.to_adk_content()
+            logger.info(f"[/stream] Processing confirmation response: {message_content}")
+            return message_content
+        else:
+            # Assistant message without confirmation output
+            logger.warning("[/stream] Last message is assistant but has no confirmation")
+            return None
+    else:
+        # Normal user message processing
+        last_user_message_text = last_message.get_text_content()
+        if not last_user_message_text:
+            logger.warning("[/stream] Last message has no text content")
+            return None
+
+        logger.info(f"[/stream] Processing: {last_user_message_text[:50]}...")
+        # Create ADK message content (includes images and other parts)
+        return last_message.to_adk_content()
+
+
 @app.post("/stream")
 async def stream(request: ChatRequest):
     """
-    SSE streaming endpoint (Phase 2 - FINAL)
+    SSE streaming endpoint
 
     Transaction Script Pattern:
     1. Validate input messages
@@ -266,48 +313,21 @@ async def stream(request: ChatRequest):
             )
         except Exception as e:
             logger.error(f"[/stream] Failed to convert Message {i}: {e}", exc_info=True)
-            # Return error immediately to prevent infinite request loop
-            async def error_stream():
-                yield f"data: {json.dumps({'type': 'error', 'error': f'Failed to convert message: {str(e)}'})}\n\n"
-                yield "data: [DONE]\n\n"
+            return _create_error_sse_response(f"Failed to convert message: {e!s}")
 
-            return StreamingResponse(
-                error_stream(),
-                media_type="text/event-stream",
-                headers={
-                    "Cache-Control": "no-cache",
-                    "Connection": "keep-alive",
-                },
-            )
-
-    # 1. Validate input messages
+    # Validate input messages
     if not request.messages:
-        # Return error as SSE stream
-        async def error_stream():
-            yield f"data: {json.dumps({'type': 'error', 'error': 'No messages provided'})}\n\n"
-            yield "data: [DONE]\n\n"
-
-        return StreamingResponse(
-            error_stream(),
-            media_type="text/event-stream",
-            headers={
-                "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
-            },
-        )
+        return _create_error_sse_response("No messages provided")
 
     # Create SSE stream generator inline (transaction script pattern)
     async def generate_sse_stream():
-        # Explicitly declare global variable access for nested function scope
-        global frontend_delegate
-
         # 2. Session management
         # Get user ID (single user mode for demo environment without database)
         user_id = get_user()
         session = await get_or_create_session(user_id, sse_agent_runner, "agents")
         logger.info(f"[/stream] Session ID: {session.id}")
 
-        # 3. Sync conversation history (BUG-006 FIX)
+        # Sync conversation history (BUG-006 FIX)
         # When switching modes (e.g., Gemini Direct -> ADK SSE), sync history
         await sync_conversation_history_to_session(
             session=session,
@@ -316,73 +336,26 @@ async def stream(request: ChatRequest):
             current_mode="SSE",
         )
 
-        # 3.5. Process tool outputs from request messages (FRONTEND DELEGATE FIX)
-        # When frontend executes tools locally and sends results via addToolOutput,
-        # those results are included in the next request's messages array.
-        # We need to process these tool outputs BEFORE running the agent,
-        # otherwise the backend delegate will hang forever waiting for results.
-        logger.debug(f"[/stream] Processing tool outputs from {len(request.messages)} messages")
-        for i, msg in enumerate(request.messages):
-            if msg.role == "assistant":
-                # Process tool outputs and resolve pending delegate futures
-                # Note: msg is already a ChatMessage instance from ChatRequest.messages
-                approval_processed = process_tool_use_parts(msg, frontend_delegate)
-                if approval_processed:
-                    logger.info(f"[/stream] Processed tool approval response from message {i}")
-
-        # 4. Process the latest message
-        last_message_obj = request.messages[-1]
-
-        # Phase 5: Handle assistant messages with tool confirmations
-        # When user approves adk_request_confirmation, AI SDK sends assistant message back
-        # with tool output (not a new user message). We need to send the confirmation
-        # to ADK so it can continue processing.
-        if last_message_obj.role == "assistant":
-            # Check if this is a tool confirmation response
-            has_confirmation = any(
-                isinstance(part, ToolUsePart)
-                and part.tool_name == "adk_request_confirmation"
-                and part.state == ToolCallState.OUTPUT_AVAILABLE
-                for part in last_message_obj.parts
-            )
-
-            if has_confirmation:
-                # Convert confirmation to ADK content
-                # This will be a FunctionResponse that ADK can process
-                message_content = last_message_obj.to_adk_content()
-                logger.info(f"[/stream] Processing confirmation response: {message_content}")
-            else:
-                # Assistant message without confirmation output
-                logger.warning("[/stream] Last message is assistant but has no confirmation")
-                return
-        else:
-            # Normal user message processing
-            last_user_message_text = last_message_obj.get_text_content()
-            if not last_user_message_text:
-                logger.warning("[/stream] Last message has no text content")
-                return
-
-            logger.info(f"[/stream] Processing: {last_user_message_text[:50]}...")
-            # Create ADK message content (includes images and other parts)
-            message_content = last_message_obj.to_adk_content()
+        # Process the latest message
+        message_content = _process_latest_message(request.messages[-1])
+        if message_content is None:
+            return
 
         logger.info(
             f"[/stream] Agent model: {sse_agent.model}, "
             f"tools: {[tool.__name__ if callable(tool) else str(tool) for tool in sse_agent.tools]}"
         )
 
-        # 5. Run ADK agent with streaming
+        # Run ADK agent with streaming
         event_stream = sse_agent_runner.run_async(
             user_id=user_id,
             session_id=session.id,
             new_message=message_content,
         )
 
-        # 6. Convert ADK events to AI SDK format and yield SSE events
+        # Convert ADK events to AI SDK format and yield SSE events
         event_count = 0
-        async for sse_event in stream_adk_to_ai_sdk(
-            event_stream, tools_requiring_approval=TOOLS_REQUIRING_APPROVAL
-        ):
+        async for sse_event in stream_adk_to_ai_sdk(event_stream):
             event_count += 1
             yield sse_event
 
@@ -405,7 +378,7 @@ async def stream(request: ChatRequest):
 @app.websocket("/live")
 async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
     """
-    WebSocket endpoint for bidirectional streaming with ADK BIDI mode (Phase 3).
+    WebSocket endpoint for bidirectional streaming with ADK BIDI mode
 
     This endpoint enables real-time bidirectional communication between
     AI SDK v6 useChat and ADK's run_live() method. It bridges the two systems:
@@ -441,9 +414,6 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
     await websocket.accept()
     logger.info("[BIDI] WebSocket connection established")
 
-    # Phase 2: Generate unique connection signature to prevent race conditions
-    # Each WebSocket connection gets its own session and delegate
-    # Reference: ADK Discussion #2784 - https://github.com/google/adk-python/discussions/2784
     connection_signature = str(uuid.uuid4())
     logger.info(f"[BIDI] New connection: {connection_signature}")
 
@@ -459,30 +429,12 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
     )
     logger.info(f"[BIDI] Session created: {session.id}")
 
-    # Create connection-specific FrontendToolDelegate
-    connection_delegate = FrontendToolDelegate()
-    logger.info(f"[BIDI] Created FrontendToolDelegate for connection: {connection_signature}")
-
-    # Store delegate and client_identifier directly in the session state
-    # Using temp: prefix for delegate (not persisted, session-lifetime only)
-    # According to ADK docs, modifications to session.state before run_live()
-    # will be available in tool_context.state during tool execution
-    session.state["temp:delegate"] = connection_delegate
-    session.state["client_identifier"] = connection_signature
-    logger.info(
-        f"[BIDI] Stored delegate and client_identifier in session state (session_id={session.id})"
-    )
-    logger.info(f"[BIDI] Session state after modification: {dict(session.state)}")
-
     # Create LiveRequestQueue for bidirectional communication
     live_request_queue = LiveRequestQueue()
 
     # Configure response modality based on model type (following ADK bidi-demo pattern)
     # Native audio models require AUDIO modality with transcription config
     # Half-cascade models use TEXT modality for faster performance
-
-    # Check if using Vertex AI (session_resumption is only supported on Vertex AI)
-    use_vertexai = os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "0") == "1"
 
     model_name = bidi_agent.model
     if "native-audio" in model_name:
@@ -546,7 +498,7 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
 
         logger.info("[BIDI] ADK live stream started")
 
-        # Task 1: Receive messages from WebSocket → send to LiveRequestQueue
+        # Receive messages from WebSocket → send to LiveRequestQueue
         async def receive_from_client():  # noqa: C901, PLR0912
             try:
                 while True:
@@ -592,16 +544,8 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
 
                         # Process AI SDK v6 message format → ADK format
                         # Separates image blobs from text parts (Live API requirement)
-                        image_blobs, text_content, approval_processed = (
-                            process_chat_message_for_bidi(message_data, connection_delegate)
-                        )
-
-                        # Note: We don't send finish-step directly from backend
-                        # The model/agent should handle step completion naturally
-                        if approval_processed:
-                            logger.info(
-                                "[BIDI] Tool approval processed, agent will handle continuation"
-                            )
+                        # Tool confirmations handled in ChatMessage.to_adk_content()
+                        image_blobs, text_content = process_chat_message_for_bidi(message_data)
 
                         # Send to ADK LiveRequestQueue
                         # Images/videos: send_realtime(blob)
@@ -612,7 +556,7 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
                         if text_content:
                             live_request_queue.send_content(text_content)
 
-                    # Handle interrupt event (P2-T2 Phase 2)
+                    # Handle interrupt event
                     elif event_type == "interrupt":
                         reason = event.get("reason", "user_abort")
                         logger.info(f"[BIDI] User interrupted (reason: {reason})")
@@ -620,7 +564,7 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
                         live_request_queue.close()
                         # Note: WebSocket stays open for next turn
 
-                    # Handle audio control event (P2-T2 Phase 3)
+                    # Handle audio control event
                     elif event_type == "audio_control":
                         action = event.get("action")
                         if action == "start":
@@ -630,7 +574,7 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
                         # Note: Audio chunks are streamed separately via audio_chunk events
                         # ADK processes the audio in real-time through LiveRequestQueue
 
-                    # Handle audio chunk event (P2-T2 Phase 3)
+                    # Handle audio chunk event
                     elif event_type == "audio_chunk":
                         chunk_data = event.get("data", {})
                         chunk_base64 = chunk_data.get("chunk")
@@ -640,11 +584,6 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
 
                             # Decode base64 PCM audio data
                             audio_bytes = base64.b64decode(chunk_base64)
-                            # Commented out to reduce log noise during recording
-                            # logger.debug(
-                            #     f"[BIDI] Received PCM chunk: {len(audio_bytes)} bytes "
-                            #     f"({sample_rate}Hz, {channels}ch, {bit_depth}bit)"
-                            # )
 
                             # Frontend now sends raw PCM audio via AudioWorklet
                             # Format: 16-bit signed integer, 16kHz, mono
@@ -655,11 +594,6 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
                             audio_blob = types.Blob(mime_type="audio/pcm", data=audio_bytes)
                             # Send to ADK via LiveRequestQueue
                             live_request_queue.send_realtime(audio_blob)
-
-                    # Note: "tool_result" event handler removed (dead code)
-                    # Frontend uses AI SDK v6's standard flow with tool-use parts in messages
-                    # Tool approval/rejection is now handled via process_tool_use_parts()
-                    # Reference: experiments/2025-12-13_frontend_backend_integration_gap_analysis.md
 
                     # Unknown event type
                     else:
@@ -683,11 +617,10 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
                 # This is the SAME converter used in SSE mode (/stream endpoint)
                 # We reuse 100% of the conversion logic - only transport layer differs
                 # WebSocket mode: Send SSE format over WebSocket (instead of HTTP SSE)
-                # Phase 4: Pass tools_requiring_approval for tool approval flow
+                # ADK native Tool Confirmation Flow via FunctionTool(require_confirmation=True)
                 logger.info("[BIDI] Starting to stream ADK events to WebSocket")
                 async for sse_event in stream_adk_to_ai_sdk(
                     live_events,
-                    tools_requiring_approval=TOOLS_REQUIRING_APPROVAL,
                     mode="adk-bidi",  # Chunk logger: distinguish from adk-sse mode
                 ):
                     event_count += 1

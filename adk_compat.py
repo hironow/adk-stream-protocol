@@ -64,12 +64,22 @@ async def get_or_create_session(
             f"Creating new session for user: {user_id} with app: {app_name}"
             + (f", connection: {connection_signature}" if connection_signature else "")
         )
-        session = await agent_runner.session_service.create_session(
-            app_name=app_name,
-            user_id=user_id,
-            session_id=session_id,
-        )
-        _sessions[session_id] = session
+        try:
+            session = await agent_runner.session_service.create_session(
+                app_name=app_name,
+                user_id=user_id,
+                session_id=session_id,
+            )
+            _sessions[session_id] = session
+        except Exception as e:
+            # If session already exists in ADK, log error and re-raise
+            # Note: This should not happen in normal operation
+            # clear_sessions() should clear _sessions dict but ADK sessions persist
+            logger.error(
+                f"Failed to create session {session_id}: {e}. "
+                "This may indicate ADK session state is out of sync with _sessions dict."
+            )
+            raise
 
     return _sessions[session_id]
 

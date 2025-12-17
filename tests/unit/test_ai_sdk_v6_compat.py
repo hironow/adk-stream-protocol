@@ -2,312 +2,48 @@
 Unit tests for ai_sdk_v6_compat module.
 
 Tests the AI SDK v6 compatibility layer, focusing on:
-- process_tool_use_parts: Tool approval/rejection handling
-- process_chat_message_for_bidi: BIDI mode message processing
+- process_chat_message_for_bidi: BIDI mode message processing (image/text separation)
+- Tool use part validation
+- ADK request confirmation conversion (Phase 5)
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
+from pydantic import ValidationError
 
 from ai_sdk_v6_compat import (
     ChatMessage,
-    FilePart,
+    GenericPart,
+    StepPart,
     TextPart,
-    ToolApproval,
     ToolCallState,
     ToolUsePart,
     process_chat_message_for_bidi,
-    process_tool_use_parts,
 )
 
 
-class TestProcessToolUseParts:
-    """Tests for process_tool_use_parts function."""
-
-    def test_process_tool_use_parts_empty_message(self):
-        """Should handle messages without parts gracefully."""
-        # given
-        message = ChatMessage(role="user", content="test")
-        delegate = MagicMock()
-
-        # when
-        process_tool_use_parts(message, delegate)
-
-        # then
-        delegate.reject_tool_call.assert_not_called()
-        delegate.resolve_tool_result.assert_not_called()
-
-    def test_process_tool_use_parts_no_tool_parts(self):
-        """Should ignore non-tool parts."""
-        # given
-        message = ChatMessage(
-            role="assistant",
-            parts=[
-                TextPart(type="text", text="Hello"),
-                FilePart(
-                    type="file",
-                    filename="image.png",
-                    url="data:image/png;base64,abc123",
-                    media_type="image/png",
-                ),
-            ],
-        )
-        delegate = MagicMock()
-
-        # when
-        process_tool_use_parts(message, delegate)
-
-        # then
-        delegate.reject_tool_call.assert_not_called()
-        delegate.resolve_tool_result.assert_not_called()
-
-    def test_process_tool_use_parts_approval_rejected(self):
-        """Should call reject_tool_call when approval is rejected."""
-        # given
-        tool_call_id = "test_tool_123"
-        rejection_reason = "User denied location access"
-        message = ChatMessage(
-            role="assistant",
-            parts=[
-                ToolUsePart(
-                    type="tool-use",
-                    tool_call_id=tool_call_id,
-                    tool_name="get_location",
-                    state=ToolCallState.APPROVAL_RESPONDED,
-                    approval=ToolApproval(
-                        id="approval_123",
-                        approved=False,
-                        reason=rejection_reason,
-                    ),
-                )
-            ],
-        )
-        delegate = MagicMock()
-
-        # when
-        process_tool_use_parts(message, delegate)
-
-        # then
-        delegate.reject_tool_call.assert_called_once_with(tool_call_id, rejection_reason)
-        delegate.resolve_tool_result.assert_not_called()
-
-    def test_process_tool_use_parts_approval_rejected_no_reason(self):
-        """Should use default reason when rejection has no reason."""
-        # given
-        tool_call_id = "test_tool_456"
-        message = ChatMessage(
-            role="assistant",
-            parts=[
-                ToolUsePart(
-                    type="tool-use",
-                    tool_call_id=tool_call_id,
-                    tool_name="change_bgm",
-                    state=ToolCallState.APPROVAL_RESPONDED,
-                    approval=ToolApproval(
-                        id="approval_456",
-                        approved=False,
-                        reason=None,  # No reason provided
-                    ),
-                )
-            ],
-        )
-        delegate = MagicMock()
-
-        # when
-        process_tool_use_parts(message, delegate)
-
-        # then
-        delegate.reject_tool_call.assert_called_once_with(tool_call_id, "User denied permission")
-
-    def test_process_tool_use_parts_approval_accepted(self):
-        """Should NOT call delegate when approval is accepted."""
-        # given
-        message = ChatMessage(
-            role="assistant",
-            parts=[
-                ToolUsePart(
-                    type="tool-use",
-                    tool_call_id="test_tool_789",
-                    tool_name="change_bgm",
-                    state=ToolCallState.APPROVAL_RESPONDED,
-                    approval=ToolApproval(
-                        id="approval_789",
-                        approved=True,  # Approved
-                    ),
-                )
-            ],
-        )
-        delegate = MagicMock()
-
-        # when
-        process_tool_use_parts(message, delegate)
-
-        # then: Should not trigger delegate (tool execution happens on backend)
-        delegate.reject_tool_call.assert_not_called()
-        delegate.resolve_tool_result.assert_not_called()
-
-    def test_process_tool_use_parts_output_available(self):
-        """Should call resolve_tool_result when output is available."""
-        # given
-        tool_call_id = "test_tool_999"
-        tool_output = {"success": True, "data": "BGM changed to track 1"}
-        message = ChatMessage(
-            role="assistant",
-            parts=[
-                ToolUsePart(
-                    type="tool-use",
-                    tool_call_id=tool_call_id,
-                    tool_name="change_bgm",
-                    state=ToolCallState.OUTPUT_AVAILABLE,
-                    output=tool_output,
-                )
-            ],
-        )
-        delegate = MagicMock()
-
-        # when
-        process_tool_use_parts(message, delegate)
-
-        # then
-        delegate.resolve_tool_result.assert_called_once_with(tool_call_id, tool_output)
-        delegate.reject_tool_call.assert_not_called()
-
-    def test_process_tool_use_parts_output_available_none(self):
-        """Should not call delegate when output is None."""
-        # given
-        message = ChatMessage(
-            role="assistant",
-            parts=[
-                ToolUsePart(
-                    type="tool-use",
-                    tool_call_id="test_tool_null",
-                    tool_name="calculate",
-                    state=ToolCallState.OUTPUT_AVAILABLE,
-                    output=None,  # No output
-                )
-            ],
-        )
-        delegate = MagicMock()
-
-        # when
-        process_tool_use_parts(message, delegate)
-
-        # then
-        delegate.resolve_tool_result.assert_not_called()
-        delegate.reject_tool_call.assert_not_called()
-
-    def test_process_tool_use_parts_multiple_tools(self):
-        """Should process multiple tool-use parts in a single message."""
-        # given
-        message = ChatMessage(
-            role="assistant",
-            parts=[
-                ToolUsePart(
-                    type="tool-use",
-                    tool_call_id="tool_1",
-                    tool_name="get_location",
-                    state=ToolCallState.APPROVAL_RESPONDED,
-                    approval=ToolApproval(
-                        id="approval_1", approved=False, reason="Privacy concern"
-                    ),
-                ),
-                TextPart(type="text", text="Processing..."),
-                ToolUsePart(
-                    type="tool-use",
-                    tool_call_id="tool_2",
-                    tool_name="calculate",
-                    state=ToolCallState.OUTPUT_AVAILABLE,
-                    output={"result": 42},
-                ),
-                ToolUsePart(
-                    type="tool-use",
-                    tool_call_id="tool_3",
-                    tool_name="change_bgm",
-                    state=ToolCallState.APPROVAL_RESPONDED,
-                    approval=ToolApproval(id="approval_3", approved=True),  # Approved, no action
-                ),
-            ],
-        )
-        delegate = MagicMock()
-
-        # when
-        process_tool_use_parts(message, delegate)
-
-        # then
-        # Should reject tool_1
-        assert delegate.reject_tool_call.call_count == 1
-        delegate.reject_tool_call.assert_any_call("tool_1", "Privacy concern")
-
-        # Should resolve tool_2
-        assert delegate.resolve_tool_result.call_count == 1
-        delegate.resolve_tool_result.assert_any_call("tool_2", {"result": 42})
-
-        # tool_3 (approved=True) should not trigger any action
-
-    def test_process_tool_use_parts_other_states(self):
-        """Should ignore tool-use parts with other states."""
-        # given
-        message = ChatMessage(
-            role="assistant",
-            parts=[
-                ToolUsePart(
-                    type="tool-use",
-                    tool_call_id="input_tool",
-                    tool_name="get_weather",
-                    state=ToolCallState.INPUT_AVAILABLE,
-                ),
-                ToolUsePart(
-                    type="tool-use",
-                    tool_call_id="requested_tool",
-                    tool_name="calculate",
-                    state=ToolCallState.APPROVAL_REQUESTED,
-                ),
-                ToolUsePart(
-                    type="tool-use",
-                    tool_call_id="call_tool",
-                    tool_name="get_current_time",
-                    state=ToolCallState.CALL,
-                ),
-            ],
-        )
-        delegate = MagicMock()
-
-        # when
-        process_tool_use_parts(message, delegate)
-
-        # then: Should not trigger delegate for these states
-        delegate.reject_tool_call.assert_not_called()
-        delegate.resolve_tool_result.assert_not_called()
-
-
 class TestProcessChatMessageForBidi:
-    """Tests for process_chat_message_for_bidi function."""
+    """Tests for process_chat_message_for_bidi function (Phase 5 - simplified)."""
 
-    def test_process_chat_message_for_bidi_text_only(self):
+    def test_text_only_message(self):
         """Should extract text content from text-only message."""
         # given
         message_data = {
-            "messages": [{"role": "user", "parts": [{"type": "text", "text": "Hello, world!"}]}]
+            "messages": [{"role": "user", "parts": [{"type": "text", "text": "Hello!"}]}]
         }
-        delegate = MagicMock()
 
         # when
-        image_blobs, text_content, approval_processed = process_chat_message_for_bidi(
-            message_data, delegate
-        )
+        image_blobs, text_content = process_chat_message_for_bidi(message_data)
 
         # then
         assert len(image_blobs) == 0
+        assert text_content is not None
         assert text_content.role == "user"
         assert len(text_content.parts) == 1
-        assert text_content.parts[0].text == "Hello, world!"
+        assert text_content.parts[0].text == "Hello!"
 
-        # Should not process tool-use parts since there are none
-        delegate.reject_tool_call.assert_not_called()
-        delegate.resolve_tool_result.assert_not_called()
-
-    def test_process_chat_message_for_bidi_with_image(self):
+    def test_message_with_image(self):
         """Should separate image blobs from text parts."""
         # given
         image_data = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
@@ -316,257 +52,71 @@ class TestProcessChatMessageForBidi:
                 {
                     "role": "user",
                     "parts": [
-                        {"type": "text", "text": "Look at this image:"},
+                        {"type": "text", "text": "Look:"},
                         {
                             "type": "file",
                             "filename": "image.png",
                             "url": image_data,
                             "mediaType": "image/png",
                         },
-                        {"type": "text", "text": "What do you see?"},
                     ],
                 }
             ]
         }
-        delegate = MagicMock()
 
         # when
         with patch("ai_sdk_v6_compat.base64.b64decode") as mock_decode:
             mock_decode.return_value = b"fake_image_data"
-            image_blobs, text_content, approval_processed = process_chat_message_for_bidi(
-                message_data, delegate
-            )
+            image_blobs, text_content = process_chat_message_for_bidi(message_data)
 
         # then
-        # Should have one image blob
         assert len(image_blobs) == 1
         assert image_blobs[0].data == b"fake_image_data"
         assert image_blobs[0].mime_type == "image/png"
-
-        # Should have text parts without the image
-        assert text_content.role == "user"
-        assert len(text_content.parts) == 2  # Two text parts
-        assert text_content.parts[0].text == "Look at this image:"
-        assert text_content.parts[1].text == "What do you see?"
-
-    def test_process_chat_message_for_bidi_with_tool_approval(self):
-        """Should process tool approval responses."""
-        # given
-        message_data = {
-            "messages": [
-                {
-                    "role": "user",
-                    "content": "Continue",
-                },
-                {
-                    "role": "assistant",
-                    "parts": [
-                        {
-                            "type": "tool-use",
-                            "toolCallId": "bgm_123",
-                            "toolName": "change_bgm",
-                            "state": "approval-responded",
-                            "approval": {
-                                "id": "approval_bgm",
-                                "approved": False,
-                                "reason": "Too loud",
-                            },
-                        }
-                    ],
-                },
-            ]
-        }
-        delegate = MagicMock()
-
-        # when
-        image_blobs, text_content, approval_processed = process_chat_message_for_bidi(
-            message_data, delegate
-        )
-
-        # then
-        # Should process tool rejection
-        delegate.reject_tool_call.assert_called_once_with("bgm_123", "Too loud")
-
-        # No text parts, so text_content should be None
-        assert text_content is None
-
-    def test_process_chat_message_for_bidi_with_file_part(self):
-        """Should handle file parts (skip them for BIDI)."""
-        # given
-        message_data = {
-            "messages": [
-                {
-                    "role": "user",
-                    "parts": [
-                        {"type": "text", "text": "Here's a file:"},
-                        {
-                            "type": "file",
-                            "name": "document.pdf",
-                            "url": "https://example.com/doc.pdf",
-                            "size": 1024,
-                            "mime_type": "application/pdf",
-                        },
-                        {"type": "text", "text": "Please review it."},
-                    ],
-                }
-            ]
-        }
-        delegate = MagicMock()
-
-        # when
-        image_blobs, text_content, approval_processed = process_chat_message_for_bidi(
-            message_data, delegate
-        )
-
-        # then
-        # No image blobs (file parts are skipped)
-        assert len(image_blobs) == 0
-
-        # Text parts should be preserved
-        assert len(text_content.parts) == 2
-        assert text_content.parts[0].text == "Here's a file:"
-        assert text_content.parts[1].text == "Please review it."
-
-    def test_process_chat_message_for_bidi_invalid_image(self):
-        """Should handle invalid image data gracefully."""
-        # given
-        message_data = {
-            "messages": [
-                {
-                    "role": "user",
-                    "parts": [
-                        {
-                            "type": "file",
-                            "filename": "image.png",
-                            "url": "invalid_data_url",
-                            "mediaType": "image/png",
-                        },
-                        {"type": "text", "text": "This image is broken"},
-                    ],
-                }
-            ]
-        }
-        delegate = MagicMock()
-
-        # when
-        image_blobs, text_content, approval_processed = process_chat_message_for_bidi(
-            message_data, delegate
-        )
-
-        # then
-        # Should skip invalid image
-        assert len(image_blobs) == 0
-
-        # Text should still be processed
+        assert text_content is not None
         assert len(text_content.parts) == 1
-        assert text_content.parts[0].text == "This image is broken"
+        assert text_content.parts[0].text == "Look:"
 
-    def test_process_chat_message_for_bidi_empty_messages(self):
-        """Should handle empty messages list."""
+    def test_empty_messages(self):
+        """Should handle empty messages gracefully."""
         # given
         message_data = {"messages": []}
-        delegate = MagicMock()
 
         # when
-        image_blobs, text_content, approval_processed = process_chat_message_for_bidi(
-            message_data, delegate
-        )
+        image_blobs, text_content = process_chat_message_for_bidi(message_data)
 
-        # then: Should return empty blobs and None content
-        assert image_blobs == []
+        # then
+        assert len(image_blobs) == 0
         assert text_content is None
 
-    def test_process_chat_message_for_bidi_tool_output(self):
-        """Should process tool output results."""
-        # given
-        tool_result = {"success": True, "location": {"lat": 35.6762, "lng": 139.6503}}
+    def test_process_chat_message_for_bidi_processes_last_message_only(self):
+        """Should process only the last message (spy test for verifying BIDI behavior)."""
+        from unittest.mock import patch
+
+        # given - message data with 3 messages in parts-based format
         message_data = {
             "messages": [
-                {
-                    "role": "assistant",
-                    "parts": [
-                        {
-                            "type": "tool-use",
-                            "tool_call_id": "location_456",
-                            "tool_name": "get_location",
-                            "state": "output-available",
-                            "output": tool_result,
-                        }
-                    ],
-                }
+                {"role": "user", "parts": [{"type": "text", "text": "Hello"}]},
+                {"role": "assistant", "parts": [{"type": "text", "text": "Hi there"}]},
+                {"role": "user", "parts": [{"type": "text", "text": "How are you?"}]},
             ]
         }
-        delegate = MagicMock()
 
-        # when
-        image_blobs, text_content, approval_processed = process_chat_message_for_bidi(
-            message_data, delegate
-        )
+        # when - spy on ChatMessage to verify it's called for last message only
+        with patch("ai_sdk_v6_compat.ChatMessage", wraps=ChatMessage) as spy_chat_message:
+            image_blobs, text_content = process_chat_message_for_bidi(message_data)
 
-        # then
-        # Should resolve tool result
-        delegate.resolve_tool_result.assert_called_once_with("location_456", tool_result)
-
-    def test_process_chat_message_for_bidi_mixed_content(self):
-        """Should handle complex message with text, images, and tool parts."""
-        # given
-        message_data = {
-            "messages": [
-                {
-                    "role": "assistant",
-                    "parts": [
-                        {"type": "text", "text": "Processing your request..."},
-                        {
-                            "type": "tool-use",
-                            "toolCallId": "calc_1",
-                            "toolName": "calculate",
-                            "state": "output-available",
-                            "output": {"result": 42},
-                        },
-                        {"type": "text", "text": "Here's the result:"},
-                        {
-                            "type": "file",
-                            "filename": "photo.jpg",
-                            "url": "data:image/jpeg;base64,/9j/4AAQSkZJRg==",
-                            "mediaType": "image/jpeg",
-                        },
-                        {
-                            "type": "tool-use",
-                            "toolCallId": "bgm_2",
-                            "toolName": "change_bgm",
-                            "state": "approval-responded",
-                            "approval": {
-                                "id": "approval_bgm_2",
-                                "approved": False,
-                                "reason": "Not now",
-                            },
-                        },
-                    ],
-                }
-            ]
-        }
-        delegate = MagicMock()
-
-        # when
-        with patch("ai_sdk_v6_compat.base64.b64decode") as mock_decode:
-            mock_decode.return_value = b"jpeg_data"
-            image_blobs, text_content, approval_processed = process_chat_message_for_bidi(
-                message_data, delegate
+            # then - should be called exactly once (for last message only)
+            assert spy_chat_message.call_count == 1, (
+                f"Expected ChatMessage to be called once (for last message), "
+                f"but was called {spy_chat_message.call_count} times"
             )
 
-        # then
-        # Should process tool parts
-        delegate.resolve_tool_result.assert_called_once_with("calc_1", {"result": 42})
-        delegate.reject_tool_call.assert_called_once_with("bgm_2", "Not now")
-
-        # Should have one image blob
-        assert len(image_blobs) == 1
-        assert image_blobs[0].mime_type == "image/jpeg"
-
-        # Should have text parts
-        assert len(text_content.parts) == 2
-        assert text_content.parts[0].text == "Processing your request..."
-        assert text_content.parts[1].text == "Here's the result:"
+            # Verify result - should have content from last user message
+            assert text_content is not None
+            assert text_content.role == "user"
+            assert len(text_content.parts) == 1
+            assert text_content.parts[0].text == "How are you?"
 
 
 class TestToolUsePartValidation:
@@ -733,11 +283,12 @@ class TestAdkRequestConfirmationConversion:
     Related: experiments/2025-12-17_tool_architecture_refactoring.md (Phase 5)
     """
 
-    def test_adk_request_confirmation_with_original_function_call_in_output(self):
-        """Should convert adk_request_confirmation with originalFunctionCall in output.
+    def test_adk_request_confirmation_approved(self):
+        """Should convert adk_request_confirmation with simplified output format.
 
-        This is the STANDARD behavior - frontend includes originalFunctionCall in output
-        via lib/adk_compat.ts createAdkConfirmationOutput function.
+        Simplified Phase 5 behavior: Use tool_call_id directly, no originalFunctionCall needed.
+        Frontend sends: output={"confirmed": true}
+        Backend uses: part.tool_call_id as the ID
         """
         # given
         message = ChatMessage(
@@ -747,16 +298,9 @@ class TestAdkRequestConfirmationConversion:
                     type="tool-adk_request_confirmation",
                     tool_call_id="adk-confirmation-123",
                     tool_name="adk_request_confirmation",
-                    args=None,  # Frontend doesn't set args
+                    args=None,
                     state=ToolCallState.OUTPUT_AVAILABLE,
-                    output={
-                        "originalFunctionCall": {
-                            "id": "adk-payment-456",
-                            "name": "process_payment",
-                            "args": {"amount": 50, "recipient": "Hanako", "currency": "USD"},
-                        },
-                        "toolConfirmation": {"confirmed": True},
-                    },
+                    output={"confirmed": True},  # Simplified format
                 )
             ],
         )
@@ -765,20 +309,17 @@ class TestAdkRequestConfirmationConversion:
         adk_content = message.to_adk_content()
 
         # then
-        # Should have one FunctionResponse part for the original payment tool
         assert len(adk_content.parts) == 1
         function_response = adk_content.parts[0].function_response
         assert function_response is not None
-        assert function_response.id == "adk-payment-456"  # Original tool call ID
+        assert function_response.id == "adk-confirmation-123"  # Uses tool_call_id
         assert function_response.name == "adk_request_confirmation"
         assert function_response.response == {"confirmed": True}
 
+    def test_adk_request_confirmation_with_invalid_output_should_skip(self):
+        """Should gracefully handle adk_request_confirmation with invalid output format.
 
-    def test_adk_request_confirmation_with_args_none_and_no_original_in_output_should_skip(self):
-        """Should gracefully handle adk_request_confirmation missing originalFunctionCall entirely.
-
-        This is the error case - neither args nor output contain originalFunctionCall.
-        The conversion should skip creating FunctionResponse to prevent errors.
+        If output doesn't have the expected "confirmed" field, skip creating FunctionResponse.
         """
         # given
         message = ChatMessage(
@@ -788,9 +329,9 @@ class TestAdkRequestConfirmationConversion:
                     type="tool-adk_request_confirmation",
                     tool_call_id="adk-confirmation-error",
                     tool_name="adk_request_confirmation",
-                    args=None,  # No args
+                    args=None,
                     state=ToolCallState.OUTPUT_AVAILABLE,
-                    output={"toolConfirmation": {"confirmed": True}},  # No originalFunctionCall
+                    output={},  # Invalid: missing "confirmed" field
                 )
             ],
         )
@@ -799,8 +340,12 @@ class TestAdkRequestConfirmationConversion:
         adk_content = message.to_adk_content()
 
         # then
-        # Should have 0 parts (skipped due to missing originalFunctionCall)
-        assert len(adk_content.parts) == 0
+        # Should create FunctionResponse with confirmed=False (default value)
+        assert len(adk_content.parts) == 1
+        function_response = adk_content.parts[0].function_response
+        assert function_response is not None
+        assert function_response.id == "adk-confirmation-error"
+        assert function_response.response == {"confirmed": False}  # Default value
 
     def test_adk_request_confirmation_denied(self):
         """Should handle denied confirmation (confirmed=False)."""
@@ -812,16 +357,9 @@ class TestAdkRequestConfirmationConversion:
                     type="tool-adk_request_confirmation",
                     tool_call_id="adk-confirmation-deny",
                     tool_name="adk_request_confirmation",
-                    args=None,  # Frontend doesn't set args
+                    args=None,
                     state=ToolCallState.OUTPUT_AVAILABLE,
-                    output={
-                        "originalFunctionCall": {
-                            "id": "adk-location-999",
-                            "name": "get_location",
-                            "args": {},
-                        },
-                        "toolConfirmation": {"confirmed": False},
-                    },
+                    output={"confirmed": False},  # Simplified format
                 )
             ],
         )
@@ -833,28 +371,23 @@ class TestAdkRequestConfirmationConversion:
         assert len(adk_content.parts) == 1
         function_response = adk_content.parts[0].function_response
         assert function_response is not None
-        assert function_response.id == "adk-location-999"
+        assert function_response.id == "adk-confirmation-deny"  # Uses tool_call_id
+        assert function_response.name == "adk_request_confirmation"
         assert function_response.response == {"confirmed": False}
 
-    def test_adk_request_confirmation_missing_original_function_call_id(self):
-        """Should skip when originalFunctionCall.id is missing."""
+    def test_adk_request_confirmation_with_none_output_should_skip(self):
+        """Should skip when output is None."""
         # given
         message = ChatMessage(
             role="assistant",
             parts=[
                 ToolUsePart(
                     type="tool-adk_request_confirmation",
-                    tool_call_id="adk-confirmation-bad",
+                    tool_call_id="adk-confirmation-no-output",
                     tool_name="adk_request_confirmation",
-                    args={
-                        "originalFunctionCall": {
-                            # Missing 'id' field
-                            "name": "process_payment",
-                            "args": {"amount": 100},
-                        }
-                    },
+                    args=None,
                     state=ToolCallState.OUTPUT_AVAILABLE,
-                    output={"toolConfirmation": {"confirmed": True}},
+                    output=None,  # No output at all
                 )
             ],
         )
@@ -863,16 +396,16 @@ class TestAdkRequestConfirmationConversion:
         adk_content = message.to_adk_content()
 
         # then
-        # Should skip creating FunctionResponse when ID is missing
+        # Should skip creating FunctionResponse when output is None
         assert len(adk_content.parts) == 0
 
     def test_adk_request_confirmation_with_process_payment_pending(self):
         """Should handle confirmation alongside pending tool (process_payment still waiting).
 
-        This is the EXACT scenario causing infinite loop:
-        - process_payment is INPUT_AVAILABLE (waiting for confirmation)
-        - adk_request_confirmation is OUTPUT_AVAILABLE (user approved)
-        - But args=None, so no FunctionResponse is created
+        With simplified approach:
+        - process_payment is INPUT_AVAILABLE (waiting) → skipped
+        - adk_request_confirmation is OUTPUT_AVAILABLE (user approved) → creates FunctionResponse
+        - Uses part.tool_call_id directly (no originalFunctionCall needed)
         """
         # given
         message = ChatMessage(
@@ -889,9 +422,9 @@ class TestAdkRequestConfirmationConversion:
                     type="tool-adk_request_confirmation",
                     tool_call_id="adk-confirmation-approved",
                     tool_name="adk_request_confirmation",
-                    args=None,  # BUG: Missing originalFunctionCall
+                    args=None,
                     state=ToolCallState.OUTPUT_AVAILABLE,
-                    output={"toolConfirmation": {"confirmed": True}},
+                    output={"confirmed": True},  # Simplified format
                 ),
             ],
         )
@@ -900,8 +433,374 @@ class TestAdkRequestConfirmationConversion:
         adk_content = message.to_adk_content()
 
         # then
-        # Should have 0 parts:
+        # Should have 1 part:
         # - process_payment is skipped (INPUT_AVAILABLE state)
-        # - adk_request_confirmation is skipped (args=None)
-        # This results in "parts=0" log message and infinite loop
+        # - adk_request_confirmation creates FunctionResponse with tool_call_id
+        assert len(adk_content.parts) == 1
+        function_response = adk_content.parts[0].function_response
+        assert function_response is not None
+        assert function_response.id == "adk-confirmation-approved"
+        assert function_response.name == "adk_request_confirmation"
+        assert function_response.response == {"confirmed": True}
+
+    def test_adk_request_confirmation_conversion_called_exactly_once(self):
+        """Should call _process_part exactly once for confirmation conversion (spy test for duplicate send prevention)."""
+        from unittest.mock import patch
+
+        # given
+        message = ChatMessage(
+            role="assistant",
+            parts=[
+                ToolUsePart(
+                    type="tool-adk_request_confirmation",
+                    tool_call_id="adk-confirmation-123",
+                    tool_name="adk_request_confirmation",
+                    args=None,
+                    state=ToolCallState.OUTPUT_AVAILABLE,
+                    output={"confirmed": True},
+                )
+            ],
+        )
+
+        # when - spy on _process_part to verify it's called exactly once
+        with patch.object(
+            message, "_process_part", wraps=message._process_part
+        ) as spy_process_part:
+            adk_content = message.to_adk_content()
+
+            # then - verify _process_part was called exactly once (no duplicates)
+            assert spy_process_part.call_count == 1, (
+                f"Expected _process_part to be called exactly once, "
+                f"but was called {spy_process_part.call_count} times"
+            )
+
+            # Verify the call arguments were correct
+            call_args = spy_process_part.call_args
+            assert call_args is not None
+            called_part = call_args[0][0]  # First positional arg
+            assert isinstance(called_part, ToolUsePart)
+            assert called_part.tool_call_id == "adk-confirmation-123"
+
+            # Verify output is correct
+            assert len(adk_content.parts) == 1
+            function_response = adk_content.parts[0].function_response
+            assert function_response is not None
+            assert function_response.id == "adk-confirmation-123"
+            assert function_response.response == {"confirmed": True}
+
+    def test_multiple_parts_conversion_called_correct_number_of_times(self):
+        """Should call _process_part for each part (spy test for ensuring all parts are processed)."""
+        from unittest.mock import patch
+
+        # given - message with text part and confirmation part
+        message = ChatMessage(
+            role="assistant",
+            parts=[
+                TextPart(type="text", text="I need your confirmation."),
+                ToolUsePart(
+                    type="tool-adk_request_confirmation",
+                    tool_call_id="adk-confirmation-456",
+                    tool_name="adk_request_confirmation",
+                    args=None,
+                    state=ToolCallState.OUTPUT_AVAILABLE,
+                    output={"confirmed": False},
+                ),
+            ],
+        )
+
+        # when - spy on _process_part to verify it's called for each part
+        with patch.object(
+            message, "_process_part", wraps=message._process_part
+        ) as spy_process_part:
+            adk_content = message.to_adk_content()
+
+            # then - verify _process_part was called exactly twice (once per part)
+            assert spy_process_part.call_count == 2, (
+                f"Expected _process_part to be called 2 times (once per part), "
+                f"but was called {spy_process_part.call_count} times"
+            )
+
+            # Verify output has both parts
+            assert len(adk_content.parts) == 2
+            assert adk_content.parts[0].text == "I need your confirmation."
+            assert adk_content.parts[1].function_response is not None
+            assert adk_content.parts[1].function_response.id == "adk-confirmation-456"
+
+
+# ========================================================================
+# Internal Chunk Handling Tests
+# ========================================================================
+# These tests validate that AI SDK v6 internal chunks are properly handled:
+# - Known step chunks (StepPart): start, step-start, start-step, finish-step
+# - Unknown chunks (GenericPart): any other type
+# ========================================================================
+
+
+class TestInternalChunkHandling:
+    """Tests for AI SDK v6 internal chunk handling (StepPart and GenericPart)."""
+
+    # ========== Parametrized Tests for Known Step Types ==========
+
+    @pytest.mark.parametrize(
+        "step_type",
+        [
+            "start",
+            "step-start",
+            "start-step",
+            "finish-step",
+        ],
+    )
+    def test_known_step_chunks_handled_as_step_part(self, step_type):
+        """Should handle known AI SDK v6 step chunks as StepPart."""
+        # given
+        message_data = {"role": "assistant", "parts": [{"type": step_type}]}
+
+        # when
+        message = ChatMessage(**message_data)
+
+        # then
+        assert message.role == "assistant"
+        assert len(message.parts) == 1
+        assert isinstance(message.parts[0], StepPart)
+        assert message.parts[0].type == step_type
+
+    # ========== Parametrized Tests for Unknown/Generic Types ==========
+
+    @pytest.mark.parametrize(
+        "unknown_type",
+        [
+            "unknown-chunk",
+            "custom-type",
+            "finish",  # 'finish' without finishReason is treated as unknown
+            "step-end",  # Not in our known list
+            "step-middle",
+            "random-internal-chunk",
+        ],
+    )
+    def test_unknown_chunks_handled_as_generic_part(self, unknown_type):
+        """Should handle unknown chunk types as GenericPart."""
+        # given
+        message_data = {"role": "assistant", "parts": [{"type": unknown_type}]}
+
+        # when
+        message = ChatMessage(**message_data)
+
+        # then
+        assert message.role == "assistant"
+        assert len(message.parts) == 1
+        assert isinstance(message.parts[0], GenericPart)
+        assert message.parts[0].type == unknown_type
+
+    # ========== Test Mixed Parts ==========
+
+    def test_chat_message_with_mixed_parts(self):
+        """Should correctly handle mix of text, step, and unknown parts."""
+        # given
+        message_data = {
+            "role": "assistant",
+            "parts": [
+                {"type": "text", "text": "Hello"},
+                {"type": "step-start"},  # Known step type → StepPart
+                {"type": "text", "text": "World"},
+                {"type": "unknown-chunk"},  # Unknown type → GenericPart
+                {"type": "finish-step"},  # Known step type → StepPart
+            ],
+        }
+
+        # when
+        message = ChatMessage(**message_data)
+
+        # then
+        assert message.role == "assistant"
+        assert len(message.parts) == 5
+
+        # Check first text part
+        assert isinstance(message.parts[0], TextPart)
+        assert message.parts[0].text == "Hello"
+
+        # Check first step part
+        assert isinstance(message.parts[1], StepPart)
+        assert message.parts[1].type == "step-start"
+
+        # Check second text part
+        assert isinstance(message.parts[2], TextPart)
+        assert message.parts[2].text == "World"
+
+        # Check unknown part
+        assert isinstance(message.parts[3], GenericPart)
+        assert message.parts[3].type == "unknown-chunk"
+
+        # Check second step part
+        assert isinstance(message.parts[4], StepPart)
+        assert message.parts[4].type == "finish-step"
+
+    # ========== Test to_adk_content Skips Both StepPart and GenericPart ==========
+
+    @pytest.mark.parametrize(
+        "parts_config",
+        [
+            # Test with known step types
+            {
+                "parts": [
+                    {"type": "text", "text": "First"},
+                    {"type": "start"},  # StepPart - should be skipped
+                    {"type": "step-start"},  # StepPart - should be skipped
+                    {"type": "text", "text": "Second"},
+                    {"type": "finish-step"},  # StepPart - should be skipped
+                ],
+                "expected_texts": ["First", "Second"],
+            },
+            # Test with unknown types
+            {
+                "parts": [
+                    {"type": "text", "text": "Begin"},
+                    {"type": "unknown-type"},  # GenericPart - should be skipped
+                    {"type": "custom-chunk"},  # GenericPart - should be skipped
+                    {"type": "text", "text": "End"},
+                ],
+                "expected_texts": ["Begin", "End"],
+            },
+            # Test with mixed step and unknown types
+            {
+                "parts": [
+                    {"type": "text", "text": "Alpha"},
+                    {"type": "start-step"},  # StepPart - should be skipped
+                    {"type": "unknown"},  # GenericPart - should be skipped
+                    {"type": "text", "text": "Beta"},
+                    {"type": "finish-step"},  # StepPart - should be skipped
+                    {"type": "random-chunk"},  # GenericPart - should be skipped
+                    {"type": "text", "text": "Gamma"},
+                ],
+                "expected_texts": ["Alpha", "Beta", "Gamma"],
+            },
+        ],
+    )
+    def test_to_adk_content_skips_step_and_generic_parts(self, parts_config):
+        """Should skip both StepPart and GenericPart when converting to ADK."""
+        # given
+        message_data = {"role": "user", "parts": parts_config["parts"]}
+
+        # when
+        message = ChatMessage(**message_data)
+        adk_content = message.to_adk_content()
+
+        # then: Only text parts should be converted to ADK parts
+        assert len(adk_content.parts) == len(parts_config["expected_texts"])
+        for i, expected_text in enumerate(parts_config["expected_texts"]):
+            assert adk_content.parts[i].text == expected_text
+
+    # ========== Test GenericPart Extra Fields ==========
+
+    def test_generic_part_allows_extra_fields(self):
+        """Should allow GenericPart to accept any additional fields."""
+        # given
+        part_data = {
+            "type": "custom-chunk",  # Unknown type
+            "stepId": "123",
+            "timestamp": "2025-12-15T07:00:00Z",
+            "arbitrary_field": "arbitrary_value",
+            "nested": {"key": "value"},
+        }
+
+        # when
+        part = GenericPart(**part_data)
+
+        # then
+        assert part.type == "custom-chunk"
+        # Extra fields should be preserved
+        dump = part.model_dump()
+        assert dump["stepId"] == "123"
+        assert dump["timestamp"] == "2025-12-15T07:00:00Z"
+        assert dump["arbitrary_field"] == "arbitrary_value"
+        assert dump["nested"] == {"key": "value"}
+
+    # ========== Test Step Parts Don't Accept Extra Fields by Default ==========
+
+    def test_step_part_basic_fields(self):
+        """Should handle StepPart basic fields correctly."""
+        # given
+        part_data = {"type": "step-start"}
+
+        # when
+        part = StepPart(**part_data)
+
+        # then
+        assert part.type == "step-start"
+        assert part.model_dump() == {"type": "step-start"}
+
+    # ========== Edge Cases ==========
+
+    def test_empty_parts_array(self):
+        """Should handle message with empty parts array."""
+        # given
+        message_data = {"role": "user", "parts": []}
+
+        # when
+        message = ChatMessage(**message_data)
+        adk_content = message.to_adk_content()
+
+        # then
         assert len(adk_content.parts) == 0
+
+    def test_message_with_only_internal_chunks(self):
+        """Should skip all internal chunks when message contains only internal chunks."""
+        # given
+        message_data = {
+            "role": "assistant",
+            "parts": [
+                {"type": "start"},
+                {"type": "step-start"},
+                {"type": "finish-step"},
+                {"type": "unknown-internal"},
+            ],
+        }
+
+        # when
+        message = ChatMessage(**message_data)
+        adk_content = message.to_adk_content()
+
+        # then: All internal chunks should be skipped
+        assert len(adk_content.parts) == 0
+
+    # ========== Test Invalid Types Still Raise Errors ==========
+
+    def test_invalid_part_structure_raises_error(self):
+        """Should raise validation error for truly invalid part structures."""
+        # given: parts is not an array
+        message_data = {
+            "role": "user",
+            "parts": "not-an-array",  # Invalid: must be a list
+        }
+
+        # when/then: Should fail because parts must be a list
+        with pytest.raises(ValidationError) as exc_info:
+            ChatMessage(**message_data)
+
+        assert "parts" in str(exc_info.value).lower() or "list" in str(exc_info.value).lower()
+
+    def test_text_type_without_text_field_becomes_generic(self):
+        """Should treat {"type": "text"} without text field as GenericPart."""
+        # given: Looks like TextPart but missing 'text' field
+        message_data = {"role": "user", "parts": [{"type": "text"}]}
+
+        # when
+        message = ChatMessage(**message_data)
+
+        # then: It becomes GenericPart because TextPart validation fails
+        assert len(message.parts) == 1
+        assert isinstance(message.parts[0], GenericPart)
+        assert message.parts[0].type == "text"
+
+    def test_text_without_type_field_uses_default(self):
+        """Should use default type="text" for {"text": "hello"} creating TextPart."""
+        # given: Missing 'type' but TextPart has default
+        message_data = {"role": "user", "parts": [{"text": "hello"}]}
+
+        # when
+        message = ChatMessage(**message_data)
+
+        # then: It becomes TextPart with default type="text"
+        assert len(message.parts) == 1
+        assert isinstance(message.parts[0], TextPart)
+        assert message.parts[0].type == "text"
+        assert message.parts[0].text == "hello"

@@ -77,7 +77,7 @@ export async function sendImageMessage(
  */
 export async function waitForAssistantResponse(
   page: Page,
-  options?: { timeout?: number }
+  options?: { timeout?: number },
 ) {
   const timeout = options?.timeout ?? 120000; // Default 2 minutes
 

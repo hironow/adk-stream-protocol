@@ -89,7 +89,15 @@
       "Bash(pnpm run format:*)",
       "Bash(awk:*)",
       "Bash(xargs grep -l adk_request_confirmation|originalFunctionCall)",
-      "Bash(xargs grep:*)"
+      "Bash(xargs grep:*)",
+      "Bash(pkill:*)",
+      "Skill(superpowers:verification-before-completion)",
+      "Bash(pnpm run test:app:*)",
+      "Bash(pnpm run test:lib:*)",
+      "Bash(git mv:*)",
+      "Bash(pnpm test:components:*)",
+      "Bash(pnpm test:app:*)",
+      "mcp__serena__insert_after_symbol"
     ],
     "deny": [
       "Read(.env.keys)",

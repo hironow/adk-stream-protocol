@@ -6,7 +6,6 @@
  */
 
 import type { UIMessage } from "@ai-sdk/react";
-import { lastAssistantMessageIsCompleteWithApprovalResponses } from "ai";
 
 /**
  * Options for sendAutomaticallyWhen function
@@ -18,7 +17,7 @@ export interface SendAutomaticallyWhenOptions {
 /**
  * Checks if the last message is an assistant message with adk_request_confirmation completed.
  *
- * Phase 5: ADK Tool Confirmation Flow Integration
+ * ADK Tool Confirmation Flow Integration
  * - Detects when adk_request_confirmation tool has completed (state=output-available)
  * - This indicates user has approved/denied the confirmation via the approval UI
  * - Triggers automatic message sending to continue the agent workflow
@@ -38,9 +37,7 @@ export function sendAutomaticallyWhenAdkConfirmation({
   messages,
 }: SendAutomaticallyWhenOptions): boolean {
   try {
-    // Phase 5: Custom logic for ADK Tool Confirmation Flow
-    // Trigger send when adk_request_confirmation has output (confirmed/denied)
-    // Don't wait for process_payment to complete (it can't until confirmation is sent)
+    // Custom logic for ADK Tool Confirmation Flow
     const lastMessage = messages[messages.length - 1];
     if (lastMessage?.role !== "assistant") return false;
 
@@ -49,25 +46,53 @@ export function sendAutomaticallyWhenAdkConfirmation({
     const parts = (lastMessage as any).parts || [];
 
     // Check if adk_request_confirmation has output
-    // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
     const confirmationPart = parts.find(
+      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
       (part: any) =>
         part.type === "tool-adk_request_confirmation" &&
-        part.state === "output-available"
+        part.state === "output-available",
     );
 
     if (confirmationPart) {
+      // Get the original function call ID from confirmation input
+      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+      const originalFunctionCallId = (confirmationPart as any).input
+        ?.originalFunctionCall?.id;
+
+      if (originalFunctionCallId) {
+        // Find the original tool part by its toolCallId
+        const originalToolPart = parts.find(
+          // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+          (part: any) => part.toolCallId === originalFunctionCallId,
+        );
+
+        if (originalToolPart && originalToolPart.state === "output-available") {
+          // Original tool has completed, no need to send again
+          console.log(
+            "[sendAutomaticallyWhen] Original tool already complete, not sending",
+          );
+          return false;
+        }
+      }
+
+      // Send the confirmation to server
       console.log(
-        "[sendAutomaticallyWhen] adk_request_confirmation completed, triggering send"
+        "[sendAutomaticallyWhen] adk_request_confirmation completed, triggering send",
       );
       return true;
     }
 
-    // Fall back to standard approval logic for Phase 4 tools
-    return lastAssistantMessageIsCompleteWithApprovalResponses({ messages });
+    // DON'T fall back to standard approval logic - it may cause infinite loops
+    console.log(
+      "[sendAutomaticallyWhen] No adk_request_confirmation completion, not sending",
+    );
+    return false;
   } catch (error) {
     // Prevent infinite request loops by returning false on error
-    console.error("[sendAutomaticallyWhen] Error in sendAutomaticallyWhen:", error);
+    console.error(
+      "[sendAutomaticallyWhen] Error in sendAutomaticallyWhen:",
+      error,
+    );
     return false;
   }
 }
@@ -103,7 +128,7 @@ export function findPart(
   // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
   parts: any[],
   type: string,
-  state?: string
+  state?: string,
   // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
 ): any | undefined {
   return parts.find((part) => {
@@ -116,10 +141,10 @@ export function findPart(
 /**
  * Creates an ADK confirmation output for addToolOutput.
  *
- * Phase 5: ADK Tool Confirmation Flow
- * - Encapsulates the protocol details of ADK RequestConfirmation
- * - Components don't need to know about originalFunctionCall structure
- * - Backend expects originalFunctionCall in output for proper conversion
+ * ADK Tool Confirmation Flow (Simplified)
+ * - Simple format: just {confirmed: boolean}
+ * - Backend uses toolCallId directly (no originalFunctionCall needed)
+ * - Matches ADK specification in assets/adk/action-confirmation.txt
  *
  * @param toolInvocation - The adk_request_confirmation tool invocation
  * @param confirmed - true if user approved, false if denied
@@ -134,16 +159,13 @@ export function findPart(
 export function createAdkConfirmationOutput(
   // biome-ignore lint/suspicious/noExplicitAny: Tool invocation type varies
   toolInvocation: any,
-  confirmed: boolean
+  confirmed: boolean,
 ): { tool: string; toolCallId: string; output: unknown } {
-  const originalToolCall = toolInvocation.input?.originalFunctionCall;
-
   return {
     tool: "adk_request_confirmation",
     toolCallId: toolInvocation.toolCallId,
     output: {
-      originalFunctionCall: originalToolCall,
-      toolConfirmation: { confirmed },
+      confirmed,
     },
   };
 }
