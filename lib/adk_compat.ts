@@ -78,7 +78,7 @@ export function sendAutomaticallyWhenAdkConfirmation({
       //
       // When user clicks Approve/Deny:
       // - Confirmation tool in output-available state
-      // - Original tool (if exists) is still waiting (input-available)
+      // - Original tool (if exists) is still waiting (input-available or executing)
       //
       // After backend responds:
       // - Confirmation still in output-available
@@ -87,46 +87,55 @@ export function sendAutomaticallyWhenAdkConfirmation({
       //
       // By checking original tool state, we detect when backend has responded
 
-      // Get original tool info from confirmation input
-      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
-      const originalFunctionCall = (confirmationPart as any).input
-        ?.originalFunctionCall;
-      const originalToolId = originalFunctionCall?.id;
-
-      console.log(
-        `[sendAutomaticallyWhen] Original tool ID: ${originalToolId || "none"}`,
+      // Phase 5: No originalFunctionCall in input anymore
+      // Instead, find ANY other tool in the same message (not confirmation)
+      const otherTools = parts.filter(
+        // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+        (part: any) =>
+          part.type?.startsWith("tool-") &&
+          part.type !== "tool-adk_request_confirmation",
       );
 
-      // Check if original tool has completed
-      if (originalToolId) {
-        const originalToolPart = parts.find(
-          // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
-          (part: any) => part.toolCallId === originalToolId,
+      console.log(
+        `[sendAutomaticallyWhen] Found ${otherTools.length} other tool(s) besides confirmation`,
+      );
+
+      // Check if any other tool has completed (backend responded)
+      for (const toolPart of otherTools) {
+        // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+        const toolState = (toolPart as any).state;
+        // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+        const toolType = (toolPart as any).type;
+
+        console.log(
+          `[sendAutomaticallyWhen] Tool ${toolType} state: ${toolState}`,
         );
 
-        if (originalToolPart) {
-          // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
-          const originalToolState = (originalToolPart as any).state;
+        // ✅ Check for both completed states AND error state
+        // This detects when backend has ALREADY responded (prevents infinite loop)
+        // Note: "output-error" is the actual state value (not "Failed" which is UI display)
+        if (toolState === "output-available" || toolState === "output-error") {
           console.log(
-            `[sendAutomaticallyWhen] Original tool state: ${originalToolState}`,
+            `[sendAutomaticallyWhen] Tool ${toolType} completed (state: ${toolState}), backend has responded, not sending`,
           );
+          return false;
+        }
 
-          // If original tool has completed (output-available) or failed, backend has responded
-          if (
-            originalToolState === "output-available" ||
-            originalToolState === "Failed"
-          ) {
-            console.log(
-              "[sendAutomaticallyWhen] Original tool completed, backend has responded, not sending",
-            );
-            return false;
-          }
+        // ✅ Check if tool has error (additional safety)
+        // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+        const hasError = (toolPart as any).error;
+        if (hasError) {
+          console.log(
+            `[sendAutomaticallyWhen] Tool ${toolType} has error, not sending`,
+          );
+          return false;
         }
       }
 
       // First time confirmation completed - send to backend
+      // This applies to BOTH approval and denial - backend needs to know either way
       console.log(
-        "[sendAutomaticallyWhen] First confirmation completion detected (no text yet), triggering send",
+        "[sendAutomaticallyWhen] First confirmation completion detected, triggering send to backend",
       );
       return true;
     }
