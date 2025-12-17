@@ -1,11 +1,71 @@
 # 引き継ぎ書
 
 **Date:** 2025-12-18
-**Current Status:** ✅ E2E Infinite Loop Bug Fixed - TDD RED→GREEN Complete
+**Current Status:** ✅ Strict Mode Violations Fixed (4/5 Tests Passing)
 
 ---
 
-## 🎯 LATEST SESSION: E2E Infinite Loop Fix - ADK Confirmation (2025-12-18)
+## 🎯 LATEST SESSION: E2E Strict Mode Violations Fix (2025-12-18 - Session 2)
+
+### Summary
+Applied systematic debugging approach to fix E2E test failures. Fixed Strict Mode Violations in minimal test suite by adding `.first()` to button selectors. **4/5 tests now passing** (was 2/5). Infinite loop bug remains resolved.
+
+### Systematic Debugging Process Applied
+
+**Phase 1: Root Cause Investigation**
+- Analyzed 47 failing E2E tests
+- Categorized failures into 6 categories:
+  1. **Strict Mode Violations** (8-10 tests): Multiple Approve/Deny buttons detected
+  2. **Phase 4 UI Not Found** (5 tests): Legacy Phase 4 UI elements
+  3. **Missing AI Response Text** (10-15 tests): AI doesn't generate response after approval
+  4. **Timeout - "Thinking..." State** (5-8 tests): Timing issues
+  5. **Backend Equivalence Tests** (11 tests): Text mismatch
+  6. **Chunk Player UI Tests** (5-6 tests): UI verification timeouts
+
+**Phase 2: Pattern Analysis**
+- Compared working (Tests 3, 4) vs failing (Tests 1, 2, 5) tests
+- Discovered: Tests 3, 4 pass because they don't verify AI text content
+- Tests 1, 2, 5 fail due to strict mode violations + missing AI text
+
+**Phase 3: Hypothesis Testing**
+- Hypothesis: Strict mode violations mask other issues
+- Verification: `sendAutomaticallyWhen()` works correctly (1 request sent after approval)
+- Conclusion: Fix strict mode first (easy), then investigate AI text issue (complex)
+
+**Phase 4: Implementation**
+- Added `.first()` to all Approve/Deny button selectors in adk-confirmation-minimal.spec.ts
+- Tests before: 2/5 passing → After: 4/5 passing ✅
+- Only Test 1 still fails (AI response text issue - separate problem)
+
+### Test Results (After Strict Mode Fix)
+- ✅ Test 2: Denial flow - No strict mode error, no infinite loop
+- ✅ Test 3: Sequential approvals - 4 requests (normal)
+- ✅ Test 4: Deny→Approve - 2 requests (normal)
+- ✅ Test 5: Approve→Deny - 2 requests (normal)
+- ❌ Test 1: AI response text not appearing (different issue)
+
+### Changes Made
+**File**: `e2e/adk-confirmation-minimal.spec.ts`
+- Added `.first()` to all `getByRole("button", { name: "Approve" })` calls
+- Added `.first()` to all `getByRole("button", { name: "Deny" })` calls
+- Total: 10 button selectors fixed across 5 tests
+
+**Commit**: 2898128
+
+### Next Steps (Priority Order)
+1. **HIGH**: Apply `.first()` fix to other test files
+   - `e2e/adk-tool-confirmation.spec.ts` (17 instances)
+   - `e2e/chunk-logger-integration.spec.ts` (4 instances)
+2. **HIGH**: Investigate AI response text not appearing after approval
+   - Backend may not be processing confirmation correctly
+   - Need to check backend logs
+   - Affects Test 1 + ~10-15 other tests
+3. **MEDIUM**: Update/skip Phase 4 legacy tests (5 tests)
+4. **LOW**: Address timeout issues in chunk player and backend equivalence tests
+
+---
+
+## 🔙 PREVIOUS SESSION: E2E Infinite Loop Fix - ADK Confirmation (2025-12-18 - Session 1)
 
 ### Summary
 Fixed critical infinite loop bug in ADK tool confirmation denial flow using TDD approach (RED→GREEN). Created minimal E2E test suite, identified root cause through ultra-deep analysis, and fixed with Phase 5 compatible implementation. **4/5 critical tests now passing** - infinite loop completely eliminated.

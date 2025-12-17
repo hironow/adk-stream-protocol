@@ -35,30 +35,54 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
 
 ## 📊 Active Tasks
 
-### 🔴 E2E Test Failures Investigation (Next Session)
-**Status:** ⏳ **PENDING** - To be addressed in next session
-**Priority:** Medium
-**Description:** 47 E2E tests failing (unrelated to infinite loop fix)
+### 🟡 E2E Strict Mode Violations - Remaining Files
+**Status:** 🔄 **IN PROGRESS** - Partially complete
+**Priority:** High
+**Description:** Apply `.first()` fix to remaining test files with Approve/Deny buttons
 
-**Categories of Failures:**
-1. **Timeouts (2.0m, 4.0m)**: Image processing, backend switching, UI verification tests
-2. **Strict Mode Violations**: Multiple buttons detected (Approve/Deny)
-3. **Missing AI Text Responses**: Text not appearing after approval
-4. **Known Issues**: BIDI mode limitations (see BUG-ADK-BIDI-TOOL-CONFIRMATION.md)
-5. **Phase 4 Tests**: Old tool approval flow tests
+**Progress:**
+- ✅ `e2e/adk-confirmation-minimal.spec.ts` - Complete (4/5 tests passing)
+- ⏳ `e2e/adk-tool-confirmation.spec.ts` - 17 instances to fix
+- ⏳ `e2e/chunk-logger-integration.spec.ts` - 4 instances to fix
 
-**Next Steps:**
-1. Categorize failures by root cause
-2. Prioritize based on impact
-3. Fix strict mode violations (use `.first()` selector)
-4. Investigate missing AI text responses
-5. Update test expectations for known BIDI limitations
+**Result After adk-confirmation-minimal Fix:**
+- Before: 2/5 tests passing
+- After: 4/5 tests passing ✅
+- Infinite loop: Still resolved ✅
 
-**Related Files:**
-- `e2e/adk-confirmation-minimal.spec.ts` (Tests 1, 2, 5)
+### 🔴 AI Response Text Not Appearing After Approval
+**Status:** ⏳ **PENDING** - Root cause investigation needed
+**Priority:** High
+**Description:** AI doesn't generate response text after approval (affects ~10-15 tests)
+
+**Symptoms:**
+- `sendAutomaticallyWhen()` works correctly (1 request sent)
+- `waitForAssistantResponse()` succeeds ("Thinking..." disappears)
+- **But**: AI response text never appears in UI
+- Tool state: Stuck in "Executing..." (never completes to "output-available")
+
+**Hypothesis:**
+Backend may not be processing confirmation correctly, or tool execution is blocked
+
+**Investigation Steps:**
+1. Check backend Python logs for confirmation processing
+2. Verify tool execution completes on backend
+3. Check SSE event stream for AI response chunks
+4. Compare working (Tests 3, 4, 5) vs failing (Test 1) backend behavior
+
+**Affected Tests:**
+- `e2e/adk-confirmation-minimal.spec.ts` (Test 1)
 - `e2e/adk-tool-confirmation.spec.ts` (Multiple tests)
-- `e2e/chat-backend-equivalence.spec.ts` (Timeout failures)
-- `e2e/chunk-player-ui-verification.spec.ts` (Timeout failures)
+- Other tests with `expect(page.getByText(/送金しました/)).toBeVisible()`
+
+### 🟠 Other E2E Test Categories
+**Status:** ⏳ **PENDING** - Lower priority
+**Description:** Remaining test failure categories
+
+1. **Phase 4 UI Not Found** (5 tests) - Legacy Phase 4 tests may need updating/skipping
+2. **Timeout Issues** (10-15 tests) - Image processing, UI verification (2-4min timeouts)
+3. **Backend Equivalence Tests** (11 tests) - Text mismatch issues
+4. **Chunk Player UI Tests** (5-6 tests) - UI verification timeouts
 
 ---
 
@@ -75,6 +99,15 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
 ---
 
 ## 📋 Recent Completions
+
+### ✅ E2E Strict Mode Violations Fix - Minimal Suite (2025-12-18)
+- **Fixed** Strict Mode Violations in `e2e/adk-confirmation-minimal.spec.ts`
+- **Method**: Systematic Debugging (4-phase process)
+- **Result**: 4/5 tests passing (was 2/5) ✅
+- **Changes**: Added `.first()` to 10 Approve/Deny button selectors
+- **Commit**: 2898128
+- **Files Modified**: `e2e/adk-confirmation-minimal.spec.ts`
+- **Remaining Work**: Apply fix to 2 more test files (21 instances total)
 
 ### ✅ Infinite Loop Bug Fix - ADK Confirmation Denial (2025-12-18)
 - **Fixed** critical infinite loop in ADK tool confirmation denial flow
