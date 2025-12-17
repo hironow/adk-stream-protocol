@@ -28,6 +28,7 @@ from google.adk.events import Event
 from google.genai import types
 from loguru import logger
 
+from adk_compat import inject_confirmation_for_bidi
 from chunk_logger import Mode, chunk_logger
 
 # Log truncation threshold for base64 and long content fields
@@ -845,7 +846,39 @@ class StreamProtocolConverter:
         yield "data: [DONE]\n\n"
 
 
-async def stream_adk_to_ai_sdk(  # noqa: C901
+async def _convert_to_sse_events(
+    processed_event: Event | dict[str, Any],
+    original_event: Event,
+    converter: StreamProtocolConverter,
+) -> AsyncGenerator[str, None]:
+    """
+    Convert ADK Event or injected dict to SSE event strings.
+
+    This helper function unifies the conversion logic for both:
+    - Original ADK Event objects (converted via converter)
+    - Injected confirmation dicts (already in AI SDK v6 format)
+
+    Args:
+        processed_event: Either original ADK Event object or injected dict
+        original_event: The original ADK Event (for identity check)
+        converter: The StreamProtocolConverter instance
+
+    Yields:
+        SSE formatted event strings
+    """
+    if processed_event is original_event:
+        # Original ADK Event - convert normally via converter
+        # Type assertion: identity check guarantees this is an Event
+        assert isinstance(processed_event, Event)
+        async for sse_event in converter.convert_event(processed_event):
+            yield sse_event
+    else:
+        # Injected confirmation event (dict in AI SDK v6 format)
+        # Convert directly to SSE without going through converter
+        yield f"data: {json.dumps(processed_event)}\n\n"
+
+
+async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912
     event_stream: AsyncGenerator[Event, None],
     message_id: str | None = None,
     mode: Mode = "adk-sse",  # "adk-sse" or "adk-bidi" for chunk logger
@@ -883,18 +916,22 @@ async def stream_adk_to_ai_sdk(  # noqa: C901
                 mode=mode,
             )
 
-            # Convert and yield event: all event should be processed here!!
-            async for sse_event in converter.convert_event(event):
-                # Chunk Logger: Record SSE event (output)
-                # Log raw SSE string to avoid encoding/decoding issues
-                chunk_logger.log_chunk(
-                    location="backend-sse-event",
-                    direction="out",
-                    chunk=sse_event,
-                    mode=mode,
-                )
-
-                yield sse_event
+            # BIDI Confirmation Injection: Unify SSE and BIDI tool confirmation flows
+            # SSE: Passes through original event only (ADK generates confirmation)
+            # BIDI: Injects adk_request_confirmation events for require_confirmation=True tools
+            for processed_event in inject_confirmation_for_bidi(
+                event, is_bidi=(mode == "adk-bidi")
+            ):
+                # Convert to SSE events (unified path for both Event objects and dicts)
+                async for sse_event in _convert_to_sse_events(processed_event, event, converter):
+                    # Chunk Logger: Record SSE event (output)
+                    chunk_logger.log_chunk(
+                        location="backend-sse-event",
+                        direction="out",
+                        chunk=sse_event,
+                        mode=mode,
+                    )
+                    yield sse_event
 
             # But, extract metadata if present (for finalization)
             if hasattr(event, "usage_metadata") and event.usage_metadata:

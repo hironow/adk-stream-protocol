@@ -13,6 +13,7 @@ import json
 import os
 import uuid
 from pathlib import Path
+from typing import Any
 
 from dotenv import load_dotenv
 
@@ -49,6 +50,99 @@ from ai_sdk_v6_compat import (  # noqa: E402
     process_chat_message_for_bidi,
 )
 from stream_protocol import stream_adk_to_ai_sdk  # noqa: E402
+
+# ========== Frontend Tool Delegate ==========
+
+
+class FrontendToolDelegate:
+    """
+    Makes frontend tool execution awaitable using asyncio.Future.
+
+    Pattern:
+        1. Tool calls execute_on_frontend() with tool_call_id
+        2. Future is created and stored in _pending_calls
+        3. Tool awaits the Future (blocks)
+        4. Frontend executes tool and sends result via WebSocket
+        5. WebSocket handler calls resolve_tool_result()
+        6. Future is resolved, tool resumes and returns result
+    """
+
+    def __init__(self) -> None:
+        """Initialize the delegate with empty pending calls dict."""
+        self._pending_calls: dict[str, asyncio.Future[dict[str, Any]]] = {}
+
+    async def execute_on_frontend(
+        self, tool_call_id: str, tool_name: str, args: dict[str, Any]
+    ) -> dict[str, Any]:
+        """
+        Delegate tool execution to frontend and await result.
+
+        Args:
+            tool_call_id: ADK's function_call.id (from ToolContext)
+            tool_name: Name of the tool to execute
+            args: Tool arguments
+
+        Returns:
+            Result dict from frontend execution
+
+        Raises:
+            RuntimeError: If tool result not received within timeout
+        """
+        future: asyncio.Future[dict[str, Any]] = asyncio.Future()
+        self._pending_calls[tool_call_id] = future
+
+        logger.info(
+            f"[FrontendDelegate] Awaiting result for tool_call_id={tool_call_id}, "
+            f"tool={tool_name}, args={args}"
+        )
+
+        # Await frontend result (blocks here until result arrives)
+        result = await future
+
+        logger.info(f"[FrontendDelegate] Received result for tool_call_id={tool_call_id}: {result}")
+
+        return result
+
+    def resolve_tool_result(self, tool_call_id: str, result: dict[str, Any]) -> None:
+        """
+        Resolve a pending tool call with its result.
+
+        Called by WebSocket handler when frontend sends tool_result event.
+
+        Args:
+            tool_call_id: The tool call ID to resolve
+            result: Result dict from frontend execution
+        """
+        if tool_call_id in self._pending_calls:
+            logger.info(
+                f"[FrontendDelegate] Resolving tool_call_id={tool_call_id} with result: {result}"
+            )
+            self._pending_calls[tool_call_id].set_result(result)
+            del self._pending_calls[tool_call_id]
+        else:
+            logger.warning(
+                f"[FrontendDelegate] No pending call found for tool_call_id={tool_call_id}"
+            )
+
+    def reject_tool_call(self, tool_call_id: str, error_message: str) -> None:
+        """
+        Reject a pending tool call with an error.
+
+        Args:
+            tool_call_id: The tool call ID to reject
+            error_message: Error message
+        """
+        if tool_call_id in self._pending_calls:
+            logger.error(
+                f"[FrontendDelegate] Rejecting tool_call_id={tool_call_id} "
+                f"with error: {error_message}"
+            )
+            self._pending_calls[tool_call_id].set_exception(RuntimeError(error_message))
+            del self._pending_calls[tool_call_id]
+        else:
+            logger.warning(
+                f"[FrontendDelegate] No pending call found for tool_call_id={tool_call_id}"
+            )
 
 
 def get_user() -> str:
@@ -124,6 +218,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ========== Global Frontend Tool Delegate ==========
+# Shared delegate instance for both SSE and BIDI modes
+# Note: Past implementation pattern - delegate resolves via WebSocket for both modes
+frontend_delegate = FrontendToolDelegate()
 
 
 class ChatRequest(BaseModel):
@@ -327,6 +426,10 @@ async def stream(request: ChatRequest):
         session = await get_or_create_session(user_id, sse_agent_runner, "agents")
         logger.info(f"[/stream] Session ID: {session.id}")
 
+        # Use global frontend tool delegate (shared across SSE and BIDI modes)
+        session.state["frontend_delegate"] = frontend_delegate
+        logger.info("[/stream] Global FrontendToolDelegate stored in session.state")
+
         # Sync conversation history (BUG-006 FIX)
         # When switching modes (e.g., Gemini Direct -> ADK SSE), sync history
         await sync_conversation_history_to_session(
@@ -429,6 +532,10 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
     )
     logger.info(f"[BIDI] Session created: {session.id}")
 
+    # Use global frontend tool delegate (shared across SSE and BIDI modes)
+    session.state["frontend_delegate"] = frontend_delegate
+    logger.info("[BIDI] Global FrontendToolDelegate stored in session.state")
+
     # Create LiveRequestQueue for bidirectional communication
     live_request_queue = LiveRequestQueue()
 
@@ -499,7 +606,7 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
         logger.info("[BIDI] ADK live stream started")
 
         # Receive messages from WebSocket → send to LiveRequestQueue
-        async def receive_from_client():  # noqa: C901, PLR0912
+        async def receive_from_client():  # noqa: C901, PLR0912, PLR0915
             try:
                 while True:
                     data = await websocket.receive_text()
@@ -594,6 +701,23 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
                             audio_blob = types.Blob(mime_type="audio/pcm", data=audio_bytes)
                             # Send to ADK via LiveRequestQueue
                             live_request_queue.send_realtime(audio_blob)
+
+                    # Handle tool_result event
+                    elif event_type == "tool_result":
+                        tool_result_data = event.get("data", {})
+                        tool_call_id = tool_result_data.get("toolCallId")
+                        result = tool_result_data.get("result")
+
+                        if tool_call_id and result:
+                            # Get delegate from session state
+                            delegate = session.state.get("frontend_delegate")
+                            if delegate:
+                                delegate.resolve_tool_result(tool_call_id, result)
+                                logger.info(f"[BIDI] Resolved tool result for {tool_call_id}")
+                            else:
+                                logger.warning("[BIDI] No delegate found in session state")
+                        else:
+                            logger.warning(f"[BIDI] Invalid tool_result event: {event}")
 
                     # Unknown event type
                     else:

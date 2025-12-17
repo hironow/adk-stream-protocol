@@ -214,21 +214,35 @@ def process_payment(
     return result
 
 
-def change_bgm(track: int) -> dict[str, Any]:
+async def change_bgm(track: int, tool_context: ToolContext | None = None) -> dict[str, Any]:
     """
-    Change background music track (auto-executes on frontend via onToolCall).
+    Change background music track.
 
-    This tool auto-executes on the frontend without requiring approval.
-    The backend immediately returns success, while the actual BGM change
-    is handled by the frontend's onToolCall callback.
+    - SSE mode: Direct execution (no delegate needed)
+    - BIDI mode: Frontend delegate (via tool_context)
 
     Args:
-        track: Track number (0 or 1)
+        track: Track number (1 or 2) - matches frontend "BGM 1" and "BGM 2" labels
+        tool_context: ADK ToolContext (required for BIDI delegate)
 
     Returns:
-        Success confirmation (actual execution happens on frontend)
+        Success confirmation
     """
-    logger.info(f"[change_bgm] Tool called with track={track} (frontend auto-executes)")
+    if tool_context:
+        # Check for delegate in tool_context (BIDI mode)
+        delegate = tool_context.session.state.get("frontend_delegate")
+        if delegate:
+            # BIDI mode - delegate to frontend
+            result = await delegate.execute_on_frontend(
+                tool_call_id=tool_context.invocation_id,
+                tool_name="change_bgm",
+                args={"track": track},
+            )
+            logger.info(f"[change_bgm] BIDI delegated: track={track}, result={result}")
+            return result
+
+    # SSE mode or no delegate - direct return (frontend handles via onToolCall)
+    logger.info(f"[change_bgm] SSE mode: track={track} (frontend auto-executes)")
     return {
         "success": True,
         "track": track,
@@ -236,19 +250,48 @@ def change_bgm(track: int) -> dict[str, Any]:
     }
 
 
-def get_location() -> dict[str, Any]:
+async def get_location(tool_context: ToolContext) -> dict[str, Any]:
     """
-    Get user's current location (executed on frontend via browser Geolocation API).
+    Get user's current location (requires user approval).
 
-    This tool auto-executes on the frontend without requiring approval.
-    The backend immediately returns success, while the actual location retrieval
-    is handled by the frontend's onToolCall callback via browser Geolocation API.
+    This tool delegates execution to the frontend browser via the global FrontendToolDelegate.
+    Both SSE and BIDI modes use the same delegation pattern.
+
+    The actual location retrieval is handled by the frontend's browser Geolocation API.
+
+    Args:
+        tool_context: ADK ToolContext (automatically injected)
 
     Returns:
-        Success confirmation (actual execution happens on frontend)
+        User's location information from browser Geolocation API
     """
-    logger.info("[get_location] Tool called (frontend auto-executes)")
-    return {
-        "success": True,
-        "message": "Location request initiated (frontend handles execution via Geolocation API)",
-    }
+    tool_call_id = tool_context.invocation_id
+    if not tool_call_id:
+        error_msg = "Missing invocation_id in ToolContext"
+        logger.error(f"[get_location] {error_msg}")
+        return {"success": False, "error": error_msg}
+
+    logger.info(f"[get_location] Delegating to frontend: tool_call_id={tool_call_id}")
+
+    # Delegate execution to frontend and await result
+    # Note: Uses global frontend_delegate via session.state
+    session_state = getattr(tool_context.session, "state", None)
+    if not session_state:
+        error_msg = "Missing session.state in ToolContext"
+        logger.error(f"[get_location] {error_msg}")
+        return {"success": False, "error": error_msg}
+
+    delegate = session_state.get("frontend_delegate")
+    if not delegate:
+        error_msg = "Missing frontend_delegate in session.state"
+        logger.error(f"[get_location] {error_msg}")
+        return {"success": False, "error": error_msg}
+
+    result = await delegate.execute_on_frontend(
+        tool_call_id=tool_call_id,
+        tool_name="get_location",
+        args={},
+    )
+
+    logger.info(f"[get_location] Received result from frontend: {result}")
+    return result

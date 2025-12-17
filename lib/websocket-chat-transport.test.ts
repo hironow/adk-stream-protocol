@@ -1519,6 +1519,58 @@ describe("WebSocketChatTransport", () => {
       expect(chunk.messageMetadata).toBeDefined();
       expect(chunk.messageMetadata[field]).toEqual(value);
     });
+
+    it("should send tool_result event via sendToolResult()", async () => {
+      // Given: Transport with established connection
+      const { transport, ws } = await initializeTransport({
+        url: "ws://localhost:8000/live",
+      });
+
+      ws.sentMessages = [];
+
+      // When: Call sendToolResult()
+      const toolCallId = "call_test_123";
+      const toolResult = { success: true, track: 1, message: "BGM changed" };
+      transport.sendToolResult(toolCallId, toolResult);
+
+      // Then: WebSocket should send tool_result event
+      const toolResultEvents = ws.sentMessages.filter((msg) => {
+        const parsed = JSON.parse(msg);
+        return parsed.type === "tool_result";
+      });
+
+      expect(toolResultEvents.length).toBe(1);
+      const event = JSON.parse(toolResultEvents[0]);
+      expect(event).toMatchObject({
+        type: "tool_result",
+        version: "1.0",
+        data: {
+          toolCallId,
+          result: toolResult,
+        },
+      });
+      expect(event.timestamp).toBeDefined();
+    });
+
+    it("should not send tool_result when WebSocket is not open", () => {
+      // Given: Transport without connection
+      const transport = new WebSocketChatTransport({
+        url: "ws://localhost:8000/live",
+      });
+
+      // When: Call sendToolResult() before connection
+      const consoleWarnSpy = vi
+        .spyOn(console, "warn")
+        .mockImplementation(() => {});
+      transport.sendToolResult("call_456", { result: "test" });
+
+      // Then: Should log warning but not crash
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        "[WS Transport] Cannot send event, WebSocket not open",
+      );
+
+      consoleWarnSpy.mockRestore();
+    });
   });
 
   describe("Audio Control Methods", () => {

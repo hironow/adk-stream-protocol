@@ -141,6 +141,18 @@ interface PingEvent extends ClientEvent {
 }
 
 /**
+ * Tool result event (BIDI delegate pattern)
+ * Frontend sends tool execution results back to backend to resolve delegate Futures
+ */
+interface ToolResultEvent extends ClientEvent {
+  type: "tool_result";
+  data: {
+    toolCallId: string;
+    result: Record<string, unknown>;
+  };
+}
+
+/**
  * Union type for all client-to-server events
  */
 type ClientToServerEvent =
@@ -148,7 +160,8 @@ type ClientToServerEvent =
   | InterruptEvent
   | AudioControlEvent
   | AudioChunkEvent
-  | PingEvent;
+  | PingEvent
+  | ToolResultEvent;
 
 /**
  * WebSocket transport configuration
@@ -299,6 +312,26 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
   }
 
   /**
+   * PUBLIC API: Send tool execution result (BIDI delegate pattern)
+   * Use case: Frontend executed a client-side tool and sends result back to backend
+   * to resolve the delegate Future
+   */
+  public sendToolResult(
+    toolCallId: string,
+    result: Record<string, unknown>,
+  ): void {
+    const event: ToolResultEvent = {
+      type: "tool_result",
+      version: "1.0",
+      data: {
+        toolCallId,
+        result,
+      },
+    };
+    this.sendEvent(event);
+  }
+
+  /**
    * PUBLIC API: Start audio input (BIDI mode)
    * Use case: CMD key pressed, start recording microphone
    */
@@ -409,6 +442,12 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
       messageCount: options.messages.length,
       lastMessage: options.messages[options.messages.length - 1],
     });
+
+    // DEBUG: Log last 3 messages to see tool output structure
+    console.log(
+      "[DEBUG] Last 3 messages:",
+      JSON.stringify(options.messages.slice(-3), null, 2),
+    );
 
     const { url, timeout } = this.config;
 

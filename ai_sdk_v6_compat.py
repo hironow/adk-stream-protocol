@@ -492,6 +492,11 @@ def process_chat_message_for_bidi(
     if not messages:
         return ([], None)
 
+    # STEP 1: Log incoming message data (verify frontend is sending correct data)
+    logger.info(f"[STEP 1] Received {len(messages)} messages from frontend")
+    logger.info(f"[STEP 1] Last message role: {messages[-1].get('role')}")
+    logger.info(f"[STEP 1] Last message parts: {messages[-1].get('parts', [])}")
+
     # Parse last message from AI SDK v6 format
     last_msg = ChatMessage(**messages[-1])
 
@@ -503,7 +508,9 @@ def process_chat_message_for_bidi(
     text_parts: list[types.Part] = []
 
     if last_msg.parts:
+        logger.info(f"[STEP 2] Processing {len(last_msg.parts)} parts")
         for part in last_msg.parts:
+            logger.info(f"[STEP 2] Part type: {type(part).__name__}")
             # Handle file parts (images/videos)
             if isinstance(part, FilePart):
                 # Decode data URL format: "data:image/png;base64,..."
@@ -525,5 +532,12 @@ def process_chat_message_for_bidi(
     text_content = None
     if text_parts:
         text_content = types.Content(role="user", parts=text_parts)
+
+    # STEP 3: Log ADK format before sending (verify correct structure for ADK)
+    logger.info(
+        f"[STEP 3] ADK format: image_blobs={len(image_blobs)}, text_parts={len(text_parts)}"
+    )
+    if text_content:
+        logger.info(f"[STEP 3] Text content role: {text_content.role}, parts: {text_content.parts}")
 
     return (image_blobs, text_content)

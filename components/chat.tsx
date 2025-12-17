@@ -77,16 +77,24 @@ export function Chat({
         // Execute BGM change using AudioContext
         audioContext.bgmChannel.switchTrack();
 
+        const toolResult = {
+          success: true,
+          current_track: track,
+          message: `BGM changed to track ${track}`,
+        };
+
+        // BIDI delegate pattern: addToolOutput() triggers AI SDK v6 auto-send
+        // AI SDK v6 will call transport.sendMessages() automatically
         // No await - avoids potential deadlocks (per AI SDK v6 docs)
         addToolOutput({
           tool: "change_bgm",
           toolCallId: toolCall.toolCallId,
-          output: {
-            success: true,
-            current_track: track,
-            message: `BGM changed to track ${track}`,
-          },
+          output: toolResult,
         });
+
+        console.log(
+          `[Chat] Tool output added for toolCallId=${toolCall.toolCallId}, AI SDK v6 will auto-send`,
+        );
       }
     },
   });
@@ -169,12 +177,12 @@ export function Chat({
         switch (toolName) {
           case "change_bgm": {
             // Execute AudioContext API
-            const track = args?.track ?? 0;
+            const track = args?.track ?? 1; // Default to track 1 (1-based indexing)
             console.log(`[Chat] Executing change_bgm: track=${track}`);
             audioContext.bgmChannel.switchTrack();
             result = {
               success: true,
-              previous_track: track === 0 ? 1 : 0,
+              previous_track: track === 1 ? 2 : 1, // 1-based: if current is 1, previous was 2
               current_track: track,
               message: `BGM changed to track ${track}`,
             };

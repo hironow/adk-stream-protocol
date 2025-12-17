@@ -253,3 +253,143 @@ def detect_mode_switch(session: Any, current_mode: str) -> tuple[bool, str]:
         return True, previous_mode
 
     return False, previous_mode
+
+
+# ========== BIDI Confirmation Injection ==========
+# Functions to unify SSE and BIDI tool confirmation flows
+
+
+def inject_confirmation_for_bidi(
+    event: dict[str, Any] | Any,  # dict or Event object
+    is_bidi: bool,
+) -> Any:  # Iterator[dict[str, Any] | Event]
+    """
+    Inject adk_request_confirmation events for BIDI mode to unify with SSE flow.
+
+    In SSE mode, ADK automatically generates adk_request_confirmation FunctionCall events
+    when a tool has require_confirmation=True. In BIDI mode, ADK does NOT generate these
+    events (known limitation). This function manually injects them for BIDI mode to provide
+    a consistent experience across both modes.
+
+    Flow:
+    - SSE: ADK generates → we pass through (yield original only)
+    - BIDI: ADK doesn't generate → we inject (yield original + 2 confirmation events)
+
+    Args:
+        event: ADK event dict or Event object (FunctionCall, FunctionResponse, etc.)
+        is_bidi: True if BIDI mode, False if SSE mode
+
+    Yields:
+        Original event, plus injected confirmation events if BIDI + confirmation required
+
+    Reference:
+        - BUG-ADK-BIDI-TOOL-CONFIRMATION.md: Issue #1
+        - SSE mode events: backend-sse-event.jsonl seq 88-89
+    """
+    # Always yield original event first
+    yield event
+
+    # SSE mode: ADK handles confirmation, nothing to inject
+    if not is_bidi:
+        return
+
+    # BIDI mode: Check if this FunctionCall requires confirmation
+    if not _is_function_call_requiring_confirmation(event):
+        return
+
+    # Inject confirmation events
+    yield generate_confirmation_tool_input_start(event)
+    yield generate_confirmation_tool_input_available(event)
+
+
+def _is_function_call_requiring_confirmation(event: dict[str, Any] | Any) -> bool:
+    """
+    Check if event is a FunctionCall requiring confirmation.
+
+    Works with both dict and Event object representations.
+
+    Args:
+        event: ADK event dict or Event object
+
+    Returns:
+        True if FunctionCall with confirmation required
+    """
+    # Handle both dict and Event object
+    event_type = event.get("type") if isinstance(event, dict) else getattr(event, "type", None)
+
+    if event_type != "function_call":
+        return False
+
+    # Check metadata for requested_tool_confirmations
+    if isinstance(event, dict):
+        actions = event.get("actions", {})
+        confirmations = actions.get("requested_tool_confirmations", [])
+    else:
+        actions = getattr(event, "actions", None)
+        confirmations = actions.requested_tool_confirmations if actions else []
+
+    return len(confirmations) > 0
+
+
+def generate_confirmation_tool_input_start(event: dict[str, Any] | Any) -> dict[str, Any]:
+    """
+    Generate tool-input-start event for adk_request_confirmation.
+
+    Args:
+        event: Original FunctionCall event (dict or Event object)
+
+    Returns:
+        tool-input-start event dict
+    """
+    # Extract function_call from either dict or Event object
+    if isinstance(event, dict):
+        function_call = event.get("function_call", {})
+        tool_call_id = function_call.get("id", "unknown")
+    else:
+        function_call = getattr(event, "function_call", None)
+        tool_call_id = function_call.id if function_call else "unknown"
+
+    return {
+        "type": "tool-input-start",
+        "toolCallId": f"confirmation-{tool_call_id}",
+        "toolName": "adk_request_confirmation",
+    }
+
+
+def generate_confirmation_tool_input_available(event: dict[str, Any] | Any) -> dict[str, Any]:
+    """
+    Generate tool-input-available event for adk_request_confirmation.
+
+    Args:
+        event: Original FunctionCall event (dict or Event object)
+
+    Returns:
+        tool-input-available event dict
+    """
+    # Extract function_call from either dict or Event object
+    if isinstance(event, dict):
+        function_call = event.get("function_call", {})
+        fc_id = function_call.get("id")
+        fc_name = function_call.get("name")
+        fc_args = function_call.get("args", {})
+    else:
+        function_call = getattr(event, "function_call", None)
+        fc_id = function_call.id if function_call else None
+        fc_name = function_call.name if function_call else None
+        fc_args = function_call.args if function_call else {}
+
+    return {
+        "type": "tool-input-available",
+        "toolCallId": f"confirmation-{fc_id or 'unknown'}",
+        "toolName": "adk_request_confirmation",
+        "input": {
+            "originalFunctionCall": {
+                "id": fc_id,
+                "name": fc_name,
+                "args": fc_args,
+            },
+            "toolConfirmation": {
+                "confirmed": False,  # Initial state
+            },
+        },
+    }

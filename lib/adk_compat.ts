@@ -39,11 +39,25 @@ export function sendAutomaticallyWhenAdkConfirmation({
   try {
     // Custom logic for ADK Tool Confirmation Flow
     const lastMessage = messages[messages.length - 1];
+    console.log(
+      `[sendAutomaticallyWhen] Checking lastMessage role: ${lastMessage?.role}`,
+    );
     if (lastMessage?.role !== "assistant") return false;
 
     // AI SDK v6 stores tool invocations in the `parts` array, not `toolInvocations`
     // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
     const parts = (lastMessage as any).parts || [];
+    console.log(
+      `[sendAutomaticallyWhen] Found ${parts.length} parts in lastMessage`,
+    );
+    console.log(
+      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+      `[sendAutomaticallyWhen] Part types: ${parts.map((p: any) => p.type).join(", ")}`,
+    );
+    console.log(
+      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+      `[sendAutomaticallyWhen] Part states: ${parts.map((p: any) => `${p.type}:${p.state}`).join(", ")}`,
+    );
 
     // Check if adk_request_confirmation has output
     const confirmationPart = parts.find(
@@ -54,30 +68,42 @@ export function sendAutomaticallyWhenAdkConfirmation({
     );
 
     if (confirmationPart) {
-      // Get the original function call ID from confirmation input
+      // Check if this is the FIRST time confirmation completed (user just clicked)
+      // vs. backend has responded with additional content
+      //
+      // When user clicks Approve/Deny:
+      // - Only confirmation tool in output-available state
+      // - No text response yet
+      // - No other completed tools
+      //
+      // After backend responds:
+      // - Confirmation still in output-available
+      // - BUT: message also contains text response OR completed/failed original tool
+      //
+      // By checking for additional content, we prevent sending the same confirmation multiple times
+
       // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
-      const originalFunctionCallId = (confirmationPart as any).input
-        ?.originalFunctionCall?.id;
+      const hasTextResponse = parts.some((part: any) => part.type === "text");
 
-      if (originalFunctionCallId) {
-        // Find the original tool part by its toolCallId
-        const originalToolPart = parts.find(
-          // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
-          (part: any) => part.toolCallId === originalFunctionCallId,
+      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+      const hasOtherCompletedTools = parts.some((part: any) => {
+        const isNotConfirmation = part.type !== "tool-adk_request_confirmation";
+        const isCompleted =
+          part.state === "output-available" || part.state === "Failed";
+        return isNotConfirmation && isCompleted;
+      });
+
+      if (hasTextResponse || hasOtherCompletedTools) {
+        // Backend has responded - don't send again
+        console.log(
+          "[sendAutomaticallyWhen] Backend has responded (text or completed tools present), not sending",
         );
-
-        if (originalToolPart && originalToolPart.state === "output-available") {
-          // Original tool has completed, no need to send again
-          console.log(
-            "[sendAutomaticallyWhen] Original tool already complete, not sending",
-          );
-          return false;
-        }
+        return false;
       }
 
-      // Send the confirmation to server
+      // First time confirmation completed - send to backend
       console.log(
-        "[sendAutomaticallyWhen] adk_request_confirmation completed, triggering send",
+        "[sendAutomaticallyWhen] First confirmation completion detected, triggering send",
       );
       return true;
     }

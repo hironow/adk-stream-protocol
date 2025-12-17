@@ -339,6 +339,42 @@ describe("sendAutomaticallyWhenAdkConfirmation", () => {
     expect(result).toBe(true);
   });
 
+  it("should return false when original tool is Failed after denial (prevents infinite loop)", () => {
+    // After backend processes denial, original tool enters "Failed" state
+    // We should NOT auto-send again when original tool is already Failed
+    // This prevents infinite loop: denial sent → backend responds with Failed → don't send again
+    const messages = [
+      {
+        id: "phase5-denial-response",
+        role: "assistant",
+        content: "Payment was denied",
+        parts: [
+          {
+            type: "tool-process_payment",
+            toolCallId: "call-payment-789",
+            toolName: "process_payment",
+            state: "Failed", // Tool failed after user denied
+            input: { amount: 1000, recipient: "Bob", currency: "USD" },
+            output: { error: "This tool call is rejected." },
+          },
+          {
+            type: "tool-adk_request_confirmation",
+            toolCallId: "call-confirm-999",
+            toolName: "adk_request_confirmation",
+            state: "output-available",
+            input: {
+              originalFunctionCall: { id: "call-payment-789" }, // Points to failed tool
+            },
+            output: { confirmed: false },
+          },
+        ],
+      },
+    ] as UIMessage[];
+    const result = sendAutomaticallyWhenAdkConfirmation({ messages });
+    // Should NOT trigger auto-send because original tool is already Failed
+    expect(result).toBe(false);
+  });
+
   it("should handle multiple tool calls with confirmation in the middle", () => {
     // Complex scenario with multiple tools
     const messages = [

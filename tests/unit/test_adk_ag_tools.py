@@ -167,34 +167,123 @@ class TestWeatherTool:
 class TestChangeBgm:
     """Tests for the change_bgm tool."""
 
-    def test_change_bgm_returns_success(self):
+    @pytest.mark.asyncio
+    async def test_change_bgm_returns_success(self):
         """Should return success message immediately (frontend handles execution)."""
-        # when: Change BGM to track 0
-        result = change_bgm(track=0)
+        # when: Change BGM to track 1
+        result = await change_bgm(track=1)
 
         # then: Should return success
         assert result["success"] is True
-        assert result["track"] == 0
-        assert "BGM change to track 0" in result["message"]
-
-    def test_change_bgm_track_1(self):
-        """Should handle track 1."""
-        # when: Change BGM to track 1
-        result = change_bgm(track=1)
-
-        # then: Should return success with track 1
-        assert result["success"] is True
         assert result["track"] == 1
+        assert "BGM change to track 1" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_change_bgm_track_2(self):
+        """Should handle track 2."""
+        # when: Change BGM to track 2
+        result = await change_bgm(track=2)
+
+        # then: Should return success with track 2
+        assert result["success"] is True
+        assert result["track"] == 2
 
 
 class TestGetLocation:
-    """Tests for the get_location tool (frontend auto-execute)."""
+    """Tests for the get_location tool with approval flow."""
 
-    def test_get_location_returns_success(self):
-        """Should return success message immediately (frontend handles execution)."""
-        # when: Get location
-        result = get_location()
+    # Removed: test_get_location_returns_success_without_context
+    # New implementation requires tool_context (past implementation pattern)
 
-        # then: Should return success
+    @pytest.mark.asyncio
+    async def test_get_location_with_bidi_delegate_approval_granted(self):
+        """
+        BIDI mode: Should delegate to frontend when tool_context with delegate is provided.
+
+        When user approves, frontend returns location data.
+        """
+        # given: Mock tool_context with frontend delegate (BIDI mode)
+        mock_delegate = AsyncMock()
+        mock_delegate.execute_on_frontend.return_value = {
+            "success": True,
+            "latitude": 35.6762,
+            "longitude": 139.6503,
+            "accuracy": 10,
+            "message": "Location retrieved successfully",
+        }
+
+        mock_session = MagicMock()
+        mock_session.state = {"frontend_delegate": mock_delegate}
+
+        mock_tool_context = MagicMock()
+        mock_tool_context.session = mock_session
+        mock_tool_context.invocation_id = "test-invocation-123"
+
+        # when: Call get_location with tool_context
+        result = await get_location(tool_context=mock_tool_context)
+
+        # then: Should delegate to frontend and return location data
+        mock_delegate.execute_on_frontend.assert_called_once_with(
+            tool_call_id="test-invocation-123",
+            tool_name="get_location",
+            args={},
+        )
         assert result["success"] is True
-        assert "Location request initiated" in result["message"]
+        assert result["latitude"] == 35.6762
+        assert result["longitude"] == 139.6503
+        assert result["accuracy"] == 10
+
+    @pytest.mark.asyncio
+    async def test_get_location_with_bidi_delegate_approval_denied(self):
+        """
+        BIDI mode: Should handle approval denial from frontend delegate.
+
+        When user denies, frontend returns error.
+        """
+        # given: Mock tool_context with frontend delegate that returns denial
+        mock_delegate = AsyncMock()
+        mock_delegate.execute_on_frontend.return_value = {
+            "success": False,
+            "error": "User denied location access",
+            "code": "PERMISSION_DENIED",
+        }
+
+        mock_session = MagicMock()
+        mock_session.state = {"frontend_delegate": mock_delegate}
+
+        mock_tool_context = MagicMock()
+        mock_tool_context.session = mock_session
+        mock_tool_context.invocation_id = "test-invocation-456"
+
+        # when: Call get_location with tool_context
+        result = await get_location(tool_context=mock_tool_context)
+
+        # then: Should return denial error
+        assert result["success"] is False
+        assert "denied" in result["error"].lower()
+        assert result["code"] == "PERMISSION_DENIED"
+
+    @pytest.mark.asyncio
+    async def test_get_location_with_context_but_no_delegate_returns_error(self):
+        """
+        Should return error when tool_context exists but frontend_delegate is not set.
+
+        Past implementation pattern: delegate is always required (set in session.state).
+        If delegate is missing, it's a configuration error.
+        """
+        # given: Mock tool_context WITHOUT frontend delegate
+        mock_session = MagicMock()
+        mock_session.state = {}  # No frontend_delegate
+
+        mock_tool_context = MagicMock()
+        mock_tool_context.session = mock_session
+        mock_tool_context.invocation_id = "test-invocation-error"
+
+        # when: Call get_location with tool_context but no delegate
+        result = await get_location(tool_context=mock_tool_context)
+
+        # then: Should return error (can be either session.state or frontend_delegate missing)
+        assert result["success"] is False
+        assert "error" in result
+        # Error message varies depending on mock behavior
+        assert "frontend_delegate" in result["error"] or "session.state" in result["error"]

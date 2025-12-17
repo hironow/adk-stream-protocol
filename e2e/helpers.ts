@@ -101,10 +101,10 @@ export async function getMessages(page: Page) {
 
 /**
  * Get the last message in the chat
+ * Uses .last() for more reliable selection instead of array indexing
  */
 export async function getLastMessage(page: Page) {
-  const messages = await getMessages(page);
-  return messages[messages.length - 1];
+  return page.locator('[data-testid^="message-"]').last();
 }
 
 /**

@@ -97,7 +97,10 @@
       "Bash(git mv:*)",
       "Bash(pnpm test:components:*)",
       "Bash(pnpm test:app:*)",
-      "mcp__serena__insert_after_symbol"
+      "mcp__serena__insert_after_symbol",
+      "mcp__serena__think_about_whether_you_are_done",
+      "Bash(pnpm exec playwright show-report:*)",
+      "Bash(xargs ps:*)"
     ],
     "deny": [
       "Read(.env.keys)",

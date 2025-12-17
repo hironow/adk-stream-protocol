@@ -813,3 +813,185 @@ async def test_session_send_message_called_for_user_input():
         f"but was called {session.send_message.call_count} times"
     )
     session.send_message.assert_called_once_with("Send 50 dollars to Hanako")
+
+
+# ========== BIDI Confirmation Injection Tests ==========
+# Tests for inject_confirmation_for_bidi() - SSE/BIDI mode unification
+
+
+def test_inject_confirmation_for_bidi_sse_mode_yields_original_only():
+    """
+    SSE mode: Should yield only the original event (ADK already generates confirmation).
+
+    Spy verification: Helper functions should NOT be called in SSE mode.
+    """
+    from adk_compat import inject_confirmation_for_bidi
+
+    # given: process_payment FunctionCall event in SSE mode
+    function_call_event = {
+        "type": "function_call",
+        "function_call": {
+            "id": "call-123",
+            "name": "process_payment",
+            "args": {"amount": 50, "recipient": "Hanako"},
+        },
+        # Metadata indicating confirmation required
+        "actions": {
+            "requested_tool_confirmations": [
+                {
+                    "id": "call-123",
+                    "name": "process_payment",
+                }
+            ]
+        },
+    }
+
+    # when: Process in SSE mode (is_bidi=False)
+    results = list(inject_confirmation_for_bidi(function_call_event, is_bidi=False))
+
+    # then: Should yield only original event (1 event)
+    assert len(results) == 1
+    assert results[0] == function_call_event
+
+
+def test_inject_confirmation_for_bidi_bidi_mode_injects_confirmation():
+    """
+    BIDI mode: Should yield original event + 2 confirmation events.
+
+    Flow: FunctionCall → tool-input-start (confirmation) → tool-input-available (confirmation)
+    """
+    from adk_compat import inject_confirmation_for_bidi
+
+    # given: process_payment FunctionCall event in BIDI mode
+    function_call_event = {
+        "type": "function_call",
+        "function_call": {
+            "id": "call-456",
+            "name": "process_payment",
+            "args": {"amount": 100, "recipient": "Taro"},
+        },
+        # Metadata indicating confirmation required
+        "actions": {
+            "requested_tool_confirmations": [
+                {
+                    "id": "call-456",
+                    "name": "process_payment",
+                }
+            ]
+        },
+    }
+
+    # when: Process in BIDI mode (is_bidi=True)
+    results = list(inject_confirmation_for_bidi(function_call_event, is_bidi=True))
+
+    # then: Should yield 3 events (original + tool-input-start + tool-input-available)
+    assert len(results) == 3
+
+    # Verify event sequence
+    assert results[0] == function_call_event  # Original
+
+    # tool-input-start
+    assert results[1]["type"] == "tool-input-start"
+    assert results[1]["toolName"] == "adk_request_confirmation"
+    assert "toolCallId" in results[1]
+
+    # tool-input-available
+    assert results[2]["type"] == "tool-input-available"
+    assert results[2]["toolName"] == "adk_request_confirmation"
+    assert results[2]["input"]["originalFunctionCall"]["id"] == "call-456"
+    assert results[2]["input"]["originalFunctionCall"]["name"] == "process_payment"
+
+
+def test_inject_confirmation_for_bidi_no_confirmation_required():
+    """
+    BIDI mode: Tool without confirmation should yield only original event.
+
+    Tools like get_weather (no require_confirmation=True) should pass through.
+    """
+    from adk_compat import inject_confirmation_for_bidi
+
+    # given: get_weather FunctionCall (no confirmation required)
+    function_call_event = {
+        "type": "function_call",
+        "function_call": {
+            "id": "call-789",
+            "name": "get_weather",
+            "args": {"location": "Tokyo"},
+        },
+        # No requested_tool_confirmations metadata
+        "actions": {},
+    }
+
+    # when: Process in BIDI mode
+    results = list(inject_confirmation_for_bidi(function_call_event, is_bidi=True))
+
+    # then: Should yield only original event (no injection)
+    assert len(results) == 1
+    assert results[0] == function_call_event
+
+
+def test_inject_confirmation_for_bidi_spy_helper_not_called_in_sse():
+    """
+    Spy test: Verify helper functions are NOT called in SSE mode.
+
+    This ensures SSE mode has zero overhead from injection logic.
+    """
+    from unittest.mock import patch
+
+    from adk_compat import inject_confirmation_for_bidi
+
+    # given: FunctionCall event
+    event = {
+        "type": "function_call",
+        "actions": {"requested_tool_confirmations": [{"id": "x", "name": "process_payment"}]},
+    }
+
+    # when: Process in SSE mode with spies
+    with (
+        patch("adk_compat.generate_confirmation_tool_input_start") as spy_start,
+        patch("adk_compat.generate_confirmation_tool_input_available") as spy_available,
+    ):
+        list(inject_confirmation_for_bidi(event, is_bidi=False))
+
+        # then: Helper functions should NOT be called
+        spy_start.assert_not_called()
+        spy_available.assert_not_called()
+
+
+def test_inject_confirmation_for_bidi_spy_helper_called_in_bidi():
+    """
+    Spy test: Verify helper functions ARE called in BIDI mode with confirmation.
+
+    Ensures injection logic is properly invoked.
+    """
+    from unittest.mock import patch
+
+    from adk_compat import inject_confirmation_for_bidi
+
+    # given: FunctionCall event requiring confirmation
+    event = {
+        "type": "function_call",
+        "function_call": {"id": "call-1", "name": "process_payment", "args": {}},
+        "actions": {"requested_tool_confirmations": [{"id": "call-1", "name": "process_payment"}]},
+    }
+
+    # when: Process in BIDI mode with spies
+    with (
+        patch("adk_compat.generate_confirmation_tool_input_start") as spy_start,
+        patch("adk_compat.generate_confirmation_tool_input_available") as spy_available,
+    ):
+        # Mock return values
+        spy_start.return_value = {
+            "type": "tool-input-start",
+            "toolName": "adk_request_confirmation",
+        }
+        spy_available.return_value = {
+            "type": "tool-input-available",
+            "toolName": "adk_request_confirmation",
+        }
+
+        list(inject_confirmation_for_bidi(event, is_bidi=True))
+
+        # then: Helper functions should be called exactly once
+        spy_start.assert_called_once()
+        spy_available.assert_called_once()

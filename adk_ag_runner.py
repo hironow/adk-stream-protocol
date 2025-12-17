@@ -33,7 +33,7 @@ AGENT_INSTRUCTION = (
     "You are a helpful AI assistant with access to the following tools:\n"
     "- get_weather: Check weather for any city\n"
     "- process_payment: Process payment transactions (requires user approval via ADK confirmation)\n"
-    "- change_bgm: Change background music track (auto-executes on frontend)\n"
+    "- change_bgm: Change background music track to 1 or 2 (auto-executes on frontend)\n"
     "- get_location: Get user's location (auto-executes on frontend via browser Geolocation API)\n\n"
     "IMPORTANT: You MUST use these tools to perform the requested actions. "
     "When a user asks you to check weather, send money, change BGM, or get location, "
@@ -69,7 +69,7 @@ sse_agent = Agent(
         get_weather,
         FunctionTool(process_payment, require_confirmation=True),
         change_bgm,
-        get_location,
+        get_location,  # Uses global frontend_delegate for approval (past implementation pattern)
     ],
     # Note: ADK Agent doesn't support seed and temperature parameters
 )
@@ -84,7 +84,7 @@ bidi_agent = Agent(
     instruction=AGENT_INSTRUCTION,
     tools=[
         get_weather,
-        FunctionTool(process_payment, require_confirmation=True),
+        process_payment,  # NOTE: require_confirmation not supported in BIDI mode
         change_bgm,
         get_location,
     ],
