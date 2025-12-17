@@ -59,10 +59,13 @@ if not API_KEY:
 else:
     logger.info(f"ADK API key loaded: {API_KEY[:10]}...")
 
+# ========= Define Agents ==========
+# https://ai.google.dev/gemini-api/docs/models
+
 # SSE Agent: Uses stable model for generateContent API (SSE streaming)
 sse_agent = Agent(
     name="adk_assistant_agent_sse",
-    model="gemini-2.5-flash",  # Stable Gemini 2.5 Flash for generateContent API (SSE mode)
+    model="gemini-3-flash-preview",  # Gemini 3 Flash Preview for generateContent API (SSE mode)
     description=AGENT_DESCRIPTION,
     instruction=AGENT_INSTRUCTION,
     tools=[
@@ -76,7 +79,8 @@ sse_agent = Agent(
 
 # BIDI Agent: Uses Live API model for bidirectional streaming
 # Model can be configured via ADK_BIDI_MODEL env var, defaults to native-audio model for audio support
-bidi_model = os.getenv("ADK_BIDI_MODEL", "gemini-2.5-flash-native-audio-preview-09-2025")
+# default is newest available model
+bidi_model = os.getenv("ADK_BIDI_MODEL", "gemini-2.5-flash-native-audio-preview-12-2025")
 bidi_agent = Agent(
     name="adk_assistant_agent_bidi",
     model=bidi_model,  # Configurable model for BIDI mode
