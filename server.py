@@ -49,6 +49,7 @@ from ai_sdk_v6_compat import (  # noqa: E402
     ToolUsePart,
     process_chat_message_for_bidi,
 )
+from chunk_logger import chunk_logger  # noqa: E402
 from stream_protocol import stream_adk_to_ai_sdk  # noqa: E402
 
 # ========== Frontend Tool Delegate ==========
@@ -189,6 +190,13 @@ logger.add(
 
 logger.info("ADK Backend Server starting up...")
 logger.info(f"Logging to: {log_file}")
+
+# Log chunk logger configuration
+chunk_info = chunk_logger.get_info()
+logger.info(f"Chunk Logger: enabled={chunk_info['enabled']}")
+if chunk_info["enabled"]:
+    logger.info(f"Chunk Logger: session_id={chunk_info['session_id']}")
+    logger.info(f"Chunk Logger: output_path={chunk_info['output_path']}")
 
 # Explicitly ensure API key is in os.environ for Google GenAI SDK
 if not os.getenv("GOOGLE_GENERATIVE_AI_API_KEY"):

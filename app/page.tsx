@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Chat } from "@/components/chat";
 import { AudioProvider } from "@/lib/audio-context";
 import type { BackendMode } from "@/lib/build-use-chat-options";
+import { chunkLogger } from "@/lib/chunk-logger";
 
 export default function ChatPage() {
   const [mode, setMode] = useState<BackendMode>("gemini");
@@ -151,6 +152,31 @@ export default function ChatPage() {
           >
             Clear History
           </button>
+
+          {/* Download Chunk Logger Button */}
+          {chunkLogger.isEnabled() && (
+            <button
+              type="button"
+              onClick={() => {
+                chunkLogger.export();
+              }}
+              style={{
+                marginTop: "0.5rem",
+                padding: "0.5rem 1rem",
+                borderRadius: "4px",
+                border: "1px solid #2563eb",
+                background: "#1e3a8a",
+                color: "#93c5fd",
+                fontSize: "0.875rem",
+                cursor: "pointer",
+                width: "100%",
+                textAlign: "center",
+                fontWeight: 500,
+              }}
+            >
+              📥 Download Chunks
+            </button>
+          )}
         </div>
 
         {/* Single unified Chat component with mode prop */}

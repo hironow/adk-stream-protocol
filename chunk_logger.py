@@ -187,6 +187,19 @@ class ChunkLogger:
         json_line = json.dumps(asdict(entry), ensure_ascii=False)
         file_handle.write(json_line + "\n")
 
+    def get_output_path(self) -> Path:
+        """Get the full output path for the current session."""
+        return self._output_dir / self._session_id
+
+    def get_info(self) -> dict[str, Any]:
+        """Get logger configuration information."""
+        return {
+            "enabled": self._enabled,
+            "output_dir": str(self._output_dir),
+            "session_id": self._session_id,
+            "output_path": str(self.get_output_path()),
+        }
+
     def close(self) -> None:
         """Close all file handles."""
         for handle in self._file_handles.values():

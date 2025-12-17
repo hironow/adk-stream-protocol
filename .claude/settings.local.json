@@ -101,7 +101,8 @@
       "mcp__serena__think_about_whether_you_are_done",
       "Bash(pnpm exec playwright show-report:*)",
       "Bash(xargs ps:*)",
-      "Bash(test:*)"
+      "Bash(test:*)",
+      "Bash(sed:*)"
     ],
     "deny": [
       "Read(.env.keys)",

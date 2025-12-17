@@ -5,6 +5,7 @@
  * These helpers interact with real UI elements (no mocks).
  */
 
+import fs from "node:fs";
 import path from "node:path";
 import { expect, type Locator, type Page } from "@playwright/test";
 
@@ -20,9 +21,34 @@ export async function navigateToChat(page: Page) {
 }
 
 /**
+ * Dismiss the "Enable Audio" modal if it appears
+ * This modal can block UI interactions in E2E tests
+ */
+export async function dismissAudioModalIfPresent(page: Page) {
+  try {
+    const enableAudioButton = page.getByRole("button", {
+      name: /Enable Audio/i,
+    });
+    const isVisible = await enableAudioButton
+      .isVisible({ timeout: 1000 })
+      .catch(() => false);
+
+    if (isVisible) {
+      await enableAudioButton.click();
+      await page.waitForTimeout(500);
+    }
+  } catch {
+    // Modal not present, continue
+  }
+}
+
+/**
  * Select backend mode
  */
 export async function selectBackendMode(page: Page, mode: BackendMode) {
+  // Dismiss audio modal if it's blocking interactions
+  await dismissAudioModalIfPresent(page);
+
   const buttonMap = {
     gemini: "Gemini Direct",
     "adk-sse": "ADK SSE",
@@ -182,6 +208,25 @@ export async function clearHistory(page: Page) {
 }
 
 /**
+ * Clear backend chunk log files for a specific session
+ * This ensures tests start with clean backend logs
+ */
+export function clearBackendChunkLogs(sessionId: string) {
+  const backendLogDir = path.join(process.cwd(), "chunk_logs", sessionId);
+
+  if (fs.existsSync(backendLogDir)) {
+    // Delete all .jsonl files in the session directory
+    const files = fs.readdirSync(backendLogDir);
+    for (const file of files) {
+      if (file.endsWith(".jsonl")) {
+        const filePath = path.join(backendLogDir, file);
+        fs.unlinkSync(filePath);
+      }
+    }
+  }
+}
+
+/**
  * Wait for tool approval dialog to appear
  */
 export async function waitForToolApproval(
@@ -235,6 +280,23 @@ export async function createTestImageFixture() {
     fs.mkdirSync(fixturesDir, { recursive: true });
   }
   // Image should be created manually or copied from test assets
+}
+
+/**
+ * Enable chunk logger for E2E testing
+ * This enables frontend chunk logging via localStorage
+ */
+export async function enableChunkLogger(
+  page: Page,
+  sessionId: string = "e2e-test",
+) {
+  await page.evaluate(
+    ({ sid }) => {
+      localStorage.setItem("CHUNK_LOGGER_ENABLED", "true");
+      localStorage.setItem("CHUNK_LOGGER_SESSION_ID", sid);
+    },
+    { sid: sessionId },
+  );
 }
 
 /**
@@ -300,4 +362,229 @@ export async function setupChunkPlayerMode(page: Page, patternName: string) {
 
   // Note: At this point, buildUseChatOptions will detect E2E mode
   // and create ChunkPlayerTransport instead of real transport
+}
+
+/**
+ * Download frontend chunk logs to chunk_logs/frontend/ directory
+ *
+ * This helper clicks the "Download Chunks" button and saves the downloaded
+ * chunk log file to chunk_logs/frontend/ for post-test analysis.
+ *
+ * @param page - Playwright page object
+ * @param testName - Test name to use in filename (optional)
+ * @returns The path to the saved file, or null if download failed
+ *
+ * @example
+ * const logPath = await downloadFrontendChunkLogs(page, "approval-test");
+ * // Saves to: chunk_logs/frontend/{session_id}.jsonl
+ */
+export async function downloadFrontendChunkLogs(
+  page: Page,
+  testName?: string,
+): Promise<string | null> {
+  const fs = await import("node:fs");
+  const frontendDir = path.join(process.cwd(), "chunk_logs", "frontend");
+
+  // Ensure directory exists
+  if (!fs.existsSync(frontendDir)) {
+    fs.mkdirSync(frontendDir, { recursive: true });
+  }
+
+  // Setup download handler
+  const downloadPromise = page.waitForEvent("download");
+
+  // Click download button
+  const downloadButton = page.getByRole("button", { name: /Download Chunks/i });
+  const count = await downloadButton.count();
+
+  if (count === 0) {
+    console.warn("Download Chunks button not found - skipping download");
+    return null;
+  }
+
+  await downloadButton.click();
+
+  // Wait for download and save to chunk_logs/frontend/
+  try {
+    const download = await downloadPromise;
+    const suggestedFilename = download.suggestedFilename();
+
+    // Add test name prefix if provided
+    const filename = testName
+      ? `${testName}-${suggestedFilename}`
+      : suggestedFilename;
+
+    const savePath = path.join(frontendDir, filename);
+    await download.saveAs(savePath);
+
+    console.log(`✅ Frontend chunk log saved to: ${savePath}`);
+    return savePath;
+  } catch (error) {
+    console.warn("Failed to download frontend chunk logs:", error);
+    return null;
+  }
+}
+
+/**
+ * Parse JSONL chunk log file
+ *
+ * @param filePath - Path to JSONL file
+ * @returns Array of parsed log entries
+ */
+export async function parseChunkLog(filePath: string): Promise<unknown[]> {
+  const fs = await import("node:fs");
+
+  if (!fs.existsSync(filePath)) {
+    throw new Error(`Chunk log file not found: ${filePath}`);
+  }
+
+  const content = fs.readFileSync(filePath, "utf-8");
+  const lines = content.trim().split("\n");
+
+  return lines
+    .filter((line) => line.trim().length > 0)
+    .map((line) => JSON.parse(line));
+}
+
+/**
+ * Analyze chunk logs for consistency across backend and frontend
+ *
+ * @param sessionId - Session ID to analyze
+ * @param frontendLogPath - Path to frontend log file
+ * @returns Analysis results
+ */
+export async function analyzeChunkLogConsistency(
+  sessionId: string,
+  frontendLogPath: string,
+): Promise<{
+  backendAdkEvents: number;
+  backendSseEvents: number;
+  frontendEvents: number;
+  toolCalls: Array<{
+    toolCallId: string;
+    toolName: string;
+    foundInBackendAdk: boolean;
+    foundInBackendSse: boolean;
+    foundInFrontend: boolean;
+  }>;
+  isConsistent: boolean;
+  errors: string[];
+}> {
+  const backendAdkPath = path.join(
+    process.cwd(),
+    "chunk_logs",
+    sessionId,
+    "backend-adk-event.jsonl",
+  );
+  const backendSsePath = path.join(
+    process.cwd(),
+    "chunk_logs",
+    sessionId,
+    "backend-sse-event.jsonl",
+  );
+
+  const backendAdkEvents = await parseChunkLog(backendAdkPath);
+  const backendSseEvents = await parseChunkLog(backendSsePath);
+  const frontendEvents = await parseChunkLog(frontendLogPath);
+
+  const errors: string[] = [];
+
+  // Extract tool calls from each log
+  const extractToolCallIds = (events: unknown[], source: string) => {
+    const toolCalls = new Map<string, string>();
+
+    for (const event of events) {
+      const e = event as Record<string, unknown>;
+
+      // Backend ADK events - look in chunk string
+      if (source === "backend-adk" && typeof e.chunk === "string") {
+        const toolCallMatch = e.chunk.match(/id='(adk-[^']+)'/);
+        const toolNameMatch = e.chunk.match(/name='([^']+)'/);
+        if (toolCallMatch && toolNameMatch) {
+          toolCalls.set(toolCallMatch[1], toolNameMatch[1]);
+        }
+      }
+
+      // Backend SSE events - look in chunk JSON
+      if (source === "backend-sse" && typeof e.chunk === "string") {
+        try {
+          const chunkMatch = e.chunk.match(/data: ({.*})/);
+          if (chunkMatch) {
+            const chunkData = JSON.parse(chunkMatch[1]);
+            if (chunkData.toolCallId && chunkData.toolName) {
+              toolCalls.set(chunkData.toolCallId, chunkData.toolName);
+            }
+          }
+        } catch {
+          // Ignore parse errors
+        }
+      }
+
+      // Frontend events - look in chunk object
+      if (source === "frontend" && typeof e.chunk === "object") {
+        const chunk = e.chunk as Record<string, unknown>;
+        // Frontend chunks use types like "tool-input-start", "tool-input-available", etc.
+        // They all contain toolCallId and toolName when present
+        if (
+          typeof chunk.toolCallId === "string" &&
+          typeof chunk.toolName === "string"
+        ) {
+          toolCalls.set(chunk.toolCallId, chunk.toolName);
+        }
+      }
+    }
+
+    return toolCalls;
+  };
+
+  const backendAdkToolCalls = extractToolCallIds(backendAdkEvents, "backend-adk");
+  const backendSseToolCalls = extractToolCallIds(backendSseEvents, "backend-sse");
+  const frontendToolCalls = extractToolCallIds(frontendEvents, "frontend");
+
+  // Combine all unique tool call IDs
+  const allToolCallIds = new Set([
+    ...backendAdkToolCalls.keys(),
+    ...backendSseToolCalls.keys(),
+    ...frontendToolCalls.keys(),
+  ]);
+
+  const toolCalls = Array.from(allToolCallIds).map((toolCallId) => ({
+    toolCallId,
+    toolName:
+      backendAdkToolCalls.get(toolCallId) ||
+      backendSseToolCalls.get(toolCallId) ||
+      frontendToolCalls.get(toolCallId) ||
+      "unknown",
+    foundInBackendAdk: backendAdkToolCalls.has(toolCallId),
+    foundInBackendSse: backendSseToolCalls.has(toolCallId),
+    foundInFrontend: frontendToolCalls.has(toolCallId),
+  }));
+
+  // Check consistency
+  for (const toolCall of toolCalls) {
+    if (!toolCall.foundInBackendAdk) {
+      errors.push(
+        `Tool call ${toolCall.toolCallId} (${toolCall.toolName}) missing in backend ADK events`,
+      );
+    }
+    if (!toolCall.foundInBackendSse) {
+      errors.push(
+        `Tool call ${toolCall.toolCallId} (${toolCall.toolName}) missing in backend SSE events`,
+      );
+    }
+    if (!toolCall.foundInFrontend) {
+      errors.push(
+        `Tool call ${toolCall.toolCallId} (${toolCall.toolName}) missing in frontend events`,
+      );
+    }
+  }
+
+  return {
+    backendAdkEvents: backendAdkEvents.length,
+    backendSseEvents: backendSseEvents.length,
+    frontendEvents: frontendEvents.length,
+    toolCalls,
+    isConsistent: errors.length === 0,
+    errors,
+  };
 }

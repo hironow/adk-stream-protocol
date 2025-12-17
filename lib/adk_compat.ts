@@ -68,48 +68,45 @@ export function sendAutomaticallyWhenAdkConfirmation({
     );
 
     if (confirmationPart) {
+      console.log(
+        "[sendAutomaticallyWhen] Found confirmation part:",
+        JSON.stringify(confirmationPart, null, 2),
+      );
+
       // Check if this is the FIRST time confirmation completed (user just clicked)
       // vs. backend has responded with additional content
       //
       // When user clicks Approve/Deny:
       // - Confirmation tool in output-available state
-      // - Original tool (being confirmed) is NOT yet completed
+      // - Message has NO text content yet
       //
       // After backend responds:
       // - Confirmation still in output-available
-      // - BUT: Original tool (being confirmed) is now completed or failed
+      // - BUT: Message now HAS text content (AI's response)
       //
-      // By checking if the ORIGINAL tool has completed, we prevent sending the same confirmation multiple times
+      // By checking for text content, we detect when backend has responded
 
-      // Get the original tool ID from confirmation input
-      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
-      const originalFunctionCall = (confirmationPart as any).input
-        ?.originalFunctionCall;
-      const originalToolId = originalFunctionCall?.id;
+      // Check if message has text content (indicates backend response)
+      const hasTextContent = parts.some(
+        // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+        (part: any) => part.type === "text" && part.text && part.text.trim().length > 0,
+      );
 
-      if (originalToolId) {
-        // Check if the ORIGINAL tool (being confirmed) has completed
-        const originalToolPart = parts.find(
-          // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
-          (part: any) => part.toolCallId === originalToolId,
+      console.log(
+        `[sendAutomaticallyWhen] Message has text content: ${hasTextContent}`,
+      );
+
+      if (hasTextContent) {
+        // Backend has responded with text - don't send again
+        console.log(
+          "[sendAutomaticallyWhen] Backend has responded (message has text), not sending",
         );
-
-        if (
-          originalToolPart &&
-          (originalToolPart.state === "output-available" ||
-            originalToolPart.state === "Failed")
-        ) {
-          // Original tool has completed - backend has responded, don't send again
-          console.log(
-            "[sendAutomaticallyWhen] Backend has responded (original tool completed), not sending",
-          );
-          return false;
-        }
+        return false;
       }
 
-      // First time confirmation completed OR original tool not found - send to backend
+      // First time confirmation completed (no text yet) - send to backend
       console.log(
-        "[sendAutomaticallyWhen] First confirmation completion detected, triggering send",
+        "[sendAutomaticallyWhen] First confirmation completion detected (no text yet), triggering send",
       );
       return true;
     }

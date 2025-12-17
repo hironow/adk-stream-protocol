@@ -24,6 +24,8 @@
 
 import { expect, test } from "@playwright/test";
 import {
+  downloadFrontendChunkLogs,
+  enableChunkLogger,
   navigateToChat,
   selectBackendMode,
   sendTextMessage,
@@ -34,7 +36,22 @@ test.describe("ADK Tool Confirmation Flow (Phase 5)", () => {
   test.beforeEach(async ({ page }) => {
     // Given: User navigates to chat and selects ADK SSE mode
     await navigateToChat(page);
+
+    // Enable chunk logger for E2E testing
+    await enableChunkLogger(page, "e2e-3");
+
+    // Reload to apply chunk logger settings
+    await page.reload();
+    await page.waitForLoadState("networkidle");
+
+    // Select backend mode
     await selectBackendMode(page, "adk-sse");
+  });
+
+  test.afterEach(async ({ page }, testInfo) => {
+    // Download frontend chunk logs to chunk_logs/frontend/ for analysis
+    const testName = testInfo.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+    await downloadFrontendChunkLogs(page, testName);
   });
 
   test("should display approval UI when AI requests process_payment", async ({
