@@ -78,34 +78,53 @@ export function sendAutomaticallyWhenAdkConfirmation({
       //
       // When user clicks Approve/Deny:
       // - Confirmation tool in output-available state
-      // - Message has NO text content yet
+      // - Original tool (if exists) is still waiting (input-available)
       //
       // After backend responds:
       // - Confirmation still in output-available
-      // - BUT: Message now HAS text content (AI's response)
+      // - Original tool (if exists) has completed (output-available or Failed)
+      // - Message may have new AI response text
       //
-      // By checking for text content, we detect when backend has responded
+      // By checking original tool state, we detect when backend has responded
 
-      // Check if message has text content (indicates backend response)
-      const hasTextContent = parts.some(
-        // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
-        (part: any) =>
-          part.type === "text" && part.text && part.text.trim().length > 0,
-      );
+      // Get original tool info from confirmation input
+      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+      const originalFunctionCall = (confirmationPart as any).input
+        ?.originalFunctionCall;
+      const originalToolId = originalFunctionCall?.id;
 
       console.log(
-        `[sendAutomaticallyWhen] Message has text content: ${hasTextContent}`,
+        `[sendAutomaticallyWhen] Original tool ID: ${originalToolId || "none"}`,
       );
 
-      if (hasTextContent) {
-        // Backend has responded with text - don't send again
-        console.log(
-          "[sendAutomaticallyWhen] Backend has responded (message has text), not sending",
+      // Check if original tool has completed
+      if (originalToolId) {
+        const originalToolPart = parts.find(
+          // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+          (part: any) => part.toolCallId === originalToolId,
         );
-        return false;
+
+        if (originalToolPart) {
+          // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+          const originalToolState = (originalToolPart as any).state;
+          console.log(
+            `[sendAutomaticallyWhen] Original tool state: ${originalToolState}`,
+          );
+
+          // If original tool has completed (output-available) or failed, backend has responded
+          if (
+            originalToolState === "output-available" ||
+            originalToolState === "Failed"
+          ) {
+            console.log(
+              "[sendAutomaticallyWhen] Original tool completed, backend has responded, not sending",
+            );
+            return false;
+          }
+        }
       }
 
-      // First time confirmation completed (no text yet) - send to backend
+      // First time confirmation completed - send to backend
       console.log(
         "[sendAutomaticallyWhen] First confirmation completion detected (no text yet), triggering send",
       );
