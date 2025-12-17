@@ -212,6 +212,7 @@ export async function clearHistory(page: Page) {
  * This ensures tests start with clean backend logs
  */
 export function clearBackendChunkLogs(sessionId: string) {
+  // Clear backend logs in chunk_logs/{sessionId}/
   const backendLogDir = path.join(process.cwd(), "chunk_logs", sessionId);
 
   if (fs.existsSync(backendLogDir)) {
@@ -220,6 +221,20 @@ export function clearBackendChunkLogs(sessionId: string) {
     for (const file of files) {
       if (file.endsWith(".jsonl")) {
         const filePath = path.join(backendLogDir, file);
+        fs.unlinkSync(filePath);
+      }
+    }
+  }
+
+  // Clear frontend logs in chunk_logs/frontend/ that match this session ID
+  const frontendLogDir = path.join(process.cwd(), "chunk_logs", "frontend");
+
+  if (fs.existsSync(frontendLogDir)) {
+    const files = fs.readdirSync(frontendLogDir);
+    for (const file of files) {
+      // Match pattern: *-{sessionId}.jsonl (e.g., approve-small-payment-e2e-3.jsonl)
+      if (file.endsWith(`-${sessionId}.jsonl`)) {
+        const filePath = path.join(frontendLogDir, file);
         fs.unlinkSync(filePath);
       }
     }

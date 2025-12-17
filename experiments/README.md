@@ -9,12 +9,13 @@ This directory contains research, preliminary experiments, and exploratory imple
 | Date | Experiment | Status | Objective | Current Progress |
 |------|-----------|--------|-----------|------------------|
 | 2025-12-17 | [Tool Architecture Refactoring](./2025-12-17_tool_architecture_refactoring.md) | 🔴 **BLOCKED - BIDI Bugs** | Align tool architecture with AI SDK v6 standard patterns | ✅ Phases 1-4 complete. ✅ Phase 5 complete (SSE mode ✅). ❌ **Phase 5 BIDI mode**: 2 critical bugs found - (1) Tool confirmation not working, (2) Missing AI text after tool execution. See `BUG-ADK-BIDI-TOOL-CONFIRMATION.md` |
-| 2025-12-16 | [Backend Session Persistence Fix](./2025-12-16_backend_session_persistence_fix.md) | 🔴 Blocked | Fix E2E test isolation by clearing backend session state | **BLOCKER**: `/clear-sessions` endpoint hangs indefinitely. Root cause identified (backend session persistence), but implementation has critical issue - endpoint times out with no response. E2E tests failing due to persisted session history. Needs debugging or alternative approach. |
 
 ### 🟢 Complete
 
 | Date | Experiment | Status | Objective | Result |
 |------|-----------|--------|-----------|--------|
+| 2025-12-17 | [Chunk Logger Integration Testing](./agents/insights.md) | 🟢 Complete | Verify chunk logger consistency across 3 log sources | ✅ All 8 integration tests passing. Fixed 8 issues: audio modal, session ID, metadata extraction, log accumulation, serial execution, session reuse, file handle caching, multiple deny buttons |
+| 2025-12-16 | [Backend Session Persistence Fix](./2025-12-16_backend_session_persistence_fix.md) | 🟢 Complete | Fix E2E test isolation by clearing backend session state | ✅ Fixed with `chunk_logger.close()` in `/clear-sessions` endpoint. Root cause: cached file handles become invalid after deletion |
 | 2025-12-16 | [E2E Test Simplification](./2025-12-16_frontend_delegate_e2e_test_simplification.md) | 🟢 Complete (SSE), ⚠️ Partial (BIDI) | Simplify E2E tests using helper functions | ✅ 67% code reduction, 4 helper functions, SSE 3/3 passing, BIDI 0/3 failing |
 | 2025-12-16 | [Manual Send Tool Approval](./2025-12-16_manual_send_tool_approval_design.md) | 🟢 Complete | Workaround for AI SDK v6 sendAutomaticallyWhen bug | ✅ Manual send implemented, tool approval working in all modes |
 | 2025-12-16 | [Frontend Delegate Fix](./2025-12-16_frontend_delegate_fix.md) | 🟢 Complete | Fix frontend delegate tool approval flow | ✅ Tool approval flow verified |
