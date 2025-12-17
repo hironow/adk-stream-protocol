@@ -100,7 +100,8 @@
       "mcp__serena__insert_after_symbol",
       "mcp__serena__think_about_whether_you_are_done",
       "Bash(pnpm exec playwright show-report:*)",
-      "Bash(xargs ps:*)"
+      "Bash(xargs ps:*)",
+      "Bash(test:*)"
     ],
     "deny": [
       "Read(.env.keys)",

@@ -72,36 +72,42 @@ export function sendAutomaticallyWhenAdkConfirmation({
       // vs. backend has responded with additional content
       //
       // When user clicks Approve/Deny:
-      // - Only confirmation tool in output-available state
-      // - No text response yet
-      // - No other completed tools
+      // - Confirmation tool in output-available state
+      // - Original tool (being confirmed) is NOT yet completed
       //
       // After backend responds:
       // - Confirmation still in output-available
-      // - BUT: message also contains text response OR completed/failed original tool
+      // - BUT: Original tool (being confirmed) is now completed or failed
       //
-      // By checking for additional content, we prevent sending the same confirmation multiple times
+      // By checking if the ORIGINAL tool has completed, we prevent sending the same confirmation multiple times
 
+      // Get the original tool ID from confirmation input
       // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
-      const hasTextResponse = parts.some((part: any) => part.type === "text");
+      const originalFunctionCall = (confirmationPart as any).input
+        ?.originalFunctionCall;
+      const originalToolId = originalFunctionCall?.id;
 
-      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
-      const hasOtherCompletedTools = parts.some((part: any) => {
-        const isNotConfirmation = part.type !== "tool-adk_request_confirmation";
-        const isCompleted =
-          part.state === "output-available" || part.state === "Failed";
-        return isNotConfirmation && isCompleted;
-      });
-
-      if (hasTextResponse || hasOtherCompletedTools) {
-        // Backend has responded - don't send again
-        console.log(
-          "[sendAutomaticallyWhen] Backend has responded (text or completed tools present), not sending",
+      if (originalToolId) {
+        // Check if the ORIGINAL tool (being confirmed) has completed
+        const originalToolPart = parts.find(
+          // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+          (part: any) => part.toolCallId === originalToolId,
         );
-        return false;
+
+        if (
+          originalToolPart &&
+          (originalToolPart.state === "output-available" ||
+            originalToolPart.state === "Failed")
+        ) {
+          // Original tool has completed - backend has responded, don't send again
+          console.log(
+            "[sendAutomaticallyWhen] Backend has responded (original tool completed), not sending",
+          );
+          return false;
+        }
       }
 
-      // First time confirmation completed - send to backend
+      // First time confirmation completed OR original tool not found - send to backend
       console.log(
         "[sendAutomaticallyWhen] First confirmation completion detected, triggering send",
       );

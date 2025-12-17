@@ -2,6 +2,43 @@
 
 AI SDK v6 and Google ADK integration example demonstrating SSE and WebSocket streaming implementation.
 
+## ⚠️ Development Status
+
+This project is under **active development** and contains experimental features with known issues.
+
+### Current Status
+
+**✅ Stable Features**
+- Gemini Direct mode (AI SDK v6 only)
+- ADK SSE streaming with tool calling
+- Frontend/Backend E2E test infrastructure
+
+**🚧 Experimental Features**
+- ADK BIDI (WebSocket) streaming - See known issues below
+
+### Known Issues
+
+**Critical: ADK BIDI Mode Limitations**
+
+BIDI mode (`run_live()`) has two significant issues that limit production use:
+
+1. **Tool Confirmation Not Working** 🔴
+   - Tools with `require_confirmation=True` do not trigger approval UI
+   - Root cause: ADK `FunctionTool._call_live()` TODO - "tool confirmation not yet supported for live mode"
+   - Status: Known ADK limitation, awaiting upstream fix
+   - Workaround: Use SSE mode for tools requiring confirmation
+
+2. **Missing Text Responses After Tool Execution** 🟡
+   - Tools execute successfully but AI generates no explanatory text
+   - Only raw JSON output shown to user
+   - Status: Under investigation
+   - Workaround: Use SSE mode for full tool support
+
+**See:** [docs/BUG-ADK-BIDI-TOOL-CONFIRMATION.md](docs/BUG-ADK-BIDI-TOOL-CONFIRMATION.md) for detailed analysis
+
+**Recent Fixes**
+- ✅ Fixed infinite loop in tool confirmation auto-send logic (2025-12-17)
+
 ## Project Overview
 
 This project demonstrates the integration between:
@@ -11,57 +48,19 @@ This project demonstrates the integration between:
 
 The project provides **three streaming modes** with real-time mode switching:
 
-1. **Gemini Direct** - Direct Gemini API via AI SDK
-2. **ADK SSE** - ADK backend with Server-Sent Events
-3. **ADK BIDI** ⚡ - ADK backend with WebSocket bidirectional streaming
+1. **Gemini Direct** - Direct Gemini API via AI SDK (stable)
+2. **ADK SSE** - ADK backend with Server-Sent Events (stable)
+3. **ADK BIDI** ⚡ - ADK backend with WebSocket bidirectional streaming (experimental)
 
 **Key Insight:** All three modes use the same **AI SDK v6 Data Stream Protocol** format, ensuring consistent frontend behavior regardless of backend implementation.
 
-## Current Status
-
-**Phase 1: Gemini Direct** ✅ Production Ready
-
-- Frontend: Next.js app with AI SDK v6 using `useChat` hook
-- Direct connection to Gemini API (no backend needed)
-- Built-in AI SDK v6 streaming support
-- Tool calling: `get_weather`, `calculate`, `get_current_time`
-
-**Phase 2: ADK SSE Streaming** ✅ Production Ready
-
-- Backend: FastAPI server with Google ADK integration
-- SSE streaming endpoint using ADK's `run_async()`
-- Full AI SDK v6 Data Stream Protocol compatibility
-- Real-time token-by-token streaming
-- Tool calling via ADK agent
-
-**Phase 3: ADK BIDI Streaming** ✅ Production Ready
-
-- Backend: WebSocket endpoint using ADK's `run_live()`
-- Bidirectional streaming via WebSocket
-- Custom `WebSocketChatTransport` for AI SDK v6 `useChat`
-- Real-time voice agent with native-audio models (Gemini 2.5 Flash)
-- Audio transcription: input (user) and output (AI) speech-to-text
-- Same tool calling support as SSE mode
-- Multimodal support: images, audio, PCM streaming
-- **Architecture:** "SSE format over WebSocket" (100% protocol reuse)
-
-**Phase 4: E2E Test Infrastructure** ✅ Production Ready
-
-- Chunk Logger & Player for recording and replaying actual data
-- Frontend: ChunkPlayerTransport for mock transport layer
-- Backend: ChunkPlayerManager for E2E mode detection
-- 4 Test Patterns: Gemini Direct, ADK SSE, ADK BIDI, Mode Switching
-- Golden File Testing: Regression testing with real recorded chunks
-
-**Test Coverage** ✅ 100% Field Coverage Achieved
-
-- Python: 112 unit tests (all passing)
-- TypeScript: Integration tests with parametrized testing
-- E2E: Playwright + pytest tests for all three modes
-- **Field Coverage:** 12/12 Event fields, 7/7 Part fields (100%)
-- **Critical Coverage:** Error handling, BIDI turn completion, message metadata
-
 ## Key Features
+
+### Streaming Modes
+
+- **Gemini Direct**: Built-in AI SDK v6 streaming support
+- **ADK SSE**: Token-by-token streaming via Server-Sent Events
+- **ADK BIDI**: Bidirectional WebSocket streaming for voice agents
 
 ### Multimodal Capabilities
 
@@ -70,13 +69,14 @@ The project provides **three streaming modes** with real-time mode switching:
 - **Audio Input**: Microphone recording (16kHz PCM) with CMD key push-to-talk
 - **Audio Output**: PCM streaming (24kHz) with WAV playback
 - **Audio Transcription**: Input and output speech-to-text with native-audio models
-- **Tool Calling**: Full ADK integration with user approval flow
+- **Tool Calling**: ADK integration with user approval flow (SSE mode)
 
 ### Architecture Highlights
 
 - **StreamProtocolConverter**: Converts ADK events to AI SDK v6 Data Stream Protocol
 - **SSE format over WebSocket**: Backend sends SSE format via WebSocket for BIDI mode
 - **Frontend Transparency**: Same `useChat` hook works across all three modes
+- **Custom Transport**: `WebSocketChatTransport` for AI SDK v6 WebSocket support
 - **Tool Approval Flow**: Frontend-delegated execution with AI SDK v6 approval APIs
 
 ## Tech Stack
@@ -170,11 +170,13 @@ just --list
 **Python Unit Tests:**
 ```bash
 just test-python
+# Expected: 231 passed
 ```
 
-**TypeScript Integration Tests:**
+**TypeScript Unit Tests:**
 ```bash
-pnpm exec vitest run
+pnpm run test:lib
+# Expected: 255 passed
 ```
 
 **End-to-End Tests:**
@@ -183,24 +185,39 @@ just test-e2e-clean  # Recommended: clean server restart
 just test-e2e-ui     # Interactive UI mode
 ```
 
-**Field Coverage Validation:**
+**Code Quality:**
 ```bash
-just check-coverage           # Show field mapping coverage
-just check-coverage-validate  # CI/CD validation
+just format  # Format code
+just lint    # Run linters
+just check   # Run type checks
 ```
 
 ## Documentation
 
 Comprehensive documentation is available in the `docs/` directory:
 
+### Core Documentation
+
 - **[Getting Started Guide](docs/GETTING_STARTED.md)** - Detailed setup, usage examples, troubleshooting, AI SDK v6 migration notes
 - **[Architecture Documentation](docs/ARCHITECTURE.md)** - Complete architecture diagrams, protocol flows, tool approval system, multimodal implementation
 - **[Implementation Status](docs/IMPLEMENTATION.md)** - ADK field mapping, AI SDK v6 protocol coverage, feature parity status
+
+### Testing & Quality
+
 - **[E2E Testing Guide](docs/E2E_GUIDE.md)** - Frontend and backend E2E testing, chunk logger/player system, golden file testing
 - **[Test Coverage Audit](docs/TEST_COVERAGE_AUDIT.md)** - Detailed test coverage report, parametrized test status
-- **[Architecture Decision Records](docs/adr/)** - ADR 0001: Per-Connection State Management
 
-Additional resources:
+### Technical Notes
+
+- **[React Memoization](docs/REACT_MEMOIZATION.md)** - React performance optimization patterns
+- **[Bug Report: ADK BIDI Tool Confirmation](docs/BUG-ADK-BIDI-TOOL-CONFIRMATION.md)** - Known BIDI mode issues analysis
+
+### Architecture Decision Records
+
+- **[ADR 0001: Per-Connection State Management](docs/adr/0001-per-connection-state-management.md)**
+- **[ADR 0002: Tool Approval Architecture](docs/adr/0002-tool-approval-architecture.md)**
+
+### Additional Resources
 
 - **[Experiments](experiments/README.md)** - Research notes, protocol investigations, multimodal support experiments
 - **[E2E Fixtures](tests/fixtures/e2e-chunks/README.md)** - E2E test chunks and recording guide
@@ -215,7 +232,7 @@ All experiment notes and architectural investigations are documented in `experim
 - Test coverage investigations
 - ADK field mapping completeness
 
-See `experiments/README.md` for the complete experiment index and results.
+See [experiments/README.md](experiments/README.md) for the complete experiment index and results.
 
 ## License
 
@@ -223,4 +240,6 @@ MIT License. See LICENSE file for details.
 
 ## References
 
+- [AI SDK Documentation](https://sdk.vercel.ai/docs)
+- [Google ADK Documentation](https://ai.google.dev/adk)
 - [BGM](https://www.loopbgm.com/)
