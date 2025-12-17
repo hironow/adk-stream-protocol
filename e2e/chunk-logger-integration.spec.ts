@@ -18,8 +18,8 @@ import { expect, test } from "@playwright/test";
 import { config } from "dotenv";
 import {
   analyzeChunkLogConsistency,
+  cleanupChunkLoggerState,
   clearBackendChunkLogs,
-  clearHistory,
   downloadFrontendChunkLogs,
   enableChunkLogger,
   navigateToChat,
@@ -35,456 +35,461 @@ config({ path: ".env.local" });
 const SESSION_ID =
   process.env.NEXT_PUBLIC_CHUNK_LOGGER_SESSION_ID || "e2e-default";
 
-test.describe("Chunk Logger Integration Tests", () => {
-  test.beforeEach(async ({ page }) => {
-    // Clear backend chunk logs from previous runs
-    clearBackendChunkLogs(SESSION_ID);
+test.describe
+  .serial("Chunk Logger Integration Tests", () => {
+    test.beforeEach(async ({ page }) => {
+      // Clear backend chunk logs from previous runs
+      clearBackendChunkLogs(SESSION_ID);
 
-    // Given: User navigates to chat and enables chunk logger
-    await navigateToChat(page);
+      // Given: User navigates to chat and enables chunk logger
+      await navigateToChat(page);
 
-    // Enable chunk logger with dedicated session ID
-    await enableChunkLogger(page, SESSION_ID);
+      // Enable chunk logger with dedicated session ID
+      await enableChunkLogger(page, SESSION_ID);
 
-    // Reload to apply chunk logger settings
-    await page.reload();
-    await page.waitForLoadState("networkidle");
+      // Reload to apply chunk logger settings
+      await page.reload();
+      await page.waitForLoadState("networkidle");
 
-    // Select ADK SSE mode
-    await selectBackendMode(page, "adk-sse");
-  });
-
-  test.afterEach(async ({ page }) => {
-    // Clear history for next test
-    await clearHistory(page);
-  });
-
-  /**
-   * Tool Scenario 1: Small payment (50 USD) - APPROVE
-   */
-  test("should maintain log consistency when approving small payment", async ({
-    page,
-  }) => {
-    // Given: Backend is ready with chunk logger enabled
-
-    // When: User requests payment
-    await sendTextMessage(page, "花子さんに50ドル送金してください");
-
-    // Then: Approval UI appears
-    await expect(page.getByRole("button", { name: "Approve" })).toBeVisible({
-      timeout: 30000,
+      // Select ADK SSE mode
+      await selectBackendMode(page, "adk-sse");
     });
 
-    // When: User approves
-    await page.getByRole("button", { name: "Approve" }).click();
+    test.afterEach(async ({ page }) => {
+      // Clean up frontend and backend state for next test
+      // (backend logs are preserved and cleared in beforeEach)
+      await cleanupChunkLoggerState(page);
+    });
 
-    // Then: Wait for completion
-    await waitForAssistantResponse(page, { timeout: 45000 });
-
-    // Download frontend chunk logs
-    const frontendLogPath = await downloadFrontendChunkLogs(
+    /**
+     * Tool Scenario 1: Small payment (50 USD) - APPROVE
+     */
+    test("should maintain log consistency when approving small payment", async ({
       page,
-      "approve-small-payment",
-    );
-    expect(frontendLogPath).not.toBeNull();
+    }) => {
+      // Given: Backend is ready with chunk logger enabled
 
-    // Analyze consistency across all 3 log files
-    const analysis = await analyzeChunkLogConsistency(
-      SESSION_ID,
-      frontendLogPath!,
-    );
+      // When: User requests payment
+      await sendTextMessage(page, "花子さんに50ドル送金してください");
 
-    console.log("\n📊 Chunk Log Analysis (Approve Small Payment):");
-    console.log(`  Backend ADK events: ${analysis.backendAdkEvents}`);
-    console.log(`  Backend SSE events: ${analysis.backendSseEvents}`);
-    console.log(`  Frontend events: ${analysis.frontendEvents}`);
-    console.log(`  Tool calls found: ${analysis.toolCalls.length}`);
+      // Then: Approval UI appears
+      await expect(page.getByRole("button", { name: "Approve" })).toBeVisible({
+        timeout: 30000,
+      });
 
-    for (const toolCall of analysis.toolCalls) {
-      console.log(`\n  🔧 Tool: ${toolCall.toolName} (${toolCall.toolCallId})`);
-      console.log(
-        `    Backend ADK: ${toolCall.foundInBackendAdk ? "✅" : "❌"}`,
+      // When: User approves
+      await page.getByRole("button", { name: "Approve" }).click();
+
+      // Then: Wait for completion
+      await waitForAssistantResponse(page, { timeout: 45000 });
+
+      // Download frontend chunk logs
+      const frontendLogPath = await downloadFrontendChunkLogs(
+        page,
+        "approve-small-payment",
       );
-      console.log(
-        `    Backend SSE: ${toolCall.foundInBackendSse ? "✅" : "❌"}`,
-      );
-      console.log(
-        `    Frontend: ${toolCall.foundInFrontend ? "✅" : "❌"}`,
-      );
-    }
+      expect(frontendLogPath).not.toBeNull();
 
-    if (analysis.errors.length > 0) {
-      console.log("\n❌ Consistency Errors:");
-      for (const error of analysis.errors) {
-        console.log(`  - ${error}`);
+      // Analyze consistency across all 3 log files
+      const analysis = await analyzeChunkLogConsistency(
+        SESSION_ID,
+        frontendLogPath!,
+      );
+
+      console.log("\n📊 Chunk Log Analysis (Approve Small Payment):");
+      console.log(`  Backend ADK events: ${analysis.backendAdkEvents}`);
+      console.log(`  Backend SSE events: ${analysis.backendSseEvents}`);
+      console.log(`  Frontend events: ${analysis.frontendEvents}`);
+      console.log(`  Tool calls found: ${analysis.toolCalls.length}`);
+
+      for (const toolCall of analysis.toolCalls) {
+        console.log(
+          `\n  🔧 Tool: ${toolCall.toolName} (${toolCall.toolCallId})`,
+        );
+        console.log(
+          `    Backend ADK: ${toolCall.foundInBackendAdk ? "✅" : "❌"}`,
+        );
+        console.log(
+          `    Backend SSE: ${toolCall.foundInBackendSse ? "✅" : "❌"}`,
+        );
+        console.log(`    Frontend: ${toolCall.foundInFrontend ? "✅" : "❌"}`);
       }
-    } else {
-      console.log("\n✅ All logs are consistent!");
-    }
 
-    // Assert consistency
-    expect(analysis.isConsistent).toBe(true);
-    expect(analysis.errors).toHaveLength(0);
+      if (analysis.errors.length > 0) {
+        console.log("\n❌ Consistency Errors:");
+        for (const error of analysis.errors) {
+          console.log(`  - ${error}`);
+        }
+      } else {
+        console.log("\n✅ All logs are consistent!");
+      }
 
-    // Verify process_payment was called
-    const processPaymentCall = analysis.toolCalls.find(
-      (tc) => tc.toolName === "process_payment",
-    );
-    expect(processPaymentCall).toBeDefined();
-    expect(processPaymentCall?.foundInBackendAdk).toBe(true);
-    expect(processPaymentCall?.foundInBackendSse).toBe(true);
-    expect(processPaymentCall?.foundInFrontend).toBe(true);
-  });
+      // Assert consistency
+      expect(analysis.isConsistent).toBe(true);
+      expect(analysis.errors).toHaveLength(0);
 
-  /**
-   * Tool Scenario 2: Large payment (500 USD) - APPROVE
-   */
-  test("should maintain log consistency when approving large payment", async ({
-    page,
-  }) => {
-    // Given: Backend is ready
-
-    // When: User requests large payment
-    await sendTextMessage(page, "太郎さんに500ドル送金してください");
-
-    // Then: Approval UI appears
-    await expect(page.getByRole("button", { name: "Approve" })).toBeVisible({
-      timeout: 30000,
+      // Verify process_payment was called
+      const processPaymentCall = analysis.toolCalls.find(
+        (tc) => tc.toolName === "process_payment",
+      );
+      expect(processPaymentCall).toBeDefined();
+      expect(processPaymentCall?.foundInBackendAdk).toBe(true);
+      expect(processPaymentCall?.foundInBackendSse).toBe(true);
+      expect(processPaymentCall?.foundInFrontend).toBe(true);
     });
 
-    // When: User approves
-    await page.getByRole("button", { name: "Approve" }).click();
-
-    // Then: Wait for completion
-    await waitForAssistantResponse(page, { timeout: 45000 });
-
-    // Download and analyze
-    const frontendLogPath = await downloadFrontendChunkLogs(
+    /**
+     * Tool Scenario 2: Large payment (500 USD) - APPROVE
+     */
+    test("should maintain log consistency when approving large payment", async ({
       page,
-      "approve-large-payment",
-    );
-    expect(frontendLogPath).not.toBeNull();
+    }) => {
+      // Given: Backend is ready
 
-    const analysis = await analyzeChunkLogConsistency(
-      SESSION_ID,
-      frontendLogPath!,
-    );
+      // When: User requests large payment
+      await sendTextMessage(page, "太郎さんに500ドル送金してください");
 
-    console.log("\n📊 Chunk Log Analysis (Approve Large Payment):");
-    console.log(`  Consistent: ${analysis.isConsistent ? "✅" : "❌"}`);
-    console.log(`  Tool calls: ${analysis.toolCalls.length}`);
+      // Then: Approval UI appears
+      await expect(page.getByRole("button", { name: "Approve" })).toBeVisible({
+        timeout: 30000,
+      });
 
-    expect(analysis.isConsistent).toBe(true);
-    expect(analysis.errors).toHaveLength(0);
-  });
+      // When: User approves
+      await page.getByRole("button", { name: "Approve" }).click();
 
-  /**
-   * Tool Scenario 3: International payment (JPY) - DENY
-   */
-  test("should maintain log consistency when denying international payment", async ({
-    page,
-  }) => {
-    // Given: Backend is ready
+      // Then: Wait for completion
+      await waitForAssistantResponse(page, { timeout: 45000 });
 
-    // When: User requests international payment
-    await sendTextMessage(page, "山田さんに10000円送金してください");
+      // Download and analyze
+      const frontendLogPath = await downloadFrontendChunkLogs(
+        page,
+        "approve-large-payment",
+      );
+      expect(frontendLogPath).not.toBeNull();
 
-    // Then: Approval UI appears
-    await expect(page.getByRole("button", { name: "Deny" })).toBeVisible({
-      timeout: 30000,
+      const analysis = await analyzeChunkLogConsistency(
+        SESSION_ID,
+        frontendLogPath!,
+      );
+
+      console.log("\n📊 Chunk Log Analysis (Approve Large Payment):");
+      console.log(`  Consistent: ${analysis.isConsistent ? "✅" : "❌"}`);
+      console.log(`  Tool calls: ${analysis.toolCalls.length}`);
+
+      expect(analysis.isConsistent).toBe(true);
+      expect(analysis.errors).toHaveLength(0);
     });
 
-    // When: User denies
-    await page.getByRole("button", { name: "Deny" }).click();
-
-    // Then: Wait for completion
-    await waitForAssistantResponse(page, { timeout: 45000 });
-
-    // Download and analyze
-    const frontendLogPath = await downloadFrontendChunkLogs(
+    /**
+     * Tool Scenario 3: International payment (JPY) - DENY
+     */
+    test("should maintain log consistency when denying international payment", async ({
       page,
-      "deny-international-payment",
-    );
-    expect(frontendLogPath).not.toBeNull();
+    }) => {
+      // Given: Backend is ready
 
-    const analysis = await analyzeChunkLogConsistency(
-      SESSION_ID,
-      frontendLogPath!,
-    );
+      // When: User requests international payment
+      await sendTextMessage(page, "山田さんに10000円送金してください");
 
-    console.log("\n📊 Chunk Log Analysis (Deny International Payment):");
-    console.log(`  Consistent: ${analysis.isConsistent ? "✅" : "❌"}`);
-    console.log(`  Tool calls: ${analysis.toolCalls.length}`);
+      // Then: Approval UI appears
+      await expect(page.getByRole("button", { name: "Deny" })).toBeVisible({
+        timeout: 30000,
+      });
 
-    // Verify denial scenario
-    expect(analysis.isConsistent).toBe(true);
-    expect(analysis.errors).toHaveLength(0);
+      // When: User denies
+      await page.getByRole("button", { name: "Deny" }).click();
 
-    // Verify the payment request was logged (even though denied)
-    const processPaymentCall = analysis.toolCalls.find(
-      (tc) => tc.toolName === "process_payment",
-    );
-    expect(processPaymentCall).toBeDefined();
-  });
+      // Then: Wait for completion
+      await waitForAssistantResponse(page, { timeout: 45000 });
 
-  /**
-   * Tool Scenario 4: Multiple recipients payment - DENY
-   */
-  test("should maintain log consistency when denying payment to multiple recipients", async ({
-    page,
-  }) => {
-    // Given: Backend is ready
+      // Download and analyze
+      const frontendLogPath = await downloadFrontendChunkLogs(
+        page,
+        "deny-international-payment",
+      );
+      expect(frontendLogPath).not.toBeNull();
 
-    // When: User requests payment to multiple recipients
-    await sendTextMessage(
+      const analysis = await analyzeChunkLogConsistency(
+        SESSION_ID,
+        frontendLogPath!,
+      );
+
+      console.log("\n📊 Chunk Log Analysis (Deny International Payment):");
+      console.log(`  Consistent: ${analysis.isConsistent ? "✅" : "❌"}`);
+      console.log(`  Tool calls: ${analysis.toolCalls.length}`);
+
+      // Verify denial scenario
+      expect(analysis.isConsistent).toBe(true);
+      expect(analysis.errors).toHaveLength(0);
+
+      // Verify the payment request was logged (even though denied)
+      const processPaymentCall = analysis.toolCalls.find(
+        (tc) => tc.toolName === "process_payment",
+      );
+      expect(processPaymentCall).toBeDefined();
+    });
+
+    /**
+     * Tool Scenario 4: Multiple recipients payment - DENY
+     */
+    test("should maintain log consistency when denying payment to multiple recipients", async ({
       page,
-      "花子さんと太郎さんにそれぞれ100ドル送金してください",
-    );
+    }) => {
+      // Given: Backend is ready
 
-    // Then: Approval UI appears (may show first one or combined)
-    await expect(page.getByRole("button", { name: "Deny" })).toBeVisible({
-      timeout: 30000,
+      // When: User requests payment to multiple recipients
+      await sendTextMessage(
+        page,
+        "花子さんと太郎さんにそれぞれ100ドル送金してください",
+      );
+
+      // Then: Approval UI appears (may show first one or combined)
+      // Note: Multiple payment requests may show multiple Deny buttons
+      await expect(
+        page.getByRole("button", { name: "Deny" }).first(),
+      ).toBeVisible({
+        timeout: 30000,
+      });
+
+      // When: User denies (click first button if multiple)
+      await page.getByRole("button", { name: "Deny" }).first().click();
+
+      // Then: Wait for completion
+      await waitForAssistantResponse(page, { timeout: 45000 });
+
+      // Download and analyze
+      const frontendLogPath = await downloadFrontendChunkLogs(
+        page,
+        "deny-multiple-payment",
+      );
+      expect(frontendLogPath).not.toBeNull();
+
+      const analysis = await analyzeChunkLogConsistency(
+        SESSION_ID,
+        frontendLogPath!,
+      );
+
+      console.log("\n📊 Chunk Log Analysis (Deny Multiple Payment):");
+      console.log(`  Consistent: ${analysis.isConsistent ? "✅" : "❌"}`);
+      console.log(`  Tool calls: ${analysis.toolCalls.length}`);
+
+      expect(analysis.isConsistent).toBe(true);
+      expect(analysis.errors).toHaveLength(0);
     });
 
-    // When: User denies
-    await page.getByRole("button", { name: "Deny" }).click();
-
-    // Then: Wait for completion
-    await waitForAssistantResponse(page, { timeout: 45000 });
-
-    // Download and analyze
-    const frontendLogPath = await downloadFrontendChunkLogs(
+    /**
+     * Combined Scenario 1: Approve then Deny
+     */
+    test("should maintain log consistency across approve then deny sequence", async ({
       page,
-      "deny-multiple-payment",
-    );
-    expect(frontendLogPath).not.toBeNull();
+    }) => {
+      // Given: Backend is ready
 
-    const analysis = await analyzeChunkLogConsistency(
-      SESSION_ID,
-      frontendLogPath!,
-    );
+      // When: User requests first payment (approve)
+      await sendTextMessage(page, "花子さんに30ドル送金してください");
+      await expect(page.getByRole("button", { name: "Approve" })).toBeVisible({
+        timeout: 30000,
+      });
+      await page.getByRole("button", { name: "Approve" }).click();
+      await waitForAssistantResponse(page, { timeout: 45000 });
 
-    console.log("\n📊 Chunk Log Analysis (Deny Multiple Payment):");
-    console.log(`  Consistent: ${analysis.isConsistent ? "✅" : "❌"}`);
-    console.log(`  Tool calls: ${analysis.toolCalls.length}`);
+      // When: User requests second payment (deny)
+      await sendTextMessage(page, "太郎さんに500ドル送金してください");
+      await expect(page.getByRole("button", { name: "Deny" })).toBeVisible({
+        timeout: 30000,
+      });
+      await page.getByRole("button", { name: "Deny" }).click();
+      await waitForAssistantResponse(page, { timeout: 45000 });
 
-    expect(analysis.isConsistent).toBe(true);
-    expect(analysis.errors).toHaveLength(0);
-  });
+      // Download and analyze
+      const frontendLogPath = await downloadFrontendChunkLogs(
+        page,
+        "approve-then-deny",
+      );
+      expect(frontendLogPath).not.toBeNull();
 
-  /**
-   * Combined Scenario 1: Approve then Deny
-   */
-  test("should maintain log consistency across approve then deny sequence", async ({
-    page,
-  }) => {
-    // Given: Backend is ready
+      const analysis = await analyzeChunkLogConsistency(
+        SESSION_ID,
+        frontendLogPath!,
+      );
 
-    // When: User requests first payment (approve)
-    await sendTextMessage(page, "花子さんに30ドル送金してください");
-    await expect(page.getByRole("button", { name: "Approve" })).toBeVisible({
-      timeout: 30000,
+      console.log("\n📊 Chunk Log Analysis (Approve Then Deny):");
+      console.log(`  Consistent: ${analysis.isConsistent ? "✅" : "❌"}`);
+      console.log(`  Tool calls: ${analysis.toolCalls.length}`);
+
+      // Should have 2 process_payment calls
+      const paymentCalls = analysis.toolCalls.filter(
+        (tc) => tc.toolName === "process_payment",
+      );
+      console.log(`  Payment calls: ${paymentCalls.length}`);
+
+      expect(analysis.isConsistent).toBe(true);
+      expect(analysis.errors).toHaveLength(0);
+      expect(paymentCalls.length).toBeGreaterThanOrEqual(2);
     });
-    await page.getByRole("button", { name: "Approve" }).click();
-    await waitForAssistantResponse(page, { timeout: 45000 });
 
-    // When: User requests second payment (deny)
-    await sendTextMessage(page, "太郎さんに500ドル送金してください");
-    await expect(page.getByRole("button", { name: "Deny" })).toBeVisible({
-      timeout: 30000,
-    });
-    await page.getByRole("button", { name: "Deny" }).click();
-    await waitForAssistantResponse(page, { timeout: 45000 });
-
-    // Download and analyze
-    const frontendLogPath = await downloadFrontendChunkLogs(
+    /**
+     * Combined Scenario 2: Deny then Approve
+     */
+    test("should maintain log consistency across deny then approve sequence", async ({
       page,
-      "approve-then-deny",
-    );
-    expect(frontendLogPath).not.toBeNull();
+    }) => {
+      // Given: Backend is ready
 
-    const analysis = await analyzeChunkLogConsistency(
-      SESSION_ID,
-      frontendLogPath!,
-    );
+      // When: User requests first payment (deny)
+      await sendTextMessage(page, "花子さんに1000ドル送金してください");
+      await expect(page.getByRole("button", { name: "Deny" })).toBeVisible({
+        timeout: 30000,
+      });
+      await page.getByRole("button", { name: "Deny" }).click();
+      await waitForAssistantResponse(page, { timeout: 45000 });
 
-    console.log("\n📊 Chunk Log Analysis (Approve Then Deny):");
-    console.log(`  Consistent: ${analysis.isConsistent ? "✅" : "❌"}`);
-    console.log(`  Tool calls: ${analysis.toolCalls.length}`);
+      // When: User requests second payment (approve)
+      await sendTextMessage(page, "太郎さんに50ドル送金してください");
+      await expect(page.getByRole("button", { name: "Approve" })).toBeVisible({
+        timeout: 30000,
+      });
+      await page.getByRole("button", { name: "Approve" }).click();
+      await waitForAssistantResponse(page, { timeout: 45000 });
 
-    // Should have 2 process_payment calls
-    const paymentCalls = analysis.toolCalls.filter(
-      (tc) => tc.toolName === "process_payment",
-    );
-    console.log(`  Payment calls: ${paymentCalls.length}`);
+      // Download and analyze
+      const frontendLogPath = await downloadFrontendChunkLogs(
+        page,
+        "deny-then-approve",
+      );
+      expect(frontendLogPath).not.toBeNull();
 
-    expect(analysis.isConsistent).toBe(true);
-    expect(analysis.errors).toHaveLength(0);
-    expect(paymentCalls.length).toBeGreaterThanOrEqual(2);
-  });
+      const analysis = await analyzeChunkLogConsistency(
+        SESSION_ID,
+        frontendLogPath!,
+      );
 
-  /**
-   * Combined Scenario 2: Deny then Approve
-   */
-  test("should maintain log consistency across deny then approve sequence", async ({
-    page,
-  }) => {
-    // Given: Backend is ready
+      console.log("\n📊 Chunk Log Analysis (Deny Then Approve):");
+      console.log(`  Consistent: ${analysis.isConsistent ? "✅" : "❌"}`);
+      console.log(`  Tool calls: ${analysis.toolCalls.length}`);
 
-    // When: User requests first payment (deny)
-    await sendTextMessage(page, "花子さんに1000ドル送金してください");
-    await expect(page.getByRole("button", { name: "Deny" })).toBeVisible({
-      timeout: 30000,
+      // Should have 2 process_payment calls
+      const paymentCalls = analysis.toolCalls.filter(
+        (tc) => tc.toolName === "process_payment",
+      );
+      console.log(`  Payment calls: ${paymentCalls.length}`);
+
+      expect(analysis.isConsistent).toBe(true);
+      expect(analysis.errors).toHaveLength(0);
+      expect(paymentCalls.length).toBeGreaterThanOrEqual(2);
     });
-    await page.getByRole("button", { name: "Deny" }).click();
-    await waitForAssistantResponse(page, { timeout: 45000 });
 
-    // When: User requests second payment (approve)
-    await sendTextMessage(page, "太郎さんに50ドル送金してください");
-    await expect(page.getByRole("button", { name: "Approve" })).toBeVisible({
-      timeout: 30000,
-    });
-    await page.getByRole("button", { name: "Approve" }).click();
-    await waitForAssistantResponse(page, { timeout: 45000 });
-
-    // Download and analyze
-    const frontendLogPath = await downloadFrontendChunkLogs(
+    /**
+     * Edge Case: Rapid approve sequence
+     */
+    test("should maintain log consistency with rapid approve sequence", async ({
       page,
-      "deny-then-approve",
-    );
-    expect(frontendLogPath).not.toBeNull();
+    }) => {
+      // Given: Backend is ready
 
-    const analysis = await analyzeChunkLogConsistency(
-      SESSION_ID,
-      frontendLogPath!,
-    );
+      // When: User requests 3 payments rapidly
+      await sendTextMessage(page, "花子さんに20ドル送金してください");
+      await expect(page.getByRole("button", { name: "Approve" })).toBeVisible({
+        timeout: 30000,
+      });
+      await page.getByRole("button", { name: "Approve" }).click();
+      await waitForAssistantResponse(page, { timeout: 45000 });
 
-    console.log("\n📊 Chunk Log Analysis (Deny Then Approve):");
-    console.log(`  Consistent: ${analysis.isConsistent ? "✅" : "❌"}`);
-    console.log(`  Tool calls: ${analysis.toolCalls.length}`);
+      await sendTextMessage(page, "太郎さんに30ドル送金してください");
+      await expect(page.getByRole("button", { name: "Approve" })).toBeVisible({
+        timeout: 30000,
+      });
+      await page.getByRole("button", { name: "Approve" }).click();
+      await waitForAssistantResponse(page, { timeout: 45000 });
 
-    // Should have 2 process_payment calls
-    const paymentCalls = analysis.toolCalls.filter(
-      (tc) => tc.toolName === "process_payment",
-    );
-    console.log(`  Payment calls: ${paymentCalls.length}`);
+      await sendTextMessage(page, "次郎さんに40ドル送金してください");
+      await expect(page.getByRole("button", { name: "Approve" })).toBeVisible({
+        timeout: 30000,
+      });
+      await page.getByRole("button", { name: "Approve" }).click();
+      await waitForAssistantResponse(page, { timeout: 45000 });
 
-    expect(analysis.isConsistent).toBe(true);
-    expect(analysis.errors).toHaveLength(0);
-    expect(paymentCalls.length).toBeGreaterThanOrEqual(2);
-  });
+      // Download and analyze
+      const frontendLogPath = await downloadFrontendChunkLogs(
+        page,
+        "rapid-approve-sequence",
+      );
+      expect(frontendLogPath).not.toBeNull();
 
-  /**
-   * Edge Case: Rapid approve sequence
-   */
-  test("should maintain log consistency with rapid approve sequence", async ({
-    page,
-  }) => {
-    // Given: Backend is ready
+      const analysis = await analyzeChunkLogConsistency(
+        SESSION_ID,
+        frontendLogPath!,
+      );
 
-    // When: User requests 3 payments rapidly
-    await sendTextMessage(page, "花子さんに20ドル送金してください");
-    await expect(page.getByRole("button", { name: "Approve" })).toBeVisible({
-      timeout: 30000,
+      console.log("\n📊 Chunk Log Analysis (Rapid Approve Sequence):");
+      console.log(`  Consistent: ${analysis.isConsistent ? "✅" : "❌"}`);
+      console.log(`  Tool calls: ${analysis.toolCalls.length}`);
+
+      // Should have 3 process_payment calls
+      const paymentCalls = analysis.toolCalls.filter(
+        (tc) => tc.toolName === "process_payment",
+      );
+      console.log(`  Payment calls: ${paymentCalls.length}`);
+
+      expect(analysis.isConsistent).toBe(true);
+      expect(analysis.errors).toHaveLength(0);
+      expect(paymentCalls.length).toBeGreaterThanOrEqual(3);
     });
-    await page.getByRole("button", { name: "Approve" }).click();
-    await waitForAssistantResponse(page, { timeout: 45000 });
 
-    await sendTextMessage(page, "太郎さんに30ドル送金してください");
-    await expect(page.getByRole("button", { name: "Approve" })).toBeVisible({
-      timeout: 30000,
-    });
-    await page.getByRole("button", { name: "Approve" }).click();
-    await waitForAssistantResponse(page, { timeout: 45000 });
-
-    await sendTextMessage(page, "次郎さんに40ドル送金してください");
-    await expect(page.getByRole("button", { name: "Approve" })).toBeVisible({
-      timeout: 30000,
-    });
-    await page.getByRole("button", { name: "Approve" }).click();
-    await waitForAssistantResponse(page, { timeout: 45000 });
-
-    // Download and analyze
-    const frontendLogPath = await downloadFrontendChunkLogs(
+    /**
+     * Edge Case: Rapid deny sequence
+     */
+    test("should maintain log consistency with rapid deny sequence", async ({
       page,
-      "rapid-approve-sequence",
-    );
-    expect(frontendLogPath).not.toBeNull();
+    }) => {
+      // Given: Backend is ready
 
-    const analysis = await analyzeChunkLogConsistency(
-      SESSION_ID,
-      frontendLogPath!,
-    );
+      // When: User requests 3 payments rapidly and denies all
+      await sendTextMessage(page, "花子さんに200ドル送金してください");
+      await expect(page.getByRole("button", { name: "Deny" })).toBeVisible({
+        timeout: 30000,
+      });
+      await page.getByRole("button", { name: "Deny" }).click();
+      await waitForAssistantResponse(page, { timeout: 45000 });
 
-    console.log("\n📊 Chunk Log Analysis (Rapid Approve Sequence):");
-    console.log(`  Consistent: ${analysis.isConsistent ? "✅" : "❌"}`);
-    console.log(`  Tool calls: ${analysis.toolCalls.length}`);
+      await sendTextMessage(page, "太郎さんに300ドル送金してください");
+      await expect(page.getByRole("button", { name: "Deny" })).toBeVisible({
+        timeout: 30000,
+      });
+      await page.getByRole("button", { name: "Deny" }).click();
+      await waitForAssistantResponse(page, { timeout: 45000 });
 
-    // Should have 3 process_payment calls
-    const paymentCalls = analysis.toolCalls.filter(
-      (tc) => tc.toolName === "process_payment",
-    );
-    console.log(`  Payment calls: ${paymentCalls.length}`);
+      await sendTextMessage(page, "次郎さんに400ドル送金してください");
+      await expect(page.getByRole("button", { name: "Deny" })).toBeVisible({
+        timeout: 30000,
+      });
+      await page.getByRole("button", { name: "Deny" }).click();
+      await waitForAssistantResponse(page, { timeout: 45000 });
 
-    expect(analysis.isConsistent).toBe(true);
-    expect(analysis.errors).toHaveLength(0);
-    expect(paymentCalls.length).toBeGreaterThanOrEqual(3);
+      // Download and analyze
+      const frontendLogPath = await downloadFrontendChunkLogs(
+        page,
+        "rapid-deny-sequence",
+      );
+      expect(frontendLogPath).not.toBeNull();
+
+      const analysis = await analyzeChunkLogConsistency(
+        SESSION_ID,
+        frontendLogPath!,
+      );
+
+      console.log("\n📊 Chunk Log Analysis (Rapid Deny Sequence):");
+      console.log(`  Consistent: ${analysis.isConsistent ? "✅" : "❌"}`);
+      console.log(`  Tool calls: ${analysis.toolCalls.length}`);
+
+      // Should have 3 process_payment calls
+      const paymentCalls = analysis.toolCalls.filter(
+        (tc) => tc.toolName === "process_payment",
+      );
+      console.log(`  Payment calls: ${paymentCalls.length}`);
+
+      expect(analysis.isConsistent).toBe(true);
+      expect(analysis.errors).toHaveLength(0);
+      expect(paymentCalls.length).toBeGreaterThanOrEqual(3);
+    });
   });
-
-  /**
-   * Edge Case: Rapid deny sequence
-   */
-  test("should maintain log consistency with rapid deny sequence", async ({
-    page,
-  }) => {
-    // Given: Backend is ready
-
-    // When: User requests 3 payments rapidly and denies all
-    await sendTextMessage(page, "花子さんに200ドル送金してください");
-    await expect(page.getByRole("button", { name: "Deny" })).toBeVisible({
-      timeout: 30000,
-    });
-    await page.getByRole("button", { name: "Deny" }).click();
-    await waitForAssistantResponse(page, { timeout: 45000 });
-
-    await sendTextMessage(page, "太郎さんに300ドル送金してください");
-    await expect(page.getByRole("button", { name: "Deny" })).toBeVisible({
-      timeout: 30000,
-    });
-    await page.getByRole("button", { name: "Deny" }).click();
-    await waitForAssistantResponse(page, { timeout: 45000 });
-
-    await sendTextMessage(page, "次郎さんに400ドル送金してください");
-    await expect(page.getByRole("button", { name: "Deny" })).toBeVisible({
-      timeout: 30000,
-    });
-    await page.getByRole("button", { name: "Deny" }).click();
-    await waitForAssistantResponse(page, { timeout: 45000 });
-
-    // Download and analyze
-    const frontendLogPath = await downloadFrontendChunkLogs(
-      page,
-      "rapid-deny-sequence",
-    );
-    expect(frontendLogPath).not.toBeNull();
-
-    const analysis = await analyzeChunkLogConsistency(
-      SESSION_ID,
-      frontendLogPath!,
-    );
-
-    console.log("\n📊 Chunk Log Analysis (Rapid Deny Sequence):");
-    console.log(`  Consistent: ${analysis.isConsistent ? "✅" : "❌"}`);
-    console.log(`  Tool calls: ${analysis.toolCalls.length}`);
-
-    // Should have 3 process_payment calls
-    const paymentCalls = analysis.toolCalls.filter(
-      (tc) => tc.toolName === "process_payment",
-    );
-    console.log(`  Payment calls: ${paymentCalls.length}`);
-
-    expect(analysis.isConsistent).toBe(true);
-    expect(analysis.errors).toHaveLength(0);
-    expect(paymentCalls.length).toBeGreaterThanOrEqual(3);
-  });
-});

@@ -2,7 +2,7 @@
  * Temporary test to verify chunk logger download button visibility
  */
 
-import { expect, test } from "@playwright/test";
+import { test } from "@playwright/test";
 import { navigateToChat, selectBackendMode } from "./helpers";
 
 test("Check if Download Chunks button is visible", async ({ page }) => {

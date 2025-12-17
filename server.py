@@ -269,9 +269,16 @@ async def clear_backend_sessions():
     This endpoint clears the global _sessions dictionary, resetting
     all conversation history and session state. Useful for E2E tests
     that need clean state between test runs.
+
+    Also closes chunk logger file handles to allow tests to delete
+    and recreate log files between test runs.
     """
     logger.info("[/clear-sessions] Clearing all backend sessions")
     clear_sessions()
+
+    # Close chunk logger file handles so tests can delete/recreate log files
+    chunk_logger.close()
+
     return {"status": "success", "message": "All sessions cleared"}
 
 

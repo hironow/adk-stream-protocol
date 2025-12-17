@@ -89,7 +89,8 @@ export function sendAutomaticallyWhenAdkConfirmation({
       // Check if message has text content (indicates backend response)
       const hasTextContent = parts.some(
         // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
-        (part: any) => part.type === "text" && part.text && part.text.trim().length > 0,
+        (part: any) =>
+          part.type === "text" && part.text && part.text.trim().length > 0,
       );
 
       console.log(

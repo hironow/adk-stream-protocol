@@ -72,14 +72,22 @@ async def get_or_create_session(
             )
             _sessions[session_id] = session
         except Exception as e:
-            # If session already exists in ADK, log error and re-raise
-            # Note: This should not happen in normal operation
-            # clear_sessions() should clear _sessions dict but ADK sessions persist
-            logger.error(
-                f"Failed to create session {session_id}: {e}. "
-                "This may indicate ADK session state is out of sync with _sessions dict."
+            # If session already exists in ADK, retrieve it from session_service
+            # This can happen when clear_sessions() clears _sessions dict but ADK sessions persist
+            logger.warning(
+                f"Session {session_id} already exists in ADK session_service, retrieving existing session. "
+                f"Error: {e}"
             )
-            raise
+            try:
+                session = await agent_runner.session_service.get_session(
+                    app_name=app_name,
+                    user_id=user_id,
+                    session_id=session_id,
+                )
+                _sessions[session_id] = session
+            except Exception as get_error:
+                logger.error(f"Failed to retrieve existing session {session_id}: {get_error}")
+                raise
 
     return _sessions[session_id]
 

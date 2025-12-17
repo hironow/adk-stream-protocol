@@ -227,6 +227,29 @@ export function clearBackendChunkLogs(sessionId: string) {
 }
 
 /**
+ * Clean up frontend and backend state for chunk logger tests
+ * This resets sessions and frontend state without deleting log files
+ * (log files are cleaned in beforeEach to preserve them for consistency checks)
+ */
+export async function cleanupChunkLoggerState(page: Page) {
+  // 1. Clear frontend history and backend sessions
+  await clearHistory(page);
+
+  // 2. Clear localStorage to reset frontend chunk logger state
+  await page.evaluate(() => {
+    localStorage.removeItem("CHUNK_LOGGER_ENABLED");
+    localStorage.removeItem("CHUNK_LOGGER_SESSION_ID");
+  });
+
+  // 3. Reload page to ensure clean state
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+
+  // 4. Give backend time to fully reset
+  await page.waitForTimeout(1000);
+}
+
+/**
  * Wait for tool approval dialog to appear
  */
 export async function waitForToolApproval(
@@ -537,8 +560,14 @@ export async function analyzeChunkLogConsistency(
     return toolCalls;
   };
 
-  const backendAdkToolCalls = extractToolCallIds(backendAdkEvents, "backend-adk");
-  const backendSseToolCalls = extractToolCallIds(backendSseEvents, "backend-sse");
+  const backendAdkToolCalls = extractToolCallIds(
+    backendAdkEvents,
+    "backend-adk",
+  );
+  const backendSseToolCalls = extractToolCallIds(
+    backendSseEvents,
+    "backend-sse",
+  );
   const frontendToolCalls = extractToolCallIds(frontendEvents, "frontend");
 
   // Combine all unique tool call IDs
