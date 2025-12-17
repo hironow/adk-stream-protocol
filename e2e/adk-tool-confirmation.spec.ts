@@ -26,6 +26,8 @@ import { expect, test } from "@playwright/test";
 import {
   downloadFrontendChunkLogs,
   enableChunkLogger,
+  getLastMessage,
+  getMessageText,
   navigateToChat,
   selectBackendMode,
   sendTextMessage,
