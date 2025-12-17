@@ -1,11 +1,83 @@
 # 引き継ぎ書
 
 **Date:** 2025-12-18
-**Current Status:** ✅ Strict Mode Violations Fixed - Remaining Files (13/14 Tests Passing)
+**Current Status:** ✅ Helper Imports Fixed, AI Response Text Issue Identified (8/14 Core Tests Passing)
 
 ---
 
-## 🎯 LATEST SESSION: E2E Matrix Analysis & Strict Mode Fixes Complete (2025-12-18 - Session 3)
+## 🎯 LATEST SESSION: Helper Import Fix & AI Response Investigation (2025-12-18 - Session 4)
+
+### Summary
+Fixed missing helper imports and began systematic debugging of AI response text issue. Applied systematic-debugging skill (Phase 1-2) to identify that issue requires deep investigation of backend/AI layers. **Strategic decision**: Skip complex AI text issue for now, focus on simpler improvements first.
+
+### Helper Import Fix
+**Problem**: `getLastMessage` and `getMessageText` used but not imported
+**Fix**: Added to import statement in `e2e/adk-tool-confirmation.spec.ts`
+**Result**: Code quality improved, but underlying AI text issue still prevents Test 4 from passing
+**Commit**: 085545c
+
+### AI Response Text Issue - Systematic Investigation
+
+**Applied**: `superpowers:systematic-debugging` skill
+
+**Phase 1-2 Findings** (Root Cause Investigation & Pattern Analysis):
+
+**Symptoms**:
+- `waitForAssistantResponse()` succeeds ("Thinking..." disappears)
+- `sendAutomaticallyWhen()` works correctly (1 request sent)
+- **But**: AI response text never appears in UI
+- Tool state: Stuck in "Executing..." (never completes to "output-available")
+
+**Pattern Analysis** (Working vs Failing):
+- ✅ **Working (Test 3)**: Doesn't check AI text content - only message element existence
+- ❌ **Failing (Tests 1, 2, 4, 5)**: Expect specific Japanese text - `/送金しました/`
+
+**Root Cause Hypothesis**:
+- Multi-layer issue: Frontend ← Backend ← AI
+- Requires investigation of:
+  1. Backend Python logs for confirmation processing
+  2. SSE event stream for AI response chunks
+  3. Tool execution completion on backend
+- **Estimated time**: 30-60 minutes of deep investigation
+
+**Strategic Decision**:
+Deferred deep investigation in favor of completing simpler improvements first (efficient resource allocation). Issue documented for future session.
+
+**Affected Tests**:
+- Test 1 (adk-confirmation-minimal): Approve + verify text
+- Tests 2, 4, 5 (adk-tool-confirmation): Various text verification scenarios
+
+### Test Status Summary
+**Core Confirmation Tests** (14 tests total):
+- ✅ **Passing**: 8/14 (57%)
+  - adk-confirmation-minimal: 4/5 (Tests 2, 3, 4, 5)
+  - adk-tool-confirmation: 4/9 (Tests 1, 3, 6, 7)
+- ❌ **Failing**: 6/14 (43%)
+  - AI response text issue: 4 tests
+  - BIDI mode issues: 2 tests
+
+**Overall E2E**: 20% (8/40 passing) - unchanged from Session 3
+
+### Next Steps (Priority Order)
+1. **DEFERRED**: AI response text deep investigation
+   - Requires backend log analysis, SSE stream inspection
+   - Expected time: 30-60 minutes
+   - Expected improvement: 20% → 40% overall pass rate
+
+2. **MEDIUM**: BIDI mode investigation
+   - Tests 8, 9 expect approval UI but none appears
+   - Need to verify if `require_confirmation` actually supported in BIDI
+   - Expected time: 15-30 minutes
+
+3. **LOW**: Phase 4 legacy tests
+   - Consider archiving or updating to Phase 5 UI
+   - 5 tests affected
+
+4. **COMPLETE**: Document Session 3-4 progress ✅
+
+---
+
+## 🔙 PREVIOUS: E2E Matrix Analysis & Strict Mode Fixes Complete (2025-12-18 - Session 3)
 
 ### Summary
 Completed comprehensive 4×2×2 test matrix analysis and applied strict mode fixes to all remaining test files. **Discovered actual testable patterns: 8 (not 16)** due to ADK native confirmation limitations. Applied `.first()` fix to 43 button selectors across 2 files. **Test improvement: 0/9 → 4/9 (44%)** for adk-tool-confirmation.spec.ts.
