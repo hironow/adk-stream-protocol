@@ -70,8 +70,12 @@ test.describe("ADK Tool Confirmation Flow (Phase 5)", () => {
     });
 
     // Approval buttons should be visible
-    await expect(page.getByRole("button", { name: "Approve" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Deny" })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Approve" }).first(),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Deny" }).first(),
+    ).toBeVisible();
   });
 
   test("should NOT enter infinite loop when user approves payment", async ({
@@ -97,7 +101,9 @@ test.describe("ADK Tool Confirmation Flow (Phase 5)", () => {
     await sendTextMessage(page, "花子さんに50ドル送金してください");
 
     // Then: Approval UI appears
-    await expect(page.getByRole("button", { name: "Approve" })).toBeVisible({
+    await expect(
+      page.getByRole("button", { name: "Approve" }).first(),
+    ).toBeVisible({
       timeout: 30000,
     });
 
@@ -106,7 +112,7 @@ test.describe("ADK Tool Confirmation Flow (Phase 5)", () => {
     requestTimestamps.length = 0;
 
     // When: User approves
-    await page.getByRole("button", { name: "Approve" }).click();
+    await page.getByRole("button", { name: "Approve" }).first().click();
 
     // Then: Wait for completion (with reasonable timeout)
     // If infinite loop occurs, this will timeout
@@ -138,12 +144,14 @@ test.describe("ADK Tool Confirmation Flow (Phase 5)", () => {
     await sendTextMessage(page, "太郎さんに100ドル送金してください");
 
     // Then: Approval UI appears
-    await expect(page.getByRole("button", { name: "Approve" })).toBeVisible({
+    await expect(
+      page.getByRole("button", { name: "Approve" }).first(),
+    ).toBeVisible({
       timeout: 30000,
     });
 
     // When: User approves
-    await page.getByRole("button", { name: "Approve" }).click();
+    await page.getByRole("button", { name: "Approve" }).first().click();
 
     // Then: Payment should complete
     await waitForAssistantResponse(page);
@@ -161,12 +169,14 @@ test.describe("ADK Tool Confirmation Flow (Phase 5)", () => {
     await sendTextMessage(page, "次郎さんに200ドル送金してください");
 
     // Then: Approval UI appears
-    await expect(page.getByRole("button", { name: "Deny" })).toBeVisible({
+    await expect(
+      page.getByRole("button", { name: "Deny" }).first(),
+    ).toBeVisible({
       timeout: 30000,
     });
 
     // When: User denies
-    await page.getByRole("button", { name: "Deny" }).click();
+    await page.getByRole("button", { name: "Deny" }).first().click();
 
     // Then: Should receive response indicating denial
     await waitForAssistantResponse(page);
@@ -200,12 +210,14 @@ test.describe("ADK Tool Confirmation Flow (Phase 5)", () => {
     await sendTextMessage(page, "花子さんに75ドル送金してください");
 
     // Then: Approval UI appears
-    await expect(page.getByRole("button", { name: "Approve" })).toBeVisible({
+    await expect(
+      page.getByRole("button", { name: "Approve" }).first(),
+    ).toBeVisible({
       timeout: 30000,
     });
 
     // When: User approves
-    await page.getByRole("button", { name: "Approve" }).click();
+    await page.getByRole("button", { name: "Approve" }).first().click();
 
     // Then: Should complete successfully
     await waitForAssistantResponse(page);
@@ -232,10 +244,12 @@ test.describe("ADK Tool Confirmation Flow (Phase 5)", () => {
     // When: User requests first payment
     await sendTextMessage(page, "Aliceに30ドル送金");
 
-    await expect(page.getByRole("button", { name: "Approve" })).toBeVisible({
+    await expect(
+      page.getByRole("button", { name: "Approve" }).first(),
+    ).toBeVisible({
       timeout: 30000,
     });
-    await page.getByRole("button", { name: "Approve" }).click();
+    await page.getByRole("button", { name: "Approve" }).first().click();
     await waitForAssistantResponse(page);
 
     const countAfterFirst = totalRequestCount;
@@ -243,10 +257,12 @@ test.describe("ADK Tool Confirmation Flow (Phase 5)", () => {
     // When: User requests second payment
     await sendTextMessage(page, "Bobに40ドル送金");
 
-    await expect(page.getByRole("button", { name: "Approve" })).toBeVisible({
+    await expect(
+      page.getByRole("button", { name: "Approve" }).first(),
+    ).toBeVisible({
       timeout: 30000,
     });
-    await page.getByRole("button", { name: "Approve" }).click();
+    await page.getByRole("button", { name: "Approve" }).first().click();
     await waitForAssistantResponse(page);
 
     // Then: Both should complete without loops
@@ -280,7 +296,7 @@ test.describe("ADK Tool Confirmation Flow (Phase 5)", () => {
     // (This is implementation-specific, adjust based on actual UI)
 
     // When: User approves
-    await page.getByRole("button", { name: "Approve" }).click();
+    await page.getByRole("button", { name: "Approve" }).first().click();
 
     // Then: Tool should transition to "Completed" state
     // Wait for response text to appear (may complete very quickly)
@@ -311,14 +327,16 @@ test.describe("ADK Tool Confirmation - BIDI Mode", () => {
     await sendTextMessage(page, "花子さんに50ドル送金してください");
 
     // Then: Approval UI appears
-    await expect(page.getByRole("button", { name: "Approve" })).toBeVisible({
+    await expect(
+      page.getByRole("button", { name: "Approve" }).first(),
+    ).toBeVisible({
       timeout: 30000,
     });
 
     requestCount = 0; // Reset before approval
 
     // When: User approves
-    await page.getByRole("button", { name: "Approve" }).click();
+    await page.getByRole("button", { name: "Approve" }).first().click();
 
     // Then: Should complete without loop
     await waitForAssistantResponse(page, { timeout: 45000 });

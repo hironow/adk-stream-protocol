@@ -73,12 +73,14 @@ test.describe
       await sendTextMessage(page, "花子さんに50ドル送金してください");
 
       // Then: Approval UI appears
-      await expect(page.getByRole("button", { name: "Approve" })).toBeVisible({
+      await expect(
+        page.getByRole("button", { name: "Approve" }).first(),
+      ).toBeVisible({
         timeout: 30000,
       });
 
       // When: User approves
-      await page.getByRole("button", { name: "Approve" }).click();
+      await page.getByRole("button", { name: "Approve" }).first().click();
 
       // Then: Wait for completion
       await waitForAssistantResponse(page, { timeout: 45000 });
@@ -150,12 +152,14 @@ test.describe
       await sendTextMessage(page, "太郎さんに500ドル送金してください");
 
       // Then: Approval UI appears
-      await expect(page.getByRole("button", { name: "Approve" })).toBeVisible({
+      await expect(
+        page.getByRole("button", { name: "Approve" }).first(),
+      ).toBeVisible({
         timeout: 30000,
       });
 
       // When: User approves
-      await page.getByRole("button", { name: "Approve" }).click();
+      await page.getByRole("button", { name: "Approve" }).first().click();
 
       // Then: Wait for completion
       await waitForAssistantResponse(page, { timeout: 45000 });
@@ -192,12 +196,14 @@ test.describe
       await sendTextMessage(page, "山田さんに10000円送金してください");
 
       // Then: Approval UI appears
-      await expect(page.getByRole("button", { name: "Deny" })).toBeVisible({
+      await expect(
+        page.getByRole("button", { name: "Deny" }).first(),
+      ).toBeVisible({
         timeout: 30000,
       });
 
       // When: User denies
-      await page.getByRole("button", { name: "Deny" }).click();
+      await page.getByRole("button", { name: "Deny" }).first().click();
 
       // Then: Wait for completion
       await waitForAssistantResponse(page, { timeout: 45000 });
@@ -287,18 +293,22 @@ test.describe
 
       // When: User requests first payment (approve)
       await sendTextMessage(page, "花子さんに30ドル送金してください");
-      await expect(page.getByRole("button", { name: "Approve" })).toBeVisible({
+      await expect(
+        page.getByRole("button", { name: "Approve" }).first(),
+      ).toBeVisible({
         timeout: 30000,
       });
-      await page.getByRole("button", { name: "Approve" }).click();
+      await page.getByRole("button", { name: "Approve" }).first().click();
       await waitForAssistantResponse(page, { timeout: 45000 });
 
       // When: User requests second payment (deny)
       await sendTextMessage(page, "太郎さんに500ドル送金してください");
-      await expect(page.getByRole("button", { name: "Deny" })).toBeVisible({
+      await expect(
+        page.getByRole("button", { name: "Deny" }).first(),
+      ).toBeVisible({
         timeout: 30000,
       });
-      await page.getByRole("button", { name: "Deny" }).click();
+      await page.getByRole("button", { name: "Deny" }).first().click();
       await waitForAssistantResponse(page, { timeout: 45000 });
 
       // Download and analyze
@@ -338,18 +348,22 @@ test.describe
 
       // When: User requests first payment (deny)
       await sendTextMessage(page, "花子さんに1000ドル送金してください");
-      await expect(page.getByRole("button", { name: "Deny" })).toBeVisible({
+      await expect(
+        page.getByRole("button", { name: "Deny" }).first(),
+      ).toBeVisible({
         timeout: 30000,
       });
-      await page.getByRole("button", { name: "Deny" }).click();
+      await page.getByRole("button", { name: "Deny" }).first().click();
       await waitForAssistantResponse(page, { timeout: 45000 });
 
       // When: User requests second payment (approve)
       await sendTextMessage(page, "太郎さんに50ドル送金してください");
-      await expect(page.getByRole("button", { name: "Approve" })).toBeVisible({
+      await expect(
+        page.getByRole("button", { name: "Approve" }).first(),
+      ).toBeVisible({
         timeout: 30000,
       });
-      await page.getByRole("button", { name: "Approve" }).click();
+      await page.getByRole("button", { name: "Approve" }).first().click();
       await waitForAssistantResponse(page, { timeout: 45000 });
 
       // Download and analyze
@@ -389,24 +403,30 @@ test.describe
 
       // When: User requests 3 payments rapidly
       await sendTextMessage(page, "花子さんに20ドル送金してください");
-      await expect(page.getByRole("button", { name: "Approve" })).toBeVisible({
+      await expect(
+        page.getByRole("button", { name: "Approve" }).first(),
+      ).toBeVisible({
         timeout: 30000,
       });
-      await page.getByRole("button", { name: "Approve" }).click();
+      await page.getByRole("button", { name: "Approve" }).first().click();
       await waitForAssistantResponse(page, { timeout: 45000 });
 
       await sendTextMessage(page, "太郎さんに30ドル送金してください");
-      await expect(page.getByRole("button", { name: "Approve" })).toBeVisible({
+      await expect(
+        page.getByRole("button", { name: "Approve" }).first(),
+      ).toBeVisible({
         timeout: 30000,
       });
-      await page.getByRole("button", { name: "Approve" }).click();
+      await page.getByRole("button", { name: "Approve" }).first().click();
       await waitForAssistantResponse(page, { timeout: 45000 });
 
       await sendTextMessage(page, "次郎さんに40ドル送金してください");
-      await expect(page.getByRole("button", { name: "Approve" })).toBeVisible({
+      await expect(
+        page.getByRole("button", { name: "Approve" }).first(),
+      ).toBeVisible({
         timeout: 30000,
       });
-      await page.getByRole("button", { name: "Approve" }).click();
+      await page.getByRole("button", { name: "Approve" }).first().click();
       await waitForAssistantResponse(page, { timeout: 45000 });
 
       // Download and analyze
@@ -446,24 +466,30 @@ test.describe
 
       // When: User requests 3 payments rapidly and denies all
       await sendTextMessage(page, "花子さんに200ドル送金してください");
-      await expect(page.getByRole("button", { name: "Deny" })).toBeVisible({
+      await expect(
+        page.getByRole("button", { name: "Deny" }).first(),
+      ).toBeVisible({
         timeout: 30000,
       });
-      await page.getByRole("button", { name: "Deny" }).click();
+      await page.getByRole("button", { name: "Deny" }).first().click();
       await waitForAssistantResponse(page, { timeout: 45000 });
 
       await sendTextMessage(page, "太郎さんに300ドル送金してください");
-      await expect(page.getByRole("button", { name: "Deny" })).toBeVisible({
+      await expect(
+        page.getByRole("button", { name: "Deny" }).first(),
+      ).toBeVisible({
         timeout: 30000,
       });
-      await page.getByRole("button", { name: "Deny" }).click();
+      await page.getByRole("button", { name: "Deny" }).first().click();
       await waitForAssistantResponse(page, { timeout: 45000 });
 
       await sendTextMessage(page, "次郎さんに400ドル送金してください");
-      await expect(page.getByRole("button", { name: "Deny" })).toBeVisible({
+      await expect(
+        page.getByRole("button", { name: "Deny" }).first(),
+      ).toBeVisible({
         timeout: 30000,
       });
-      await page.getByRole("button", { name: "Deny" }).click();
+      await page.getByRole("button", { name: "Deny" }).first().click();
       await waitForAssistantResponse(page, { timeout: 45000 });
 
       // Download and analyze
