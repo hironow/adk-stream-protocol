@@ -126,6 +126,12 @@ setup-e2e-fixtures:
 test-e2e:
     pnpm run test:e2e
 
+# Run E2E baseline tests (Playwright) - tools only with timeouts
+[group("testing-baseline")]
+test-baseline-e2e:
+    @echo "Running E2E baseline tests..."
+    pnpm exec playwright test e2e/tools/ --project=chromium --workers=1 --timeout=60000 --global-timeout=600000
+
 # Run E2E tests with clean server restart - guarantees fresh servers
 [group("testing")]
 test-e2e-clean: clean-port
