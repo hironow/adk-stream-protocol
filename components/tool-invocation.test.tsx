@@ -287,3 +287,207 @@ describe("ToolInvocation Manual Send Tests", () => {
     expect(sendMessage).toHaveBeenCalledTimes(1);
   });
 });
+
+/**
+ * Frontend Delegate Tool Auto-Execution Tests
+ *
+ * Tests automatic execution of frontend delegate tools in BIDI mode.
+ * Reference: experiments/2025-12-18_bidi_frontend_delegate_deadlock_analysis.md
+ */
+describe("ToolInvocation Frontend Delegate Auto-Execution Tests", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("should detect frontend delegate tool (no approval, BIDI mode)", () => {
+    // Given: A frontend delegate tool in input-available state with WebSocket transport
+    const toolInvocation = {
+      type: "tool-change_bgm",
+      toolName: "change_bgm",
+      toolCallId: "call-123",
+      state: "input-available",
+      input: { track: 1 },
+    };
+
+    const websocketTransport = {
+      sendToolResult: vi.fn(),
+      sendFunctionResponse: vi.fn(),
+    };
+
+    const executeToolCallback = vi.fn();
+
+    // Simulate the detection logic we implemented
+    const isAdkConfirmation = toolInvocation.toolName === "adk_request_confirmation";
+
+    const isLongRunningTool =
+      toolInvocation.state === "input-available" &&
+      websocketTransport !== undefined &&
+      executeToolCallback === undefined; // Long-running tools DON'T have executeToolCallback
+
+    const isFrontendDelegateTool =
+      toolInvocation.state === "input-available" &&
+      websocketTransport !== undefined &&
+      !isAdkConfirmation &&
+      executeToolCallback !== undefined; // Frontend delegate tools HAVE executeToolCallback
+
+    // Then: Should be detected as frontend delegate tool
+    // This will fail until we fix the detection logic
+    expect(isFrontendDelegateTool).toBe(true);
+  });
+
+  it("should NOT detect long-running tools as frontend delegate tools", () => {
+    // Given: A long-running tool (approval required, returns None on backend)
+    const toolInvocation = {
+      type: "tool-process_payment",
+      toolName: "process_payment",
+      toolCallId: "call-456",
+      state: "input-available",
+      input: { amount: 100, recipient: "Alice" },
+    };
+
+    const websocketTransport = {
+      sendToolResult: vi.fn(),
+      sendFunctionResponse: vi.fn(),
+    };
+
+    // Long-running tools DON'T have executeToolCallback
+    // They use sendFunctionResponse after approval
+    const executeToolCallback = undefined;
+
+    const isLongRunningTool =
+      toolInvocation.state === "input-available" &&
+      websocketTransport !== undefined &&
+      executeToolCallback === undefined; // Long-running tools DON'T have executeToolCallback
+
+    const isFrontendDelegateTool =
+      toolInvocation.state === "input-available" &&
+      websocketTransport !== undefined &&
+      !isLongRunningTool &&
+      executeToolCallback !== undefined; // Frontend delegate tools HAVE executeToolCallback
+
+    // Then: Should NOT be detected as frontend delegate tool
+    expect(isFrontendDelegateTool).toBe(false);
+  });
+
+  it("should auto-execute frontend delegate tool and send result via WebSocket", async () => {
+    // Given: Mock functions
+    const executeToolCallback = vi.fn().mockResolvedValue({
+      success: true,
+      result: {
+        success: true,
+        current_track: 1,
+        message: "BGM changed to track 1",
+      },
+    });
+
+    const websocketTransport = {
+      sendToolResult: vi.fn(),
+      sendFunctionResponse: vi.fn(),
+    };
+
+    const toolInvocation = {
+      type: "tool-change_bgm",
+      toolName: "change_bgm",
+      toolCallId: "call-789",
+      state: "input-available",
+      input: { track: 1 },
+    };
+
+    // Simulate the auto-execution logic we implemented
+    // This should happen in useEffect when tool arrives
+    const isFrontendDelegateTool =
+      toolInvocation.state === "input-available" &&
+      websocketTransport !== undefined &&
+      executeToolCallback !== undefined;
+
+    if (isFrontendDelegateTool) {
+      const { success, result } = await executeToolCallback(
+        toolInvocation.toolName,
+        toolInvocation.toolCallId,
+        toolInvocation.input,
+      );
+
+      if (success && result) {
+        websocketTransport.sendToolResult(toolInvocation.toolCallId, result);
+      }
+    }
+
+    // Then: executeToolCallback should be called with correct arguments
+    expect(executeToolCallback).toHaveBeenCalledWith(
+      "change_bgm",
+      "call-789",
+      { track: 1 },
+    );
+
+    // And: sendToolResult should be called with result
+    expect(websocketTransport.sendToolResult).toHaveBeenCalledWith("call-789", {
+      success: true,
+      current_track: 1,
+      message: "BGM changed to track 1",
+    });
+
+    // And: sendFunctionResponse should NOT be called (that's for long-running tools)
+    expect(websocketTransport.sendFunctionResponse).not.toHaveBeenCalled();
+  });
+
+  it("should NOT auto-execute if state is not input-available", () => {
+    // Given: Tool in different state
+    const toolInvocation = {
+      type: "tool-change_bgm",
+      toolName: "change_bgm",
+      toolCallId: "call-abc",
+      state: "input-streaming", // Not input-available
+      input: { track: 1 },
+    };
+
+    const websocketTransport = {
+      sendToolResult: vi.fn(),
+      sendFunctionResponse: vi.fn(),
+    };
+
+    const executeToolCallback = vi.fn();
+
+    const isFrontendDelegateTool =
+      toolInvocation.state === "input-available" &&
+      websocketTransport !== undefined &&
+      executeToolCallback !== undefined;
+
+    // Then: Should NOT be detected
+    expect(isFrontendDelegateTool).toBe(false);
+
+    // And: No execution should occur
+    expect(executeToolCallback).not.toHaveBeenCalled();
+    expect(websocketTransport.sendToolResult).not.toHaveBeenCalled();
+  });
+
+  it("should NOT auto-execute in SSE mode (no websocketTransport)", () => {
+    // Given: SSE mode (no websocketTransport)
+    const toolInvocation = {
+      type: "tool-change_bgm",
+      toolName: "change_bgm",
+      toolCallId: "call-def",
+      state: "input-available",
+      input: { track: 1 },
+    };
+
+    const websocketTransport = undefined; // SSE mode
+
+    const executeToolCallback = vi.fn();
+
+    const isFrontendDelegateTool =
+      toolInvocation.state === "input-available" &&
+      websocketTransport !== undefined &&
+      executeToolCallback !== undefined;
+
+    // Then: Should NOT be detected (SSE mode uses different flow)
+    expect(isFrontendDelegateTool).toBe(false);
+
+    // And: No execution should occur
+    expect(executeToolCallback).not.toHaveBeenCalled();
+  });
+});

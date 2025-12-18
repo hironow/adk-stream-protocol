@@ -75,6 +75,21 @@ class FrontendToolDelegate:
     def __init__(self) -> None:
         """Initialize the delegate with empty pending calls dict."""
         self._pending_calls: dict[str, asyncio.Future[dict[str, Any]]] = {}
+        # Map tool_name → function_call.id for ID resolution
+        self._tool_name_to_id: dict[str, str] = {}
+
+    def set_function_call_id(self, tool_name: str, function_call_id: str) -> None:
+        """
+        Set the function_call.id for a tool_name.
+
+        This is called by StreamProtocolConverter when processing function_call events.
+
+        Args:
+            tool_name: Name of the tool
+            function_call_id: The ADK function_call.id
+        """
+        self._tool_name_to_id[tool_name] = function_call_id
+        logger.debug(f"[FrontendDelegate] Mapped {tool_name} → {function_call_id}")
 
     async def execute_on_frontend(
         self, tool_call_id: str, tool_name: str, args: dict[str, Any]
@@ -83,7 +98,7 @@ class FrontendToolDelegate:
         Delegate tool execution to frontend and await result.
 
         Args:
-            tool_call_id: ADK's function_call.id (from ToolContext)
+            tool_call_id: ADK's invocation_id (from ToolContext) - will be replaced by function_call.id
             tool_name: Name of the tool to execute
             args: Tool arguments
 
@@ -93,18 +108,19 @@ class FrontendToolDelegate:
         Raises:
             RuntimeError: If tool result not received within timeout
         """
+        # Use tool_name as the key (function_call.id will be set later by StreamProtocolConverter)
         future: asyncio.Future[dict[str, Any]] = asyncio.Future()
-        self._pending_calls[tool_call_id] = future
+        self._pending_calls[tool_name] = future
 
         logger.info(
-            f"[FrontendDelegate] Awaiting result for tool_call_id={tool_call_id}, "
-            f"tool={tool_name}, args={args}"
+            f"[FrontendDelegate] Awaiting result for tool={tool_name}, "
+            f"invocation_id={tool_call_id}, args={args}"
         )
 
         # Await frontend result (blocks here until result arrives)
         result = await future
 
-        logger.info(f"[FrontendDelegate] Received result for tool_call_id={tool_call_id}: {result}")
+        logger.info(f"[FrontendDelegate] Received result for tool={tool_name}: {result}")
 
         return result
 
@@ -115,18 +131,36 @@ class FrontendToolDelegate:
         Called by WebSocket handler when frontend sends tool_result event.
 
         Args:
-            tool_call_id: The tool call ID to resolve
+            tool_call_id: The function_call.id from frontend
             result: Result dict from frontend execution
         """
-        if tool_call_id in self._pending_calls:
-            logger.info(
-                f"[FrontendDelegate] Resolving tool_call_id={tool_call_id} with result: {result}"
+        # Reverse lookup: function_call.id → tool_name
+        tool_name = None
+        for name, fid in self._tool_name_to_id.items():
+            if fid == tool_call_id:
+                tool_name = name
+                break
+
+        if not tool_name:
+            logger.warning(
+                f"[FrontendDelegate] No tool_name found for function_call.id={tool_call_id}. "
+                f"Known mappings: {self._tool_name_to_id}"
             )
-            self._pending_calls[tool_call_id].set_result(result)
-            del self._pending_calls[tool_call_id]
+            return
+
+        if tool_name in self._pending_calls:
+            logger.info(
+                f"[FrontendDelegate] Resolving tool={tool_name} (function_call.id={tool_call_id}) "
+                f"with result: {result}"
+            )
+            self._pending_calls[tool_name].set_result(result)
+            del self._pending_calls[tool_name]
+            # Clean up the mapping
+            del self._tool_name_to_id[tool_name]
         else:
             logger.warning(
-                f"[FrontendDelegate] No pending call found for tool_call_id={tool_call_id}"
+                f"[FrontendDelegate] No pending call found for tool={tool_name} "
+                f"(function_call.id={tool_call_id}). Pending: {list(self._pending_calls.keys())}"
             )
 
     def reject_tool_call(self, tool_call_id: str, error_message: str) -> None:
@@ -850,6 +884,16 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
                             event_data = json.loads(sse_event[5:].strip())  # Remove "data:" prefix
                             event_type = event_data.get("type", "unknown")
                             logger.info(f"[BIDI-SEND] Sending event type: {event_type}")
+
+                            # Register function_call.id mapping for frontend delegate tools
+                            if event_type == "tool-input-available":
+                                tool_name = event_data.get("toolName")
+                                tool_call_id = event_data.get("toolCallId")
+                                if tool_name and tool_call_id and frontend_delegate:
+                                    frontend_delegate.set_function_call_id(tool_name, tool_call_id)
+                                    logger.debug(
+                                        f"[BIDI-SEND] Registered mapping: {tool_name} → {tool_call_id}"
+                                    )
 
                             # Log tool-approval-request specifically with full data
                             if event_type == "tool-approval-request":

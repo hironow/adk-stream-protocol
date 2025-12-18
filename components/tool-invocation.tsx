@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createAdkConfirmationOutput } from "@/lib/adk_compat";
 
 /**
@@ -24,13 +24,17 @@ interface ToolInvocationProps {
     toolName: string,
     toolCallId: string,
     args: Record<string, unknown>,
-  ) => Promise<boolean>;
-  // WebSocket transport for long-running tool approval (BIDI mode)
+  ) => Promise<{ success: boolean; result?: Record<string, unknown> }>;
+  // WebSocket transport for long-running tool approval and frontend delegate tools (BIDI mode)
   websocketTransport?: {
     sendFunctionResponse: (
       toolCallId: string,
       toolName: string,
       response: Record<string, unknown>,
+    ) => void;
+    sendToolResult: (
+      toolCallId: string,
+      result: Record<string, unknown>,
     ) => void;
   };
 }
@@ -45,6 +49,9 @@ export function ToolInvocationComponent({
   // State management for long-running tool approval
   const [approvalSent, setApprovalSent] = useState(false);
   const [approvalError, setApprovalError] = useState<string | null>(null);
+
+  // State management for frontend delegate tool execution
+  const [executionAttempted, setExecutionAttempted] = useState(false);
 
   // Extract toolName from type (e.g., "tool-change_bgm" -> "change_bgm")
   const toolName =
@@ -82,8 +89,27 @@ export function ToolInvocationComponent({
   //   tools = [LongRunningFunctionTool(my_tool)]
   //
   // The approval UI will automatically appear for any tool using this pattern.
+  // Key distinction: Long-running tools DON'T have executeToolCallback
   const isLongRunningTool =
-    state === "input-available" && websocketTransport !== undefined;
+    state === "input-available" &&
+    websocketTransport !== undefined &&
+    executeToolCallback === undefined; // Long-running tools don't execute on frontend
+
+  // Detect frontend delegate tools (BIDI mode only)
+  //
+  // Frontend delegate tools use delegate.execute_on_frontend() pattern:
+  // 1. Backend creates Future and awaits result
+  // 2. Frontend receives tool-input-available event
+  // 3. Frontend auto-executes tool locally (THIS LOGIC)
+  // 4. Frontend sends result back via WebSocket (sendToolResult)
+  // 5. Backend resolves Future and returns result
+  //
+  // Key distinction: Frontend delegate tools HAVE executeToolCallback
+  const isFrontendDelegateTool =
+    state === "input-available" &&
+    websocketTransport !== undefined &&
+    !isAdkConfirmation &&
+    executeToolCallback !== undefined;
 
   // Generic handler for long-running tool approval/denial
   const handleLongRunningToolResponse = (approved: boolean) => {
@@ -123,6 +149,66 @@ export function ToolInvocationComponent({
       setApprovalError(errorMessage);
     }
   };
+
+  // Auto-execute frontend delegate tools (BIDI mode)
+  // This runs when a frontend delegate tool arrives (tool-input-available)
+  useEffect(() => {
+    if (isFrontendDelegateTool && !executionAttempted) {
+      setExecutionAttempted(true);
+
+      console.log(
+        `[FrontendDelegate] Auto-executing ${toolName} (toolCallId=${toolInvocation.toolCallId})`,
+      );
+
+      executeToolCallback(
+        toolName,
+        toolInvocation.toolCallId,
+        toolInvocation.input || {},
+      )
+        .then(({ success, result }) => {
+          if (success && result) {
+            console.log(
+              `[FrontendDelegate] ✓ Executed ${toolName}, sending result via WebSocket`,
+              result,
+            );
+
+            // Send result via WebSocket (BIDI mode)
+            websocketTransport?.sendToolResult(
+              toolInvocation.toolCallId,
+              result,
+            );
+          } else {
+            console.warn(
+              `[FrontendDelegate] Tool ${toolName} not handled or failed`,
+            );
+          }
+        })
+        .catch((error) => {
+          console.error(
+            `[FrontendDelegate] ✗ Failed to execute ${toolName}:`,
+            error,
+          );
+
+          // Send error result via WebSocket
+          const errorResult = {
+            success: false,
+            error: error instanceof Error ? error.message : String(error),
+          };
+          websocketTransport?.sendToolResult(
+            toolInvocation.toolCallId,
+            errorResult,
+          );
+        });
+    }
+  }, [
+    isFrontendDelegateTool,
+    executionAttempted,
+    toolName,
+    toolInvocation.toolCallId,
+    toolInvocation.input,
+    executeToolCallback,
+    websocketTransport,
+  ]);
 
   // Tool call states: input-streaming, input-available, output-available, output-error, approval-requested, approval-responded
   const getStateColor = () => {

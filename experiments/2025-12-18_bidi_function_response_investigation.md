@@ -21,8 +21,8 @@ We implemented ADK tool confirmation flow for BIDI mode (WebSocket-based `/live`
 - ❌ Infinite loop (AI keeps asking for confirmation)
 
 ### Code Location
-- `/Users/nino/workspace/r/oss/adk-ai-data-protocol/ai_sdk_v6_compat.py:545-561` - FunctionResponse isolation logic
-- `/Users/nino/workspace/r/oss/adk-ai-data-protocol/server.py:684` - `live_request_queue.send_content()` call
+- `ai_sdk_v6_compat.py:545-561` - FunctionResponse isolation logic
+- `server.py:684` - `live_request_queue.send_content()` call
 
 ### Test Case
 - `e2e/adk-confirmation-minimal-bidi.spec.ts:32` - Test 1: Normal Flow - Approve Once

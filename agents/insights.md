@@ -473,9 +473,213 @@ chunk_logs/
 
 **この Baseline を悪化させないこと！**
 
+## BIDI Mode Frontend Delegate Deadlock 根本原因分析と修正
+
+**日付**: 2025-12-19
+**Status**: 🟢 部分的解決（approval不要ツール）/ 🔴 未解決（approval必要ツール）
+
+### 問題の本質
+
+BIDI mode で frontend delegate tools (change_bgm, get_location, process_payment) が失敗する根本原因を特定し、部分的に修正完了。
+
+**デッドロックメカニズム**:
+1. Backend が `tool-input-available` イベントを送信
+2. Backend が `delegate.execute_on_frontend()` で Future を作成し、await でブロック (server.py:115)
+3. Frontend が WebSocket 経由でイベントを受信し、UI に表示
+4. **❌ 問題1: Frontend が自動実行せず、結果を Backend に送信しない** → ✅ **修正完了**
+5. **❌ 問題2: Backend の ID mismatch で Future が resolve されない** → ✅ **修正完了**
+6. **❌ 問題3: Approval必要ツールで adk_request_confirmation が介在しマッピングが不一致** → ❌ **未解決**
+
+### ツール分類と動作パターン（修正後）
+
+| Tool Type | Example | Approval | Execution | Result Method | BIDI Status | 修正状況 |
+|-----------|---------|----------|-----------|---------------|------------|---------|
+| Backend Tool | get_weather | No | Backend | SSE events | ✅ 3/3 PASSED | N/A（元々動作） |
+| Frontend Delegate (no approval) | change_bgm | No | **Auto-execute** | **sendToolResult** | ✅ **3/3 PASSED** | ✅ **修正完了** |
+| Frontend Delegate (with approval) | process_payment, get_location | Yes | Execute after approval | **sendToolResult** | ❌ **0/5 FAILED** | ❌ **未解決** |
+| Long-running (ADK pattern) | LongRunningFunctionTool | Yes | Backend resumes | sendFunctionResponse | Not applicable | N/A |
+
+### Chunk Log 証拠
+
+#### ✅ get_weather (SUCCESS - Backend Tool)
+```
+sequence_number: 11  → tool-input-available
+sequence_number: 42  → tool-output-available ✅
+```
+完全な flow: tool-input → tool-output → 正常完了
+
+#### ❌ change_bgm (FAILURE - Frontend Delegate, No Approval)
+```
+sequence_number: 10  → tool-input-available
+sequence_number: 11  → ping/pong keepalive (無限ループ)
+```
+**Missing**: tool-output-available が送信されない
+
+#### ❌ process_payment (FAILURE - Frontend Delegate, With Approval)
+```
+sequence_number: 14  → tool-input-available
+sequence_number: 16  → user approval sent (approved: true)
+```
+**Missing**: 承認後も tool-output-available が送信されない
+
+### Backend Deadlock 証拠 (backend-adk-event.jsonl)
+
+```python
+# Line 179: change_bgm function_call 送信
+{"timestamp": 1766077628391, "chunk": "Event(...function_call=FunctionCall(name='change_bgm'...)"}
+
+# Line 180: 105秒後に次のイベント（別のテスト！）
+{"timestamp": 1766077733260, "sequence_number": 180}
+```
+
+**105秒のギャップ = Test timeout (60s) + 次のテスト開始**
+
+Backend が Future の resolve を待ち続けていることの明確な証拠。
+
+### 既存の実装状況
+
+#### ✅ 実装済み（使用可能）
+
+| Component | Location | Status |
+|-----------|----------|--------|
+| Backend: resolve_tool_result() | server.py:111-125 | ✅ Ready |
+| Backend: WebSocket handler for tool_result | server.py:784-798 | ✅ Ready |
+| Frontend: sendToolResult() | websocket-chat-transport.ts:320-333 | ✅ Ready |
+| Frontend: executeToolCallback() | chat.tsx:167-266 | ✅ Ready |
+
+**全てのインフラが存在する** - 欠けているのは自動実行ロジックのみ。
+
+#### ❌ 欠落している実装
+
+**Location**: `components/tool-invocation.tsx` (line ~125)
+
+**Missing logic**:
+1. Frontend delegate tool の検出（state="input-available", not long-running, not confirmation）
+2. useEffect での自動実行（ツール到着時にトリガー）
+3. 結果の WebSocket 送信（transport.sendToolResult()）
+
+### 現在の動作（間違っている）
+
+```typescript
+// tool-invocation.tsx:85-125
+const isLongRunningTool =
+  state === "input-available" && websocketTransport !== undefined;
+
+// Long-running tool approval flow (sendFunctionResponse)
+const handleLongRunningToolResponse = (approved: boolean) => {
+  websocketTransport?.sendFunctionResponse(toolCallId, toolName, {...});
+};
+
+// Standard approval flow (only for approval-requested state)
+onClick={async () => {
+  addToolApprovalResponse?.({...});
+
+  // Execute tool ONLY after approval
+  if (executeToolCallback) {
+    await executeToolCallback(toolName, toolCallId, input);
+  }
+}}
+```
+
+**問題**: Frontend delegate tools (approval 不要) が自動実行されない。
+
+### 期待される動作（修正後）
+
+```typescript
+// 1. Frontend delegate tool を検出
+const isFrontendDelegateTool =
+  state === "input-available" &&
+  websocketTransport !== undefined &&
+  !isLongRunningTool &&
+  !isAdkConfirmation &&
+  executeToolCallback !== undefined;
+
+// 2. useEffect で自動実行
+useEffect(() => {
+  if (isFrontendDelegateTool && !executionAttempted) {
+    setExecutionAttempted(true);
+
+    executeToolCallback(toolName, toolCallId, input || {})
+      .then((result) => {
+        // 3. 結果を WebSocket 経由で Backend に送信
+        websocketTransport.sendToolResult(toolCallId, result);
+      });
+  }
+}, [isFrontendDelegateTool, ...]);
+```
+
+### ✅ 修正完了（approval不要ツール）
+
+#### 1. Frontend Auto-Execution 実装 (components/tool-invocation.tsx)
+
+**変更内容**:
+- `isFrontendDelegateTool` 検出ロジック追加（lines 94-108）
+- `useEffect` による自動実行（lines 153-211）
+- `executeToolCallback` の返り値型を `{ success: boolean; result?: Record<string, unknown> }` に変更
+- `sendToolResult()` 呼び出しによる結果送信
+
+**テスト結果**:
+- ✅ Unit tests: 28/28 PASSED
+- ✅ E2E tests (change_bgm BIDI): 3/3 PASSED
+
+#### 2. Backend ID Mismatch 修正 (server.py)
+
+**問題**:
+- Backend が Future を `invocation_id` で登録
+- Frontend が `function_call.id` で tool_result を送信
+- ID 不一致で Future が resolve されない
+
+**修正内容**:
+- `_tool_name_to_id: dict[str, str]` マッピング追加（lines 75-79）
+- `set_function_call_id()` メソッド追加（lines 81-92）
+- `execute_on_frontend()` で `tool_name` をキーに Future 登録（lines 94-125）
+- `resolve_tool_result()` で `function_call.id` → `tool_name` 逆引き（lines 127-164）
+- WebSocket handler で `tool-input-available` 送信時にマッピング登録（lines 888-896）
+
+**テスト結果**:
+- ✅ Backend logs confirm mapping: `[FrontendDelegate] Mapped change_bgm → function-call-12954980071036824405`
+- ✅ Successful resolution: `[FrontendDelegate] Resolving tool=change_bgm (function_call.id=...) with result: {...}`
+
+### ❌ 未解決の問題（approval必要ツール）
+
+#### 3. adk_request_confirmation 介在時のマッピング不一致
+
+**問題**:
+- Approval必要ツール（process_payment, get_location）では `adk_request_confirmation` ツールが介在
+- マッピング: `process_payment → function-call-...` で登録
+- 実際の呼び出し: `tool=adk_request_confirmation` で `execute_on_frontend()` 実行
+- 結果: マッピングキーが一致せず Future が resolve されない
+
+**ログ証拠**:
+```log
+[FrontendDelegate] Mapped process_payment → function-call-10191469825215847904
+[ToolConfirmationInterceptor] Executing confirmation for tool=process_payment
+[FrontendDelegate] Awaiting result for tool=adk_request_confirmation, invocation_id=confirmation-function-call-...
+```
+
+**テスト結果**:
+- ❌ process_payment BIDI: 5/5 FAILED (timeout: "Thinking..." が消えない)
+
+**次のステップ**:
+- `adk_request_confirmation` のマッピング処理を追加実装
+- または approval フローの設計を見直す
+
+### 関連ドキュメント
+
+- 詳細分析: `experiments/2025-12-18_bidi_frontend_delegate_deadlock_analysis.md`
+- ID mismatch 分析: `experiments/2025-12-19_frontend_delegate_id_mismatch_fix.md`
+- フロー図: `experiments/2025-12-18_bidi_deadlock_flow_diagram.md`
+- Chunk logs: `chunk_logs/e2e-feature-1/frontend/`, `chunk_logs/e2e-feature-1/backend-adk-event.jsonl`
+
 ## 変更履歴
 
 - **2025-12-17**: 初版作成（無限ループ修正、チャンクロガー改善）
 - **2025-12-17**: E2Eテストでのフロントエンドチャンクログ自動保存機能を追加
 - **2025-12-17**: チャンクロガー統合テストスイート（8パターン）を追加
 - **2025-12-19**: E2E Baseline 状態記録追加（SSE: 18/18 PASSED, BIDI: 3/21 PASSED）
+- **2025-12-19**: BIDI Mode Frontend Delegate Deadlock 根本原因分析追加
+- **2025-12-19**: ✅ Frontend delegate tools (approval不要) 修正完了
+  - Frontend auto-execution 実装（tool-invocation.tsx）
+  - Backend ID mismatch 修正（server.py）
+  - change_bgm BIDI tests: 3/3 PASSED
+  - ❌ Approval必要ツール（process_payment）は未解決（adk_request_confirmation 介在問題）

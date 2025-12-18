@@ -98,7 +98,8 @@
       "Bash(xargs ps:*)",
       "Bash(test:*)",
       "Bash(sed:*)",
-      "Bash(tee:*)"
+      "Bash(tee:*)",
+      "Bash(pnpm exec playwright test:*)"
     ],
     "deny": [
       "Read(.env.keys)",

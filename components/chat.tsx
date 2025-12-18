@@ -169,7 +169,7 @@ export function Chat({
       toolName: string,
       toolCallId: string,
       args: Record<string, unknown>,
-    ): Promise<boolean> => {
+    ): Promise<{ success: boolean; result?: Record<string, unknown> }> => {
       let result: Record<string, unknown> = {}; // Initialize to empty object
       let handled = true;
 
@@ -233,19 +233,19 @@ export function Chat({
             // Not handled by client
             handled = false;
             // We don't return result here because we want server to handle it if possible
-            // But effectively for this callback, we return false
+            // But effectively for this callback, we return { success: false }
             break;
           }
         }
 
         if (!handled) {
-          return false;
+          return { success: false };
         }
 
         // handled = true, so result is definitely defined
         console.log("[Chat] Tool execution result:", result);
 
-        // Send result via AI SDK v6 standard API
+        // Send result via AI SDK v6 standard API (SSE mode)
         addToolOutput({
           tool: toolName,
           toolCallId: toolCallId,
@@ -253,9 +253,15 @@ export function Chat({
           output: result,
         });
 
-        return true;
+        // Return result for BIDI mode
+        return { success: true, result };
       } catch (error) {
         console.error("[Chat] Tool execution error:", error);
+        const errorResult = {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+
         addToolOutput({
           tool: toolName,
           toolCallId: toolCallId,
@@ -263,7 +269,7 @@ export function Chat({
           errorText: error instanceof Error ? error.message : String(error),
         });
 
-        return true; // Handled but failed
+        return { success: true, result: errorResult }; // Handled but failed
       }
     },
     [addToolOutput, audioContext],
