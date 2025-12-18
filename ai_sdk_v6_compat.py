@@ -500,15 +500,34 @@ def process_chat_message_for_bidi(
     # Parse last message from AI SDK v6 format
     last_msg = ChatMessage(**messages[-1])
 
-    # Separate image/video blobs from text parts
+    # IMPORTANT: Tool outputs (including adk_request_confirmation) must have role="user"
+    # AI SDK may send them as role="assistant", but ADK requires role="user" for FunctionResponse
+    # Check if message contains tool outputs and override role if needed
+    has_tool_output = False
+    if last_msg.parts:
+        for part in last_msg.parts:
+            if isinstance(part, ToolUsePart) and part.state == "output-available":
+                has_tool_output = True
+                break
+
+    if has_tool_output and last_msg.role != "user":
+        logger.info(f"[BIDI] Overriding message role from '{last_msg.role}' to 'user' for tool output")
+        last_msg.role = "user"
+
+    # Convert message to ADK Content using ChatMessage.to_adk_content()
+    # This handles all part types including ToolUsePart (confirmation responses)
+    adk_content = last_msg.to_adk_content()
+
+    # Separate image/video blobs from other parts
     # IMPORTANT: Live API requires separation
     # - Images/videos: Send via send_realtime(blob)
-    # - Text: Send via send_content(content)
+    # - Text/tool responses: Send via send_content(content)
     image_blobs: list[types.Blob] = []
-    text_parts: list[types.Part] = []
+    non_image_parts: list[types.Part] = []
 
+    # Extract image blobs from original parts (before ADK conversion)
     if last_msg.parts:
-        logger.info(f"[STEP 2] Processing {len(last_msg.parts)} parts")
+        logger.info(f"[STEP 2] Processing {len(last_msg.parts)} parts from last_msg")
         for part in last_msg.parts:
             logger.info(f"[STEP 2] Part type: {type(part).__name__}")
             # Handle file parts (images/videos)
@@ -524,18 +543,40 @@ def process_chat_message_for_bidi(
                         blob = types.Blob(mime_type=part.media_type, data=file_bytes)
                         image_blobs.append(blob)
 
-            # Handle text parts
-            elif isinstance(part, TextPart):
-                text_parts.append(types.Part(text=part.text))
+    # Extract non-image parts from ADK content (includes text, tool responses, etc.)
+    if adk_content.parts:
+        logger.info(f"[STEP 2] ADK content has {len(adk_content.parts)} parts")
+        for adk_part in adk_content.parts:
+            # Skip inline_data parts (images) - they're already in image_blobs
+            if not hasattr(adk_part, "inline_data") or adk_part.inline_data is None:
+                non_image_parts.append(adk_part)
+                # Log what we're including
+                if hasattr(adk_part, "function_response") and adk_part.function_response:
+                    logger.info(
+                        f"[STEP 2] Including FunctionResponse: {adk_part.function_response.name}"
+                    )
 
-    # Create text content if any text exists
+    # Create text content if any non-image parts exist
     text_content = None
-    if text_parts:
-        text_content = types.Content(role="user", parts=text_parts)
+    if non_image_parts:
+        # Check if FunctionResponse is included (tool confirmation response)
+        function_response_parts = [
+            part
+            for part in non_image_parts
+            if hasattr(part, "function_response") and part.function_response
+        ]
+
+        if function_response_parts:
+            # ADK requires FunctionResponse to be sent ALONE with role="user"
+            # Do not mix FunctionResponse with other text parts
+            text_content = types.Content(role="user", parts=function_response_parts)
+        else:
+            # No FunctionResponse - send all parts with original role
+            text_content = types.Content(role=adk_content.role, parts=non_image_parts)
 
     # STEP 3: Log ADK format before sending (verify correct structure for ADK)
     logger.info(
-        f"[STEP 3] ADK format: image_blobs={len(image_blobs)}, text_parts={len(text_parts)}"
+        f"[STEP 3] ADK format: image_blobs={len(image_blobs)}, non_image_parts={len(non_image_parts)}"
     )
     if text_content:
         logger.info(f"[STEP 3] Text content role: {text_content.role}, parts: {text_content.parts}")

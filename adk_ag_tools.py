@@ -295,3 +295,66 @@ async def get_location(tool_context: ToolContext) -> dict[str, Any]:
 
     logger.info(f"[get_location] Received result from frontend: {result}")
     return result
+
+
+async def adk_request_confirmation(
+    originalFunctionCall: dict[str, Any],
+    toolConfirmation: dict[str, Any],
+    tool_context: ToolContext,
+) -> dict[str, Any]:
+    """
+    Request user confirmation for a tool execution (BIDI mode only).
+
+    This tool delegates the confirmation request to the frontend and blocks
+    until the user approves or rejects the action. It is automatically called
+    by ADK when a tool has require_confirmation=True.
+
+    In BIDI mode, this tool must be implemented as an actual Python function
+    to block AI processing until user responds. In SSE mode, ADK handles this
+    automatically.
+
+    Args:
+        originalFunctionCall: Dict with 'id', 'name', and 'args' of the tool requiring confirmation
+        toolConfirmation: Dict with 'confirmed' boolean (initial value: False)
+        tool_context: ADK ToolContext (automatically injected)
+
+    Returns:
+        Confirmation result: {'confirmed': bool}
+    """
+    tool_call_id = tool_context.invocation_id
+    if not tool_call_id:
+        error_msg = "Missing invocation_id in ToolContext"
+        logger.error(f"[adk_request_confirmation] {error_msg}")
+        return {"confirmed": False, "error": error_msg}
+
+    logger.info(
+        f"[adk_request_confirmation] Requesting confirmation for tool_call_id={tool_call_id}, "
+        f"original_tool={originalFunctionCall.get('name')}"
+    )
+
+    # Get frontend delegate from session state
+    session_state = getattr(tool_context.session, "state", None)
+    if not session_state:
+        error_msg = "Missing session.state in ToolContext"
+        logger.error(f"[adk_request_confirmation] {error_msg}")
+        return {"confirmed": False, "error": error_msg}
+
+    delegate = session_state.get("frontend_delegate")
+    if not delegate:
+        error_msg = "Missing frontend_delegate in session.state"
+        logger.error(f"[adk_request_confirmation] {error_msg}")
+        return {"confirmed": False, "error": error_msg}
+
+    # Delegate to frontend and await user decision
+    # This blocks AI processing until user approves/rejects
+    result = await delegate.execute_on_frontend(
+        tool_call_id=tool_call_id,
+        tool_name="adk_request_confirmation",
+        args={
+            "originalFunctionCall": originalFunctionCall,
+            "toolConfirmation": toolConfirmation,
+        },
+    )
+
+    logger.info(f"[adk_request_confirmation] User decision received: {result}")
+    return result

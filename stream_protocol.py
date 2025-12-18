@@ -847,26 +847,35 @@ class StreamProtocolConverter:
 
 
 async def _convert_to_sse_events(
-    processed_event: Event | dict[str, Any],
+    processed_event: Event | dict[str, Any] | str,
     original_event: Event,
     converter: StreamProtocolConverter,
 ) -> AsyncGenerator[str, None]:
     """
     Convert ADK Event or injected dict to SSE event strings.
 
-    This helper function unifies the conversion logic for both:
+    This helper function unifies the conversion logic for:
     - Original ADK Event objects (converted via converter)
     - Injected confirmation dicts (already in AI SDK v6 format)
+    - Raw SSE strings (like [DONE] markers - passed through directly)
 
     Args:
-        processed_event: Either original ADK Event object or injected dict
+        processed_event: ADK Event object, injected dict, or raw SSE string
         original_event: The original ADK Event (for identity check)
         converter: The StreamProtocolConverter instance
 
     Yields:
         SSE formatted event strings
     """
-    if processed_event is original_event:
+    logger.debug(
+        f"[_convert_to_sse_events] Received: type={type(processed_event).__name__}, "
+        f"is_str={isinstance(processed_event, str)}"
+    )
+    if isinstance(processed_event, str):
+        # Raw SSE string (e.g., "data: [DONE]\n\n") - pass through directly
+        logger.info(f"[_convert_to_sse_events] Passing through raw string: {repr(processed_event)}")
+        yield processed_event
+    elif processed_event is original_event:
         # Original ADK Event - convert normally via converter
         # Type assertion: identity check guarantees this is an Event
         assert isinstance(processed_event, Event)
@@ -882,6 +891,8 @@ async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912
     event_stream: AsyncGenerator[Event, None],
     message_id: str | None = None,
     mode: Mode = "adk-sse",  # "adk-sse" or "adk-bidi" for chunk logger
+    interceptor: Any = None,  # ToolConfirmationInterceptor | None
+    confirmation_tools: list[str] | None = None,
 ) -> AsyncGenerator[str, None]:
     """
     Convert ADK event stream to AI SDK v6 Data Stream Protocol.
@@ -889,6 +900,9 @@ async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912
     Args:
         event_stream: AsyncGenerator of ADK Event objects
         message_id: Optional message ID
+        mode: Backend mode ("adk-sse" or "adk-bidi") for chunk logger
+        interceptor: ToolConfirmationInterceptor for BIDI mode (None for SSE mode)
+        confirmation_tools: List of tool names requiring confirmation
 
     Yields:
         SSE-formatted event strings
@@ -918,10 +932,17 @@ async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912
 
             # BIDI Confirmation Injection: Unify SSE and BIDI tool confirmation flows
             # SSE: Passes through original event only (ADK generates confirmation)
-            # BIDI: Injects adk_request_confirmation events for require_confirmation=True tools
-            for processed_event in inject_confirmation_for_bidi(
-                event, is_bidi=(mode == "adk-bidi")
+            # BIDI: Intercepts confirmation-required tools and executes frontend confirmation
+            async for processed_event in inject_confirmation_for_bidi(
+                event,
+                is_bidi=(mode == "adk-bidi"),
+                interceptor=interceptor,
+                confirmation_tools=confirmation_tools,
             ):
+                logger.debug(
+                    f"[stream_adk_to_ai_sdk] Received from inject_confirmation_for_bidi: "
+                    f"type={type(processed_event).__name__}, is_str={isinstance(processed_event, str)}"
+                )
                 # Convert to SSE events (unified path for both Event objects and dicts)
                 async for sse_event in _convert_to_sse_events(processed_event, event, converter):
                     # Chunk Logger: Record SSE event (output)

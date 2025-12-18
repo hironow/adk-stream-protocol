@@ -211,6 +211,14 @@ clean-lock:
     rm -f uv.lock
     @echo "Lock files cleaned."
 
+# Clean up log files
+[group("cleaner")]
+clean-logs:
+    @echo "Cleaning up log files..."
+    rm -rf logs
+    rm -rf chunks-logs
+    @echo "Log files cleaned."
+
 # Run E2E tests with clean server restart - guarantees fresh servers
 [group("cleaner")]
 kill:

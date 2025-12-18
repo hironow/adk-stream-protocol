@@ -8,7 +8,7 @@ This directory contains research, preliminary experiments, and exploratory imple
 
 | Date | Experiment | Status | Objective | Current Progress |
 |------|-----------|--------|-----------|------------------|
-| 2025-12-17 | [Tool Architecture Refactoring](./2025-12-17_tool_architecture_refactoring.md) | 🔴 **BLOCKED - BIDI Bugs** | Align tool architecture with AI SDK v6 standard patterns | ✅ Phases 1-4 complete. ✅ Phase 5 complete (SSE mode ✅). ❌ **Phase 5 BIDI mode**: 2 critical bugs found - (1) Tool confirmation not working, (2) Missing AI text after tool execution. See `BUG-ADK-BIDI-TOOL-CONFIRMATION.md` |
+| 2025-12-18 | [Tool Architecture & BIDI Confirmation Investigation](./2025-12-17_tool_architecture_refactoring.md) | ⚠️ **SSE Complete, BIDI Structurally Impossible** | Align tool architecture with AI SDK v6 standard patterns | ✅ Phases 1-4 complete. ✅ Phase 5 SSE mode complete (ADK native confirmation). ❌ **Phase 5 BIDI mode**: Tool confirmation structurally impossible (ADK continuous event stream incompatible with sendAutomaticallyWhen). Investigation complete, see `agents/handsoff.md` Session 5 |
 
 ### 🟢 Complete
 

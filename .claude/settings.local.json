@@ -103,7 +103,8 @@
       "Bash(xargs ps:*)",
       "Bash(test:*)",
       "Bash(sed:*)",
-      "Bash(tee:*)"
+      "Bash(tee:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfix(e2e): Add missing helper imports to adk-tool-confirmation.spec.ts\n\nAdded getLastMessage and getMessageText to imports from helpers.ts.\n\nThese functions were being used but not imported, causing\nReferenceError: getLastMessage is not defined (Test 4).\n\nNote: Test 4 still fails due to underlying AI response text issue\n(timeout waiting for message text to appear), but import is now correct.\n\nTest Results: Still 4/9 passing (no change in pass rate)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
     ],
     "deny": [
       "Read(.env.keys)",

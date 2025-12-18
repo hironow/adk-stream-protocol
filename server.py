@@ -12,6 +12,7 @@ import asyncio
 import json
 import os
 import uuid
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -28,11 +29,13 @@ from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.responses import StreamingResponse  # noqa: E402
 from google.adk.agents import LiveRequestQueue  # noqa: E402
 from google.adk.agents.run_config import RunConfig, StreamingMode  # noqa: E402
+from google.adk.events import Event  # noqa: E402
 from google.genai import types  # noqa: E402
 from loguru import logger  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
 from adk_ag_runner import (  # noqa: E402
+    BIDI_CONFIRMATION_TOOLS,
     bidi_agent,
     bidi_agent_runner,
     sse_agent,
@@ -43,6 +46,7 @@ from adk_compat import (  # noqa: E402
     get_or_create_session,
     sync_conversation_history_to_session,
 )
+from confirmation_interceptor import ToolConfirmationInterceptor  # noqa: E402
 from ai_sdk_v6_compat import (  # noqa: E402
     ChatMessage,
     ToolCallState,
@@ -179,10 +183,13 @@ def get_user() -> str:
 # Configure file logging
 log_dir = Path("logs")
 log_dir.mkdir(exist_ok=True)
-log_file = log_dir / "server_e2e-2.log"
+# session id or time jst format for uniqueness
+jst_format = "%Y%m%d_%H%M%S"
+jst_time_str = datetime.now(timezone(timedelta(hours=9))).strftime(jst_format)
+log_file = log_dir / f"server_{os.getenv('CHUNK_LOGGER_SESSION_ID', jst_time_str)}.log"
 logger.add(
     log_file,
-    rotation="5 MB",
+    rotation="100 MB",
     retention="7 days",
     level="DEBUG",
     format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} - {message}",
@@ -671,12 +678,54 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
 
                         # Send to ADK LiveRequestQueue
                         # Images/videos: send_realtime(blob)
-                        # Text: send_content(content)
+                        # Text/FunctionResponse: Different handling
                         for blob in image_blobs:
                             live_request_queue.send_realtime(blob)
 
                         if text_content:
-                            live_request_queue.send_content(text_content)
+                            logger.info(f"[BIDI] Processing text_content with {len(text_content.parts or [])} parts")
+
+                            # Check if this is a FunctionResponse (tool confirmation)
+                            has_function_response = any(
+                                hasattr(part, "function_response") and part.function_response
+                                for part in (text_content.parts or [])
+                            )
+
+                            logger.info(f"[BIDI] has_function_response={has_function_response}")
+
+                            if has_function_response:
+                                # FunctionResponse must be added to session history, not sent via send_content()
+                                # ADK documentation: "send_content() is for text; FunctionResponse handled automatically"
+                                # This matches SSE mode behavior (run_async processes FunctionResponse in conversation context)
+                                # Reference: experiments/2025-12-18_bidi_function_response_investigation.md
+                                logger.info(f"[BIDI] Creating Event with FunctionResponse, author='user'")
+                                event = Event(author="user", content=text_content)
+                                logger.info(f"[BIDI] Calling session_service.append_event() with session={session.id}")
+                                await bidi_agent_runner.session_service.append_event(session, event)
+                                logger.info(
+                                    "[BIDI] ✓ Successfully added FunctionResponse to session history via append_event()"
+                                )
+
+                                # BIDI Confirmation: Resolve pending frontend tool requests
+                                # When FrontendToolDelegate.execute_on_frontend() awaits for tool-result,
+                                # we must notify it that the result has arrived
+                                for part in text_content.parts or []:
+                                    if hasattr(part, "function_response") and part.function_response:
+                                        func_resp = part.function_response
+                                        tool_call_id = func_resp.id
+                                        response_data = func_resp.response
+
+                                        logger.info(
+                                            f"[BIDI] Resolving frontend request: tool_call_id={tool_call_id}"
+                                        )
+                                        frontend_delegate.resolve_tool_result(tool_call_id, response_data)
+                                        logger.info(
+                                            f"[BIDI] ✓ Resolved frontend request: {tool_call_id}"
+                                        )
+                            else:
+                                # Regular text messages go through LiveRequestQueue
+                                logger.info("[BIDI] Sending regular text via send_content()")
+                                live_request_queue.send_content(text_content)
 
                     # Handle interrupt event
                     elif event_type == "interrupt":
@@ -756,11 +805,24 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
                 # This is the SAME converter used in SSE mode (/stream endpoint)
                 # We reuse 100% of the conversion logic - only transport layer differs
                 # WebSocket mode: Send SSE format over WebSocket (instead of HTTP SSE)
-                # ADK native Tool Confirmation Flow via FunctionTool(require_confirmation=True)
+                # Tool Confirmation: Uses ToolConfirmationInterceptor for BIDI mode
                 logger.info("[BIDI] Starting to stream ADK events to WebSocket")
+
+                # Create ToolConfirmationInterceptor for BIDI mode
+                # This enables frontend confirmation flow for tools like process_payment
+                confirmation_interceptor = ToolConfirmationInterceptor(
+                    delegate=frontend_delegate,
+                    confirmation_tools=BIDI_CONFIRMATION_TOOLS,
+                )
+                logger.info(
+                    f"[BIDI] Created ToolConfirmationInterceptor with tools: {BIDI_CONFIRMATION_TOOLS}"
+                )
+
                 async for sse_event in stream_adk_to_ai_sdk(
                     live_events,
                     mode="adk-bidi",  # Chunk logger: distinguish from adk-sse mode
+                    interceptor=confirmation_interceptor,
+                    confirmation_tools=BIDI_CONFIRMATION_TOOLS,
                 ):
                     event_count += 1
                     # Send SSE-formatted event as WebSocket text message

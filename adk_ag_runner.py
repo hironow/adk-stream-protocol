@@ -15,7 +15,34 @@ from google.adk.tools.function_tool import FunctionTool
 from loguru import logger
 
 # Import tool functions from adk_ag_tools module
-from adk_ag_tools import change_bgm, get_location, get_weather, process_payment
+from adk_ag_tools import (
+    change_bgm,
+    get_location,
+    get_weather,
+    process_payment,
+    # Note: adk_request_confirmation is imported in server.py for manual execution
+    # It's NOT registered as a tool in the agent to avoid conflict with ADK's auto-generated calls
+)
+
+# ========== Monkey Patch for Native Audio Model Support ==========
+# ADK SDK hardcodes v1alpha for Google AI Studio, but native-audio models require v1beta
+# Reference: experiments/2025-12-18_bidi_function_response_investigation.md
+from google.adk.models.google_llm import Gemini
+from google.adk.utils.variant_utils import GoogleLLMVariant
+
+
+def _patched_live_api_version(self: Gemini) -> str:
+    """Patched version that uses v1beta for both Vertex AI and Google AI Studio."""
+    if self._api_backend == GoogleLLMVariant.VERTEX_AI:
+        return "v1beta1"
+    else:
+        # Changed from v1alpha to v1beta to support native-audio models
+        return "v1beta"
+
+
+# Apply monkey patch before agent initialization
+Gemini._live_api_version = property(_patched_live_api_version)  # type: ignore
+logger.info("[MONKEY PATCH] Applied _live_api_version override to use v1beta for Google AI Studio")
 
 # ========== Constants for Agent Configuration ==========
 # Fixed values for reproducible behavior
@@ -88,9 +115,12 @@ bidi_agent = Agent(
     instruction=AGENT_INSTRUCTION,
     tools=[
         get_weather,
-        process_payment,  # NOTE: require_confirmation not supported in BIDI mode
+        FunctionTool(process_payment, require_confirmation=True),  # Enable confirmation in BIDI mode
         change_bgm,
         get_location,
+        # Note: adk_request_confirmation is NOT registered as a tool
+        # ADK automatically generates it for tools with require_confirmation=True
+        # We intercept the auto-generated FunctionCall and execute the Python function
     ],
     # Note: ADK Agent doesn't support seed and temperature parameters
 )
@@ -100,3 +130,67 @@ sse_agent_runner = InMemoryRunner(agent=sse_agent, app_name="agents")
 bidi_agent_runner = InMemoryRunner(agent=bidi_agent, app_name="agents")
 
 logger.info("ADK agents and runners initialized successfully")
+
+
+# ========== Tool Confirmation Configuration ==========
+# Extract tools requiring confirmation from agent definitions
+# This ensures Single Source of Truth: agent tool configuration is authoritative
+
+
+def get_tools_requiring_confirmation(agent: Agent) -> list[str]:
+    """
+    Extract tool names that require user confirmation from an Agent.
+
+    Automatically detects FunctionTool with require_confirmation=True.
+    This provides configuration-driven confirmation without hardcoding tool names.
+
+    Args:
+        agent: ADK Agent object
+
+    Returns:
+        List of tool names requiring confirmation (e.g., ["process_payment"])
+
+    Example:
+        >>> tools = get_tools_requiring_confirmation(bidi_agent)
+        >>> print(tools)
+        ['process_payment']
+    """
+    confirmation_tools = []
+
+    logger.debug(f"[Agent Config] Checking {len(agent.tools)} tools for confirmation requirement")
+
+    for i, tool in enumerate(agent.tools):
+        logger.debug(f"[Agent Config] Tool[{i}]: type={type(tool).__name__}, tool={tool}")
+
+        # Check if tool is FunctionTool
+        is_function_tool = isinstance(tool, FunctionTool)
+        logger.debug(f"[Agent Config] Tool[{i}]: isinstance(FunctionTool)={is_function_tool}")
+
+        if is_function_tool:
+            # Check _require_confirmation attribute (ADK uses private attribute)
+            has_attr = hasattr(tool, "_require_confirmation")
+            attr_value = getattr(tool, "_require_confirmation", None)
+            logger.debug(f"[Agent Config] Tool[{i}]: has _require_confirmation={has_attr}, value={attr_value}")
+
+            if attr_value:
+                # Extract function name from FunctionTool
+                # FunctionTool wraps a callable, get the name from __name__ or func attribute
+                if hasattr(tool, "func") and hasattr(tool.func, "__name__"):
+                    tool_name = tool.func.__name__
+                else:
+                    # Fallback: use string representation
+                    tool_name = str(tool)
+
+                confirmation_tools.append(tool_name)
+                logger.info(f"[Agent Config] ✓ Tool requires confirmation: {tool_name}")
+
+    return confirmation_tools
+
+
+# Extract confirmation tools for each agent
+# These lists are used by ToolConfirmationInterceptor in BIDI mode
+SSE_CONFIRMATION_TOOLS = get_tools_requiring_confirmation(sse_agent)
+BIDI_CONFIRMATION_TOOLS = get_tools_requiring_confirmation(bidi_agent)
+
+logger.info(f"SSE Agent confirmation tools: {SSE_CONFIRMATION_TOOLS}")
+logger.info(f"BIDI Agent confirmation tools: {BIDI_CONFIRMATION_TOOLS}")
