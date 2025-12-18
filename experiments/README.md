@@ -8,7 +8,7 @@ This directory contains research, preliminary experiments, and exploratory imple
 
 | Date | Experiment | Status | Objective | Current Progress |
 |------|-----------|--------|-----------|------------------|
-| 2025-12-18 | [Tool Architecture & BIDI Confirmation Investigation](./2025-12-17_tool_architecture_refactoring.md) | ⚠️ **SSE Complete, BIDI Structurally Impossible** | Align tool architecture with AI SDK v6 standard patterns | ✅ Phases 1-4 complete. ✅ Phase 5 SSE mode complete (ADK native confirmation). ❌ **Phase 5 BIDI mode**: Tool confirmation structurally impossible (ADK continuous event stream incompatible with sendAutomaticallyWhen). Investigation complete, see `agents/handsoff.md` Session 5 |
+| 2025-12-18 | [Tool Architecture & BIDI Confirmation Investigation](./2025-12-17_tool_architecture_refactoring.md) | ⚠️ **SSE Complete, BIDI Needs New Approach** | Align tool architecture with AI SDK v6 standard patterns | ✅ Phases 1-4 complete. ✅ Phase 5 SSE mode complete (ADK native confirmation). ❌ **Phase 5 BIDI mode**: Tool confirmation structurally impossible with current approach (sendAutomaticallyWhen). **New Plan**: [LongRunningFunctionTool implementation plan](./2025-12-18_bidi_longrunning_tool_plan.md) created. Next: POC to verify Live API pause/resume support |
 
 ### 🟢 Complete
 

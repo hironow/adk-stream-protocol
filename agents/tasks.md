@@ -26,25 +26,41 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
 
 ## 📊 Active Tasks
 
-### 🔴 BIDI Tool Confirmation - Decision Required
-**Status:** 🔴 **BLOCKED** - Awaiting architectural decision
+### 🟡 BIDI Tool Confirmation - LongRunningFunctionTool Implementation
+**Status:** 🟡 **PLANNING** - Implementation plan created, POC needed
 **Priority:** High
-**Description:** BIDI mode tool confirmation proven structurally impossible with current approach
+**Description:** Implement BIDI mode tool confirmation using ADK's LongRunningFunctionTool pattern
 
-**Investigation Complete:**
-- ✅ Root cause identified: ADK continuous event stream incompatible with sendAutomaticallyWhen
-- ✅ Alternative investigated: LongRunningFunctionTool (requires major refactoring)
+**Background:**
+- ✅ Root cause identified: Current approach (sendAutomaticallyWhen) incompatible with ADK continuous event stream
+- ✅ Alternative selected: **Option A - LongRunningFunctionTool**
 - ✅ SSE mode confirmed working (no regression)
+- ✅ Comprehensive implementation plan created
 
-**Options:**
-1. **Option B (Recommended)**: Accept SSE-only limitation
-   - Document in code and user docs
-   - Disable BIDI confirmation in UI
-   - Continue with other improvements
-2. **Option A**: LongRunningFunctionTool architecture (major refactor)
-3. **Option C**: Separate WebSocket channel (high complexity)
+**Implementation Plan:**
+- Document: [experiments/2025-12-18_bidi_longrunning_tool_plan.md](../experiments/2025-12-18_bidi_longrunning_tool_plan.md)
+- Key Approach: Explicit agent pause/resume cycle with `status: 'pending'` pattern
+- Architecture: Wrapper tool (`process_payment_approval`) → User approval → Actual tool (`process_payment`)
 
-**Next Step:** User decision on approach
+**Next Steps:**
+1. **POC (Critical)**: Test LongRunningFunctionTool with BIDI Live API
+   - Verify pause/resume works in WebSocket mode
+   - Check connection stays open during pause
+   - **GO/NO-GO Decision Point**
+2. **If GO**: Follow 4-phase implementation (8-12 hours estimate)
+3. **If NO-GO**: Document as architectural limitation, accept SSE-only support
+
+**Risks:**
+- Live API pause/resume support unknown (needs POC verification)
+- WebSocket connection timeout during pause
+- Duplicate tool execution on resume
+- LLM instruction complexity for multi-step workflow
+
+**Success Criteria:**
+- BIDI approval UI displays for pending payments
+- User can approve/deny via WebSocket
+- Agent resumes after approval decision
+- Actual payment executes only after approval
 
 ---
 
