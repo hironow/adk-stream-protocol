@@ -1,4 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
+import dotenv from "dotenv";
+
+// Load .env.local for environment variables (e.g., CHUNK_LOGGER_SESSION_ID)
+dotenv.config({ path: ".env.local" });
 
 /**
  * Playwright E2E Test Configuration

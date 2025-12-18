@@ -403,55 +403,68 @@ export async function setupChunkPlayerMode(page: Page, patternName: string) {
 }
 
 /**
- * Download frontend chunk logs to chunk_logs/frontend/ directory
+ * Download frontend chunk logs organized by session ID
  *
  * This helper clicks the "Download Chunks" button and saves the downloaded
- * chunk log file to chunk_logs/frontend/ for post-test analysis.
+ * chunk log file organized by session ID for post-test analysis.
+ * Requires CHUNK_LOGGER_SESSION_ID environment variable to be set.
  *
  * @param page - Playwright page object
- * @param testName - Test name to use in filename (optional)
+ * @param testName - Test name to use in filename (required)
  * @returns The path to the saved file, or null if download failed
  *
  * @example
- * const logPath = await downloadFrontendChunkLogs(page, "approval-test");
- * // Saves to: chunk_logs/frontend/{session_id}.jsonl
+ * const logPath = await downloadFrontendChunkLogs(page, "normal-flow-approve-once");
+ * // Saves to: chunk_logs/{CHUNK_LOGGER_SESSION_ID}/frontend/{testName}.jsonl
+ * // Example: chunk_logs/e2e-session-1/frontend/normal-flow-approve-once.jsonl
  */
 export async function downloadFrontendChunkLogs(
   page: Page,
-  testName?: string,
+  testName: string,
 ): Promise<string | null> {
   const fs = await import("node:fs");
-  const frontendDir = path.join(process.cwd(), "chunk_logs", "frontend");
+
+  // Get session ID from environment variable
+  const sessionId = process.env.CHUNK_LOGGER_SESSION_ID;
+  if (!sessionId) {
+    console.warn(
+      "CHUNK_LOGGER_SESSION_ID not set - skipping frontend chunk log download",
+    );
+    return null;
+  }
+
+  // Save to chunk_logs/{session_id}/frontend/
+  const frontendDir = path.join(
+    process.cwd(),
+    "chunk_logs",
+    sessionId,
+    "frontend",
+  );
 
   // Ensure directory exists
   if (!fs.existsSync(frontendDir)) {
     fs.mkdirSync(frontendDir, { recursive: true });
   }
 
-  // Setup download handler
-  const downloadPromise = page.waitForEvent("download");
-
   // Click download button
   const downloadButton = page.getByRole("button", { name: /Download Chunks/i });
   const count = await downloadButton.count();
 
   if (count === 0) {
-    console.warn("Download Chunks button not found - skipping download");
+    // Silently skip if button not found (chunk logger not enabled)
     return null;
   }
 
+  // Setup download handler
+  const downloadPromise = page.waitForEvent("download");
   await downloadButton.click();
 
-  // Wait for download and save to chunk_logs/frontend/
+  // Wait for download and save with test name
   try {
     const download = await downloadPromise;
-    const suggestedFilename = download.suggestedFilename();
 
-    // Add test name prefix if provided
-    const filename = testName
-      ? `${testName}-${suggestedFilename}`
-      : suggestedFilename;
-
+    // Use test name as filename
+    const filename = `${testName}.jsonl`;
     const savePath = path.join(frontendDir, filename);
     await download.saveAs(savePath);
 

@@ -1,5 +1,8 @@
 import { expect, test } from "@playwright/test";
-import { sendTextMessage, waitForAssistantResponse } from "../helpers";
+import {
+  downloadFrontendChunkLogs,
+  sendTextMessage, waitForAssistantResponse
+} from "../helpers";
 
 /**
  * ADK Tool Confirmation - Minimal Test Suite (BIDI Mode)
@@ -23,10 +26,31 @@ import { sendTextMessage, waitForAssistantResponse } from "../helpers";
 test.describe("ADK Tool Confirmation - Minimal Test Suite (BIDI)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("http://localhost:3000");
+
+    // Enable chunk logger via localStorage
+    const sessionId = process.env.CHUNK_LOGGER_SESSION_ID;
+    if (sessionId) {
+      await page.evaluate(
+        (sid) => {
+          localStorage.setItem("CHUNK_LOGGER_ENABLED", "true");
+          localStorage.setItem("CHUNK_LOGGER_SESSION_ID", sid);
+        },
+        sessionId,
+      );
+      // Reload to apply chunk logger settings
+      await page.reload();
+    }
+
     // Select ADK BIDI mode
     await page.click("text=ADK BIDI");
     // Wait for mode selection to take effect
     await page.waitForTimeout(1000);
+  });
+
+  test.afterEach(async ({ page }, testInfo) => {
+    // Download frontend chunk logs after each test
+    const testName = testInfo.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+    await downloadFrontendChunkLogs(page, `process-payment-bidi-${testName}`);
   });
 
   test("1. Normal Flow - Approve Once", async ({ page }) => {
