@@ -2,15 +2,12 @@ import { expect, test } from "@playwright/test";
 import { sendTextMessage, waitForAssistantResponse } from "./helpers";
 
 /**
- * ADK Tool Confirmation - Minimal Test Suite (BIDI Mode)
+ * get_location Tool - SSE Mode Test Suite
  *
- * Purpose: Cover all critical scenarios with minimal test cases in BIDI mode
- * Approach: Test-Driven Development (RED → GREEN → REFACTOR)
- *
- * BIDI Mode Differences:
- * - Uses WebSocket bidirectional communication (/live endpoint)
- * - Frontend can delegate tool execution (change_bgm auto-executes)
- * - Confirmation flow should work the same as SSE mode
+ * Tool Characteristics:
+ * - Client execution via FrontendToolDelegate (browser Geolocation API)
+ * - Requires user approval before execution (FunctionTool with require_confirmation=True)
+ * - Returns user's location to server after approval
  *
  * Test Cases:
  * 1. Normal Flow - Approve Once
@@ -20,11 +17,11 @@ import { sendTextMessage, waitForAssistantResponse } from "./helpers";
  * 5. Approve Then Deny (Reverse order verification)
  */
 
-test.describe("ADK Tool Confirmation - Minimal Test Suite (BIDI)", () => {
+test.describe("get_location Tool - SSE Mode", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("http://localhost:3000");
-    // Select ADK BIDI mode
-    await page.click("text=ADK BIDI");
+    // Select ADK SSE mode
+    await page.click("text=ADK SSE");
     // Wait for mode selection to take effect
     await page.waitForTimeout(1000);
   });
@@ -32,16 +29,16 @@ test.describe("ADK Tool Confirmation - Minimal Test Suite (BIDI)", () => {
   test("1. Normal Flow - Approve Once", async ({ page }) => {
     let requestCount = 0;
     page.on("request", (request) => {
-      if (request.url().includes("/live")) {
+      if (request.url().includes("/stream")) {
         requestCount++;
-        console.log(`[BIDI Test 1] Request #${requestCount}: ${request.url()}`);
+        console.log(`[Test 1] Request #${requestCount}: ${request.url()}`);
       }
     });
 
-    console.log("[BIDI Test 1] Requesting payment...");
-    await sendTextMessage(page, "花子さんに50ドル送金してください");
+    console.log("[Test 1] Requesting location...");
+    await sendTextMessage(page, "私の位置を教えてください");
 
-    console.log("[BIDI Test 1] Waiting for approval UI...");
+    console.log("[Test 1] Waiting for approval UI...");
     await expect(
       page.getByRole("button", { name: "Approve" }).first(),
     ).toBeVisible({
@@ -50,32 +47,30 @@ test.describe("ADK Tool Confirmation - Minimal Test Suite (BIDI)", () => {
 
     // Reset counter before approval
     requestCount = 0;
-    console.log("[BIDI Test 1] Approval UI visible, clicking Approve...");
+    console.log("[Test 1] Approval UI visible, clicking Approve...");
 
     // Approve
     await page.getByRole("button", { name: "Approve" }).first().click();
 
-    console.log("[BIDI Test 1] Waiting for AI response...");
+    console.log("[Test 1] Waiting for AI response...");
     await waitForAssistantResponse(page, { timeout: 30000 });
 
-    // Verify AI text response
-    console.log("[BIDI Test 1] Verifying AI text response...");
+    // Verify AI text response with location information
+    console.log("[Test 1] Verifying AI text response...");
     await expect(
-      page.getByText(/送金しました|送金が完了|送金しました/),
+      page.getByText(/位置|場所|location|latitude|longitude|coordinates/i).last(),
     ).toBeVisible({
-      timeout: 5000,
+      timeout: 10000,
     });
 
     // Wait a bit to ensure no automatic send
     await page.waitForTimeout(2000);
 
     // Verify no infinite loop
-    console.log(
-      `[BIDI Test 1] Request count after approval: ${requestCount}`,
-    );
+    console.log(`[Test 1] Request count after approval: ${requestCount}`);
     expect(requestCount).toBeLessThanOrEqual(1);
 
-    console.log("[BIDI Test 1] ✅ PASSED");
+    console.log("[Test 1] ✅ PASSED");
   });
 
   test("2. Denial Flow - Deny Once (CRITICAL: No infinite loop)", async ({
@@ -85,12 +80,10 @@ test.describe("ADK Tool Confirmation - Minimal Test Suite (BIDI)", () => {
     const requestTimestamps: number[] = [];
 
     page.on("request", (request) => {
-      if (request.url().includes("/live")) {
+      if (request.url().includes("/stream")) {
         requestCount++;
         requestTimestamps.push(Date.now());
-        console.log(
-          `[BIDI Test 2] Request #${requestCount}: ${request.url()}`,
-        );
+        console.log(`[Test 2] Request #${requestCount}: ${request.url()}`);
 
         // Safety: Fail fast if infinite loop detected
         if (requestCount > 10) {
@@ -103,10 +96,10 @@ test.describe("ADK Tool Confirmation - Minimal Test Suite (BIDI)", () => {
       }
     });
 
-    console.log("[BIDI Test 2] Requesting payment...");
-    await sendTextMessage(page, "次郎さんに200ドル送金してください");
+    console.log("[Test 2] Requesting location...");
+    await sendTextMessage(page, "私の現在地を取得して");
 
-    console.log("[BIDI Test 2] Waiting for approval UI...");
+    console.log("[Test 2] Waiting for approval UI...");
     await expect(
       page.getByRole("button", { name: "Deny" }).first(),
     ).toBeVisible({
@@ -116,50 +109,48 @@ test.describe("ADK Tool Confirmation - Minimal Test Suite (BIDI)", () => {
     // Reset counter before denial
     requestCount = 0;
     requestTimestamps.length = 0;
-    console.log("[BIDI Test 2] Approval UI visible, clicking Deny...");
+    console.log("[Test 2] Approval UI visible, clicking Deny...");
 
     // Deny
     await page.getByRole("button", { name: "Deny" }).first().click();
 
-    console.log("[BIDI Test 2] Waiting for AI response...");
+    console.log("[Test 2] Waiting for AI response...");
     await waitForAssistantResponse(page, { timeout: 30000 });
 
     // Verify AI text response (denial message)
-    console.log("[BIDI Test 2] Verifying denial message...");
+    console.log("[Test 2] Verifying denial message...");
     await expect(
-      page.getByText(/拒否|キャンセル|承認されませんでした/),
+      page.getByText(/拒否|キャンセル|承認されませんでした|denied|cancelled/i).last(),
     ).toBeVisible({
-      timeout: 5000,
+      timeout: 10000,
     });
 
     // Wait to ensure no infinite loop
-    console.log("[BIDI Test 2] Waiting to detect potential infinite loop...");
+    console.log("[Test 2] Waiting to detect potential infinite loop...");
     await page.waitForTimeout(3000);
 
     // Critical assertion: NO infinite loop
     console.log(
-      `[BIDI Test 2] Request count after denial: ${requestCount}, timestamps: ${requestTimestamps.join(", ")}`,
+      `[Test 2] Request count after denial: ${requestCount}, timestamps: ${requestTimestamps.join(", ")}`,
     );
     expect(requestCount).toBeLessThanOrEqual(1);
 
-    console.log("[BIDI Test 2] ✅ PASSED - No infinite loop detected");
+    console.log("[Test 2] ✅ PASSED - No infinite loop detected");
   });
 
   test("3. Sequential Flow - Approve Twice", async ({ page }) => {
     let totalRequestCount = 0;
 
     page.on("request", (request) => {
-      if (request.url().includes("/live")) {
+      if (request.url().includes("/stream")) {
         totalRequestCount++;
-        console.log(
-          `[BIDI Test 3] Request #${totalRequestCount}: ${request.url()}`,
-        );
+        console.log(`[Test 3] Request #${totalRequestCount}: ${request.url()}`);
       }
     });
 
-    // Payment 1
-    console.log("[BIDI Test 3] Payment 1: Alice...");
-    await sendTextMessage(page, "Aliceさんに30ドル送金してください");
+    // Location request 1
+    console.log("[Test 3] Location request 1...");
+    await sendTextMessage(page, "私の位置を教えて");
     await expect(
       page.getByRole("button", { name: "Approve" }).first(),
     ).toBeVisible({
@@ -167,11 +158,11 @@ test.describe("ADK Tool Confirmation - Minimal Test Suite (BIDI)", () => {
     });
     await page.getByRole("button", { name: "Approve" }).first().click();
     await waitForAssistantResponse(page, { timeout: 30000 });
-    console.log("[BIDI Test 3] Payment 1 completed");
+    console.log("[Test 3] Location request 1 completed");
 
-    // Payment 2
-    console.log("[BIDI Test 3] Payment 2: Bob...");
-    await sendTextMessage(page, "Bobさんに40ドル送金してください");
+    // Location request 2
+    console.log("[Test 3] Location request 2...");
+    await sendTextMessage(page, "もう一度位置を確認して");
     await expect(
       page.getByRole("button", { name: "Approve" }).first(),
     ).toBeVisible({
@@ -179,30 +170,28 @@ test.describe("ADK Tool Confirmation - Minimal Test Suite (BIDI)", () => {
     });
     await page.getByRole("button", { name: "Approve" }).first().click();
     await waitForAssistantResponse(page, { timeout: 30000 });
-    console.log("[BIDI Test 3] Payment 2 completed");
+    console.log("[Test 3] Location request 2 completed");
 
     // Verify total requests
-    console.log(`[BIDI Test 3] Total requests: ${totalRequestCount}`);
+    console.log(`[Test 3] Total requests: ${totalRequestCount}`);
     expect(totalRequestCount).toBeLessThanOrEqual(4);
 
-    console.log("[BIDI Test 3] ✅ PASSED");
+    console.log("[Test 3] ✅ PASSED");
   });
 
   test("4. Deny Then Approve (State reset verification)", async ({ page }) => {
     let requestCount = 0;
 
     page.on("request", (request) => {
-      if (request.url().includes("/live")) {
+      if (request.url().includes("/stream")) {
         requestCount++;
-        console.log(
-          `[BIDI Test 4] Request #${requestCount}: ${request.url()}`,
-        );
+        console.log(`[Test 4] Request #${requestCount}: ${request.url()}`);
       }
     });
 
-    // Payment 1 - Deny
-    console.log("[BIDI Test 4] Payment 1 (Deny): Charlie...");
-    await sendTextMessage(page, "Charlieさんに100ドル送金してください");
+    // Location request 1 - Deny
+    console.log("[Test 4] Location request 1 (Deny)...");
+    await sendTextMessage(page, "私の位置を教えてください");
     await expect(
       page.getByRole("button", { name: "Deny" }).first(),
     ).toBeVisible({
@@ -214,12 +203,12 @@ test.describe("ADK Tool Confirmation - Minimal Test Suite (BIDI)", () => {
     await page.waitForTimeout(2000);
 
     const denyRequests = requestCount;
-    console.log(`[BIDI Test 4] Deny requests: ${denyRequests}`);
+    console.log(`[Test 4] Deny requests: ${denyRequests}`);
     expect(denyRequests).toBeLessThanOrEqual(1);
 
-    // Payment 2 - Approve
-    console.log("[BIDI Test 4] Payment 2 (Approve): Diana...");
-    await sendTextMessage(page, "Dianaさんに50ドル送金してください");
+    // Location request 2 - Approve
+    console.log("[Test 4] Location request 2 (Approve)...");
+    await sendTextMessage(page, "今度は位置を取得して");
     await expect(
       page.getByRole("button", { name: "Approve" }).first(),
     ).toBeVisible({
@@ -231,10 +220,10 @@ test.describe("ADK Tool Confirmation - Minimal Test Suite (BIDI)", () => {
     await page.waitForTimeout(2000);
 
     const approveRequests = requestCount;
-    console.log(`[BIDI Test 4] Approve requests: ${approveRequests}`);
+    console.log(`[Test 4] Approve requests: ${approveRequests}`);
     expect(approveRequests).toBeLessThanOrEqual(1);
 
-    console.log("[BIDI Test 4] ✅ PASSED - State properly resets");
+    console.log("[Test 4] ✅ PASSED - State properly resets");
   });
 
   test("5. Approve Then Deny (Reverse order verification)", async ({
@@ -243,17 +232,15 @@ test.describe("ADK Tool Confirmation - Minimal Test Suite (BIDI)", () => {
     let requestCount = 0;
 
     page.on("request", (request) => {
-      if (request.url().includes("/live")) {
+      if (request.url().includes("/stream")) {
         requestCount++;
-        console.log(
-          `[BIDI Test 5] Request #${requestCount}: ${request.url()}`,
-        );
+        console.log(`[Test 5] Request #${requestCount}: ${request.url()}`);
       }
     });
 
-    // Payment 1 - Approve
-    console.log("[BIDI Test 5] Payment 1 (Approve): Eve...");
-    await sendTextMessage(page, "Eveさんに60ドル送金してください");
+    // Location request 1 - Approve
+    console.log("[Test 5] Location request 1 (Approve)...");
+    await sendTextMessage(page, "私の位置を教えて");
     await expect(
       page.getByRole("button", { name: "Approve" }).first(),
     ).toBeVisible({
@@ -265,12 +252,12 @@ test.describe("ADK Tool Confirmation - Minimal Test Suite (BIDI)", () => {
     await page.waitForTimeout(2000);
 
     const approveRequests = requestCount;
-    console.log(`[BIDI Test 5] Approve requests: ${approveRequests}`);
+    console.log(`[Test 5] Approve requests: ${approveRequests}`);
     expect(approveRequests).toBeLessThanOrEqual(1);
 
-    // Payment 2 - Deny
-    console.log("[BIDI Test 5] Payment 2 (Deny): Frank...");
-    await sendTextMessage(page, "Frankさんに70ドル送金してください");
+    // Location request 2 - Deny
+    console.log("[Test 5] Location request 2 (Deny)...");
+    await sendTextMessage(page, "もう一度位置を確認して");
     await expect(
       page.getByRole("button", { name: "Deny" }).first(),
     ).toBeVisible({
@@ -282,9 +269,9 @@ test.describe("ADK Tool Confirmation - Minimal Test Suite (BIDI)", () => {
     await page.waitForTimeout(2000);
 
     const denyRequests = requestCount;
-    console.log(`[BIDI Test 5] Deny requests: ${denyRequests}`);
+    console.log(`[Test 5] Deny requests: ${denyRequests}`);
     expect(denyRequests).toBeLessThanOrEqual(1);
 
-    console.log("[BIDI Test 5] ✅ PASSED - State properly managed");
+    console.log("[Test 5] ✅ PASSED - State properly managed");
   });
 });

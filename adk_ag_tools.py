@@ -298,8 +298,8 @@ async def get_location(tool_context: ToolContext) -> dict[str, Any]:
 
 
 async def adk_request_confirmation(
-    originalFunctionCall: dict[str, Any],
-    toolConfirmation: dict[str, Any],
+    originalFunctionCall: dict[str, Any],  # noqa: N803 - ADK API spec uses camelCase
+    toolConfirmation: dict[str, Any],  # noqa: N803 - ADK API spec uses camelCase
     tool_context: ToolContext,
 ) -> dict[str, Any]:
     """
@@ -358,3 +358,56 @@ async def adk_request_confirmation(
 
     logger.info(f"[adk_request_confirmation] User decision received: {result}")
     return result
+
+
+# ========== LongRunningFunctionTool Reference Implementation ==========
+
+
+def approval_test_tool(amount: float, recipient: str) -> None:
+    """
+    Reference implementation for LongRunningFunctionTool pattern.
+
+    This tool demonstrates how to create a tool that requires user approval
+    in BIDI mode. It returns None to trigger ADK's long-running tool pause
+    mechanism, which pauses agent execution until the frontend sends approval.
+
+    Usage pattern:
+    1. Tool executes immediately on server
+    2. Returns None → ADK pauses agent execution
+    3. Frontend auto-displays approval UI (any tool returning None)
+    4. User approves/denies → frontend sends function_response via WebSocket
+    5. ADK resumes agent with user's decision
+
+    How to create your own long-running tool:
+        from google.adk.tools.long_running_tool import LongRunningFunctionTool
+
+        def my_approval_tool(data: str) -> None:
+            # Your validation/processing logic here
+            logger.info(f"Tool waiting for approval: {data}")
+            return None  # Triggers pause
+
+        # Register with LongRunningFunctionTool wrapper
+        tools = [LongRunningFunctionTool(my_approval_tool)]
+
+    Args:
+        amount: Payment amount in USD
+        recipient: Payment recipient name
+
+    Returns:
+        None - Signals to ADK that tool is waiting for user action
+
+    Frontend receives:
+        {"approved": bool, "user_message": str, "timestamp": str}
+    """
+    import uuid
+
+    approval_id = f"approval-{uuid.uuid4().hex[:8]}"
+
+    logger.info(
+        f"[approval_test_tool] Tool executed, returning None to pause: "
+        f"approval_id={approval_id}, amount=${amount}, recipient={recipient}"
+    )
+
+    # CRITICAL: Must return None to trigger pause!
+    # Returning data would create function_response and complete the tool immediately.
+    return None  # noqa: PLR1711 - Explicit None return required for LongRunningFunctionTool pattern

@@ -222,8 +222,9 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
    */
   private sendEvent(event: ClientToServerEvent): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      console.warn("[WS Transport] Cannot send event, WebSocket not open");
-      return;
+      const error = new Error("WebSocket not open - cannot send event");
+      console.error("[WS Transport] Cannot send event, WebSocket not open");
+      throw error;
     }
 
     // Add timestamp if not present
@@ -329,6 +330,54 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
       },
     };
     this.sendEvent(event);
+  }
+
+  /**
+   * PUBLIC API: Send function_response to resume paused agent (LongRunningFunctionTool pattern)
+   * Use case: User approved a long-running tool → send function_response to resume ADK agent
+   *
+   * Based on AI SDK v6 message format discovered from ai_sdk_v6_compat.py:385-390:
+   * ```python
+   * function_response = types.FunctionResponse(
+   *     id=tool_call_id,
+   *     name="approval_test_tool",
+   *     response={"approved": true}
+   * )
+   * ```
+   */
+  public sendFunctionResponse(
+    toolCallId: string,
+    toolName: string,
+    response: Record<string, unknown>,
+  ): void {
+    // Construct AI SDK v6 message with function_response part
+    // Note: We use 'as any' here because UIMessage type from AI SDK v6 doesn't
+    // directly support the tool-result structure, but the backend understands it
+    const message: MessageEvent = {
+      type: "message",
+      version: "1.0",
+      data: {
+        messages: [
+          {
+            id: `fr-${Date.now()}`,
+            role: "user",
+            content: [
+              {
+                type: "tool-result" as const,
+                toolCallId,
+                toolName,
+                result: response,
+              },
+            ],
+          } as any, // Type assertion needed for internal protocol structure
+        ],
+      },
+    };
+
+    console.log(
+      `[WS Transport] Sending function_response for ${toolName} (tool_call_id=${toolCallId})`,
+    );
+    this.sendEvent(message);
   }
 
   /**
@@ -480,6 +529,15 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
               this.ws.onopen = () => {
                 clearTimeout(timeoutId);
                 this.startPing(); // Start latency monitoring
+
+                // DEBUG: Expose WebSocket for e2e testing (Phase 4 timeout test)
+                if (typeof window !== "undefined") {
+                  (window as any).__websocket = this.ws;
+                  console.log(
+                    "[WS Transport] WebSocket instance exposed for testing",
+                  );
+                }
+
                 resolve();
               };
 

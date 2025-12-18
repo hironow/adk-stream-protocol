@@ -332,9 +332,7 @@ async def inject_confirmation_for_bidi(
         fc_name = function_call.name if hasattr(function_call, "name") else "unknown"
         fc_args = function_call.args if hasattr(function_call, "args") else {}
 
-    logger.info(
-        f"[BIDI Confirmation] Intercepting tool: {fc_name} (id={fc_id})"
-    )
+    logger.info(f"[BIDI Confirmation] Intercepting tool: {fc_name} (id={fc_id})")
 
     # Yield original event first
     yield event
@@ -383,9 +381,7 @@ async def inject_confirmation_for_bidi(
         )
 
         confirmed = confirmation_result.get("confirmed", False)
-        logger.info(
-            f"[BIDI Confirmation] User decision: confirmed={confirmed} for {fc_name}"
-        )
+        logger.info(f"[BIDI Confirmation] User decision: confirmed={confirmed} for {fc_name}")
 
     except Exception as e:
         logger.error(f"[BIDI Confirmation] Error executing confirmation: {e}")
@@ -407,10 +403,10 @@ async def inject_confirmation_for_bidi(
         }
 
 
-def _is_function_call_requiring_confirmation(
+def _is_function_call_requiring_confirmation(  # noqa: PLR0911 - Multiple returns needed for dict/ADK object format handling
     event: dict[str, Any] | Any,
     confirmation_tools: list[str],
-) -> bool:  # noqa: PLR0911
+) -> bool:
     """
     Check if event is a FunctionCall requiring confirmation.
 
@@ -441,8 +437,12 @@ def _is_function_call_requiring_confirmation(
 
     # Handle ADK Event object
     # ADK Events don't have a "type" attribute - they have content.parts with function_call
-    if not (hasattr(event, "content") and event.content and
-            hasattr(event.content, "parts") and event.content.parts):
+    if not (
+        hasattr(event, "content")
+        and event.content
+        and hasattr(event.content, "parts")
+        and event.content.parts
+    ):
         return False
 
     # Check each part for function_call

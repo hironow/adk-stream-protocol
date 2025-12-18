@@ -10,12 +10,20 @@ This module contains:
 import os
 
 from google.adk.agents import Agent
+
+# ========== Monkey Patch for Native Audio Model Support ==========
+# ADK SDK hardcodes v1alpha for Google AI Studio, but native-audio models require v1beta
+# Reference: experiments/2025-12-18_bidi_function_response_investigation.md
+from google.adk.models.google_llm import Gemini
 from google.adk.runners import InMemoryRunner
 from google.adk.tools.function_tool import FunctionTool
+from google.adk.tools.long_running_tool import LongRunningFunctionTool
+from google.adk.utils.variant_utils import GoogleLLMVariant
 from loguru import logger
 
 # Import tool functions from adk_ag_tools module
 from adk_ag_tools import (
+    approval_test_tool,  # POC: LongRunningFunctionTool test
     change_bgm,
     get_location,
     get_weather,
@@ -23,12 +31,6 @@ from adk_ag_tools import (
     # Note: adk_request_confirmation is imported in server.py for manual execution
     # It's NOT registered as a tool in the agent to avoid conflict with ADK's auto-generated calls
 )
-
-# ========== Monkey Patch for Native Audio Model Support ==========
-# ADK SDK hardcodes v1alpha for Google AI Studio, but native-audio models require v1beta
-# Reference: experiments/2025-12-18_bidi_function_response_investigation.md
-from google.adk.models.google_llm import Gemini
-from google.adk.utils.variant_utils import GoogleLLMVariant
 
 
 def _patched_live_api_version(self: Gemini) -> str:
@@ -58,19 +60,21 @@ AGENT_DESCRIPTION = "An intelligent assistant that can check weather, process pa
 # Common agent instruction
 AGENT_INSTRUCTION = (
     "You are a helpful AI assistant with access to the following tools:\n"
-    "- get_weather: Check weather for any city\n"
-    "- process_payment: Process payment transactions (requires user approval via ADK confirmation)\n"
-    "- change_bgm: Change background music track to 1 or 2 (auto-executes on frontend)\n"
-    "- get_location: Get user's location (auto-executes on frontend via browser Geolocation API)\n\n"
+    "- get_weather: Check weather for any city (server execution, no approval required)\n"
+    "- process_payment: Process payment transactions (server execution, requires user approval)\n"
+    "- change_bgm: Change background music track to 1 or 2 (client execution, no approval required)\n"
+    "- get_location: Get user's location (client execution via browser Geolocation API, requires user approval)\n"
+    "- approval_test_tool: TEST TOOL for approval flow (use when user mentions 'approval', 'test approval', or 'request approval')\n\n"
     "IMPORTANT: You MUST use these tools to perform the requested actions. "
-    "When a user asks you to check weather, send money, change BGM, or get location, "
+    "When a user asks you to check weather, send money, change BGM, get location, or test approval, "
     "you must call the corresponding tool function - do not just describe what you would do.\n\n"
     "For example:\n"
     "- User: '東京の天気は?' → Call get_weather(location='Tokyo')\n"
     "- User: '100ドルをAliceに送金して' → Call process_payment(amount=100, recipient='Alice', currency='USD')\n"
     "- User: 'トラック1に変更して' → Call change_bgm(track=1)\n"
-    "- User: '私の位置を教えて' → Call get_location()\n\n"
-    "Note: process_payment requires user approval before execution (ADK Tool Confirmation Flow)."
+    "- User: '私の位置を教えて' → Call get_location()\n"
+    "- User: 'Request approval to pay $500 to Alice' → Call approval_test_tool(amount=500, recipient='Alice')\n\n"
+    "Note: process_payment and get_location require user approval before execution (ADK Tool Confirmation Flow)."
 )
 
 # ========== ADK Agent Setup ==========
@@ -86,6 +90,27 @@ if not API_KEY:
 else:
     logger.info(f"ADK API key loaded: {API_KEY[:10]}...")
 
+# ========= Common Tools Definition ==========
+# Single source of truth for all agent tools
+# Agent implementers only need to modify this list - no need to know SSE/BIDI differences
+
+COMMON_TOOLS = [
+    get_weather,  # Weather information retrieval (server, no approval)
+    FunctionTool(
+        process_payment, require_confirmation=True
+    ),  # Payment processing with user approval (server execution)
+    change_bgm,  # Background music control (client execution, no approval)
+    FunctionTool(
+        get_location, require_confirmation=True
+    ),  # User location retrieval (client execution with user approval)
+    LongRunningFunctionTool(
+        approval_test_tool
+    ),  # Test tool for approval flow (BIDI: pause/resume, SSE: normal execution)
+    # Note: adk_request_confirmation is NOT registered as a tool
+    # ADK automatically generates it for tools with require_confirmation=True
+    # We intercept the auto-generated FunctionCall and execute the Python function
+]
+
 # ========= Define Agents ==========
 # https://ai.google.dev/gemini-api/docs/models
 
@@ -95,12 +120,7 @@ sse_agent = Agent(
     model="gemini-3-flash-preview",  # Gemini 3 Flash Preview for generateContent API (SSE mode)
     description=AGENT_DESCRIPTION,
     instruction=AGENT_INSTRUCTION,
-    tools=[
-        get_weather,
-        FunctionTool(process_payment, require_confirmation=True),
-        change_bgm,
-        get_location,  # Uses global frontend_delegate for approval (past implementation pattern)
-    ],
+    tools=COMMON_TOOLS,  # Uses common tools definition
     # Note: ADK Agent doesn't support seed and temperature parameters
 )
 
@@ -113,15 +133,7 @@ bidi_agent = Agent(
     model=bidi_model,  # Configurable model for BIDI mode
     description=AGENT_DESCRIPTION,
     instruction=AGENT_INSTRUCTION,
-    tools=[
-        get_weather,
-        FunctionTool(process_payment, require_confirmation=True),  # Enable confirmation in BIDI mode
-        change_bgm,
-        get_location,
-        # Note: adk_request_confirmation is NOT registered as a tool
-        # ADK automatically generates it for tools with require_confirmation=True
-        # We intercept the auto-generated FunctionCall and execute the Python function
-    ],
+    tools=COMMON_TOOLS,  # Uses common tools definition
     # Note: ADK Agent doesn't support seed and temperature parameters
 )
 
@@ -170,7 +182,9 @@ def get_tools_requiring_confirmation(agent: Agent) -> list[str]:
             # Check _require_confirmation attribute (ADK uses private attribute)
             has_attr = hasattr(tool, "_require_confirmation")
             attr_value = getattr(tool, "_require_confirmation", None)
-            logger.debug(f"[Agent Config] Tool[{i}]: has _require_confirmation={has_attr}, value={attr_value}")
+            logger.debug(
+                f"[Agent Config] Tool[{i}]: has _require_confirmation={has_attr}, value={attr_value}"
+            )
 
             if attr_value:
                 # Extract function name from FunctionTool

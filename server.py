@@ -46,7 +46,6 @@ from adk_compat import (  # noqa: E402
     get_or_create_session,
     sync_conversation_history_to_session,
 )
-from confirmation_interceptor import ToolConfirmationInterceptor  # noqa: E402
 from ai_sdk_v6_compat import (  # noqa: E402
     ChatMessage,
     ToolCallState,
@@ -54,6 +53,7 @@ from ai_sdk_v6_compat import (  # noqa: E402
     process_chat_message_for_bidi,
 )
 from chunk_logger import chunk_logger  # noqa: E402
+from confirmation_interceptor import ToolConfirmationInterceptor  # noqa: E402
 from stream_protocol import stream_adk_to_ai_sdk  # noqa: E402
 
 # ========== Frontend Tool Delegate ==========
@@ -683,7 +683,9 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
                             live_request_queue.send_realtime(blob)
 
                         if text_content:
-                            logger.info(f"[BIDI] Processing text_content with {len(text_content.parts or [])} parts")
+                            logger.info(
+                                f"[BIDI] Processing text_content with {len(text_content.parts or [])} parts"
+                            )
 
                             # Check if this is a FunctionResponse (tool confirmation)
                             has_function_response = any(
@@ -698,9 +700,13 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
                                 # ADK documentation: "send_content() is for text; FunctionResponse handled automatically"
                                 # This matches SSE mode behavior (run_async processes FunctionResponse in conversation context)
                                 # Reference: experiments/2025-12-18_bidi_function_response_investigation.md
-                                logger.info(f"[BIDI] Creating Event with FunctionResponse, author='user'")
+                                logger.info(
+                                    "[BIDI] Creating Event with FunctionResponse, author='user'"
+                                )
                                 event = Event(author="user", content=text_content)
-                                logger.info(f"[BIDI] Calling session_service.append_event() with session={session.id}")
+                                logger.info(
+                                    f"[BIDI] Calling session_service.append_event() with session={session.id}"
+                                )
                                 await bidi_agent_runner.session_service.append_event(session, event)
                                 logger.info(
                                     "[BIDI] ✓ Successfully added FunctionResponse to session history via append_event()"
@@ -710,7 +716,10 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
                                 # When FrontendToolDelegate.execute_on_frontend() awaits for tool-result,
                                 # we must notify it that the result has arrived
                                 for part in text_content.parts or []:
-                                    if hasattr(part, "function_response") and part.function_response:
+                                    if (
+                                        hasattr(part, "function_response")
+                                        and part.function_response
+                                    ):
                                         func_resp = part.function_response
                                         tool_call_id = func_resp.id
                                         response_data = func_resp.response
@@ -718,7 +727,9 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
                                         logger.info(
                                             f"[BIDI] Resolving frontend request: tool_call_id={tool_call_id}"
                                         )
-                                        frontend_delegate.resolve_tool_result(tool_call_id, response_data)
+                                        frontend_delegate.resolve_tool_result(
+                                            tool_call_id, response_data
+                                        )
                                         logger.info(
                                             f"[BIDI] ✓ Resolved frontend request: {tool_call_id}"
                                         )

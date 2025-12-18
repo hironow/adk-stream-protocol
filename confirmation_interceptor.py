@@ -50,9 +50,7 @@ class ToolConfirmationInterceptor:
         """
         self.delegate = delegate
         self.confirmation_tools = set(confirmation_tools)
-        logger.info(
-            f"[ToolConfirmationInterceptor] Initialized with tools: {confirmation_tools}"
-        )
+        logger.info(f"[ToolConfirmationInterceptor] Initialized with tools: {confirmation_tools}")
 
     def should_intercept(self, function_call: types.FunctionCall) -> bool:
         """
@@ -109,8 +107,6 @@ class ToolConfirmationInterceptor:
         )
 
         confirmed = result.get("confirmed", False)
-        logger.info(
-            f"[ToolConfirmationInterceptor] Confirmation result: confirmed={confirmed}"
-        )
+        logger.info(f"[ToolConfirmationInterceptor] Confirmation result: confirmed={confirmed}")
 
         return result

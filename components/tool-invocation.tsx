@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { createAdkConfirmationOutput } from "@/lib/adk_compat";
 
 /**
@@ -24,6 +25,14 @@ interface ToolInvocationProps {
     toolCallId: string,
     args: Record<string, unknown>,
   ) => Promise<boolean>;
+  // WebSocket transport for long-running tool approval (BIDI mode)
+  websocketTransport?: {
+    sendFunctionResponse: (
+      toolCallId: string,
+      toolName: string,
+      response: Record<string, unknown>,
+    ) => void;
+  };
 }
 
 export function ToolInvocationComponent({
@@ -31,7 +40,12 @@ export function ToolInvocationComponent({
   addToolApprovalResponse,
   addToolOutput,
   executeToolCallback,
+  websocketTransport,
 }: ToolInvocationProps) {
+  // State management for long-running tool approval
+  const [approvalSent, setApprovalSent] = useState(false);
+  const [approvalError, setApprovalError] = useState<string | null>(null);
+
   // Extract toolName from type (e.g., "tool-change_bgm" -> "change_bgm")
   const toolName =
     toolInvocation.toolName ||
@@ -48,6 +62,67 @@ export function ToolInvocationComponent({
     : null;
 
   const { state } = toolInvocation;
+
+  // Detect long-running tools that need approval UI
+  //
+  // Long-running tools use ADK's LongRunningFunctionTool wrapper pattern:
+  // 1. Backend tool returns None → ADK pauses agent execution
+  // 2. Frontend receives tool invocation with state="input-available"
+  // 3. This component auto-detects and shows approval UI
+  // 4. User clicks Approve/Deny → sendFunctionResponse via WebSocket
+  // 5. Backend resumes agent with user's decision
+  //
+  // To create a long-running tool:
+  //   from google.adk.tools.long_running_tool import LongRunningFunctionTool
+  //
+  //   def my_tool(arg: str) -> None:
+  //       # Tool logic here
+  //       return None  # Triggers pause
+  //
+  //   tools = [LongRunningFunctionTool(my_tool)]
+  //
+  // The approval UI will automatically appear for any tool using this pattern.
+  const isLongRunningTool =
+    state === "input-available" && websocketTransport !== undefined;
+
+  // Generic handler for long-running tool approval/denial
+  const handleLongRunningToolResponse = (approved: boolean) => {
+    if (approvalSent) {
+      console.warn(
+        `[LongRunningTool] Approval already sent for ${toolName}, ignoring duplicate`,
+      );
+      return;
+    }
+
+    try {
+      console.info(
+        `[LongRunningTool] User ${approved ? "approved" : "denied"} ${toolName}, sending function_response`,
+      );
+
+      // Send generic function_response via WebSocket
+      websocketTransport?.sendFunctionResponse(
+        toolInvocation.toolCallId,
+        toolName,
+        {
+          approved,
+          user_message: approved
+            ? `User approved ${toolName} execution`
+            : `User denied ${toolName} execution`,
+          timestamp: new Date().toISOString(),
+        },
+      );
+
+      setApprovalSent(true);
+      setApprovalError(null);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      console.error(
+        `[LongRunningTool] Failed to send function_response: ${errorMessage}`,
+      );
+      setApprovalError(errorMessage);
+    }
+  };
 
   // Tool call states: input-streaming, input-available, output-available, output-error, approval-requested, approval-responded
   const getStateColor = () => {
@@ -309,6 +384,112 @@ export function ToolInvocationComponent({
             </div>
           </div>
         )}
+
+      {/* Long-running Tool Approval UI (BIDI mode) */}
+      {/* Automatically displays for ANY tool wrapped with LongRunningFunctionTool() */}
+      {isLongRunningTool && !approvalSent && (
+        <div style={{ marginBottom: "0.5rem" }}>
+          <div
+            style={{
+              fontSize: "0.875rem",
+              color: "#d1d5db",
+              marginBottom: "0.5rem",
+            }}
+          >
+            <strong>{toolName}</strong> requires your approval:
+          </div>
+          {/* Show tool inputs */}
+          {toolInvocation.input && (
+            <div
+              style={{
+                background: "#1a1a1a",
+                padding: "0.5rem",
+                borderRadius: "4px",
+                fontSize: "0.75rem",
+                fontFamily: "monospace",
+                marginBottom: "0.75rem",
+              }}
+            >
+              {JSON.stringify(toolInvocation.input, null, 2)}
+            </div>
+          )}
+          {/* Error message if WebSocket send fails */}
+          {approvalError && (
+            <div
+              style={{
+                background: "#7f1d1d",
+                padding: "0.5rem",
+                borderRadius: "4px",
+                fontSize: "0.75rem",
+                color: "#fca5a5",
+                marginBottom: "0.75rem",
+              }}
+            >
+              Error sending approval: {approvalError}
+            </div>
+          )}
+          {/* Approve/Deny buttons */}
+          <div
+            style={{
+              display: "flex",
+              gap: "0.5rem",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => handleLongRunningToolResponse(true)}
+              disabled={approvalSent}
+              style={{
+                padding: "0.5rem 1rem",
+                borderRadius: "4px",
+                background: approvalSent ? "#6b7280" : "#10b981",
+                color: "white",
+                border: "none",
+                cursor: approvalSent ? "not-allowed" : "pointer",
+                fontSize: "0.875rem",
+                fontWeight: 500,
+                opacity: approvalSent ? 0.5 : 1,
+              }}
+            >
+              Approve
+            </button>
+            <button
+              type="button"
+              onClick={() => handleLongRunningToolResponse(false)}
+              disabled={approvalSent}
+              style={{
+                padding: "0.5rem 1rem",
+                borderRadius: "4px",
+                background: approvalSent ? "#6b7280" : "#ef4444",
+                color: "white",
+                border: "none",
+                cursor: approvalSent ? "not-allowed" : "pointer",
+                fontSize: "0.875rem",
+                fontWeight: 500,
+                opacity: approvalSent ? 0.5 : 1,
+              }}
+            >
+              Deny
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Show approval sent confirmation */}
+      {isLongRunningTool && approvalSent && (
+        <div
+          style={{
+            marginBottom: "0.5rem",
+            padding: "0.5rem",
+            background: "#065f46",
+            borderRadius: "4px",
+            fontSize: "0.875rem",
+            color: "#d1fae5",
+          }}
+        >
+          ✓ Approval response sent. Waiting for agent to resume...
+        </div>
+      )}
 
       {/* Tool Input */}
       {/* Skip input display for adk_request_confirmation (shown in approval UI above) */}

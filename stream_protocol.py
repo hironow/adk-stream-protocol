@@ -873,7 +873,7 @@ async def _convert_to_sse_events(
     )
     if isinstance(processed_event, str):
         # Raw SSE string (e.g., "data: [DONE]\n\n") - pass through directly
-        logger.info(f"[_convert_to_sse_events] Passing through raw string: {repr(processed_event)}")
+        logger.info(f"[_convert_to_sse_events] Passing through raw string: {processed_event!r}")
         yield processed_event
     elif processed_event is original_event:
         # Original ADK Event - convert normally via converter

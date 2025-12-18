@@ -620,6 +620,9 @@ export function Chat({
             addToolApprovalResponse={addToolApprovalResponse}
             addToolOutput={addToolOutput}
             executeToolCallback={executeToolCallback}
+            websocketTransport={
+              mode === "adk-bidi" ? transportRef.current : undefined
+            }
           />
         ))}
         {isLoading && (

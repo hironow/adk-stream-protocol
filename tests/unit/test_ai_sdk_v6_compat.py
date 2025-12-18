@@ -804,3 +804,76 @@ class TestInternalChunkHandling:
         assert isinstance(message.parts[0], TextPart)
         assert message.parts[0].type == "text"
         assert message.parts[0].text == "hello"
+
+
+class TestChatMessageContentField:
+    """
+    Tests for ChatMessage.content field type compatibility.
+
+    Edge case discovered during POC Phase 5:
+    - function_response messages use content as list[Part] (AI SDK v6 spec)
+    - ChatMessage.content was typed as str | None (incomplete)
+    - Result: Pydantic validation error in BIDI mode
+
+    Reference: experiments/2025-12-18_poc_phase5_generic_approval_success.md
+    """
+
+    def test_content_accepts_string(self):
+        """ChatMessage.content should accept string (simple text message)."""
+        # given
+        message_data = {"role": "user", "content": "Hello, world!"}
+
+        # when
+        message = ChatMessage(**message_data)
+
+        # then
+        assert message.content == "Hello, world!"
+        assert message.parts is None
+
+    def test_content_accepts_none(self):
+        """ChatMessage.content should accept None."""
+        # given
+        message_data = {"role": "user", "content": None}
+
+        # when
+        message = ChatMessage(**message_data)
+
+        # then
+        assert message.content is None
+
+    def test_content_accepts_list_of_parts(self):
+        """
+        ChatMessage.content should accept list[Part] for function_response.
+
+        This test captures the edge case bug found in POC Phase 5:
+        - BIDI mode sends function_response with content as list
+        - Example: content=[{"type": "tool-result", "toolCallId": "...", ...}]
+        - Current type: str | None → Pydantic validation error
+        - Expected type: str | list[Part] | None
+
+        BUG: This test WILL FAIL until ChatMessage.content type is fixed.
+        """
+        # given: function_response message from LongRunningFunctionTool
+        message_data = {
+            "role": "user",
+            "content": [
+                {
+                    "type": "tool-result",
+                    "toolCallId": "function-call-123",
+                    "toolName": "approval_test_tool",
+                    "result": {
+                        "approved": True,
+                        "user_message": "User approved approval_test_tool execution",
+                        "timestamp": "2025-12-18T12:10:43.915Z",
+                    },
+                }
+            ],
+        }
+
+        # when
+        message = ChatMessage(**message_data)
+
+        # then
+        assert message.content is not None
+        assert isinstance(message.content, list)
+        assert len(message.content) == 1

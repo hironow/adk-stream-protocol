@@ -65,6 +65,14 @@ interface MessageComponentProps {
     toolCallId: string,
     args: Record<string, unknown>,
   ) => Promise<boolean>;
+  // POC Phase 3: WebSocket transport for function_response injection
+  websocketTransport?: {
+    sendFunctionResponse: (
+      toolCallId: string,
+      toolName: string,
+      response: Record<string, unknown>,
+    ) => void;
+  };
 }
 
 export function MessageComponent({
@@ -72,6 +80,7 @@ export function MessageComponent({
   addToolApprovalResponse,
   addToolOutput,
   executeToolCallback,
+  websocketTransport,
 }: MessageComponentProps) {
   const isUser = message.role === "user";
   const audioContext = useAudio();
@@ -382,6 +391,7 @@ export function MessageComponent({
                   addToolApprovalResponse={addToolApprovalResponse}
                   addToolOutput={addToolOutput}
                   executeToolCallback={executeToolCallback}
+                  websocketTransport={websocketTransport}
                 />
               );
             }
@@ -413,6 +423,7 @@ export function MessageComponent({
                   addToolApprovalResponse={addToolApprovalResponse}
                   addToolOutput={addToolOutput}
                   executeToolCallback={executeToolCallback}
+                  websocketTransport={websocketTransport}
                 />
               );
             }
@@ -641,6 +652,7 @@ export function MessageComponent({
                   addToolApprovalResponse={addToolApprovalResponse}
                   addToolOutput={addToolOutput}
                   executeToolCallback={executeToolCallback}
+                  websocketTransport={websocketTransport}
                 />
               ))}
             </div>

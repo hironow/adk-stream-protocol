@@ -171,6 +171,14 @@ function buildUseChatOptionsInternal({
       url: wsUrl,
       audioContext, // Pass AudioContext for PCM streaming
     });
+
+    // Expose transport to window for E2E testing (only in development/test)
+    if (
+      typeof window !== "undefined" &&
+      process.env.NODE_ENV !== "production"
+    ) {
+      (window as any).webSocketTransport = websocketTransport;
+    }
   }
 
   // WORKAROUND: Use prepareSendMessagesRequest to override endpoint

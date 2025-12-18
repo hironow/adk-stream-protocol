@@ -287,22 +287,31 @@ class ChatMessage(BaseModel):
     Corresponds to: UIMessage in AI SDK v6
     Reference: https://github.com/vercel/ai/blob/main/packages/ui-utils/src/types.ts
 
-    Supports two formats:
+    Supports three formats:
     - Simple: { role: "user", content: "text" }
-    - Parts: { role: "user", parts: [...] } (AI SDK v6 format)
+    - Parts array: { role: "user", content: [{type: "tool-result", ...}] }
+    - Parts field: { role: "user", parts: [...] } (AI SDK v6 format)
 
     This class combines AI SDK v6 type definition with ADK conversion logic
     (to_adk_content method) to keep type and transformation together.
+
+    Edge case fix (POC Phase 5): content can be list[MessagePart] for function_response.
+    Previously typed as str | None, causing Pydantic validation error in BIDI mode.
     """
 
     role: str
-    content: str | None = None  # Simple format
+    content: str | list[MessagePart] | None = (
+        None  # Simple format or Parts array (function_response)
+    )
     parts: list[MessagePart] | None = None  # AI SDK v6 format with discriminated union
 
     def get_text_content(self) -> str:
-        """Extract text content from either format"""
+        """Extract text content from either format (str, list[Part], or parts field)"""
         if self.content:
-            return self.content
+            if isinstance(self.content, str):
+                return self.content
+            # content is list[MessagePart] (function_response format)
+            return "".join(p.text or "" for p in self.content if isinstance(p, TextPart))
         if self.parts is not None:
             return "".join(p.text or "" for p in self.parts if isinstance(p, TextPart))
         return ""
@@ -442,7 +451,12 @@ class ChatMessage(BaseModel):
         adk_parts = []
 
         if self.content:
-            adk_parts.append(types.Part(text=self.content))
+            if isinstance(self.content, str):
+                adk_parts.append(types.Part(text=self.content))
+            else:
+                # content is list[MessagePart] (function_response format)
+                for part in self.content:
+                    self._process_part(part, adk_parts)
 
         if self.parts:
             for part in self.parts:
@@ -456,7 +470,7 @@ class ChatMessage(BaseModel):
 # ============================================================
 
 
-def process_chat_message_for_bidi(
+def process_chat_message_for_bidi(  # noqa: C901, PLR0912 - Complexity needed for AI SDK v6 message processing
     message_data: dict,
 ) -> tuple[list[types.Blob], types.Content | None]:
     """
@@ -511,7 +525,9 @@ def process_chat_message_for_bidi(
                 break
 
     if has_tool_output and last_msg.role != "user":
-        logger.info(f"[BIDI] Overriding message role from '{last_msg.role}' to 'user' for tool output")
+        logger.info(
+            f"[BIDI] Overriding message role from '{last_msg.role}' to 'user' for tool output"
+        )
         last_msg.role = "user"
 
     # Convert message to ADK Content using ChatMessage.to_adk_content()
