@@ -151,6 +151,12 @@ check-python: lint-python typecheck-python
 check: check-python
     @echo "All checks passed."
 
+# Tail the latest chunk logs (for development debugging)
+[group("development")]
+tail-chunk-logs:
+    tail -F $(ls -1dt chunk_logs/*/ | head -n 1)*.jsonl | jq --unbuffered -R 'fromjson? // .' -C
+
+
 # Check coverage (unified command - shows both ADK and AI SDK coverage)
 [group("compatibility")]
 check-coverage:
@@ -216,7 +222,7 @@ clean-lock:
 clean-logs:
     @echo "Cleaning up log files..."
     rm -rf logs
-    rm -rf chunks-logs
+    rm -rf chunk_logs
     @echo "Log files cleaned."
 
 # Run E2E tests with clean server restart - guarantees fresh servers

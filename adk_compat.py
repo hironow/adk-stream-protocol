@@ -303,7 +303,7 @@ async def inject_confirmation_for_bidi(
         before generating confirmation events. The confirmation result is then sent back
         to ADK as FunctionResponse.
     """
-    # SSE mode or no interceptor: Pass through without modification
+    # SSE mode or no interceptor
     if not is_bidi or interceptor is None:
         logger.debug("[Confirmation] SSE mode or no interceptor - passing through")
         yield event

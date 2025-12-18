@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { sendTextMessage, waitForAssistantResponse } from "./helpers";
+import { sendTextMessage, waitForAssistantResponse } from "../helpers";
 
 /**
  * get_weather Tool - SSE Mode Test Suite

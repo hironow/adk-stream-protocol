@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { sendTextMessage, waitForAssistantResponse } from "./helpers";
+import { sendTextMessage, waitForAssistantResponse } from "../helpers";
 
 /**
  * ADK Tool Confirmation - Minimal Test Suite
@@ -13,6 +13,7 @@ import { sendTextMessage, waitForAssistantResponse } from "./helpers";
  * 3. Sequential Flow - Approve Twice
  * 4. Deny Then Approve (State reset verification)
  * 5. Approve Then Deny (Reverse order verification)
+ * 6. Error Handling - Tool execution fails after approval
  */
 
 test.describe("ADK Tool Confirmation - Minimal Test Suite", () => {
@@ -271,5 +272,58 @@ test.describe("ADK Tool Confirmation - Minimal Test Suite", () => {
     expect(denyRequests).toBeLessThanOrEqual(1);
 
     console.log("[Test 5] ✅ PASSED - State properly managed");
+  });
+
+  test("6. Error Handling - Tool execution fails after approval", async ({
+    page,
+  }) => {
+    let requestCount = 0;
+
+    page.on("request", (request) => {
+      if (request.url().includes("/stream")) {
+        requestCount++;
+        console.log(`[Test 6] Request #${requestCount}: ${request.url()}`);
+      }
+    });
+
+    // Request payment that exceeds wallet balance (mock_wallet_balance = 1000.0)
+    console.log(
+      "[Test 6] Requesting payment that will fail (insufficient funds)...",
+    );
+    await sendTextMessage(page, "太郎さんに1500ドル送金してください");
+
+    console.log("[Test 6] Waiting for approval UI...");
+    await expect(
+      page.getByRole("button", { name: "Approve" }).first(),
+    ).toBeVisible({
+      timeout: 30000,
+    });
+
+    // Reset counter before approval
+    requestCount = 0;
+    console.log("[Test 6] Approval UI visible, clicking Approve...");
+
+    // Approve
+    await page.getByRole("button", { name: "Approve" }).first().click();
+
+    console.log("[Test 6] Waiting for AI response...");
+    await waitForAssistantResponse(page, { timeout: 30000 });
+
+    // Verify AI text response contains error message about insufficient funds
+    console.log("[Test 6] Verifying error message...");
+    await expect(
+      page.getByText(/残高不足|insufficient funds|balance|エラー|失敗/i).last(),
+    ).toBeVisible({
+      timeout: 10000,
+    });
+
+    // Wait to ensure no infinite loop
+    await page.waitForTimeout(2000);
+
+    // Verify no infinite loop after error
+    console.log(`[Test 6] Request count after error: ${requestCount}`);
+    expect(requestCount).toBeLessThanOrEqual(1);
+
+    console.log("[Test 6] ✅ PASSED - Error handled correctly");
   });
 });

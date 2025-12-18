@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { sendTextMessage, waitForAssistantResponse } from "./helpers";
+import { sendTextMessage, waitForAssistantResponse } from "../helpers";
 
 /**
  * get_location Tool - SSE Mode Test Suite
@@ -15,6 +15,7 @@ import { sendTextMessage, waitForAssistantResponse } from "./helpers";
  * 3. Sequential Flow - Approve Twice
  * 4. Deny Then Approve (State reset verification)
  * 5. Approve Then Deny (Reverse order verification)
+ * 6. Error Handling - Browser geolocation permission denied
  */
 
 test.describe("get_location Tool - SSE Mode", () => {
@@ -58,7 +59,9 @@ test.describe("get_location Tool - SSE Mode", () => {
     // Verify AI text response with location information
     console.log("[Test 1] Verifying AI text response...");
     await expect(
-      page.getByText(/位置|場所|location|latitude|longitude|coordinates/i).last(),
+      page
+        .getByText(/位置|場所|location|latitude|longitude|coordinates/i)
+        .last(),
     ).toBeVisible({
       timeout: 10000,
     });
@@ -120,7 +123,9 @@ test.describe("get_location Tool - SSE Mode", () => {
     // Verify AI text response (denial message)
     console.log("[Test 2] Verifying denial message...");
     await expect(
-      page.getByText(/拒否|キャンセル|承認されませんでした|denied|cancelled/i).last(),
+      page
+        .getByText(/拒否|キャンセル|承認されませんでした|denied|cancelled/i)
+        .last(),
     ).toBeVisible({
       timeout: 10000,
     });
@@ -273,5 +278,67 @@ test.describe("get_location Tool - SSE Mode", () => {
     expect(denyRequests).toBeLessThanOrEqual(1);
 
     console.log("[Test 5] ✅ PASSED - State properly managed");
+  });
+
+  test("6. Error Handling - Browser geolocation permission denied", async ({
+    page,
+    context,
+  }) => {
+    // Deny geolocation permission at browser level
+    await context.grantPermissions([], { origin: "http://localhost:3000" });
+    // Alternatively, explicitly deny:
+    // await context.setGeolocation(null);
+
+    let requestCount = 0;
+
+    page.on("request", (request) => {
+      if (request.url().includes("/stream")) {
+        requestCount++;
+        console.log(`[Test 6] Request #${requestCount}: ${request.url()}`);
+      }
+    });
+
+    console.log(
+      "[Test 6] Requesting location with geolocation permission denied...",
+    );
+    await sendTextMessage(page, "現在地を取得してください");
+
+    console.log("[Test 6] Waiting for approval UI...");
+    await expect(
+      page.getByRole("button", { name: "Approve" }).first(),
+    ).toBeVisible({
+      timeout: 30000,
+    });
+
+    // Reset counter before approval
+    requestCount = 0;
+    console.log("[Test 6] Approval UI visible, clicking Approve...");
+
+    // Approve (should trigger geolocation error)
+    await page.getByRole("button", { name: "Approve" }).first().click();
+
+    console.log("[Test 6] Waiting for AI response...");
+    await waitForAssistantResponse(page, { timeout: 30000 });
+
+    // Verify AI text response contains error message about geolocation failure
+    console.log("[Test 6] Verifying error message...");
+    await expect(
+      page
+        .getByText(
+          /位置情報|geolocation|permission|denied|取得できません|エラー/i,
+        )
+        .last(),
+    ).toBeVisible({
+      timeout: 10000,
+    });
+
+    // Wait to ensure no infinite loop
+    await page.waitForTimeout(2000);
+
+    // Verify no infinite loop after error
+    console.log(`[Test 6] Request count after error: ${requestCount}`);
+    expect(requestCount).toBeLessThanOrEqual(1);
+
+    console.log("[Test 6] ✅ PASSED - Error handled correctly");
   });
 });

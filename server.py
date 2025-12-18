@@ -480,7 +480,10 @@ async def stream(request: ChatRequest):
 
         # Convert ADK events to AI SDK format and yield SSE events
         event_count = 0
-        async for sse_event in stream_adk_to_ai_sdk(event_stream):
+        async for sse_event in stream_adk_to_ai_sdk(
+            event_stream,
+            mode="adk-sse",
+        ):
             event_count += 1
             yield sse_event
 

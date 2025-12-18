@@ -33,21 +33,33 @@ This file tracks current and future implementation tasks for the ADK AI Data Pro
 ### 4x2x2 Test Matrix Coverage (2025-12-18)
 **Matrix:** 4 Tools × 2 Modes (SSE/BIDI) × Approval Requirements = **Comprehensive Coverage**
 
-**Current Coverage:** ✅ **100% COMPLETE** 🎉
-- ✅ **process_payment**: 10 test cases (SSE + BIDI, Approve + Deny + sequences)
+**Current Coverage:** ✅ **100% COMPLETE + ERROR CASES** 🎉
+- ✅ **process_payment**: 11 test cases (SSE: 6 including error + BIDI: 5)
   - Files: `e2e/tools/process-payment-sse.spec.ts`, `e2e/tools/process-payment-bidi.spec.ts`
-- ✅ **get_location**: 10 test cases (SSE + BIDI, Approve + Deny + sequences)
+  - **NEW:** Test 6 (SSE) - Error handling for insufficient funds after approval
+- ✅ **get_location**: 11 test cases (SSE: 6 including error + BIDI: 5)
   - Files: `e2e/tools/get-location-sse.spec.ts`, `e2e/tools/get-location-bidi.spec.ts`
-- ✅ **change_bgm**: 6 test cases (SSE + BIDI, no approval required)
+  - **NEW:** Test 6 (SSE) - Error handling for browser geolocation permission denied
+- ✅ **change_bgm**: 6 test cases (SSE: 3 + BIDI: 3, no approval required)
   - Files: `e2e/tools/change-bgm-sse.spec.ts`, `e2e/tools/change-bgm-bidi.spec.ts`
-- ✅ **get_weather**: 6 test cases (SSE + BIDI, no approval required)
+- ✅ **get_weather**: 6 test cases (SSE: 3 + BIDI: 3, no approval required)
   - Files: `e2e/tools/get-weather-sse.spec.ts`, `e2e/tools/get-weather-bidi.spec.ts`
+
+**Chunk Logger Integration Tests:**
+- ✅ **process_payment**: 8 test cases (SSE + BIDI, Approve + Deny, existing)
+  - File: `e2e/features/chunk-logger-integration.spec.ts`
+- ✅ **get_location**: 2 test cases (Approve + Deny) **NEW**
+  - File: `e2e/features/chunk-logger-get-location.spec.ts`
+- ✅ **get_weather**: 1 test case (basic execution) **NEW**
+  - File: `e2e/features/chunk-logger-get-weather.spec.ts`
+- ✅ **change_bgm**: 1 test case (basic execution) **NEW**
+  - File: `e2e/features/chunk-logger-change-bgm.spec.ts`
 
 **Directory Structure:** All tool-specific test files are organized under `e2e/tools/` directory
 
 **Naming Convention:** All test files follow `{tool}-{mode}.spec.ts` pattern for consistency
 
-**Total:** 32 test cases covering all tools × modes × approval requirements
+**Total:** 34 tool test cases + 12 chunk logger tests = 46 comprehensive test cases
 
 **Analysis Document:** `experiments/2025-12-18_test_matrix_analysis.md`
 

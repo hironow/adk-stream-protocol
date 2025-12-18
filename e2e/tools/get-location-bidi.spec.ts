@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { sendTextMessage, waitForAssistantResponse } from "./helpers";
+import { sendTextMessage, waitForAssistantResponse } from "../helpers";
 
 /**
  * get_location Tool - BIDI Mode Test Suite
@@ -49,7 +49,9 @@ test.describe("get_location Tool - BIDI Mode", () => {
     // Verify AI text response with location information
     console.log("[Test 1] Verifying AI text response...");
     await expect(
-      page.getByText(/位置|場所|location|latitude|longitude|coordinates/i).last(),
+      page
+        .getByText(/位置|場所|location|latitude|longitude|coordinates/i)
+        .last(),
     ).toBeVisible({
       timeout: 10000,
     });
@@ -84,7 +86,9 @@ test.describe("get_location Tool - BIDI Mode", () => {
     // Verify AI text response (denial message)
     console.log("[Test 2] Verifying denial message...");
     await expect(
-      page.getByText(/拒否|キャンセル|承認されませんでした|denied|cancelled/i).last(),
+      page
+        .getByText(/拒否|キャンセル|承認されませんでした|denied|cancelled/i)
+        .last(),
     ).toBeVisible({
       timeout: 10000,
     });

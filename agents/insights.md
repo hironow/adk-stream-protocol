@@ -376,8 +376,106 @@ chunk_logs/
 
 各ログを比較することで、不整合の原因を特定可能。
 
+## E2Eテスト Baseline 状態記録
+
+**日付**: 2025-12-19
+
+### テスト環境
+
+- 4つのツール: `process_payment`, `get_location`, `get_weather`, `change_bgm`
+- 2つのモード: SSE, BIDI
+- 確認フロー: Approve/Deny テストパターン
+
+### Baseline テスト結果
+
+#### **SSE Mode: 18/18 PASSED** ✅
+
+| Tool | Tests | Status | Notes |
+|------|-------|--------|-------|
+| process_payment | 6/6 | ✅ PASSED | 確認フロー完全動作 |
+| get_location | 6/6 | ✅ PASSED | 確認フロー完全動作 |
+| get_weather | 3/3 | ✅ PASSED | 確認不要ツール |
+| change_bgm | 3/3 | ✅ PASSED | 確認不要ツール |
+
+**結論**: SSE mode は完全に正常動作。この状態を維持すること。
+
+---
+
+#### **BIDI Mode: 3/21 PASSED** ❌
+
+| Tool | Tests | Status | Error Pattern |
+|------|-------|--------|---------------|
+| process_payment | 0/5 | ❌ FAILED | 承認後に「Thinking...」が表示されない |
+| get_location | 0/5 | ❌ FAILED | 承認後に「Thinking...」が表示されない |
+| get_weather | 3/3 | ✅ PASSED | 確認不要ツール - 正常動作 |
+| change_bgm | 0/3 | ❌ FAILED | 「Thinking...」が永遠に消えない (30秒タイムアウト) |
+
+**失敗パターン分析**:
+
+1. **確認必要ツール（process_payment, get_location）**:
+   - 承認UIをクリック後、AIの応答（「Thinking...」）が表示されない
+   - `waitForAssistantResponse()` の `expect(page.getByText("Thinking...")).toBeVisible()` で 10秒タイムアウト
+   - Error location: `e2e/helpers.ts:111`
+
+2. **確認不要ツール - change_bgm**:
+   - 「Thinking...」は表示されるが、永遠に消えない
+   - `expect(page.getByText("Thinking...")).not.toBeVisible()` で 30秒タイムアウト
+   - Error location: `e2e/helpers.ts:115`
+
+3. **確認不要ツール - get_weather**:
+   - 完全に正常動作（3/3 PASSED）
+   - 他の確認不要ツールと何が違うのか？
+
+**重要**: SSE mode が完全動作していることから、ADK 自体は正常。BIDI mode 固有の問題。
+
+### 今後の調査方針
+
+1. **優先度 HIGH**: BIDI mode の確認フロー（process_payment または get_location）
+   - なぜ承認後にAIが応答を返さないのか？
+   - WebSocket通信とADK確認フローの連携問題の可能性
+
+2. **優先度 MEDIUM**: change_bgm BIDI mode の無限 Thinking
+   - なぜ get_weather は成功し、change_bgm は失敗するのか？
+   - ツール実装の違いを比較
+
+3. **禁止事項**: SSE mode の動作を変更する修正は絶対に避ける
+
+### 修正試行履歴（失敗例）
+
+#### 試行1: Backend での FunctionCall/FunctionResponse 抑制
+
+**日付**: 2025-12-19
+
+**動機**: SSE mode で `process_payment` と `adk_request_confirmation` の両方の FunctionCall が Frontend に送信され、二重承認UIが表示される問題を解決しようとした。
+
+**実装内容**:
+- `server.py`: `SSE_CONFIRMATION_TOOLS` import 追加
+- `server.py`: `confirmation_tools` parameter を `stream_adk_to_ai_sdk` に渡す
+- `adk_compat.py`: `inject_confirmation_for_bidi` 関数に抑制ロジック追加
+  - `process_payment` FunctionCall を抑制
+  - `process_payment` FunctionResponse を抑制
+
+**結果**: **完全失敗（0/6 PASSED）**
+
+**問題**:
+- FunctionResponse の抑制により ADK の状態マシンが壊れた
+- ADK はツール実行完了を認識できず、無限にリトライ
+- UI に 20+ 個の重複した Assistant 応答
+
+**教訓**:
+- **ADK は状態マシンベース**: FunctionCall と FunctionResponse は対で、どちらかを抑制すると状態遷移が壊れる
+- **FunctionResponse の抑制は致命的**: ADK は「ツールがまだ実行中」と判断し、無限ループ
+- **Backend での介入は間違ったアプローチ**: Frontend での表示制御が正しい方向性
+
+**Revert**: 2025-12-19 に完全に元に戻した。SSE mode は 18/18 PASSED に復帰。
+
+---
+
+**この Baseline を悪化させないこと！**
+
 ## 変更履歴
 
 - **2025-12-17**: 初版作成（無限ループ修正、チャンクロガー改善）
 - **2025-12-17**: E2Eテストでのフロントエンドチャンクログ自動保存機能を追加
 - **2025-12-17**: チャンクロガー統合テストスイート（8パターン）を追加
+- **2025-12-19**: E2E Baseline 状態記録追加（SSE: 18/18 PASSED, BIDI: 3/21 PASSED）
