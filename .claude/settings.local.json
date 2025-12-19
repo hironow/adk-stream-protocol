@@ -121,6 +121,8 @@
       "Bash(python3:*)",
       "Bash(pip3:*)",
       "Bash(pip:*)",
+      "Bash(git checkout:*)",
+      "Bash(git switch:*)",
       "Bash(git push:*)",
       "Bash(wget:*)",
       "Bash(psql:*)",
