@@ -9,7 +9,7 @@ import { chunkLogger } from "@/lib/chunk-logger";
 
 export default function ChatPage() {
   const [mode, setMode] = useState<BackendMode>("gemini");
-  // P4-T9: Message history preservation across mode switches
+  // Message history preservation across mode switches
   const [messages, setMessages] = useState<UIMessage[]>([]);
 
   return (
@@ -140,9 +140,9 @@ export default function ChatPage() {
               marginTop: "0.75rem",
               padding: "0.5rem 1rem",
               borderRadius: "4px",
-              border: "1px solid #dc2626",
-              background: "#450a0a",
-              color: "#fca5a5",
+              border: "1px solid #333",
+              background: "#751010ff",
+              color: "#fff",
               fontSize: "0.875rem",
               cursor: "pointer",
               width: "100%",
@@ -164,9 +164,9 @@ export default function ChatPage() {
                 marginTop: "0.5rem",
                 padding: "0.5rem 1rem",
                 borderRadius: "4px",
-                border: "1px solid #2563eb",
-                background: "#1e3a8a",
-                color: "#93c5fd",
+                border: "1px solid #333",
+                background: "#289424ff",
+                color: "#fff",
                 fontSize: "0.875rem",
                 cursor: "pointer",
                 width: "100%",
@@ -174,7 +174,7 @@ export default function ChatPage() {
                 fontWeight: 500,
               }}
             >
-              📥 Download Chunks
+              Download Chunks
             </button>
           )}
         </div>

@@ -6,7 +6,9 @@ This directory contains research, preliminary experiments, and exploratory imple
 
 ### 🟡 In Progress
 
-_(No experiments currently in progress)_
+| Date | Experiment | Status | Objective | Result |
+|------|-----------|--------|-----------|--------|
+| 2025-12-19 | [BIDI Confirmation ID Bug Fix](../docs/BUG-BIDI-CONFIRMATION-ID-MISMATCH.md) | 🔴 **RED Phase Complete** | Fix BIDI multi-turn tool confirmation ID routing bug | 🔴 **RED TESTS CREATED**: 4 RED tests successfully reproduce E2E bug at integration test level. Bug root cause identified: Confirmation ID not registered + context-aware lookup returns wrong ID. Integration tests: `test_confirmation_id_routing.py` (3 FAILED, 1 PASSED). Unit test: `test_adk_vercel_id_mapper.py` (1 FAILED). **Next**: GREEN phase implementation. Branch: `hironow/fix-confirm` |
 
 ### 🟢 Complete
 

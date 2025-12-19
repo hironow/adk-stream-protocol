@@ -16,10 +16,16 @@
  * - Stream must complete cleanly after [DONE]
  * - Multi-turn tools are tested as complete tool execution
  *
+ * Transport-Specific Behavior:
+ * - SSE mode: Per-turn connection (each turn = new HTTP request/response)
+ *   → Test creates new transport instance for each turn
+ * - BIDI mode: Persistent connection (all turns on same WebSocket)
+ *   → Test reuses same transport instance across turns
+ *
  * Test Strategy:
  * - Load baseline fixtures (tool-level, may contain multiple turns)
  * - Split multi-turn fixtures into individual turns
- * - Simulate each turn sequentially
+ * - Execute turns according to transport mode (SSE: new transport, BIDI: same transport)
  * - Verify complete tool execution matches baseline
  *
  * Benefits:
@@ -103,6 +109,119 @@ function findChunkIndexForDone(chunks: UIMessageChunk[], startIndex: number): nu
     }
   }
   return chunks.length - 1;
+}
+
+// Execute complete tool test with correct transport behavior
+async function executeToolTest(
+  fixture: BaselineFixture,
+  testIdPrefix: string,
+): Promise<void> {
+  const { turns } = splitIntoTurns(fixture);
+  expect(turns.length).toBe(fixture.output.expectedDoneCount);
+
+  const allReceivedChunks: UIMessageChunk[] = [];
+  let totalDoneCount = 0;
+
+  if (fixture.mode === "sse") {
+    // SSE mode: Per-turn connection (create new transport for each turn)
+    for (const [turnIndex, turn] of turns.entries()) {
+      const transport = new WebSocketChatTransport({
+        url: "ws://localhost:8000/live",
+      });
+
+      const streamPromise = transport.sendMessages({
+        trigger: fixture.input.trigger,
+        chatId: `${testIdPrefix}-turn${turnIndex + 1}`,
+        messageId: `${testIdPrefix}-msg-turn${turnIndex + 1}`,
+        messages: fixture.input.messages as any,
+        abortSignal: undefined,
+      });
+
+      const stream = await streamPromise;
+      const reader = stream.getReader();
+      const turnChunks: UIMessageChunk[] = [];
+
+      const mockWs = (transport as any).ws as MockWebSocket;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      for (const rawEvent of turn.rawEvents) {
+        mockWs.simulateRawEvent(rawEvent);
+      }
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            totalDoneCount++;
+            break;
+          }
+          turnChunks.push(value);
+        }
+      } catch (_error) {
+        // Stream ended
+      }
+
+      allReceivedChunks.push(...turnChunks);
+      expect(turnChunks).toEqual(turn.expectedChunks);
+      await expect(reader.closed).resolves.toBeUndefined();
+    }
+  } else {
+    // BIDI mode: Persistent connection (reuse same transport AND WebSocket across turns)
+    const transport = new WebSocketChatTransport({
+      url: "ws://localhost:8000/live",
+    });
+
+    let mockWs: MockWebSocket | null = null;
+
+    // Process each turn sequentially on the SAME WebSocket connection
+    for (const [turnIndex, turn] of turns.entries()) {
+      const streamPromise = transport.sendMessages({
+        trigger: fixture.input.trigger,
+        chatId: `${testIdPrefix}-turn${turnIndex + 1}`,
+        messageId: `${testIdPrefix}-msg-turn${turnIndex + 1}`,
+        messages: fixture.input.messages as any,
+        abortSignal: undefined,
+      });
+
+      const stream = await streamPromise;
+
+      // Get WebSocket reference on first turn only (it persists across all turns)
+      if (turnIndex === 0) {
+        mockWs = (transport as any).ws as MockWebSocket;
+      }
+
+      const reader = stream.getReader();
+      const turnChunks: UIMessageChunk[] = [];
+
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      // Send all events for this turn on the same WebSocket
+      for (const rawEvent of turn.rawEvents) {
+        mockWs!.simulateRawEvent(rawEvent);
+      }
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            totalDoneCount++;
+            break;
+          }
+          turnChunks.push(value);
+        }
+      } catch (_error) {
+        // Stream ended
+      }
+
+      allReceivedChunks.push(...turnChunks);
+      expect(turnChunks).toEqual(turn.expectedChunks);
+      await expect(reader.closed).resolves.toBeUndefined();
+    }
+  }
+
+  // Verify complete tool execution
+  expect(allReceivedChunks).toEqual(fixture.output.expectedChunks);
+  expect(totalDoneCount).toBe(fixture.output.expectedDoneCount);
 }
 
 // Mock WebSocket for simulating server responses
@@ -243,70 +362,12 @@ describe("Transport [DONE] Baseline Integration Tests", () => {
      * Given: Baseline fixture with get_location approval (2 turns)
      *   Turn 1: Confirmation request
      *   Turn 2: Approval execution
-     * When: Transport processes each turn sequentially
+     * When: Transport processes each turn with SSE mode (per-turn connection)
      * Then: Complete tool execution matches baseline
      */
 
-    // given: Load get_location approved baseline fixture
     const fixture = loadFixture("get_location-approved-sse-baseline.json");
-    const { turns } = splitIntoTurns(fixture);
-
-    expect(turns.length).toBe(fixture.output.expectedDoneCount);
-
-    const allReceivedChunks: UIMessageChunk[] = [];
-    let totalDoneCount = 0;
-
-    // when: Execute each turn sequentially
-    for (const [turnIndex, turn] of turns.entries()) {
-      // Create transport for this turn
-      const transport = new WebSocketChatTransport({
-        url: "ws://localhost:8000/live",
-      });
-
-      const streamPromise = transport.sendMessages({
-        trigger: fixture.input.trigger,
-        chatId: `baseline-test-get-location-turn${turnIndex + 1}`,
-        messageId: `baseline-msg-get-location-turn${turnIndex + 1}`,
-        messages: fixture.input.messages as any,
-        abortSignal: undefined,
-      });
-
-      const stream = await streamPromise;
-      const reader = stream.getReader();
-      const turnChunks: UIMessageChunk[] = [];
-
-      // Simulate turn events
-      const mockWs = (transport as any).ws as MockWebSocket;
-      await new Promise((resolve) => setTimeout(resolve, 10));
-
-      for (const rawEvent of turn.rawEvents) {
-        mockWs.simulateRawEvent(rawEvent);
-      }
-
-      // Read chunks for this turn
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) {
-            totalDoneCount++;
-            break;
-          }
-          turnChunks.push(value);
-        }
-      } catch (_error) {
-        // Stream ended
-      }
-
-      allReceivedChunks.push(...turnChunks);
-
-      // Verify this turn matches baseline
-      expect(turnChunks).toEqual(turn.expectedChunks);
-      await expect(reader.closed).resolves.toBeUndefined();
-    }
-
-    // then: Verify complete tool execution
-    expect(allReceivedChunks).toEqual(fixture.output.expectedChunks);
-    expect(totalDoneCount).toBe(fixture.output.expectedDoneCount);
+    await executeToolTest(fixture, "baseline-test-get-location-sse");
   });
 
   it("[SSE] should match baseline behavior for get_weather with [DONE]", async () => {
@@ -376,65 +437,12 @@ describe("Transport [DONE] Baseline Integration Tests", () => {
      * Given: Baseline fixture with process_payment approval (2 turns)
      *   Turn 1: Confirmation request
      *   Turn 2: Approval execution
-     * When: Transport processes each turn sequentially
+     * When: Transport processes each turn with SSE mode (per-turn connection)
      * Then: Complete tool execution matches baseline
      */
 
-    // given: Load process_payment approved baseline fixture
     const fixture = loadFixture("process_payment-approved-sse-baseline.json");
-    const { turns } = splitIntoTurns(fixture);
-
-    expect(turns.length).toBe(fixture.output.expectedDoneCount);
-
-    const allReceivedChunks: UIMessageChunk[] = [];
-    let totalDoneCount = 0;
-
-    // when: Execute each turn sequentially
-    for (const [turnIndex, turn] of turns.entries()) {
-      const transport = new WebSocketChatTransport({
-        url: "ws://localhost:8000/live",
-      });
-
-      const streamPromise = transport.sendMessages({
-        trigger: fixture.input.trigger,
-        chatId: `baseline-test-process-payment-turn${turnIndex + 1}`,
-        messageId: `baseline-msg-process-payment-turn${turnIndex + 1}`,
-        messages: fixture.input.messages as any,
-        abortSignal: undefined,
-      });
-
-      const stream = await streamPromise;
-      const reader = stream.getReader();
-      const turnChunks: UIMessageChunk[] = [];
-
-      const mockWs = (transport as any).ws as MockWebSocket;
-      await new Promise((resolve) => setTimeout(resolve, 10));
-
-      for (const rawEvent of turn.rawEvents) {
-        mockWs.simulateRawEvent(rawEvent);
-      }
-
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) {
-            totalDoneCount++;
-            break;
-          }
-          turnChunks.push(value);
-        }
-      } catch (_error) {
-        // Stream ended
-      }
-
-      allReceivedChunks.push(...turnChunks);
-      expect(turnChunks).toEqual(turn.expectedChunks);
-      await expect(reader.closed).resolves.toBeUndefined();
-    }
-
-    // then: Verify complete tool execution
-    expect(allReceivedChunks).toEqual(fixture.output.expectedChunks);
-    expect(totalDoneCount).toBe(fixture.output.expectedDoneCount);
+    await executeToolTest(fixture, "baseline-test-process-payment-sse");
   });
 
   /**
@@ -520,61 +528,18 @@ describe("Transport [DONE] Baseline Integration Tests", () => {
   });
 
   it("[BIDI] should match baseline behavior for get_location with [DONE]", async () => {
-    // given: Load BIDI approved baseline fixture
+    /**
+     * Tool-Level Test: get_location (multi-turn tool with approval)
+     *
+     * Given: Baseline fixture with get_location approval (2 turns)
+     *   Turn 1: Confirmation request
+     *   Turn 2: Approval execution
+     * When: Transport processes each turn with BIDI mode (persistent connection)
+     * Then: Complete tool execution matches baseline
+     */
+
     const fixture = loadFixture("get_location-approved-bidi-baseline.json");
-    const { turns } = splitIntoTurns(fixture);
-
-    expect(turns.length).toBe(fixture.output.expectedDoneCount);
-
-    const allReceivedChunks: UIMessageChunk[] = [];
-    let totalDoneCount = 0;
-
-    // when: Execute each turn sequentially
-    for (const [turnIndex, turn] of turns.entries()) {
-      const transport = new WebSocketChatTransport({
-        url: "ws://localhost:8000/live",
-      });
-
-      const streamPromise = transport.sendMessages({
-        trigger: fixture.input.trigger,
-        chatId: `baseline-test-bidi-get-location-turn${turnIndex + 1}`,
-        messageId: `baseline-msg-bidi-get-location-turn${turnIndex + 1}`,
-        messages: fixture.input.messages as any,
-        abortSignal: undefined,
-      });
-
-      const stream = await streamPromise;
-      const reader = stream.getReader();
-      const turnChunks: UIMessageChunk[] = [];
-
-      const mockWs = (transport as any).ws as MockWebSocket;
-      await new Promise((resolve) => setTimeout(resolve, 10));
-
-      for (const rawEvent of turn.rawEvents) {
-        mockWs.simulateRawEvent(rawEvent);
-      }
-
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) {
-            totalDoneCount++;
-            break;
-          }
-          turnChunks.push(value);
-        }
-      } catch (_error) {
-        // Stream ended
-      }
-
-      allReceivedChunks.push(...turnChunks);
-      expect(turnChunks).toEqual(turn.expectedChunks);
-      await expect(reader.closed).resolves.toBeUndefined();
-    }
-
-    // then: Verify complete tool execution
-    expect(allReceivedChunks).toEqual(fixture.output.expectedChunks);
-    expect(totalDoneCount).toBe(fixture.output.expectedDoneCount);
+    await executeToolTest(fixture, "baseline-test-bidi-get-location");
   });
 
   it("[BIDI] should match baseline behavior for get_weather with [DONE]", async () => {
@@ -630,61 +595,18 @@ describe("Transport [DONE] Baseline Integration Tests", () => {
   });
 
   it("[BIDI] should match baseline behavior for process_payment with [DONE]", async () => {
-    // given: Load BIDI approved baseline fixture
+    /**
+     * Tool-Level Test: process_payment (multi-turn tool with approval)
+     *
+     * Given: Baseline fixture with process_payment approval (2 turns)
+     *   Turn 1: Confirmation request
+     *   Turn 2: Approval execution
+     * When: Transport processes each turn with BIDI mode (persistent connection)
+     * Then: Complete tool execution matches baseline
+     */
+
     const fixture = loadFixture("process_payment-approved-bidi-baseline.json");
-    const { turns } = splitIntoTurns(fixture);
-
-    expect(turns.length).toBe(fixture.output.expectedDoneCount);
-
-    const allReceivedChunks: UIMessageChunk[] = [];
-    let totalDoneCount = 0;
-
-    // when: Execute each turn sequentially
-    for (const [turnIndex, turn] of turns.entries()) {
-      const transport = new WebSocketChatTransport({
-        url: "ws://localhost:8000/live",
-      });
-
-      const streamPromise = transport.sendMessages({
-        trigger: fixture.input.trigger,
-        chatId: `baseline-test-bidi-process-payment-turn${turnIndex + 1}`,
-        messageId: `baseline-msg-bidi-process-payment-turn${turnIndex + 1}`,
-        messages: fixture.input.messages as any,
-        abortSignal: undefined,
-      });
-
-      const stream = await streamPromise;
-      const reader = stream.getReader();
-      const turnChunks: UIMessageChunk[] = [];
-
-      const mockWs = (transport as any).ws as MockWebSocket;
-      await new Promise((resolve) => setTimeout(resolve, 10));
-
-      for (const rawEvent of turn.rawEvents) {
-        mockWs.simulateRawEvent(rawEvent);
-      }
-
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) {
-            totalDoneCount++;
-            break;
-          }
-          turnChunks.push(value);
-        }
-      } catch (_error) {
-        // Stream ended
-      }
-
-      allReceivedChunks.push(...turnChunks);
-      expect(turnChunks).toEqual(turn.expectedChunks);
-      await expect(reader.closed).resolves.toBeUndefined();
-    }
-
-    // then: Verify complete tool execution
-    expect(allReceivedChunks).toEqual(fixture.output.expectedChunks);
-    expect(totalDoneCount).toBe(fixture.output.expectedDoneCount);
+    await executeToolTest(fixture, "baseline-test-bidi-process-payment");
   });
 
   // ========== Multiple [DONE] Protection Tests ==========

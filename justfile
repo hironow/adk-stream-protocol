@@ -3,7 +3,7 @@
 default: help
 
 help:
-    @just --list
+    @just --list --unsorted
 
 # Install all dependencies (both Python and Node.js)
 [group("setup")]
@@ -211,17 +211,17 @@ clean-gen:
     find . -type d -name "__pycache__" -exec rm -rf {} +
     @echo "Generated files cleaned."
 
-# Clean up installed dependencies
-[group("cleaner")]
-clean-deps:
+# Delete installed dependencies
+[group("hardercleaner")]
+delete-deps:
     @echo "Cleaning up installed dependencies..."
     rm -rf .venv
     rm -rf node_modules
     @echo "Dependencies cleaned."
 
-# Clean up lock files
-[group("cleaner")]
-clean-lock:
+# Delete lock files
+[group("hardercleaner")]
+delete-lock:
     @echo "Cleaning up lock files..."
     rm -f pnpm-lock.yaml
     rm -f uv.lock
@@ -235,8 +235,8 @@ clean-logs:
     rm -rf chunk_logs
     @echo "Log files cleaned."
 
-# Run E2E tests with clean server restart - guarantees fresh servers
-[group("cleaner")]
+# Kill expected ports for a harder clean
+[group("hardercleaner")]
 kill:
     @echo "Stopping any existing servers on ports 3000, 3001, 3002 and 8000, 8001, 8002..."
     -lsof -ti:3000 | xargs kill -9 2>/dev/null || true
@@ -246,3 +246,8 @@ kill:
     -lsof -ti:8001 | xargs kill -9 2>/dev/null || true
     -lsof -ti:8002 | xargs kill -9 2>/dev/null || true
     @echo "Servers stopped."
+
+# Run all cleaning tasks
+[group("cleaner")]
+clean-all: clean-port clean-gen clean-logs
+    @echo "All cleaning tasks completed."

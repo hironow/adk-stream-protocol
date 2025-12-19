@@ -70,9 +70,9 @@ class TestServerSSEDoneStreamLifecyclePrinciple:
             f"_create_error_sse_response violated design principle at {len(done_violations)} location(s):\n"
             f"[DONE] should ONLY be sent from finalize(), not directly from server.py error handler.\n"
             f"Violations found:\n"
-            + "\n".join([f"  Position {i}: {repr(event)}" for i, event in done_violations])
-            + f"\n\nCurrent implementation: server.py:270 yields 'data: [DONE]\\n\\n'\n"
-            f"Expected: Use StreamProtocolConverter.finalize() for [DONE] transmission."
+            + "\n".join([f"  Position {i}: {event!r}" for i, event in done_violations])
+            + "\n\nCurrent implementation: server.py:270 yields 'data: [DONE]\\n\\n'\n"
+            "Expected: Use StreamProtocolConverter.finalize() for [DONE] transmission."
         )
 
     @pytest.mark.asyncio
@@ -124,8 +124,8 @@ class TestServerSSEDoneStreamLifecyclePrinciple:
         raw_error_dict = any("'type': 'error'" in event for event in events)
 
         assert not raw_error_dict, (
-            f"Error response bypasses StreamProtocolConverter.\n"
-            f"Current: server.py directly creates error dict and yields [DONE].\n"
-            f"Expected: Use StreamProtocolConverter.finalize(error=...) for consistent [DONE] handling.\n"
-            f"\nResponse structure:\n" + "\n".join([f"  {repr(event)}" for event in events])
+            "Error response bypasses StreamProtocolConverter.\n"
+            "Current: server.py directly creates error dict and yields [DONE].\n"
+            "Expected: Use StreamProtocolConverter.finalize(error=...) for consistent [DONE] handling.\n"
+            "\nResponse structure:\n" + "\n".join([f"  {event!r}" for event in events])
         )

@@ -81,32 +81,34 @@ class TestADKVercelIDMapperIntegration:
         confirmation_interceptor: ToolConfirmationInterceptor,
     ) -> None:
         """
-        Test intercepted tool flow with original_context.
+        Test intercepted tool flow with original_context for non-confirmation tools.
 
         Flow:
         1. process_payment is registered
-        2. ToolConfirmationInterceptor intercepts and wraps it
-        3. FrontendToolDelegate executes adk_request_confirmation
-        4. Uses original_context to find correct ID
+        2. Some intercepted tool (not adk_request_confirmation) uses original_context
+        3. ID mapper correctly resolves from original_context
+
+        Note: adk_request_confirmation is a special case that uses its own ID,
+              not the original tool's ID (to prevent Future collision bug).
         """
         # given: StreamProtocolConverter registers process_payment
         original_tool = "process_payment"
         function_call_id = "function-call-67890"
         id_mapper.register(original_tool, function_call_id)
 
-        # when: ToolConfirmationInterceptor intercepts and provides original_context
+        # when: Some intercepted tool (NOT adk_request_confirmation) provides original_context
         original_context = {"name": original_tool, "id": function_call_id}
 
         # FrontendToolDelegate executes with context-aware lookup
         retrieved_id = id_mapper.get_function_call_id(
-            tool_name="adk_request_confirmation",
+            tool_name="some_intercepted_tool",  # Changed from adk_request_confirmation
             original_context=original_context,
         )
 
-        # then: ID is resolved from original_context, not from interceptor name
+        # then: ID is resolved from original_context
         assert retrieved_id == function_call_id
 
-        # when: Frontend sends confirmation result
+        # when: Frontend sends tool result
         resolved_tool = id_mapper.resolve_tool_result(function_call_id)
 
         # then: Original tool name is resolved
@@ -193,7 +195,11 @@ class TestADKVercelIDMapperIntegration:
         # given: StreamProtocolConverter registers process_payment
         tool_name = "process_payment"
         function_call_id = "function-call-99999"
+        confirmation_id = f"confirmation-{function_call_id}"
+
         id_mapper.register(tool_name, function_call_id)
+        # In real flow, inject_confirmation_for_bidi() registers confirmation ID
+        id_mapper.register("adk_request_confirmation", confirmation_id)
 
         # Mock function_call object
         function_call = Mock()
@@ -215,7 +221,6 @@ class TestADKVercelIDMapperIntegration:
             await asyncio.sleep(0.1)  # Simulate user interaction time
 
             # Frontend sends approval with confirmation-prefixed ID
-            confirmation_id = f"confirmation-{function_call_id}"
             frontend_delegate.resolve_tool_result(
                 confirmation_id,
                 {"confirmed": True},

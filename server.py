@@ -771,6 +771,7 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
                     mode="adk-bidi",  # Chunk logger: distinguish from adk-sse mode
                     interceptor=confirmation_interceptor,
                     confirmation_tools=BIDI_CONFIRMATION_TOOLS,
+                    session=session,  # Pass session for frontend_delegate access
                 ):
                     event_count += 1
                     # Send SSE-formatted event as WebSocket text message

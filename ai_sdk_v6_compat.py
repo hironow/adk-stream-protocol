@@ -371,41 +371,51 @@ class ChatMessage(BaseModel):
 
     def _process_tool_use_part(self, part: ToolUsePart, adk_parts: list[types.Part]) -> None:
         """Process a ToolUsePart and add to adk_parts if applicable."""
-        # Handle adk_request_confirmation tool outputs
-        # Simplified: Use part.tool_call_id directly (no need for originalFunctionCall)
-        if (
-            part.tool_name == "adk_request_confirmation"
-            and part.state == ToolCallState.OUTPUT_AVAILABLE
-        ):
-            if part.output is not None and isinstance(part.output, dict):
-                # Extract confirmed directly from output (no toolConfirmation wrapper)
-                confirmed = part.output.get("confirmed", False)
-
-                logger.info(
-                    f"[ADK Confirmation] Converting AI SDK tool output to ADK FunctionResponse "
-                    f"(id={part.tool_call_id}, confirmed={confirmed})"
-                )
-
-                # Create ADK FunctionResponse for adk_request_confirmation
-                # According to assets/adk/action-confirmation.txt line 192-197:
-                # - id: tool_call_id (already available in part)
-                # - name: "adk_request_confirmation"
-                # - response: {"confirmed": true/false}
-                function_response = types.FunctionResponse(
-                    id=part.tool_call_id,
-                    name="adk_request_confirmation",
-                    response={"confirmed": confirmed},
-                )
-                adk_parts.append(types.Part(function_response=function_response))
-            else:
-                logger.warning(
-                    f"[ADK Confirmation] Invalid output format for adk_request_confirmation: {part.output}"
-                )
-        else:
-            # Other tool outputs are handled by process_tool_use_parts
+        # Only process OUTPUT_AVAILABLE state (tool results from frontend)
+        if part.state != ToolCallState.OUTPUT_AVAILABLE:
             logger.debug(
                 f"[AI SDK v6] Skipping tool-use part: {part.tool_name} (state={part.state})"
             )
+            return
+
+        # Validate output
+        if part.output is None or not isinstance(part.output, dict):
+            logger.warning(
+                f"[AI SDK v6] Invalid output format for {part.tool_name}: {part.output}"
+            )
+            return
+
+        # Handle adk_request_confirmation tool outputs (special case for confirmation data)
+        if part.tool_name == "adk_request_confirmation":
+            # Extract confirmed directly from output (no toolConfirmation wrapper)
+            confirmed = part.output.get("confirmed", False)
+
+            logger.info(
+                f"[ADK Confirmation] Converting AI SDK tool output to ADK FunctionResponse "
+                f"(id={part.tool_call_id}, confirmed={confirmed})"
+            )
+
+            # Create ADK FunctionResponse for adk_request_confirmation
+            function_response = types.FunctionResponse(
+                id=part.tool_call_id,
+                name="adk_request_confirmation",
+                response={"confirmed": confirmed},
+            )
+            adk_parts.append(types.Part(function_response=function_response))
+        else:
+            # Handle ALL other tool outputs (get_location, process_payment, etc.)
+            logger.info(
+                f"[AI SDK v6] Converting tool output to ADK FunctionResponse "
+                f"(id={part.tool_call_id}, name={part.tool_name})"
+            )
+
+            # Create ADK FunctionResponse for any tool
+            function_response = types.FunctionResponse(
+                id=part.tool_call_id,
+                name=part.tool_name,
+                response=part.output,
+            )
+            adk_parts.append(types.Part(function_response=function_response))
 
     def _process_part(self, part: object, adk_parts: list[types.Part]) -> None:
         """Process a single part and add to adk_parts if applicable."""

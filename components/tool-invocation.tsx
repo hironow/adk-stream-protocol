@@ -340,7 +340,23 @@ export function ToolInvocationComponent({
                     `[DEBUG] createAdkConfirmationOutput result:`,
                     output,
                   );
-                  addToolOutput?.(output);
+
+                  // BIDI mode: Send via WebSocket
+                  if (websocketTransport) {
+                    console.info(
+                      `[ToolInvocationComponent] BIDI mode: Sending confirmation via WebSocket`,
+                    );
+                    websocketTransport.sendToolResult(
+                      toolInvocation.toolCallId,
+                      { confirmed: true },
+                    );
+                  } else {
+                    // SSE mode: Use addToolOutput
+                    console.info(
+                      `[ToolInvocationComponent] SSE mode: Sending confirmation via addToolOutput`,
+                    );
+                    addToolOutput?.(output);
+                  }
                 }}
                 style={{
                   padding: "0.5rem 1rem",
@@ -361,9 +377,25 @@ export function ToolInvocationComponent({
                   console.info(
                     `[ToolInvocationComponent] User denied ${originalToolCall.name}`,
                   );
-                  addToolOutput?.(
-                    createAdkConfirmationOutput(toolInvocation, false),
-                  );
+
+                  // BIDI mode: Send via WebSocket
+                  if (websocketTransport) {
+                    console.info(
+                      `[ToolInvocationComponent] BIDI mode: Sending denial via WebSocket`,
+                    );
+                    websocketTransport.sendToolResult(
+                      toolInvocation.toolCallId,
+                      { confirmed: false },
+                    );
+                  } else {
+                    // SSE mode: Use addToolOutput
+                    console.info(
+                      `[ToolInvocationComponent] SSE mode: Sending denial via addToolOutput`,
+                    );
+                    addToolOutput?.(
+                      createAdkConfirmationOutput(toolInvocation, false),
+                    );
+                  }
                 }}
                 style={{
                   padding: "0.5rem 1rem",

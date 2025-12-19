@@ -272,11 +272,12 @@ def detect_mode_switch(session: Any, current_mode: str) -> tuple[bool, str]:
 # Functions to unify SSE and BIDI tool confirmation flows
 
 
-async def inject_confirmation_for_bidi(
+async def inject_confirmation_for_bidi(  # noqa: C901, PLR0912, PLR0915
     event: dict[str, Any] | Any,  # dict or Event object
     is_bidi: bool,
     interceptor: ToolConfirmationInterceptor | None = None,
     confirmation_tools: list[str] | None = None,
+    session: Any = None,  # Starlette session for accessing frontend_delegate
 ) -> Any:  # AsyncIterator[dict[str, Any] | Event | str]
     """
     Intercept and execute confirmation flow for BIDI mode.
@@ -294,6 +295,7 @@ async def inject_confirmation_for_bidi(
         is_bidi: True if BIDI mode, False if SSE mode
         interceptor: ToolConfirmationInterceptor instance (BIDI only)
         confirmation_tools: List of tool names requiring confirmation
+        session: Starlette session (for accessing frontend_delegate in BIDI mode)
 
     Yields:
         Original event + confirmation events (BIDI mode only)
@@ -334,13 +336,18 @@ async def inject_confirmation_for_bidi(
 
     logger.info(f"[BIDI Confirmation] Intercepting tool: {fc_name} (id={fc_id})")
 
-    # Yield original event first
-    yield event
+    # DO NOT yield original event here - we'll send it after confirmation
+    # Yielding it here causes the tool to execute before user approval
 
     # Generate confirmation tool-input-start event
     # Use "confirmation-" prefix to ensure separate UI rendering in AI SDK v6
     # (AI SDK v6 uses toolCallId as key - same ID would overwrite previous tool)
     confirmation_id = f"confirmation-{fc_id}"
+
+    # Register confirmation ID in ID mapper for proper Future resolution
+    # This ensures the confirmation Future uses a separate ID from the original tool
+    interceptor.delegate.id_mapper.register("adk_request_confirmation", confirmation_id)
+
     yield {
         "type": "tool-input-start",
         "toolCallId": confirmation_id,
@@ -388,34 +395,65 @@ async def inject_confirmation_for_bidi(
 
         # Execute original tool if approved
         if confirmed:
-            logger.info(f"[BIDI Confirmation] Executing original tool: {fc_name}")
-            try:
-                # Execute original tool on frontend (blocks until result arrives)
-                original_result = await interceptor.delegate.execute_on_frontend(
-                    tool_name=fc_name,
-                    args=fc_args,
-                    tool_call_id=fc_id,
-                )
+            logger.info(f"[BIDI Confirmation] User approved, executing original tool: {fc_name}")
 
-                # Yield tool-output-available for original tool
-                yield {
+            # Execute the original tool directly and yield FunctionResponse
+            # This avoids the issue where yielding function_call sends tool-input without execution
+            try:
+                # Import tool functions dynamically
+                import inspect
+                from types import SimpleNamespace
+
+                import adk_ag_tools
+
+                # Get the tool function
+                tool_func = getattr(adk_ag_tools, fc_name, None)
+                if not tool_func:
+                    raise ValueError(f"Tool function '{fc_name}' not found in adk_ag_tools")
+
+                # Create ToolContext-like object with required attributes
+                # SimpleNamespace allows dynamic attribute access like ToolContext
+                # Use the real session for frontend-delegated tools (get_location, change_bgm)
+                tool_context = SimpleNamespace()
+                tool_context.invocation_id = fc_id
+                tool_context.session = session
+
+                # Add tool_context to args if the function signature requires it
+                sig = inspect.signature(tool_func)
+                if "tool_context" in sig.parameters:
+                    fc_args_with_context = {**fc_args, "tool_context": tool_context}
+                    # Handle both async and sync tool functions
+                    if inspect.iscoroutinefunction(tool_func):
+                        tool_result = await tool_func(**fc_args_with_context)
+                    else:
+                        tool_result = tool_func(**fc_args_with_context)
+                # Handle both async and sync tool functions
+                elif inspect.iscoroutinefunction(tool_func):
+                    tool_result = await tool_func(**fc_args)
+                else:
+                    tool_result = tool_func(**fc_args)
+
+                # Yield tool-output-available event directly (as dict, not Part object)
+                # inject_confirmation_for_bidi expects Event or dict, not Part
+                tool_output_event = {
                     "type": "tool-output-available",
                     "toolCallId": fc_id,
-                    "output": original_result,
+                    "output": tool_result,
                 }
+                yield tool_output_event
 
-                logger.info(
-                    f"[BIDI Confirmation] Original tool {fc_name} completed: {original_result}"
-                )
-
-            except Exception as tool_error:
-                logger.error(f"[BIDI Confirmation] Original tool {fc_name} failed: {tool_error}")
-                # Yield error event for original tool
-                yield {
-                    "type": "tool-output-error",
+                logger.info(f"[BIDI Confirmation] Tool executed successfully: {fc_name}, yielded tool-output-available")
+            except Exception as e:
+                logger.error(f"[BIDI Confirmation] Error executing tool {fc_name}: {e}")
+                # Yield error tool-output-available event directly (as dict, not Part object)
+                # inject_confirmation_for_bidi expects Event or dict, not Part
+                error_output_event = {
+                    "type": "tool-output-available",
                     "toolCallId": fc_id,
-                    "errorText": str(tool_error),
+                    "output": {"error": str(e), "success": False},
                 }
+                yield error_output_event
+                logger.info("[BIDI Confirmation] Tool execution error, yielded tool-output-available with error")
         else:
             # User denied - do NOT execute original tool
             logger.info(f"[BIDI Confirmation] User denied tool: {fc_name}")

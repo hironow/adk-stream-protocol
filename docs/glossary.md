@@ -4,6 +4,34 @@ This document defines key terms used throughout the project to ensure consistent
 
 ## Core Concepts
 
+### Invocation (インボケーション / 呼び出し)
+
+A single, complete user-request-to-final-response cycle in the Agent Development Kit (ADK).
+
+**ADK Definition (from InvocationContext):**
+> The central piece holding all this information together for a single, complete user-request-to-final-response cycle (an invocation) is the `InvocationContext`.
+
+**Characteristics:**
+- Represents the entire workflow from initial user message to final response
+- May contain multiple turns (LLM calls)
+- May contain multiple tool executions
+- Has a unique `invocation_id` for tracking and logging
+
+**Example:**
+```
+User: "東京の天気を教えて"
+├─ Turn 1: LLM requests get_location tool → Confirmation UI
+├─ Turn 2: User approves → get_location executes
+├─ Turn 3: LLM requests get_weather tool → Weather data
+└─ Final response: "東京の天気は晴れです"
+= 1 Invocation (with 3 turns and 2 tool executions)
+```
+
+**Relation to Turn and Tool:**
+- 1 Invocation = N Turns (where N ≥ 1)
+- 1 Invocation = M Tool executions (where M ≥ 0)
+- Each Turn is part of exactly 1 Invocation
+
 ### Turn (ターン)
 
 A complete interaction cycle between user and AI, consisting of:
@@ -21,7 +49,13 @@ A complete interaction cycle between user and AI, consisting of:
 
 ### Tool (ツール)
 
-A complete tool execution from initiation to completion.
+A function that can be called by the LLM during a turn. A complete tool execution cycle from initiation to completion.
+
+**Relation to Invocation and Turn:**
+- Tools are executed within an Invocation
+- Single-turn tools complete in 1 turn
+- Multi-turn tools span 2 turns (confirmation + execution)
+- Multiple tools can be executed within a single Invocation
 
 **Categories:**
 

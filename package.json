@@ -11,7 +11,7 @@
     "test:lib": "vitest run lib/",
     "test:app": "vitest run app/",
     "test:components": "vitest run components/",
-    "test:e2e": "playwright test --project=chromium --workers=1 --timeout=60000 --global-timeout=600000"
+    "test:e2e": "playwright test --global-timeout=600000"
   },
   "keywords": [],
   "author": "",

@@ -25,6 +25,8 @@
  *     Downloads as {session_id}.jsonl when export() is called
  */
 
+"use client";
+
 // Type definitions
 export type LogLocation =
   | "backend-adk-event" // ADK raw event (input)
@@ -77,7 +79,7 @@ export class ChunkLogger {
     // Priority: constructor arg > env var > localStorage > default
     this._enabled =
       enabled ??
-      this._getEnvBoolean("NEXT_PUBLIC_CHUNK_LOGGER_ENABLED") ?? false;
+      this._getEnvBoolean("NEXT_PUBLIC_CHUNK_LOGGER_ENABLED") ?? true;
     this._sessionId =
       sessionId ??
       this._getEnvString("NEXT_PUBLIC_CHUNK_LOGGER_SESSION_ID") ??

@@ -1,11 +1,275 @@
 # 引き継ぎ書
 
-**Date:** 2025-12-18
-**Current Status:** ✅ 4x2x2 Test Matrix 100% Complete - Comprehensive E2E Coverage Achieved! 🎉
+**Date:** 2025-12-19
+**Current Status:** 🔴 BIDI Confirmation ID Bug Fix In Progress - 4 RED Tests Created
 
 ---
 
-## 🎯 LATEST SESSION: 4x2x2 Test Matrix Expansion (2025-12-18 - Session 11)
+## 🎯 CURRENT SESSION: BIDI Confirmation ID Bug Fix (2025-12-19 - Session 8)
+
+### Summary
+**Creating comprehensive RED tests** to detect BIDI multi-turn tool confirmation ID routing bug before implementing fix. **Status: 4 RED tests created, ready for GREEN phase.**
+
+**Key Achievement**: Integration tests successfully reproduce E2E bug (confirmation ID mismatch) without expensive E2E setup, enabling fast TDD cycle.
+
+### Current Branch
+- **Branch**: `hironow/fix-confirm`
+- **Base**: `main`
+- **Status**: RED phase complete, ready for bug fix implementation
+
+### Bug Being Fixed
+
+**Problem**: BIDI mode multi-turn tools (with approval flow) completely broken
+- Confirmation Future receives location data instead of `{confirmed: true/false}`
+- Frontend auto-executes tool before user approval
+- E2E tests: 0/10 PASSED for `get_location` and `process_payment` in BIDI mode
+
+**Root Cause**:
+```python
+# adk_compat.py:343 - Confirmation ID generated but never registered
+confirmation_id = f"confirmation-{fc_id}"
+# ❌ Missing: id_mapper.register("adk_request_confirmation", confirmation_id)
+
+# adk_vercel_id_mapper.py:118-128 - Context-aware lookup returns wrong ID
+def get_function_call_id(tool_name, original_context):
+    if original_context and "name" in original_context:
+        lookup_name = original_context["name"]  # ← Returns original tool ID!
+    # ❌ Should return confirmation ID when tool_name == "adk_request_confirmation"
+```
+
+### RED Tests Created
+
+**Unit Test** (`tests/unit/test_adk_vercel_id_mapper.py:153-185`):
+- ✅ `test_confirmation_id_should_be_registered_separately` - FAILED (expected)
+  - ID mapper returns `function-call-123` instead of `confirmation-function-call-123`
+  - Detects: Context-aware lookup bug
+
+**Integration Tests** (`tests/integration/test_confirmation_id_routing.py`):
+- ✅ `test_confirmation_future_should_not_receive_original_tool_result` - FAILED (expected)
+  - Confirmation Future receives location data: `{latitude: 35.6762, ...}`
+  - Expected: `{confirmed: true/false}`
+  - Detects: Data mixing bug (E2E bug reproduced)
+- ✅ `test_confirmation_id_prefix_should_route_to_separate_future` - FAILED (expected)
+  - Both Futures use same ID → second overwrites first → timeout
+  - Detects: Future overwrite bug
+- ✅ `test_confirmation_interceptor_should_register_confirmation_id` - FAILED (expected)
+  - Confirmation ID not registered in mapper → returns `None`
+  - Detects: Missing registration
+- ✅ `test_wrong_id_should_not_resolve_future` - PASSED (baseline test)
+
+**Total**: 4 RED tests (3 integration + 1 unit) detecting bug from different angles
+
+### What We Created
+
+**Test Files**:
+1. `tests/unit/test_adk_vercel_id_mapper.py:153-185` - Unit test for ID mapper bug
+2. `tests/integration/test_confirmation_id_routing.py:1-320` - Integration test suite (4 tests)
+
+**Documentation**:
+- `docs/BUG-BIDI-CONFIRMATION-ID-MISMATCH.md` - Bug analysis with E2E log evidence
+- `agents/insights.md` - Session history updated
+
+### Test Results
+
+**Integration Tests Summary**:
+```
+tests/integration/test_confirmation_id_routing.py: 3 FAILED, 1 PASSED
+  ✅ test_wrong_id_should_not_resolve_future - PASSED (baseline)
+  ❌ test_confirmation_future_should_not_receive_original_tool_result - FAILED
+  ❌ test_confirmation_id_prefix_should_route_to_separate_future - FAILED
+  ❌ test_confirmation_interceptor_should_register_confirmation_id - FAILED
+
+Unit test: 1 FAILED (expected)
+All other tests: PASSING (no regression)
+```
+
+### Files Modified
+
+**Tests**:
+- `tests/unit/test_adk_vercel_id_mapper.py` - Added confirmation ID test
+- `tests/integration/test_confirmation_id_routing.py` - NEW (4 tests, 320 lines)
+
+**Documentation**:
+- `docs/BUG-BIDI-CONFIRMATION-ID-MISMATCH.md` - NEW (157 lines)
+- `agents/insights.md` - Updated
+
+### Next Steps (GREEN Phase)
+
+**Immediate** (Session 8 continuation):
+1. Fix confirmation ID registration in `adk_compat.py:343`
+2. Fix ID mapper context-aware lookup in `adk_vercel_id_mapper.py:118-128`
+3. Verify all 4 RED tests turn GREEN
+4. Run full integration test suite (expect 21/21 PASSED)
+5. Run E2E tests for `get_location` and `process_payment` BIDI
+
+**Expected After Fix**:
+- Integration tests: 4/4 PASSED
+- E2E tests: 10/10 PASSED (BIDI confirmation tools)
+
+### Future Tasks (Post Bug Fix)
+
+These tasks are from architecture review (see `private/memo.md`), deferred to focus on bug fix:
+
+#### Priority 1: ID Mapping Logic Consolidation
+**Problem**: Logic duplication between `ADKVercelIDMapper` and `FrontendToolDelegate`
+
+**Current State**:
+```python
+# ADKVercelIDMapper: Basic mapping
+class ADKVercelIDMapper:
+    def resolve_tool_result(self, tool_call_id: str) -> str | None:
+        # Handles confirmation- prefix stripping
+        # Returns tool_name
+
+# FrontendToolDelegate: 4-step resolution logic
+class FrontendToolDelegate:
+    def resolve_tool_result(self, tool_call_id, result):
+        # 1. Direct _pending_calls lookup
+        # 2. ID mapper lookup
+        # 3. Confirmation- prefix stripping
+        # 4. Original ID lookup
+        # ← This logic should be in ADKVercelIDMapper
+```
+
+**Proposed Fix**:
+```python
+# Consolidate all resolution logic in ADKVercelIDMapper
+class ADKVercelIDMapper:
+    def resolve_with_pending_calls(
+        self,
+        tool_call_id: str,
+        pending_calls: dict
+    ) -> tuple[str, Future] | None:
+        """
+        Resolve tool_call_id to (original_id, future).
+        Handles all cases: direct, mapper, confirmation-prefix.
+        Returns None if not found.
+        """
+        # All 4-step logic here
+
+# Simplify FrontendToolDelegate
+class FrontendToolDelegate:
+    def resolve_tool_result(self, tool_call_id, result):
+        resolved = self.id_mapper.resolve_with_pending_calls(
+            tool_call_id, self._pending_calls
+        )
+        if resolved:
+            original_id, future = resolved
+            future.set_result(result)
+```
+
+**Benefits**:
+- Single source of truth for ID resolution
+- Eliminates duplication
+- Easier to test and maintain
+
+**Files to Modify**:
+- `adk_vercel_id_mapper.py` - Add `resolve_with_pending_calls()` method
+- `services/frontend_tool_service.py` - Simplify `resolve_tool_result()`
+- `tests/unit/test_adk_vercel_id_mapper.py` - Add tests for new method
+
+**Estimated Effort**: 2-3 hours
+**Risk**: Low (well-tested with existing integration tests)
+
+#### Priority 2: Dependency Inversion for inject_confirmation_for_bidi
+**Problem**: Protocol layer depends on Transport layer (dependency inversion)
+
+**Current State**:
+```python
+# stream_protocol.py (Protocol layer)
+async def inject_confirmation_for_bidi(
+    frontend_delegate: FrontendToolDelegate,  # ← Depends on Transport layer
+):
+    result = await frontend_delegate.execute_on_frontend(...)
+```
+
+**Proposed Fix**:
+```python
+# Define abstract protocol
+from typing import Protocol
+
+class ConfirmationExecutor(Protocol):
+    async def execute_confirmation(
+        self, tool_name: str, args: dict, original_context: dict
+    ) -> dict: ...
+
+# stream_protocol.py depends on abstraction
+async def inject_confirmation_for_bidi(
+    confirmation_executor: ConfirmationExecutor,  # ← Depends on abstraction
+):
+    result = await confirmation_executor.execute_confirmation(...)
+
+# server.py provides adapter
+class FrontendConfirmationAdapter:
+    def __init__(self, frontend_delegate: FrontendToolDelegate):
+        self.delegate = frontend_delegate
+
+    async def execute_confirmation(self, ...):
+        return await self.delegate.execute_on_frontend(...)
+```
+
+**Benefits**:
+- Proper dependency direction (high-level → low-level)
+- Protocol layer becomes transport-agnostic
+- Easier to test stream_protocol.py in isolation
+
+**Files to Modify**:
+- `stream_protocol.py` - Add `ConfirmationExecutor` Protocol, update function signature
+- `server.py` - Create `FrontendConfirmationAdapter`
+- `adk_compat.py` - Update calls to `inject_confirmation_for_bidi()`
+
+**Estimated Effort**: 3-4 hours
+**Risk**: Medium (touches multiple layers, requires careful testing)
+
+#### Priority 3: ADKVercelIDMapper Documentation
+**Problem**: Unclear which layer ADKVercelIDMapper belongs to
+
+**Current Understanding**:
+- ADKVercelIDMapper knows both ADK (invocation_id) and Vercel AI SDK v6 (function_call.id)
+- Therefore belongs to **Protocol Conversion layer**
+
+**Action**:
+- Add docstring to `adk_vercel_id_mapper.py` clarifying layer membership
+- Update architecture diagrams if needed
+- Document in `docs/architecture.md` (create if doesn't exist)
+
+**Files to Modify**:
+- `adk_vercel_id_mapper.py` - Add comprehensive module docstring
+- `docs/architecture.md` - Create or update
+
+**Estimated Effort**: 1-2 hours
+**Risk**: None (documentation only)
+
+### Key Documents
+
+**Current Session**:
+- `tests/integration/test_confirmation_id_routing.py` - RED integration tests
+- `tests/unit/test_adk_vercel_id_mapper.py` - RED unit test
+- `docs/BUG-BIDI-CONFIRMATION-ID-MISMATCH.md` - Bug analysis
+- `agents/insights.md` - Session history
+- `private/memo.md` - Architecture review notes
+
+**Future Reference**:
+- `agents/handsoff.md` - This document (future tasks recorded)
+
+### Design Decisions (Session 7)
+
+**[DONE] Stream Lifecycle Principle**:
+- `[DONE]` should only be sent from `finalize()`
+- Violation at `adk_compat.py:372` (to be removed with LongRunningFunctionTool migration)
+
+**Architecture Layers** (from memo.md review):
+```
+Frontend → AI SDK v6 only
+Services → Business logic (FrontendToolService, ConfirmationService)
+Protocol Conversion → ADK + AI SDK v6 (StreamProtocolConverter, ADKVercelIDMapper)
+Transport → SSE/WebSocket routing (server.py)
+ADK → ADK only
+```
+
+---
+
+## Previous Session: 4x2x2 Test Matrix Expansion (2025-12-18 - Session 11)
 
 ### Summary
 **Expanded E2E test coverage to 100%** for all 4 tools across SSE and BIDI modes. **Result: ✅ 6 new test files created with 32 total test cases covering all tools × modes × approval requirements.**

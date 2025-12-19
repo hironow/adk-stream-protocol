@@ -54,7 +54,13 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
+      use: {
+        ...devices["Desktop Chrome"],
+        // Grant geolocation permission for get_location tool tests
+        permissions: ["geolocation"],
+        // Set mock geolocation to Tokyo
+        geolocation: { longitude: 139.6503, latitude: 35.6762 },
+      },
     },
   ],
 

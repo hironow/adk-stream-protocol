@@ -14,10 +14,7 @@ ADK's event system and Vercel AI SDK's UI stream protocol.
 
 from __future__ import annotations
 
-import pytest
-
 from adk_vercel_id_mapper import ADKVercelIDMapper
-
 
 # ============================================================
 # ADKVercelIDMapper Tests
@@ -49,18 +46,19 @@ def test_get_function_call_id_returns_none_for_unknown_tool() -> None:
 
 
 def test_get_function_call_id_with_original_context() -> None:
-    """get_function_call_id() should use original_context['name'] for intercepted tools."""
+    """get_function_call_id() should use original_context['name'] for non-confirmation intercepted tools."""
     # given
     mapper = ADKVercelIDMapper()
     mapper.register("process_payment", "function-call-456")
 
-    # when - Interceptor calls with adk_request_confirmation but provides original context
+    # when - Interceptor calls with some_intercepted_tool but provides original context
+    # (Not adk_request_confirmation - that's a special case)
     original_context = {
         "name": "process_payment",
         "id": "function-call-456",
         "args": {"amount": 100},
     }
-    result = mapper.get_function_call_id("adk_request_confirmation", original_context)
+    result = mapper.get_function_call_id("some_intercepted_tool", original_context)
 
     # then - Should resolve using original_context["name"]
     assert result == "function-call-456"
@@ -148,3 +146,38 @@ def test_original_context_without_name_falls_back_to_tool_name() -> None:
 
     # then - Should fall back to tool_name
     assert result == "function-call-123"
+
+
+def test_confirmation_id_should_be_registered_separately() -> None:
+    """
+    Confirmation ID should be registered and resolved independently.
+
+    Current behavior (BUG):
+    - get_function_call_id("adk_request_confirmation", original_context)
+      returns original tool's ID instead of confirmation ID
+    - This causes confirmation Future to overwrite original Future
+
+    Expected: FAIL (RED) - confirmation ID is never registered, mapper returns wrong ID
+    After fix: PASS (GREEN) - confirmation ID is registered and resolved correctly
+    """
+    # given
+    mapper = ADKVercelIDMapper()
+    original_id = "function-call-123"
+    confirmation_id = f"confirmation-{original_id}"
+
+    # Register BOTH IDs (this is what SHOULD happen after fix)
+    mapper.register("get_location", original_id)
+    mapper.register("adk_request_confirmation", confirmation_id)
+
+    # when - Get ID for confirmation tool with original_context
+    # This is what ToolConfirmationInterceptor does
+    original_context = {"name": "get_location", "id": original_id}
+    result = mapper.get_function_call_id("adk_request_confirmation", original_context)
+
+    # then - Should return confirmation ID, NOT original ID
+    assert result == confirmation_id, (
+        f"Expected confirmation ID '{confirmation_id}', "
+        f"but got '{result}'. "
+        f"Confirmation tool should use its own ID, not original tool's ID. "
+        f"This bug causes confirmation Future to overwrite original Future."
+    )

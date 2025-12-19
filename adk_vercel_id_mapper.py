@@ -114,7 +114,16 @@ class ADKVercelIDMapper:
             )
             # → Returns function_call.id for "process_payment"
         """
-        # For intercepted tools: use original context
+        # Special case: adk_request_confirmation must use its own registered ID
+        # even when original_context is provided. This ensures confirmation Future
+        # uses a separate ID from the original tool Future.
+        if tool_name == "adk_request_confirmation":
+            logger.debug(
+                "[ADKVercelIDMapper] Confirmation tool lookup: using tool_name directly"
+            )
+            return self._tool_name_to_id.get(tool_name)
+
+        # For other intercepted tools: use original context
         if original_context and "name" in original_context:
             lookup_name = original_context["name"]
             logger.debug(

@@ -893,6 +893,7 @@ async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912
     mode: Mode = "adk-sse",  # "adk-sse" or "adk-bidi" for chunk logger
     interceptor: Any = None,  # ToolConfirmationInterceptor | None
     confirmation_tools: list[str] | None = None,
+    session: Any = None,  # Starlette session for BIDI mode (to access frontend_delegate)
 ) -> AsyncGenerator[str, None]:
     """
     Convert ADK event stream to AI SDK v6 Data Stream Protocol.
@@ -903,6 +904,7 @@ async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912
         mode: Backend mode ("adk-sse" or "adk-bidi") for chunk logger
         interceptor: ToolConfirmationInterceptor for BIDI mode (None for SSE mode)
         confirmation_tools: List of tool names requiring confirmation
+        session: Starlette session (for BIDI mode to access frontend_delegate)
 
     Yields:
         SSE-formatted event strings
@@ -938,6 +940,7 @@ async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912
                 is_bidi=(mode == "adk-bidi"),
                 interceptor=interceptor,
                 confirmation_tools=confirmation_tools,
+                session=session,
             ):
                 logger.debug(
                     f"[stream_adk_to_ai_sdk] Received from inject_confirmation_for_bidi: "

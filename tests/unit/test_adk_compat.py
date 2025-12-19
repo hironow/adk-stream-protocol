@@ -1076,7 +1076,7 @@ async def test_inject_confirmation_for_bidi_should_not_send_done_marker():
         f"inject_confirmation_for_bidi violated design principle at {len(done_violations)} location(s):\n"
         f"[DONE] should ONLY be sent from finalize(), not from inject_confirmation_for_bidi.\n"
         f"Violations found:\n"
-        + "\n".join([f"  Position {i}: {repr(event)}" for i, event in done_violations])
-        + f"\n\nCurrent implementation: adk_compat.py:372 sends 'data: [DONE]\\n\\n'\n"
-        f"Expected: Remove line 372 and rely on finalize() for [DONE] transmission."
+        + "\n".join([f"  Position {i}: {event!r}" for i, event in done_violations])
+        + "\n\nCurrent implementation: adk_compat.py:372 sends 'data: [DONE]\\n\\n'\n"
+        "Expected: Remove line 372 and rely on finalize() for [DONE] transmission."
     )

@@ -19,7 +19,7 @@ Expected Results: Some tests PASS (GREEN), some FAIL (RED) until implementation 
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import Mock
 
 import pytest
 
@@ -205,13 +205,16 @@ class TestFourComponentSSEBIDIIntegration:
         # given: StreamProtocolConverter registers approval-required tool
         tool_name = "process_payment"
         function_call_id = "function-call-bidi-2"
+        confirmation_id = f"confirmation-{function_call_id}"
+
         id_mapper.register(tool_name, function_call_id)
+        # In real flow, inject_confirmation_for_bidi() registers confirmation ID
+        id_mapper.register("adk_request_confirmation", confirmation_id)
 
         # Simulate user approval in background
         async def simulate_approval() -> None:
             await asyncio.sleep(0.05)
             # Frontend sends approval for confirmation tool
-            confirmation_id = f"confirmation-{function_call_id}"
             frontend_delegate.resolve_tool_result(confirmation_id, {"confirmed": True})
 
         approval_task = asyncio.create_task(simulate_approval())
@@ -455,14 +458,14 @@ class TestFourComponentSSEBIDIIntegration:
             f"at {len(done_violations)} location(s) when integrated with real components:\n"
             f"[DONE] should ONLY be sent from finalize(), not from inject_confirmation_for_bidi.\n"
             f"\nViolations found:\n"
-            + "\n".join([f"  Position {i}: {repr(event)}" for i, event in done_violations])
-            + f"\n\nComponents involved:"
-            f"\n  - ADKVercelIDMapper: ID tracking"
-            f"\n  - FrontendToolDelegate: Tool execution"
-            f"\n  - ToolConfirmationInterceptor: Approval management"
-            f"\n  - inject_confirmation_for_bidi: Flow orchestration"
-            f"\n\nCurrent implementation: adk_compat.py:372 sends 'data: [DONE]\\n\\n'"
-            f"\nExpected: Remove line 372 and rely on finalize() for [DONE] transmission."
+            + "\n".join([f"  Position {i}: {event!r}" for i, event in done_violations])
+            + "\n\nComponents involved:"
+            "\n  - ADKVercelIDMapper: ID tracking"
+            "\n  - FrontendToolDelegate: Tool execution"
+            "\n  - ToolConfirmationInterceptor: Approval management"
+            "\n  - inject_confirmation_for_bidi: Flow orchestration"
+            "\n\nCurrent implementation: adk_compat.py:372 sends 'data: [DONE]\\n\\n'"
+            "\nExpected: Remove line 372 and rely on finalize() for [DONE] transmission."
         )
 
         await response_task

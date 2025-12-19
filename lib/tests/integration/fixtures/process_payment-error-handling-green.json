@@ -1,0 +1,54 @@
+{
+  "description": "GREEN: Error handling for process_payment when tool execution fails",
+  "mode": "bidi",
+  "scenario": "Tool execution throws error and should return proper error response",
+  "expectedBehavior": {
+    "onToolExecutionError": {
+      "shouldYield": "tool-output-available with error response",
+      "errorFormat": {
+        "success": false,
+        "error": "Error message describing the failure"
+      }
+    },
+    "shouldNotHang": true,
+    "shouldNotCauseInfiniteLoop": true
+  },
+  "testCases": [
+    {
+      "case": "Tool function not found",
+      "mockError": "ValueError: Tool function 'invalid_tool' not found in adk_ag_tools",
+      "expectedOutput": {
+        "type": "tool-output-available",
+        "toolName": "invalid_tool",
+        "output": {
+          "error": "Tool function 'invalid_tool' not found in adk_ag_tools",
+          "success": false
+        }
+      }
+    },
+    {
+      "case": "Tool execution exception",
+      "mockError": "Exception: Payment gateway timeout",
+      "expectedOutput": {
+        "type": "tool-output-available",
+        "toolName": "process_payment",
+        "output": {
+          "error": "Payment gateway timeout",
+          "success": false
+        }
+      }
+    },
+    {
+      "case": "Invalid tool arguments",
+      "mockError": "TypeError: process_payment() missing 1 required positional argument: 'amount'",
+      "expectedOutput": {
+        "type": "tool-output-available",
+        "toolName": "process_payment",
+        "output": {
+          "error": "process_payment() missing 1 required positional argument: 'amount'",
+          "success": false
+        }
+      }
+    }
+  ]
+}

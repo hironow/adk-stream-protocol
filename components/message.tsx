@@ -72,6 +72,10 @@ interface MessageComponentProps {
       toolName: string,
       response: Record<string, unknown>,
     ) => void;
+    sendToolResult: (
+      toolCallId: string,
+      result: Record<string, unknown>,
+    ) => void;
   };
 }
 
