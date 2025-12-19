@@ -45,6 +45,8 @@ class TestProcessChatMessageForBidi:
 
     def test_message_with_image(self):
         """Should separate image blobs from text parts."""
+        from unittest.mock import MagicMock
+
         # given
         image_data = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
         message_data = {
@@ -64,9 +66,21 @@ class TestProcessChatMessageForBidi:
             ]
         }
 
-        # when
-        with patch("ai_sdk_v6_compat.base64.b64decode") as mock_decode:
+        # when - mock both base64 decoding and PIL Image.open
+        with (
+            patch("ai_sdk_v6_compat.base64.b64decode") as mock_decode,
+            patch("ai_sdk_v6_compat.Image.open") as mock_image_open,
+        ):
             mock_decode.return_value = b"fake_image_data"
+
+            # Mock PIL Image object with size and format attributes
+            mock_img = MagicMock()
+            mock_img.size = (1, 1)  # 1x1 pixel
+            mock_img.format = "PNG"
+            mock_img.__enter__ = MagicMock(return_value=mock_img)
+            mock_img.__exit__ = MagicMock(return_value=False)
+            mock_image_open.return_value = mock_img
+
             image_blobs, text_content = process_chat_message_for_bidi(message_data)
 
         # then

@@ -7,7 +7,7 @@ dotenv.config({ path: ".env.local" });
 /**
  * Playwright E2E Test Configuration
  *
- * Tests located in: e2e/
+ * Tests located in: scenarios/
  *
  * Requirements:
  * - Real backend servers must be running (ADK Python + Next.js)
@@ -18,7 +18,7 @@ dotenv.config({ path: ".env.local" });
 
 export default defineConfig({
   // Test directory
-  testDir: "./e2e",
+  testDir: "./scenarios",
 
   // Maximum time one test can run for (3 minutes to accommodate LLM response times)
   timeout: 180 * 1000,

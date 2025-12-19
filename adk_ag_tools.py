@@ -228,16 +228,24 @@ async def change_bgm(track: int, tool_context: ToolContext | None = None) -> dic
     Returns:
         Success confirmation
     """
+    logger.info("[change_bgm] ========== TOOL FUNCTION CALLED ==========")
+    logger.info(f"[change_bgm] track={track}, tool_context={tool_context}")
+
     if tool_context:
+        logger.info("[change_bgm] tool_context exists, checking for delegate")
         # Check for delegate in tool_context (BIDI mode)
         delegate = tool_context.session.state.get("frontend_delegate")
+        logger.info(f"[change_bgm] delegate={delegate}")
         if delegate:
             # BIDI mode - delegate to frontend
+            logger.info("[change_bgm] BIDI mode detected - delegating to frontend")
+            logger.info("[change_bgm] Calling delegate.execute_on_frontend()")
             result = await delegate.execute_on_frontend(
                 tool_call_id=tool_context.invocation_id,
                 tool_name="change_bgm",
                 args={"track": track},
             )
+            logger.info("[change_bgm] ========== DELEGATE RETURNED ==========")
             logger.info(f"[change_bgm] BIDI delegated: track={track}, result={result}")
             return result
 
@@ -265,7 +273,12 @@ async def get_location(tool_context: ToolContext) -> dict[str, Any]:
     Returns:
         User's location information from browser Geolocation API
     """
+    logger.info("[get_location] ========== TOOL FUNCTION CALLED ==========")
+    logger.info(f"[get_location] tool_context={tool_context}")
+
     tool_call_id = tool_context.invocation_id
+    logger.info(f"[get_location] invocation_id={tool_call_id}")
+
     if not tool_call_id:
         error_msg = "Missing invocation_id in ToolContext"
         logger.error(f"[get_location] {error_msg}")
@@ -276,23 +289,29 @@ async def get_location(tool_context: ToolContext) -> dict[str, Any]:
     # Delegate execution to frontend and await result
     # Note: Uses global frontend_delegate via session.state
     session_state = getattr(tool_context.session, "state", None)
+    logger.info(f"[get_location] session_state={session_state}")
+
     if not session_state:
         error_msg = "Missing session.state in ToolContext"
         logger.error(f"[get_location] {error_msg}")
         return {"success": False, "error": error_msg}
 
     delegate = session_state.get("frontend_delegate")
+    logger.info(f"[get_location] delegate={delegate}")
+
     if not delegate:
         error_msg = "Missing frontend_delegate in session.state"
         logger.error(f"[get_location] {error_msg}")
         return {"success": False, "error": error_msg}
 
+    logger.info("[get_location] Calling delegate.execute_on_frontend()")
     result = await delegate.execute_on_frontend(
         tool_call_id=tool_call_id,
         tool_name="get_location",
         args={},
     )
 
+    logger.info("[get_location] ========== DELEGATE RETURNED ==========")
     logger.info(f"[get_location] Received result from frontend: {result}")
     return result
 

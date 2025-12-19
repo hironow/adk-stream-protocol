@@ -9,9 +9,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from adk_ag_tools import (
+    adk_request_confirmation,
     change_bgm,
     get_location,
     get_weather,
+    process_payment,
 )
 
 
@@ -287,3 +289,329 @@ class TestGetLocation:
         assert "error" in result
         # Error message varies depending on mock behavior
         assert "frontend_delegate" in result["error"] or "session.state" in result["error"]
+
+
+class TestProcessPayment:
+    """Tests for the process_payment tool."""
+
+    def test_process_payment_successful_transaction(self):
+        """Should process valid payment and return transaction details."""
+        # given
+        mock_tool_context = MagicMock()
+
+        # when
+        result = process_payment(
+            amount=100.0,
+            recipient="alice@example.com",
+            tool_context=mock_tool_context,
+            currency="USD",
+            description="Test payment",
+        )
+
+        # then
+        assert result["success"] is True
+        assert result["amount"] == 100.0
+        assert result["currency"] == "USD"
+        assert result["recipient"] == "alice@example.com"
+        assert result["description"] == "Test payment"
+        assert result["wallet_balance"] == 900.0  # 1000 - 100
+        assert result["transaction_id"].startswith("txn_")
+        assert "timestamp" in result
+
+    def test_process_payment_negative_amount_rejected(self):
+        """Should reject payment with negative amount."""
+        # given
+        mock_tool_context = MagicMock()
+
+        # when
+        result = process_payment(
+            amount=-50.0,
+            recipient="bob@example.com",
+            tool_context=mock_tool_context,
+        )
+
+        # then
+        assert result["success"] is False
+        assert "Invalid amount" in result["error"]
+        assert result["transaction_id"] is None
+
+    def test_process_payment_zero_amount_rejected(self):
+        """Should reject payment with zero amount."""
+        # given
+        mock_tool_context = MagicMock()
+
+        # when
+        result = process_payment(
+            amount=0.0,
+            recipient="charlie@example.com",
+            tool_context=mock_tool_context,
+        )
+
+        # then
+        assert result["success"] is False
+        assert "Invalid amount" in result["error"]
+        assert result["transaction_id"] is None
+
+    def test_process_payment_insufficient_funds(self):
+        """Should reject payment when amount exceeds wallet balance."""
+        # given
+        mock_tool_context = MagicMock()
+
+        # when
+        result = process_payment(
+            amount=1500.0,  # Exceeds mock wallet balance of 1000
+            recipient="dave@example.com",
+            tool_context=mock_tool_context,
+        )
+
+        # then
+        assert result["success"] is False
+        assert "Insufficient funds" in result["error"]
+        assert result["transaction_id"] is None
+        assert result["wallet_balance"] == 1000.0  # Original balance
+
+    def test_process_payment_exact_balance_amount(self):
+        """Should process payment when amount equals wallet balance."""
+        # given
+        mock_tool_context = MagicMock()
+
+        # when
+        result = process_payment(
+            amount=1000.0,  # Exact balance
+            recipient="eve@example.com",
+            tool_context=mock_tool_context,
+        )
+
+        # then
+        assert result["success"] is True
+        assert result["amount"] == 1000.0
+        assert result["wallet_balance"] == 0.0  # Balance depleted
+        assert result["transaction_id"].startswith("txn_")
+
+    def test_process_payment_with_custom_currency(self):
+        """Should handle custom currency parameter."""
+        # given
+        mock_tool_context = MagicMock()
+
+        # when
+        result = process_payment(
+            amount=50.0,
+            recipient="frank@example.com",
+            tool_context=mock_tool_context,
+            currency="EUR",
+        )
+
+        # then
+        assert result["success"] is True
+        assert result["currency"] == "EUR"
+
+    def test_process_payment_default_currency(self):
+        """Should use USD as default currency."""
+        # given
+        mock_tool_context = MagicMock()
+
+        # when
+        result = process_payment(
+            amount=25.0,
+            recipient="grace@example.com",
+            tool_context=mock_tool_context,
+        )
+
+        # then
+        assert result["success"] is True
+        assert result["currency"] == "USD"
+
+    def test_process_payment_with_description(self):
+        """Should include description in transaction result."""
+        # given
+        mock_tool_context = MagicMock()
+
+        # when
+        result = process_payment(
+            amount=75.0,
+            recipient="henry@example.com",
+            tool_context=mock_tool_context,
+            description="Payment for services rendered",
+        )
+
+        # then
+        assert result["success"] is True
+        assert result["description"] == "Payment for services rendered"
+
+
+class TestAdkRequestConfirmation:
+    """Tests for the adk_request_confirmation tool (BIDI mode)."""
+
+    @pytest.mark.asyncio
+    async def test_adk_request_confirmation_approved(self):
+        """Should delegate to frontend and return approval when user confirms."""
+        # given
+        mock_delegate = AsyncMock()
+        mock_delegate.execute_on_frontend.return_value = {"confirmed": True}
+
+        mock_session = MagicMock()
+        mock_session.state = {"frontend_delegate": mock_delegate}
+
+        mock_tool_context = MagicMock()
+        mock_tool_context.session = mock_session
+        mock_tool_context.invocation_id = "confirmation-call-123"
+
+        original_fc = {"id": "original-call-456", "name": "process_payment", "args": {"amount": 100}}
+
+        # when
+        result = await adk_request_confirmation(
+            originalFunctionCall=original_fc,
+            toolConfirmation={"confirmed": False},
+            tool_context=mock_tool_context,
+        )
+
+        # then
+        assert result["confirmed"] is True
+        mock_delegate.execute_on_frontend.assert_called_once_with(
+            tool_call_id="confirmation-call-123",
+            tool_name="adk_request_confirmation",
+            args={
+                "originalFunctionCall": original_fc,
+                "toolConfirmation": {"confirmed": False},
+            },
+        )
+
+    @pytest.mark.asyncio
+    async def test_adk_request_confirmation_denied(self):
+        """Should return denial when user rejects confirmation."""
+        # given
+        mock_delegate = AsyncMock()
+        mock_delegate.execute_on_frontend.return_value = {"confirmed": False}
+
+        mock_session = MagicMock()
+        mock_session.state = {"frontend_delegate": mock_delegate}
+
+        mock_tool_context = MagicMock()
+        mock_tool_context.session = mock_session
+        mock_tool_context.invocation_id = "confirmation-call-789"
+
+        original_fc = {"id": "original-call-111", "name": "delete_account", "args": {"user_id": 42}}
+
+        # when
+        result = await adk_request_confirmation(
+            originalFunctionCall=original_fc,
+            toolConfirmation={"confirmed": False},
+            tool_context=mock_tool_context,
+        )
+
+        # then
+        assert result["confirmed"] is False
+
+    @pytest.mark.asyncio
+    async def test_adk_request_confirmation_missing_invocation_id(self):
+        """Should return error when tool_context has no invocation_id."""
+        # given
+        mock_session = MagicMock()
+        mock_session.state = {"frontend_delegate": AsyncMock()}
+
+        mock_tool_context = MagicMock()
+        mock_tool_context.session = mock_session
+        mock_tool_context.invocation_id = None  # Missing ID
+
+        original_fc = {"id": "original-call-222", "name": "process_payment", "args": {}}
+
+        # when
+        result = await adk_request_confirmation(
+            originalFunctionCall=original_fc,
+            toolConfirmation={"confirmed": False},
+            tool_context=mock_tool_context,
+        )
+
+        # then
+        assert result["confirmed"] is False
+        assert "error" in result
+        assert "invocation_id" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_adk_request_confirmation_missing_session_state(self):
+        """Should return error when tool_context.session has no state."""
+        # given
+        mock_session = MagicMock()
+        mock_session.state = None  # No state
+
+        mock_tool_context = MagicMock()
+        mock_tool_context.session = mock_session
+        mock_tool_context.invocation_id = "confirmation-call-333"
+
+        original_fc = {"id": "original-call-444", "name": "process_payment", "args": {}}
+
+        # when
+        result = await adk_request_confirmation(
+            originalFunctionCall=original_fc,
+            toolConfirmation={"confirmed": False},
+            tool_context=mock_tool_context,
+        )
+
+        # then
+        assert result["confirmed"] is False
+        assert "error" in result
+        assert "session.state" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_adk_request_confirmation_missing_delegate(self):
+        """Should return error when frontend_delegate not in session.state."""
+        # given
+        mock_session = MagicMock()
+        mock_session.state = {"some_other_key": "value"}  # Has state but no frontend_delegate
+
+        mock_tool_context = MagicMock()
+        mock_tool_context.session = mock_session
+        mock_tool_context.invocation_id = "confirmation-call-555"
+
+        original_fc = {"id": "original-call-666", "name": "process_payment", "args": {}}
+
+        # when
+        result = await adk_request_confirmation(
+            originalFunctionCall=original_fc,
+            toolConfirmation={"confirmed": False},
+            tool_context=mock_tool_context,
+        )
+
+        # then
+        assert result["confirmed"] is False
+        assert "error" in result
+        assert "frontend_delegate" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_adk_request_confirmation_with_complex_original_function_call(self):
+        """Should handle complex original function call arguments."""
+        # given
+        mock_delegate = AsyncMock()
+        mock_delegate.execute_on_frontend.return_value = {"confirmed": True}
+
+        mock_session = MagicMock()
+        mock_session.state = {"frontend_delegate": mock_delegate}
+
+        mock_tool_context = MagicMock()
+        mock_tool_context.session = mock_session
+        mock_tool_context.invocation_id = "confirmation-call-777"
+
+        original_fc = {
+            "id": "original-call-888",
+            "name": "complex_payment",
+            "args": {
+                "amount": 500.0,
+                "recipient": "test@example.com",
+                "metadata": {"invoice_id": "INV-12345", "items": ["item1", "item2"]},
+                "options": {"fast": True, "notify": False},
+            },
+        }
+
+        # when
+        result = await adk_request_confirmation(
+            originalFunctionCall=original_fc,
+            toolConfirmation={"confirmed": False},
+            tool_context=mock_tool_context,
+        )
+
+        # then
+        assert result["confirmed"] is True
+        # Verify complex args were passed through
+        call_args = mock_delegate.execute_on_frontend.call_args[1]["args"]
+        assert call_args["originalFunctionCall"]["args"]["amount"] == 500.0
+        assert call_args["originalFunctionCall"]["args"]["metadata"]["invoice_id"] == "INV-12345"

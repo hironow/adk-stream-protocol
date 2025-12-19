@@ -134,7 +134,7 @@ test-e2e:
 [group("testing-baseline")]
 test-baseline-e2e:
     @echo "Running E2E baseline tests..."
-    pnpm exec playwright test e2e/tools/ --project=chromium --workers=1 --timeout=120000 --global-timeout=600000
+    pnpm exec playwright test scenarios/tools/ --project=chromium --workers=1 --timeout=120000 --global-timeout=600000
 
 # Run E2E tests with clean server restart - guarantees fresh servers
 [group("testing")]

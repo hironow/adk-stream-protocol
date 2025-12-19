@@ -113,8 +113,50 @@ class FrontendToolDelegate:
             f"function_call.id={function_call_id}, args={args}"
         )
 
-        # Await frontend result (blocks here until result arrives)
-        result = await future
+        # Await frontend result with timeout to detect deadlocks early
+        # Timeout set to 5 seconds (much shorter than 30s test timeout)
+        # This helps identify issues where:
+        # - Frontend never receives tool-input-available (not yielded)
+        # - WebSocket handler doesn't call resolve_tool_result()
+        # - Circular dependency causes deadlock
+        try:
+            result = await asyncio.wait_for(future, timeout=5.0)
+        except TimeoutError:
+            logger.error(
+                "[FrontendDelegate] ========== TIMEOUT DETECTED =========="
+            )
+            logger.error(
+                f"[FrontendDelegate] Tool: {tool_name}, function_call.id={function_call_id}"
+            )
+            logger.error(
+                "[FrontendDelegate] Frontend never sent result after 5 seconds."
+            )
+            logger.error(
+                "[FrontendDelegate] Possible causes:"
+            )
+            logger.error(
+                "[FrontendDelegate]   1. tool-input-available never yielded to frontend"
+            )
+            logger.error(
+                "[FrontendDelegate]   2. WebSocket handler not calling resolve_tool_result()"
+            )
+            logger.error(
+                "[FrontendDelegate]   3. Deadlock: tool awaits delegate while in delegate flow"
+            )
+            logger.error(
+                f"[FrontendDelegate] Pending calls: {list(self._pending_calls.keys())}"
+            )
+
+            # Clean up the pending future
+            if function_call_id in self._pending_calls:
+                del self._pending_calls[function_call_id]
+
+            # Raise clear error
+            raise TimeoutError(
+                f"Frontend tool execution timeout for {tool_name} ({function_call_id}). "
+                f"Frontend never responded after 5 seconds. "
+                f"Check if tool-input-available was yielded to frontend."
+            ) from None
 
         logger.info(
             f"[FrontendDelegate] Received result for tool={tool_name} "

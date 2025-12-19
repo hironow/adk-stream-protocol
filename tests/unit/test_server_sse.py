@@ -60,20 +60,19 @@ class TestServerSSEDoneStreamLifecyclePrinciple:
         async for chunk in response.body_iterator:
             events.append(chunk if isinstance(chunk, str) else chunk.decode("utf-8"))
 
-        # then: Response should NOT contain direct [DONE] marker
-        done_violations = []
-        for i, event in enumerate(events):
-            if "[DONE]" in event:
-                done_violations.append((i, event))
+        # then: Response should use StreamProtocolConverter.finalize() format
+        # Verify the response contains:
+        # 1. Error event from finalize(error=...)
+        # 2. [DONE] marker from finalize() (not direct yield)
+        assert len(events) == 2, f"Expected 2 events (error + [DONE]), got {len(events)}"
 
-        assert len(done_violations) == 0, (
-            f"_create_error_sse_response violated design principle at {len(done_violations)} location(s):\n"
-            f"[DONE] should ONLY be sent from finalize(), not directly from server.py error handler.\n"
-            f"Violations found:\n"
-            + "\n".join([f"  Position {i}: {event!r}" for i, event in done_violations])
-            + "\n\nCurrent implementation: server.py:270 yields 'data: [DONE]\\n\\n'\n"
-            "Expected: Use StreamProtocolConverter.finalize() for [DONE] transmission."
-        )
+        # First event should be error event from finalize()
+        assert "data:" in events[0], "First event should be SSE formatted"
+        assert '"type": "error"' in events[0] or "'type': 'error'" in events[0], "First event should be error type"
+        assert error_message in events[0], "First event should contain error message"
+
+        # Second event should be [DONE] marker from finalize()
+        assert events[1] == "data: [DONE]\n\n", "Second event should be [DONE] marker from finalize()"
 
     @pytest.mark.asyncio
     async def test_error_responses_should_use_stream_protocol_converter(self) -> None:
