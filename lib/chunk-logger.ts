@@ -77,12 +77,10 @@ export class ChunkLogger {
     // Priority: constructor arg > env var > localStorage > default
     this._enabled =
       enabled ??
-      this._getEnvBoolean("NEXT_PUBLIC_CHUNK_LOGGER_ENABLED") ??
-      this._getLocalStorageBoolean("CHUNK_LOGGER_ENABLED", false);
+      this._getEnvBoolean("NEXT_PUBLIC_CHUNK_LOGGER_ENABLED") ?? false;
     this._sessionId =
       sessionId ??
       this._getEnvString("NEXT_PUBLIC_CHUNK_LOGGER_SESSION_ID") ??
-      this._getLocalStorageString("CHUNK_LOGGER_SESSION_ID") ??
       this._generateSessionId();
   }
 
@@ -96,29 +94,6 @@ export class ChunkLogger {
   private _getEnvString(key: string): string | null {
     // Read from Next.js environment variable
     return process.env[key] ?? null;
-  }
-
-  private _getLocalStorageBoolean(key: string, defaultValue: boolean): boolean {
-    if (typeof window === "undefined") {
-      return defaultValue;
-    }
-    try {
-      const value = localStorage.getItem(key);
-      return value?.toLowerCase() === "true";
-    } catch {
-      return defaultValue;
-    }
-  }
-
-  private _getLocalStorageString(key: string): string | null {
-    if (typeof window === "undefined") {
-      return null;
-    }
-    try {
-      return localStorage.getItem(key);
-    } catch {
-      return null;
-    }
   }
 
   private _generateSessionId(): string {

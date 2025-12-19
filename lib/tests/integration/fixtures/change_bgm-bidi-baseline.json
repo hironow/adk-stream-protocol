@@ -1,0 +1,40 @@
+{
+  "description": "BIDI mode baseline - real E2E capture from change_bgm tool call",
+  "mode": "bidi",
+  "source": "chunk_logs/e2e-re-baseline/backend-adk-event (BIDI produces identical SSE-format events).jsonl (lines 1-9)",
+  "input": {
+    "messages": [
+      {
+        "id": "msg-1",
+        "role": "user",
+        "content": "トラック1に変更して"
+      }
+    ],
+    "trigger": "submit-message"
+  },
+  "output": {
+    "rawEvents": [
+      "data: {\"type\": \"start\", \"messageId\": \"644e8c10-35a5-4e7e-b8e2-70f9c41c1eb5\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-03e3b2f8-aaa9-460b-8af7-8fb3cfc97de3\", \"toolName\": \"change_bgm\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-03e3b2f8-aaa9-460b-8af7-8fb3cfc97de3\", \"toolName\": \"change_bgm\", \"input\": {\"track\": 1}}\n\n",
+      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"adk-03e3b2f8-aaa9-460b-8af7-8fb3cfc97de3\", \"output\": {\"success\": true, \"track\": 1, \"message\": \"BGM change to track 1 initiated (frontend handles execution)\"}}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"0\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"OK、トラック1に変更しました。\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"0\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1334, \"completionTokens\": 7, \"totalTokens\": 1341}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: [DONE]\n\n"
+    ],
+    "expectedChunks": [
+      { "type": "start", "messageId": "644e8c10-35a5-4e7e-b8e2-70f9c41c1eb5" },
+      { "type": "tool-input-start", "toolCallId": "adk-03e3b2f8-aaa9-460b-8af7-8fb3cfc97de3", "toolName": "change_bgm" },
+      { "type": "tool-input-available", "toolCallId": "adk-03e3b2f8-aaa9-460b-8af7-8fb3cfc97de3", "toolName": "change_bgm", "input": { "track": 1 } },
+      { "type": "tool-output-available", "toolCallId": "adk-03e3b2f8-aaa9-460b-8af7-8fb3cfc97de3", "output": { "success": true, "track": 1, "message": "BGM change to track 1 initiated (frontend handles execution)" } },
+      { "type": "text-start", "id": "0" },
+      { "type": "text-delta", "id": "0", "delta": "OK、トラック1に変更しました。" },
+      { "type": "text-end", "id": "0" },
+      { "type": "finish", "finishReason": "stop", "messageMetadata": { "usage": { "promptTokens": 1334, "completionTokens": 7, "totalTokens": 1341 }, "modelVersion": "gemini-3-flash-preview" } }
+    ],
+    "expectedDoneCount": 1,
+    "expectedStreamCompletion": true
+  }
+}

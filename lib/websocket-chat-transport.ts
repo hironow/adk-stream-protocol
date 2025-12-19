@@ -31,7 +31,6 @@ import type {
   UIMessage,
   UIMessageChunk,
 } from "ai";
-import { chunkLogger } from "./chunk-logger";
 
 /**
  * AudioContext interface for PCM streaming
@@ -203,6 +202,10 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
   private currentController: ReadableStreamDefaultController<UIMessageChunk> | null =
     null;
 
+  // [DONE] marker tracking (Session 7: [DONE] Stream Lifecycle Principle)
+  // Prevents processing multiple [DONE] markers which would cause state corruption
+  private doneReceived = false;
+
   // PCM recording buffer for message replay (Pipeline 2)
   private pcmBuffer: Int16Array[] = []; // Buffer PCM chunks for WAV conversion
   private pcmSampleRate = 24000; // Default sample rate (updated from first chunk)
@@ -286,14 +289,6 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
     }
 
     this.ws.send(message);
-
-    // Chunk Logger: Record WebSocket chunk (output)
-    chunkLogger.logChunk({
-      location: "frontend-ws-chunk",
-      direction: "out",
-      chunk: message,
-      mode: "adk-bidi",
-    });
   }
 
   /**
@@ -553,6 +548,9 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
               // Save controller reference (P4-T10)
               this.currentController = controller;
 
+              // Reset [DONE] marker flag for new stream (Session 7)
+              this.doneReceived = false;
+
               this.ws.onmessage = (event) => {
                 this.handleWebSocketMessage(event.data, controller);
               };
@@ -588,6 +586,9 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
 
             // Save new controller reference (P4-T10)
             this.currentController = controller;
+
+            // Reset [DONE] marker flag for new stream (Session 7)
+            this.doneReceived = false;
 
             // Update message handler for new stream
             if (this.ws) {
@@ -657,14 +658,6 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
     controller: ReadableStreamDefaultController<UIMessageChunk>,
   ): void {
     try {
-      // Chunk Logger: Record WebSocket chunk (input)
-      chunkLogger.logChunk({
-        location: "frontend-ws-chunk",
-        direction: "in",
-        chunk: data,
-        mode: "adk-bidi",
-      });
-
       // Handle ping/pong for latency monitoring (not SSE format)
       if (!data.startsWith("data: ")) {
         try {
@@ -684,6 +677,19 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
         const jsonStr = data.substring(6).trim(); // Remove "data: " prefix and trim whitespace
 
         if (jsonStr === "[DONE]") {
+          // Session 7: [DONE] Stream Lifecycle Principle
+          // Protect against multiple [DONE] markers (protocol violation)
+          if (this.doneReceived) {
+            console.warn(
+              "[WS Transport] Protocol violation: Multiple [DONE] markers received. " +
+                "Ignoring subsequent [DONE] to prevent state corruption.",
+            );
+            return; // Ignore subsequent [DONE] markers
+          }
+
+          // Mark [DONE] as received to prevent processing subsequent markers
+          this.doneReceived = true;
+
           // Reset AudioContext for next turn (BIDI mode)
           if (this.config.audioContext) {
             this.config.audioContext.voiceChannel.reset();

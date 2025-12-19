@@ -32,7 +32,7 @@ import {
   selectBackendMode,
   sendTextMessage,
   waitForAssistantResponse,
-} from "./helpers";
+} from "../helpers";
 
 test.describe("ADK Tool Confirmation Flow (Phase 5)", () => {
   test.beforeEach(async ({ page }) => {

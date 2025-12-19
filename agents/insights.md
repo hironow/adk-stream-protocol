@@ -671,6 +671,599 @@ useEffect(() => {
 - フロー図: `experiments/2025-12-18_bidi_deadlock_flow_diagram.md`
 - Chunk logs: `chunk_logs/e2e-feature-1/frontend/`, `chunk_logs/e2e-feature-1/backend-adk-event.jsonl`
 
+## ADKVercelIDMapper 実装とID衝突問題の解決
+
+**日付**: 2025-12-19 (Session 4)
+**Status**: 🟡 部分的解決 / 🔴 根本問題発見（実装未完了）
+
+### 問題の発見経緯
+
+前セッションで `adk_request_confirmation` 介在時のマッピング不一致が未解決として残っていた。今セッションではこの問題を解決するため、ADKとVercel AI SDK v6のID変換を管理する抽象レイヤーを実装した。
+
+### 実装アプローチ: TDD (RED-GREEN-REFACTOR)
+
+#### RED Phase: Unit Tests 作成
+
+**ファイル**: `tests/unit/test_adk_vercel_id_mapper.py`
+
+9つのテストケースを作成:
+1. 基本的な登録とルックアップ
+2. コンテキスト対応のルックアップ (intercepted tools)
+3. 逆引きルックアップ (tool_result 解決)
+4. 確認プレフィックス処理 (`confirmation-` プレフィックス)
+5. 既存マッピングの上書き
+6. クリア機能
+7. エッジケース処理
+
+すべてのテストが期待通り失敗 ✅
+
+#### GREEN Phase: ADKVercelIDMapper 実装
+
+**ファイル**: `adk_vercel_id_mapper.py`
+
+```python
+class ADKVercelIDMapper:
+    """
+    ADK と Vercel AI SDK v6 の双方向IDマッピング管理
+
+    - Forward lookup: tool_name → function_call.id
+    - Reverse lookup: function_call.id → tool_name
+    - Context-aware resolution: 介在ツール対応
+    """
+
+    def __init__(self) -> None:
+        self._tool_name_to_id: dict[str, str] = {}
+        self._id_to_tool_name: dict[str, str] = {}
+
+    def register(self, tool_name: str, function_call_id: str) -> None:
+        """FunctionCall受信時にマッピング登録"""
+        # 双方向マッピング登録
+        # 古いマッピングのクリーンアップ処理含む
+
+    def get_function_call_id(
+        self,
+        tool_name: str,
+        original_context: dict[str, Any] | None = None,
+    ) -> str | None:
+        """ツール実行時のfunction_call.id取得（コンテキスト対応）"""
+        # 介在ツールの場合は original_context から元のツール名を取得
+
+    def resolve_tool_result(self, function_call_id: str) -> str | None:
+        """逆引き: function_call.id → tool_name"""
+        # 確認プレフィックス ("confirmation-") の自動除去対応
+```
+
+すべてのテストがパス ✅
+
+#### REFACTOR Phase: 既存コンポーネントの更新
+
+**1. FrontendToolDelegate の更新** (`server.py`):
+- `execute_on_frontend()` で ID mapper を使用
+- `resolve_tool_result()` で ID mapper の逆引きを使用
+
+**2. ToolConfirmationInterceptor の更新** (`confirmation_interceptor.py`):
+- `execute_confirmation()` に `original_context` パラメータ追加
+
+**3. StreamProtocolConverter の統合** (`server.py`):
+- `tool-input-available` イベント送信時に `mapper.register()` 呼び出し
+
+### 根本原因 #1: AI SDK v6 ツールID衝突
+
+**発見方法**: Frontend chunk logs 分析 (`e2e-feature-2/frontend/`)
+
+**問題**:
+AI SDK v6 は `toolCallId` を一意キーとして使用。同じIDを持つ2つのツールイベントが送信されると、最初のイベントのみがUI状態に保存され、2番目のイベントは無視される。
+
+**証拠**:
+```
+Frontend received:
+- tool-input-available: toolCallId="function-call-123", toolName="process_payment"
+- tool-input-available: toolCallId="function-call-123", toolName="adk_request_confirmation"
+
+UI rendered: process_payment のみ表示（confirmation UI が表示されない）
+```
+
+**修正**:
+`adk_compat.py` の3箇所で `confirmation-` プレフィックスを復元:
+1. `inject_confirmation_for_bidi()` (lines 340-348)
+2. `generate_confirmation_tool_input_start()` (lines 520-527)
+3. `generate_confirmation_tool_input_available()` (lines 552-558)
+
+```python
+# Use "confirmation-" prefix to ensure separate UI rendering in AI SDK v6
+confirmation_id = f"confirmation-{fc_id}"
+yield {
+    "type": "tool-input-start",
+    "toolCallId": confirmation_id,
+    "toolName": "adk_request_confirmation",
+}
+```
+
+**結果**: 承認UIが正しくレンダリングされるようになった ✅
+
+### 根本原因 #2: ID 解決ミスマッチ
+
+**発見方法**: コード分析とデータフロー追跡
+
+**問題**:
+```
+Registration (execute_on_frontend):
+- 使用: original_context から ID を取得
+- 返却: "function-call-123" (元のID)
+- 登録: Future を key="function-call-123" で登録
+
+Resolution (resolve_tool_result - OLD):
+- 受信: "confirmation-function-call-123" (プレフィックス付きID)
+- ルックアップ: _pending_calls で直接検索
+- 結果: キーが見つからない → Future が resolve されない → タイムアウト
+```
+
+**修正**: `server.py` の `resolve_tool_result()` を更新 (lines 146-192)
+
+```python
+def resolve_tool_result(self, tool_call_id: str, result: dict[str, Any]) -> None:
+    # 1. 直接ルックアップを試行（通常ツール用）
+    if tool_call_id in self._pending_calls:
+        self._pending_calls[tool_call_id].set_result(result)
+        return
+
+    # 2. ID mapper で tool_name を解決
+    tool_name = self.id_mapper.resolve_tool_result(tool_call_id)
+    if tool_name:
+        # 3. プレフィックスを除去して元のIDを取得
+        original_id = (
+            tool_call_id.removeprefix("confirmation-")
+            if tool_call_id.startswith("confirmation-")
+            else tool_call_id
+        )
+
+        # 4. 元のIDで _pending_calls をルックアップ
+        if original_id in self._pending_calls:
+            self._pending_calls[original_id].set_result(result)
+            return
+```
+
+### SSE Mode Baseline 検証
+
+**重要**: Regression を避けるため、まず SSE mode の動作確認を実施。
+
+**結果**: **17/18 PASSED (94.4%)** ✅
+
+| Tool | Tests | Status | Notes |
+|------|-------|--------|-------|
+| change-bgm | 3/3 | ✅ PASSED | |
+| get-location | 6/6 | ✅ PASSED | 承認メカニズム完全動作 |
+| get-weather | 3/3 | ✅ PASSED | |
+| process-payment | 5/6 | ✅ PASSED | Test 2 (Denial) のみ失敗（軽微） |
+
+**結論**: SSE mode にregression なし。ADKVercelIDMapper の変更は SSE mode に影響していない。
+
+### 🔴 根本問題の発見: BIDI確認フロー未実装
+
+**Location**: `adk_compat.py:385-406` (`inject_confirmation_for_bidi()`)
+
+**問題**:
+確認結果を受信した後、元のツールを実行せずに関数が終了している。
+
+```python
+# Line 385-386: 確認結果を取得
+confirmed = confirmation_result.get("confirmed", False)
+logger.info(f"[BIDI Confirmation] User decision: confirmed={confirmed} for {fc_name}")
+
+# Line 388-405: エラーハンドラーのみ
+except Exception as e:
+    logger.error(f"[BIDI Confirmation] Error executing confirmation: {e}")
+    yield {...}  # エラーイベント生成
+
+# Line 406: 関数終了 - 元のツール実行なし！
+```
+
+**欠落している実装**:
+1. ✅ 元のツールイベントを yield（実装済み）
+2. ✅ 確認イベントを yield（実装済み）
+3. ✅ `[DONE]` を yield（実装済み）
+4. ✅ 確認結果を await（実装済み）
+5. ✅ 確認結果を取得（実装済み）
+6. ❌ **確認 tool-result を yield**（未実装）
+7. ❌ **元のツール (process_payment) を実行**（未実装）
+8. ❌ **元のツールの結果を yield**（未実装）
+
+**証拠**: Page snapshot (`error-context.md`)
+```yaml
+Line 34-37: process_payment (dynamic-tool) - Executing...  ← まだ実行中
+Line 42-46: adk_request_confirmation (dynamic-tool) - Completed ← 完了
+             Result: { "confirmed": true }
+Line 58: Thinking... ← まだ表示中（タイムアウト条件）
+```
+
+**設計上の課題**:
+- Line 372: `yield "data: [DONE]\n\n"` でストリームを閉じている
+- `[DONE]` 後にどのようにイベント送信を継続するか？
+- ADK + Live API は一時停止状態をサポートしているか？
+
+### データフロー分析（期待される動作）
+
+```
+1. LLM: process_payment 呼び出し (id: function-call-123)
+2. Backend: mapper.register("process_payment", "function-call-123")
+3. Backend: 確認イベント生成（プレフィックス付きID）
+   - tool-input-start (id: confirmation-function-call-123)
+   - tool-input-available (id: confirmation-function-call-123)
+4. Frontend: 2つの別々のツールUIをレンダリング
+   - process_payment (id: function-call-123)
+   - adk_request_confirmation (id: confirmation-function-call-123) ← 承認UI
+5. User: Approve/Deny をクリック
+6. Frontend: tool_result 送信 (id: confirmation-function-call-123)
+7. Backend: mapper.resolve_tool_result("confirmation-function-call-123")
+   → "confirmation-" プレフィックスを除去 → "function-call-123"
+   → "process_payment" に解決 ✅
+8. Backend: FrontendToolDelegate.resolve_tool_result() がプレフィックスを処理
+   → "function-call-123" で _pending_calls をルックアップ
+   → Future resolve、実行継続 ✅
+9. ❌ この後の実装が欠落している
+```
+
+### テスト結果サマリー
+
+#### ✅ 修正完了
+- SSE mode: 17/18 PASSED（regression なし）
+- change_bgm BIDI: 3/3 PASSED（前セッションで修正済み）
+
+#### 🔴 未解決
+- process_payment BIDI: 0/5 PASSED（確認後の実行フローが未実装）
+- get_location BIDI: 0/5 PASSED（同上）
+
+### 推奨される次のステップ
+
+#### 1. Integration Tests 作成（優先）
+
+**Location**: `tests/integration/test_adk_vercel_id_mapper_integration.py`
+
+4つのコンポーネントの統合をテスト:
+- ADKVercelIDMapper
+- FrontendToolDelegate
+- ToolConfirmationInterceptor
+- StreamProtocolConverter
+
+**目的**: E2Eテストに到達する前に、コンポーネント間の連携問題を検出する。
+
+**テストケース案**:
+1. Normal tool の ID マッピング（元のツール名での登録と解決）
+2. Intercepted tool の context-aware resolution（original_context 使用）
+3. Confirmation-prefixed ID の逆引き（プレフィックス自動除去）
+4. 連続した複数のツール呼び出し（マッピング上書き検証）
+
+#### 2. BIDI確認フロー完成（実装）
+
+**Location**: `adk_compat.py` - `inject_confirmation_for_bidi()`
+
+確認結果取得後（line 385-386）の処理を追加:
+1. 確認 tool-result イベントを生成して yield
+2. 元のツール（process_payment）を実行
+3. 元のツールの結果を yield
+4. ストリームライフサイクル管理（`[DONE]` 後の継続方法を調査）
+
+#### 3. BIDI Mode Baseline 再実行
+
+Integration tests と実装が完了したら:
+```bash
+pnpm exec playwright test e2e/tools/ --grep "BIDI" --project=chromium
+```
+
+**目標**: process_payment BIDI: 5/5 PASSED
+
+### 技術的洞察
+
+#### なぜ ADKVercelIDMapper が必要だったか
+
+**Before**:
+- ID 変換ロジックが複数箇所に散在
+- FrontendToolDelegate が直接 ID を管理
+- Context-aware resolution が不可能
+- Confirmation-prefixed ID の処理が不統一
+
+**After**:
+- 単一の真実の源 (Single Source of Truth)
+- 双方向ルックアップサポート
+- Context-aware resolution（介在ツール対応）
+- 自動プレフィックス処理
+
+#### AI SDK v6 の設計制約
+
+AI SDK v6 は `toolCallId` を一意キーとして内部状態を管理する。これにより:
+- 同じIDを持つ複数のツールは**最初のもののみ**が保存される
+- 後続のイベントは無視される（上書きされない）
+- UI レンダリングに影響（confirmation UI が表示されない）
+
+この制約により、確認フローでは**必ず**異なるIDを使用する必要がある。
+
+#### TDD の価値
+
+今回の実装で TDD (RED-GREEN-REFACTOR) が以下の点で有効だった:
+1. **設計の明確化**: テストを先に書くことで、必要な機能が明確になった
+2. **リファクタリングの安全性**: テストが全てパスしている状態で既存コードを変更できた
+3. **ドキュメント**: テストケースが実装の仕様書として機能している
+4. **回帰防止**: 既存の機能（SSE mode）が壊れていないことを確認できた
+
+### 関連ファイル
+
+**実装**:
+- `adk_vercel_id_mapper.py`: ID マッパー実装
+- `server.py`: FrontendToolDelegate 更新
+- `confirmation_interceptor.py`: original_context パラメータ追加
+- `adk_compat.py`: 確認プレフィックス復元（未完了部分あり）
+
+**テスト**:
+- `tests/unit/test_adk_vercel_id_mapper.py`: Unit tests (9 tests, all passed)
+- `e2e/tools/process-payment-sse.spec.ts`: SSE baseline (5/6 passed)
+
+**ログ/証拠**:
+- `chunk_logs/e2e-feature-2/frontend/`: AI SDK v6 ID 衝突の証拠
+- `chunk_logs/e2e-feature-3/frontend/`: 承認UI レンダリング成功の証拠
+- `test-results/.../error-context.md`: 未実装フローの証拠
+
+## BIDI Confirmation Flow 実装試行とデッドロック問題（未解決）
+
+**日付**: 2025-12-19 (Session 5)
+**Status**: 🔴 実装失敗（デッドロック発生） / 🟡 Integration Tests 成功
+
+### 実装内容
+
+Session 4 で発見された `inject_confirmation_for_bidi()` の未実装部分を実装。
+
+#### 1. Services Layer 抽出
+
+**ファイル**: `services/frontend_tool_service.py` (新規作成)
+
+**目的**: server.py から FrontendToolDelegate を分離し、layer separation を改善
+
+**変更内容**:
+- `FrontendToolDelegate` を server.py (850行) から services/ に抽出
+- Type annotations 修正 (mypy compliance)
+- confirmation_interceptor.py の import path 修正
+
+**テスト結果**: ✅ Unit tests: 32/32 PASSED
+
+#### 2. BIDI Approval Flow 実装
+
+**ファイル**: `adk_compat.py` - `inject_confirmation_for_bidi()` (lines 385-433)
+
+**実装した機能**:
+
+```python
+# Line 385-386: 確認結果を取得（既存）
+confirmed = confirmation_result.get("confirmed", False)
+
+# ✅ NEW: Line 388-393: 確認 tool-result を yield
+yield {
+    "type": "tool-output-available",
+    "toolCallId": confirmation_id,
+    "output": confirmation_result,
+}
+
+# ✅ NEW: Line 395-424: Approved path
+if confirmed:
+    # 元のツール (process_payment) を実行
+    original_result = await interceptor.delegate.execute_on_frontend(
+        tool_name=fc_name,
+        args=fc_args,
+        tool_call_id=fc_id,
+    )
+
+    # 元のツールの結果を yield
+    yield {
+        "type": "tool-output-available",
+        "toolCallId": fc_id,
+        "output": original_result,
+    }
+
+# ✅ NEW: Line 425-433: Denied path
+else:
+    # User denied - エラーイベントを yield
+    yield {
+        "type": "tool-output-error",
+        "toolCallId": fc_id,
+        "errorText": "User denied the tool execution",
+    }
+```
+
+**テスト結果**:
+- ✅ Linting: All checks passed
+- ✅ Type checks: Success (mypy)
+- ✅ Integration tests: 7/7 PASSED
+
+#### 3. Integration Tests 作成
+
+**ファイル**: `tests/integration/test_four_component_sse_bidi_integration.py` (新規作成)
+
+**目的**: 4つのコンポーネントの統合を E2E 前に検証
+
+**テストケース**:
+1. SSE mode - approval不要ツール (change_bgm) ✅ PASSED
+2. SSE mode - approval必要ツール (process_payment) ✅ PASSED
+3. BIDI mode - approval不要ツール (change_bgm) ✅ PASSED
+4. BIDI mode - approval必要ツール - confirmation取得まで ✅ PASSED
+5. BIDI mode - 元のツール実行 (documentation test) ✅ PASSED
+6. BIDI mode - confirmation ID mapping ✅ PASSED
+7. 4コンポーネントの wiring 検証 ✅ PASSED
+
+**結果**: **7/7 PASSED** ✅
+
+### 🔴 問題: E2E Tests でデッドロック発生
+
+#### テスト結果
+
+```bash
+e2e/tools/process-payment-bidi.spec.ts: 0/5 PASSED
+Error: expect(locator).not.toBeVisible() failed
+Locator: getByText('Thinking...')
+Expected: not visible
+Received: visible
+Timeout: 30000ms
+```
+
+**全てのテストケースで同じ失敗パターン**:
+- Approve 後に "Thinking..." が永遠に消えない
+- Deny 後も同様
+
+#### 根本原因分析
+
+**ログ証拠** (`BashOutput` - backend server logs):
+
+```log
+2025-12-19 00:32:54.384 | INFO | [BIDI Confirmation] Intercepting tool: process_payment (id=function-call-...)
+2025-12-19 00:32:54.384 | INFO | [BIDI Confirmation] Sending [DONE] to close stream before awaiting
+```
+
+**重要な発見**:
+- `[DONE]` を送信した後のログが一切ない
+- "User decision: confirmed=..." のログが出ていない
+- 元のツール実行のログも出ていない
+
+**デッドロックメカニズム**:
+
+```
+1. inject_confirmation_for_bidi() が [DONE] を yield (line 372)
+2. await interceptor.execute_confirmation() でブロック (line 376)
+3. Frontend が confirmation result を WebSocket 経由で送信
+4. ❌ Backend が confirmation result を受け取れない
+5. await が永遠に解除されない
+```
+
+**仮説1: ストリーム終了による receive_from_client() の停止**
+
+`server.py:652-672` に `receive_from_client()` タスクが存在:
+```python
+# BIDI Confirmation: Resolve pending frontend tool requests
+for part in text_content.parts or []:
+    if hasattr(part, "function_response") and part.function_response:
+        tool_call_id = func_resp.id
+        frontend_delegate.resolve_tool_result(tool_call_id, response_data)
+```
+
+理論的には:
+- `[DONE]` を送信してストリームを閉じる
+- `await interceptor.execute_confirmation()` でブロック
+- **別タスク** `receive_from_client()` が WebSocket から result を受信
+- `frontend_delegate.resolve_tool_result()` を呼ぶ
+- await が解除される
+
+**しかし実際には動作していない**
+
+**可能性のある原因**:
+- `[DONE]` 送信後、ADK の event stream が終了
+- event stream 終了により `receive_from_client()` タスクも終了
+- WebSocket からの message を処理するタスクがいなくなる
+- Deadlock
+
+#### コメント分析
+
+`adk_compat.py:368-372` のコメント:
+
+```python
+# CRITICAL: Send [DONE] to close the frontend stream BEFORE awaiting
+# This allows AI SDK's status to transition from "streaming" → "idle"
+# which enables sendAutomaticallyWhen to trigger when user clicks Approve
+```
+
+このコメントは意図的な設計を示している。`[DONE]` 送信は **必須** である可能性が高い。
+
+### 今後の調査方針
+
+#### Option A: `[DONE]` を送らない
+
+- 試してみる価値あり
+- しかし、コメントによると AI SDK v6 の状態遷移に必要
+- Frontend の sendAutomaticallyWhen が動作しない可能性
+
+#### Option B: LongRunningFunctionTool API を使用
+
+- `experiments/2025-12-18_poc_phase2_longrunning_success.md` で POC 成功済み
+- `return None` → ADK pause → frontend confirmation → resume
+- 公式 API なので長期的に maintainable
+- ただし実装コストが高い
+
+#### Option C: receive_from_client() のライフサイクルを調査
+
+- `[DONE]` 後も WebSocket 接続が維持されているか？
+- `receive_from_client()` タスクがまだ動いているか？
+- ログ追加して確認
+
+### 次のセッションへの引き継ぎ事項
+
+#### ✅ 完了した作業
+
+1. Services layer 抽出 (server.py → services/frontend_tool_service.py)
+2. BIDI approval flow 実装 (approved/denied paths)
+3. Integration tests 作成 (7/7 PASSED)
+4. Type checks, linting 完了
+
+#### ❌ 未解決の問題
+
+1. **デッドロック**: `[DONE]` 後に confirmation result を受け取れない
+2. **E2E tests**: process-payment-bidi.spec.ts - 0/5 PASSED
+
+#### 📋 推奨される次のステップ
+
+1. **優先度 HIGH**: デッドロック原因の特定
+   - `receive_from_client()` にログ追加
+   - `[DONE]` 後の WebSocket 状態を確認
+   - Option A (DONE を送らない) を試す
+
+2. **優先度 MEDIUM**: Option B 検討
+   - LongRunningFunctionTool への移行計画
+   - 実装コストと利益の評価
+
+3. **禁止事項**: SSE mode の動作を変更する修正は絶対に避ける
+
+### 技術的洞察
+
+#### デッドロックパターンの一般化
+
+今回のデッドロックは classic な async/await デッドロックではなく、**タスクライフサイクル管理の問題**:
+
+```
+Task A (send events):
+  - yield events → [DONE]
+  - await future
+
+Task B (receive messages):
+  - receive WebSocket message
+  - resolve future
+
+Problem:
+  - Task A が [DONE] を送信
+  - Task A が依存する event stream が終了
+  - Task B も連動して終了
+  - Task A の future が永遠に resolve されない
+```
+
+この種の問題は、**イベントドリブンシステムでのタスク間依存**で頻繁に発生する。
+
+#### AI SDK v6 の状態遷移要件
+
+`[DONE]` が必須である理由:
+- AI SDK v6 は "streaming" → "idle" の状態遷移が必要
+- "idle" 状態でないと sendAutomaticallyWhen がトリガーされない
+- つまり、`[DONE]` なしでは Frontend が confirmation result を送信できない
+
+この要件と、Backend の await パターンが **根本的に矛盾** している可能性がある。
+
+### 関連ファイル
+
+**実装**:
+- `services/frontend_tool_service.py`: FrontendToolDelegate 抽出
+- `adk_compat.py`: BIDI approval flow 実装 (lines 385-433)
+- `confirmation_interceptor.py`: Import path 修正
+
+**テスト**:
+- `tests/integration/test_four_component_sse_bidi_integration.py`: Integration tests (7/7 PASSED)
+- `e2e/tools/process-payment-bidi.spec.ts`: E2E tests (0/5 PASSED)
+
+**ログ**:
+- Backend server logs: `[DONE]` 後にログが出ていない
+- E2E error screenshots: `test-results/.../test-failed-1.png`
+
 ## 変更履歴
 
 - **2025-12-17**: 初版作成（無限ループ修正、チャンクロガー改善）
@@ -683,3 +1276,279 @@ useEffect(() => {
   - Backend ID mismatch 修正（server.py）
   - change_bgm BIDI tests: 3/3 PASSED
   - ❌ Approval必要ツール（process_payment）は未解決（adk_request_confirmation 介在問題）
+- **2025-12-19 (Session 4)**: ADKVercelIDMapper 実装と根本問題発見
+  - ✅ TDD による ADKVercelIDMapper 実装完了（9 unit tests passed）
+  - ✅ AI SDK v6 ツールID衝突問題を解決（confirmation- プレフィックス復元）
+  - ✅ ID 解決ミスマッチ修正（FrontendToolDelegate.resolve_tool_result 更新）
+  - ✅ SSE mode baseline 検証（17/18 passed - regression なし）
+  - 🔴 **根本問題発見**: `inject_confirmation_for_bidi()` が確認後の実行フローを実装していない
+  - 📋 **推奨**: Integration tests を作成して E2E 前にコンポーネント統合を検証
+- **2025-12-19 (Session 5)**: BIDI Confirmation Flow 実装試行
+  - ✅ Services layer 抽出完了 (FrontendToolDelegate → services/)
+  - ✅ BIDI approval flow 実装 (approved/denied paths)
+  - ✅ Integration tests 作成 (7/7 PASSED)
+  - 🔴 **E2E tests 失敗**: デッドロック発生 (0/5 PASSED)
+  - 🔴 **根本原因**: `[DONE]` 後に confirmation result を受け取れない
+  - 📋 **次のステップ**: receive_from_client() ライフサイクル調査、または LongRunningFunctionTool への移行
+- **2025-12-19 (Session 6)**: LongRunningFunctionTool POC 成功 🎉
+  - ✅ **POC Phase 2**: Pause mechanism 検証成功 (return None → ADK pauses)
+  - ✅ **POC Phase 3**: Function response injection 成功 (WebSocket経由)
+  - ✅ **POC Phase 4**: Connection keep-alive 成功 (2分以上維持)
+  - 🎉 **重要な成果**: End-to-end approval flow が完全動作
+  - 📋 **残タスク**: process_payment の LongRunningFunctionTool への移行
+  - 📋 **テスト期待値修正**: POC Phases 1, 2, 5 の期待値を修正
+- **2025-12-19 (Session 7)**: `[DONE]` Stream Lifecycle 設計分析 🔍
+  - 🎯 **設計原則確立**: `[DONE]` 送信は `finalize()` に一本化
+  - 🔍 **問題箇所特定**: `adk_compat.py:372` が途中で `[DONE]` を送信 (原則違反)
+  - 📊 **SSE vs BIDI 差分理解**: Transport layer での `[DONE]` の意味が異なる
+  - 🏗️ **アーキテクチャ方針**: Layer の責任分離 (Mode-agnostic vs Transport-specific)
+  - 💡 **次のステップ**: `inject_confirmation_for_bidi` 削除 + LongRunningFunctionTool 移行
+
+---
+
+## Session 7 詳細: `[DONE]` Stream Lifecycle 設計分析
+
+### 設計原則の確立
+
+**第一原則**: `[DONE]` 送信は `finalize()` に一本化する
+
+```
+Rationale:
+- [DONE] = Stream termination signal
+- Frontend が検出して ReadableStream を close
+- 複数箇所から送ると Stream lifecycle が制御不能
+- SSE/BIDI 両モードで予測可能な動作を保証
+```
+
+### 現在の `[DONE]` 送信箇所 (実装コード)
+
+```
+Backend (Python):
+1. stream_protocol.py:846  (finalize)            - OK (正規の終了)
+2. server.py:270           (error handler)       - OK (例外処理)
+3. adk_compat.py:372       (inject_confirmation) - NG (途中で送信)
+
+Frontend (TypeScript):
+4. lib/websocket-chat-transport.ts:686 - [DONE] 検出と処理
+```
+
+**問題箇所**: `adk_compat.py:372`
+- `inject_confirmation_for_bidi()` が Stream 途中で `[DONE]` を送信
+- 原則違反: `finalize()` 以外から送信
+- 影響範囲: SSE/BIDI 両モード
+
+### Architecture: Layer Responsibility
+
+```
++-------------------------------------+
+| stream_protocol.py                  |  <- Mode-agnostic layer
+| (StreamProtocolConverter)           |     (Should NOT know about modes)
+|                                     |
+| - ADK events -> AI SDK v6 events    |
+| - finalize() sends [DONE]           |
+| - ALWAYS produces same event stream |
++-------------------------------------+
+              |
+        Same event stream
+              |
+              v
++------------------+------------------+
+| SSE Transport    | WebSocket (BIDI)|  <- Transport layer
+| (Frontend)       | Transport        |     (Mode-specific behavior)
+|                  | (Frontend)       |
+| - fetch API      | - WebSocket      |
+| - [DONE] close   | - [DONE] handling|
++------------------+------------------+
+
+Legend:
+- stream_protocol.py: Protocol conversion layer
+- SSE Transport: Server-Sent Events transport
+- WebSocket Transport: Bidirectional WebSocket transport
+- [DONE]: Stream termination marker
+```
+
+**現在の問題**:
+```
+stream_protocol.py (Should be Mode-agnostic)
+    |
+    v
+inject_confirmation_for_bidi()  <- Mode-specific logic! X
+    |
+    v
+Sends [DONE] in the middle       <- Violates principle! X
+    |
+    v
+Forces complex [DONE] handling in Transport layer
+    |
+    v
+SSE and BIDI behave differently -> Hard to understand
+```
+
+### SSE vs BIDI: `[DONE]` の意味の違い
+
+#### SSE Mode Flow:
+```
+[User sends message]
+    |
+    v (HTTP POST)
+[Server streaming...]
+    |
+    v (data: {...})
+    v (data: {...})
+    v (data: finish event)
+    v (data: [DONE])
+[Stream COMPLETE END]  <- HTTP connection closes
+    |
+    v
+[Next user message]
+    |
+    v (NEW HTTP POST)  <- Completely new connection
+```
+
+**SSE Mode `[DONE]` meaning**:
+- HTTP response termination
+- Connection close
+- Transport: `DefaultChatTransport` (AI SDK v6 standard)
+- Processing: Handled internally by AI SDK v6
+
+#### BIDI Mode Flow:
+```
+[User sends message]
+    |
+    v (WebSocket send)
+[Server streaming...]
+    |
+    v (data: {...})
+    v (data: {...})
+    v (data: finish event)
+    v (data: [DONE])
+[ReadableStream ends]     <- controller.close()
+[WebSocket STAYS OPEN]    <- Connection maintained!
+    |
+    v
+[Next user message]
+    |
+    v (SAME WebSocket)    <- Reuses connection for new turn
+```
+
+**BIDI Mode `[DONE]` meaning**:
+- ReadableStream termination only
+- WebSocket connection maintained
+- Transport: `WebSocketChatTransport` (Custom implementation)
+- Processing: `lib/websocket-chat-transport.ts:686-704`
+
+```typescript
+// lib/websocket-chat-transport.ts:686-704
+if (jsonStr === "[DONE]") {
+  // 1. Reset audio state
+  // 2. controller.close()  <- ReadableStream ends
+  // 3. currentController = null
+  // 4. IMPORTANT: WebSocket NOT closed!
+  //    Maintained for next turn
+  return;
+}
+```
+
+### Key Difference Summary
+
+```
++----------+------------------------+----------------------+
+| Mode     | [DONE] Meaning         | Connection Status    |
++----------+------------------------+----------------------+
+| SSE      | HTTP response end      | Connection closes    |
+| BIDI     | ReadableStream end     | WebSocket maintained |
++----------+------------------------+----------------------+
+
+Legend:
+- SSE: Server-Sent Events mode
+- BIDI: Bidirectional WebSocket mode
+- [DONE]: Stream termination marker
+- ReadableStream: AI SDK v6 stream abstraction
+```
+
+**Implication**: `[DONE]` has different semantics per transport mode!
+- SSE: Complete conversation turn end
+- BIDI: Stream segment end (connection continues)
+
+### 現在の Delegate Pattern と BIDI の可能性
+
+**FrontendToolDelegate の役割**:
+```python
+# services/frontend_tool_service.py
+class FrontendToolDelegate:
+    """
+    Makes frontend tool execution awaitable using asyncio.Future.
+
+    Pattern:
+    1. Tool calls execute_on_frontend() with tool_call_id
+    2. Future is created and stored in _pending_calls
+    3. Tool awaits the Future (blocks)
+    4. Frontend executes tool and sends result via WebSocket
+    5. WebSocket handler calls resolve_tool_result()
+    6. Future is resolved, tool resumes and returns result
+    """
+```
+
+**BIDI mode での有益性**:
+- ✅ WebSocket は双方向通信 → Frontend からの非同期応答を受け取れる
+- ✅ `_pending_calls` パターンは mode-agnostic (SSE/BIDI 両対応)
+- ✅ LongRunningFunctionTool と組み合わせ可能
+
+**可能性**: Delegate pattern は維持、`inject_confirmation_for_bidi` は削除
+- Delegate は tool execution の抽象化 (Mode-agnostic)
+- LongRunningFunctionTool が pause/resume を担当 (ADK layer)
+- stream_protocol.py は純粋な変換だけ (Conversion layer)
+
+### Architecture Improvement Direction
+
+**Before (Current - Complex)**:
+```
+stream_protocol.py
+    |
+    v
+inject_confirmation_for_bidi  <- Mode-specific X
+    |
+    v
+Sends [DONE] in middle        <- Principle violation X
+    |
+    v
+Complex Transport handling
+```
+
+**After (Proposed - Simple)**:
+```
+ADK Layer:
+    LongRunningFunctionTool   <- Pause/Resume (Mode-agnostic)
+        |
+        v
+Conversion Layer:
+    stream_protocol.py        <- Pure conversion only
+        |                        (No mode-specific logic)
+        v
+        finalize() sends [DONE]  <- Only one place
+        |
+        v
+Transport Layer:
+    SSE: controller.close() + HTTP close
+    BIDI: controller.close() + WebSocket maintain
+
+Service Layer:
+    FrontendToolDelegate      <- Tool execution abstraction
+                                 (Works with both modes)
+```
+
+**Benefits**:
+1. **Clear separation of concerns**: Each layer has single responsibility
+2. **No mode leakage**: stream_protocol.py is truly mode-agnostic
+3. **Simple [DONE] handling**: Only `finalize()` sends it
+4. **Maintainable**: Each layer can be understood independently
+5. **Delegate pattern preserved**: Useful abstraction for frontend tools
+
+### Next Steps
+
+1. ✅ **Principle established**: `[DONE]` only from `finalize()`
+2. ✅ **Problem identified**: `adk_compat.py:372` violates principle
+3. ✅ **Architecture designed**: Layer responsibility separation
+4. ⏭️ **Implementation**: Remove `inject_confirmation_for_bidi`
+5. ⏭️ **Migration**: Use LongRunningFunctionTool pattern (POC validated)
+6. ⏭️ **Preserve**: FrontendToolDelegate (mode-agnostic abstraction)

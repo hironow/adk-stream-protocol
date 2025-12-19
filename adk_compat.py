@@ -338,6 +338,8 @@ async def inject_confirmation_for_bidi(
     yield event
 
     # Generate confirmation tool-input-start event
+    # Use "confirmation-" prefix to ensure separate UI rendering in AI SDK v6
+    # (AI SDK v6 uses toolCallId as key - same ID would overwrite previous tool)
     confirmation_id = f"confirmation-{fc_id}"
     yield {
         "type": "tool-input-start",
@@ -363,12 +365,6 @@ async def inject_confirmation_for_bidi(
         },
     }
 
-    # CRITICAL: Send [DONE] to close the frontend stream BEFORE awaiting
-    # This allows AI SDK's status to transition from "streaming" → "idle"
-    # which enables sendAutomaticallyWhen to trigger when user clicks Approve
-    logger.info("[BIDI Confirmation] Sending [DONE] to close stream before awaiting")
-    yield "data: [DONE]\n\n"
-
     # Now BLOCK and wait for frontend confirmation (user clicks Approve/Deny)
     try:
         confirmation_result = await interceptor.execute_confirmation(
@@ -382,6 +378,53 @@ async def inject_confirmation_for_bidi(
 
         confirmed = confirmation_result.get("confirmed", False)
         logger.info(f"[BIDI Confirmation] User decision: confirmed={confirmed} for {fc_name}")
+
+        # Yield confirmation tool result to close the approval UI
+        yield {
+            "type": "tool-output-available",
+            "toolCallId": confirmation_id,
+            "output": confirmation_result,
+        }
+
+        # Execute original tool if approved
+        if confirmed:
+            logger.info(f"[BIDI Confirmation] Executing original tool: {fc_name}")
+            try:
+                # Execute original tool on frontend (blocks until result arrives)
+                original_result = await interceptor.delegate.execute_on_frontend(
+                    tool_name=fc_name,
+                    args=fc_args,
+                    tool_call_id=fc_id,
+                )
+
+                # Yield tool-output-available for original tool
+                yield {
+                    "type": "tool-output-available",
+                    "toolCallId": fc_id,
+                    "output": original_result,
+                }
+
+                logger.info(
+                    f"[BIDI Confirmation] Original tool {fc_name} completed: {original_result}"
+                )
+
+            except Exception as tool_error:
+                logger.error(f"[BIDI Confirmation] Original tool {fc_name} failed: {tool_error}")
+                # Yield error event for original tool
+                yield {
+                    "type": "tool-output-error",
+                    "toolCallId": fc_id,
+                    "errorText": str(tool_error),
+                }
+        else:
+            # User denied - do NOT execute original tool
+            logger.info(f"[BIDI Confirmation] User denied tool: {fc_name}")
+            # Yield error or informational message for original tool
+            yield {
+                "type": "tool-output-error",
+                "toolCallId": fc_id,
+                "errorText": "User denied the tool execution",
+            }
 
     except Exception as e:
         logger.error(f"[BIDI Confirmation] Error executing confirmation: {e}")
@@ -515,9 +558,12 @@ def generate_confirmation_tool_input_start(event: dict[str, Any] | Any) -> dict[
     else:
         tool_call_id = function_call.id if function_call else "unknown"
 
+    # Add "confirmation-" prefix for separate UI rendering
+    confirmation_id = f"confirmation-{tool_call_id}"
+
     return {
         "type": "tool-input-start",
-        "toolCallId": f"confirmation-{tool_call_id}",
+        "toolCallId": confirmation_id,
         "toolName": "adk_request_confirmation",
     }
 
@@ -544,9 +590,12 @@ def generate_confirmation_tool_input_available(event: dict[str, Any] | Any) -> d
         fc_name = function_call.name if function_call else None
         fc_args = function_call.args if function_call else {}
 
+    # Add "confirmation-" prefix for separate UI rendering
+    confirmation_id = f"confirmation-{fc_id or 'unknown'}"
+
     return {
         "type": "tool-input-available",
-        "toolCallId": f"confirmation-{fc_id or 'unknown'}",
+        "toolCallId": confirmation_id,
         "toolName": "adk_request_confirmation",
         "input": {
             "originalFunctionCall": {

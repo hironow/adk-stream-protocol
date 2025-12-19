@@ -995,3 +995,88 @@ def test_inject_confirmation_for_bidi_spy_helper_called_in_bidi():
         # then: Helper functions should be called exactly once
         spy_start.assert_called_once()
         spy_available.assert_called_once()
+
+
+# ========== [DONE] Stream Lifecycle Principle Tests (TDD RED) ==========
+# Design Principle: [DONE] should ONLY be sent from finalize()
+# Problem: adk_compat.py:372 violates this principle
+
+
+@pytest.mark.asyncio
+async def test_inject_confirmation_for_bidi_should_not_send_done_marker():
+    """
+    TDD RED: inject_confirmation_for_bidi should NOT send [DONE] marker.
+
+    Design Principle (Session 7):
+        [DONE] transmission from server should be unified in finalize().
+
+    Current Problem:
+        adk_compat.py:372 sends "data: [DONE]\\n\\n" in the middle of stream.
+        This violates the design principle and makes stream lifecycle unpredictable.
+
+    Expected Behavior:
+        - inject_confirmation_for_bidi generates events (tool-input-start, etc.)
+        - NO [DONE] marker in the event stream
+        - finalize() is the ONLY place that sends [DONE]
+
+    Test Strategy:
+        - Given: BIDI mode with confirmation-required tool
+        - When: inject_confirmation_for_bidi is called with interceptor
+        - Then: Generated events should NOT contain [DONE] string
+
+    Expected Result:
+        This test will FAIL with current implementation (RED pattern).
+        It will PASS after removing line 372 from adk_compat.py (GREEN pattern).
+    """
+    from unittest.mock import AsyncMock, MagicMock
+
+    from adk_compat import inject_confirmation_for_bidi
+
+    # given: process_payment FunctionCall event in BIDI mode with interceptor
+    function_call_event = {
+        "type": "function_call",
+        "function_call": {
+            "id": "call-test-done",
+            "name": "process_payment",
+            "args": {"amount": 100, "recipient": "TestUser"},
+        },
+        "actions": {
+            "requested_tool_confirmations": [
+                {
+                    "id": "call-test-done",
+                    "name": "process_payment",
+                }
+            ]
+        },
+    }
+
+    # Mock interceptor with approval
+    mock_interceptor = MagicMock()
+    mock_interceptor.execute_confirmation = AsyncMock(return_value={"confirmed": True})
+    mock_interceptor.delegate = MagicMock()
+    mock_interceptor.delegate.execute_on_frontend = AsyncMock(return_value={"success": True})
+
+    # when: Process in BIDI mode with confirmation tools
+    results = []
+    async for event in inject_confirmation_for_bidi(
+        function_call_event,
+        is_bidi=True,
+        interceptor=mock_interceptor,
+        confirmation_tools=["process_payment"],
+    ):
+        results.append(event)
+
+    # then: Results should NOT contain [DONE] marker
+    done_violations = []
+    for i, event in enumerate(results):
+        if isinstance(event, str) and "[DONE]" in event:
+            done_violations.append((i, event))
+
+    assert len(done_violations) == 0, (
+        f"inject_confirmation_for_bidi violated design principle at {len(done_violations)} location(s):\n"
+        f"[DONE] should ONLY be sent from finalize(), not from inject_confirmation_for_bidi.\n"
+        f"Violations found:\n"
+        + "\n".join([f"  Position {i}: {repr(event)}" for i, event in done_violations])
+        + f"\n\nCurrent implementation: adk_compat.py:372 sends 'data: [DONE]\\n\\n'\n"
+        f"Expected: Remove line 372 and rely on finalize() for [DONE] transmission."
+    )

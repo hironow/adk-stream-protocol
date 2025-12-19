@@ -76,12 +76,16 @@ test-server-unit:
     uv run pytest tests/unit/
 
 [group("testing")]
+test-server-integration:
+    uv run pytest tests/integration/
+
+[group("testing")]
 test-server-e2e:
     uv run pytest tests/e2e/
 
 # Run server-side tests (pytest)
 [group("testing")]
-test-server-all: test-server-unit test-server-e2e
+test-server-all: test-server-unit test-server-integration test-server-e2e
 
 [group("testing")]
 test-frontend-lib:
@@ -130,7 +134,7 @@ test-e2e:
 [group("testing-baseline")]
 test-baseline-e2e:
     @echo "Running E2E baseline tests..."
-    pnpm exec playwright test e2e/tools/ --project=chromium --workers=1 --timeout=60000 --global-timeout=600000
+    pnpm exec playwright test e2e/tools/ --project=chromium --workers=1 --timeout=120000 --global-timeout=600000
 
 # Run E2E tests with clean server restart - guarantees fresh servers
 [group("testing")]

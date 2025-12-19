@@ -20,7 +20,7 @@ from google.genai import types
 from loguru import logger
 
 if TYPE_CHECKING:
-    from frontend_tool_delegate import FrontendToolDelegate
+    from services.frontend_tool_service import FrontendToolDelegate
 
 
 class ToolConfirmationInterceptor:
@@ -98,12 +98,12 @@ class ToolConfirmationInterceptor:
         )
 
         result = await self.delegate.execute_on_frontend(
-            tool_call_id=tool_call_id,
             tool_name="adk_request_confirmation",
             args={
                 "originalFunctionCall": original_function_call,
                 "toolConfirmation": {"confirmed": False},
             },
+            original_context=original_function_call,
         )
 
         confirmed = result.get("confirmed", False)

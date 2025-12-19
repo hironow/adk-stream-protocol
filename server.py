@@ -14,7 +14,6 @@ import os
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
 
 from dotenv import load_dotenv
 
@@ -54,134 +53,17 @@ from ai_sdk_v6_compat import (  # noqa: E402
 )
 from chunk_logger import chunk_logger  # noqa: E402
 from confirmation_interceptor import ToolConfirmationInterceptor  # noqa: E402
+from services.frontend_tool_service import FrontendToolDelegate  # noqa: E402
 from stream_protocol import stream_adk_to_ai_sdk  # noqa: E402
 
-# ========== Frontend Tool Delegate ==========
+# ========== Frontend Tool Delegate (now imported from services) ==========
+
+# FrontendToolDelegate has been moved to services/frontend_tool_service.py
+# This section previously contained the class definition (lines 63-208)
+# Now it's imported from the services layer
 
 
-class FrontendToolDelegate:
-    """
-    Makes frontend tool execution awaitable using asyncio.Future.
-
-    Pattern:
-        1. Tool calls execute_on_frontend() with tool_call_id
-        2. Future is created and stored in _pending_calls
-        3. Tool awaits the Future (blocks)
-        4. Frontend executes tool and sends result via WebSocket
-        5. WebSocket handler calls resolve_tool_result()
-        6. Future is resolved, tool resumes and returns result
-    """
-
-    def __init__(self) -> None:
-        """Initialize the delegate with empty pending calls dict."""
-        self._pending_calls: dict[str, asyncio.Future[dict[str, Any]]] = {}
-        # Map tool_name → function_call.id for ID resolution
-        self._tool_name_to_id: dict[str, str] = {}
-
-    def set_function_call_id(self, tool_name: str, function_call_id: str) -> None:
-        """
-        Set the function_call.id for a tool_name.
-
-        This is called by StreamProtocolConverter when processing function_call events.
-
-        Args:
-            tool_name: Name of the tool
-            function_call_id: The ADK function_call.id
-        """
-        self._tool_name_to_id[tool_name] = function_call_id
-        logger.debug(f"[FrontendDelegate] Mapped {tool_name} → {function_call_id}")
-
-    async def execute_on_frontend(
-        self, tool_call_id: str, tool_name: str, args: dict[str, Any]
-    ) -> dict[str, Any]:
-        """
-        Delegate tool execution to frontend and await result.
-
-        Args:
-            tool_call_id: ADK's invocation_id (from ToolContext) - will be replaced by function_call.id
-            tool_name: Name of the tool to execute
-            args: Tool arguments
-
-        Returns:
-            Result dict from frontend execution
-
-        Raises:
-            RuntimeError: If tool result not received within timeout
-        """
-        # Use tool_name as the key (function_call.id will be set later by StreamProtocolConverter)
-        future: asyncio.Future[dict[str, Any]] = asyncio.Future()
-        self._pending_calls[tool_name] = future
-
-        logger.info(
-            f"[FrontendDelegate] Awaiting result for tool={tool_name}, "
-            f"invocation_id={tool_call_id}, args={args}"
-        )
-
-        # Await frontend result (blocks here until result arrives)
-        result = await future
-
-        logger.info(f"[FrontendDelegate] Received result for tool={tool_name}: {result}")
-
-        return result
-
-    def resolve_tool_result(self, tool_call_id: str, result: dict[str, Any]) -> None:
-        """
-        Resolve a pending tool call with its result.
-
-        Called by WebSocket handler when frontend sends tool_result event.
-
-        Args:
-            tool_call_id: The function_call.id from frontend
-            result: Result dict from frontend execution
-        """
-        # Reverse lookup: function_call.id → tool_name
-        tool_name = None
-        for name, fid in self._tool_name_to_id.items():
-            if fid == tool_call_id:
-                tool_name = name
-                break
-
-        if not tool_name:
-            logger.warning(
-                f"[FrontendDelegate] No tool_name found for function_call.id={tool_call_id}. "
-                f"Known mappings: {self._tool_name_to_id}"
-            )
-            return
-
-        if tool_name in self._pending_calls:
-            logger.info(
-                f"[FrontendDelegate] Resolving tool={tool_name} (function_call.id={tool_call_id}) "
-                f"with result: {result}"
-            )
-            self._pending_calls[tool_name].set_result(result)
-            del self._pending_calls[tool_name]
-            # Clean up the mapping
-            del self._tool_name_to_id[tool_name]
-        else:
-            logger.warning(
-                f"[FrontendDelegate] No pending call found for tool={tool_name} "
-                f"(function_call.id={tool_call_id}). Pending: {list(self._pending_calls.keys())}"
-            )
-
-    def reject_tool_call(self, tool_call_id: str, error_message: str) -> None:
-        """
-        Reject a pending tool call with an error.
-
-        Args:
-            tool_call_id: The tool call ID to reject
-            error_message: Error message
-        """
-        if tool_call_id in self._pending_calls:
-            logger.error(
-                f"[FrontendDelegate] Rejecting tool_call_id={tool_call_id} "
-                f"with error: {error_message}"
-            )
-            self._pending_calls[tool_call_id].set_exception(RuntimeError(error_message))
-            del self._pending_calls[tool_call_id]
-        else:
-            logger.warning(
-                f"[FrontendDelegate] No pending call found for tool_call_id={tool_call_id}"
-            )
+# ========== User Management ==========
 
 
 def get_user() -> str:
@@ -519,6 +401,24 @@ async def stream(request: ChatRequest):
             mode="adk-sse",
         ):
             event_count += 1
+
+            # Register function_call.id mapping for frontend delegate tools
+            if sse_event.startswith("data:"):
+                try:
+                    event_data = json.loads(sse_event[5:].strip())  # Remove "data:" prefix
+                    event_type = event_data.get("type")
+
+                    if event_type == "tool-input-available":
+                        tool_name = event_data.get("toolName")
+                        tool_call_id = event_data.get("toolCallId")
+                        if tool_name and tool_call_id and frontend_delegate:
+                            frontend_delegate.set_function_call_id(tool_name, tool_call_id)
+                            logger.debug(
+                                f"[SSE] Registered mapping: {tool_name} → {tool_call_id}"
+                            )
+                except Exception as e:
+                    logger.debug(f"[SSE] Could not parse event data: {e}")
+
             yield sse_event
 
         logger.info(f"[/stream] Completed with {event_count} SSE events")

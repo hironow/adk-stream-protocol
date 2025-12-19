@@ -1,0 +1,51 @@
+{
+  "description": "SSE mode baseline - process_payment with denial flow (MULTI-REQUEST: confirmation + rejection)",
+  "mode": "sse",
+  "source": "chunk_logs/e2e-baseline-for-integration/backend-sse-event.jsonl (lines 15-28)",
+  "scenario": "User denies process_payment tool call - complete flow from confirmation request to rejection",
+  "note": "This fixture captures TWO separate HTTP requests: (1) Initial request ending with confirmation [DONE], (2) Denial response ending with rejection [DONE]. It serves as documentation of the complete denial flow, not for single-stream transport testing. Transport tests verify one [DONE] per stream.",
+  "input": {
+    "messages": [
+      {
+        "id": "msg-1",
+        "role": "user",
+        "content": "次郎さんに200ドル送金してください"
+      }
+    ],
+    "trigger": "submit-message"
+  },
+  "output": {
+    "rawEvents": [
+      "data: {\"type\": \"start\", \"messageId\": \"e83f82a4-2305-42cf-882b-7dc504141917\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-42a0576f-8245-4234-9d19-3a18a278086a\", \"toolName\": \"process_payment\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-42a0576f-8245-4234-9d19-3a18a278086a\", \"toolName\": \"process_payment\", \"input\": {\"currency\": \"USD\", \"amount\": 200, \"recipient\": \"Jiro\"}}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-a843d840-f720-4387-98c7-4482e4d6e173\", \"toolName\": \"adk_request_confirmation\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-a843d840-f720-4387-98c7-4482e4d6e173\", \"toolName\": \"adk_request_confirmation\", \"input\": {\"originalFunctionCall\": {\"id\": \"adk-42a0576f-8245-4234-9d19-3a18a278086a\", \"args\": {\"currency\": \"USD\", \"amount\": 200, \"recipient\": \"Jiro\"}, \"name\": \"process_payment\"}, \"toolConfirmation\": {\"hint\": \"Please approve or reject the tool call process_payment() by responding with a FunctionResponse with an expected ToolConfirmation payload.\", \"confirmed\": false}}}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1499, \"completionTokens\": 29, \"totalTokens\": 1702}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: [DONE]\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"81e8fde4-28cb-416a-b4ff-335b3510a1d2\"}\n\n",
+      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"adk-42a0576f-8245-4234-9d19-3a18a278086a\", \"errorText\": \"This tool call is rejected.\"}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"0\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"次郎さんへの200ドルの送金リクエストは承認されませんでした。再度実行が必要な場合はお知らせください。\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"0\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1721, \"completionTokens\": 26, \"totalTokens\": 1796}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: [DONE]\n\n"
+    ],
+    "expectedChunks": [
+      { "type": "start", "messageId": "e83f82a4-2305-42cf-882b-7dc504141917" },
+      { "type": "tool-input-start", "toolCallId": "adk-42a0576f-8245-4234-9d19-3a18a278086a", "toolName": "process_payment" },
+      { "type": "tool-input-available", "toolCallId": "adk-42a0576f-8245-4234-9d19-3a18a278086a", "toolName": "process_payment", "input": { "currency": "USD", "amount": 200, "recipient": "Jiro" } },
+      { "type": "tool-input-start", "toolCallId": "adk-a843d840-f720-4387-98c7-4482e4d6e173", "toolName": "adk_request_confirmation" },
+      { "type": "tool-input-available", "toolCallId": "adk-a843d840-f720-4387-98c7-4482e4d6e173", "toolName": "adk_request_confirmation", "input": { "originalFunctionCall": { "id": "adk-42a0576f-8245-4234-9d19-3a18a278086a", "args": { "currency": "USD", "amount": 200, "recipient": "Jiro" }, "name": "process_payment" }, "toolConfirmation": { "hint": "Please approve or reject the tool call process_payment() by responding with a FunctionResponse with an expected ToolConfirmation payload.", "confirmed": false } } },
+      { "type": "finish", "finishReason": "stop", "messageMetadata": { "usage": { "promptTokens": 1499, "completionTokens": 29, "totalTokens": 1702 }, "modelVersion": "gemini-3-flash-preview" } },
+      { "type": "start", "messageId": "81e8fde4-28cb-416a-b4ff-335b3510a1d2" },
+      { "type": "tool-output-error", "toolCallId": "adk-42a0576f-8245-4234-9d19-3a18a278086a", "errorText": "This tool call is rejected." },
+      { "type": "text-start", "id": "0" },
+      { "type": "text-delta", "id": "0", "delta": "次郎さんへの200ドルの送金リクエストは承認されませんでした。再度実行が必要な場合はお知らせください。" },
+      { "type": "text-end", "id": "0" },
+      { "type": "finish", "finishReason": "stop", "messageMetadata": { "usage": { "promptTokens": 1721, "completionTokens": 26, "totalTokens": 1796 }, "modelVersion": "gemini-3-flash-preview" } }
+    ],
+    "expectedDoneCount": 2,
+    "expectedStreamCompletion": true
+  }
+}

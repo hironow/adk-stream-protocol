@@ -8,20 +8,20 @@
 import type {
   ChatRequestOptions,
   ChatTransport,
-  DefaultChatTransport,
   UIMessage,
   UIMessageChunk,
 } from "ai";
 import { chunkLogger, type Mode } from "./chunk-logger";
 
 /**
- * Transport wrapper that logs chunks while delegating to DefaultChatTransport.
+ * Transport wrapper that logs chunks while delegating to any ChatTransport.
+ * Works with both DefaultChatTransport (SSE) and WebSocketChatTransport (BIDI).
  */
 export class ChunkLoggingTransport implements ChatTransport<UIMessage> {
-  private delegate: DefaultChatTransport<UIMessage>;
+  private delegate: ChatTransport<UIMessage>;
   private mode: Mode;
 
-  constructor(delegate: DefaultChatTransport<UIMessage>, mode: Mode) {
+  constructor(delegate: ChatTransport<UIMessage>, mode: Mode) {
     this.delegate = delegate;
     this.mode = mode;
   }

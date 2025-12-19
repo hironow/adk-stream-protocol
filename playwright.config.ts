@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 import dotenv from "dotenv";
 
-// Load .env.local for environment variables (e.g., CHUNK_LOGGER_SESSION_ID)
+// Load .env.local for environment variables (e.g., SessionId)
 dotenv.config({ path: ".env.local" });
 
 /**

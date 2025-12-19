@@ -254,9 +254,14 @@ function buildUseChatOptionsInternal({
       if (!websocketTransport) {
         throw new Error("WebSocket transport is required for ADK BIDI mode");
       }
+      // Wrap with chunk logging transport (consistent with SSE mode)
+      const adkBidiTransport = new ChunkLoggingTransport(
+        websocketTransport,
+        "adk-bidi",
+      );
       const adkBidiOptions = {
         ...baseOptions,
-        transport: websocketTransport,
+        transport: adkBidiTransport,
         sendAutomaticallyWhen: sendAutomaticallyWhenAdkConfirmation,
       };
       // debugLog("ADK BIDI options:", adkBidiOptions);
