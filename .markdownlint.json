@@ -59,6 +59,7 @@
   "MD029": false,
   "MD036": false,
   "MD040": {
+    "language_only": true,
     "allowed_languages": [
       "bash",
       "sh",
@@ -94,7 +95,10 @@
       "prisma",
       "graphql",
       "docker",
-      "dockerfile"
+      "dockerfile",
+      "jsonl",
+      "log",
+      "http"
     ]
   },
   "MD041": false,

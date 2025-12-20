@@ -208,6 +208,7 @@ class BidiEventReceiver:
                     logger.info(f"[BIDI] Resolved tool result for {tool_call_id}")
                     continue
 
+                logger.error("[BIDI] ========== IMPLEMENTATION GAP DETECTED ==========")
                 logger.error(
                     f"[BIDI] Cannot resolve frontend request, missing id or response: "
                     f"tool_call_id={tool_call_id}, response_data={response_data}"
@@ -287,6 +288,7 @@ class BidiEventReceiver:
             logger.info(f"[BIDI] Resolved tool result for {tool_call_id}")
             return
 
+        logger.error("[BIDI] ========== IMPLEMENTATION GAP DETECTED ==========")
         logger.error(
             f"[BIDI] Invalid tool_result event. should have toolCallId and result: {event}"
         )

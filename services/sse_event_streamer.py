@@ -367,10 +367,6 @@ class SseEventStreamer:
                         yield sse_event
 
                     logger.info("[SSE Confirmation] ✅ Continuation run completed")
-                else:
-                    logger.warning(
-                        "[SSE Confirmation] ⚠️ Cannot trigger continuation - no session_service"
-                    )
 
             case Error(error_msg):
                 logger.error(f"[SSE Confirmation] {error_msg}")

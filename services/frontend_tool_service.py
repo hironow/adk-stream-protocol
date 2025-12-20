@@ -119,7 +119,7 @@ class FrontendToolDelegate:
         # - Circular dependency causes deadlock
         # Reason: Timeout and exception handling - converting to Result type for API contract
 
-        result = await asyncio.wait_for(future, timeout=5.0)
+        result = await asyncio.wait_for(future, timeout=10.0)
         logger.info(
             f"[FrontendDelegate] Received result for tool={tool_name} "
             f"(function_call.id={function_call_id}): {result}"
@@ -163,7 +163,7 @@ class FrontendToolDelegate:
                 del self._pending_calls[original_id]
                 return
 
-        # No match found
+        logger.error("[BIDI] ========== IMPLEMENTATION GAP DETECTED ==========")
         logger.warning(
             f"[FrontendDelegate] No pending call found for function_call.id={tool_call_id}. "
             f"Pending: {list(self._pending_calls.keys())}"

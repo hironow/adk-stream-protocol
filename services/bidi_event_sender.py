@@ -18,11 +18,12 @@ import inspect
 import json
 from collections.abc import AsyncIterable
 from types import SimpleNamespace
-from typing import Any, assert_never
+from typing import Any
 
 from fastapi import WebSocket
 from google.adk.agents import LiveRequestQueue
 from google.adk.events import Event as ADKEvent
+from google.adk.runners import Runner
 from google.adk.sessions import Session
 from google.genai import types
 from loguru import logger
@@ -159,7 +160,7 @@ class BidiEventSender:
         confirmation_tools: list[str],
         session: Session,
         live_request_queue: LiveRequestQueue,
-        bidi_agent_runner: Any = None,
+        bidi_agent_runner: Runner | None = None,
     ) -> None:
         """
         Initialize BIDI event sender.
@@ -254,14 +255,7 @@ class BidiEventSender:
                                 case Error(error_msg):
                                     # ID mapping is optional - log and continue if it fails
                                     logger.debug(f"[BIDI-SEND] {error_msg}")
-                                case _:
-                                    assert_never(result)
 
-                    # Log tool-approval-request specifically with full data
-                    if event_type == "tool-approval-request":
-                        logger.warning(
-                            f"[BIDI-SEND] ⚠️ ⚠️ ⚠️  SENDING tool-approval-request: {event_data}"
-                        )
                 case Error(error_msg):
                     logger.error(f"[BIDI-SEND] Failed to parse SSE event data: {error_msg}")
 
@@ -472,10 +466,6 @@ class BidiEventSender:
                     self.live_request_queue.send_content(continuation)
                     logger.info(
                         "[BIDI Confirmation] ✅ Continuation signal sent via LiveRequestQueue"
-                    )
-                else:
-                    logger.warning(
-                        "[BIDI Confirmation] ⚠️ Cannot send FunctionResponse - no session_service"
                     )
 
             case Error(error_msg):
