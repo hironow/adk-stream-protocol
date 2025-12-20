@@ -10,4 +10,5 @@ Components:
 
 from services.frontend_tool_service import FrontendToolDelegate
 
+
 __all__ = ["FrontendToolDelegate"]

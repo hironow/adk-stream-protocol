@@ -15,6 +15,7 @@ from adk_ag_tools import (
     get_weather,
     process_payment,
 )
+from result.result import Ok
 
 
 class TestWeatherTool:
@@ -205,14 +206,22 @@ class TestGetLocation:
         When user approves, frontend returns location data.
         """
         # given: Mock tool_context with frontend delegate (BIDI mode)
+        from adk_vercel_id_mapper import ADKVercelIDMapper
+
+        mock_id_mapper = ADKVercelIDMapper()
+        mock_id_mapper.register("get_location", "function-call-123")
+
         mock_delegate = AsyncMock()
-        mock_delegate.execute_on_frontend.return_value = {
-            "success": True,
-            "latitude": 35.6762,
-            "longitude": 139.6503,
-            "accuracy": 10,
-            "message": "Location retrieved successfully",
-        }
+        mock_delegate.id_mapper = mock_id_mapper
+        mock_delegate.execute_on_frontend.return_value = Ok(
+            {
+                "success": True,
+                "latitude": 35.6762,
+                "longitude": 139.6503,
+                "accuracy": 10,
+                "message": "Location retrieved successfully",
+            }
+        )
 
         mock_session = MagicMock()
         mock_session.state = {"frontend_delegate": mock_delegate}
@@ -226,7 +235,6 @@ class TestGetLocation:
 
         # then: Should delegate to frontend and return location data
         mock_delegate.execute_on_frontend.assert_called_once_with(
-            tool_call_id="test-invocation-123",
             tool_name="get_location",
             args={},
         )
@@ -244,11 +252,13 @@ class TestGetLocation:
         """
         # given: Mock tool_context with frontend delegate that returns denial
         mock_delegate = AsyncMock()
-        mock_delegate.execute_on_frontend.return_value = {
-            "success": False,
-            "error": "User denied location access",
-            "code": "PERMISSION_DENIED",
-        }
+        mock_delegate.execute_on_frontend.return_value = Ok(
+            {
+                "success": False,
+                "error": "User denied location access",
+                "code": "PERMISSION_DENIED",
+            }
+        )
 
         mock_session = MagicMock()
         mock_session.state = {"frontend_delegate": mock_delegate}
@@ -447,7 +457,7 @@ class TestAdkRequestConfirmation:
         """Should delegate to frontend and return approval when user confirms."""
         # given
         mock_delegate = AsyncMock()
-        mock_delegate.execute_on_frontend.return_value = {"confirmed": True}
+        mock_delegate.execute_on_frontend.return_value = Ok({"confirmed": True})
 
         mock_session = MagicMock()
         mock_session.state = {"frontend_delegate": mock_delegate}
@@ -456,7 +466,11 @@ class TestAdkRequestConfirmation:
         mock_tool_context.session = mock_session
         mock_tool_context.invocation_id = "confirmation-call-123"
 
-        original_fc = {"id": "original-call-456", "name": "process_payment", "args": {"amount": 100}}
+        original_fc = {
+            "id": "original-call-456",
+            "name": "process_payment",
+            "args": {"amount": 100},
+        }
 
         # when
         result = await adk_request_confirmation(
@@ -481,7 +495,7 @@ class TestAdkRequestConfirmation:
         """Should return denial when user rejects confirmation."""
         # given
         mock_delegate = AsyncMock()
-        mock_delegate.execute_on_frontend.return_value = {"confirmed": False}
+        mock_delegate.execute_on_frontend.return_value = Ok({"confirmed": False})
 
         mock_session = MagicMock()
         mock_session.state = {"frontend_delegate": mock_delegate}
@@ -582,7 +596,7 @@ class TestAdkRequestConfirmation:
         """Should handle complex original function call arguments."""
         # given
         mock_delegate = AsyncMock()
-        mock_delegate.execute_on_frontend.return_value = {"confirmed": True}
+        mock_delegate.execute_on_frontend.return_value = Ok({"confirmed": True})
 
         mock_session = MagicMock()
         mock_session.state = {"frontend_delegate": mock_delegate}

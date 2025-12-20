@@ -10,7 +10,6 @@ Test Levels:
 3. Level 4: Complete event flow with protocol conversion
 """
 
-from __future__ import annotations
 
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -22,6 +21,7 @@ from google.adk.sessions import Session
 from adk_vercel_id_mapper import ADKVercelIDMapper
 from services.bidi_event_sender import BidiEventSender
 from services.frontend_tool_service import FrontendToolDelegate
+
 
 # ============================================================
 # Level 2: Real FrontendToolDelegate
@@ -119,9 +119,7 @@ async def test_level3_websocket_disconnect_during_send() -> None:
     # given
     mock_websocket = Mock()
     # First call succeeds, second raises disconnect
-    mock_websocket.send_text = AsyncMock(
-        side_effect=[None, WebSocketDisconnect(), None]
-    )
+    mock_websocket.send_text = AsyncMock(side_effect=[None, WebSocketDisconnect(), None])
     mock_session = Mock(spec=Session)
     mock_live_request_queue = Mock(spec=LiveRequestQueue)
 
@@ -146,9 +144,13 @@ async def test_level3_websocket_disconnect_during_send() -> None:
         yield 'data: {"type":"text-delta","text":"!"}\n\n'
 
     # when - WebSocketDisconnect should be caught gracefully
-    with patch(
-        "services.bidi_event_sender.ToolConfirmationInterceptor"
-    ), patch("services.bidi_event_sender.stream_adk_to_ai_sdk", side_effect=lambda *args, **kwargs: mock_stream()):
+    with (
+        patch("services.bidi_event_sender.ToolConfirmationInterceptor"),
+        patch(
+            "services.bidi_event_sender.stream_adk_to_ai_sdk",
+            side_effect=lambda *args, **kwargs: mock_stream(),
+        ),
+    ):
         await sender.send_events(mock_live_events())
 
     # then - should have tried to send first event, then caught disconnect
@@ -246,9 +248,13 @@ async def test_level4_mixed_event_types() -> None:
         yield 'data: {"type":"finish","finishReason":"stop"}\n\n'
 
     # when
-    with patch(
-        "services.bidi_event_sender.ToolConfirmationInterceptor"
-    ), patch("services.bidi_event_sender.stream_adk_to_ai_sdk", side_effect=lambda *args, **kwargs: mock_stream()):
+    with (
+        patch("services.bidi_event_sender.ToolConfirmationInterceptor"),
+        patch(
+            "services.bidi_event_sender.stream_adk_to_ai_sdk",
+            side_effect=lambda *args, **kwargs: mock_stream(),
+        ),
+    ):
         await sender.send_events(mock_live_events())
 
     # then
@@ -286,7 +292,9 @@ async def test_level2_skips_id_mapping_with_none_frontend_delegate() -> None:
         live_request_queue=mock_live_request_queue,
     )
 
-    sse_event = 'data: {"type":"tool-input-available","toolName":"get_weather","toolCallId":"w-123"}\n\n'
+    sse_event = (
+        'data: {"type":"tool-input-available","toolName":"get_weather","toolCallId":"w-123"}\n\n'
+    )
 
     # when - should not raise
     await sender._send_sse_event(sse_event)

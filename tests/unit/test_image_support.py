@@ -8,7 +8,6 @@ Tests cover:
 - StreamProtocolConverter image handling
 """
 
-from __future__ import annotations
 
 import base64
 

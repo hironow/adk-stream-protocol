@@ -23,7 +23,6 @@ Usage:
     uv run python scripts/check-coverage.py --extract-only adk --format markdown
 """
 
-from __future__ import annotations
 
 import argparse
 import inspect
@@ -37,6 +36,7 @@ import yaml  # type: ignore[import-untyped]
 from google.adk.events import Event
 from google.adk.events.event_actions import EventActions
 from google.genai import types
+
 
 # =============================================================================
 # Utilities
@@ -243,7 +243,7 @@ class ConfigLoader:
         if not self.config_path.exists():
             raise FileNotFoundError(f"Config file not found: {self.config_path}")
 
-        with open(self.config_path) as f:
+        with self.config_path.open() as f:
             return yaml.safe_load(f)
 
     def get_field_config(self, field_type: str) -> dict[str, dict[str, Any]]:

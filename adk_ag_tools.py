@@ -23,6 +23,7 @@ from loguru import logger
 
 from result.result import Error, Ok
 
+
 # ========== Weather Tool Configuration ==========
 WEATHER_CACHE_TTL = 43200  # 12 hours in seconds
 CACHE_DIR = Path(".cache")
@@ -243,7 +244,6 @@ async def change_bgm(track: int, tool_context: ToolContext | None = None) -> dic
             logger.info("[change_bgm] BIDI mode detected - delegating to frontend")
             logger.info("[change_bgm] Calling delegate.execute_on_frontend()")
             result_or_error = await delegate.execute_on_frontend(
-                tool_call_id=tool_context.invocation_id,
                 tool_name="change_bgm",
                 args={"track": track},
             )
@@ -285,18 +285,9 @@ async def get_location(tool_context: ToolContext) -> dict[str, Any]:
     logger.info("[get_location] ========== TOOL FUNCTION CALLED ==========")
     logger.info(f"[get_location] tool_context={tool_context}")
 
-    tool_call_id = tool_context.invocation_id
-    logger.info(f"[get_location] invocation_id={tool_call_id}")
-
-    if not tool_call_id:
-        error_msg = "Missing invocation_id in ToolContext"
-        logger.error(f"[get_location] {error_msg}")
-        return {"success": False, "error": error_msg}
-
-    logger.info(f"[get_location] Delegating to frontend: tool_call_id={tool_call_id}")
-
     # Delegate execution to frontend and await result
     # Note: Uses global frontend_delegate via session.state
+    # ID resolution is handled automatically by execute_on_frontend via id_mapper
     session_state = getattr(tool_context.session, "state", None)
     logger.info(f"[get_location] session_state={session_state}")
 
@@ -315,7 +306,6 @@ async def get_location(tool_context: ToolContext) -> dict[str, Any]:
 
     logger.info("[get_location] Calling delegate.execute_on_frontend()")
     result_or_error = await delegate.execute_on_frontend(
-        tool_call_id=tool_call_id,
         tool_name="get_location",
         args={},
     )

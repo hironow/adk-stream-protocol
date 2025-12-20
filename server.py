@@ -6,7 +6,6 @@ Frontend connects directly to this backend(adk-sse).
 gemini uses direct Gemini API and doesn't require this backend.
 """
 
-from __future__ import annotations
 
 import asyncio
 import json
@@ -16,6 +15,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from dotenv import load_dotenv
+
 
 # Load environment variables from .env.local BEFORE any local imports
 # This ensures ChunkLogger reads the correct environment variables
@@ -55,6 +55,7 @@ from services.bidi_event_receiver import BidiEventReceiver  # noqa: E402
 from services.bidi_event_sender import BidiEventSender  # noqa: E402
 from services.frontend_tool_service import FrontendToolDelegate  # noqa: E402
 from stream_protocol import StreamProtocolConverter  # noqa: E402
+
 
 # ========== Frontend Tool Delegate (now imported from services) ==========
 
@@ -632,17 +633,17 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
         logger.error(f"[BIDI] WebSocket error: {e}")
         try:
             await websocket.close(code=1011, reason=str(e))
-        except Exception:
-            pass  # Connection might already be closed
+        except Exception as close_error:
+            logger.debug(f"[BIDI] Could not close WebSocket: {close_error}")  # Connection might already be closed
     finally:
         # Ensure queue is closed
         try:
             live_request_queue.close()
-        except Exception:
-            pass
+        except Exception as queue_error:
+            logger.debug(f"[BIDI] Could not close queue: {queue_error}")
 
 
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")  # noqa: S104

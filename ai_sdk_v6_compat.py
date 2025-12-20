@@ -33,7 +33,6 @@ Tool Call States (UIToolInvocation):
 - "output-denied": User denied tool execution
 """
 
-from __future__ import annotations
 
 import base64
 from enum import Enum
@@ -44,6 +43,7 @@ from google.genai import types
 from loguru import logger
 from PIL import Image
 from pydantic import BaseModel, Field, field_validator
+
 
 # ============================================================
 # Tool Call States
@@ -380,9 +380,7 @@ class ChatMessage(BaseModel):
 
         # Validate output
         if part.output is None or not isinstance(part.output, dict):
-            logger.warning(
-                f"[AI SDK v6] Invalid output format for {part.tool_name}: {part.output}"
-            )
+            logger.warning(f"[AI SDK v6] Invalid output format for {part.tool_name}: {part.output}")
             return
 
         # Handle adk_request_confirmation tool outputs (special case for confirmation data)

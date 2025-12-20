@@ -6,12 +6,12 @@ conversation history synchronization, and other ADK-related operations.
 These functions are used by both ADK SSE and ADK BIDI modes.
 """
 
-from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
 from google.adk.events import Event
 from loguru import logger
+
 
 if TYPE_CHECKING:
     pass

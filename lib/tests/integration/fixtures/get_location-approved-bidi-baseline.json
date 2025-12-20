@@ -33,17 +33,81 @@
     ],
     "expectedChunks": [
       { "type": "start", "messageId": "d8c759a5-fc5e-4c14-a395-e371966209b3" },
-      { "type": "tool-input-start", "toolCallId": "adk-4c79e452-5971-4673-ac9a-c802ae108fd5", "toolName": "get_location" },
-      { "type": "tool-input-available", "toolCallId": "adk-4c79e452-5971-4673-ac9a-c802ae108fd5", "toolName": "get_location", "input": {} },
-      { "type": "tool-input-start", "toolCallId": "adk-5cac17b1-f205-47b3-a026-91d8e3349649", "toolName": "adk_request_confirmation" },
-      { "type": "tool-input-available", "toolCallId": "adk-5cac17b1-f205-47b3-a026-91d8e3349649", "toolName": "adk_request_confirmation", "input": { "originalFunctionCall": { "id": "adk-4c79e452-5971-4673-ac9a-c802ae108fd5", "args": {}, "name": "get_location" }, "toolConfirmation": { "hint": "Please approve or reject the tool call get_location() by responding with a FunctionResponse with an expected ToolConfirmation payload.", "confirmed": false } } },
-      { "type": "finish", "finishReason": "stop", "messageMetadata": { "usage": { "promptTokens": 1636, "completionTokens": 10, "totalTokens": 1699 }, "modelVersion": "gemini-3-flash-preview" } },
+      {
+        "type": "tool-input-start",
+        "toolCallId": "adk-4c79e452-5971-4673-ac9a-c802ae108fd5",
+        "toolName": "get_location"
+      },
+      {
+        "type": "tool-input-available",
+        "toolCallId": "adk-4c79e452-5971-4673-ac9a-c802ae108fd5",
+        "toolName": "get_location",
+        "input": {}
+      },
+      {
+        "type": "tool-input-start",
+        "toolCallId": "adk-5cac17b1-f205-47b3-a026-91d8e3349649",
+        "toolName": "adk_request_confirmation"
+      },
+      {
+        "type": "tool-input-available",
+        "toolCallId": "adk-5cac17b1-f205-47b3-a026-91d8e3349649",
+        "toolName": "adk_request_confirmation",
+        "input": {
+          "originalFunctionCall": {
+            "id": "adk-4c79e452-5971-4673-ac9a-c802ae108fd5",
+            "args": {},
+            "name": "get_location"
+          },
+          "toolConfirmation": {
+            "hint": "Please approve or reject the tool call get_location() by responding with a FunctionResponse with an expected ToolConfirmation payload.",
+            "confirmed": false
+          }
+        }
+      },
+      {
+        "type": "finish",
+        "finishReason": "stop",
+        "messageMetadata": {
+          "usage": {
+            "promptTokens": 1636,
+            "completionTokens": 10,
+            "totalTokens": 1699
+          },
+          "modelVersion": "gemini-3-flash-preview"
+        }
+      },
       { "type": "start", "messageId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890" },
-      { "type": "tool-output-available", "toolCallId": "adk-4c79e452-5971-4673-ac9a-c802ae108fd5", "output": { "latitude": 35.6762, "longitude": 139.6503, "accuracy": 20, "city": "Tokyo", "country": "Japan" } },
+      {
+        "type": "tool-output-available",
+        "toolCallId": "adk-4c79e452-5971-4673-ac9a-c802ae108fd5",
+        "output": {
+          "latitude": 35.6762,
+          "longitude": 139.6503,
+          "accuracy": 20,
+          "city": "Tokyo",
+          "country": "Japan"
+        }
+      },
       { "type": "text-start", "id": "0" },
-      { "type": "text-delta", "id": "0", "delta": "現在地を取得しました。\n\n**位置情報:**\n- **緯度:** 35.6762\n- **経度:** 139.6503\n- **都市:** Tokyo\n- **国:** Japan\n- **精度:** 20m" },
+      {
+        "type": "text-delta",
+        "id": "0",
+        "delta": "現在地を取得しました。\n\n**位置情報:**\n- **緯度:** 35.6762\n- **経度:** 139.6503\n- **都市:** Tokyo\n- **国:** Japan\n- **精度:** 20m"
+      },
       { "type": "text-end", "id": "0" },
-      { "type": "finish", "finishReason": "stop", "messageMetadata": { "usage": { "promptTokens": 1850, "completionTokens": 45, "totalTokens": 1895 }, "modelVersion": "gemini-3-flash-preview" } }
+      {
+        "type": "finish",
+        "finishReason": "stop",
+        "messageMetadata": {
+          "usage": {
+            "promptTokens": 1850,
+            "completionTokens": 45,
+            "totalTokens": 1895
+          },
+          "modelVersion": "gemini-3-flash-preview"
+        }
+      }
     ],
     "expectedDoneCount": 2,
     "expectedStreamCompletion": true

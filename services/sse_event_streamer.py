@@ -13,7 +13,6 @@ Responsibilities:
 Counterpart: BidiEventSender handles WebSocket (BIDI) mode.
 """
 
-from __future__ import annotations
 
 import inspect
 import json
@@ -294,57 +293,69 @@ class SseEventStreamer:
 
         # NEW: Send original tool-input events FIRST (so frontend knows about the original tool)
         # This fixes the bug where frontend only received confirmation events but not the original tool events
-        yield format_sse_event({
-            "type": "tool-input-start",
-            "toolCallId": fc_id,
-            "toolName": fc_name,
-        })
+        yield format_sse_event(
+            {
+                "type": "tool-input-start",
+                "toolCallId": fc_id,
+                "toolName": fc_name,
+            }
+        )
 
-        yield format_sse_event({
-            "type": "tool-input-available",
-            "toolCallId": fc_id,
-            "toolName": fc_name,
-            "input": fc_args,
-        })
+        yield format_sse_event(
+            {
+                "type": "tool-input-available",
+                "toolCallId": fc_id,
+                "toolName": fc_name,
+                "input": fc_args,
+            }
+        )
 
         # THEN send confirmation UI events
         # Generate confirmation UI events as SSE format strings
         # Yield tool-input-start as SSE format string
-        yield format_sse_event({
-            "type": "tool-input-start",
-            "toolCallId": confirmation_id,
-            "toolName": "adk_request_confirmation",
-        })
+        yield format_sse_event(
+            {
+                "type": "tool-input-start",
+                "toolCallId": confirmation_id,
+                "toolName": "adk_request_confirmation",
+            }
+        )
 
         # Yield tool-input-available with full confirmation data as SSE format string
-        yield format_sse_event({
-            "type": "tool-input-available",
-            "toolCallId": confirmation_id,
-            "toolName": "adk_request_confirmation",
-            "input": {
-                "originalFunctionCall": {
-                    "id": fc_id,
-                    "name": fc_name,
-                    "args": fc_args,
+        yield format_sse_event(
+            {
+                "type": "tool-input-available",
+                "toolCallId": confirmation_id,
+                "toolName": "adk_request_confirmation",
+                "input": {
+                    "originalFunctionCall": {
+                        "id": fc_id,
+                        "name": fc_name,
+                        "args": fc_args,
+                    },
+                    "toolConfirmation": {
+                        "confirmed": False,
+                    },
                 },
-                "toolConfirmation": {
-                    "confirmed": False,
-                },
-            },
-        })
+            }
+        )
 
         # Wait for user decision using Result pattern
-        match await _execute_confirmation_sse(interceptor, confirmation_id, fc_id, fc_name, fc_args):
+        match await _execute_confirmation_sse(
+            interceptor, confirmation_id, fc_id, fc_name, fc_args
+        ):
             case Ok(confirmation_result):
                 confirmed = confirmation_result.get("confirmed", False)
                 logger.info(f"[SSE Confirmation] User decision: confirmed={confirmed}")
 
                 # Yield confirmation result as SSE format string
-                yield format_sse_event({
-                    "type": "tool-output-available",
-                    "toolCallId": confirmation_id,
-                    "output": confirmation_result,
-                })
+                yield format_sse_event(
+                    {
+                        "type": "tool-output-available",
+                        "toolCallId": confirmation_id,
+                        "output": confirmation_result,
+                    }
+                )
 
                 # Execute tool if approved
                 if confirmed:
@@ -355,20 +366,24 @@ class SseEventStreamer:
                 else:
                     # User denied - yield error as SSE format string
                     logger.info(f"[SSE Confirmation] User denied tool: {fc_name}")
-                    yield format_sse_event({
-                        "type": "tool-output-error",
-                        "toolCallId": fc_id,
-                        "error": f"Tool execution denied by user: {fc_name}",
-                    })
+                    yield format_sse_event(
+                        {
+                            "type": "tool-output-error",
+                            "toolCallId": fc_id,
+                            "error": f"Tool execution denied by user: {fc_name}",
+                        }
+                    )
 
             case Error(error_msg):
                 logger.error(f"[SSE Confirmation] {error_msg}")
                 # Yield error as SSE format string
-                yield format_sse_event({
-                    "type": "tool-output-error",
-                    "toolCallId": fc_id,
-                    "error": error_msg,
-                })
+                yield format_sse_event(
+                    {
+                        "type": "tool-output-error",
+                        "toolCallId": fc_id,
+                        "error": error_msg,
+                    }
+                )
 
     async def _execute_tool(self, fc_id: str, fc_name: str, fc_args: dict[str, Any]):
         """
@@ -392,17 +407,21 @@ class SseEventStreamer:
                 logger.info(f"[SSE Confirmation] Tool executed successfully: {tool_result}")
 
                 # Yield tool result to frontend as SSE format string
-                yield format_sse_event({
-                    "type": "tool-output-available",
-                    "toolCallId": fc_id,
-                    "output": tool_result,
-                })
+                yield format_sse_event(
+                    {
+                        "type": "tool-output-available",
+                        "toolCallId": fc_id,
+                        "output": tool_result,
+                    }
+                )
 
             case Error(error_msg):
                 logger.error(f"[SSE Confirmation] {error_msg}")
                 # Yield error as SSE format string
-                yield format_sse_event({
-                    "type": "tool-output-error",
-                    "toolCallId": fc_id,
-                    "error": error_msg,
-                })
+                yield format_sse_event(
+                    {
+                        "type": "tool-output-error",
+                        "toolCallId": fc_id,
+                        "error": error_msg,
+                    }
+                )

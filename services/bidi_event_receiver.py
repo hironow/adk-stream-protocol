@@ -14,7 +14,6 @@ Responsibilities:
 Counterpart: BidiEventSender handles downstream (ADK → WebSocket) direction.
 """
 
-from __future__ import annotations
 
 import base64
 from typing import Any
@@ -162,36 +161,22 @@ class BidiEventReceiver:
 
         # Detect implementation gaps: event received but no queue operation performed
         if not queue_operation_performed:
-            logger.error(
-                "[BIDI] ========== IMPLEMENTATION GAP DETECTED =========="
-            )
-            logger.error(
-                "[BIDI] Message event received but NO queue operation was performed!"
-            )
-            logger.error(
-                f"[BIDI] Event data: {message_data}"
-            )
+            logger.error("[BIDI] ========== IMPLEMENTATION GAP DETECTED ==========")
+            logger.error("[BIDI] Message event received but NO queue operation was performed!")
+            logger.error(f"[BIDI] Event data: {message_data}")
             logger.error(
                 f"[BIDI] image_blobs count: {len(image_blobs)}, text_content: {text_content is not None}"
             )
             logger.error(
                 "[BIDI] This likely indicates a missing implementation for this event structure."
             )
-            logger.error(
-                "[BIDI] Possible causes:"
-            )
+            logger.error("[BIDI] Possible causes:")
             logger.error(
                 "[BIDI]   1. New message format not handled in process_chat_message_for_bidi()"
             )
-            logger.error(
-                "[BIDI]   2. Empty message_data with no content"
-            )
-            logger.error(
-                "[BIDI]   3. Logic bug in event processing path"
-            )
-            logger.error(
-                "[BIDI] ================================================="
-            )
+            logger.error("[BIDI]   2. Empty message_data with no content")
+            logger.error("[BIDI]   3. Logic bug in event processing path")
+            logger.error("[BIDI] =================================================")
 
     async def _handle_function_response(self, text_content: types.Content) -> None:
         """
@@ -208,7 +193,9 @@ class BidiEventReceiver:
 
         logger.info(f"[BIDI] Calling session_service.append_event() with session={self.session.id}")
         await self.bidi_agent_runner.session_service.append_event(self.session, event)
-        logger.info("[BIDI] ✓ Successfully added FunctionResponse to session history via append_event()")
+        logger.info(
+            "[BIDI] ✓ Successfully added FunctionResponse to session history via append_event()"
+        )
 
         for part in text_content.parts or []:
             if hasattr(part, "function_response") and part.function_response:
@@ -221,12 +208,12 @@ class BidiEventReceiver:
                     self.frontend_delegate.resolve_tool_result(tool_call_id, response_data)
                     logger.info(f"[BIDI] Resolved tool result for {tool_call_id}")
                     continue
-                
+
                 logger.error(
                     f"[BIDI] Cannot resolve frontend request, missing id or response: "
                     f"tool_call_id={tool_call_id}, response_data={response_data}"
                 )
-                
+
             continue
 
     async def handle_interrupt_event(self, event: dict[str, Any]) -> None:
@@ -301,4 +288,6 @@ class BidiEventReceiver:
             logger.info(f"[BIDI] Resolved tool result for {tool_call_id}")
             return
 
-        logger.error(f"[BIDI] Invalid tool_result event. should have toolCallId and result: {event}")
+        logger.error(
+            f"[BIDI] Invalid tool_result event. should have toolCallId and result: {event}"
+        )

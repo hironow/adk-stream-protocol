@@ -15,9 +15,8 @@ This test verifies that SseEventStreamer sends:
 Expected to FAIL until fixed.
 """
 
-from __future__ import annotations
 
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import Mock
 
 import pytest
 from google.adk.events import Event
@@ -88,12 +87,9 @@ async def test_sse_confirmation_should_send_tool_input_events_for_original_tool(
 
     # then - verify event sequence
     # Find original tool-input-start
-    has_original_tool_input_start = any(
-        "tool-input-start" in e and fc_id in e for e in sent_events
-    )
+    has_original_tool_input_start = any("tool-input-start" in e and fc_id in e for e in sent_events)
     has_original_tool_input_available = any(
-        "tool-input-available" in e and fc_id in e and "process_payment" in e
-        for e in sent_events
+        "tool-input-available" in e and fc_id in e and "process_payment" in e for e in sent_events
     )
 
     # ASSERTIONS (RED - expected to fail)
@@ -178,6 +174,5 @@ async def test_sse_confirmation_event_sequence() -> None:
     )
 
     assert len(confirmation_events) >= 2, (
-        f"SSE mode must send confirmation UI events\n"
-        f"Found: {len(confirmation_events)} events"
+        f"SSE mode must send confirmation UI events\nFound: {len(confirmation_events)} events"
     )

@@ -11,7 +11,6 @@ Test Levels:
 4. Level 4: Session components real (close to E2E)
 """
 
-from __future__ import annotations
 
 import asyncio
 import binascii
@@ -24,6 +23,7 @@ from google.genai import types
 from adk_vercel_id_mapper import ADKVercelIDMapper
 from services.bidi_event_receiver import BidiEventReceiver
 from services.frontend_tool_service import FrontendToolDelegate
+
 
 # ============================================================
 # Level 2: Real FrontendToolDelegate
@@ -102,9 +102,7 @@ async def test_level2_tool_result_event_with_real_frontend_delegate() -> None:
     )
 
     mock_session, mock_queue, mock_runner, _ = create_mock_bidi_components()
-    frontend_delegate, _ = create_frontend_delegate_with_mapper(
-        {"get_location": "call-789"}
-    )
+    frontend_delegate, _ = create_frontend_delegate_with_mapper({"get_location": "call-789"})
 
     handler = create_bidi_event_handler(
         session=mock_session,
@@ -309,9 +307,7 @@ async def test_level4_complete_message_flow() -> None:
     )
 
     # Simulate text message (not FunctionResponse)
-    text_content = types.Content(
-        parts=[types.Part(text="What's the weather like in Tokyo?")]
-    )
+    text_content = types.Content(parts=[types.Part(text="What's the weather like in Tokyo?")])
 
     with patch(
         "services.bidi_event_receiver.process_chat_message_for_bidi",

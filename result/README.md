@@ -2,7 +2,7 @@
 
 Purpose: Provide a simple `Result` type: `Ok(value)` or `Error(value)`.
 
-Key rules
+## Key rules
 
 - Services must return `Result`, not raise HTTP exceptions.
 - Pattern match on results where possible for clarity.
@@ -18,7 +18,9 @@ async def do_something():
     return {"ok": True}
 ```
 
-Recommended
+## Recommended
+
+Strongly recommend pattern matching with match-case statements!
 
 ```python
 async def do_something() -> Result[dict, str]:
@@ -33,6 +35,6 @@ match await do_something():
         ...
 ```
 
-Testing tips
+## Testing tips
 
 - Assert `Ok`/`Error` branches explicitly. Keep messages precise.

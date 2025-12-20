@@ -4,7 +4,6 @@ This module provides helper functions and factory methods for testing
 BIDI mode event handling and WebSocket communication.
 """
 
-from __future__ import annotations
 
 import asyncio
 from typing import Any

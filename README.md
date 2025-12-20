@@ -9,11 +9,13 @@ This project is under **active development** and contains experimental features 
 ### Current Status
 
 **✅ Stable Features**
+
 - Gemini Direct mode (AI SDK v6 only)
 - ADK SSE streaming with tool calling
 - Frontend/Backend E2E test infrastructure
 
 **🚧 Experimental Features**
+
 - ADK BIDI (WebSocket) streaming - See known issues below
 
 ### Known Issues
@@ -37,6 +39,7 @@ BIDI mode (`run_live()`) has two significant issues that limit production use:
 **See:** [docs/BUG-ADK-BIDI-TOOL-CONFIRMATION.md](docs/BUG-ADK-BIDI-TOOL-CONFIRMATION.md) for detailed analysis
 
 **Recent Fixes**
+
 - ✅ Fixed infinite loop in tool confirmation auto-send logic (2025-12-17)
 
 ## Project Overview
@@ -82,18 +85,21 @@ The project provides **three streaming modes** with real-time mode switching:
 ## Tech Stack
 
 **Frontend:**
+
 - Next.js 16 (App Router)
 - React 19
 - AI SDK v6 beta (`ai`, `@ai-sdk/react`, `@ai-sdk/google`)
 - TypeScript 5.7
 
 **Backend:**
+
 - Python 3.13
 - Google ADK >=1.20.0
 - FastAPI >=0.115.0
 - Pydantic v2
 
 **Development Tools:**
+
 - pnpm (Node.js packages)
 - uv (Python packages)
 - just (task automation)
@@ -128,6 +134,7 @@ cp .env.example .env.local
 Edit `.env.local`:
 
 **For Gemini Direct:**
+
 ```
 GOOGLE_GENERATIVE_AI_API_KEY=your_api_key_here
 BACKEND_MODE=gemini
@@ -135,6 +142,7 @@ NEXT_PUBLIC_BACKEND_MODE=gemini
 ```
 
 **For ADK SSE/BIDI:**
+
 ```
 GOOGLE_API_KEY=your_api_key_here
 BACKEND_MODE=adk-sse
@@ -146,11 +154,13 @@ NEXT_PUBLIC_ADK_BACKEND_URL=http://localhost:8000
 ### Running
 
 **Gemini Direct (frontend only):**
+
 ```bash
 pnpm dev
 ```
 
 **ADK SSE/BIDI (backend + frontend):**
+
 ```bash
 # Run both concurrently:
 just dev
@@ -161,6 +171,7 @@ pnpm dev     # Frontend on :3000
 ```
 
 For all available commands:
+
 ```bash
 just --list
 ```
@@ -168,24 +179,28 @@ just --list
 ## Testing
 
 **Python Unit Tests:**
+
 ```bash
 just test-python
 # Expected: 231 passed
 ```
 
 **TypeScript Unit Tests:**
+
 ```bash
 pnpm run test:lib
 # Expected: 255 passed
 ```
 
 **End-to-End Tests:**
+
 ```bash
 just test-e2e-clean  # Recommended: clean server restart
 just test-e2e-ui     # Interactive UI mode
 ```
 
 **Code Quality:**
+
 ```bash
 just format  # Format code
 just lint    # Run linters

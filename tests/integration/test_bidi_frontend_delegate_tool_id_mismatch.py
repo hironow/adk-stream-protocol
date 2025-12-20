@@ -13,7 +13,6 @@ that FrontendToolDelegate will use for execution.
 Expected to FAIL until fixed.
 """
 
-from __future__ import annotations
 
 from unittest.mock import AsyncMock, Mock
 
@@ -48,7 +47,7 @@ async def test_bidi_frontend_delegate_tool_should_use_consistent_id() -> None:
     mock_live_request_queue = Mock(spec=LiveRequestQueue)
 
     frontend_delegate = FrontendToolDelegate()
-    confirmation_tools = []  # change_bgm does NOT require confirmation
+    confirmation_tools: list[str] = []  # change_bgm does NOT require confirmation
 
     sender = BidiEventSender(
         websocket=mock_websocket,
@@ -95,6 +94,7 @@ async def test_bidi_frontend_delegate_tool_should_use_consistent_id() -> None:
         if "tool-input-available" in event and "change_bgm" in event:
             # Extract toolCallId from SSE format
             import json
+
             # Parse: data: {...}\n\n
             if event.startswith("data: "):
                 data = json.loads(event[6:].strip())
@@ -193,6 +193,7 @@ async def test_bidi_frontend_delegate_multiple_tools_id_consistency() -> None:
 
     # then - extract tool-input IDs
     import json
+
     tool_input_ids = []
     for event in sent_events:
         if "tool-input-available" in event:
@@ -210,13 +211,15 @@ async def test_bidi_frontend_delegate_multiple_tools_id_consistency() -> None:
     )
 
     # Verify each tool-input ID matches the original FunctionCall ID
-    has_change_bgm = any(name == "change_bgm" and call_id == fc_id_1 for name, call_id in tool_input_ids)
-    has_get_location = any(name == "get_location" and call_id == fc_id_2 for name, call_id in tool_input_ids)
+    has_change_bgm = any(
+        name == "change_bgm" and call_id == fc_id_1 for name, call_id in tool_input_ids
+    )
+    has_get_location = any(
+        name == "get_location" and call_id == fc_id_2 for name, call_id in tool_input_ids
+    )
 
     assert has_change_bgm, (
-        f"change_bgm tool-input ID mismatch!\n"
-        f"Expected ID: {fc_id_1}\n"
-        f"Tool inputs: {tool_input_ids}"
+        f"change_bgm tool-input ID mismatch!\nExpected ID: {fc_id_1}\nTool inputs: {tool_input_ids}"
     )
 
     assert has_get_location, (

@@ -12,6 +12,7 @@ from google.genai import types
 
 from services.bidi_event_receiver import BidiEventReceiver
 
+
 # ============================================================
 # Initialization Tests
 # ============================================================
@@ -192,9 +193,7 @@ async def test_handle_event_logs_warning_for_unknown_type() -> None:
 @pytest.mark.asyncio
 @patch("services.bidi_event_receiver.sync_conversation_history_to_session")
 @patch("services.bidi_event_receiver.process_chat_message_for_bidi")
-async def test_handle_message_event_syncs_history(
-    mock_process, mock_sync
-) -> None:
+async def test_handle_message_event_syncs_history(mock_process, mock_sync) -> None:
     """handle_message_event() should sync conversation history when messages present."""
     # given
     mock_session = Mock()
@@ -215,11 +214,7 @@ async def test_handle_message_event_syncs_history(
 
     event = {
         "type": "message",
-        "data": {
-            "messages": [
-                {"role": "user", "content": [{"type": "text", "text": "Hello"}]}
-            ]
-        },
+        "data": {"messages": [{"role": "user", "content": [{"type": "text", "text": "Hello"}]}]},
     }
 
     # when
@@ -276,9 +271,7 @@ async def test_handle_message_event_sends_regular_text(mock_process) -> None:
     )
 
     # Mock text content without FunctionResponse
-    text_content = types.Content(
-        parts=[types.Part(text="Hello, world!")]
-    )
+    text_content = types.Content(parts=[types.Part(text="Hello, world!")])
     mock_process.return_value = ([], text_content)
 
     event = {"type": "message", "data": {}}
@@ -316,9 +309,7 @@ async def test_handle_message_event_handles_function_response(mock_process) -> N
         name="process_payment",
         response={"confirmed": True},
     )
-    text_content = types.Content(
-        parts=[types.Part(function_response=function_response)]
-    )
+    text_content = types.Content(parts=[types.Part(function_response=function_response)])
     mock_process.return_value = ([], text_content)
 
     event = {"type": "message", "data": {}}
@@ -333,9 +324,7 @@ async def test_handle_message_event_handles_function_response(mock_process) -> N
     assert call_args[0][0] is mock_session  # First arg is session
 
     # Should resolve frontend tool result
-    mock_delegate.resolve_tool_result.assert_called_once_with(
-        "call_789", {"confirmed": True}
-    )
+    mock_delegate.resolve_tool_result.assert_called_once_with("call_789", {"confirmed": True})
 
 
 # ============================================================
@@ -765,9 +754,7 @@ async def test_handle_function_response_with_append_event_error_raises() -> None
     """_handle_function_response() should propagate session_service.append_event errors."""
     # given
     mock_session_service = Mock()
-    mock_session_service.append_event = AsyncMock(
-        side_effect=RuntimeError("Append event failed")
-    )
+    mock_session_service.append_event = AsyncMock(side_effect=RuntimeError("Append event failed"))
     mock_runner = Mock()
     mock_runner.session_service = mock_session_service
 
@@ -793,9 +780,7 @@ async def test_handle_function_response_with_resolve_error_does_not_propagate() 
     """_handle_function_response() should handle resolve_tool_result errors gracefully."""
     # given
     mock_delegate = Mock()
-    mock_delegate.resolve_tool_result = Mock(
-        side_effect=RuntimeError("Resolve failed")
-    )
+    mock_delegate.resolve_tool_result = Mock(side_effect=RuntimeError("Resolve failed"))
     mock_session_service = Mock()
     mock_session_service.append_event = AsyncMock()
     mock_runner = Mock()
@@ -848,9 +833,7 @@ async def test_handle_tool_result_with_resolve_error_raises() -> None:
     """handle_tool_result_event() should propagate resolve_tool_result errors."""
     # given
     mock_delegate = Mock()
-    mock_delegate.resolve_tool_result = Mock(
-        side_effect=RuntimeError("Resolve error")
-    )
+    mock_delegate.resolve_tool_result = Mock(side_effect=RuntimeError("Resolve error"))
 
     handler = BidiEventReceiver(
         session=Mock(),

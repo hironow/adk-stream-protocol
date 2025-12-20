@@ -14,13 +14,12 @@ Responsibilities:
 Counterpart: BidiEventReceiver handles upstream (WebSocket → ADK) direction.
 """
 
-from __future__ import annotations
 
 import inspect
 import json
 from collections.abc import AsyncIterable
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, assert_never
 
 from fastapi import WebSocket, WebSocketDisconnect
 from google.adk.agents import LiveRequestQueue
@@ -158,7 +157,7 @@ class BidiEventSender:
     Counterpart: BidiEventReceiver handles upstream (WebSocket → ADK).
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         websocket: WebSocket,
         frontend_delegate: FrontendToolDelegate,
@@ -256,10 +255,19 @@ class BidiEventSender:
                         tool_name = event_data.get("toolName")
                         tool_call_id = event_data.get("toolCallId")
                         if tool_name and tool_call_id and self.frontend_delegate:
-                            self.frontend_delegate.set_function_call_id(tool_name, tool_call_id)
-                            logger.debug(
-                                f"[BIDI-SEND] Registered mapping: {tool_name} → {tool_call_id}"
+                            result = self.frontend_delegate.set_function_call_id(
+                                tool_name, tool_call_id
                             )
+                            match result:
+                                case Ok(_):
+                                    logger.debug(
+                                        f"[BIDI-SEND] Registered mapping: {tool_name} → {tool_call_id}"
+                                    )
+                                case Error(error_msg):
+                                    # ID mapping is optional - log and continue if it fails
+                                    logger.debug(f"[BIDI-SEND] {error_msg}")
+                                case _:
+                                    assert_never(result)
 
                     # Log tool-approval-request specifically with full data
                     if event_type == "tool-approval-request":
@@ -330,43 +338,51 @@ class BidiEventSender:
 
         # NEW: Send original tool-input events FIRST (so frontend knows about the original tool)
         # This fixes the bug where frontend only received confirmation events but not the original tool events
-        yield format_sse_event({
-            "type": "tool-input-start",
-            "toolCallId": fc_id,
-            "toolName": fc_name,
-        })
+        yield format_sse_event(
+            {
+                "type": "tool-input-start",
+                "toolCallId": fc_id,
+                "toolName": fc_name,
+            }
+        )
 
-        yield format_sse_event({
-            "type": "tool-input-available",
-            "toolCallId": fc_id,
-            "toolName": fc_name,
-            "input": fc_args,
-        })
+        yield format_sse_event(
+            {
+                "type": "tool-input-available",
+                "toolCallId": fc_id,
+                "toolName": fc_name,
+                "input": fc_args,
+            }
+        )
 
         # THEN send confirmation UI events
         # Yield tool-input-start as SSE format string
-        yield format_sse_event({
-            "type": "tool-input-start",
-            "toolCallId": confirmation_id,
-            "toolName": "adk_request_confirmation",
-        })
+        yield format_sse_event(
+            {
+                "type": "tool-input-start",
+                "toolCallId": confirmation_id,
+                "toolName": "adk_request_confirmation",
+            }
+        )
 
         # Yield tool-input-available with full confirmation data as SSE format string
-        yield format_sse_event({
-            "type": "tool-input-available",
-            "toolCallId": confirmation_id,
-            "toolName": "adk_request_confirmation",
-            "input": {
-                "originalFunctionCall": {
-                    "id": fc_id,
-                    "name": fc_name,
-                    "args": fc_args,
+        yield format_sse_event(
+            {
+                "type": "tool-input-available",
+                "toolCallId": confirmation_id,
+                "toolName": "adk_request_confirmation",
+                "input": {
+                    "originalFunctionCall": {
+                        "id": fc_id,
+                        "name": fc_name,
+                        "args": fc_args,
+                    },
+                    "toolConfirmation": {
+                        "confirmed": False,
+                    },
                 },
-                "toolConfirmation": {
-                    "confirmed": False,
-                },
-            },
-        })
+            }
+        )
 
         # Wait for user decision using Result pattern
         match await _execute_confirmation(interceptor, confirmation_id, fc_id, fc_name, fc_args):
@@ -375,35 +391,43 @@ class BidiEventSender:
                 logger.info(f"[BIDI Confirmation] User decision: confirmed={confirmed}")
 
                 # Yield confirmation result as SSE format string
-                yield format_sse_event({
-                    "type": "tool-output-available",
-                    "toolCallId": confirmation_id,
-                    "output": confirmation_result,
-                })
+                yield format_sse_event(
+                    {
+                        "type": "tool-output-available",
+                        "toolCallId": confirmation_id,
+                        "output": confirmation_result,
+                    }
+                )
 
                 # Execute tool if approved
                 if confirmed:
                     logger.info("[BIDI Confirmation] ========== USER APPROVED ==========")
                     # Execute tool and yield result event
-                    async for tool_event in self._execute_tool_and_continue(fc_id, fc_name, fc_args):
+                    async for tool_event in self._execute_tool_and_continue(
+                        fc_id, fc_name, fc_args
+                    ):
                         yield tool_event
                 else:
                     # User denied - yield error as SSE format string
                     logger.info(f"[BIDI Confirmation] User denied tool: {fc_name}")
-                    yield format_sse_event({
-                        "type": "tool-output-error",
-                        "toolCallId": fc_id,
-                        "error": f"Tool execution denied by user: {fc_name}",
-                    })
+                    yield format_sse_event(
+                        {
+                            "type": "tool-output-error",
+                            "toolCallId": fc_id,
+                            "error": f"Tool execution denied by user: {fc_name}",
+                        }
+                    )
 
             case Error(error_msg):
                 logger.error(f"[BIDI Confirmation] {error_msg}")
                 # Yield error as SSE format string
-                yield format_sse_event({
-                    "type": "tool-output-error",
-                    "toolCallId": fc_id,
-                    "error": error_msg,
-                })
+                yield format_sse_event(
+                    {
+                        "type": "tool-output-error",
+                        "toolCallId": fc_id,
+                        "error": error_msg,
+                    }
+                )
 
     async def _execute_tool_and_continue(self, fc_id: str, fc_name: str, fc_args: dict[str, Any]):
         """
@@ -429,11 +453,13 @@ class BidiEventSender:
                 logger.info(f"[BIDI Confirmation] Tool executed successfully: {tool_result}")
 
                 # Yield tool result to frontend as SSE format string
-                yield format_sse_event({
-                    "type": "tool-output-available",
-                    "toolCallId": fc_id,
-                    "output": tool_result,
-                })
+                yield format_sse_event(
+                    {
+                        "type": "tool-output-available",
+                        "toolCallId": fc_id,
+                        "output": tool_result,
+                    }
+                )
 
                 # Append FunctionResponse to session history
                 if self.bidi_agent_runner and hasattr(self.bidi_agent_runner, "session_service"):
@@ -445,22 +471,32 @@ class BidiEventSender:
                     content = types.Content(role="user", parts=[function_response])
                     adk_event = ADKEvent(author="user", content=content)
 
-                    await self.bidi_agent_runner.session_service.append_event(self.session, adk_event)
-                    logger.info("[BIDI Confirmation] ✅ FunctionResponse appended to session history")
+                    await self.bidi_agent_runner.session_service.append_event(
+                        self.session, adk_event
+                    )
+                    logger.info(
+                        "[BIDI Confirmation] ✅ FunctionResponse appended to session history"
+                    )
 
                     # KEY FIX: Trigger ADK continuation
                     # Send empty content to trigger ADK to generate new turn
                     continuation = types.Content(role="user", parts=[types.Part(text="")])
                     self.live_request_queue.send_content(continuation)
-                    logger.info("[BIDI Confirmation] ✅ Continuation signal sent via LiveRequestQueue")
+                    logger.info(
+                        "[BIDI Confirmation] ✅ Continuation signal sent via LiveRequestQueue"
+                    )
                 else:
-                    logger.warning("[BIDI Confirmation] ⚠️ Cannot send FunctionResponse - no session_service")
+                    logger.warning(
+                        "[BIDI Confirmation] ⚠️ Cannot send FunctionResponse - no session_service"
+                    )
 
             case Error(error_msg):
                 logger.error(f"[BIDI Confirmation] {error_msg}")
                 # Yield error as SSE format string
-                yield format_sse_event({
-                    "type": "tool-output-error",
-                    "toolCallId": fc_id,
-                    "error": error_msg,
-                })
+                yield format_sse_event(
+                    {
+                        "type": "tool-output-error",
+                        "toolCallId": fc_id,
+                        "error": error_msg,
+                    }
+                )

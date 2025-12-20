@@ -36,6 +36,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
+
 # Type definitions
 LogLocation = Literal[
     "backend-adk-event",  # ADK raw event (input)
@@ -135,8 +136,8 @@ class ChunkLogger:
             session_dir = self._output_dir / self._session_id
             file_path = session_dir / f"{location}.jsonl"
             # Open in append mode with UTF-8 encoding
-            self._file_handles[location] = open(
-                file_path, "a", encoding="utf-8", buffering=1
+            self._file_handles[location] = file_path.open(
+                "a", encoding="utf-8", buffering=1
             )  # Line buffering
         return self._file_handles[location]
 

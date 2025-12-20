@@ -322,7 +322,8 @@ describe("ToolInvocation Frontend Delegate Auto-Execution Tests", () => {
     const executeToolCallback = vi.fn();
 
     // Simulate the detection logic we implemented
-    const isAdkConfirmation = toolInvocation.toolName === "adk_request_confirmation";
+    const isAdkConfirmation =
+      toolInvocation.toolName === "adk_request_confirmation";
 
     const isLongRunningTool =
       toolInvocation.state === "input-available" &&
@@ -418,11 +419,9 @@ describe("ToolInvocation Frontend Delegate Auto-Execution Tests", () => {
     }
 
     // Then: executeToolCallback should be called with correct arguments
-    expect(executeToolCallback).toHaveBeenCalledWith(
-      "change_bgm",
-      "call-789",
-      { track: 1 },
-    );
+    expect(executeToolCallback).toHaveBeenCalledWith("change_bgm", "call-789", {
+      track: 1,
+    });
 
     // And: sendToolResult should be called with result
     expect(websocketTransport.sendToolResult).toHaveBeenCalledWith("call-789", {

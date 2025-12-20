@@ -29,7 +29,6 @@ Usage:
     tool_name = mapper.resolve_tool_result("function-call-123")
 """
 
-from __future__ import annotations
 
 from typing import Any
 
@@ -78,9 +77,7 @@ class ADKVercelIDMapper:
         self._tool_name_to_id[tool_name] = function_call_id
         self._id_to_tool_name[function_call_id] = tool_name
 
-        logger.debug(
-            f"[ADKVercelIDMapper] Registered: {tool_name} → {function_call_id}"
-        )
+        logger.debug(f"[ADKVercelIDMapper] Registered: {tool_name} → {function_call_id}")
 
     def get_function_call_id(
         self,
@@ -118,9 +115,7 @@ class ADKVercelIDMapper:
         # even when original_context is provided. This ensures confirmation Future
         # uses a separate ID from the original tool Future.
         if tool_name == "adk_request_confirmation":
-            logger.debug(
-                "[ADKVercelIDMapper] Confirmation tool lookup: using tool_name directly"
-            )
+            logger.debug("[ADKVercelIDMapper] Confirmation tool lookup: using tool_name directly")
             return self._tool_name_to_id.get(tool_name)
 
         # For other intercepted tools: use original context

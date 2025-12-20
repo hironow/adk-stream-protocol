@@ -33,17 +33,75 @@
     ],
     "expectedChunks": [
       { "type": "start", "messageId": "d8c759a5-fc5e-4c14-a395-e371966209b3" },
-      { "type": "tool-input-start", "toolCallId": "adk-4c79e452-5971-4673-ac9a-c802ae108fd5", "toolName": "get_location" },
-      { "type": "tool-input-available", "toolCallId": "adk-4c79e452-5971-4673-ac9a-c802ae108fd5", "toolName": "get_location", "input": {} },
-      { "type": "tool-input-start", "toolCallId": "adk-5cac17b1-f205-47b3-a026-91d8e3349649", "toolName": "adk_request_confirmation" },
-      { "type": "tool-input-available", "toolCallId": "adk-5cac17b1-f205-47b3-a026-91d8e3349649", "toolName": "adk_request_confirmation", "input": { "originalFunctionCall": { "id": "adk-4c79e452-5971-4673-ac9a-c802ae108fd5", "args": {}, "name": "get_location" }, "toolConfirmation": { "hint": "Please approve or reject the tool call get_location() by responding with a FunctionResponse with an expected ToolConfirmation payload.", "confirmed": false } } },
-      { "type": "finish", "finishReason": "stop", "messageMetadata": { "usage": { "promptTokens": 1636, "completionTokens": 10, "totalTokens": 1699 }, "modelVersion": "gemini-3-flash-preview" } },
+      {
+        "type": "tool-input-start",
+        "toolCallId": "adk-4c79e452-5971-4673-ac9a-c802ae108fd5",
+        "toolName": "get_location"
+      },
+      {
+        "type": "tool-input-available",
+        "toolCallId": "adk-4c79e452-5971-4673-ac9a-c802ae108fd5",
+        "toolName": "get_location",
+        "input": {}
+      },
+      {
+        "type": "tool-input-start",
+        "toolCallId": "adk-5cac17b1-f205-47b3-a026-91d8e3349649",
+        "toolName": "adk_request_confirmation"
+      },
+      {
+        "type": "tool-input-available",
+        "toolCallId": "adk-5cac17b1-f205-47b3-a026-91d8e3349649",
+        "toolName": "adk_request_confirmation",
+        "input": {
+          "originalFunctionCall": {
+            "id": "adk-4c79e452-5971-4673-ac9a-c802ae108fd5",
+            "args": {},
+            "name": "get_location"
+          },
+          "toolConfirmation": {
+            "hint": "Please approve or reject the tool call get_location() by responding with a FunctionResponse with an expected ToolConfirmation payload.",
+            "confirmed": false
+          }
+        }
+      },
+      {
+        "type": "finish",
+        "finishReason": "stop",
+        "messageMetadata": {
+          "usage": {
+            "promptTokens": 1636,
+            "completionTokens": 10,
+            "totalTokens": 1699
+          },
+          "modelVersion": "gemini-3-flash-preview"
+        }
+      },
       { "type": "start", "messageId": "b2c3d4e5-f6a7-8901-bcde-f12345678901" },
-      { "type": "tool-output-error", "toolCallId": "adk-4c79e452-5971-4673-ac9a-c802ae108fd5", "errorText": "This tool call is rejected." },
+      {
+        "type": "tool-output-error",
+        "toolCallId": "adk-4c79e452-5971-4673-ac9a-c802ae108fd5",
+        "errorText": "This tool call is rejected."
+      },
       { "type": "text-start", "id": "0" },
-      { "type": "text-delta", "id": "0", "delta": "現在地の取得リクエストは承認されませんでした。位置情報の共有が必要な場合は、再度お知らせください。" },
+      {
+        "type": "text-delta",
+        "id": "0",
+        "delta": "現在地の取得リクエストは承認されませんでした。位置情報の共有が必要な場合は、再度お知らせください。"
+      },
       { "type": "text-end", "id": "0" },
-      { "type": "finish", "finishReason": "stop", "messageMetadata": { "usage": { "promptTokens": 1820, "completionTokens": 22, "totalTokens": 1842 }, "modelVersion": "gemini-3-flash-preview" } }
+      {
+        "type": "finish",
+        "finishReason": "stop",
+        "messageMetadata": {
+          "usage": {
+            "promptTokens": 1820,
+            "completionTokens": 22,
+            "totalTokens": 1842
+          },
+          "modelVersion": "gemini-3-flash-preview"
+        }
+      }
     ],
     "expectedDoneCount": 2,
     "expectedStreamCompletion": true

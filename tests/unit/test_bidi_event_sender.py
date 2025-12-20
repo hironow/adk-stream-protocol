@@ -11,7 +11,9 @@ import pytest
 from fastapi import WebSocketDisconnect
 from google.adk.sessions import Session
 
+from result.result import Error, Ok
 from services.bidi_event_sender import BidiEventSender
+
 
 # ============================================================
 # Initialization Tests
@@ -152,17 +154,16 @@ async def test_send_events_sends_sse_events_to_websocket() -> None:
         yield 'data: {"type":"text-delta","text":" World"}\n\n'
 
     # when
-    with patch(
-        "services.bidi_event_sender.ToolConfirmationInterceptor"
-    ), patch("services.bidi_event_sender.stream_adk_to_ai_sdk", return_value=mock_stream()):
+    with (
+        patch("services.bidi_event_sender.ToolConfirmationInterceptor"),
+        patch("services.bidi_event_sender.stream_adk_to_ai_sdk", return_value=mock_stream()),
+    ):
         await sender.send_events(mock_live_events())
 
         # then
         assert mock_websocket.send_text.call_count == 2
         mock_websocket.send_text.assert_any_call('data: {"type":"text-delta","text":"Hello"}\n\n')
-        mock_websocket.send_text.assert_any_call(
-            'data: {"type":"text-delta","text":" World"}\n\n'
-        )
+        mock_websocket.send_text.assert_any_call('data: {"type":"text-delta","text":" World"}\n\n')
 
 
 # ============================================================
@@ -185,7 +186,7 @@ async def test_send_events_handles_websocket_disconnect_gracefully() -> None:
         frontend_delegate=mock_delegate,
         confirmation_tools=[],
         session=mock_session,
-    live_request_queue=mock_live_request_queue,
+        live_request_queue=mock_live_request_queue,
     )
 
     async def mock_live_events():
@@ -195,9 +196,10 @@ async def test_send_events_handles_websocket_disconnect_gracefully() -> None:
         yield 'data: {"type":"text-delta","text":"Test"}\n\n'
 
     # when/then - should not raise
-    with patch(
-        "services.bidi_event_sender.ToolConfirmationInterceptor"
-    ), patch("services.bidi_event_sender.stream_adk_to_ai_sdk", return_value=mock_stream()):
+    with (
+        patch("services.bidi_event_sender.ToolConfirmationInterceptor"),
+        patch("services.bidi_event_sender.stream_adk_to_ai_sdk", return_value=mock_stream()),
+    ):
         await sender.send_events(mock_live_events())
         # No exception should be raised
 
@@ -217,7 +219,7 @@ async def test_send_events_handles_session_resumption_error_silently() -> None:
         frontend_delegate=mock_delegate,
         confirmation_tools=[],
         session=mock_session,
-    live_request_queue=mock_live_request_queue,
+        live_request_queue=mock_live_request_queue,
     )
 
     async def mock_live_events():
@@ -228,9 +230,13 @@ async def test_send_events_handles_session_resumption_error_silently() -> None:
         yield  # Make it a generator (unreachable)
 
     # when
-    with patch(
-        "services.bidi_event_sender.ToolConfirmationInterceptor"
-    ), patch("services.bidi_event_sender.stream_adk_to_ai_sdk", side_effect=lambda *args, **kwargs: mock_stream_generator()):
+    with (
+        patch("services.bidi_event_sender.ToolConfirmationInterceptor"),
+        patch(
+            "services.bidi_event_sender.stream_adk_to_ai_sdk",
+            side_effect=lambda *args, **kwargs: mock_stream_generator(),
+        ),
+    ):
         with pytest.raises(ValueError, match="Transparent session resumption"):
             await sender.send_events(mock_live_events())
 
@@ -250,7 +256,7 @@ async def test_send_events_raises_other_value_errors() -> None:
         frontend_delegate=mock_delegate,
         confirmation_tools=[],
         session=mock_session,
-    live_request_queue=mock_live_request_queue,
+        live_request_queue=mock_live_request_queue,
     )
 
     async def mock_live_events():
@@ -261,9 +267,13 @@ async def test_send_events_raises_other_value_errors() -> None:
         yield  # Make it a generator (unreachable)
 
     # when/then
-    with patch(
-        "services.bidi_event_sender.ToolConfirmationInterceptor"
-    ), patch("services.bidi_event_sender.stream_adk_to_ai_sdk", side_effect=lambda *args, **kwargs: mock_stream_generator()):
+    with (
+        patch("services.bidi_event_sender.ToolConfirmationInterceptor"),
+        patch(
+            "services.bidi_event_sender.stream_adk_to_ai_sdk",
+            side_effect=lambda *args, **kwargs: mock_stream_generator(),
+        ),
+    ):
         with pytest.raises(ValueError, match="Some other error"):
             await sender.send_events(mock_live_events())
 
@@ -283,7 +293,7 @@ async def test_send_events_raises_other_exceptions() -> None:
         frontend_delegate=mock_delegate,
         confirmation_tools=[],
         session=mock_session,
-    live_request_queue=mock_live_request_queue,
+        live_request_queue=mock_live_request_queue,
     )
 
     async def mock_live_events():
@@ -294,9 +304,13 @@ async def test_send_events_raises_other_exceptions() -> None:
         yield  # Make it a generator (unreachable)
 
     # when/then
-    with patch(
-        "services.bidi_event_sender.ToolConfirmationInterceptor"
-    ), patch("services.bidi_event_sender.stream_adk_to_ai_sdk", side_effect=lambda *args, **kwargs: mock_stream_generator()):
+    with (
+        patch("services.bidi_event_sender.ToolConfirmationInterceptor"),
+        patch(
+            "services.bidi_event_sender.stream_adk_to_ai_sdk",
+            side_effect=lambda *args, **kwargs: mock_stream_generator(),
+        ),
+    ):
         with pytest.raises(RuntimeError, match="Unexpected error"):
             await sender.send_events(mock_live_events())
 
@@ -313,7 +327,7 @@ async def test_send_sse_event_registers_tool_input_available_id_mapping() -> Non
     mock_websocket = Mock()
     mock_websocket.send_text = AsyncMock()
     mock_delegate = Mock()
-    mock_delegate.set_function_call_id = Mock()
+    mock_delegate.set_function_call_id = Mock(return_value=Ok(None))
     mock_session = Mock(spec=Session)
     mock_live_request_queue = Mock()
 
@@ -322,10 +336,12 @@ async def test_send_sse_event_registers_tool_input_available_id_mapping() -> Non
         frontend_delegate=mock_delegate,
         confirmation_tools=[],
         session=mock_session,
-    live_request_queue=mock_live_request_queue,
+        live_request_queue=mock_live_request_queue,
     )
 
-    sse_event = 'data: {"type":"tool-input-available","toolName":"get_weather","toolCallId":"call-123"}\n\n'
+    sse_event = (
+        'data: {"type":"tool-input-available","toolName":"get_weather","toolCallId":"call-123"}\n\n'
+    )
 
     # when
     await sender._send_sse_event(sse_event)
@@ -350,7 +366,7 @@ async def test_send_sse_event_handles_tool_approval_request() -> None:
         frontend_delegate=mock_delegate,
         confirmation_tools=["process_payment"],
         session=mock_session,
-    live_request_queue=mock_live_request_queue,
+        live_request_queue=mock_live_request_queue,
     )
 
     sse_event = 'data: {"type":"tool-approval-request","toolName":"process_payment","toolCallId":"call-456"}\n\n'
@@ -377,7 +393,7 @@ async def test_send_sse_event_handles_non_data_events() -> None:
         frontend_delegate=mock_delegate,
         confirmation_tools=[],
         session=mock_session,
-    live_request_queue=mock_live_request_queue,
+        live_request_queue=mock_live_request_queue,
     )
 
     sse_event = "event: ping\n\n"
@@ -404,7 +420,7 @@ async def test_send_sse_event_handles_json_parse_errors_gracefully() -> None:
         frontend_delegate=mock_delegate,
         confirmation_tools=[],
         session=mock_session,
-    live_request_queue=mock_live_request_queue,
+        live_request_queue=mock_live_request_queue,
     )
 
     sse_event = "data: {invalid json}\n\n"
@@ -423,7 +439,7 @@ async def test_send_sse_event_skips_id_mapping_when_tool_name_missing() -> None:
     mock_websocket = Mock()
     mock_websocket.send_text = AsyncMock()
     mock_delegate = Mock()
-    mock_delegate.set_function_call_id = Mock()
+    mock_delegate.set_function_call_id = Mock(return_value=Ok(None))
     mock_session = Mock(spec=Session)
     mock_live_request_queue = Mock()
 
@@ -432,7 +448,7 @@ async def test_send_sse_event_skips_id_mapping_when_tool_name_missing() -> None:
         frontend_delegate=mock_delegate,
         confirmation_tools=[],
         session=mock_session,
-    live_request_queue=mock_live_request_queue,
+        live_request_queue=mock_live_request_queue,
     )
 
     sse_event = 'data: {"type":"tool-input-available","toolCallId":"call-123"}\n\n'
@@ -452,7 +468,7 @@ async def test_send_sse_event_skips_id_mapping_when_tool_call_id_missing() -> No
     mock_websocket = Mock()
     mock_websocket.send_text = AsyncMock()
     mock_delegate = Mock()
-    mock_delegate.set_function_call_id = Mock()
+    mock_delegate.set_function_call_id = Mock(return_value=Ok(None))
     mock_session = Mock(spec=Session)
     mock_live_request_queue = Mock()
 
@@ -461,7 +477,7 @@ async def test_send_sse_event_skips_id_mapping_when_tool_call_id_missing() -> No
         frontend_delegate=mock_delegate,
         confirmation_tools=[],
         session=mock_session,
-    live_request_queue=mock_live_request_queue,
+        live_request_queue=mock_live_request_queue,
     )
 
     sse_event = 'data: {"type":"tool-input-available","toolName":"get_weather"}\n\n'
@@ -493,7 +509,7 @@ async def test_send_sse_event_with_websocket_send_error_raises() -> None:
         frontend_delegate=Mock(),
         confirmation_tools=[],
         session=mock_session,
-    live_request_queue=mock_live_request_queue,
+        live_request_queue=mock_live_request_queue,
     )
 
     sse_event = 'data: {"type":"text-delta","text":"test"}\n\n'
@@ -510,9 +526,7 @@ async def test_send_sse_event_with_set_function_call_id_error_handles_gracefully
     mock_websocket = Mock()
     mock_websocket.send_text = AsyncMock()
     mock_delegate = Mock()
-    mock_delegate.set_function_call_id = Mock(
-        side_effect=RuntimeError("ID mapping error")
-    )
+    mock_delegate.set_function_call_id = Mock(return_value=Error("ID mapping error"))
     mock_session = Mock(spec=Session)
     mock_live_request_queue = Mock()
 
@@ -521,10 +535,12 @@ async def test_send_sse_event_with_set_function_call_id_error_handles_gracefully
         frontend_delegate=mock_delegate,
         confirmation_tools=[],
         session=mock_session,
-    live_request_queue=mock_live_request_queue,
+        live_request_queue=mock_live_request_queue,
     )
 
-    sse_event = 'data: {"type":"tool-input-available","toolName":"get_weather","toolCallId":"call-123"}\n\n'
+    sse_event = (
+        'data: {"type":"tool-input-available","toolName":"get_weather","toolCallId":"call-123"}\n\n'
+    )
 
     # when - should not raise, just log debug message
     await sender._send_sse_event(sse_event)
@@ -547,7 +563,7 @@ async def test_send_events_with_stream_error_after_first_event() -> None:
         frontend_delegate=Mock(),
         confirmation_tools=[],
         session=mock_session,
-    live_request_queue=mock_live_request_queue,
+        live_request_queue=mock_live_request_queue,
     )
 
     async def mock_live_events():
@@ -559,11 +575,12 @@ async def test_send_events_with_stream_error_after_first_event() -> None:
         yield  # Make it a generator (unreachable)
 
     # when/then
-    with patch(
-        "services.bidi_event_sender.ToolConfirmationInterceptor"
-    ), patch(
-        "services.bidi_event_sender.stream_adk_to_ai_sdk",
-        side_effect=lambda *args, **kwargs: mock_stream_generator(),
+    with (
+        patch("services.bidi_event_sender.ToolConfirmationInterceptor"),
+        patch(
+            "services.bidi_event_sender.stream_adk_to_ai_sdk",
+            side_effect=lambda *args, **kwargs: mock_stream_generator(),
+        ),
     ):
         with pytest.raises(RuntimeError, match="Stream interrupted"):
             await sender.send_events(mock_live_events())
@@ -586,7 +603,7 @@ async def test_send_sse_event_with_malformed_sse_format() -> None:
         frontend_delegate=Mock(),
         confirmation_tools=[],
         session=mock_session,
-    live_request_queue=mock_live_request_queue,
+        live_request_queue=mock_live_request_queue,
     )
 
     # Malformed SSE: missing newlines
@@ -613,10 +630,12 @@ async def test_send_sse_event_with_none_frontend_delegate_handles_gracefully() -
         frontend_delegate=None,  # type: ignore
         confirmation_tools=[],
         session=mock_session,
-    live_request_queue=mock_live_request_queue,
+        live_request_queue=mock_live_request_queue,
     )
 
-    sse_event = 'data: {"type":"tool-input-available","toolName":"get_weather","toolCallId":"call-123"}\n\n'
+    sse_event = (
+        'data: {"type":"tool-input-available","toolName":"get_weather","toolCallId":"call-123"}\n\n'
+    )
 
     # when - should not raise
     await sender._send_sse_event(sse_event)
@@ -639,7 +658,7 @@ async def test_send_events_with_empty_live_events() -> None:
         frontend_delegate=Mock(),
         confirmation_tools=[],
         session=mock_session,
-    live_request_queue=mock_live_request_queue,
+        live_request_queue=mock_live_request_queue,
     )
 
     async def mock_live_events():
@@ -653,11 +672,12 @@ async def test_send_events_with_empty_live_events() -> None:
         yield  # Make it a generator (unreachable)
 
     # when
-    with patch(
-        "services.bidi_event_sender.ToolConfirmationInterceptor"
-    ), patch(
-        "services.bidi_event_sender.stream_adk_to_ai_sdk",
-        side_effect=lambda *args, **kwargs: mock_stream(),
+    with (
+        patch("services.bidi_event_sender.ToolConfirmationInterceptor"),
+        patch(
+            "services.bidi_event_sender.stream_adk_to_ai_sdk",
+            side_effect=lambda *args, **kwargs: mock_stream(),
+        ),
     ):
         await sender.send_events(mock_live_events())
 
@@ -679,7 +699,7 @@ async def test_send_sse_event_with_very_large_payload() -> None:
         frontend_delegate=Mock(),
         confirmation_tools=[],
         session=mock_session,
-    live_request_queue=mock_live_request_queue,
+        live_request_queue=mock_live_request_queue,
     )
 
     # Create a large payload (100KB)
@@ -707,7 +727,7 @@ async def test_send_sse_event_with_invalid_json_in_data() -> None:
         frontend_delegate=Mock(),
         confirmation_tools=[],
         session=mock_session,
-    live_request_queue=mock_live_request_queue,
+        live_request_queue=mock_live_request_queue,
     )
 
     # Invalid JSON

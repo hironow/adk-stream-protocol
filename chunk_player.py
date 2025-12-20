@@ -33,6 +33,7 @@ from typing import Any, Literal
 # Import from chunk_logger for consistent types
 from chunk_logger import ChunkLogEntry, LogLocation
 
+
 PlaybackMode = Literal["real-time", "fast-forward", "step"]
 
 
@@ -66,7 +67,7 @@ class ChunkPlayer:
     async def play(
         self,
         mode: PlaybackMode = "fast-forward",
-    ) -> AsyncGenerator[ChunkLogEntry, None]:
+    ) -> AsyncGenerator[ChunkLogEntry]:
         """
         Replay chunks from JSONL file.
 
@@ -117,7 +118,7 @@ class ChunkPlayer:
         """
         entries: list[ChunkLogEntry] = []
 
-        with open(self._jsonl_file, encoding="utf-8") as f:
+        with self._jsonl_file.open(encoding="utf-8") as f:
             for line_no, line in enumerate(f, start=1):
                 line = line.strip()
                 if not line:

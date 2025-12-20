@@ -12,7 +12,6 @@ Design Context:
 - BIDI Mode: Manual interception required (tested here)
 """
 
-from __future__ import annotations
 
 import asyncio
 from unittest.mock import AsyncMock, Mock
@@ -22,7 +21,10 @@ from google.genai import types
 
 from adk_vercel_id_mapper import ADKVercelIDMapper
 from confirmation_interceptor import ToolConfirmationInterceptor
+from result.result import Ok
 from services.frontend_tool_service import FrontendToolDelegate
+from tests.utils.result_assertions import assert_error, assert_ok
+
 
 # ============================================================
 # Initialization Tests
@@ -180,10 +182,11 @@ async def test_execute_confirmation_approved() -> None:
         delegate.resolve_tool_result("function-call-123", {"confirmed": True})
 
     approval_task = asyncio.create_task(simulate_user_approval())
-    result = await interceptor.execute_confirmation("function-call-123", original_fc)
+    result_or_error = await interceptor.execute_confirmation("function-call-123", original_fc)
     await approval_task
 
     # then
+    result = assert_ok(result_or_error)
     assert result == {"confirmed": True}
 
 
@@ -205,10 +208,11 @@ async def test_execute_confirmation_denied() -> None:
         delegate.resolve_tool_result("function-call-456", {"confirmed": False})
 
     denial_task = asyncio.create_task(simulate_user_denial())
-    result = await interceptor.execute_confirmation("function-call-456", original_fc)
+    result_or_error = await interceptor.execute_confirmation("function-call-456", original_fc)
     await denial_task
 
     # then
+    result = assert_ok(result_or_error)
     assert result == {"confirmed": False}
 
 
@@ -217,14 +221,14 @@ async def test_execute_confirmation_calls_delegate_with_correct_args() -> None:
     """execute_confirmation() should call delegate.execute_on_frontend with correct arguments."""
     # given
     mock_delegate = Mock(spec=FrontendToolDelegate)
-    mock_delegate.execute_on_frontend = AsyncMock(return_value={"confirmed": True})
+    mock_delegate.execute_on_frontend = AsyncMock(return_value=Ok({"confirmed": True}))
 
     interceptor = ToolConfirmationInterceptor(mock_delegate, ["process_payment"])
 
     original_fc = {"id": "call_789", "name": "process_payment", "args": {"amount": 300}}
 
     # when
-    result = await interceptor.execute_confirmation("call_789", original_fc)
+    result_or_error = await interceptor.execute_confirmation("call_789", original_fc)
 
     # then
     mock_delegate.execute_on_frontend.assert_called_once()
@@ -234,6 +238,8 @@ async def test_execute_confirmation_calls_delegate_with_correct_args() -> None:
     assert call_kwargs["args"]["originalFunctionCall"] == original_fc
     assert call_kwargs["args"]["toolConfirmation"] == {"confirmed": False}
     assert call_kwargs["original_context"] == original_fc
+
+    result = assert_ok(result_or_error)
     assert result == {"confirmed": True}
 
 
@@ -258,10 +264,11 @@ async def test_execute_confirmation_with_different_tool_names() -> None:
         delegate.resolve_tool_result("delete-call-999", {"confirmed": True})
 
     approval_task = asyncio.create_task(simulate_approval())
-    result = await interceptor.execute_confirmation("delete-call-999", original_fc)
+    result_or_error = await interceptor.execute_confirmation("delete-call-999", original_fc)
     await approval_task
 
     # then
+    result = assert_ok(result_or_error)
     assert result == {"confirmed": True}
 
 
@@ -282,11 +289,10 @@ async def test_execute_confirmation_timeout_propagation() -> None:
     original_fc = {"id": "timeout-call", "name": "process_payment", "args": {}}
 
     # when/then - Should timeout after 5 seconds (no resolution)
-    with pytest.raises(
-        TimeoutError,
-        match="Frontend tool execution timeout for adk_request_confirmation",
-    ):
-        await interceptor.execute_confirmation("timeout-call", original_fc)
+    result_or_error = await interceptor.execute_confirmation("timeout-call", original_fc)
+    error_msg = assert_error(result_or_error)
+    assert "timeout" in error_msg.lower()
+    assert "adk_request_confirmation" in error_msg
 
 
 @pytest.mark.asyncio
@@ -308,10 +314,11 @@ async def test_execute_confirmation_handles_missing_confirmed_field() -> None:
         delegate.resolve_tool_result("malformed-call", {"error": "something went wrong"})
 
     response_task = asyncio.create_task(simulate_malformed_response())
-    result = await interceptor.execute_confirmation("malformed-call", original_fc)
+    result_or_error = await interceptor.execute_confirmation("malformed-call", original_fc)
     await response_task
 
     # then - Should default to False
+    result = assert_ok(result_or_error)
     assert result.get("confirmed", False) is False
 
 
@@ -354,10 +361,11 @@ async def test_interceptor_integrates_with_real_delegate() -> None:
         )
 
     frontend_task = asyncio.create_task(simulate_frontend_flow())
-    result = await interceptor.execute_confirmation("integration-call-123", original_fc)
+    result_or_error = await interceptor.execute_confirmation("integration-call-123", original_fc)
     await frontend_task
 
     # then
+    result = assert_ok(result_or_error)
     assert result["confirmed"] is True
     assert result["user_message"] == "Approved by user"
 
@@ -380,7 +388,7 @@ async def test_multiple_sequential_confirmations() -> None:
         delegate.resolve_tool_result("seq-call-1", {"confirmed": True})
 
     task1 = asyncio.create_task(approve_first())
-    result1 = await interceptor.execute_confirmation("seq-call-1", original_fc_1)
+    result1_or_error = await interceptor.execute_confirmation("seq-call-1", original_fc_1)
     await task1
 
     # Update ID mapper for second call
@@ -395,10 +403,12 @@ async def test_multiple_sequential_confirmations() -> None:
         delegate.resolve_tool_result("seq-call-2", {"confirmed": False})
 
     task2 = asyncio.create_task(deny_second())
-    result2 = await interceptor.execute_confirmation("seq-call-2", original_fc_2)
+    result2_or_error = await interceptor.execute_confirmation("seq-call-2", original_fc_2)
     await task2
 
     # then
+    result1 = assert_ok(result1_or_error)
+    result2 = assert_ok(result2_or_error)
     assert result1["confirmed"] is True
     assert result2["confirmed"] is False
 
@@ -450,8 +460,9 @@ async def test_execute_confirmation_with_complex_args() -> None:
         delegate.resolve_tool_result("complex-call-001", {"confirmed": True})
 
     task = asyncio.create_task(approve_complex())
-    result = await interceptor.execute_confirmation("complex-call-001", original_fc)
+    result_or_error = await interceptor.execute_confirmation("complex-call-001", original_fc)
     await task
 
     # then
+    result = assert_ok(result_or_error)
     assert result["confirmed"] is True

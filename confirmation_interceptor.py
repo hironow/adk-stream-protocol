@@ -12,7 +12,6 @@ This interceptor is ONLY used in BIDI mode. SSE mode continues using
 ADK's native confirmation mechanism for stability and maintainability.
 """
 
-from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, assert_never
 
@@ -20,6 +19,7 @@ from google.genai import types
 from loguru import logger
 
 from result.result import Error, Ok, Result
+
 
 if TYPE_CHECKING:
     from services.frontend_tool_service import FrontendToolDelegate
@@ -111,7 +111,9 @@ class ToolConfirmationInterceptor:
         match result_or_error:
             case Ok(result):
                 confirmed = result.get("confirmed", False)
-                logger.info(f"[ToolConfirmationInterceptor] Confirmation result: confirmed={confirmed}")
+                logger.info(
+                    f"[ToolConfirmationInterceptor] Confirmation result: confirmed={confirmed}"
+                )
                 return Ok(result)
             case Error(error_msg):
                 logger.error(f"[ToolConfirmationInterceptor] Confirmation failed: {error_msg}")

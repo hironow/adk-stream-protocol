@@ -10,13 +10,13 @@ Tests the tool approval flow:
 Based on AI SDK v6 Data Stream Protocol.
 """
 
-from __future__ import annotations
 
 import json
 import uuid
 from typing import TYPE_CHECKING, Any
 
 import pytest
+
 
 if TYPE_CHECKING:
     pass

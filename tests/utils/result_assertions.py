@@ -5,19 +5,13 @@ Provides helper functions for asserting Ok/Error variants in tests,
 following the pattern recommended in result/README.md.
 """
 
-from __future__ import annotations
-
-from typing import TypeVar
 
 import pytest
 
 from result.result import Error, Ok, Result
 
-_T = TypeVar("_T")
-_E = TypeVar("_E")
 
-
-def assert_ok(result: Result[_T, _E]) -> _T:
+def assert_ok[T, E](result: Result[T, E]) -> T:
     """
     Assert that Result is Ok and return the value.
 
@@ -38,7 +32,7 @@ def assert_ok(result: Result[_T, _E]) -> _T:
             raise AssertionError("unreachable")  # for type checker
 
 
-def assert_error(result: Result[_T, _E]) -> _E:
+def assert_error[T, E](result: Result[T, E]) -> E:
     """
     Assert that Result is Error and return the error message.
 

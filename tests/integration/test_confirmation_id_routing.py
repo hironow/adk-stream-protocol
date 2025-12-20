@@ -11,7 +11,6 @@ Expected: RED (FAIL) until bug is fixed
 Purpose: Detect ID routing issues BEFORE E2E tests
 """
 
-from __future__ import annotations
 
 import asyncio
 
@@ -20,6 +19,7 @@ import pytest
 from adk_vercel_id_mapper import ADKVercelIDMapper
 from confirmation_interceptor import ToolConfirmationInterceptor
 from services.frontend_tool_service import FrontendToolDelegate
+from tests.utils.result_assertions import assert_ok
 
 
 class TestConfirmationIDRouting:
@@ -95,7 +95,7 @@ class TestConfirmationIDRouting:
         # when: Backend executes confirmation flow
         original_context = {"name": tool_name, "id": function_call_id}
 
-        confirmation_result = await confirmation_interceptor.execute_confirmation(
+        confirmation_result_or_error = await confirmation_interceptor.execute_confirmation(
             tool_call_id=function_call_id,
             original_function_call=original_context,
         )
@@ -104,6 +104,7 @@ class TestConfirmationIDRouting:
         #       NOT location data!
         #
         # After the fix, confirmation_result should contain correct confirmation data
+        confirmation_result = assert_ok(confirmation_result_or_error)
         assert "confirmed" in confirmation_result, (
             f"Expected confirmation result to have 'confirmed' field, "
             f"but got: {confirmation_result}. "
@@ -111,9 +112,9 @@ class TestConfirmationIDRouting:
             f"the wrong data (likely original tool result)."
         )
 
-        assert isinstance(
-            confirmation_result["confirmed"], bool
-        ), f"Expected 'confirmed' to be bool, got: {type(confirmation_result['confirmed'])}"
+        assert isinstance(confirmation_result["confirmed"], bool), (
+            f"Expected 'confirmed' to be bool, got: {type(confirmation_result['confirmed'])}"
+        )
 
         # Confirmation properly received {confirmed: ...}
         # Bug is fixed!
@@ -162,18 +163,19 @@ class TestConfirmationIDRouting:
         # when: Create two separate futures using ID mapper
         # BUG: original_context causes ID mapper to return WRONG ID
         async def wait_for_original() -> dict:
-            return await frontend_delegate.execute_on_frontend(
+            result_or_error = await frontend_delegate.execute_on_frontend(
                 tool_name="get_location",
                 args={},
-                tool_call_id=original_id,
             )
+            return assert_ok(result_or_error)
 
         async def wait_for_confirmation() -> dict:
-            return await frontend_delegate.execute_on_frontend(
+            result_or_error = await frontend_delegate.execute_on_frontend(
                 tool_name="adk_request_confirmation",
                 args={"originalFunctionCall": {"id": original_id, "name": "get_location"}},
                 original_context={"id": original_id, "name": "get_location"},
             )
+            return assert_ok(result_or_error)
 
         # Create tasks concurrently
         original_task = asyncio.create_task(wait_for_original())
@@ -226,14 +228,14 @@ class TestConfirmationIDRouting:
 
         async def wait_with_timeout() -> dict | None:
             try:
-                return await asyncio.wait_for(
+                result_or_error = await asyncio.wait_for(
                     frontend_delegate.execute_on_frontend(
                         tool_name="get_location",
                         args={},
-                        tool_call_id=tool_id,
                     ),
                     timeout=0.1,
                 )
+                return assert_ok(result_or_error)
             except TimeoutError:
                 return None
 
@@ -286,13 +288,14 @@ class TestConfirmationIDRouting:
         original_context = {"name": "get_location", "id": original_id}
 
         try:
-            result = await asyncio.wait_for(
+            result_or_error = await asyncio.wait_for(
                 confirmation_interceptor.execute_confirmation(
                     tool_call_id=original_id,
                     original_function_call=original_context,
                 ),
                 timeout=0.2,
             )
+            result = assert_ok(result_or_error)
 
             # then: Confirmation ID should be registered in mapper
             registered_id = id_mapper.get_function_call_id("adk_request_confirmation")

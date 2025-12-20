@@ -10,7 +10,6 @@ These tests verify the integration of 4 components:
 Purpose: Catch component integration issues before E2E tests.
 """
 
-from __future__ import annotations
 
 import asyncio
 from unittest.mock import Mock
@@ -20,6 +19,7 @@ import pytest
 from adk_vercel_id_mapper import ADKVercelIDMapper
 from confirmation_interceptor import ToolConfirmationInterceptor
 from services.frontend_tool_service import FrontendToolDelegate
+from tests.utils.result_assertions import assert_ok
 
 
 class TestADKVercelIDMapperIntegration:
@@ -239,7 +239,8 @@ class TestADKVercelIDMapperIntegration:
 
         # Wait for both tasks
         await confirmation_future
-        result = await confirmation_task
+        result_or_error = await confirmation_task
+        result = assert_ok(result_or_error)
 
         # then: Confirmation result is received
         assert result["confirmed"] is True

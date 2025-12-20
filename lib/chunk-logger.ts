@@ -79,7 +79,8 @@ export class ChunkLogger {
     // Priority: constructor arg > env var > localStorage > default
     this._enabled =
       enabled ??
-      this._getEnvBoolean("NEXT_PUBLIC_CHUNK_LOGGER_ENABLED") ?? true;
+      this._getEnvBoolean("NEXT_PUBLIC_CHUNK_LOGGER_ENABLED") ??
+      true;
     this._sessionId =
       sessionId ??
       this._getEnvString("NEXT_PUBLIC_CHUNK_LOGGER_SESSION_ID") ??

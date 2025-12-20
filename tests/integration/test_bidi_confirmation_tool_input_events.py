@@ -16,8 +16,8 @@ This test verifies that BidiEventSender sends:
 Expected to FAIL until fixed.
 """
 
-from __future__ import annotations
 
+import asyncio
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -169,9 +169,15 @@ async def test_bidi_confirmation_event_sequence() -> None:
     async def mock_live_events():
         yield function_call_event
 
+    # Mock frontend sending confirmation response
+    async def simulate_confirmation_response():
+        await asyncio.sleep(0.05)
+        frontend_delegate.resolve_tool_result(confirmation_id, {"confirmed": True})
+
     # when
-    with pytest.raises(AttributeError):  # Expected - interceptor not mocked
-        await sender.send_events(mock_live_events())
+    response_task = asyncio.create_task(simulate_confirmation_response())
+    await sender.send_events(mock_live_events())
+    await response_task
 
     # then - verify event sequence
     # Expected sequence:
@@ -183,12 +189,9 @@ async def test_bidi_confirmation_event_sequence() -> None:
     # 6. tool-output-available (toolCallId: function-call-9656672104687609647)
 
     # Verify original tool-input events exist
-    has_original_tool_input_start = any(
-        "tool-input-start" in e and fc_id in e for e in sent_events
-    )
+    has_original_tool_input_start = any("tool-input-start" in e and fc_id in e for e in sent_events)
     has_original_tool_input_available = any(
-        "tool-input-available" in e and fc_id in e and "process_payment" in e
-        for e in sent_events
+        "tool-input-available" in e and fc_id in e and "process_payment" in e for e in sent_events
     )
 
     # ASSERTIONS (RED - expected to fail)

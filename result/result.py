@@ -8,6 +8,7 @@ from typing import Generic, TypeVar
 
 from loguru import logger
 
+
 _T = TypeVar("_T")
 _E = TypeVar("_E")
 

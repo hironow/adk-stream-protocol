@@ -12,7 +12,6 @@ Tests the structured event format introduced in P2-T2 for handling:
 Based on TypeScript implementation in lib/websocket-chat-transport.ts
 """
 
-from __future__ import annotations
 
 import base64
 import json
@@ -21,6 +20,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 from fastapi import WebSocket
+
 
 if TYPE_CHECKING:
     pass

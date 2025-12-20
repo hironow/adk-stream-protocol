@@ -13,7 +13,6 @@ Expected Results:
 - After refactoring, tests will PASS (GREEN)
 """
 
-from __future__ import annotations
 
 import pytest
 
@@ -58,7 +57,7 @@ class TestServerSSEDoneStreamLifecyclePrinciple:
         # Read response stream
         events = []
         async for chunk in response.body_iterator:
-            events.append(chunk if isinstance(chunk, str) else chunk.decode("utf-8"))
+            events.append(chunk if isinstance(chunk, str) else bytes(chunk).decode("utf-8"))
 
         # then: Response should use StreamProtocolConverter.finalize() format
         # Verify the response contains:
@@ -68,11 +67,15 @@ class TestServerSSEDoneStreamLifecyclePrinciple:
 
         # First event should be error event from finalize()
         assert "data:" in events[0], "First event should be SSE formatted"
-        assert '"type": "error"' in events[0] or "'type': 'error'" in events[0], "First event should be error type"
+        assert '"type": "error"' in events[0] or "'type': 'error'" in events[0], (
+            "First event should be error type"
+        )
         assert error_message in events[0], "First event should contain error message"
 
         # Second event should be [DONE] marker from finalize()
-        assert events[1] == "data: [DONE]\n\n", "Second event should be [DONE] marker from finalize()"
+        assert events[1] == "data: [DONE]\n\n", (
+            "Second event should be [DONE] marker from finalize()"
+        )
 
     @pytest.mark.asyncio
     async def test_error_responses_should_use_stream_protocol_converter(self) -> None:
@@ -112,7 +115,7 @@ class TestServerSSEDoneStreamLifecyclePrinciple:
         # Read response stream
         events = []
         async for chunk in response.body_iterator:
-            events.append(chunk if isinstance(chunk, str) else chunk.decode("utf-8"))
+            events.append(chunk if isinstance(chunk, str) else bytes(chunk).decode("utf-8"))
 
         # then: Verify structure indicates StreamProtocolConverter usage
         # StreamProtocolConverter should generate structured events, not raw error dicts

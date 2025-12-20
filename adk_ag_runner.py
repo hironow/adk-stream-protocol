@@ -120,7 +120,7 @@ sse_agent = Agent(
     model="gemini-3-flash-preview",  # Gemini 3 Flash Preview for generateContent API (SSE mode)
     description=AGENT_DESCRIPTION,
     instruction=AGENT_INSTRUCTION,
-    tools=COMMON_TOOLS,  # Uses common tools definition
+    tools=COMMON_TOOLS,  # type: ignore[arg-type]  # Uses common tools definition
     # Note: ADK Agent doesn't support seed and temperature parameters
 )
 
@@ -133,7 +133,7 @@ bidi_agent = Agent(
     model=bidi_model,  # Configurable model for BIDI mode
     description=AGENT_DESCRIPTION,
     instruction=AGENT_INSTRUCTION,
-    tools=COMMON_TOOLS,  # Uses common tools definition
+    tools=COMMON_TOOLS,  # type: ignore[arg-type]  # Uses common tools definition
     # Note: ADK Agent doesn't support seed and temperature parameters
 )
 

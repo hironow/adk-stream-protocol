@@ -1,0 +1,124 @@
+rules:
+  # =================================================================
+  # Design Constraints
+  # =================================================================
+  - id: python-forbid-abc
+    message: "ABC/ABCMeta の利用は禁止です（時期尚早）。抽象化は十分に必要になってから導入してください。"
+    languages: [python]
+    severity: ERROR
+    patterns:
+      - pattern-either:
+          - pattern: from abc import ABC
+          - pattern: from abc import ABCMeta
+          - pattern: |
+              class $C(ABC, ...):
+          - pattern: |
+              class $C(abc.ABC, ...):
+          - pattern: |
+              class $C(metaclass=ABCMeta, ...):
+          - pattern: |
+              class $C(metaclass=abc.ABCMeta, ...):
+    paths:
+      include:
+        - "**/src/**/*.py"
+
+  - id: python-forbid-protocol
+    message: "typing.Protocol の利用は禁止です（時期尚早）。"
+    languages: [python]
+    severity: ERROR
+    patterns:
+      - pattern-either:
+          - pattern: from typing import Protocol
+          - pattern: typing.Protocol
+          - pattern: |
+              class $C(Protocol, ...):
+          - pattern: |
+              class $C(typing.Protocol, ...):
+    paths:
+      include:
+        - "**/src/**/*.py"
+
+  - id: python-forbid-multi-level-inheritance
+    message: "2階層以上の継承を禁止します（時期尚早）。"
+    languages: [python]
+    severity: ERROR
+    patterns:
+      - pattern: |
+          class $BASE($ANCESTOR, ...):
+            ...
+          ...
+          class $CHILD($BASE, ...):
+    paths:
+      include:
+        - "**/src/**/*.py"
+
+  - id: python-forbid-ambiguous-class-name
+    message: "Manager/Service/Helper/Util等の曖昧な語尾をクラス名に使用しないでください。"
+    languages: [python]
+    severity: ERROR
+    patterns:
+      - pattern-either:
+          - pattern: |
+              class $CLASSNAME(...):
+                ...
+          - pattern: |
+              class $CLASSNAME:
+                ...
+      - metavariable-regex:
+          metavariable: $CLASSNAME
+          regex: ".*(Manager|Service|Handler|Helper|Util|Utils|Impl|Base|Controller|Wrapper|Facade)$"
+    paths:
+      include:
+        - "**/src/**/*.py"
+
+  - id: forbid-try-except
+    message: "エラー処理は Result module を使ってください。"
+    languages: [python]
+    severity: ERROR
+    pattern: |
+      try:
+        ...
+      except ...:
+        ...
+    paths:
+      exclude:
+        - "**/examples/**"
+        - "**/tests/**"
+
+  - id: enforce-loguru-and-aiohttp
+    message: "標準logging, requests, httpx は禁止。loguru と aiohttp を使用してください。"
+    languages: [python]
+    severity: ERROR
+    patterns:
+      - pattern-either:
+          - pattern: import logging
+          - pattern: import requests
+          - pattern: import httpx
+    paths:
+      include:
+        - "**/src/**/*.py"
+
+  - id: python-async-no-time-sleep
+    message: "async関数内での time.sleep は禁止です。await asyncio.sleep を使用してください。"
+    languages: [python]
+    severity: ERROR
+    patterns:
+      - pattern-inside: |
+          async def $F(...):
+            ...
+      - pattern: time.sleep(...)
+    paths:
+      include:
+        - "**/src/**/*.py"
+
+  # =================================================================
+  # Project Structure
+  # =================================================================
+  - id: forbid-pyproject-in-notebooks
+    message: "notebooks/ 以下での pyproject.toml 配置は禁止です。"
+    languages: [generic]
+    severity: ERROR
+    pattern-regex: ".+"
+    paths:
+      include:
+        - "notebooks/**/pyproject.toml"

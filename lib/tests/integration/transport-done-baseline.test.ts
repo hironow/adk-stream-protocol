@@ -35,9 +35,9 @@
  * - Detects regressions immediately
  */
 
-import type { UIMessageChunk } from "ai";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import type { UIMessageChunk } from "ai";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { WebSocketChatTransport } from "../../websocket-chat-transport";
 
@@ -68,7 +68,10 @@ function loadFixture(filename: string): BaselineFixture {
 function splitIntoTurns(fixture: BaselineFixture): {
   turns: Array<{ rawEvents: string[]; expectedChunks: UIMessageChunk[] }>;
 } {
-  const turns: Array<{ rawEvents: string[]; expectedChunks: UIMessageChunk[] }> = [];
+  const turns: Array<{
+    rawEvents: string[];
+    expectedChunks: UIMessageChunk[];
+  }> = [];
 
   let currentTurnEvents: string[] = [];
   let turnStartIndex = 0;
@@ -79,8 +82,14 @@ function splitIntoTurns(fixture: BaselineFixture): {
     // Check if this is a [DONE] marker
     if (event.includes("data: [DONE]")) {
       // Find corresponding chunks for this turn
-      const turnEndIndex = findChunkIndexForDone(fixture.output.expectedChunks, turnStartIndex);
-      const expectedChunks = fixture.output.expectedChunks.slice(turnStartIndex, turnEndIndex + 1);
+      const turnEndIndex = findChunkIndexForDone(
+        fixture.output.expectedChunks,
+        turnStartIndex,
+      );
+      const expectedChunks = fixture.output.expectedChunks.slice(
+        turnStartIndex,
+        turnEndIndex + 1,
+      );
 
       turns.push({
         rawEvents: [...currentTurnEvents],
@@ -97,7 +106,10 @@ function splitIntoTurns(fixture: BaselineFixture): {
 
 // Find the chunk index corresponding to a [DONE] marker
 // Looks for the last "finish" chunk before the next "start" chunk
-function findChunkIndexForDone(chunks: UIMessageChunk[], startIndex: number): number {
+function findChunkIndexForDone(
+  chunks: UIMessageChunk[],
+  startIndex: number,
+): number {
   for (let i = startIndex; i < chunks.length; i++) {
     const chunk = chunks[i];
     // "finish" chunk marks the end of a turn (before [DONE])

@@ -11,12 +11,12 @@ When this test fails:
 4. Update experiments/2025-12-12_adk_field_mapping_completeness.md
 """
 
-from __future__ import annotations
 
 import inspect
 
 from google.adk.events import Event
 from google.genai import types
+
 
 # =============================================================================
 # Event Fields

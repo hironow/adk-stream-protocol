@@ -15,14 +15,13 @@ Only the transport layer differs (HTTP SSE vs WebSocket).
 This ensures protocol consistency across all modes.
 """
 
-from __future__ import annotations
 
 import enum
 import json
 import uuid
 from collections.abc import AsyncGenerator
 from pprint import pformat
-from typing import Any
+from typing import Any, cast
 
 from google.adk.events import Event
 from google.genai import types
@@ -33,6 +32,7 @@ from loguru import logger
 # - BidiEventSender (for BIDI mode)
 # - SseEventStreamer (for SSE mode)
 from chunk_logger import Mode, chunk_logger
+
 
 # Type alias for SSE-formatted event strings
 # Example: 'data: {"type":"text-delta","id":"1","delta":"Hello"}\n\n'
@@ -220,7 +220,7 @@ class StreamProtocolConverter:
         """Format event data as SSE. Delegates to module-level format_sse_event()."""
         return format_sse_event(event_data)
 
-    async def convert_event(self, event: Event) -> AsyncGenerator[str, None]:  # noqa: C901, PLR0912, PLR0915
+    async def convert_event(self, event: Event) -> AsyncGenerator[str]:  # noqa: C901, PLR0912, PLR0915
         """
         Convert a single ADK event to AI SDK v6 SSE events.
 
@@ -737,7 +737,7 @@ class StreamProtocolConverter:
         citation_metadata: Any | None = None,
         cache_metadata: Any | None = None,
         model_version: str | None = None,
-    ) -> AsyncGenerator[str, None]:
+    ) -> AsyncGenerator[str]:
         """
         Send final events to close the stream.
 
@@ -876,7 +876,7 @@ async def _convert_to_sse_events(
     processed_event: Event | dict[str, Any] | str,
     original_event: Event,
     converter: StreamProtocolConverter,
-) -> AsyncGenerator[str, None]:
+) -> AsyncGenerator[str]:
     """
     Convert ADK Event or injected dict to SSE event strings.
 
@@ -903,9 +903,9 @@ async def _convert_to_sse_events(
         yield processed_event
     elif processed_event is original_event:
         # Original ADK Event - convert normally via converter
-        # Type assertion: identity check guarantees this is an Event
-        assert isinstance(processed_event, Event)
-        async for sse_event in converter.convert_event(processed_event):
+        # Type narrowing: identity check guarantees this is an Event
+        event = cast(Event, processed_event)
+        async for sse_event in converter.convert_event(event):
             yield sse_event
     else:
         # Injected confirmation event (dict in AI SDK v6 format)
@@ -913,11 +913,11 @@ async def _convert_to_sse_events(
         yield f"data: {json.dumps(processed_event)}\n\n"
 
 
-async def stream_adk_to_ai_sdk(  # noqa: C901
-    event_stream: AsyncGenerator[Event | SseFormattedEvent, None],
+async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912
+    event_stream: AsyncGenerator[Event | SseFormattedEvent],
     message_id: str | None = None,
     mode: Mode = "adk-sse",  # "adk-sse" or "adk-bidi" for chunk logger
-) -> AsyncGenerator[SseFormattedEvent, None]:
+) -> AsyncGenerator[SseFormattedEvent]:
     """
     Convert ADK event stream to AI SDK v6 Data Stream Protocol.
 
@@ -976,8 +976,7 @@ async def stream_adk_to_ai_sdk(  # noqa: C901
 
             # ADK Event object - needs conversion via converter
             logger.debug(
-                f"[stream_adk_to_ai_sdk] ADK Event (needs conversion): "
-                f"type={type(event).__name__}"
+                f"[stream_adk_to_ai_sdk] ADK Event (needs conversion): type={type(event).__name__}"
             )
             # Chunk Logger: Record ADK event (input)
             chunk_logger.log_chunk(

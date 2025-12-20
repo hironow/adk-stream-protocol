@@ -71,6 +71,11 @@ lint-frontend:
 format-frontend:
     pnpm run format
 
+# Run Semgrep for security/static analysis
+[group("development")]
+semgrep:
+    uv run semgrep --config .semgrep/ --error
+
 [group("testing")]
 test-server-unit:
     uv run pytest tests/unit/

@@ -59,7 +59,7 @@ def sample_session():
             },
         ]
 
-        with open(jsonl_file, "w", encoding="utf-8") as f:
+        with jsonl_file.open("w", encoding="utf-8") as f:
             for entry in entries:
                 json_line = json.dumps(entry, ensure_ascii=False)
                 f.write(json_line + "\n")
@@ -201,7 +201,7 @@ def test_chunk_player_invalid_json():
         jsonl_file = session_dir / "backend-adk-event.jsonl"
 
         # Write invalid JSON
-        with open(jsonl_file, "w", encoding="utf-8") as f:
+        with jsonl_file.open("w", encoding="utf-8") as f:
             f.write("invalid json\n")
 
         player = ChunkPlayer(

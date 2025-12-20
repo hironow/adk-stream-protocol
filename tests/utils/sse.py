@@ -4,7 +4,6 @@ This module provides helper functions and mock objects for testing
 SSE protocol conversion in the ADK to AI SDK v6 data stream protocol.
 """
 
-from __future__ import annotations
 
 import json
 from typing import Any

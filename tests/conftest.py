@@ -5,10 +5,10 @@ This file is automatically loaded by pytest and makes project root
 modules importable in tests.
 """
 
-from __future__ import annotations
 
 import sys
 from pathlib import Path
+
 
 # Add project root to Python path so tests can import project modules
 project_root = Path(__file__).parent.parent

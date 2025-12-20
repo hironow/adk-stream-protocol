@@ -9,7 +9,6 @@ Tests the asyncio.Future-based delegation pattern for client-side tool execution
 Based on implementation in server.py (FrontendToolDelegate class)
 """
 
-from __future__ import annotations
 
 import asyncio
 from typing import Any
@@ -19,7 +18,10 @@ import pytest
 from google.adk.tools.tool_context import ToolContext
 
 from adk_ag_tools import change_bgm, get_location
+from result.result import Ok
 from server import FrontendToolDelegate
+from tests.utils.result_assertions import assert_error, assert_ok
+
 
 # ============================================================
 # FrontendToolDelegate Tests
@@ -31,13 +33,16 @@ async def test_frontend_delegate_execute_and_resolve() -> None:
     """execute_on_frontend() should await result and resolve_tool_result() should resolve Future."""
     delegate = FrontendToolDelegate()
 
+    # Register ID mapping (simulates StreamProtocolConverter registration)
+    delegate.id_mapper.register("change_bgm", "call_123")
+
     # Start execute_on_frontend in background
     async def execute_tool() -> dict[str, Any]:
-        return await delegate.execute_on_frontend(
-            tool_call_id="call_123",
+        result_or_error = await delegate.execute_on_frontend(
             tool_name="change_bgm",
             args={"track": 1},
         )
+        return assert_ok(result_or_error)
 
     # Create task but don't await yet
     task = asyncio.create_task(execute_tool())
@@ -68,13 +73,15 @@ async def test_frontend_delegate_execute_and_resolve() -> None:
 
 @pytest.mark.asyncio
 async def test_frontend_delegate_reject_tool_call() -> None:
-    """reject_tool_call() should reject Future with exception."""
+    """reject_tool_call() should reject Future with exception (caught and returned as Error)."""
     delegate = FrontendToolDelegate()
 
+    # Register ID mapping
+    delegate.id_mapper.register("change_bgm", "call_456")
+
     # Start execute_on_frontend in background
-    async def execute_tool() -> dict[str, Any]:
+    async def execute_tool():
         return await delegate.execute_on_frontend(
-            tool_call_id="call_456",
             tool_name="change_bgm",
             args={"track": 0},
         )
@@ -88,9 +95,11 @@ async def test_frontend_delegate_reject_tool_call() -> None:
     # Reject the Future
     delegate.reject_tool_call("call_456", "Tool execution failed")
 
-    # Verify Future is rejected
-    with pytest.raises(RuntimeError, match="Tool execution failed"):
-        await task
+    # Verify Future is rejected - execute_on_frontend catches exception and returns Error
+    result_or_error = await task
+    error_msg: str = assert_error(result_or_error)
+    assert "Tool execution failed" in error_msg
+    assert "RuntimeError" in error_msg
 
     # Verify Future is removed from pending calls
     assert "call_456" not in delegate._pending_calls
@@ -125,20 +134,24 @@ async def test_frontend_delegate_multiple_pending_calls() -> None:
     """FrontendToolDelegate should handle multiple pending calls independently."""
     delegate = FrontendToolDelegate()
 
+    # Register ID mappings
+    delegate.id_mapper.register("tool_a", "call_1")
+    delegate.id_mapper.register("tool_b", "call_2")
+
     # Start two execute_on_frontend calls
     async def execute_tool_1() -> dict[str, Any]:
-        return await delegate.execute_on_frontend(
-            tool_call_id="call_1",
+        result_or_error = await delegate.execute_on_frontend(
             tool_name="tool_a",
             args={},
         )
+        return assert_ok(result_or_error)
 
     async def execute_tool_2() -> dict[str, Any]:
-        return await delegate.execute_on_frontend(
-            tool_call_id="call_2",
+        result_or_error = await delegate.execute_on_frontend(
             tool_name="tool_b",
             args={},
         )
+        return assert_ok(result_or_error)
 
     task_1 = asyncio.create_task(execute_tool_1())
     task_2 = asyncio.create_task(execute_tool_2())
@@ -177,7 +190,7 @@ async def test_change_bgm_uses_delegate_in_bidi_mode() -> None:
     """change_bgm should use delegate when tool_context with delegate is provided."""
     # Create mock delegate
     mock_delegate = Mock(spec=FrontendToolDelegate)
-    mock_delegate.execute_on_frontend = AsyncMock(return_value={"success": True, "track": 1})
+    mock_delegate.execute_on_frontend = AsyncMock(return_value=Ok({"success": True, "track": 1}))
 
     # Create mock ToolContext with delegate
     mock_tool_context = Mock(spec=ToolContext)
@@ -191,7 +204,6 @@ async def test_change_bgm_uses_delegate_in_bidi_mode() -> None:
     # Verify delegate.execute_on_frontend was called exactly once
     mock_delegate.execute_on_frontend.assert_called_once()
     call_args = mock_delegate.execute_on_frontend.call_args
-    assert call_args.kwargs["tool_call_id"] == "call_789"
     assert call_args.kwargs["tool_name"] == "change_bgm"
     assert call_args.kwargs["args"] == {"track": 1}
 
@@ -234,6 +246,9 @@ async def test_change_bgm_delegate_call_count_spy() -> None:
     # Create real delegate (not mock) to spy on
     delegate = FrontendToolDelegate()
 
+    # Register ID mapping (simulates StreamProtocolConverter registration)
+    delegate.id_mapper.register("change_bgm", "call_spy_test")
+
     # Spy on execute_on_frontend method
     with patch.object(
         delegate,
@@ -266,7 +281,6 @@ async def test_change_bgm_delegate_call_count_spy() -> None:
         # Verify execute_on_frontend was called EXACTLY ONCE
         assert spy.call_count == 1
         spy.assert_called_once_with(
-            tool_call_id="call_spy_test",
             tool_name="change_bgm",
             args={"track": 0},
         )
@@ -304,12 +318,14 @@ async def test_get_location_uses_delegate_in_bidi_mode() -> None:
     # Create mock delegate
     mock_delegate = Mock(spec=FrontendToolDelegate)
     mock_delegate.execute_on_frontend = AsyncMock(
-        return_value={
-            "success": True,
-            "latitude": 35.6762,
-            "longitude": 139.6503,
-            "accuracy": 10,
-        }
+        return_value=Ok(
+            {
+                "success": True,
+                "latitude": 35.6762,
+                "longitude": 139.6503,
+                "accuracy": 10,
+            }
+        )
     )
 
     # Create mock ToolContext with delegate
@@ -324,7 +340,6 @@ async def test_get_location_uses_delegate_in_bidi_mode() -> None:
     # Verify delegate.execute_on_frontend was called exactly once
     mock_delegate.execute_on_frontend.assert_called_once()
     call_args = mock_delegate.execute_on_frontend.call_args
-    assert call_args.kwargs["tool_call_id"] == "call_location_001"
     assert call_args.kwargs["tool_name"] == "get_location"
     assert call_args.kwargs["args"] == {}
 
@@ -363,6 +378,9 @@ async def test_get_location_delegate_call_count_spy() -> None:
     # Create real delegate (not mock) to spy on
     delegate = FrontendToolDelegate()
 
+    # Register ID mapping (simulates StreamProtocolConverter registration)
+    delegate.id_mapper.register("get_location", "call_location_spy")
+
     # Spy on execute_on_frontend method
     with patch.object(
         delegate,
@@ -400,7 +418,6 @@ async def test_get_location_delegate_call_count_spy() -> None:
         # Verify execute_on_frontend was called EXACTLY ONCE
         assert spy.call_count == 1
         spy.assert_called_once_with(
-            tool_call_id="call_location_spy",
             tool_name="get_location",
             args={},
         )
@@ -439,6 +456,9 @@ async def test_get_location_delegate_not_called_on_error() -> None:
     # Create delegate
     delegate = FrontendToolDelegate()
 
+    # Register ID mapping (simulates StreamProtocolConverter registration)
+    delegate.id_mapper.register("get_location", "call_location_error")
+
     with patch.object(
         delegate,
         "execute_on_frontend",
@@ -458,12 +478,16 @@ async def test_get_location_delegate_not_called_on_error() -> None:
         # Start rejection task
         reject_task = asyncio.create_task(reject_after_delay())
 
-        # Call get_location - should raise RuntimeError
-        with pytest.raises(RuntimeError, match="User denied location access"):
-            await get_location(tool_context=mock_tool_context)
+        # Call get_location - execute_on_frontend catches RuntimeError and returns Error
+        result = await get_location(tool_context=mock_tool_context)
 
         # Wait for rejection task
         await reject_task
+
+        # Verify error is returned (not raised)
+        assert result["success"] is False
+        assert "error" in result
+        assert "User denied location access" in result["error"]
 
         # Verify execute_on_frontend was called EXACTLY ONCE (not retried)
         assert spy.call_count == 1

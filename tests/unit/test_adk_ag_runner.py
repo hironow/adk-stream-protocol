@@ -16,6 +16,7 @@ from google.adk.tools.long_running_tool import LongRunningFunctionTool
 import adk_ag_runner
 from adk_ag_runner import get_tools_requiring_confirmation
 
+
 # ============================================================
 # Agent Configuration Tests
 # ============================================================
@@ -156,6 +157,7 @@ def test_get_tools_requiring_confirmation_with_no_confirmation_tools() -> None:
 
 def test_get_tools_requiring_confirmation_with_function_tool_requiring_confirmation() -> None:
     """Should extract tool names from FunctionTool with require_confirmation=True."""
+
     # given
     def my_payment_tool():
         pass
@@ -175,6 +177,7 @@ def test_get_tools_requiring_confirmation_with_function_tool_requiring_confirmat
 
 def test_get_tools_requiring_confirmation_with_multiple_confirmation_tools() -> None:
     """Should extract all tools requiring confirmation."""
+
     # given
     def payment_tool():
         pass
@@ -206,6 +209,7 @@ def test_get_tools_requiring_confirmation_with_multiple_confirmation_tools() -> 
 
 def test_get_tools_requiring_confirmation_mixed_tool_types() -> None:
     """Should handle mixed tool types (FunctionTool, LongRunningFunctionTool, plain functions)."""
+
     # given
     def confirmed_tool():
         pass
@@ -277,9 +281,7 @@ def test_bidi_confirmation_tools_extracted() -> None:
 def test_both_agents_have_same_confirmation_tools() -> None:
     """Both SSE and BIDI agents should have same confirmation tools (use COMMON_TOOLS)."""
     # when/then
-    assert set(adk_ag_runner.SSE_CONFIRMATION_TOOLS) == set(
-        adk_ag_runner.BIDI_CONFIRMATION_TOOLS
-    )
+    assert set(adk_ag_runner.SSE_CONFIRMATION_TOOLS) == set(adk_ag_runner.BIDI_CONFIRMATION_TOOLS)
 
 
 # ============================================================
@@ -330,6 +332,7 @@ def test_get_tools_requiring_confirmation_with_various_confirmation_flags(
     require_confirmation, expected_count
 ) -> None:
     """Should handle various require_confirmation flag values."""
+
     # given
     def test_tool():
         pass
