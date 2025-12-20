@@ -53,20 +53,11 @@ from chunk_logger import chunk_logger  # noqa: E402
 from services.bidi_event_receiver import BidiEventReceiver  # noqa: E402
 from services.bidi_event_sender import BidiEventSender  # noqa: E402
 from services.frontend_tool_service import FrontendToolDelegate  # noqa: E402
+from services.sse_event_streamer import SseEventStreamer  # noqa: E402
 from stream_protocol import StreamProtocolConverter  # noqa: E402
 
 
-# ========== Frontend Tool Delegate (now imported from services) ==========
-
-# FrontendToolDelegate has been moved to services/frontend_tool_service.py
-# This section previously contained the class definition (lines 63-208)
-# Now it's imported from the services layer
-
-
-# ========== User Management ==========
-
-
-def get_user() -> str:
+def _get_user() -> str:
     """
     Get the current user ID.
 
@@ -224,13 +215,13 @@ async def chat(request: ChatRequest):
     logger.info(f"[/chat] Received request with {len(request.messages)} messages")
 
     # 1. Validate input - get the last user message
-    last_message = request.messages[-1].get_text_content() if request.messages else ""
+    last_message = request.messages[-1]._get_text_content() if request.messages else ""
     if not last_message:
         return ChatResponse(message="No message provided")
 
     # 2. Session management
     # Get user ID (single user mode for demo environment without database)
-    user_id = get_user()
+    user_id = _get_user()
     app_name = "agents"
     session = await get_or_create_session(user_id, sse_agent_runner, app_name)
     logger.info(f"[/chat] Session ID: {session.id}")
@@ -308,7 +299,7 @@ def _process_latest_message(last_message: ChatMessage) -> types.Content | None:
             return None
     else:
         # Normal user message processing
-        last_user_message_text = last_message.get_text_content()
+        last_user_message_text = last_message._get_text_content()
         if not last_user_message_text:
             logger.warning("[/stream] Last message has no text content")
             return None
@@ -354,7 +345,7 @@ async def stream(request: ChatRequest):
     async def generate_sse_stream():
         # 2. Session management
         # Get user ID (single user mode for demo environment without database)
-        user_id = get_user()
+        user_id = _get_user()
         session = await get_or_create_session(user_id, sse_agent_runner, "agents")
         logger.info(f"[/stream] Session ID: {session.id}")
 
@@ -387,9 +378,6 @@ async def stream(request: ChatRequest):
             session_id=session.id,
             new_message=message_content,
         )
-
-        # Create SSE event streamer with confirmation support
-        from services.sse_event_streamer import SseEventStreamer
 
         streamer = SseEventStreamer(
             frontend_delegate=frontend_delegate,
@@ -463,7 +451,7 @@ async def live_chat(websocket: WebSocket):  # noqa: PLR0915
     # Create connection-specific session
     # ADK Design: session = connection (prevents concurrent run_live() race conditions)
     # Get user ID (single user mode for demo environment without database)
-    user_id = get_user()
+    user_id = _get_user()
     session = await get_or_create_session(
         user_id,
         bidi_agent_runner,

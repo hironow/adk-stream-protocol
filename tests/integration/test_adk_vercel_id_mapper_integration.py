@@ -350,7 +350,7 @@ class TestADKVercelIDMapperIntegration:
         id_mapper.register("tool3", "id3")
 
         # when: Clear all mappings
-        id_mapper.clear()
+        id_mapper._clear()
 
         # then: All lookups return None
         assert id_mapper.get_function_call_id("tool1") is None

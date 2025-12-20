@@ -5,6 +5,12 @@ export default defineConfig({
   test: {
     environment: "node",
     globals: true,
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      // Exclude scenarios as they are for playwright
+      "**/scenarios/**",
+    ],
   },
   resolve: {
     alias: {

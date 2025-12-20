@@ -172,10 +172,16 @@ test-all: test-server-all test-frontend-all test-e2e
 # Run all Python checks
 [group("development")]
 check-python: lint-python typecheck-python
+    uv run pytest --collect-only -q
+
+# Run all TypeScript checks
+[group("development")]
+check-typescript: lint-frontend
+    pnpm exec vitest list
 
 # Run all checks
 [group("development")]
-check: check-python
+check: check-python check-typescript md-lint
     @echo "All checks passed."
 
 # Tail the latest chunk logs (for development debugging)

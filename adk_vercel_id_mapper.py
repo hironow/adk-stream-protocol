@@ -165,7 +165,7 @@ class ADKVercelIDMapper:
 
         return None
 
-    def clear(self) -> None:
+    def _clear(self) -> None:
         """
         Clear all registered mappings.
 

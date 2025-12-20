@@ -30,8 +30,8 @@ from loguru import logger
 
 import adk_ag_tools
 from adk_compat import (
-    _extract_function_call_from_event,
-    _is_function_call_requiring_confirmation,
+    extract_function_call_from_event,
+    is_function_call_requiring_confirmation,
 )
 from confirmation_interceptor import ToolConfirmationInterceptor
 from result.result import Error, Ok, Result
@@ -269,13 +269,13 @@ class BidiEventSender:
         """
 
         # Check if this event requires confirmation
-        if not _is_function_call_requiring_confirmation(event, self._confirmation_tools):
+        if not is_function_call_requiring_confirmation(event, self._confirmation_tools):
             logger.debug("[BIDI Confirmation] Event doesn't require confirmation - passing through")
             yield event
             return
 
         # Extract function_call details
-        function_call = _extract_function_call_from_event(event)
+        function_call = extract_function_call_from_event(event)
         if not function_call:
             logger.warning("[BIDI Confirmation] Could not extract function_call from event")
             yield event

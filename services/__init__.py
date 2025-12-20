@@ -8,7 +8,10 @@ Components:
     - FrontendToolService: Manages frontend tool execution
 """
 
+from services.bidi_event_receiver import BidiEventReceiver
+from services.bidi_event_sender import BidiEventSender
 from services.frontend_tool_service import FrontendToolDelegate
+from services.sse_event_streamer import SseEventStreamer
 
 
-__all__ = ["FrontendToolDelegate"]
+__all__ = ["BidiEventReceiver", "BidiEventSender", "FrontendToolDelegate", "SseEventStreamer"]

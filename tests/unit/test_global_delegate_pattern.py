@@ -31,10 +31,10 @@ from server import frontend_delegate
 def clear_id_mapper():
     """Clear ID mapper before and after each test to prevent cross-test contamination."""
     # Clear before test
-    frontend_delegate._id_mapper.clear()
+    frontend_delegate._id_mapper._clear()
     yield
     # Clear after test
-    frontend_delegate._id_mapper.clear()
+    frontend_delegate._id_mapper._clear()
 
 
 # ============================================================

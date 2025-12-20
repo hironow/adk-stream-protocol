@@ -305,7 +305,7 @@ class ChatMessage(BaseModel):
     )
     parts: list[MessagePart] | None = None  # AI SDK v6 format with discriminated union
 
-    def get_text_content(self) -> str:
+    def _get_text_content(self) -> str:
         """Extract text content from either format (str, list[Part], or parts field)"""
         if self.content:
             if isinstance(self.content, str):

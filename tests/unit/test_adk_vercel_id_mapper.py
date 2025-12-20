@@ -110,7 +110,7 @@ def test_clear_removes_all_mappings() -> None:
     mapper.register("get_location", "function-call-456")
 
     # when
-    mapper.clear()
+    mapper._clear()
 
     # then
     assert mapper.get_function_call_id("change_bgm") is None

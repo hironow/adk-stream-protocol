@@ -178,54 +178,6 @@ async def sync_conversation_history_to_session(
     return 0
 
 
-async def prepare_session_for_mode_switch(
-    session: Any,
-    session_service: Any,
-    messages: list,
-    from_mode: str,
-    to_mode: str,
-) -> None:
-    """
-    Prepare an ADK session when switching between modes.
-
-    This function ensures conversation continuity when switching between:
-    - Gemini Direct -> ADK SSE
-    - Gemini Direct -> ADK BIDI
-    - ADK SSE -> ADK BIDI
-    - ADK BIDI -> ADK SSE
-
-    Args:
-        session: ADK session object
-        session_service: ADK session service
-        messages: Full message history from frontend
-        from_mode: Previous mode ("gemini", "adk-sse", "adk-bidi")
-        to_mode: New mode ("adk-sse", "adk-bidi")
-    """
-    # If switching from Gemini Direct to any ADK mode, we need full sync
-    if from_mode == "gemini" and to_mode.startswith("adk"):
-        logger.info(f"Mode switch detected: {from_mode} -> {to_mode}, performing full history sync")
-
-        # Clear the synced count to force full sync
-        session.state["synced_message_count"] = 0
-
-        # Sync the conversation history
-        synced = await sync_conversation_history_to_session(
-            session=session,
-            session_service=session_service,
-            messages=messages,
-            current_mode=to_mode.upper().replace("-", "_"),
-        )
-
-        logger.info(f"Mode switch sync complete: {synced} messages synced")
-
-    # If switching between ADK modes, history should already be there
-    elif from_mode.startswith("adk") and to_mode.startswith("adk"):
-        logger.info(f"Switching between ADK modes: {from_mode} -> {to_mode}, history preserved")
-
-    # Track the current mode in session state
-    session.state["current_mode"] = to_mode
-
-
 def clear_sessions() -> None:
     """
     Clear all sessions. Useful for testing or cleanup.
@@ -235,45 +187,7 @@ def clear_sessions() -> None:
     logger.info("Cleared all ADK sessions")
 
 
-def get_session_count() -> int:
-    """
-    Get the current number of active sessions.
-
-    Returns:
-        Number of active sessions
-    """
-    return len(_sessions)
-
-
-def detect_mode_switch(session: Any, current_mode: str) -> tuple[bool, str]:
-    """
-    Detect if a mode switch has occurred.
-
-    Args:
-        session: ADK session object
-        current_mode: Current backend mode
-
-    Returns:
-        Tuple of (mode_switched: bool, previous_mode: str)
-    """
-    previous_mode = session.state.get("current_mode", None)
-
-    if previous_mode is None:
-        # First time using this session
-        return False, ""
-
-    if previous_mode != current_mode:
-        # Mode has changed
-        return True, previous_mode
-
-    return False, previous_mode
-
-
-# ========== BIDI Confirmation Helpers ==========
-# Helper functions used by BidiEventSender and SseEventStreamer
-
-
-def _is_function_call_requiring_confirmation(  # noqa: PLR0911 - Multiple returns needed for dict/ADK object format handling
+def is_function_call_requiring_confirmation(  # noqa: PLR0911 - Multiple returns needed for dict/ADK object format handling
     event: dict[str, Any] | Any,
     confirmation_tools: list[str],
 ) -> bool:
@@ -339,7 +253,7 @@ def _is_function_call_requiring_confirmation(  # noqa: PLR0911 - Multiple return
     return False
 
 
-def _extract_function_call_from_event(event: dict[str, Any] | Any) -> Any | None:
+def extract_function_call_from_event(event: dict[str, Any] | Any) -> Any | None:
     """
     Extract function_call from either dict or ADK Event object.
 
@@ -365,73 +279,3 @@ def _extract_function_call_from_event(event: dict[str, Any] | Any) -> Any | None
             return part.function_call
 
     return None
-
-
-def generate_confirmation_tool_input_start(event: dict[str, Any] | Any) -> dict[str, Any]:
-    """
-    Generate tool-input-start event for adk_request_confirmation.
-
-    Args:
-        event: Original FunctionCall event (dict or Event object)
-
-    Returns:
-        tool-input-start event dict
-    """
-    # Extract function_call from either dict or Event object
-    function_call = _extract_function_call_from_event(event)
-
-    if isinstance(function_call, dict):
-        tool_call_id = function_call.get("id", "unknown")
-    else:
-        tool_call_id = function_call.id if function_call else "unknown"
-
-    # Add "confirmation-" prefix for separate UI rendering
-    confirmation_id = f"confirmation-{tool_call_id}"
-
-    return {
-        "type": "tool-input-start",
-        "toolCallId": confirmation_id,
-        "toolName": "adk_request_confirmation",
-    }
-
-
-def generate_confirmation_tool_input_available(event: dict[str, Any] | Any) -> dict[str, Any]:
-    """
-    Generate tool-input-available event for adk_request_confirmation.
-
-    Args:
-        event: Original FunctionCall event (dict or Event object)
-
-    Returns:
-        tool-input-available event dict
-    """
-    # Extract function_call from either dict or Event object
-    function_call = _extract_function_call_from_event(event)
-
-    if isinstance(function_call, dict):
-        fc_id = function_call.get("id")
-        fc_name = function_call.get("name")
-        fc_args = function_call.get("args", {})
-    else:
-        fc_id = function_call.id if function_call else None
-        fc_name = function_call.name if function_call else None
-        fc_args = function_call.args if function_call else {}
-
-    # Add "confirmation-" prefix for separate UI rendering
-    confirmation_id = f"confirmation-{fc_id or 'unknown'}"
-
-    return {
-        "type": "tool-input-available",
-        "toolCallId": confirmation_id,
-        "toolName": "adk_request_confirmation",
-        "input": {
-            "originalFunctionCall": {
-                "id": fc_id,
-                "name": fc_name,
-                "args": fc_args,
-            },
-            "toolConfirmation": {
-                "confirmed": False,  # Initial state
-            },
-        },
-    }
