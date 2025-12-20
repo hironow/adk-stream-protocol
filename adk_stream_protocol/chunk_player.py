@@ -140,7 +140,7 @@ class ChunkPlayer:
                     )
                     entries.append(entry)
                 except (json.JSONDecodeError, KeyError) as e:
-                    msg = f"Invalid JSONL at line {line_no}: {e}"
+                    msg = f"Invalid JSONL at line {line_no}: {e!s}"
                     raise ValueError(msg) from e
 
         # Sort by sequence_number to ensure correct order

@@ -13,6 +13,7 @@ that FrontendToolDelegate will use for execution.
 Expected to FAIL until fixed.
 """
 
+import json
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -90,9 +91,6 @@ async def test_bidi_frontend_delegate_tool_should_use_consistent_id() -> None:
     tool_input_id = None
     for event in sent_events:
         if "tool-input-available" in event and "change_bgm" in event:
-            # Extract toolCallId from SSE format
-            import json
-
             # Parse: data: {...}\n\n
             if event.startswith("data: "):
                 data = json.loads(event[6:].strip())
@@ -190,8 +188,6 @@ async def test_bidi_frontend_delegate_multiple_tools_id_consistency() -> None:
     await sender.send_events(mock_live_events())
 
     # then - extract tool-input IDs
-    import json
-
     tool_input_ids = []
     for event in sent_events:
         if "tool-input-available" in event:
@@ -282,8 +278,6 @@ async def test_bidi_vs_sse_frontend_delegate_tool_id_behavior() -> None:
     await sender.send_events(mock_live_events())
 
     # then
-    import json
-
     # Extract tool-input-available event
     tool_input_event = None
     for event in sent_events:

@@ -118,7 +118,7 @@ class TestProcessChatMessageForBidi:
 
         # when - spy on ChatMessage to verify it's called for last message only
         with patch("ai_sdk_v6_compat.ChatMessage", wraps=ChatMessage) as spy_chat_message:
-            image_blobs, text_content = process_chat_message_for_bidi(message_data)
+            _image_blobs, text_content = process_chat_message_for_bidi(message_data)
 
             # then - should be called exactly once (for last message only)
             assert spy_chat_message.call_count == 1, (
