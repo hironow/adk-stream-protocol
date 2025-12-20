@@ -39,11 +39,11 @@ def test_bidi_event_sender_initialization() -> None:
     )
 
     # then
-    assert sender.websocket is mock_websocket
-    assert sender.frontend_delegate is mock_delegate
-    assert sender.confirmation_tools == confirmation_tools
-    assert sender.session is mock_session
-    assert sender.live_request_queue is mock_live_request_queue
+    assert sender._ws is mock_websocket
+    assert sender._delegate is mock_delegate
+    assert sender._confirmation_tools == confirmation_tools
+    assert sender._session is mock_session
+    assert sender._live_request_queue is mock_live_request_queue
 
 
 # ============================================================

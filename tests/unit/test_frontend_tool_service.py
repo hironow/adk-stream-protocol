@@ -33,7 +33,7 @@ async def test_execute_on_frontend_with_id_mapper_registration() -> None:
     """execute_on_frontend() with ID mapper registration should work."""
     # given
     delegate = FrontendToolDelegate()
-    delegate.id_mapper.register("test_tool", "call_123")
+    delegate._id_mapper.register("test_tool", "call_123")
 
     # when
     async def execute_and_resolve() -> None:
@@ -201,7 +201,7 @@ async def test_execute_on_frontend_resolved_before_timeout() -> None:
     """execute_on_frontend() should return immediately if resolved before timeout."""
     # given
     delegate = FrontendToolDelegate()
-    delegate.id_mapper.register("quick_tool", "quick_id")
+    delegate._id_mapper.register("quick_tool", "quick_id")
 
     # when
     async def resolve_quickly() -> None:
@@ -238,7 +238,7 @@ async def test_resolve_tool_result_direct_id() -> None:
     """resolve_tool_result() should resolve Future with direct ID match."""
     # given
     delegate = FrontendToolDelegate()
-    delegate.id_mapper.register("test", "direct_id")
+    delegate._id_mapper.register("test", "direct_id")
 
     async def execute_tool() -> dict[str, Any]:
         result_or_error = await delegate.execute_on_frontend(
@@ -309,7 +309,7 @@ async def test_reject_tool_call_raises_exception() -> None:
     """reject_tool_call() should result in Error from execute_on_frontend()."""
     # given
     delegate = FrontendToolDelegate()
-    delegate.id_mapper.register("test", "reject_id")
+    delegate._id_mapper.register("test", "reject_id")
 
     # when
     task = asyncio.create_task(
@@ -320,7 +320,7 @@ async def test_reject_tool_call_raises_exception() -> None:
     )
     await asyncio.sleep(0.01)
 
-    delegate.reject_tool_call("reject_id", "User denied access")
+    delegate._reject_tool_call("reject_id", "User denied access")
 
     # then - execute_on_frontend catches RuntimeError and returns Error
     result_or_error = await task
@@ -339,7 +339,7 @@ async def test_reject_tool_call_unknown_id_no_crash() -> None:
     delegate = FrontendToolDelegate()
 
     # when/then - Should not raise exception
-    delegate.reject_tool_call("unknown_id", "Error message")
+    delegate._reject_tool_call("unknown_id", "Error message")
 
     # Verify state is clean
     assert len(delegate._pending_calls) == 0
@@ -408,8 +408,8 @@ async def test_default_id_mapper_created_if_not_provided() -> None:
     delegate = FrontendToolDelegate()
 
     # then
-    assert delegate.id_mapper is not None
-    assert isinstance(delegate.id_mapper, ADKVercelIDMapper)
+    assert delegate._id_mapper is not None
+    assert isinstance(delegate._id_mapper, ADKVercelIDMapper)
 
 
 # ============================================================
@@ -422,9 +422,9 @@ async def test_multiple_pending_calls_independent_resolution() -> None:
     """Multiple pending calls should be resolved independently."""
     # given
     delegate = FrontendToolDelegate()
-    delegate.id_mapper.register("tool_call_1", "call_1")
-    delegate.id_mapper.register("tool_call_2", "call_2")
-    delegate.id_mapper.register("tool_call_3", "call_3")
+    delegate._id_mapper.register("tool_call_1", "call_1")
+    delegate._id_mapper.register("tool_call_2", "call_2")
+    delegate._id_mapper.register("tool_call_3", "call_3")
 
     async def execute_tool(tool_name: str) -> dict[str, Any]:
         result_or_error = await delegate.execute_on_frontend(
@@ -466,8 +466,8 @@ async def test_multiple_pending_calls_one_timeout() -> None:
     """One timeout should not affect other pending calls."""
     # given
     delegate = FrontendToolDelegate()
-    delegate.id_mapper.register("tool_success_call", "success_call")
-    delegate.id_mapper.register("tool_timeout_call", "timeout_call")
+    delegate._id_mapper.register("tool_success_call", "success_call")
+    delegate._id_mapper.register("tool_timeout_call", "timeout_call")
 
     # when - Start 2 calls, resolve only one
     task1 = asyncio.create_task(

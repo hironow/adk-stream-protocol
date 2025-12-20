@@ -206,7 +206,7 @@ class TestADKVercelIDMapperIntegration:
         function_call.id = function_call_id
 
         # when: ToolConfirmationInterceptor checks if interception is needed
-        should_intercept = confirmation_interceptor.should_intercept(function_call)
+        should_intercept = confirmation_interceptor._should_intercept(function_call)
 
         # then: Tool is flagged for interception
         assert should_intercept is True

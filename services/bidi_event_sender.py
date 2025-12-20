@@ -177,12 +177,12 @@ class BidiEventSender:
             live_request_queue: Queue for triggering ADK continuation
             bidi_agent_runner: BidiAgentRunner for accessing session_service
         """
-        self.websocket = websocket
-        self.frontend_delegate = frontend_delegate
-        self.confirmation_tools = confirmation_tools
-        self.session = session
-        self.live_request_queue = live_request_queue
-        self.bidi_agent_runner = bidi_agent_runner
+        self._ws = websocket
+        self._delegate = frontend_delegate
+        self._confirmation_tools = confirmation_tools
+        self._session = session
+        self._live_request_queue = live_request_queue
+        self._ag_runner = bidi_agent_runner
 
     async def send_events(self, live_events: AsyncIterable[Any]) -> None:
         """
@@ -228,7 +228,7 @@ class BidiEventSender:
         if sse_event.startswith("data:"):
             # Skip DONE event
             if "DONE" == sse_event.strip()[5:].strip():
-                await self.websocket.send_text(sse_event)
+                await self._ws.send_text(sse_event)
                 return
 
             match _parse_sse_event_data(sse_event):
@@ -240,10 +240,8 @@ class BidiEventSender:
                     if event_type == "tool-input-available":
                         tool_name = event_data.get("toolName")
                         tool_call_id = event_data.get("toolCallId")
-                        if tool_name and tool_call_id and self.frontend_delegate:
-                            result = self.frontend_delegate.set_function_call_id(
-                                tool_name, tool_call_id
-                            )
+                        if tool_name and tool_call_id and self._delegate:
+                            result = self._delegate.set_function_call_id(tool_name, tool_call_id)
                             match result:
                                 case Ok(_):
                                     logger.debug(
@@ -254,7 +252,7 @@ class BidiEventSender:
                                     logger.debug(f"[BIDI-SEND] {error_msg}")
 
         # Send to WebSocket
-        await self.websocket.send_text(sse_event)
+        await self._ws.send_text(sse_event)
 
     async def _handle_confirmation_if_needed(self, event: Any):
         """
@@ -271,7 +269,7 @@ class BidiEventSender:
         """
 
         # Check if this event requires confirmation
-        if not _is_function_call_requiring_confirmation(event, self.confirmation_tools):
+        if not _is_function_call_requiring_confirmation(event, self._confirmation_tools):
             logger.debug("[BIDI Confirmation] Event doesn't require confirmation - passing through")
             yield event
             return
@@ -301,12 +299,12 @@ class BidiEventSender:
 
         # Create interceptor for this confirmation
         interceptor = ToolConfirmationInterceptor(
-            delegate=self.frontend_delegate,
-            confirmation_tools=self.confirmation_tools,
+            delegate=self._delegate,
+            confirmation_tools=self._confirmation_tools,
         )
 
         # Register confirmation ID in ID mapper
-        interceptor.delegate.id_mapper.register("adk_request_confirmation", confirmation_id)
+        interceptor._delegate._id_mapper.register("adk_request_confirmation", confirmation_id)
 
         # NEW: Send original tool-input events FIRST (so frontend knows about the original tool)
         # This fixes the bug where frontend only received confirmation events but not the original tool events
@@ -420,7 +418,7 @@ class BidiEventSender:
             tool-output-available or tool-output-error event
         """
         # Execute tool function using Result pattern
-        match await _execute_tool_function(fc_name, fc_args, fc_id, self.session):
+        match await _execute_tool_function(fc_name, fc_args, fc_id, self._session):
             case Ok(tool_result):
                 logger.info(f"[BIDI Confirmation] Tool executed successfully: {tool_result}")
 
@@ -434,7 +432,7 @@ class BidiEventSender:
                 )
 
                 # Append FunctionResponse to session history
-                if self.bidi_agent_runner and hasattr(self.bidi_agent_runner, "session_service"):
+                if self._ag_runner and hasattr(self._ag_runner, "session_service"):
                     function_response = types.Part(
                         function_response=types.FunctionResponse(
                             id=fc_id, name=fc_name, response=tool_result
@@ -443,9 +441,7 @@ class BidiEventSender:
                     content = types.Content(role="user", parts=[function_response])
                     adk_event = ADKEvent(author="user", content=content)
 
-                    await self.bidi_agent_runner.session_service.append_event(
-                        self.session, adk_event
-                    )
+                    await self._ag_runner.session_service.append_event(self._session, adk_event)
                     logger.info(
                         "[BIDI Confirmation] ✅ FunctionResponse appended to session history"
                     )
@@ -453,7 +449,7 @@ class BidiEventSender:
                     # KEY FIX: Trigger ADK continuation
                     # Send empty content to trigger ADK to generate new turn
                     continuation = types.Content(role="user", parts=[types.Part(text="")])
-                    self.live_request_queue.send_content(continuation)
+                    self._live_request_queue.send_content(continuation)
                     logger.info(
                         "[BIDI Confirmation] ✅ Continuation signal sent via LiveRequestQueue"
                     )

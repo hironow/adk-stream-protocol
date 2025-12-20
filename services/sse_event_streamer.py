@@ -164,10 +164,10 @@ class SseEventStreamer:
             session: ADK Session for frontend_delegate access
             sse_agent_runner: Runner instance for accessing session_service
         """
-        self.frontend_delegate = frontend_delegate
-        self.confirmation_tools = confirmation_tools
-        self.session = session
-        self.sse_agent_runner = sse_agent_runner
+        self._delegate = frontend_delegate
+        self._confirmation_tools = confirmation_tools
+        self._session = session
+        self._ag_runner = sse_agent_runner
         # Track tool IDs currently in confirmation flow
         # Used to intercept and consume confirmation error FunctionResponses
         self._confirmation_in_progress: set[str] = set()
@@ -212,8 +212,8 @@ class SseEventStreamer:
                         if event_type == "tool-input-available":
                             tool_name = event_data.get("toolName")
                             tool_call_id = event_data.get("toolCallId")
-                            if tool_name and tool_call_id and self.frontend_delegate:
-                                self.frontend_delegate.set_function_call_id(tool_name, tool_call_id)
+                            if tool_name and tool_call_id and self._delegate:
+                                self._delegate.set_function_call_id(tool_name, tool_call_id)
                                 logger.debug(
                                     f"[SSE] Registered mapping: {tool_name} → {tool_call_id}"
                                 )
@@ -306,7 +306,7 @@ class SseEventStreamer:
         from google.genai import types
 
         # Execute tool function using Result pattern
-        match await _execute_tool_function_sse(fc_name, fc_args, fc_id, self.session):
+        match await _execute_tool_function_sse(fc_name, fc_args, fc_id, self._session):
             case Ok(tool_result):
                 logger.info(f"[SSE Confirmation] Tool executed successfully: {tool_result}")
 
@@ -321,7 +321,7 @@ class SseEventStreamer:
 
                 # SSE Continuation: Append FunctionResponse and trigger new run
                 # (Same approach as BIDI, but using run_async() instead of LiveRequestQueue)
-                if self.sse_agent_runner and hasattr(self.sse_agent_runner, "session_service"):
+                if self._ag_runner and hasattr(self._ag_runner, "session_service"):
                     # Append FunctionResponse to session history
                     function_response = types.Part(
                         function_response=types.FunctionResponse(
@@ -331,9 +331,7 @@ class SseEventStreamer:
                     content = types.Content(role="user", parts=[function_response])
                     adk_event = ADKEvent(author="user", content=content)
 
-                    await self.sse_agent_runner.session_service.append_event(
-                        self.session, adk_event
-                    )
+                    await self._ag_runner.session_service.append_event(self._session, adk_event)
                     logger.info(
                         "[SSE Confirmation] ✅ FunctionResponse appended to session history"
                     )
@@ -343,9 +341,9 @@ class SseEventStreamer:
                     continuation = types.Content(role="user", parts=[types.Part(text="")])
                     logger.info("[SSE Confirmation] 🔄 Starting continuation run...")
 
-                    continuation_stream = self.sse_agent_runner.run_async(
-                        user_id=self.session.user_id,
-                        session_id=self.session.id,
+                    continuation_stream = self._ag_runner.run_async(
+                        user_id=self._session.user_id,
+                        session_id=self._session.id,
                         new_message=continuation,
                     )
 

@@ -57,10 +57,10 @@ class BidiEventReceiver:
             live_request_queue: ADK LiveRequestQueue for sending data to Live API
             bidi_agent_runner: ADK Runner with session_service
         """
-        self.session = session
-        self.frontend_delegate = frontend_delegate
-        self.live_request_queue = live_request_queue
-        self.bidi_agent_runner = bidi_agent_runner
+        self._session = session
+        self._delegate = frontend_delegate
+        self._live_request_queue = live_request_queue
+        self._ag_runner = bidi_agent_runner
 
     async def handle_event(self, event: dict[str, Any]) -> None:
         """
@@ -78,22 +78,22 @@ class BidiEventReceiver:
 
         # Route to specific handler
         if event_type == "message":
-            await self.handle_message_event(event)
+            await self._handle_message_event(event)
         elif event_type == "interrupt":
-            await self.handle_interrupt_event(event)
+            await self._handle_interrupt_event(event)
         elif event_type == "audio_control":
-            await self.handle_audio_control_event(event)
+            await self._handle_audio_control_event(event)
         elif event_type == "audio_chunk":
-            await self.handle_audio_chunk_event(event)
+            await self._handle_audio_chunk_event(event)
         elif event_type == "tool_result":
-            await self.handle_tool_result_event(event)
+            await self._handle_tool_result_event(event)
         elif event_type == "ping":
             # Ping events are handled at WebSocket layer, no action needed
             pass
         else:
             logger.warning(f"[BIDI] Unknown event type: {event_type}")
 
-    async def handle_message_event(self, event: dict[str, Any]) -> None:
+    async def _handle_message_event(self, event: dict[str, Any]) -> None:
         """
         Handle 'message' event: chat messages with text/images/tool responses.
 
@@ -119,8 +119,8 @@ class BidiEventReceiver:
 
             # Sync conversation history
             await sync_conversation_history_to_session(
-                session=self.session,
-                session_service=self.bidi_agent_runner.session_service,
+                session=self._session,
+                session_service=self._ag_runner.session_service,
                 messages=chat_messages,
                 current_mode="BIDI",
             )
@@ -132,7 +132,7 @@ class BidiEventReceiver:
 
         # Send images/videos to ADK LiveRequestQueue
         for blob in image_blobs:
-            self.live_request_queue.send_realtime(blob)
+            self._live_request_queue.send_realtime(blob)
             queue_operation_performed = True
 
         # Handle text content
@@ -155,7 +155,7 @@ class BidiEventReceiver:
             else:
                 # Regular text messages go through LiveRequestQueue
                 logger.info("[BIDI] Sending regular text via send_content()")
-                self.live_request_queue.send_content(text_content)
+                self._live_request_queue.send_content(text_content)
                 queue_operation_performed = True
 
         # Detect implementation gaps: event received but no queue operation performed
@@ -190,8 +190,10 @@ class BidiEventReceiver:
         logger.info("[BIDI] Creating Event with FunctionResponse, author='user'")
         event = Event(author="user", content=text_content)
 
-        logger.info(f"[BIDI] Calling session_service.append_event() with session={self.session.id}")
-        await self.bidi_agent_runner.session_service.append_event(self.session, event)
+        logger.info(
+            f"[BIDI] Calling session_service.append_event() with session={self._session.id}"
+        )
+        await self._ag_runner.session_service.append_event(self._session, event)
         logger.info(
             "[BIDI] ✓ Successfully added FunctionResponse to session history via append_event()"
         )
@@ -204,7 +206,7 @@ class BidiEventReceiver:
 
                 # Resolve frontend tool request (skip if id or response is None)
                 if tool_call_id and response_data is not None:
-                    self.frontend_delegate.resolve_tool_result(tool_call_id, response_data)
+                    self._delegate.resolve_tool_result(tool_call_id, response_data)
                     logger.info(f"[BIDI] Resolved tool result for {tool_call_id}")
                     continue
 
@@ -216,7 +218,7 @@ class BidiEventReceiver:
 
             continue
 
-    async def handle_interrupt_event(self, event: dict[str, Any]) -> None:
+    async def _handle_interrupt_event(self, event: dict[str, Any]) -> None:
         """
         Handle 'interrupt' event: user cancellation.
 
@@ -227,10 +229,10 @@ class BidiEventReceiver:
         logger.info(f"[BIDI] User interrupted (reason: {reason})")
 
         # Close the request queue to stop AI generation
-        self.live_request_queue.close()
+        self._live_request_queue.close()
         # Note: WebSocket stays open for next turn
 
-    async def handle_audio_control_event(self, event: dict[str, Any]) -> None:
+    async def _handle_audio_control_event(self, event: dict[str, Any]) -> None:
         """
         Handle 'audio_control' event: audio input start/stop.
 
@@ -245,7 +247,7 @@ class BidiEventReceiver:
         # Note: Audio chunks are streamed separately via audio_chunk events
         # ADK processes the audio in real-time through LiveRequestQueue
 
-    async def handle_audio_chunk_event(self, event: dict[str, Any]) -> None:
+    async def _handle_audio_chunk_event(self, event: dict[str, Any]) -> None:
         """
         Handle 'audio_chunk' event: streaming audio data.
 
@@ -270,9 +272,9 @@ class BidiEventReceiver:
             audio_blob = types.Blob(mime_type="audio/pcm", data=audio_bytes)
 
             # Send to ADK via LiveRequestQueue
-            self.live_request_queue.send_realtime(audio_blob)
+            self._live_request_queue.send_realtime(audio_blob)
 
-    async def handle_tool_result_event(self, event: dict[str, Any]) -> None:
+    async def _handle_tool_result_event(self, event: dict[str, Any]) -> None:
         """
         Handle 'tool_result' event: frontend tool execution result.
 
@@ -284,7 +286,7 @@ class BidiEventReceiver:
         result = tool_result_data.get("result")
 
         if tool_call_id and result:
-            self.frontend_delegate.resolve_tool_result(tool_call_id, result)
+            self._delegate.resolve_tool_result(tool_call_id, result)
             logger.info(f"[BIDI] Resolved tool result for {tool_call_id}")
             return
 

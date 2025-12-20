@@ -25,7 +25,7 @@ from typing import Any
 from loguru import logger
 
 from adk_vercel_id_mapper import ADKVercelIDMapper
-from result.result import Ok, Result
+from result.result import Error, Ok, Result
 
 
 class FrontendToolDelegate:
@@ -49,13 +49,11 @@ class FrontendToolDelegate:
             id_mapper: Optional ID mapper (creates new instance if not provided)
         """
         self._pending_calls: dict[str, asyncio.Future[dict[str, Any]]] = {}
-        self.id_mapper = id_mapper or ADKVercelIDMapper()
+        self._id_mapper = id_mapper or ADKVercelIDMapper()
 
     def set_function_call_id(self, tool_name: str, function_call_id: str) -> Result[None, str]:
         """
         Set the function_call.id for a tool_name.
-
-        This is called by StreamProtocolConverter when processing function_call events.
 
         Args:
             tool_name: Name of the tool
@@ -64,7 +62,7 @@ class FrontendToolDelegate:
         Returns:
             Ok(None) on success, Error(str) on failure
         """
-        self.id_mapper.register(tool_name, function_call_id)
+        self._id_mapper.register(tool_name, function_call_id)
         return Ok(None)
 
     async def execute_on_frontend(
@@ -86,26 +84,17 @@ class FrontendToolDelegate:
         """
         # Resolve function_call.id using ID mapper
         # If not found, use fallback for testing
-        resolved_id = self.id_mapper.get_function_call_id(tool_name, original_context)
+        resolved_id = self._id_mapper.get_function_call_id(tool_name, original_context)
 
         if resolved_id:
             function_call_id = resolved_id
-        else:
-            # Fallback for testing: generate simple ID from tool_name
-            # In production, ID mapper should always have the mapping
-            # Use id(args) for uniqueness when same tool called multiple times
-            function_call_id = f"test-{tool_name}-{id(args)}"
-            logger.warning(
-                f"[FrontendDelegate] No ID mapping found for tool={tool_name}. "
-                f"Using fallback ID: {function_call_id}. "
-                f"This should only happen in tests. "
-                f"In production, ensure StreamProtocolConverter registers function_call IDs."
-            )
+
+        # failed to resolve ID
+        return Error(f"Function call ID not found for tool: {tool_name}")
 
         # Register Future with function_call.id
         future: asyncio.Future[dict[str, Any]] = asyncio.Future()
         self._pending_calls[function_call_id] = future
-
         logger.info(
             f"[FrontendDelegate] Awaiting result for tool={tool_name}, "
             f"function_call.id={function_call_id}, args={args}"
@@ -154,7 +143,7 @@ class FrontendToolDelegate:
             original_id = tool_call_id.removeprefix("confirmation-")
             if original_id in self._pending_calls:
                 # Use ID mapper to get tool_name for logging
-                tool_name = self.id_mapper.resolve_tool_result(tool_call_id)
+                tool_name = self._id_mapper.resolve_tool_result(tool_call_id)
                 logger.info(
                     f"[FrontendDelegate] Resolved confirmation ID: {tool_call_id} → {original_id}, "
                     f"tool={tool_name}, result={result}"
@@ -169,7 +158,7 @@ class FrontendToolDelegate:
             f"Pending: {list(self._pending_calls.keys())}"
         )
 
-    def reject_tool_call(self, tool_call_id: str, error_message: str) -> None:
+    def _reject_tool_call(self, tool_call_id: str, error_message: str) -> None:
         """
         Reject a pending tool call with an error.
 

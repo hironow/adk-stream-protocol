@@ -31,10 +31,10 @@ from server import frontend_delegate
 def clear_id_mapper():
     """Clear ID mapper before and after each test to prevent cross-test contamination."""
     # Clear before test
-    frontend_delegate.id_mapper.clear()
+    frontend_delegate._id_mapper.clear()
     yield
     # Clear after test
-    frontend_delegate.id_mapper.clear()
+    frontend_delegate._id_mapper.clear()
 
 
 # ============================================================
@@ -58,8 +58,8 @@ def test_global_delegate_is_singleton() -> None:
 async def test_global_delegate_shared_across_sessions() -> None:
     """Verify that the same delegate instance is used across multiple sessions."""
     # given: Register ID mappings (simulates StreamProtocolConverter)
-    frontend_delegate.id_mapper.register("change_bgm", "session1_call1")
-    frontend_delegate.id_mapper.register("get_location", "session2_call2")
+    frontend_delegate._id_mapper.register("change_bgm", "session1_call1")
+    frontend_delegate._id_mapper.register("get_location", "session2_call2")
 
     # given: Multiple tool contexts from different sessions
     mock_tool_context_1 = Mock(spec=ToolContext)
@@ -114,8 +114,8 @@ async def test_concurrent_tool_execution_with_different_tools() -> None:
     delegate = frontend_delegate
 
     # Register ID mappings (simulates StreamProtocolConverter)
-    delegate.id_mapper.register("change_bgm", "concurrent_bgm")
-    delegate.id_mapper.register("get_location", "concurrent_location")
+    delegate._id_mapper.register("change_bgm", "concurrent_bgm")
+    delegate._id_mapper.register("get_location", "concurrent_location")
 
     # Create mock tool contexts
     mock_context_bgm = Mock(spec=ToolContext)
@@ -217,7 +217,7 @@ async def test_tool_timeout_when_future_never_resolved() -> None:
     delegate = frontend_delegate
 
     # Register ID mapping
-    delegate.id_mapper.register("change_bgm", "timeout_call")
+    delegate._id_mapper.register("change_bgm", "timeout_call")
 
     mock_context = Mock(spec=ToolContext)
     mock_context.invocation_id = "timeout_call"
@@ -249,7 +249,7 @@ async def test_tool_rejection_raises_runtime_error() -> None:
     delegate = frontend_delegate
 
     # Register ID mapping
-    delegate.id_mapper.register("get_location", "reject_call")
+    delegate._id_mapper.register("get_location", "reject_call")
 
     mock_context = Mock(spec=ToolContext)
     mock_context.invocation_id = "reject_call"
@@ -264,7 +264,7 @@ async def test_tool_rejection_raises_runtime_error() -> None:
     await asyncio.sleep(0.01)
 
     # Reject the call
-    delegate.reject_tool_call("reject_call", "User denied location access")
+    delegate._reject_tool_call("reject_call", "User denied location access")
 
     # Should return error dict (execute_on_frontend catches RuntimeError and returns Error)
     result = await task
@@ -284,7 +284,7 @@ async def test_spy_execute_on_frontend_called_exactly_once() -> None:
     delegate = frontend_delegate
 
     # Register ID mapping
-    delegate.id_mapper.register("change_bgm", "spy_test_call")
+    delegate._id_mapper.register("change_bgm", "spy_test_call")
 
     with patch.object(
         delegate,
@@ -324,7 +324,7 @@ async def test_spy_resolve_tool_result_called_exactly_once() -> None:
     delegate = frontend_delegate
 
     # Register ID mapping
-    delegate.id_mapper.register("change_bgm", "resolve_spy_call")
+    delegate._id_mapper.register("change_bgm", "resolve_spy_call")
 
     with patch.object(
         delegate,
@@ -377,14 +377,14 @@ async def test_dead_code_backend_never_sends_tool_result_events() -> None:
     delegate = frontend_delegate
 
     # Register ID mapping
-    delegate.id_mapper.register("change_bgm", "backend_test")
+    delegate._id_mapper.register("change_bgm", "backend_test")
 
     # Track all delegate method calls
     resolve_calls = []
     reject_calls = []
 
     original_resolve = delegate.resolve_tool_result
-    original_reject = delegate.reject_tool_call
+    original_reject = delegate._reject_tool_call
 
     def tracked_resolve(tool_call_id: str, result: dict[str, Any]) -> None:
         resolve_calls.append((tool_call_id, result))
@@ -395,7 +395,7 @@ async def test_dead_code_backend_never_sends_tool_result_events() -> None:
         return original_reject(tool_call_id, error_message)
 
     delegate.resolve_tool_result = tracked_resolve  # type: ignore
-    delegate.reject_tool_call = tracked_reject  # type: ignore
+    delegate._reject_tool_call = tracked_reject  # type: ignore
 
     try:
         mock_context = Mock(spec=ToolContext)
@@ -423,7 +423,7 @@ async def test_dead_code_backend_never_sends_tool_result_events() -> None:
     finally:
         # Restore original methods
         delegate.resolve_tool_result = original_resolve  # type: ignore
-        delegate.reject_tool_call = original_reject  # type: ignore
+        delegate._reject_tool_call = original_reject  # type: ignore
 
 
 @pytest.mark.asyncio
@@ -486,7 +486,7 @@ async def test_await_blocks_until_future_resolved() -> None:
     delegate = frontend_delegate
 
     # Register ID mapping
-    delegate.id_mapper.register("change_bgm", "await_test")
+    delegate._id_mapper.register("change_bgm", "await_test")
 
     mock_context = Mock(spec=ToolContext)
     mock_context.invocation_id = "await_test"
@@ -729,11 +729,11 @@ async def test_stress_mixed_success_and_failure() -> None:
     # - Success: 0, 2, 4
     # - Failure: 1, 3, 5
     delegate.resolve_tool_result(pending_ids[0], {"success": True, "track": 0})
-    delegate.reject_tool_call(pending_ids[1], "User cancelled")
+    delegate._reject_tool_call(pending_ids[1], "User cancelled")
     delegate.resolve_tool_result(pending_ids[2], {"success": True, "track": 2})
-    delegate.reject_tool_call(pending_ids[3], "Network error")
+    delegate._reject_tool_call(pending_ids[3], "Network error")
     delegate.resolve_tool_result(pending_ids[4], {"success": True, "track": 4})
-    delegate.reject_tool_call(pending_ids[5], "Permission denied")
+    delegate._reject_tool_call(pending_ids[5], "Permission denied")
 
     # Gather results (all return dicts now - exceptions are caught and returned as Error dicts)
     results = await asyncio.gather(*tasks, return_exceptions=True)

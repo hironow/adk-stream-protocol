@@ -19,7 +19,7 @@ from google.genai import types
 
 from stream_protocol import (
     StreamProtocolConverter,
-    map_adk_finish_reason_to_ai_sdk,
+    _map_adk_finish_reason_to_ai_sdk,
     stream_adk_to_ai_sdk,
 )
 from tests.utils import parse_sse_event
@@ -28,7 +28,7 @@ from tests.utils import parse_sse_event
 async def convert_and_collect(converter: StreamProtocolConverter, event: Event) -> list[str]:
     """Helper to convert event and collect all SSE strings."""
     events = []
-    async for sse_event in converter.convert_event(event):
+    async for sse_event in converter._convert_event(event):
         events.append(sse_event)
     return events
 
@@ -1395,7 +1395,7 @@ class TestFinishReasonMapping:
         finish_reason = None
 
         # when: Map to AI SDK v6 format
-        result = map_adk_finish_reason_to_ai_sdk(finish_reason)
+        result = _map_adk_finish_reason_to_ai_sdk(finish_reason)
 
         # then: Should return 'stop'
         assert result == "stop"
@@ -1431,7 +1431,7 @@ class TestFinishReasonMapping:
 
         # when/then: All real enum values should map correctly
         for finish_reason, expected in test_cases:
-            result = map_adk_finish_reason_to_ai_sdk(finish_reason)
+            result = _map_adk_finish_reason_to_ai_sdk(finish_reason)
             assert result == expected, f"Expected {finish_reason.name} → {expected}, got {result}"
 
     def test_finish_reason_unknown_fallback(self):
@@ -1449,124 +1449,7 @@ class TestFinishReasonMapping:
         finish_reason = UnknownFinishReason("CUSTOM_REASON")
 
         # when: Map to AI SDK v6 format
-        result = map_adk_finish_reason_to_ai_sdk(finish_reason)
+        result = _map_adk_finish_reason_to_ai_sdk(finish_reason)
 
         # then: Should use lowercase fallback
         assert result == "custom_reason"
-
-
-class TestConvertToSseEvents:
-    """Tests for _convert_to_sse_events helper function."""
-
-    @pytest.mark.asyncio
-    async def test_convert_to_sse_events_with_event_object_calls_converter(self):
-        """
-        Test: _convert_to_sse_events with Event object calls converter.convert_event()
-
-        Spy test: Verifies converter.convert_event() IS called for Event objects
-        """
-        from unittest.mock import patch
-
-        from google.adk.events import Event
-        from google.genai import types
-
-        from stream_protocol import StreamProtocolConverter, _convert_to_sse_events
-
-        # given: Event object and converter
-        content = types.Content(role="model", parts=[types.Part(text="Test")])
-        event = Event(invocation_id="test-id", author="model", content=content)
-        converter = StreamProtocolConverter(message_id="msg-123")
-
-        # Spy: Mock convert_event to track calls
-        async def mock_convert_event(e: Event):
-            yield "data: {}\n\n"
-
-        with patch.object(
-            converter, "convert_event", side_effect=mock_convert_event
-        ) as spy_convert:
-            # when: Convert original Event object
-            results = []
-            async for sse_event in _convert_to_sse_events(event, event, converter):
-                results.append(sse_event)
-
-            # then: converter.convert_event() was called once with the Event
-            spy_convert.assert_called_once_with(event)
-            assert len(results) == 1
-
-    @pytest.mark.asyncio
-    async def test_convert_to_sse_events_with_dict_does_not_call_converter(self):
-        """
-        Test: _convert_to_sse_events with dict does NOT call converter.convert_event()
-
-        Spy test: Verifies converter.convert_event() is NOT called for injected dicts
-        """
-        from unittest.mock import patch
-
-        from google.adk.events import Event
-        from google.genai import types
-
-        from stream_protocol import StreamProtocolConverter, _convert_to_sse_events
-
-        # given: Original Event and injected dict
-        content = types.Content(role="model", parts=[types.Part(text="Test")])
-        original_event = Event(invocation_id="test-id", author="model", content=content)
-        injected_dict = {"type": "tool-input-start", "toolCallId": "confirmation-123"}
-        converter = StreamProtocolConverter(message_id="msg-123")
-
-        # Spy: Mock convert_event to track calls
-        with patch.object(converter, "convert_event") as spy_convert:
-            # when: Convert injected dict (not the original Event)
-            results = []
-            async for sse_event in _convert_to_sse_events(injected_dict, original_event, converter):
-                results.append(sse_event)
-
-            # then: converter.convert_event() was NOT called
-            spy_convert.assert_not_called()
-            # And the dict was converted to SSE format directly
-            assert len(results) == 1
-            assert results[0].startswith("data: {")
-
-    @pytest.mark.asyncio
-    async def test_convert_to_sse_events_dict_generates_correct_sse_format(self):
-        """
-        Test: _convert_to_sse_events converts dict to proper SSE format
-
-        Coverage: Verifies direct dict-to-SSE conversion produces valid format
-        """
-
-        from google.adk.events import Event
-        from google.genai import types
-
-        from stream_protocol import StreamProtocolConverter, _convert_to_sse_events
-
-        # given: Original Event and injected dict with specific content
-        content = types.Content(role="model", parts=[types.Part(text="Test")])
-        original_event = Event(invocation_id="test-id", author="model", content=content)
-        injected_dict = {
-            "type": "tool-input-available",
-            "toolCallId": "confirmation-call-456",
-            "toolName": "adk_request_confirmation",
-            "input": {"originalFunctionCall": {"id": "call-456"}},
-        }
-        converter = StreamProtocolConverter(message_id="msg-123")
-
-        # when: Convert injected dict
-        results = []
-        async for sse_event in _convert_to_sse_events(injected_dict, original_event, converter):
-            results.append(sse_event)
-
-        # then: Should generate exactly one SSE event
-        assert len(results) == 1
-        sse_event = results[0]
-
-        # And it should be properly formatted SSE
-        assert sse_event.startswith("data: {")
-        assert sse_event.endswith("}\n\n")
-
-        # And it should contain the dict content as JSON
-        import json
-
-        json_content = sse_event[len("data: ") : -len("\n\n")]
-        parsed = json.loads(json_content)
-        assert parsed["type"] == "tool-input-available"
-        assert parsed["toolName"] == "adk_request_confirmation"

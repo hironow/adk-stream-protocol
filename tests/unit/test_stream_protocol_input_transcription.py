@@ -84,7 +84,7 @@ class TestInputTranscription:
 
         # when: Convert event to AI SDK format
         events = []
-        async for sse_event in converter.convert_event(mock_event):
+        async for sse_event in converter._convert_event(mock_event):
             events.append(sse_event)
 
         # then: Should generate expected event types
@@ -145,7 +145,7 @@ class TestInputTranscription:
         # when: Convert all events
         all_events = []
         for mock_event in [mock_event1, mock_event2, mock_event3]:
-            async for sse_event in converter.convert_event(mock_event):
+            async for sse_event in converter._convert_event(mock_event):
                 all_events.append(sse_event)
 
         # then: Should generate text-start, 3 deltas, text-end
@@ -216,7 +216,7 @@ class TestInputTranscription:
         # when: Convert events with DIFFERENT event.id values
         all_events = []
         for mock_event in [mock_event1, mock_event2]:
-            async for sse_event in converter.convert_event(mock_event):
+            async for sse_event in converter._convert_event(mock_event):
                 all_events.append(sse_event)
 
         # then: Text block ID MUST be the same despite different event.id
@@ -258,7 +258,7 @@ class TestInputTranscription:
 
         # when: Convert event
         events = []
-        async for sse_event in converter.convert_event(mock_event):
+        async for sse_event in converter._convert_event(mock_event):
             events.append(sse_event)
 
         # then: Should not generate any transcription events (text-start/delta/end)

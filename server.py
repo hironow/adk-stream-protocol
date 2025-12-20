@@ -258,15 +258,13 @@ async def chat(request: ChatRequest):
 
 def _create_error_sse_response(error_message: str) -> StreamingResponse:
     """
-    Create an SSE error response using StreamProtocolConverter.
+    Create an SSE error response
 
     Design Principle: [DONE] should ONLY be sent from finalize(), not directly from server.py
     """
 
     async def error_stream():
-        # Use StreamProtocolConverter.finalize() to ensure consistent [DONE] handling
-        converter = StreamProtocolConverter()
-        async for event in converter.finalize(error=error_message):
+        async for event in StreamProtocolConverter().finalize(error=error_message):
             yield event
 
     return StreamingResponse(

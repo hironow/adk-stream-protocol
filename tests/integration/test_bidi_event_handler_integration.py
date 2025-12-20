@@ -72,7 +72,7 @@ async def test_level2_message_event_with_real_frontend_delegate() -> None:
         event = {"type": "message", "data": {"messages": []}}
 
         # when
-        await handler.handle_message_event(event)
+        await handler._handle_message_event(event)
 
         # then
         # Should call append_event
@@ -122,7 +122,7 @@ async def test_level2_tool_result_event_with_real_frontend_delegate() -> None:
     }
 
     # when
-    await handler.handle_tool_result_event(event)
+    await handler._handle_tool_result_event(event)
 
     # then
     # Should resolve the pending future
@@ -177,7 +177,7 @@ async def test_level2_confirmation_flow_with_real_delegate() -> None:
         event = {"type": "message", "data": {"messages": []}}
 
         # when
-        await handler.handle_message_event(event)
+        await handler._handle_message_event(event)
 
         # then
         # Should resolve pending request
@@ -221,7 +221,7 @@ async def test_level3_interrupt_event_with_real_queue() -> None:
     event = {"type": "interrupt", "reason": "user_abort"}
 
     # when
-    await handler.handle_interrupt_event(event)
+    await handler._handle_interrupt_event(event)
 
     # then
     mock_queue.close.assert_called_once()
@@ -257,7 +257,7 @@ async def test_level3_audio_chunk_with_real_blob_creation() -> None:
     event = {"type": "audio_chunk", "data": {"chunk": chunk_base64}}
 
     # when
-    await handler.handle_audio_chunk_event(event)
+    await handler._handle_audio_chunk_event(event)
 
     # then
     mock_queue.send_realtime.assert_called_once()
@@ -315,7 +315,7 @@ async def test_level4_complete_message_flow() -> None:
         event = {"type": "message", "data": {"messages": []}}
 
         # when
-        await handler.handle_message_event(event)
+        await handler._handle_message_event(event)
 
         # then
         # Should send content to queue (not append_event, since it's not FunctionResponse)
@@ -358,7 +358,7 @@ async def test_level4_sequential_events() -> None:
         return_value=([], text_content_1),
     ):
         event_1 = {"type": "message", "data": {"messages": []}}
-        await handler.handle_message_event(event_1)
+        await handler._handle_message_event(event_1)
 
     # Step 2: Tool result comes back
     pending_future: asyncio.Future[dict[str, Any]] = asyncio.Future()
@@ -371,7 +371,7 @@ async def test_level4_sequential_events() -> None:
             "result": {"city": "Tokyo", "country": "Japan"},
         },
     }
-    await handler.handle_tool_result_event(event_2)
+    await handler._handle_tool_result_event(event_2)
 
     # Step 3: FunctionResponse message
     function_response = types.FunctionResponse(
@@ -385,7 +385,7 @@ async def test_level4_sequential_events() -> None:
         return_value=([], text_content_3),
     ):
         event_3 = {"type": "message", "data": {"messages": []}}
-        await handler.handle_message_event(event_3)
+        await handler._handle_message_event(event_3)
 
     # then
     # Verify sequence
@@ -427,7 +427,7 @@ async def test_level2_missing_tool_result_with_real_delegate() -> None:
     }
 
     # when
-    await handler.handle_tool_result_event(event)
+    await handler._handle_tool_result_event(event)
 
     # then
     # Should handle gracefully (no exception)
@@ -458,4 +458,4 @@ async def test_level3_malformed_audio_chunk() -> None:
 
     # when/then
     with pytest.raises(binascii.Error):  # base64 decode error
-        await handler.handle_audio_chunk_event(event)
+        await handler._handle_audio_chunk_event(event)

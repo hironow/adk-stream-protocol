@@ -25,6 +25,7 @@ Playback Modes:
 
 import asyncio
 import json
+import os
 import time
 from collections.abc import AsyncGenerator
 from pathlib import Path
@@ -223,8 +224,6 @@ class ChunkPlayerManager:
         Returns:
             True if E2E_CHUNK_PLAYER_MODE=true
         """
-        import os
-
         return os.getenv("E2E_CHUNK_PLAYER_MODE", "false").lower() == "true"
 
     @staticmethod
@@ -235,8 +234,6 @@ class ChunkPlayerManager:
         Returns:
             Fixture path or None if not set
         """
-        import os
-
         return os.getenv("E2E_CHUNK_PLAYER_FIXTURE")
 
     @classmethod

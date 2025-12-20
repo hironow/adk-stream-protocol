@@ -106,7 +106,7 @@ class TestOutputTranscriptionRealResponse:
 
         # when: Convert event to AI SDK v6 format
         sse_events = []
-        async for event in converter.convert_event(mock_event):
+        async for event in converter._convert_event(mock_event):
             sse_events.append(event)
 
         # then: Verify correct AI SDK v6 events
@@ -164,7 +164,7 @@ class TestOutputTranscriptionRealResponse:
             mock_event.finish_reason = None
             mock_event.output_transcription = MockTranscription(text=text, finished=finished)
 
-            async for event in converter.convert_event(mock_event):
+            async for event in converter._convert_event(mock_event):
                 all_events.append(event)
 
         # then: Verify event sequence
@@ -241,7 +241,7 @@ class TestOutputTranscriptionRealResponse:
         # when: Convert events with DIFFERENT event.id values
         all_events = []
         for mock_event in [mock_event1, mock_event2]:
-            async for sse_event in converter.convert_event(mock_event):
+            async for sse_event in converter._convert_event(mock_event):
                 all_events.append(sse_event)
 
         # then: Text block ID MUST be the same despite different event.id
@@ -281,7 +281,7 @@ class TestOutputTranscriptionRealResponse:
 
         # when: Convert event
         sse_events = []
-        async for event in converter.convert_event(mock_event):
+        async for event in converter._convert_event(mock_event):
             sse_events.append(event)
 
         # then: Should only have message start event (no text events)

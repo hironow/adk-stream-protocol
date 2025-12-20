@@ -35,10 +35,10 @@ def test_bidi_event_handler_initialization() -> None:
     )
 
     # then
-    assert handler.session is mock_session
-    assert handler.frontend_delegate is mock_delegate
-    assert handler.live_request_queue is mock_queue
-    assert handler.bidi_agent_runner is mock_runner
+    assert handler._session is mock_session
+    assert handler._delegate is mock_delegate
+    assert handler._live_request_queue is mock_queue
+    assert handler._ag_runner is mock_runner
 
 
 # ============================================================
@@ -218,7 +218,7 @@ async def test_handle_message_event_syncs_history(mock_process, mock_sync) -> No
     }
 
     # when
-    await handler.handle_message_event(event)
+    await handler._handle_message_event(event)
 
     # then
     mock_sync.assert_called_once()
@@ -249,7 +249,7 @@ async def test_handle_message_event_sends_image_blobs(mock_process) -> None:
     event = {"type": "message", "data": {}}
 
     # when
-    await handler.handle_message_event(event)
+    await handler._handle_message_event(event)
 
     # then
     assert mock_queue.send_realtime.call_count == 2
@@ -277,7 +277,7 @@ async def test_handle_message_event_sends_regular_text(mock_process) -> None:
     event = {"type": "message", "data": {}}
 
     # when
-    await handler.handle_message_event(event)
+    await handler._handle_message_event(event)
 
     # then
     mock_queue.send_content.assert_called_once_with(text_content)
@@ -315,7 +315,7 @@ async def test_handle_message_event_handles_function_response(mock_process) -> N
     event = {"type": "message", "data": {}}
 
     # when
-    await handler.handle_message_event(event)
+    await handler._handle_message_event(event)
 
     # then
     # Should call append_event (not send_content)
@@ -347,7 +347,7 @@ async def test_handle_interrupt_event_closes_queue() -> None:
     event = {"type": "interrupt", "reason": "user_abort"}
 
     # when
-    await handler.handle_interrupt_event(event)
+    await handler._handle_interrupt_event(event)
 
     # then
     mock_queue.close.assert_called_once()
@@ -368,7 +368,7 @@ async def test_handle_interrupt_event_with_default_reason() -> None:
     event = {"type": "interrupt"}  # No reason
 
     # when
-    await handler.handle_interrupt_event(event)
+    await handler._handle_interrupt_event(event)
 
     # then
     mock_queue.close.assert_called_once()
@@ -393,7 +393,7 @@ async def test_handle_audio_control_event_start() -> None:
     event = {"type": "audio_control", "action": "start"}
 
     # when/then - Should not raise error
-    await handler.handle_audio_control_event(event)
+    await handler._handle_audio_control_event(event)
 
 
 @pytest.mark.asyncio
@@ -410,7 +410,7 @@ async def test_handle_audio_control_event_stop() -> None:
     event = {"type": "audio_control", "action": "stop"}
 
     # when/then - Should not raise error
-    await handler.handle_audio_control_event(event)
+    await handler._handle_audio_control_event(event)
 
 
 # ============================================================
@@ -438,7 +438,7 @@ async def test_handle_audio_chunk_event_decodes_and_sends() -> None:
     event = {"type": "audio_chunk", "data": {"chunk": chunk_base64}}
 
     # when
-    await handler.handle_audio_chunk_event(event)
+    await handler._handle_audio_chunk_event(event)
 
     # then
     mock_queue.send_realtime.assert_called_once()
@@ -463,7 +463,7 @@ async def test_handle_audio_chunk_event_missing_chunk() -> None:
     event = {"type": "audio_chunk", "data": {}}  # No chunk
 
     # when/then - Should not raise error
-    await handler.handle_audio_chunk_event(event)
+    await handler._handle_audio_chunk_event(event)
     mock_queue.send_realtime.assert_not_called()
 
 
@@ -493,7 +493,7 @@ async def test_handle_tool_result_event_resolves_result() -> None:
     }
 
     # when
-    await handler.handle_tool_result_event(event)
+    await handler._handle_tool_result_event(event)
 
     # then
     mock_delegate.resolve_tool_result.assert_called_once_with(
@@ -519,7 +519,7 @@ async def test_handle_tool_result_event_missing_tool_call_id() -> None:
     }
 
     # when/then - Should not raise error
-    await handler.handle_tool_result_event(event)
+    await handler._handle_tool_result_event(event)
     mock_delegate.resolve_tool_result.assert_not_called()
 
 
@@ -541,7 +541,7 @@ async def test_handle_tool_result_event_missing_result() -> None:
     }
 
     # when/then - Should not raise error
-    await handler.handle_tool_result_event(event)
+    await handler._handle_tool_result_event(event)
     mock_delegate.resolve_tool_result.assert_not_called()
 
 
@@ -665,7 +665,7 @@ async def test_handle_message_event_with_process_chat_error_raises() -> None:
         side_effect=ValueError("Invalid message format"),
     ):
         with pytest.raises(ValueError, match="Invalid message format"):
-            await handler.handle_message_event(event)
+            await handler._handle_message_event(event)
 
 
 @pytest.mark.asyncio
@@ -692,7 +692,7 @@ async def test_handle_message_event_with_sync_history_error_raises() -> None:
         side_effect=RuntimeError("Session sync failed"),
     ):
         with pytest.raises(RuntimeError, match="Session sync failed"):
-            await handler.handle_message_event(event)
+            await handler._handle_message_event(event)
 
 
 @pytest.mark.asyncio
@@ -721,7 +721,7 @@ async def test_handle_message_event_with_send_content_error_raises() -> None:
         return_value=([], text_content),
     ):
         with pytest.raises(RuntimeError, match="Queue send failed"):
-            await handler.handle_message_event(event)
+            await handler._handle_message_event(event)
 
 
 @pytest.mark.asyncio
@@ -746,7 +746,7 @@ async def test_handle_message_event_with_send_realtime_error_raises() -> None:
         return_value=([Mock()], None),  # Return image blob
     ):
         with pytest.raises(RuntimeError, match="Realtime send failed"):
-            await handler.handle_message_event(event)
+            await handler._handle_message_event(event)
 
 
 @pytest.mark.asyncio
@@ -825,7 +825,7 @@ async def test_handle_audio_chunk_with_send_realtime_error_raises() -> None:
 
     # when/then
     with pytest.raises(RuntimeError, match="Send realtime failed"):
-        await handler.handle_audio_chunk_event(event)
+        await handler._handle_audio_chunk_event(event)
 
 
 @pytest.mark.asyncio
@@ -849,7 +849,7 @@ async def test_handle_tool_result_with_resolve_error_raises() -> None:
 
     # when/then
     with pytest.raises(RuntimeError, match="Resolve error"):
-        await handler.handle_tool_result_event(event)
+        await handler._handle_tool_result_event(event)
 
 
 @pytest.mark.asyncio
@@ -868,4 +868,4 @@ async def test_handle_message_event_with_invalid_messages_format() -> None:
 
     # when/then - should raise error when converting to ChatMessage
     with pytest.raises(TypeError):
-        await handler.handle_message_event(event)
+        await handler._handle_message_event(event)

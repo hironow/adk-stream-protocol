@@ -33,7 +33,7 @@ async def test_frontend_delegate_execute_and_resolve() -> None:
     delegate = FrontendToolDelegate()
 
     # Register ID mapping (simulates StreamProtocolConverter registration)
-    delegate.id_mapper.register("change_bgm", "call_123")
+    delegate._id_mapper.register("change_bgm", "call_123")
 
     # Start execute_on_frontend in background
     async def execute_tool() -> dict[str, Any]:
@@ -76,7 +76,7 @@ async def test_frontend_delegate_reject_tool_call() -> None:
     delegate = FrontendToolDelegate()
 
     # Register ID mapping
-    delegate.id_mapper.register("change_bgm", "call_456")
+    delegate._id_mapper.register("change_bgm", "call_456")
 
     # Start execute_on_frontend in background
     async def execute_tool():
@@ -92,7 +92,7 @@ async def test_frontend_delegate_reject_tool_call() -> None:
     assert "call_456" in delegate._pending_calls
 
     # Reject the Future
-    delegate.reject_tool_call("call_456", "Tool execution failed")
+    delegate._reject_tool_call("call_456", "Tool execution failed")
 
     # Verify Future is rejected - execute_on_frontend catches exception and returns Error
     result_or_error = await task
@@ -122,7 +122,7 @@ async def test_frontend_delegate_reject_unknown_call_id() -> None:
     delegate = FrontendToolDelegate()
 
     # Should not raise exception
-    delegate.reject_tool_call("unknown_id", "Error message")
+    delegate._reject_tool_call("unknown_id", "Error message")
 
     # Verify no pending calls
     assert len(delegate._pending_calls) == 0
@@ -134,8 +134,8 @@ async def test_frontend_delegate_multiple_pending_calls() -> None:
     delegate = FrontendToolDelegate()
 
     # Register ID mappings
-    delegate.id_mapper.register("tool_a", "call_1")
-    delegate.id_mapper.register("tool_b", "call_2")
+    delegate._id_mapper.register("tool_a", "call_1")
+    delegate._id_mapper.register("tool_b", "call_2")
 
     # Start two execute_on_frontend calls
     async def execute_tool_1() -> dict[str, Any]:
@@ -246,7 +246,7 @@ async def test_change_bgm_delegate_call_count_spy() -> None:
     delegate = FrontendToolDelegate()
 
     # Register ID mapping (simulates StreamProtocolConverter registration)
-    delegate.id_mapper.register("change_bgm", "call_spy_test")
+    delegate._id_mapper.register("change_bgm", "call_spy_test")
 
     # Spy on execute_on_frontend method
     with patch.object(
@@ -378,7 +378,7 @@ async def test_get_location_delegate_call_count_spy() -> None:
     delegate = FrontendToolDelegate()
 
     # Register ID mapping (simulates StreamProtocolConverter registration)
-    delegate.id_mapper.register("get_location", "call_location_spy")
+    delegate._id_mapper.register("get_location", "call_location_spy")
 
     # Spy on execute_on_frontend method
     with patch.object(
@@ -456,7 +456,7 @@ async def test_get_location_delegate_not_called_on_error() -> None:
     delegate = FrontendToolDelegate()
 
     # Register ID mapping (simulates StreamProtocolConverter registration)
-    delegate.id_mapper.register("get_location", "call_location_error")
+    delegate._id_mapper.register("get_location", "call_location_error")
 
     with patch.object(
         delegate,
@@ -466,7 +466,7 @@ async def test_get_location_delegate_not_called_on_error() -> None:
         # Set up Future rejection
         async def reject_after_delay() -> None:
             await asyncio.sleep(0.01)
-            delegate.reject_tool_call("call_location_error", "User denied location access")
+            delegate._reject_tool_call("call_location_error", "User denied location access")
 
         # Create mock ToolContext
         mock_tool_context = Mock(spec=ToolContext)

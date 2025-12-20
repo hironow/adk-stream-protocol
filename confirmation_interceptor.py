@@ -49,11 +49,11 @@ class ToolConfirmationInterceptor:
             confirmation_tools: List of tool names requiring confirmation
                                (e.g., ["process_payment"])
         """
-        self.delegate = delegate
-        self.confirmation_tools = set(confirmation_tools)
+        self._delegate = delegate
+        self._confirmation_tools = set(confirmation_tools)
         logger.info(f"[ToolConfirmationInterceptor] Initialized with tools: {confirmation_tools}")
 
-    def should_intercept(self, function_call: types.FunctionCall) -> bool:
+    def _should_intercept(self, function_call: types.FunctionCall) -> bool:
         """
         Check if this tool call should be intercepted for confirmation.
 
@@ -63,7 +63,7 @@ class ToolConfirmationInterceptor:
         Returns:
             True if tool requires confirmation and should be intercepted
         """
-        requires = function_call.name in self.confirmation_tools
+        requires = function_call.name in self._confirmation_tools
         if requires:
             logger.info(
                 f"[ToolConfirmationInterceptor] Tool {function_call.name} requires confirmation"
@@ -99,7 +99,7 @@ class ToolConfirmationInterceptor:
             f"tool_call_id={tool_call_id}, tool={original_function_call.get('name')}"
         )
 
-        result_or_error = await self.delegate.execute_on_frontend(
+        result_or_error = await self._delegate.execute_on_frontend(
             tool_name="adk_request_confirmation",
             args={
                 "originalFunctionCall": original_function_call,

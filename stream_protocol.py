@@ -20,7 +20,7 @@ import json
 import uuid
 from collections.abc import AsyncGenerator
 from pprint import pformat
-from typing import Any, cast
+from typing import Any
 
 from google.adk.events import Event
 from google.genai import types
@@ -38,9 +38,9 @@ from chunk_logger import Mode, chunk_logger
 type SseFormattedEvent = str
 
 # Log truncation threshold for base64 and long content fields
-LOG_FIELD_TRUNCATE_THRESHOLD = 100
+LOG_FIELD_TRUNCATE_THRESHOLD = 20
 # Maximum length for debug log messages before truncation
-DEBUG_LOG_MAX_LENGTH = 200
+DEBUG_LOG_MAX_LENGTH = 100
 
 
 def format_sse_event(event_data: dict[str, Any]) -> SseFormattedEvent:
@@ -106,7 +106,7 @@ class AISdkFinishReason(str, enum.Enum):
     OTHER = "other"
 
 
-def map_adk_finish_reason_to_ai_sdk(finish_reason: types.FinishReason | None) -> str:
+def _map_adk_finish_reason_to_ai_sdk(finish_reason: types.FinishReason | None) -> str:
     """
     Map ADK FinishReason enum to AI SDK v6 finish reason string.
 
@@ -215,11 +215,12 @@ class StreamProtocolConverter:
         self.tool_call_id_counter += 1
         return tool_call_id
 
-    def _format_sse_event(self, event_data: dict) -> str:
+    @staticmethod
+    def format_sse_event(event_data: dict) -> str:
         """Format event data as SSE. Delegates to module-level format_sse_event()."""
         return format_sse_event(event_data)
 
-    async def convert_event(self, event: Event) -> AsyncGenerator[str]:  # noqa: C901, PLR0912, PLR0915
+    async def _convert_event(self, event: Event) -> AsyncGenerator[str]:  # noqa: C901, PLR0912, PLR0915
         """
         Convert a single ADK event to AI SDK v6 SSE events.
 
@@ -233,7 +234,7 @@ class StreamProtocolConverter:
         if hasattr(event, "error_code") and event.error_code:
             error_message = getattr(event, "error_message", None) or "Unknown error"
             logger.error(f"[ERROR] ADK error detected: {event.error_code} - {error_message}")
-            yield self._format_sse_event(
+            yield self.format_sse_event(
                 {
                     "type": "error",
                     "error": {"code": event.error_code, "message": error_message},
@@ -297,7 +298,7 @@ class StreamProtocolConverter:
 
         # Send start event on first event
         if not self.has_started:
-            yield self._format_sse_event({"type": "start", "messageId": self.message_id})
+            yield self.format_sse_event({"type": "start", "messageId": self.message_id})
             self.has_started = True
 
         # Process event content parts
@@ -370,12 +371,12 @@ class StreamProtocolConverter:
                 if not self._input_text_block_started:
                     self._input_text_block_id = f"{self.message_id}_input_text"
                     self._input_text_block_started = True
-                    yield self._format_sse_event(
+                    yield self.format_sse_event(
                         {"type": "text-start", "id": self._input_text_block_id}
                     )
 
                 # Send text-delta with the transcription text (AI SDK v6 protocol)
-                yield self._format_sse_event(
+                yield self.format_sse_event(
                     {
                         "type": "text-delta",
                         "id": self._input_text_block_id,
@@ -385,7 +386,7 @@ class StreamProtocolConverter:
 
                 # Send text-end if transcription is finished
                 if hasattr(transcription, "finished") and transcription.finished:
-                    yield self._format_sse_event(
+                    yield self.format_sse_event(
                         {"type": "text-end", "id": self._input_text_block_id}
                     )
                     self._input_text_block_started = False
@@ -414,12 +415,12 @@ class StreamProtocolConverter:
                 if not self._output_text_block_started:
                     self._output_text_block_id = f"{self.message_id}_output_text"
                     self._output_text_block_started = True
-                    yield self._format_sse_event(
+                    yield self.format_sse_event(
                         {"type": "text-start", "id": self._output_text_block_id}
                     )
 
                 # Send text-delta with the transcription text (AI SDK v6 protocol)
-                yield self._format_sse_event(
+                yield self.format_sse_event(
                     {
                         "type": "text-delta",
                         "id": self._output_text_block_id,
@@ -429,7 +430,7 @@ class StreamProtocolConverter:
 
                 # Send text-end if transcription is finished
                 if hasattr(transcription, "finished") and transcription.finished:
-                    yield self._format_sse_event(
+                    yield self.format_sse_event(
                         {"type": "text-end", "id": self._output_text_block_id}
                     )
                     self._output_text_block_started = False
@@ -473,11 +474,11 @@ class StreamProtocolConverter:
         part_id = self._generate_part_id()
 
         events = [
-            self._format_sse_event({"type": f"{event_type_prefix}-start", "id": part_id}),
-            self._format_sse_event(
+            self.format_sse_event({"type": f"{event_type_prefix}-start", "id": part_id}),
+            self.format_sse_event(
                 {"type": f"{event_type_prefix}-delta", "id": part_id, "delta": content}
             ),
-            self._format_sse_event({"type": f"{event_type_prefix}-end", "id": part_id}),
+            self.format_sse_event({"type": f"{event_type_prefix}-end", "id": part_id}),
         ]
         return events
 
@@ -524,14 +525,14 @@ class StreamProtocolConverter:
             logger.info(f"[DEBUG] adk_request_confirmation tool_args: {tool_args}")
 
         events = [
-            self._format_sse_event(
+            self.format_sse_event(
                 {
                     "type": "tool-input-start",
                     "toolCallId": tool_call_id,
                     "toolName": tool_name,
                 }
             ),
-            self._format_sse_event(
+            self.format_sse_event(
                 {
                     "type": "tool-input-available",
                     "toolCallId": tool_call_id,
@@ -595,7 +596,7 @@ class StreamProtocolConverter:
 
         # Send error event if error detected
         if is_error:
-            event = self._format_sse_event(
+            event = self.format_sse_event(
                 {
                     "type": "tool-output-error",
                     "toolCallId": tool_call_id,
@@ -606,7 +607,7 @@ class StreamProtocolConverter:
             return [event]
 
         # Normal success response
-        event = self._format_sse_event(
+        event = self.format_sse_event(
             {
                 "type": "tool-output-available",
                 "toolCallId": tool_call_id,
@@ -617,7 +618,7 @@ class StreamProtocolConverter:
 
     def _process_executable_code(self, code: types.ExecutableCode) -> list[str]:
         """Process executable code as custom data event."""
-        event = self._format_sse_event(
+        event = self.format_sse_event(
             {
                 "type": "data-executable-code",
                 "data": {"language": code.language, "code": code.code},
@@ -627,7 +628,7 @@ class StreamProtocolConverter:
 
     def _process_code_result(self, result: types.CodeExecutionResult) -> list[str]:
         """Process code execution result as custom data event."""
-        event = self._format_sse_event(
+        event = self.format_sse_event(
             {
                 "type": "data-code-execution-result",
                 "data": {"outcome": result.outcome, "output": result.output},
@@ -665,7 +666,7 @@ class StreamProtocolConverter:
             # Send PCM chunk immediately as data-pcm event (AI SDK v6 Stream Protocol)
             base64_content = base64.b64encode(inline_data.data).decode("utf-8")
 
-            event = self._format_sse_event(
+            event = self.format_sse_event(
                 {
                     "type": "data-pcm",
                     "data": {
@@ -683,7 +684,7 @@ class StreamProtocolConverter:
             # Convert bytes to base64 string
             base64_content = base64.b64encode(inline_data.data).decode("utf-8")
 
-            event = self._format_sse_event(
+            event = self.format_sse_event(
                 {
                     "type": "data-audio",
                     "data": {
@@ -701,7 +702,7 @@ class StreamProtocolConverter:
 
             # Use AI SDK v6 standard 'file' event with data URL
             # This matches the input format (symmetric input/output)
-            event = self._format_sse_event(
+            event = self.format_sse_event(
                 {
                     "type": "file",
                     "url": f"data:{mime_type};base64,{base64_content}",
@@ -745,19 +746,19 @@ class StreamProtocolConverter:
             Final SSE events
         """
         if error:
-            yield self._format_sse_event({"type": "error", "error": str(error)})
+            yield self.format_sse_event({"type": "error", "error": str(error)})
         else:
             # Close any open text blocks (input transcription)
             if self._input_text_block_started and self._input_text_block_id:
                 logger.debug(
                     f"[INPUT TRANSCRIPTION] Closing text block in finalize: id={self._input_text_block_id}"
                 )
-                yield self._format_sse_event({"type": "text-end", "id": self._input_text_block_id})
+                yield self.format_sse_event({"type": "text-end", "id": self._input_text_block_id})
                 self._input_text_block_started = False
 
             # Close any open text blocks (output transcription)
             if self._output_text_block_started and self._output_text_block_id:
-                yield self._format_sse_event({"type": "text-end", "id": self._output_text_block_id})
+                yield self.format_sse_event({"type": "text-end", "id": self._output_text_block_id})
                 self._output_text_block_started = False
 
             # Build finish event
@@ -765,7 +766,7 @@ class StreamProtocolConverter:
 
             # Add finish reason if available
             if finish_reason:
-                finish_event["finishReason"] = map_adk_finish_reason_to_ai_sdk(finish_reason)
+                finish_event["finishReason"] = _map_adk_finish_reason_to_ai_sdk(finish_reason)
 
             # Build messageMetadata with usage and audio stats
             metadata: dict[str, Any] = {}
@@ -856,52 +857,11 @@ class StreamProtocolConverter:
             if metadata:
                 finish_event["messageMetadata"] = metadata
 
-            yield self._format_sse_event(finish_event)
+            yield self.format_sse_event(finish_event)
 
         # Always send [DONE] marker
         logger.debug("[ADK→SSE] Sending [DONE] marker")
         yield "data: [DONE]\n\n"
-
-
-async def _convert_to_sse_events(
-    processed_event: Event | dict[str, Any] | str,
-    original_event: Event,
-    converter: StreamProtocolConverter,
-) -> AsyncGenerator[str]:
-    """
-    Convert ADK Event or injected dict to SSE event strings.
-
-    This helper function unifies the conversion logic for:
-    - Original ADK Event objects (converted via converter)
-    - Injected confirmation dicts (already in AI SDK v6 format)
-    - Raw SSE strings (like [DONE] markers - passed through directly)
-
-    Args:
-        processed_event: ADK Event object, injected dict, or raw SSE string
-        original_event: The original ADK Event (for identity check)
-        converter: The StreamProtocolConverter instance
-
-    Yields:
-        SSE formatted event strings
-    """
-    logger.debug(
-        f"[_convert_to_sse_events] Received: type={type(processed_event).__name__}, "
-        f"is_str={isinstance(processed_event, str)}"
-    )
-    if isinstance(processed_event, str):
-        # Raw SSE string (e.g., "data: [DONE]\n\n") - pass through directly
-        logger.info(f"[_convert_to_sse_events] Passing through raw string: {processed_event!r}")
-        yield processed_event
-    elif processed_event is original_event:
-        # Original ADK Event - convert normally via converter
-        # Type narrowing: identity check guarantees this is an Event
-        event = cast(Event, processed_event)
-        async for sse_event in converter.convert_event(event):
-            yield sse_event
-    else:
-        # Injected confirmation event (dict in AI SDK v6 format)
-        # Convert directly to SSE without going through converter
-        yield f"data: {json.dumps(processed_event)}\n\n"
 
 
 async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912
@@ -974,7 +934,7 @@ async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912
             )
 
             # Convert ADK Event to SSE format
-            async for sse_event in converter.convert_event(event):
+            async for sse_event in converter._convert_event(event):
                 # Chunk Logger: Record SSE event (output)
                 chunk_logger.log_chunk(
                     location="backend-sse-event",
@@ -1014,11 +974,9 @@ async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912
         cache_metadata = cache_metadata_list[-1] if len(cache_metadata_list) > 0 else None
         model_version = model_version_list[-1] if len(model_version_list) > 0 else None
 
-        # Log what we're finalizing with
         if error:
             logger.error(f"[FINALIZE] Sending error: {error}")
 
-        # Send finalize events with all metadata
         async for final_event in converter.finalize(
             usage_metadata=usage_metadata,
             error=error,

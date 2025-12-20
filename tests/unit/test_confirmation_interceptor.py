@@ -40,8 +40,8 @@ def test_interceptor_initialization() -> None:
     interceptor = ToolConfirmationInterceptor(delegate, confirmation_tools)
 
     # then
-    assert interceptor.delegate is delegate
-    assert interceptor.confirmation_tools == {"process_payment", "delete_account"}
+    assert interceptor._delegate is delegate
+    assert interceptor._confirmation_tools == {"process_payment", "delete_account"}
 
 
 def test_interceptor_stores_tools_as_set() -> None:
@@ -54,8 +54,8 @@ def test_interceptor_stores_tools_as_set() -> None:
     interceptor = ToolConfirmationInterceptor(delegate, confirmation_tools)
 
     # then
-    assert isinstance(interceptor.confirmation_tools, set)
-    assert len(interceptor.confirmation_tools) == 2  # Duplicates removed
+    assert isinstance(interceptor._confirmation_tools, set)
+    assert len(interceptor._confirmation_tools) == 2  # Duplicates removed
 
 
 def test_interceptor_empty_confirmation_tools() -> None:
@@ -67,7 +67,7 @@ def test_interceptor_empty_confirmation_tools() -> None:
     interceptor = ToolConfirmationInterceptor(delegate, [])
 
     # then
-    assert interceptor.confirmation_tools == set()
+    assert interceptor._confirmation_tools == set()
 
 
 # ============================================================
@@ -88,7 +88,7 @@ def test_should_intercept_returns_true_for_confirmation_tool() -> None:
     )
 
     # when
-    result = interceptor.should_intercept(function_call)
+    result = interceptor._should_intercept(function_call)
 
     # then
     assert result is True
@@ -107,7 +107,7 @@ def test_should_intercept_returns_false_for_non_confirmation_tool() -> None:
     )
 
     # when
-    result = interceptor.should_intercept(function_call)
+    result = interceptor._should_intercept(function_call)
 
     # then
     assert result is False
@@ -126,7 +126,7 @@ def test_should_intercept_case_sensitive() -> None:
     )
 
     # when
-    result = interceptor.should_intercept(function_call)
+    result = interceptor._should_intercept(function_call)
 
     # then
     assert result is False
@@ -143,16 +143,16 @@ def test_should_intercept_multiple_confirmation_tools() -> None:
 
     # when/then
     payment_call = types.FunctionCall(id="1", name="process_payment", args={})
-    assert interceptor.should_intercept(payment_call) is True
+    assert interceptor._should_intercept(payment_call) is True
 
     delete_call = types.FunctionCall(id="2", name="delete_account", args={})
-    assert interceptor.should_intercept(delete_call) is True
+    assert interceptor._should_intercept(delete_call) is True
 
     transfer_call = types.FunctionCall(id="3", name="transfer_funds", args={})
-    assert interceptor.should_intercept(transfer_call) is True
+    assert interceptor._should_intercept(transfer_call) is True
 
     weather_call = types.FunctionCall(id="4", name="get_weather", args={})
-    assert interceptor.should_intercept(weather_call) is False
+    assert interceptor._should_intercept(weather_call) is False
 
 
 # ============================================================
@@ -426,7 +426,7 @@ def test_should_intercept_with_empty_function_call_name() -> None:
     function_call = types.FunctionCall(id="empty", name="", args={})
 
     # when
-    result = interceptor.should_intercept(function_call)
+    result = interceptor._should_intercept(function_call)
 
     # then
     assert result is False

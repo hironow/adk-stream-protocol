@@ -212,7 +212,7 @@ async def test_level4_complete_event_stream_with_confirmation_tools() -> None:
         assert id_mapper.resolve_tool_result("payment-456") == "process_payment"
 
         # Confirmation tools should be set on sender
-        assert sender.confirmation_tools == confirmation_tools
+        assert sender._confirmation_tools == confirmation_tools
 
 
 @pytest.mark.asyncio
