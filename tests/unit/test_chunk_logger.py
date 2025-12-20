@@ -65,7 +65,8 @@ class TestChunkLoggerEnvironment(unittest.TestCase):
         assert logger._enabled is False
 
     @patch("pathlib.Path.mkdir")
-    def test_chunk_logger_creates_output_directory(self, mock_mkdir):
+    @patch("pathlib.Path.open")
+    def test_chunk_logger_creates_output_directory(self, mock_path_open, mock_mkdir):
         """Test that ChunkLogger creates output directory when enabled."""
         # Set environment variables before importing
         os.environ["CHUNK_LOGGER_ENABLED"] = "true"
@@ -75,6 +76,10 @@ class TestChunkLoggerEnvironment(unittest.TestCase):
         if "chunk_logger" in sys.modules:
             del sys.modules["chunk_logger"]
 
+        # Mock file handle with write method
+        mock_file = Mock()
+        mock_path_open.return_value = mock_file
+
         # Now import with the new environment variables set
         from chunk_logger import chunk_logger
 
@@ -83,13 +88,15 @@ class TestChunkLoggerEnvironment(unittest.TestCase):
         mock_mkdir.assert_called()
 
         # Also test that logging works (won't actually write due to mock)
-        with patch("builtins.open", Mock()):
-            chunk_logger.log_chunk(
-                location="backend-adk-event",
-                direction="in",
-                chunk={"test": "data"},
-                mode="adk-bidi",
-            )
+        chunk_logger.log_chunk(
+            location="backend-adk-event",
+            direction="in",
+            chunk={"test": "data"},
+            mode="adk-bidi",
+        )
+
+        # Verify write was called
+        mock_file.write.assert_called()
 
     def test_server_loads_dotenv_before_imports(self):
         """Test that server.py loads dotenv before importing modules."""
@@ -155,15 +162,19 @@ class TestChunkLoggerEnvironment(unittest.TestCase):
         assert logger._session_id.startswith("session-")
 
     @patch("json.dumps")
-    @patch("builtins.open", Mock())
+    @patch("pathlib.Path.open")
     @patch("pathlib.Path.mkdir")
-    def test_chunk_logger_logs_when_enabled(self, mock_mkdir, mock_json_dumps):
+    def test_chunk_logger_logs_when_enabled(self, mock_mkdir, mock_path_open, mock_json_dumps):
         """Test that ChunkLogger actually logs when enabled."""
         os.environ["CHUNK_LOGGER_ENABLED"] = "true"
 
         # Remove the module from sys.modules to force reimport with new env
         if "chunk_logger" in sys.modules:
             del sys.modules["chunk_logger"]
+
+        # Mock file handle with write method
+        mock_file = Mock()
+        mock_path_open.return_value = mock_file
 
         from chunk_logger import chunk_logger
 
@@ -182,6 +193,9 @@ class TestChunkLoggerEnvironment(unittest.TestCase):
         assert logged_data["direction"] == "out"
         assert logged_data["mode"] == "adk-sse"
         assert logged_data["chunk"] == test_chunk
+
+        # Verify write was called
+        mock_file.write.assert_called()
 
     def test_chunk_logger_does_not_log_when_disabled(self):
         """Test that ChunkLogger does not log when disabled."""
