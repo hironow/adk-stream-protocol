@@ -15,7 +15,6 @@ Only the transport layer differs (HTTP SSE vs WebSocket).
 This ensures protocol consistency across all modes.
 """
 
-
 import enum
 import json
 import uuid

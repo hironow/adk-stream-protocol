@@ -20,7 +20,6 @@ AI SDK v6 Protocol mapping:
 - Uses `delta` field (not `textDelta`) per AI SDK v6 spec
 """
 
-
 from typing import Any
 from unittest.mock import Mock
 

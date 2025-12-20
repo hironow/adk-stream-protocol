@@ -5,7 +5,6 @@ This file is automatically loaded by pytest and makes project root
 modules importable in tests.
 """
 
-
 import sys
 from pathlib import Path
 

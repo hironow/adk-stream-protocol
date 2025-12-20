@@ -15,7 +15,6 @@ This test verifies that SseEventStreamer sends:
 Expected to FAIL until fixed.
 """
 
-
 from unittest.mock import Mock
 
 import pytest

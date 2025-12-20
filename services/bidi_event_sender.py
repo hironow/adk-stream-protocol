@@ -14,7 +14,6 @@ Responsibilities:
 Counterpart: BidiEventReceiver handles upstream (WebSocket → ADK) direction.
 """
 
-
 import inspect
 import json
 from collections.abc import AsyncIterable

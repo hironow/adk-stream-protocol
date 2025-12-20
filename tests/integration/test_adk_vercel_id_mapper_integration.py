@@ -10,7 +10,6 @@ These tests verify the integration of 4 components:
 Purpose: Catch component integration issues before E2E tests.
 """
 
-
 import asyncio
 from unittest.mock import Mock
 

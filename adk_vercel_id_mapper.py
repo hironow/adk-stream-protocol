@@ -29,7 +29,6 @@ Usage:
     tool_name = mapper.resolve_tool_result("function-call-123")
 """
 
-
 from typing import Any
 
 from loguru import logger

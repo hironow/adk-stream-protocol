@@ -5,7 +5,6 @@ Provides helper functions for asserting Ok/Error variants in tests,
 following the pattern recommended in result/README.md.
 """
 
-
 import pytest
 
 from result.result import Error, Ok, Result

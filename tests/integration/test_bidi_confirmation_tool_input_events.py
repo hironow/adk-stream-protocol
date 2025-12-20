@@ -16,7 +16,6 @@ This test verifies that BidiEventSender sends:
 Expected to FAIL until fixed.
 """
 
-
 import asyncio
 from unittest.mock import AsyncMock, Mock
 

@@ -13,7 +13,6 @@ that FrontendToolDelegate will use for execution.
 Expected to FAIL until fixed.
 """
 
-
 from unittest.mock import AsyncMock, Mock
 
 import pytest

@@ -9,7 +9,6 @@ Tests the asyncio.Future-based delegation pattern for client-side tool execution
 Based on implementation in server.py (FrontendToolDelegate class)
 """
 
-
 import asyncio
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch

@@ -4,7 +4,6 @@ This module provides helper functions and factory methods for testing
 BIDI mode event handling and WebSocket communication.
 """
 
-
 import asyncio
 from typing import Any
 from unittest.mock import AsyncMock, Mock

@@ -12,7 +12,6 @@ This mapper provides a decoupled abstraction layer for ID conversion between
 ADK's event system and Vercel AI SDK's UI stream protocol.
 """
 
-
 from adk_vercel_id_mapper import ADKVercelIDMapper
 
 

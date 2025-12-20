@@ -11,7 +11,6 @@ Tests:
 Based on server.py global frontend_delegate pattern.
 """
 
-
 import asyncio
 from typing import Any
 from unittest.mock import Mock, patch

@@ -19,7 +19,6 @@ Components:
     - FrontendToolDelegate: Manages frontend tool execution using asyncio.Future pattern
 """
 
-
 import asyncio
 from typing import Any
 
@@ -118,7 +117,8 @@ class FrontendToolDelegate:
         # - Frontend never receives tool-input-available (not yielded)
         # - WebSocket handler doesn't call resolve_tool_result()
         # - Circular dependency causes deadlock
-        try:
+        # Reason: Timeout and exception handling - converting to Result type for API contract
+        try:  # nosemgrep: forbid-try-except
             result = await asyncio.wait_for(future, timeout=5.0)
             logger.info(
                 f"[FrontendDelegate] Received result for tool={tool_name} "

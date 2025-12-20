@@ -124,7 +124,8 @@ class ChunkPlayer:
                 if not line:
                     continue
 
-                try:
+                # Reason: JSONL file parsing - converting JSON errors to ValueError with line context
+                try:  # nosemgrep: forbid-try-except
                     data = json.loads(line)
                     entry = ChunkLogEntry(
                         timestamp=data["timestamp"],

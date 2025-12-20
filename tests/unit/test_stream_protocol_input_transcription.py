@@ -17,7 +17,6 @@ AI SDK v6 Protocol mapping (TBD):
 RED phase: These tests will fail until implementation is added.
 """
 
-
 from typing import Any
 from unittest.mock import Mock
 

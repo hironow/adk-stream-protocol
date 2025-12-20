@@ -15,7 +15,6 @@ This test verifies that change_bgm() calls execute_on_frontend() with the WRONG 
 Expected to FAIL until fixed.
 """
 
-
 from unittest.mock import AsyncMock, Mock
 
 import pytest

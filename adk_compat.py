@@ -6,7 +6,6 @@ conversation history synchronization, and other ADK-related operations.
 These functions are used by both ADK SSE and ADK BIDI modes.
 """
 
-
 from typing import TYPE_CHECKING, Any
 
 from google.adk.events import Event
@@ -69,7 +68,8 @@ async def get_or_create_session(
             f"Creating new session for user: {user_id} with app: {app_name}"
             + (f", connection: {connection_signature}" if connection_signature else "")
         )
-        try:
+        # Reason: ADK SDK session service exception handling - retry logic for existing sessions
+        try:  # nosemgrep: forbid-try-except
             session = await agent_runner.session_service.create_session(
                 app_name=app_name,
                 user_id=user_id,
@@ -83,7 +83,8 @@ async def get_or_create_session(
                 f"Session {session_id} already exists in ADK session_service, retrieving existing session. "
                 f"Error: {e}"
             )
-            try:
+            # Reason: ADK SDK session service exception handling - fallback to get_session
+            try:  # nosemgrep: forbid-try-except
                 session = await agent_runner.session_service.get_session(
                     app_name=app_name,
                     user_id=user_id,

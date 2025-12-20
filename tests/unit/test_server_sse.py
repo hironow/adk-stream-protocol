@@ -13,7 +13,6 @@ Expected Results:
 - After refactoring, tests will PASS (GREEN)
 """
 
-
 import pytest
 
 

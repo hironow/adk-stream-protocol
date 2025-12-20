@@ -8,7 +8,6 @@ Tests cover:
 - StreamProtocolConverter image handling
 """
 
-
 import base64
 
 from server import ChatMessage

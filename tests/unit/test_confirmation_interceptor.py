@@ -12,7 +12,6 @@ Design Context:
 - BIDI Mode: Manual interception required (tested here)
 """
 
-
 import asyncio
 from unittest.mock import AsyncMock, Mock
 

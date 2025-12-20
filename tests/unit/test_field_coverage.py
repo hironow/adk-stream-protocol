@@ -11,7 +11,6 @@ When this test fails:
 4. Update experiments/2025-12-12_adk_field_mapping_completeness.md
 """
 
-
 import inspect
 
 from google.adk.events import Event

@@ -12,7 +12,6 @@ This interceptor is ONLY used in BIDI mode. SSE mode continues using
 ADK's native confirmation mechanism for stability and maintainability.
 """
 
-
 from typing import TYPE_CHECKING, Any, assert_never
 
 from google.genai import types
@@ -39,7 +38,7 @@ class ToolConfirmationInterceptor:
 
     def __init__(
         self,
-        delegate: FrontendToolDelegate,
+        delegate: "FrontendToolDelegate",
         confirmation_tools: list[str],
     ):
         """

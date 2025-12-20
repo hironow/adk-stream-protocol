@@ -6,7 +6,6 @@ Frontend connects directly to this backend(adk-sse).
 gemini uses direct Gemini API and doesn't require this backend.
 """
 
-
 import asyncio
 import json
 import os
@@ -241,7 +240,8 @@ async def chat(request: ChatRequest):
 
     # 4. Run ADK agent and collect response
     response_text = ""
-    try:
+    # Reason: HTTP endpoint error handling - gracefully returning error response to client
+    try:  # nosemgrep: forbid-try-except
         async for event in sse_agent_runner.run_async(
             user_id=user_id,
             session_id=session.id,
@@ -349,7 +349,8 @@ async def stream(request: ChatRequest):
     # Debug logging for message parts
     for i, msg in enumerate(request.messages):
         logger.info(f"[/stream] Processing Message {i}: role={msg.role}")
-        try:
+        # Reason: HTTP endpoint error handling - validation and debugging of message conversion
+        try:  # nosemgrep: forbid-try-except
             msg_context = msg.to_adk_content()
             logger.info(
                 f"[/stream] Message {i}: role={msg_context.role}, "
@@ -580,7 +581,8 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
 
         # Receive messages from WebSocket → send to LiveRequestQueue
         async def receive_from_client():
-            try:
+            # Reason: WebSocket event loop - handling disconnect, JSON parsing, and protocol errors
+            try:  # nosemgrep: forbid-try-except
                 while True:
                     data = await websocket.receive_text()
                     # Parse structured event format
@@ -631,13 +633,17 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
         logger.info("[BIDI] WebSocket connection closed")
     except Exception as e:
         logger.error(f"[BIDI] WebSocket error: {e}")
-        try:
+        # Reason: Resource cleanup - ensuring WebSocket close even if connection already closed
+        try:  # nosemgrep: forbid-try-except
             await websocket.close(code=1011, reason=str(e))
         except Exception as close_error:
-            logger.debug(f"[BIDI] Could not close WebSocket: {close_error}")  # Connection might already be closed
+            logger.debug(
+                f"[BIDI] Could not close WebSocket: {close_error}"
+            )  # Connection might already be closed
     finally:
         # Ensure queue is closed
-        try:
+        # Reason: Resource cleanup - ensuring queue close even if already closed
+        try:  # nosemgrep: forbid-try-except
             live_request_queue.close()
         except Exception as queue_error:
             logger.debug(f"[BIDI] Could not close queue: {queue_error}")

@@ -10,7 +10,6 @@ Test Levels:
 3. Level 4: Complete event flow with protocol conversion
 """
 
-
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest

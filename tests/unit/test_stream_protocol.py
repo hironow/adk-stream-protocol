@@ -8,7 +8,6 @@ Based on AI SDK v6 specification:
 https://v6.ai-sdk.dev/docs/ai-sdk-ui/stream-protocol
 """
 
-
 import asyncio
 import base64
 from typing import Any

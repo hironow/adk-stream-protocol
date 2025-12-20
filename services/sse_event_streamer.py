@@ -13,7 +13,6 @@ Responsibilities:
 Counterpart: BidiEventSender handles WebSocket (BIDI) mode.
 """
 
-
 import inspect
 import json
 from collections.abc import AsyncIterable

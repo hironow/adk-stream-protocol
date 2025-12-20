@@ -12,7 +12,6 @@ This file tests the SERVICE LAYER abstraction (services/frontend_tool_service.py
 distinct from the older server.py-based implementation (tested in test_frontend_delegate.py).
 """
 
-
 import asyncio
 from typing import Any
 

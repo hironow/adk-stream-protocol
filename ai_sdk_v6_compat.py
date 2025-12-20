@@ -33,7 +33,6 @@ Tool Call States (UIToolInvocation):
 - "output-denied": User denied tool execution
 """
 
-
 import base64
 from enum import Enum
 from io import BytesIO
@@ -133,7 +132,8 @@ class ImagePart(BaseModel):
             raise ValueError(msg)
 
         # Validate base64 encoding
-        try:
+        # Reason: Standard library exception translation - converting base64 decode errors to ValueError
+        try:  # nosemgrep: forbid-try-except
             base64.b64decode(v, validate=True)
         except Exception as e:
             msg = f"Invalid base64 encoding: {e}"

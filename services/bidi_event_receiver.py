@@ -14,7 +14,6 @@ Responsibilities:
 Counterpart: BidiEventSender handles downstream (ADK → WebSocket) direction.
 """
 
-
 import base64
 from typing import Any
 

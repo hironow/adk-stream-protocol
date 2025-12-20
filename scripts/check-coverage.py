@@ -23,7 +23,6 @@ Usage:
     uv run python scripts/check-coverage.py --extract-only adk --format markdown
 """
 
-
 import argparse
 import inspect
 import json

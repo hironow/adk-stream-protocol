@@ -12,7 +12,6 @@ Tests the structured event format introduced in P2-T2 for handling:
 Based on TypeScript implementation in lib/websocket-chat-transport.ts
 """
 
-
 import base64
 import json
 from typing import TYPE_CHECKING, Any
