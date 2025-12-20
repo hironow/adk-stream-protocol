@@ -15,11 +15,13 @@ import json
 import os
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, assert_never
 
 import aiohttp
 from google.adk.tools.tool_context import ToolContext
 from loguru import logger
+
+from result.result import Error, Ok
 
 # ========== Weather Tool Configuration ==========
 WEATHER_CACHE_TTL = 43200  # 12 hours in seconds
@@ -240,14 +242,21 @@ async def change_bgm(track: int, tool_context: ToolContext | None = None) -> dic
             # BIDI mode - delegate to frontend
             logger.info("[change_bgm] BIDI mode detected - delegating to frontend")
             logger.info("[change_bgm] Calling delegate.execute_on_frontend()")
-            result = await delegate.execute_on_frontend(
+            result_or_error = await delegate.execute_on_frontend(
                 tool_call_id=tool_context.invocation_id,
                 tool_name="change_bgm",
                 args={"track": track},
             )
-            logger.info("[change_bgm] ========== DELEGATE RETURNED ==========")
-            logger.info(f"[change_bgm] BIDI delegated: track={track}, result={result}")
-            return result
+            match result_or_error:
+                case Ok(result):
+                    logger.info("[change_bgm] ========== DELEGATE RETURNED ==========")
+                    logger.info(f"[change_bgm] BIDI delegated: track={track}, result={result}")
+                    return result
+                case Error(error_msg):
+                    logger.error(f"[change_bgm] Delegate execution failed: {error_msg}")
+                    return {"success": False, "error": error_msg}
+                case _:
+                    assert_never(result_or_error)
 
     # SSE mode or no delegate - direct return (frontend handles via onToolCall)
     logger.info(f"[change_bgm] SSE mode: track={track} (frontend auto-executes)")
@@ -305,15 +314,21 @@ async def get_location(tool_context: ToolContext) -> dict[str, Any]:
         return {"success": False, "error": error_msg}
 
     logger.info("[get_location] Calling delegate.execute_on_frontend()")
-    result = await delegate.execute_on_frontend(
+    result_or_error = await delegate.execute_on_frontend(
         tool_call_id=tool_call_id,
         tool_name="get_location",
         args={},
     )
-
-    logger.info("[get_location] ========== DELEGATE RETURNED ==========")
-    logger.info(f"[get_location] Received result from frontend: {result}")
-    return result
+    match result_or_error:
+        case Ok(result):
+            logger.info("[get_location] ========== DELEGATE RETURNED ==========")
+            logger.info(f"[get_location] Received result from frontend: {result}")
+            return result
+        case Error(error_msg):
+            logger.error(f"[get_location] Delegate execution failed: {error_msg}")
+            return {"success": False, "error": error_msg}
+        case _:
+            assert_never(result_or_error)
 
 
 async def adk_request_confirmation(
@@ -366,7 +381,7 @@ async def adk_request_confirmation(
 
     # Delegate to frontend and await user decision
     # This blocks AI processing until user approves/rejects
-    result = await delegate.execute_on_frontend(
+    result_or_error = await delegate.execute_on_frontend(
         tool_call_id=tool_call_id,
         tool_name="adk_request_confirmation",
         args={
@@ -374,9 +389,15 @@ async def adk_request_confirmation(
             "toolConfirmation": toolConfirmation,
         },
     )
-
-    logger.info(f"[adk_request_confirmation] User decision received: {result}")
-    return result
+    match result_or_error:
+        case Ok(result):
+            logger.info(f"[adk_request_confirmation] User decision received: {result}")
+            return result
+        case Error(error_msg):
+            logger.error(f"[adk_request_confirmation] Delegate execution failed: {error_msg}")
+            return {"confirmed": False, "error": error_msg}
+        case _:
+            assert_never(result_or_error)
 
 
 # ========== LongRunningFunctionTool Reference Implementation ==========

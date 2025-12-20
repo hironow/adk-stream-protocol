@@ -20,7 +20,9 @@ from typing import Any
 import pytest
 
 from adk_vercel_id_mapper import ADKVercelIDMapper
+from result.result import Error, Ok
 from services.frontend_tool_service import FrontendToolDelegate
+from tests.utils.result_assertions import assert_error, assert_ok
 
 # ============================================================
 # Basic Delegation Pattern Tests
@@ -40,7 +42,7 @@ async def test_execute_on_frontend_with_explicit_tool_call_id() -> None:
         delegate.resolve_tool_result("call_123", {"success": True, "data": "result"})
 
     resolve_task = asyncio.create_task(execute_and_resolve())
-    result = await delegate.execute_on_frontend(
+    result_or_error = await delegate.execute_on_frontend(
         tool_name="test_tool",
         args={"param": "value"},
         tool_call_id="call_123",  # Explicit ID (legacy path)
@@ -48,6 +50,7 @@ async def test_execute_on_frontend_with_explicit_tool_call_id() -> None:
     await resolve_task
 
     # then
+    result = assert_ok(result_or_error)
     assert result == {"success": True, "data": "result"}
     assert "call_123" not in delegate._pending_calls  # Cleaned up
 
@@ -66,7 +69,7 @@ async def test_execute_on_frontend_with_id_mapper() -> None:
         delegate.resolve_tool_result("function-call-456", {"result": "from_mapper"})
 
     resolve_task = asyncio.create_task(execute_and_resolve())
-    result = await delegate.execute_on_frontend(
+    result_or_error = await delegate.execute_on_frontend(
         tool_name="test_tool",
         args={},
         # No tool_call_id - should use ID mapper
@@ -74,6 +77,7 @@ async def test_execute_on_frontend_with_id_mapper() -> None:
     await resolve_task
 
     # then
+    result = assert_ok(result_or_error)
     assert result == {"result": "from_mapper"}
 
 
@@ -95,7 +99,7 @@ async def test_execute_on_frontend_with_original_context() -> None:
     resolve_task = asyncio.create_task(execute_and_resolve())
     # Intercepted tool provides original_context to resolve correct ID
     original_fc = {"id": "original-123", "name": "original_tool"}
-    result = await delegate.execute_on_frontend(
+    result_or_error = await delegate.execute_on_frontend(
         tool_name="intercepted_tool",
         args={},
         original_context=original_fc,  # Provide original context
@@ -103,25 +107,26 @@ async def test_execute_on_frontend_with_original_context() -> None:
     await resolve_task
 
     # then
+    result = assert_ok(result_or_error)
     assert result == {"confirmed": True}
 
 
 @pytest.mark.asyncio
 async def test_execute_on_frontend_missing_id_raises_error() -> None:
-    """execute_on_frontend() should raise RuntimeError when ID not found."""
+    """execute_on_frontend() should return Error when ID not found."""
     # given
     delegate = FrontendToolDelegate()
 
-    # when/then
-    with pytest.raises(
-        RuntimeError,
-        match="No function_call.id found for tool=unknown_tool",
-    ):
-        await delegate.execute_on_frontend(
-            tool_name="unknown_tool",
-            args={},
-            # No tool_call_id and not in ID mapper
-        )
+    # when
+    result_or_error = await delegate.execute_on_frontend(
+        tool_name="unknown_tool",
+        args={},
+        # No tool_call_id and not in ID mapper
+    )
+
+    # then
+    error_msg = assert_error(result_or_error)
+    assert "No function_call.id found for tool=unknown_tool" in error_msg
 
 
 # ============================================================
@@ -135,17 +140,17 @@ async def test_execute_on_frontend_timeout_detection() -> None:
     # given
     delegate = FrontendToolDelegate()
 
-    # when/then
-    with pytest.raises(
-        TimeoutError,
-        match="Frontend tool execution timeout for test_tool \\(timeout_id\\)",
-    ):
-        await delegate.execute_on_frontend(
-            tool_name="test_tool",
-            args={},
-            tool_call_id="timeout_id",
-            # Never resolve - should timeout after 5 seconds
-        )
+    # when
+    result_or_error = await delegate.execute_on_frontend(
+        tool_name="test_tool",
+        args={},
+        tool_call_id="timeout_id",
+        # Never resolve - should timeout after 5 seconds
+    )
+
+    # then
+    error_msg = assert_error(result_or_error)
+    assert "Frontend tool execution timeout for test_tool (timeout_id)" in error_msg
 
     # Verify Future was cleaned up after timeout
     assert "timeout_id" not in delegate._pending_calls
@@ -159,15 +164,16 @@ async def test_execute_on_frontend_timeout_with_pending_calls_logged() -> None:
 
     # Create multiple pending calls that will timeout
     async def start_pending_call(call_id: str) -> bool:
-        try:
-            await delegate.execute_on_frontend(
-                tool_name="pending_tool",
-                args={},
-                tool_call_id=call_id,
-            )
-            return False  # Should not reach here
-        except TimeoutError:
-            return True  # Expected timeout
+        result_or_error = await delegate.execute_on_frontend(
+            tool_name="pending_tool",
+            args={},
+            tool_call_id=call_id,
+        )
+        match result_or_error:
+            case Ok(_):
+                return False  # Should not reach here - expecting timeout
+            case Error(_):
+                return True  # Expected timeout error
 
     task1 = asyncio.create_task(start_pending_call("pending_1"))
     task2 = asyncio.create_task(start_pending_call("pending_2"))
@@ -208,12 +214,13 @@ async def test_execute_on_frontend_resolved_before_timeout() -> None:
     import time
 
     start = time.time()
-    result = await delegate.execute_on_frontend(
+    result_or_error = await delegate.execute_on_frontend(
         tool_name="quick_tool",
         args={},
         tool_call_id="quick_id",
     )
     elapsed = time.time() - start
+    result = assert_ok(result_or_error)
 
     await resolve_task
 
@@ -234,11 +241,12 @@ async def test_resolve_tool_result_direct_id() -> None:
     delegate = FrontendToolDelegate()
 
     async def execute_tool() -> dict[str, Any]:
-        return await delegate.execute_on_frontend(
+        result_or_error = await delegate.execute_on_frontend(
             tool_name="test",
             args={},
             tool_call_id="direct_id",
         )
+        return assert_ok(result_or_error)
 
     task = asyncio.create_task(execute_tool())
     await asyncio.sleep(0.01)
@@ -261,11 +269,12 @@ async def test_resolve_tool_result_confirmation_prefix() -> None:
     delegate = FrontendToolDelegate(id_mapper=id_mapper)
 
     async def execute_tool() -> dict[str, Any]:
-        return await delegate.execute_on_frontend(
+        result_or_error = await delegate.execute_on_frontend(
             tool_name="original_tool",
             args={},
             # Uses ID mapper to get "original-id-123"
         )
+        return assert_ok(result_or_error)
 
     task = asyncio.create_task(execute_tool())
     await asyncio.sleep(0.01)
@@ -298,16 +307,18 @@ async def test_resolve_tool_result_unknown_id_no_crash() -> None:
 
 @pytest.mark.asyncio
 async def test_reject_tool_call_raises_exception() -> None:
-    """reject_tool_call() should reject Future with RuntimeError."""
+    """reject_tool_call() should result in Error from execute_on_frontend()."""
     # given
     delegate = FrontendToolDelegate()
 
     async def execute_tool() -> dict[str, Any]:
-        return await delegate.execute_on_frontend(
+        result_or_error = await delegate.execute_on_frontend(
             tool_name="test",
             args={},
             tool_call_id="reject_id",
         )
+        # reject_tool_call now returns Error instead of raising
+        return assert_ok(result_or_error)
 
     task = asyncio.create_task(execute_tool())
     await asyncio.sleep(0.01)
@@ -315,7 +326,7 @@ async def test_reject_tool_call_raises_exception() -> None:
     # when
     delegate.reject_tool_call("reject_id", "User denied access")
 
-    # then
+    # then - RuntimeError propagates from Future.set_exception
     with pytest.raises(RuntimeError, match="User denied access"):
         await task
 
@@ -356,13 +367,14 @@ async def test_set_function_call_id() -> None:
         delegate.resolve_tool_result("function-call-999", {"mapped": True})
 
     resolve_task = asyncio.create_task(resolve_after())
-    result = await delegate.execute_on_frontend(
+    result_or_error = await delegate.execute_on_frontend(
         tool_name="my_tool",
         args={},
         # No tool_call_id - uses mapper
     )
     await resolve_task
 
+    result = assert_ok(result_or_error)
     assert result == {"mapped": True}
 
 
@@ -380,13 +392,14 @@ async def test_custom_id_mapper_injection() -> None:
         delegate.resolve_tool_result("custom-id-123", {"custom": True})
 
     resolve_task = asyncio.create_task(resolve_after())
-    result = await delegate.execute_on_frontend(
+    result_or_error = await delegate.execute_on_frontend(
         tool_name="custom_tool",
         args={},
     )
     await resolve_task
 
     # then
+    result = assert_ok(result_or_error)
     assert result == {"custom": True}
 
 
@@ -413,11 +426,12 @@ async def test_multiple_pending_calls_independent_resolution() -> None:
     delegate = FrontendToolDelegate()
 
     async def execute_tool(call_id: str) -> dict[str, Any]:
-        return await delegate.execute_on_frontend(
+        result_or_error = await delegate.execute_on_frontend(
             tool_name=f"tool_{call_id}",
             args={},
             tool_call_id=call_id,
         )
+        return assert_ok(result_or_error)
 
     # when - Start 3 calls
     task1 = asyncio.create_task(execute_tool("call_1"))
@@ -454,11 +468,12 @@ async def test_multiple_pending_calls_one_timeout() -> None:
     delegate = FrontendToolDelegate()
 
     async def execute_tool(call_id: str) -> dict[str, Any]:
-        return await delegate.execute_on_frontend(
+        result_or_error = await delegate.execute_on_frontend(
             tool_name=f"tool_{call_id}",
             args={},
             tool_call_id=call_id,
         )
+        return assert_ok(result_or_error)
 
     # when - Start 2 calls, resolve only one
     task1 = asyncio.create_task(execute_tool("success_call"))
@@ -470,8 +485,8 @@ async def test_multiple_pending_calls_one_timeout() -> None:
     result1 = await task1
     assert result1 == {"status": "ok"}
 
-    # task2 should timeout independently
-    with pytest.raises(TimeoutError, match="timeout_call"):
+    # task2 should timeout independently (assert_ok raises AssertionError on Error)
+    with pytest.raises(AssertionError, match="timeout_call"):
         await task2
 
     # then - Both cleaned up

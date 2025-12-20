@@ -27,6 +27,7 @@ from typing import Any
 from loguru import logger
 
 from adk_vercel_id_mapper import ADKVercelIDMapper
+from result.result import Error, Ok, Result
 
 
 class FrontendToolDelegate:
@@ -70,7 +71,7 @@ class FrontendToolDelegate:
         args: dict[str, Any],
         tool_call_id: str | None = None,  # Deprecated: use ID mapper instead
         original_context: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
+    ) -> Result[dict[str, Any], str]:
         """
         Delegate tool execution to frontend and await result.
 
@@ -81,10 +82,7 @@ class FrontendToolDelegate:
             original_context: Original function_call context (for intercepted tools)
 
         Returns:
-            Result dict from frontend execution
-
-        Raises:
-            RuntimeError: If function_call.id not found for tool
+            Ok(result dict) if execution succeeds, Error(str) if execution fails
         """
         # Resolve function_call.id using multiple strategies:
         # 1. Use tool_call_id if explicitly provided (backward compatibility)
@@ -98,7 +96,7 @@ class FrontendToolDelegate:
             # New path: use ID mapper
             resolved_id = self.id_mapper.get_function_call_id(tool_name, original_context)
             if not resolved_id:
-                raise RuntimeError(
+                return Error(
                     f"No function_call.id found for tool={tool_name}. "
                     f"Original context: {original_context}"
                 )
@@ -121,6 +119,11 @@ class FrontendToolDelegate:
         # - Circular dependency causes deadlock
         try:
             result = await asyncio.wait_for(future, timeout=5.0)
+            logger.info(
+                f"[FrontendDelegate] Received result for tool={tool_name} "
+                f"(function_call.id={function_call_id}): {result}"
+            )
+            return Ok(result)
         except TimeoutError:
             logger.error(
                 "[FrontendDelegate] ========== TIMEOUT DETECTED =========="
@@ -151,19 +154,26 @@ class FrontendToolDelegate:
             if function_call_id in self._pending_calls:
                 del self._pending_calls[function_call_id]
 
-            # Raise clear error
-            raise TimeoutError(
+            # Return error instead of raising
+            return Error(
                 f"Frontend tool execution timeout for {tool_name} ({function_call_id}). "
                 f"Frontend never responded after 5 seconds. "
                 f"Check if tool-input-available was yielded to frontend."
-            ) from None
+            )
+        except Exception as e:
+            # Catch all other exceptions (CancelledError, etc.) and clean up Future
+            logger.error(
+                f"[FrontendDelegate] Unexpected error while awaiting result: {type(e).__name__}: {e}"
+            )
 
-        logger.info(
-            f"[FrontendDelegate] Received result for tool={tool_name} "
-            f"(function_call.id={function_call_id}): {result}"
-        )
+            # Clean up the pending future
+            if function_call_id in self._pending_calls:
+                del self._pending_calls[function_call_id]
 
-        return result
+            return Error(
+                f"Frontend tool execution failed for {tool_name} ({function_call_id}): "
+                f"{type(e).__name__}: {e}"
+            )
 
     def resolve_tool_result(self, tool_call_id: str, result: dict[str, Any]) -> None:
         """

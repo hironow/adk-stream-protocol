@@ -14,10 +14,12 @@ ADK's native confirmation mechanism for stability and maintainability.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, assert_never
 
 from google.genai import types
 from loguru import logger
+
+from result.result import Error, Ok, Result
 
 if TYPE_CHECKING:
     from services.frontend_tool_service import FrontendToolDelegate
@@ -73,7 +75,7 @@ class ToolConfirmationInterceptor:
         self,
         tool_call_id: str,
         original_function_call: dict[str, Any],
-    ) -> dict[str, Any]:
+    ) -> Result[dict[str, Any], str]:
         """
         Execute confirmation flow on frontend (blocks until user decision).
 
@@ -86,6 +88,7 @@ class ToolConfirmationInterceptor:
                                   {id, name, args}
 
         Returns:
+            Ok(confirmation_result) if execution succeeds, Error(str) if execution fails
             Confirmation result: {"confirmed": true/false}
 
         Note:
@@ -97,7 +100,7 @@ class ToolConfirmationInterceptor:
             f"tool_call_id={tool_call_id}, tool={original_function_call.get('name')}"
         )
 
-        result = await self.delegate.execute_on_frontend(
+        result_or_error = await self.delegate.execute_on_frontend(
             tool_name="adk_request_confirmation",
             args={
                 "originalFunctionCall": original_function_call,
@@ -105,8 +108,13 @@ class ToolConfirmationInterceptor:
             },
             original_context=original_function_call,
         )
-
-        confirmed = result.get("confirmed", False)
-        logger.info(f"[ToolConfirmationInterceptor] Confirmation result: confirmed={confirmed}")
-
-        return result
+        match result_or_error:
+            case Ok(result):
+                confirmed = result.get("confirmed", False)
+                logger.info(f"[ToolConfirmationInterceptor] Confirmation result: confirmed={confirmed}")
+                return Ok(result)
+            case Error(error_msg):
+                logger.error(f"[ToolConfirmationInterceptor] Confirmation failed: {error_msg}")
+                return Error(error_msg)
+            case _:
+                assert_never(result_or_error)

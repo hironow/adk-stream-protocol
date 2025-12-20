@@ -16,8 +16,10 @@ Counterpart: BidiEventReceiver handles upstream (WebSocket → ADK) direction.
 
 from __future__ import annotations
 
+import inspect
 import json
 from collections.abc import AsyncIterable
+from types import SimpleNamespace
 from typing import Any
 
 from fastapi import WebSocket, WebSocketDisconnect
@@ -27,9 +29,121 @@ from google.adk.sessions import Session
 from google.genai import types
 from loguru import logger
 
+import adk_ag_tools
 from confirmation_interceptor import ToolConfirmationInterceptor
+from result.result import Error, Ok, Result
 from services.frontend_tool_service import FrontendToolDelegate
 from stream_protocol import format_sse_event, stream_adk_to_ai_sdk
+
+
+def _parse_json_safely(json_str: str) -> Result[dict[str, Any], str]:
+    """
+    Safely parse JSON string, returning Result instead of raising.
+
+    Args:
+        json_str: JSON string to parse
+
+    Returns:
+        Ok(dict) if parsing succeeds, Error(str) if parsing fails
+    """
+    try:
+        parsed = json.loads(json_str)
+        return Ok(parsed)
+    except json.JSONDecodeError as e:
+        return Error(f"JSON decode error: {e}")
+
+
+def _parse_sse_event_data(sse_event: str) -> Result[dict[str, Any], str]:
+    """
+    Parse SSE event data from formatted string.
+
+    Args:
+        sse_event: SSE-formatted string like 'data: {...}\\n\\n'
+
+    Returns:
+        Ok(event_data) if parsing succeeds, Error(str) if parsing fails
+    """
+    if not sse_event.startswith("data:"):
+        return Error("Event does not start with 'data:'")
+
+    json_str = sse_event[5:].strip()  # Remove "data:" prefix
+    return _parse_json_safely(json_str)
+
+
+async def _execute_tool_function(
+    fc_name: str, fc_args: dict[str, Any], fc_id: str, session: Session
+) -> Result[Any, str]:
+    """
+    Execute tool function and return result.
+
+    Args:
+        fc_name: Tool function name
+        fc_args: Tool arguments
+        fc_id: Function call ID (for tool context)
+        session: ADK Session (for tool context)
+
+    Returns:
+        Ok(tool_result) if execution succeeds, Error(str) if execution fails
+    """
+    try:
+        # Get tool function
+        tool_func = getattr(adk_ag_tools, fc_name, None)
+        if not tool_func:
+            return Error(f"Tool function '{fc_name}' not found")
+
+        # Create tool context
+        tool_context = SimpleNamespace()
+        tool_context.invocation_id = fc_id
+        tool_context.session = session
+
+        # Execute tool
+        sig = inspect.signature(tool_func)
+        if "tool_context" in sig.parameters:
+            fc_args_with_context = {**fc_args, "tool_context": tool_context}
+            if inspect.iscoroutinefunction(tool_func):
+                tool_result = await tool_func(**fc_args_with_context)
+            else:
+                tool_result = tool_func(**fc_args_with_context)
+        elif inspect.iscoroutinefunction(tool_func):
+            tool_result = await tool_func(**fc_args)
+        else:
+            tool_result = tool_func(**fc_args)
+
+        return Ok(tool_result)
+
+    except Exception as e:
+        return Error(f"Tool execution failed: {e}")
+
+
+async def _execute_confirmation(
+    interceptor: ToolConfirmationInterceptor,
+    confirmation_id: str,
+    fc_id: str,
+    fc_name: str,
+    fc_args: dict[str, Any],
+) -> Result[dict[str, Any], str]:
+    """
+    Execute confirmation flow and wait for user decision.
+
+    Args:
+        interceptor: ToolConfirmationInterceptor instance
+        confirmation_id: Confirmation UI tool call ID
+        fc_id: Original function call ID
+        fc_name: Tool name
+        fc_args: Tool arguments
+
+    Returns:
+        Ok(confirmation_result) if execution succeeds, Error(str) if execution fails
+    """
+    # execute_confirmation now returns Result, so we just pass it through
+    return await interceptor.execute_confirmation(
+        tool_call_id=confirmation_id,
+        original_function_call={
+            "id": fc_id,
+            "name": fc_name,
+            "args": fc_args,
+        },
+    )
 
 
 class BidiEventSender:
@@ -119,15 +233,9 @@ class BidiEventSender:
         except WebSocketDisconnect:
             # Client disconnected during streaming - this is expected during page reload
             logger.info("[BIDI] Client disconnected during streaming")
-        except ValueError as e:
-            # ADK connection errors (e.g., session resumption errors)
-            # Silently handle expected errors when client disconnects
-            if "Transparent session resumption" not in str(e):
-                logger.error(f"[BIDI] ADK connection error: {e}")
-            raise
-        except Exception as e:
-            logger.error(f"[BIDI] Error sending to client: {e}")
-            raise
+
+        logger.info(f"[BIDI] Sent {event_count} events to client")
+        # no except any other exceptions. Let them propagate to caller for handling.
 
     async def _send_sse_event(self, sse_event: str) -> None:
         """
@@ -138,28 +246,28 @@ class BidiEventSender:
         """
         # Log event types for debugging
         if sse_event.startswith("data:"):
-            try:
-                event_data = json.loads(sse_event[5:].strip())  # Remove "data:" prefix
-                event_type = event_data.get("type", "unknown")
-                logger.info(f"[BIDI-SEND] Sending event type: {event_type}")
+            match _parse_sse_event_data(sse_event):
+                case Ok(event_data):
+                    event_type = event_data.get("type", "unknown")
+                    logger.info(f"[BIDI-SEND] Sending event type: {event_type}")
 
-                # Register function_call.id mapping for frontend delegate tools
-                if event_type == "tool-input-available":
-                    tool_name = event_data.get("toolName")
-                    tool_call_id = event_data.get("toolCallId")
-                    if tool_name and tool_call_id and self.frontend_delegate:
-                        self.frontend_delegate.set_function_call_id(tool_name, tool_call_id)
-                        logger.debug(
-                            f"[BIDI-SEND] Registered mapping: {tool_name} → {tool_call_id}"
+                    # Register function_call.id mapping for frontend delegate tools
+                    if event_type == "tool-input-available":
+                        tool_name = event_data.get("toolName")
+                        tool_call_id = event_data.get("toolCallId")
+                        if tool_name and tool_call_id and self.frontend_delegate:
+                            self.frontend_delegate.set_function_call_id(tool_name, tool_call_id)
+                            logger.debug(
+                                f"[BIDI-SEND] Registered mapping: {tool_name} → {tool_call_id}"
+                            )
+
+                    # Log tool-approval-request specifically with full data
+                    if event_type == "tool-approval-request":
+                        logger.warning(
+                            f"[BIDI-SEND] ⚠️ ⚠️ ⚠️  SENDING tool-approval-request: {event_data}"
                         )
-
-                # Log tool-approval-request specifically with full data
-                if event_type == "tool-approval-request":
-                    logger.warning(
-                        f"[BIDI-SEND] ⚠️ ⚠️ ⚠️  SENDING tool-approval-request: {event_data}"
-                    )
-            except Exception as e:
-                logger.debug(f"[BIDI-SEND] Could not parse event data: {e}")
+                case Error(error_msg):
+                    logger.error(f"[BIDI-SEND] Failed to parse SSE event data: {error_msg}")
 
         # Send to WebSocket
         await self.websocket.send_text(sse_event)
@@ -220,6 +328,22 @@ class BidiEventSender:
         # Register confirmation ID in ID mapper
         interceptor.delegate.id_mapper.register("adk_request_confirmation", confirmation_id)
 
+        # NEW: Send original tool-input events FIRST (so frontend knows about the original tool)
+        # This fixes the bug where frontend only received confirmation events but not the original tool events
+        yield format_sse_event({
+            "type": "tool-input-start",
+            "toolCallId": fc_id,
+            "toolName": fc_name,
+        })
+
+        yield format_sse_event({
+            "type": "tool-input-available",
+            "toolCallId": fc_id,
+            "toolName": fc_name,
+            "input": fc_args,
+        })
+
+        # THEN send confirmation UI events
         # Yield tool-input-start as SSE format string
         yield format_sse_event({
             "type": "tool-input-start",
@@ -244,38 +368,42 @@ class BidiEventSender:
             },
         })
 
-        # Wait for user decision
-        try:
-            confirmation_result = await interceptor.execute_confirmation(
-                tool_call_id=confirmation_id,
-                original_function_call={
-                    "id": fc_id,
-                    "name": fc_name,
-                    "args": fc_args,
-                },
-            )
+        # Wait for user decision using Result pattern
+        match await _execute_confirmation(interceptor, confirmation_id, fc_id, fc_name, fc_args):
+            case Ok(confirmation_result):
+                confirmed = confirmation_result.get("confirmed", False)
+                logger.info(f"[BIDI Confirmation] User decision: confirmed={confirmed}")
 
-            confirmed = confirmation_result.get("confirmed", False)
-            logger.info(f"[BIDI Confirmation] User decision: confirmed={confirmed}")
+                # Yield confirmation result as SSE format string
+                yield format_sse_event({
+                    "type": "tool-output-available",
+                    "toolCallId": confirmation_id,
+                    "output": confirmation_result,
+                })
 
-            # Yield confirmation result as SSE format string
-            yield f'data: {json.dumps({"type": "tool-output-available", "toolCallId": confirmation_id, "output": confirmation_result})}\n\n'
+                # Execute tool if approved
+                if confirmed:
+                    logger.info("[BIDI Confirmation] ========== USER APPROVED ==========")
+                    # Execute tool and yield result event
+                    async for tool_event in self._execute_tool_and_continue(fc_id, fc_name, fc_args):
+                        yield tool_event
+                else:
+                    # User denied - yield error as SSE format string
+                    logger.info(f"[BIDI Confirmation] User denied tool: {fc_name}")
+                    yield format_sse_event({
+                        "type": "tool-output-error",
+                        "toolCallId": fc_id,
+                        "error": f"Tool execution denied by user: {fc_name}",
+                    })
 
-            # Execute tool if approved
-            if confirmed:
-                logger.info("[BIDI Confirmation] ========== USER APPROVED ==========")
-                # Execute tool and yield result event
-                async for tool_event in self._execute_tool_and_continue(fc_id, fc_name, fc_args):
-                    yield tool_event
-            else:
-                # User denied - yield error as SSE format string
-                logger.info(f"[BIDI Confirmation] User denied tool: {fc_name}")
-                yield f'data: {json.dumps({"type": "tool-output-error", "toolCallId": fc_id, "error": f"Tool execution denied by user: {fc_name}"})}\n\n'
-
-        except Exception as e:
-            logger.error(f"[BIDI Confirmation] Error in confirmation flow: {e}", exc_info=True)
-            # Yield error as SSE format string
-            yield f'data: {json.dumps({"type": "tool-output-error", "toolCallId": fc_id, "error": str(e)})}\n\n'
+            case Error(error_msg):
+                logger.error(f"[BIDI Confirmation] {error_msg}")
+                # Yield error as SSE format string
+                yield format_sse_event({
+                    "type": "tool-output-error",
+                    "toolCallId": fc_id,
+                    "error": error_msg,
+                })
 
     async def _execute_tool_and_continue(self, fc_id: str, fc_name: str, fc_args: dict[str, Any]):
         """
@@ -293,64 +421,46 @@ class BidiEventSender:
             fc_args: Tool arguments
 
         Yields:
-            tool-output-available event with tool result
+            tool-output-available or tool-output-error event
         """
-        try:
-            import inspect
-            from types import SimpleNamespace
+        # Execute tool function using Result pattern
+        match await _execute_tool_function(fc_name, fc_args, fc_id, self.session):
+            case Ok(tool_result):
+                logger.info(f"[BIDI Confirmation] Tool executed successfully: {tool_result}")
 
-            import adk_ag_tools
+                # Yield tool result to frontend as SSE format string
+                yield format_sse_event({
+                    "type": "tool-output-available",
+                    "toolCallId": fc_id,
+                    "output": tool_result,
+                })
 
-            # Get tool function
-            tool_func = getattr(adk_ag_tools, fc_name, None)
-            if not tool_func:
-                raise ValueError(f"Tool function '{fc_name}' not found")
-
-            # Create tool context
-            tool_context = SimpleNamespace()
-            tool_context.invocation_id = fc_id
-            tool_context.session = self.session
-
-            # Execute tool
-            sig = inspect.signature(tool_func)
-            if "tool_context" in sig.parameters:
-                fc_args_with_context = {**fc_args, "tool_context": tool_context}
-                if inspect.iscoroutinefunction(tool_func):
-                    tool_result = await tool_func(**fc_args_with_context)
-                else:
-                    tool_result = tool_func(**fc_args_with_context)
-            elif inspect.iscoroutinefunction(tool_func):
-                tool_result = await tool_func(**fc_args)
-            else:
-                tool_result = tool_func(**fc_args)
-
-            logger.info(f"[BIDI Confirmation] Tool executed successfully: {tool_result}")
-
-            # Yield tool result to frontend as SSE format string
-            yield f'data: {json.dumps({"type": "tool-output-available", "toolCallId": fc_id, "output": tool_result})}\n\n'
-
-            # Append FunctionResponse to session history
-            if self.bidi_agent_runner and hasattr(self.bidi_agent_runner, "session_service"):
-                function_response = types.Part(
-                    function_response=types.FunctionResponse(
-                        id=fc_id, name=fc_name, response=tool_result
+                # Append FunctionResponse to session history
+                if self.bidi_agent_runner and hasattr(self.bidi_agent_runner, "session_service"):
+                    function_response = types.Part(
+                        function_response=types.FunctionResponse(
+                            id=fc_id, name=fc_name, response=tool_result
+                        )
                     )
-                )
-                content = types.Content(role="user", parts=[function_response])
-                adk_event = ADKEvent(author="user", content=content)
+                    content = types.Content(role="user", parts=[function_response])
+                    adk_event = ADKEvent(author="user", content=content)
 
-                await self.bidi_agent_runner.session_service.append_event(self.session, adk_event)
-                logger.info("[BIDI Confirmation] ✅ FunctionResponse appended to session history")
+                    await self.bidi_agent_runner.session_service.append_event(self.session, adk_event)
+                    logger.info("[BIDI Confirmation] ✅ FunctionResponse appended to session history")
 
-                # KEY FIX: Trigger ADK continuation
-                # Send empty content to trigger ADK to generate new turn
-                continuation = types.Content(role="user", parts=[types.Part(text="")])
-                self.live_request_queue.send_content(continuation)
-                logger.info("[BIDI Confirmation] ✅ Continuation signal sent via LiveRequestQueue")
-            else:
-                logger.warning("[BIDI Confirmation] ⚠️ Cannot send FunctionResponse - no session_service")
+                    # KEY FIX: Trigger ADK continuation
+                    # Send empty content to trigger ADK to generate new turn
+                    continuation = types.Content(role="user", parts=[types.Part(text="")])
+                    self.live_request_queue.send_content(continuation)
+                    logger.info("[BIDI Confirmation] ✅ Continuation signal sent via LiveRequestQueue")
+                else:
+                    logger.warning("[BIDI Confirmation] ⚠️ Cannot send FunctionResponse - no session_service")
 
-        except Exception as e:
-            logger.error(f"[BIDI Confirmation] Tool execution failed: {e}", exc_info=True)
-            # Yield error as SSE format string
-            yield f'data: {json.dumps({"type": "tool-output-error", "toolCallId": fc_id, "error": str(e)})}\n\n'
+            case Error(error_msg):
+                logger.error(f"[BIDI Confirmation] {error_msg}")
+                # Yield error as SSE format string
+                yield format_sse_event({
+                    "type": "tool-output-error",
+                    "toolCallId": fc_id,
+                    "error": error_msg,
+                })

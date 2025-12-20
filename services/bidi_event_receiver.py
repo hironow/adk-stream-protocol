@@ -210,9 +210,6 @@ class BidiEventReceiver:
         await self.bidi_agent_runner.session_service.append_event(self.session, event)
         logger.info("[BIDI] ✓ Successfully added FunctionResponse to session history via append_event()")
 
-        # BIDI Confirmation: Resolve pending frontend tool requests
-        # When FrontendToolDelegate.execute_on_frontend() awaits for tool-result,
-        # we must notify it that the result has arrived
         for part in text_content.parts or []:
             if hasattr(part, "function_response") and part.function_response:
                 func_resp = part.function_response
@@ -221,9 +218,16 @@ class BidiEventReceiver:
 
                 # Resolve frontend tool request (skip if id or response is None)
                 if tool_call_id and response_data is not None:
-                    logger.info(f"[BIDI] Resolving frontend request: tool_call_id={tool_call_id}")
                     self.frontend_delegate.resolve_tool_result(tool_call_id, response_data)
-                    logger.info(f"[BIDI] ✓ Resolved frontend request: {tool_call_id}")
+                    logger.info(f"[BIDI] Resolved tool result for {tool_call_id}")
+                    continue
+                
+                logger.error(
+                    f"[BIDI] Cannot resolve frontend request, missing id or response: "
+                    f"tool_call_id={tool_call_id}, response_data={response_data}"
+                )
+                
+            continue
 
     async def handle_interrupt_event(self, event: dict[str, Any]) -> None:
         """
@@ -293,8 +297,8 @@ class BidiEventReceiver:
         result = tool_result_data.get("result")
 
         if tool_call_id and result:
-            # Resolve the pending frontend tool request
             self.frontend_delegate.resolve_tool_result(tool_call_id, result)
             logger.info(f"[BIDI] Resolved tool result for {tool_call_id}")
-        else:
-            logger.warning(f"[BIDI] Invalid tool_result event: {event}")
+            return
+
+        logger.error(f"[BIDI] Invalid tool_result event. should have toolCallId and result: {event}")

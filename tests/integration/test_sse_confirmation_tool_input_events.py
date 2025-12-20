@@ -83,9 +83,8 @@ async def test_sse_confirmation_should_send_tool_input_events_for_original_tool(
 
     # when - collect streamed events
     sent_events = []
-    with pytest.raises(AttributeError):  # Expected - interceptor not fully mocked
-        async for event in streamer.stream_events(mock_live_events()):
-            sent_events.append(event)
+    async for event in streamer.stream_events(mock_live_events()):
+        sent_events.append(event)
 
     # then - verify event sequence
     # Find original tool-input-start
@@ -156,9 +155,8 @@ async def test_sse_confirmation_event_sequence() -> None:
 
     # when
     sent_events = []
-    with pytest.raises(AttributeError):  # Expected
-        async for event in streamer.stream_events(mock_live_events()):
-            sent_events.append(event)
+    async for event in streamer.stream_events(mock_live_events()):
+        sent_events.append(event)
 
     # then
     # Expected sequence (similar to BIDI):

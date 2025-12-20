@@ -15,17 +15,131 @@ Counterpart: BidiEventSender handles WebSocket (BIDI) mode.
 
 from __future__ import annotations
 
+import inspect
 import json
 from collections.abc import AsyncIterable
+from types import SimpleNamespace
 from typing import Any
 
 from google.adk.runners import Runner
 from google.adk.sessions import Session
 from loguru import logger
 
+import adk_ag_tools
 from confirmation_interceptor import ToolConfirmationInterceptor
+from result.result import Error, Ok, Result
 from services.frontend_tool_service import FrontendToolDelegate
 from stream_protocol import format_sse_event, stream_adk_to_ai_sdk
+
+
+def _parse_json_safely(json_str: str) -> Result[dict[str, Any], str]:
+    """
+    Safely parse JSON string, returning Result instead of raising.
+
+    Args:
+        json_str: JSON string to parse
+
+    Returns:
+        Ok(dict) if parsing succeeds, Error(str) if parsing fails
+    """
+    try:
+        parsed = json.loads(json_str)
+        return Ok(parsed)
+    except json.JSONDecodeError as e:
+        return Error(f"JSON decode error: {e}")
+
+
+def _parse_sse_event_data(sse_event: str) -> Result[dict[str, Any], str]:
+    """
+    Parse SSE event data from formatted string.
+
+    Args:
+        sse_event: SSE-formatted string like 'data: {...}\\n\\n'
+
+    Returns:
+        Ok(event_data) if parsing succeeds, Error(str) if parsing fails
+    """
+    if not sse_event.startswith("data:"):
+        return Error("Event does not start with 'data:'")
+
+    json_str = sse_event[5:].strip()  # Remove "data:" prefix
+    return _parse_json_safely(json_str)
+
+
+async def _execute_tool_function_sse(
+    fc_name: str, fc_args: dict[str, Any], fc_id: str, session: Session
+) -> Result[Any, str]:
+    """
+    Execute tool function and return result (SSE mode).
+
+    Args:
+        fc_name: Tool function name
+        fc_args: Tool arguments
+        fc_id: Function call ID (for tool context)
+        session: ADK Session (for tool context)
+
+    Returns:
+        Ok(tool_result) if execution succeeds, Error(str) if execution fails
+    """
+    try:
+        # Get tool function
+        tool_func = getattr(adk_ag_tools, fc_name, None)
+        if not tool_func:
+            return Error(f"Tool function '{fc_name}' not found")
+
+        # Create tool context
+        tool_context = SimpleNamespace()
+        tool_context.invocation_id = fc_id
+        tool_context.session = session
+
+        # Execute tool
+        sig = inspect.signature(tool_func)
+        if "tool_context" in sig.parameters:
+            fc_args_with_context = {**fc_args, "tool_context": tool_context}
+            if inspect.iscoroutinefunction(tool_func):
+                tool_result = await tool_func(**fc_args_with_context)
+            else:
+                tool_result = tool_func(**fc_args_with_context)
+        elif inspect.iscoroutinefunction(tool_func):
+            tool_result = await tool_func(**fc_args)
+        else:
+            tool_result = tool_func(**fc_args)
+
+        return Ok(tool_result)
+
+    except Exception as e:
+        return Error(f"Tool execution failed: {e}")
+
+
+async def _execute_confirmation_sse(
+    interceptor: ToolConfirmationInterceptor,
+    confirmation_id: str,
+    fc_id: str,
+    fc_name: str,
+    fc_args: dict[str, Any],
+) -> Result[dict[str, Any], str]:
+    """
+    Execute confirmation flow and wait for user decision (SSE mode).
+
+    Args:
+        interceptor: ToolConfirmationInterceptor instance
+        confirmation_id: Confirmation UI tool call ID
+        fc_id: Original function call ID
+        fc_name: Tool name
+        fc_args: Tool arguments
+
+    Returns:
+        Ok(confirmation_result) if execution succeeds, Error(str) if execution fails
+    """
+    # execute_confirmation now returns Result, so we just pass it through
+    return await interceptor.execute_confirmation(
+        tool_call_id=confirmation_id,
+        original_function_call={
+            "id": fc_id,
+            "name": fc_name,
+            "args": fc_args,
+        },
+    )
 
 
 class SseEventStreamer:
@@ -70,42 +184,37 @@ class SseEventStreamer:
 
         Yields:
             SSE-formatted strings like 'data: {"type":"text-delta","text":"..."}\\n\\n'
-
-        Raises:
-            ValueError: ADK connection errors
-            Exception: Other errors during streaming
         """
-        try:
-            event_count = 0
-            logger.info("[SSE] Starting to stream ADK events via SSE")
+        event_count = 0
+        logger.info("[SSE] Starting to stream ADK events via SSE")
 
-            # Wrap live_events with confirmation processing
-            # This intercepts tool calls requiring confirmation and handles them inline
-            async def events_with_confirmation():
-                async for event in live_events:
-                    # Handle confirmation for this event if needed
-                    async for processed_event in self._handle_confirmation_if_needed(event):
-                        yield processed_event
+        # Wrap live_events with confirmation processing
+        # This intercepts tool calls requiring confirmation and handles them inline
+        async def events_with_confirmation():
+            async for event in live_events:
+                # Handle confirmation for this event if needed
+                async for processed_event in self._handle_confirmation_if_needed(event):
+                    yield processed_event
 
-            # Convert ADK events to SSE format and yield for FastAPI
-            # IMPORTANT: Protocol conversion happens here!
-            # stream_adk_to_ai_sdk() converts ADK events to AI SDK v6 Data Stream Protocol
-            # Output: SSE-formatted strings like 'data: {"type":"text-delta","text":"..."}\\n\\n'
-            # This is the SAME converter used in BIDI mode (/ws endpoint)
-            # We reuse 100% of the conversion logic - only transport layer differs
-            # SSE mode: Yield SSE format for HTTP response (instead of WebSocket)
-            #
-            # NOTE: Confirmation is already handled by events_with_confirmation() above
-            async for sse_event in stream_adk_to_ai_sdk(
-                events_with_confirmation(),
-                mode="adk-sse",  # Chunk logger: distinguish from adk-bidi mode
-            ):
-                event_count += 1
+        # Convert ADK events to SSE format and yield for FastAPI
+        # IMPORTANT: Protocol conversion happens here!
+        # stream_adk_to_ai_sdk() converts ADK events to AI SDK v6 Data Stream Protocol
+        # Output: SSE-formatted strings like 'data: {"type":"text-delta","text":"..."}\\n\\n'
+        # This is the SAME converter used in BIDI mode (/ws endpoint)
+        # We reuse 100% of the conversion logic - only transport layer differs
+        # SSE mode: Yield SSE format for HTTP response (instead of WebSocket)
+        #
+        # NOTE: Confirmation is already handled by events_with_confirmation() above
+        async for sse_event in stream_adk_to_ai_sdk(
+            events_with_confirmation(),
+            mode="adk-sse",  # Chunk logger: distinguish from adk-bidi mode
+        ):
+            event_count += 1
 
-                # Register function_call.id mapping for frontend delegate tools
-                if sse_event.startswith("data:"):
-                    try:
-                        event_data = json.loads(sse_event[5:].strip())  # Remove "data:" prefix
+            # Register function_call.id mapping for frontend delegate tools
+            if sse_event.startswith("data:"):
+                match _parse_sse_event_data(sse_event):
+                    case Ok(event_data):
                         event_type = event_data.get("type")
 
                         if event_type == "tool-input-available":
@@ -116,22 +225,15 @@ class SseEventStreamer:
                                 logger.debug(
                                     f"[SSE] Registered mapping: {tool_name} → {tool_call_id}"
                                 )
-                    except Exception as e:
-                        logger.debug(f"[SSE] Could not parse event data: {e}")
+                    case Error(error_msg):
+                        logger.debug(f"[SSE] Could not parse event data: {error_msg}")
 
-                # Yield SSE-formatted event for FastAPI StreamingResponse
-                # Frontend will parse "data: {...}" format and extract UIMessageChunk
-                yield sse_event
+            # Yield SSE-formatted event for FastAPI StreamingResponse
+            # Frontend will parse "data: {...}" format and extract UIMessageChunk
+            yield sse_event
 
-            logger.info(f"[SSE] Streamed {event_count} events to client")
-
-        except ValueError as e:
-            # ADK connection errors (e.g., session resumption errors)
-            logger.error(f"[SSE] ADK connection error: {e}")
-            raise
-        except Exception as e:
-            logger.error(f"[SSE] Error streaming to client: {e}")
-            raise
+        logger.info(f"[SSE] Streamed {event_count} events to client")
+        # no except any exceptions. Let them propagate to caller for handling.
 
     async def _handle_confirmation_if_needed(self, event: Any):
         """
@@ -190,57 +292,83 @@ class SseEventStreamer:
         # Register confirmation ID in ID mapper
         interceptor.delegate.id_mapper.register("adk_request_confirmation", confirmation_id)
 
+        # NEW: Send original tool-input events FIRST (so frontend knows about the original tool)
+        # This fixes the bug where frontend only received confirmation events but not the original tool events
+        yield format_sse_event({
+            "type": "tool-input-start",
+            "toolCallId": fc_id,
+            "toolName": fc_name,
+        })
+
+        yield format_sse_event({
+            "type": "tool-input-available",
+            "toolCallId": fc_id,
+            "toolName": fc_name,
+            "input": fc_args,
+        })
+
+        # THEN send confirmation UI events
         # Generate confirmation UI events as SSE format strings
         # Yield tool-input-start as SSE format string
-        yield f'data: {json.dumps({"type": "tool-input-start", "toolCallId": confirmation_id, "toolName": "adk_request_confirmation"})}\n\n'
+        yield format_sse_event({
+            "type": "tool-input-start",
+            "toolCallId": confirmation_id,
+            "toolName": "adk_request_confirmation",
+        })
 
         # Yield tool-input-available with full confirmation data as SSE format string
-        yield f'data: {json.dumps({"type": "tool-input-available", "toolCallId": confirmation_id, "toolName": "adk_request_confirmation", "input": {"originalFunctionCall": {"id": fc_id, "name": fc_name, "args": fc_args}, "toolConfirmation": {"confirmed": False}}})}\n\n'
-
-        # Wait for user decision
-        try:
-            confirmation_result = await interceptor.execute_confirmation(
-                tool_call_id=confirmation_id,
-                original_function_call={
+        yield format_sse_event({
+            "type": "tool-input-available",
+            "toolCallId": confirmation_id,
+            "toolName": "adk_request_confirmation",
+            "input": {
+                "originalFunctionCall": {
                     "id": fc_id,
                     "name": fc_name,
                     "args": fc_args,
                 },
-            )
+                "toolConfirmation": {
+                    "confirmed": False,
+                },
+            },
+        })
 
-            confirmed = confirmation_result.get("confirmed", False)
-            logger.info(f"[SSE Confirmation] User decision: confirmed={confirmed}")
+        # Wait for user decision using Result pattern
+        match await _execute_confirmation_sse(interceptor, confirmation_id, fc_id, fc_name, fc_args):
+            case Ok(confirmation_result):
+                confirmed = confirmation_result.get("confirmed", False)
+                logger.info(f"[SSE Confirmation] User decision: confirmed={confirmed}")
 
-            # Yield confirmation result as SSE format string
-            yield format_sse_event({
-                "type": "tool-output-available",
-                "toolCallId": confirmation_id,
-                "output": confirmation_result,
-            })
+                # Yield confirmation result as SSE format string
+                yield format_sse_event({
+                    "type": "tool-output-available",
+                    "toolCallId": confirmation_id,
+                    "output": confirmation_result,
+                })
 
-            # Execute tool if approved
-            if confirmed:
-                logger.info("[SSE Confirmation] ========== USER APPROVED ==========")
-                # Execute tool and yield result event
-                async for tool_event in self._execute_tool(fc_id, fc_name, fc_args):
-                    yield tool_event
-            else:
-                # User denied - yield error as SSE format string
-                logger.info(f"[SSE Confirmation] User denied tool: {fc_name}")
+                # Execute tool if approved
+                if confirmed:
+                    logger.info("[SSE Confirmation] ========== USER APPROVED ==========")
+                    # Execute tool and yield result event
+                    async for tool_event in self._execute_tool(fc_id, fc_name, fc_args):
+                        yield tool_event
+                else:
+                    # User denied - yield error as SSE format string
+                    logger.info(f"[SSE Confirmation] User denied tool: {fc_name}")
+                    yield format_sse_event({
+                        "type": "tool-output-error",
+                        "toolCallId": fc_id,
+                        "error": f"Tool execution denied by user: {fc_name}",
+                    })
+
+            case Error(error_msg):
+                logger.error(f"[SSE Confirmation] {error_msg}")
+                # Yield error as SSE format string
                 yield format_sse_event({
                     "type": "tool-output-error",
                     "toolCallId": fc_id,
-                    "error": f"Tool execution denied by user: {fc_name}",
+                    "error": error_msg,
                 })
-
-        except Exception as e:
-            logger.error(f"[SSE Confirmation] Error in confirmation flow: {e}", exc_info=True)
-            # Yield error as SSE format string
-            yield format_sse_event({
-                "type": "tool-output-error",
-                "toolCallId": fc_id,
-                "error": str(e),
-            })
 
     async def _execute_tool(self, fc_id: str, fc_name: str, fc_args: dict[str, Any]):
         """
@@ -258,49 +386,23 @@ class SseEventStreamer:
         Yields:
             SSE format strings (tool-output-available or tool-output-error)
         """
-        try:
-            import inspect
-            from types import SimpleNamespace
+        # Execute tool function using Result pattern
+        match await _execute_tool_function_sse(fc_name, fc_args, fc_id, self.session):
+            case Ok(tool_result):
+                logger.info(f"[SSE Confirmation] Tool executed successfully: {tool_result}")
 
-            import adk_ag_tools
+                # Yield tool result to frontend as SSE format string
+                yield format_sse_event({
+                    "type": "tool-output-available",
+                    "toolCallId": fc_id,
+                    "output": tool_result,
+                })
 
-            # Get tool function
-            tool_func = getattr(adk_ag_tools, fc_name, None)
-            if not tool_func:
-                raise ValueError(f"Tool function '{fc_name}' not found")
-
-            # Create tool context
-            tool_context = SimpleNamespace()
-            tool_context.invocation_id = fc_id
-            tool_context.session = self.session
-
-            # Execute tool
-            sig = inspect.signature(tool_func)
-            if "tool_context" in sig.parameters:
-                fc_args_with_context = {**fc_args, "tool_context": tool_context}
-                if inspect.iscoroutinefunction(tool_func):
-                    tool_result = await tool_func(**fc_args_with_context)
-                else:
-                    tool_result = tool_func(**fc_args_with_context)
-            elif inspect.iscoroutinefunction(tool_func):
-                tool_result = await tool_func(**fc_args)
-            else:
-                tool_result = tool_func(**fc_args)
-
-            logger.info(f"[SSE Confirmation] Tool executed successfully: {tool_result}")
-
-            # Yield tool result to frontend as SSE format string
-            yield format_sse_event({
-                "type": "tool-output-available",
-                "toolCallId": fc_id,
-                "output": tool_result,
-            })
-
-        except Exception as e:
-            logger.error(f"[SSE Confirmation] Tool execution failed: {e}", exc_info=True)
-            # Yield error as SSE format string
-            yield format_sse_event({
-                "type": "tool-output-error",
-                "toolCallId": fc_id,
-                "error": str(e),
-            })
+            case Error(error_msg):
+                logger.error(f"[SSE Confirmation] {error_msg}")
+                # Yield error as SSE format string
+                yield format_sse_event({
+                    "type": "tool-output-error",
+                    "toolCallId": fc_id,
+                    "error": error_msg,
+                })

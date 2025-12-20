@@ -86,8 +86,7 @@ async def test_bidi_confirmation_should_send_tool_input_events_for_original_tool
 
     # when - process the event
     # Note: This will block waiting for user approval, so we need to mock the interceptor
-    with pytest.raises(AttributeError):  # Expected to fail - interceptor not fully mocked
-        await sender.send_events(mock_live_events())
+    await sender.send_events(mock_live_events())
 
     # then - verify event order (this will fail until fixed)
     # Extract all sent events
