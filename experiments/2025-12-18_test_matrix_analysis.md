@@ -8,16 +8,19 @@
 **4 Tools** × **2 Modes** × **2 Approvals** = **16 test patterns**
 
 ### Tools (4)
+
 1. `process_payment` - Payment processing tool with confirmation
 2. `change_bgm` - Background music change (frontend-delegated)
 3. `get_location` - User location retrieval (requires tool context)
 4. `get_weather` - Weather information retrieval
 
 ### Modes (2)
+
 1. **ADK SSE** - Server-Sent Events (traditional streaming)
 2. **ADK BIDI** - Bidirectional WebSocket (Live API)
 
 ### Approvals (2)
+
 1. **Approve** - User approves tool execution
 2. **Deny** - User denies tool execution
 
@@ -53,30 +56,35 @@
 ## Coverage Summary
 
 ### By Tool
+
 - `process_payment`: ✅ **10/10 patterns** (100% - SSE Approve, SSE Deny, BIDI Approve, BIDI Deny + sequences)
 - `change_bgm`: ❌ **0/4 patterns** (0% - no tests exist)
 - `get_location`: ❌ **0/4 patterns** (0% - no tests exist)
 - `get_weather`: ❌ **0/4 patterns** (0% - no tests exist)
 
 ### By Mode
+
 - **SSE Mode**: 5/8 tool-approval patterns covered (62.5%)
-  - process_payment: ✅ Approve & Deny
-  - change_bgm: ❌ NOT COVERED
-  - get_location: ❌ NOT COVERED
-  - get_weather: ❌ NOT COVERED
+    - process_payment: ✅ Approve & Deny
+    - change_bgm: ❌ NOT COVERED
+    - get_location: ❌ NOT COVERED
+    - get_weather: ❌ NOT COVERED
 
 - **BIDI Mode**: 5/8 tool-approval patterns covered (62.5%)
-  - process_payment: ✅ Approve & Deny
-  - change_bgm: ⚠️ N/A (frontend delegated)
-  - get_location: ❌ NOT COVERED
-  - get_weather: ❌ NOT COVERED
+    - process_payment: ✅ Approve & Deny
+    - change_bgm: ⚠️ N/A (frontend delegated)
+    - get_location: ❌ NOT COVERED
+    - get_weather: ❌ NOT COVERED
 
 ### By Approval Type
+
 - **Approve**: 5/8 tool-mode combinations (62.5%)
 - **Deny**: 5/8 tool-mode combinations (62.5%)
 
 ### Overall Coverage
+
 **Actual Coverage:** 10/16 base patterns (62.5%)
+
 - ✅ Covered: 10 patterns (all process_payment)
 - ❌ Missing: 6 patterns (change_bgm, get_location, get_weather)
 
@@ -85,6 +93,7 @@
 ## Test File Organization
 
 ### Current Structure
+
 ```
 e2e/
 ├── adk-confirmation-minimal.spec.ts          # SSE mode - process_payment only
@@ -118,10 +127,12 @@ e2e/
 ### Current Status
 
 **Covered:**
+
 - ✅ `process_payment` - Full chunk logger integration in `chunk-logger-integration.spec.ts`
 - ✅ 8 test scenarios with 3-way log consistency verification
 
 **Not Covered:**
+
 - ❌ `change_bgm` - No chunk logger tests
 - ❌ `get_location` - No chunk logger tests
 - ❌ `get_weather` - No chunk logger tests
@@ -149,6 +160,7 @@ e2e/
 ### 2. Standardize File Naming (Priority: MEDIUM)
 
 **Current → Proposed:**
+
 - `adk-confirmation-minimal.spec.ts` → `process-payment-sse.spec.ts`
 - `adk-confirmation-minimal-bidi.spec.ts` → `process-payment-bidi.spec.ts`
 - `poc-longrunning-bidi.spec.ts` → `edge-cases-longrunning-bidi.spec.ts`
@@ -157,6 +169,7 @@ e2e/
 ### 3. Expand Chunk Logger Coverage (Priority: MEDIUM)
 
 **Add chunk logger tests for:**
+
 - `change-bgm-sse.spec.ts` (with afterEach chunk log download)
 - `get-location-sse.spec.ts` (with afterEach chunk log download)
 - `get-location-bidi.spec.ts` (with afterEach chunk log download)
@@ -166,12 +179,14 @@ e2e/
 ### 4. Separate POC from Production (Priority: LOW)
 
 **Move POC experiments:**
+
 ```
 experiments/pocs/
 └── poc-longrunning-bidi-phases.spec.ts  # Phase 1-5 POC tests
 ```
 
 **Keep production edge cases:**
+
 ```
 e2e/
 └── edge-cases-longrunning-bidi.spec.ts  # Edge Cases #1-4
@@ -180,6 +195,7 @@ e2e/
 ## Test Execution
 
 ### Individual Tool Tests
+
 ```bash
 # Process payment (SSE)
 pnpm exec playwright test e2e/process-payment-sse.spec.ts
@@ -204,6 +220,7 @@ pnpm exec playwright test e2e/get-weather-bidi.spec.ts
 ```
 
 ### Full Test Suite
+
 ```bash
 # All confirmation tests
 pnpm exec playwright test e2e/*-sse.spec.ts e2e/*-bidi.spec.ts

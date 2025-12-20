@@ -21,6 +21,7 @@ tools=[get_weather, calculate, get_current_time, change_bgm, get_location],
 ```
 
 **Issues:**
+
 1. `_pending_calls` dict is shared across all users
 2. Tools (change_bgm, get_location) reference the global delegate
 3. Memory leak risk when users disconnect without completing tool calls
@@ -29,6 +30,7 @@ tools=[get_weather, calculate, get_current_time, change_bgm, get_location],
 ### What We Need
 
 **Per-Connection State:**
+
 - Each WebSocket connection needs its own `FrontendToolDelegate` instance
 - Tools need to use the connection-specific delegate
 
@@ -52,20 +54,22 @@ How does ADK recommend handling per-user or per-connection state in Agent defini
 ### 1. ADK Documentation Review
 
 **Sources:**
-- https://google.github.io/adk-docs/sessions/state/
-- https://google.github.io/adk-docs/tools-custom/
+
+- <https://google.github.io/adk-docs/sessions/state/>
+- <https://google.github.io/adk-docs/tools-custom/>
 
 **Key Findings:**
 
 #### Sessions & State
 
 ADK provides **Session** as the primary abstraction for per-user conversations:
+
 - `session.state`: Key-value scratchpad for conversation-specific data
 - State scopes via prefixes:
-  - No prefix: Session-specific
-  - `user:*`: Shared across all sessions for a user
-  - `app:*`: Shared globally across the application
-  - `temp:*`: Invocation-only, discarded after completion
+    - No prefix: Session-specific
+    - `user:*`: Shared across all sessions for a user
+    - `app:*`: Shared globally across the application
+    - `temp:*`: Invocation-only, discarded after completion
 
 #### ToolContext Pattern
 
@@ -86,6 +90,7 @@ def update_user_preference(preference: str, value: str, tool_context: ToolContex
 ```
 
 **ToolContext Features:**
+
 - `.state`: Session/user/app state access
 - `.actions`: Control agent behavior (transfer, etc.)
 - `.load_artifact()`, `.save_artifact()`: File management
@@ -96,6 +101,7 @@ def update_user_preference(preference: str, value: str, tool_context: ToolContex
 **Critical Finding:** ADK documentation does **NOT** provide explicit patterns for connection-specific resources (e.g., WebSocket delegate objects).
 
 **Suggested Approaches (from docs):**
+
 1. Store in session state with connection identifiers
 2. Use a service layer injected via Runner configuration
 3. Manage lifecycle separately from tool invocation
@@ -110,6 +116,7 @@ def update_user_preference(preference: str, value: str, tool_context: ToolContex
 ### Our Specific Case
 
 **Problem:**
+
 ```python
 # Current: Global delegate (shared across all connections)
 frontend_delegate = FrontendToolDelegate()
@@ -120,6 +127,7 @@ async def change_bgm(track: int, tool_context: ToolContext):
 ```
 
 **Requirements:**
+
 - Each WebSocket connection needs its own `FrontendToolDelegate` instance
 - Tools need access to the connection-specific delegate
 - Delegate contains `asyncio.Future` objects (not serializable)
@@ -139,10 +147,12 @@ async def change_bgm(track: int, tool_context: ToolContext):
 ```
 
 **Pros:**
+
 - Uses ADK's state mechanism
 - `temp:` prefix means not persisted (OK for Python objects)
 
 **Cons:**
+
 - ToolContext.state references Session.state
 - Multiple WebSocket connections might share the same Session
 - Race condition: Connection A and B with same user_id would overwrite each other's delegate
@@ -180,6 +190,7 @@ connection_tools = build_connection_tools(connection_delegate)
 ```
 
 **Pros:**
+
 - ✅ Each connection has isolated delegate
 - ✅ Tools are stateless (ADK principle)
 - ✅ Delegate is captured via closure (clean Python pattern)
@@ -187,6 +198,7 @@ connection_tools = build_connection_tools(connection_delegate)
 - ✅ Automatic cleanup when connection ends
 
 **Cons:**
+
 - Need to rebuild tools per-connection (minor overhead)
 - Agent definition needs to accept tools dynamically
 
@@ -209,9 +221,11 @@ async def change_bgm(track: int, tool_context: ToolContext):
 ```
 
 **Pros:**
+
 - Works with global tool definitions
 
 **Cons:**
+
 - ❌ Manual cleanup required (memory leak risk)
 - ❌ More complex error handling
 - ❌ Global mutable state
@@ -248,6 +262,7 @@ connection_runner = InMemoryRunner(agent=connection_agent)
 ```
 
 **Pros:**
+
 - ✅ Each connection has isolated delegate (closure captures it)
 - ✅ No shared state between connections
 - ✅ Type-safe (delegate is Python object, not in dict)
@@ -255,6 +270,7 @@ connection_runner = InMemoryRunner(agent=connection_agent)
 - ✅ Clear ownership: delegate belongs to this connection
 
 **Cons:**
+
 - ❌ Must create new Agent per-connection (overhead)
 - ❌ Must create new Runner per-connection (overhead)
 - ❌ Cannot reuse global Agent definition
@@ -282,6 +298,7 @@ bidi_agent = Agent(
 ```
 
 **Pros:**
+
 - ✅ Uses ADK's recommended pattern (ToolContext.state)
 - ✅ Can reuse global Agent definition
 - ✅ Can reuse global Runner
@@ -290,11 +307,12 @@ bidi_agent = Agent(
 - ✅ `temp:` prefix = not persisted (perfect for Python objects)
 
 **Cons:**
+
 - ⚠️ **CRITICAL ISSUE**: Session may be shared across WebSocket connections!
-  - If user opens 2 tabs → 2 WebSocket connections
-  - Both use same `user_id` → same Session
-  - `session.state['temp:frontend_delegate']` would be overwritten
-  - Connection 1's delegate replaced by Connection 2's delegate
+    - If user opens 2 tabs → 2 WebSocket connections
+    - Both use same `user_id` → same Session
+    - `session.state['temp:frontend_delegate']` would be overwritten
+    - Connection 1's delegate replaced by Connection 2's delegate
 - ❌ Potential race condition in multi-connection scenarios
 - ⚠️ Less explicit ownership (delegate in state dict)
 
@@ -310,6 +328,7 @@ session = await get_or_create_session(user_id, bidi_agent_runner, "agents")
 **Question:** Is Session per-user or per-connection?
 
 **Current implementation (server.py:484-499):**
+
 ```python
 async def get_or_create_session(user_id, agent_runner, app_name):
     session_id = f"session_{user_id}_{app_name}"
@@ -319,12 +338,14 @@ async def get_or_create_session(user_id, agent_runner, app_name):
 ```
 
 **Analysis:**
+
 - Session ID = `f"session_{user_id}_{app_name}"`
 - **NO connection_id component!**
 - Same `user_id` → same Session across connections
 - ❌ **Multiple WebSocket connections share the same Session**
 
 **Implication:**
+
 - Approach B (ToolContext.state) would fail with multiple connections
 - `session.state['temp:frontend_delegate']` would be overwritten
 - Connection 1 and Connection 2 interfere with each other
@@ -380,6 +401,7 @@ async def change_bgm(track: int, tool_context: ToolContext):
 **Use Approach A (Closure) for now, but document why:**
 
 **Rationale:**
+
 1. **Session sharing is a blocker** for Approach B in current architecture
 2. Current `get_or_create_session()` creates one session per user, not per connection
 3. Multiple connections from same user would conflict
@@ -387,6 +409,7 @@ async def change_bgm(track: int, tool_context: ToolContext):
 
 **Future Direction:**
 Once ADK session architecture is clarified (per-connection vs per-user), we can:
+
 - Option 1: Use ToolContext.state if sessions become per-connection
 - Option 2: Implement Solution B2 (connection_id in state keys)
 - Option 3: Keep closure approach as the simpler solution
@@ -396,6 +419,7 @@ Once ADK session architecture is clarified (per-connection vs per-user), we can:
 **PENDING - Need deeper investigation of ADK state prefix implementation**
 
 Before making final decision, we need to understand:
+
 1. How ADK implements state prefix scoping (temp:, user:, app:)
 2. When/how state is persisted vs discarded
 3. Relationship between Session scope and state prefixes
@@ -408,6 +432,7 @@ Before making final decision, we need to understand:
 **Investigation Goal:** Understand ADK's state prefix implementation at the code level.
 
 **Questions:**
+
 1. How does ADK distinguish `temp:`, `user:`, `app:` prefixes?
 2. What preprocessing/postprocessing happens for each prefix?
 3. Is `temp:` state cleared per-invocation or per-session?
@@ -439,6 +464,7 @@ Before making final decision, we need to understand:
 ```
 
 **Key Constants:**
+
 ```python
 State.APP_PREFIX = "app:"
 State.USER_PREFIX = "user:"
@@ -450,11 +476,13 @@ State.TEMP_PREFIX = "temp:"
 **Method:** `_trim_temp_delta_state(state_delta)`
 
 **Behavior:**
+
 - Called **before** persisting events to storage
 - Filters out all `temp:` prefixed keys from `state_delta`
 - Used in: `DatabaseSessionService`, `SqliteSessionService`
 
 **Code Flow:**
+
 ```python
 # In append_event():
 state_delta = event.actions.state_delta
@@ -467,6 +495,7 @@ state_delta = _trim_temp_delta_state(state_delta)  # Remove temp: keys
 #### 3. Persistence of user: and app: State
 
 **DatabaseSessionService:**
+
 ```python
 # create_session():
 app_state_delta, user_state_delta, session_state_delta = extract_state_delta(initial_state)
@@ -482,6 +511,7 @@ app_state_delta, user_state_delta, _ = extract_state_delta(event.state_delta)
 ```
 
 **InMemorySessionService:**
+
 ```python
 # In-memory storage:
 self.app_state = {}     # Keyed by app_name
@@ -498,6 +528,7 @@ self.user_state[(app_name, user_id)].update(user_state_delta)
 **Purpose:** Combine app, user, and session state into single `session.state` dict
 
 **Process:**
+
 ```python
 def _merge_state(app_state, user_state, session_state):
     merged = {}
@@ -524,6 +555,7 @@ session.state = _merge_state(app_state, user_state, session_state)
 **Scope:** Per-Session (NOT per-invocation)
 
 **Lifecycle:**
+
 1. Set via `tool_context.state['temp:key'] = value` during tool execution
 2. Exists in Session's runtime state dictionary
 3. **NOT persisted** when `append_event()` is called (filtered by `_trim_temp_delta_state`)
@@ -531,6 +563,7 @@ session.state = _merge_state(app_state, user_state, session_state)
 5. **Lost** when Session is destroyed or reloaded from storage
 
 **Example:**
+
 ```python
 # Tool Call 1
 tool_context.state['temp:delegate'] = FrontendToolDelegate()
@@ -545,11 +578,13 @@ delegate = tool_context.state.get('temp:delegate')  # ❌ Gone (not persisted)
 #### Finding 2: State Persistence Timing
 
 **When state is persisted:**
+
 - After each `append_event()` call
 - During `create_session()` for initial state
 - Not continuously (state exists in memory between events)
 
 **What gets persisted:**
+
 - ✅ `app:*` keys → StorageAppState table
 - ✅ `user:*` keys → StorageUserState table
 - ✅ No-prefix keys → Session's state field
@@ -558,11 +593,13 @@ delegate = tool_context.state.get('temp:delegate')  # ❌ Gone (not persisted)
 #### Finding 3: Multi-Connection Scenario
 
 **Current Architecture:**
+
 ```python
 session_id = f"session_{user_id}_{app_name}"  # No connection_id!
 ```
 
 **Implication for temp: state:**
+
 ```
 User opens 2 tabs:
 - Tab 1 WebSocket → Same Session → state['temp:delegate'] = Delegate_A
@@ -633,6 +670,7 @@ connection_agent = Agent(tools=all_tools)
 **✅ Use Approach A: Connection-scoped tools with closure**
 
 **Required changes:**
+
 1. Create `build_connection_tools(delegate)` function ✅ (Already done)
 2. In WebSocket handler:
    - Create per-connection `FrontendToolDelegate` ✅ (Already done)
@@ -643,6 +681,7 @@ connection_agent = Agent(tools=all_tools)
    - Use connection-specific runner instead of global
 
 **Trade-offs accepted:**
+
 - ❌ Cannot reuse global Agent (must create per-connection)
 - ❌ Cannot reuse global Runner (must create per-connection)
 - ✅ Correct isolation between connections
@@ -660,6 +699,7 @@ async def get_or_create_session(user_id, agent_runner, app_name, connection_id):
 ```
 
 **Rejected because:**
+
 - ❌ Breaks conversation history continuity across reconnections
 - ❌ User loses context when switching tabs
 - ❌ Requires major architectural change to session management
@@ -685,35 +725,39 @@ Before implementing the closure pattern (Approach A), we paused to discuss funda
 ### Concept Alignment: User, Connection, Session, Delegate
 
 #### 1. User
+
 - **Definition:** A person using the system
 - **Identifier:** `user_id` (e.g., "alice", "bob")
 - **Characteristics:**
-  - Can have multiple devices (PC, iPhone, Android)
-  - Can open multiple browser tabs
-  - Has conversation history
+    - Can have multiple devices (PC, iPhone, Android)
+    - Can open multiple browser tabs
+    - Has conversation history
 
 #### 2. WebSocket Connection
+
 - **Definition:** Physical communication channel between browser/device and server
 - **Identifier:** **Currently missing!** (only WebSocket instance)
 - **Characteristics:**
-  - 1 tab/device = 1 connection
-  - Can disconnect/reconnect
-  - Bidirectional communication
+    - 1 tab/device = 1 connection
+    - Can disconnect/reconnect
+    - Bidirectional communication
 
 #### 3. Session (ADK Session)
+
 - **Definition:** Conversation context managed by ADK
 - **Identifier:** `session_id = f"session_{user_id}_{app_name}"`
 - **Characteristics:**
-  - Holds conversation history
-  - Has state (`app:`, `user:`, `temp:`, no-prefix)
-  - **Current design:** Per-user (shared across connections)
+    - Holds conversation history
+    - Has state (`app:`, `user:`, `temp:`, no-prefix)
+    - **Current design:** Per-user (shared across connections)
 
 #### 4. FrontendToolDelegate
+
 - **Definition:** Object that mediates frontend tool execution
 - **Role:**
-  - Send tool calls to frontend
-  - Wait for results (`asyncio.Future`)
-  - Manage `_pending_calls` state
+    - Send tool calls to frontend
+    - Wait for results (`asyncio.Future`)
+    - Manage `_pending_calls` state
 - **Scope:** **To be determined**
 
 ### Critical Insight: Multi-Device Scenario
@@ -723,6 +767,7 @@ Before implementing the closure pattern (Approach A), we paused to discuss funda
 > When considering not just tabs but different devices (PC, iPhone, Android), the device that **initiated the interaction** should be the one receiving the tool approval request.
 
 **Example Scenario:**
+
 ```
 User Alice has 3 active connections:
 ├─ PC (WebSocket 1) → Sends message → Tool call triggered
@@ -733,6 +778,7 @@ Tool approval request should go to: PC (WebSocket 1)
 ```
 
 **Rationale:**
+
 - The user is actively using that specific device
 - Other devices shouldn't randomly show approval dialogs
 - Context is on the device where conversation is happening
@@ -740,6 +786,7 @@ Tool approval request should go to: PC (WebSocket 1)
 ### Future Extension: Remote Device Control
 
 **Potential use case:**
+
 - User on PC starts conversation
 - Tool requires mobile-specific permission (e.g., location)
 - System could route approval request to user's iPhone
@@ -749,6 +796,7 @@ Tool approval request should go to: PC (WebSocket 1)
 ### The Missing Piece: Connection Identifier
 
 **Current problem:**
+
 ```python
 @app.websocket("/api/chat/bidi")
 async def websocket_endpoint(websocket: WebSocket):
@@ -758,6 +806,7 @@ async def websocket_endpoint(websocket: WebSocket):
 ```
 
 **What we need:**
+
 ```python
 # Generate unique identifier for each connection
 connection_id = str(uuid.uuid4())
@@ -780,12 +829,14 @@ user_connections[user_id] = [
 **User's key insight:**
 
 > This problem (connection management, multi-device support) can't be unique to us. ADK and AI SDK v6 must have encountered this. There should be:
+>
 > - Official documentation
 > - Reference implementations
 > - GitHub issues/PRs discussing this
 > - Recommended patterns
 
 **Why this matters:**
+
 - We shouldn't reinvent the wheel
 - Official patterns are likely more robust
 - Community discussion provides valuable context
@@ -798,35 +849,39 @@ Before proceeding with implementation, we need to investigate:
 #### ADK (Google ADK) Investigation
 
 **Questions:**
+
 1. How does ADK handle multi-device/multi-connection scenarios?
 2. Is there official support for connection identifiers?
 3. How is Session management designed for WebSocket connections?
 4. What patterns exist for routing tool calls to specific connections?
 
 **Resources to check:**
+
 - ADK documentation (especially WebSocket/BIDI sections)
 - ADK GitHub repository (`google/adk-python`)
-  - Search issues: "multi-device", "multi-connection", "websocket session"
-  - Search PRs: "connection", "session management"
-  - Search code: Connection handling patterns
+    - Search issues: "multi-device", "multi-connection", "websocket session"
+    - Search PRs: "connection", "session management"
+    - Search code: Connection handling patterns
 - ADK examples and demos (especially bidi-demo)
 
 #### AI SDK v6 (Vercel) Investigation
 
 **Questions:**
+
 1. How does AI SDK v6 handle WebSocket connection management?
 2. Is there built-in support for multi-tab/multi-device scenarios?
 3. How is tool approval routing handled?
 4. What are the recommended patterns for connection tracking?
 
 **Resources to check:**
+
 - AI SDK v6 documentation
-  - WebSocket transport documentation
-  - Tool approval documentation
+    - WebSocket transport documentation
+    - Tool approval documentation
 - AI SDK v6 GitHub repository (`vercel/ai`)
-  - Search issues: "websocket", "multi-tab", "connection"
-  - Search PRs: "transport", "session"
-  - Search code: WebSocket transport implementation
+    - Search issues: "websocket", "multi-tab", "connection"
+    - Search PRs: "transport", "session"
+    - Search code: WebSocket transport implementation
 - Community discussions and examples
 
 #### Search Keywords
@@ -915,6 +970,7 @@ Before proceeding with implementation, we need to investigate:
    - Maintain separate agent runner instances per connection
 
 2. **Use `tool_context.state` for connection-specific data**
+
    ```python
    from adk.context import ToolContext
    from adk.tools import tool
@@ -931,11 +987,12 @@ Before proceeding with implementation, we need to investigate:
    - Run behind load balancer
 
 **Analysis:**
+
 - This aligns with **Approach B (ToolContext.state)**
 - Suggests storing `client_id` in session state for routing
 - However, **unclear** if "unique session per client" means:
-  - Option A: Different `session_id` per connection (new session for each tab)
-  - Option B: Same session for same user, but store `client_id` in state for routing
+    - Option A: Different `session_id` per connection (new session for each tab)
+    - Option B: Same session for same user, but store `client_id` in state for routing
 
 #### Finding 2: ADK bidi-demo Implementation Pattern
 
@@ -950,6 +1007,7 @@ Before proceeding with implementation, we need to investigate:
    - WebSocket connection instance itself is not assigned an ID
 
 2. **Per-connection task management**
+
    ```python
    # Each WebSocket connection spawns two tasks:
    forward_events: runner.run_live() → Send events to client
@@ -961,6 +1019,7 @@ Before proceeding with implementation, we need to investigate:
    - Each connection has independent `session` and `LiveRequestQueue`
 
 4. **Session retrieval**
+
    ```python
    # On WebSocket connection:
    session = get_session(app_name, user_id, session_id)
@@ -969,12 +1028,14 @@ Before proceeding with implementation, we need to investigate:
    ```
 
 **Analysis:**
+
 - **Contradiction with Discussion #2784?**
-  - Discussion says "unique session per client"
-  - bidi-demo doesn't track connection IDs
-  - How does same user with multiple tabs work?
+    - Discussion says "unique session per client"
+    - bidi-demo doesn't track connection IDs
+    - How does same user with multiple tabs work?
 
 **Unanswered Questions:**
+
 - What happens if same `user_id` + `session_id` used from 2 tabs?
 - Do they share the same Session instance?
 - If so, how are tool calls routed to the correct connection?
@@ -986,16 +1047,19 @@ Before proceeding with implementation, we need to investigate:
 **Status:** WebSocket native support **not yet implemented** (planned feature)
 
 **Current Options:**
+
 - Custom transports supported since AI SDK 5
 - Developers can implement own WebSocket solutions
 
 **Challenges Identified:**
+
 - Scaling and load balancing
 - Authentication during HTTP handshake
 - **Stateful connection management** ← Our problem
 - **Multi-tab/multi-device coordination** ← Our problem!
 
 **Key Insight:**
+
 - AI SDK team recognizes "multi-tab/multi-device coordination" as a challenge
 - No official solution provided yet (native support still in development)
 - Community relies on custom implementations
@@ -1005,11 +1069,13 @@ Before proceeding with implementation, we need to investigate:
 **Source:** [AI SDK UI Transport Documentation](https://ai-sdk.dev/docs/ai-sdk-ui/transport)
 
 **Features:**
+
 - Custom `ChatTransport` interface for alternative protocols
 - Dynamic configuration (auth tokens, user ID, session ID)
 - Request/Response transformation
 
 **Example:**
+
 ```javascript
 const { messages, sendMessage } = useChat({
   transport: new DefaultChatTransport({
@@ -1022,6 +1088,7 @@ const { messages, sendMessage } = useChat({
 ```
 
 **Analysis:**
+
 - Supports sending `user_id` and `session_id` in headers
 - **No mention of connection ID**
 - Transport layer doesn't address multi-connection routing
@@ -1117,6 +1184,7 @@ class LiveRequestQueue:
    - 異なるconnectionでは共有されない
 
 **Analysis:**
+
 - ✅ LiveRequestQueueは完全にconnection-specific
 - ✅ 各connectionが独自のqueueを持つ
 - ⚠️ しかし、複数connectionで同じSessionを使うとどうなる？
@@ -1136,6 +1204,7 @@ class LiveRequestQueue:
 **What Happens:**
 
 1. **Session Retrieval (同じSessionオブジェクト取得)**
+
    ```python
    # Tab 1 WebSocket
    session = await session_service.get_session(app_name, user_id, session_id)
@@ -1146,6 +1215,7 @@ class LiveRequestQueue:
    ```
 
 2. **Concurrent run_live() Calls (並行実行)**
+
    ```python
    # Tab 1
    queue_1 = LiveRequestQueue()
@@ -1170,6 +1240,7 @@ class LiveRequestQueue:
 - Session state becomes corrupted
 
 **Conclusion:**
+
 - ❌ **ADK does NOT support multiple concurrent connections with same session_id**
 - ❌ **bidi-demo is designed for 1 connection = 1 session**
 - ⚠️ **Multi-tab/multi-device with shared session is NOT supported**
@@ -1184,6 +1255,7 @@ class LiveRequestQueue:
 **True Meaning (Now Clear):**
 
 **Option A (CORRECT):** Different `session_id` per connection
+
 ```
 User Alice
 ├─ PC (connection_1) → session_id_1 → Independent conversation
@@ -1194,6 +1266,7 @@ Each device = Different session = NO shared conversation history
 ```
 
 **Option B (INCORRECT):** Same session, route via `client_id` in state
+
 ```
 User Alice → session_id_alice → Shared conversation
 ├─ PC (connection_1) → state['client_id'] = "conn_1"
@@ -1206,11 +1279,13 @@ This DOES NOT WORK due to race conditions in run_live()!
 ### New Understanding: ADK's Design Assumptions
 
 **ADK bidi-streaming is designed for:**
+
 - 1 user session = 1 active connection
 - 1 device = 1 session
 - No shared conversation history across devices/tabs
 
 **ADK bidi-streaming is NOT designed for:**
+
 - Multiple concurrent connections to same session
 - Shared conversation history across devices
 - Multi-tab coordination with same session
@@ -1218,6 +1293,7 @@ This DOES NOT WORK due to race conditions in run_live()!
 ### Architectural Implications for Our Implementation
 
 **Our Current Problem:**
+
 ```python
 # server.py - Current implementation
 user_id = "live_user"
@@ -1241,12 +1317,14 @@ session_id = f"session_{user_id}_{connection_id}"
 ```
 
 **Pros:**
+
 - ✅ Aligns with ADK's design
 - ✅ No race conditions
 - ✅ Simple and robust
 - ✅ Each connection fully isolated
 
 **Cons:**
+
 - ❌ User loses conversation history when switching tabs/devices
 - ❌ Cannot continue same conversation from different device
 - ❌ Poor multi-device user experience
@@ -1256,12 +1334,14 @@ session_id = f"session_{user_id}_{connection_id}"
 **Goal:** Allow multiple devices to share conversation history
 
 **Challenges:**
+
 - Need to synchronize session access across connections
 - Need custom locking mechanism for Session object
 - Need to route tool calls to specific connection
 - Requires significant ADK modification
 
 **Implementation Complexity:**
+
 - 🔴 High complexity
 - 🔴 Requires deep ADK internals understanding
 - 🔴 May break with ADK updates
@@ -1288,16 +1368,18 @@ session_id = f"session_{user_id}_{connection_id}"
 ### References
 
 **ADK Resources:**
+
 - [ADK Discussion #2784: Self-hosting ADK agent over websocket server with multiple clients](https://github.com/google/adk-python/discussions/2784)
 - [ADK GitHub Repository: google/adk-python](https://github.com/google/adk-python)
 - ADK Source Code (via DeepWiki):
-  - `src/google/adk/cli/adk_web_server.py` - WebSocket endpoint implementation
-  - `src/google/adk/runners.py` - `runner.run_live()` implementation
-  - `src/google/adk/live_request_queue.py` - LiveRequestQueue implementation
+    - `src/google/adk/cli/adk_web_server.py` - WebSocket endpoint implementation
+    - `src/google/adk/runners.py` - `runner.run_live()` implementation
+    - `src/google/adk/live_request_queue.py` - LiveRequestQueue implementation
 - [ADK Official Documentation: Bidi-streaming](https://google.github.io/adk-docs/streaming/)
 - [ADK Official Documentation: Part 1 - Introduction to ADK Bidi-streaming](https://google.github.io/adk-docs/streaming/dev-guide/part1/)
 
 **AI SDK v6 Resources:**
+
 - [AI SDK v6 Discussion #5607: WebSocket Support?](https://github.com/vercel/ai/discussions/5607)
 - [AI SDK v6 Documentation: Transport](https://ai-sdk.dev/docs/ai-sdk-ui/transport)
 - [AI SDK v6 Documentation: Introduction](https://ai-sdk.dev/docs/introduction)
@@ -1305,6 +1387,7 @@ session_id = f"session_{user_id}_{connection_id}"
 - [AI SDK v6 GitHub Repository: vercel/ai](https://github.com/vercel/ai)
 
 **External Resources:**
+
 - [Google Cloud: Creating persistent connections with WebSockets](https://cloud.google.com/appengine/docs/flexible/using-websockets-and-session-affinity)
 - [Google Cloud Blog: Use Google ADK and MCP with an external server](https://cloud.google.com/blog/topics/developers-practitioners/use-google-adk-and-mcp-with-an-external-server)
 
@@ -1323,11 +1406,13 @@ After thorough investigation and discussion, we have reached the final design de
 **✅ Adopted:** Use `tool_context.state` to access connection-specific resources
 
 **Rationale:**
+
 - Official ADK recommendation from Discussion #2784
 - Aligns with ADK's design philosophy
 - Simpler than closure pattern
 
 **Key Pattern:**
+
 ```python
 # Store delegate in session state
 session.state['temp:delegate'] = connection_delegate
@@ -1346,6 +1431,7 @@ async def change_bgm(track: int, tool_context: ToolContext):
 **✅ Adopted:** Each connection gets unique session_id
 
 **Pattern:**
+
 ```python
 connection_id = str(uuid.uuid4())  # UUID v4 for collision prevention
 user_id = "alice"
@@ -1353,6 +1439,7 @@ session_id = f"session_{user_id}_{connection_id}"
 ```
 
 **Result:**
+
 - Each WebSocket connection = Independent session
 - No concurrent `run_live()` calls on same session
 - No race conditions
@@ -1362,18 +1449,21 @@ session_id = f"session_{user_id}_{connection_id}"
 #### Decision 3: Naming Conventions (ADK Official Sample)
 
 **Q1: session_id naming**
+
 ```python
 session_id = f"session_{user_id}_{connection_id}"
 # Simple concatenation with UUID v4
 ```
 
 **Q2: client_identifier (follow ADK sample)**
+
 ```python
 session.state['client_identifier'] = connection_id
 # NOT 'client_id' - use full name as in ADK samples
 ```
 
 **Q3: No Closure Pattern - Use tool_context.state**
+
 - ❌ Rejected: Closure pattern with `build_connection_tools(delegate)`
 - ✅ Adopted: `tool_context.state['temp:delegate']` pattern
 - Rationale: Simpler, follows ADK recommendations, no per-connection Agent/Runner needed
@@ -1383,6 +1473,7 @@ session.state['client_identifier'] = connection_id
 ### Final Architecture
 
 **Per-Connection State:**
+
 ```python
 # On WebSocket connection
 connection_id = str(uuid.uuid4())
@@ -1398,6 +1489,7 @@ bidi_agent_runner.run_live(session=session, ...)
 ```
 
 **Tool Implementation:**
+
 ```python
 @tool
 async def change_bgm(track: int, tool_context: ToolContext):
@@ -1441,6 +1533,7 @@ async def change_bgm(track: int, tool_context: ToolContext):
    - Emphasizes this is not an operational ID but a unique identifier
 
 2. **Updated function signature:**
+
    ```python
    async def get_or_create_session(
        user_id: str,
@@ -1451,6 +1544,7 @@ async def change_bgm(track: int, tool_context: ToolContext):
    ```
 
 3. **Session ID generation logic:**
+
    ```python
    if connection_signature:
        # Each WebSocket connection gets unique session to prevent race conditions
@@ -1466,18 +1560,21 @@ async def change_bgm(track: int, tool_context: ToolContext):
    - Usage examples for SSE and WebSocket modes
 
 **Tests Created:**
+
 - `tests/unit/test_session_management.py`
-  - ✅ `test_get_or_create_session_without_connection_id()` - Backward compatibility
-  - ✅ `test_get_or_create_session_with_connection_signature()` - Connection-specific session
-  - ✅ `test_get_or_create_session_reuses_existing_session()` - Session caching
-  - ✅ `test_get_or_create_session_different_connections_get_different_sessions()` - Isolation
+    - ✅ `test_get_or_create_session_without_connection_id()` - Backward compatibility
+    - ✅ `test_get_or_create_session_with_connection_signature()` - Connection-specific session
+    - ✅ `test_get_or_create_session_reuses_existing_session()` - Session caching
+    - ✅ `test_get_or_create_session_different_connections_get_different_sessions()` - Isolation
 
 **Test Results:**
+
 - 4/4 new tests passing
 - 115/115 total tests passing
 - No regressions
 
 **Files Modified:**
+
 - `server.py`: Updated `get_or_create_session()` function
 - `tests/unit/test_session_management.py`: Created new test file
 
@@ -1494,17 +1591,20 @@ async def change_bgm(track: int, tool_context: ToolContext):
 **Changes Made:**
 
 1. **Added uuid import:**
+
    ```python
    import uuid
    ```
 
 2. **Generate connection_signature on WebSocket accept:**
+
    ```python
    connection_signature = str(uuid.uuid4())
    logger.info(f"[BIDI] New connection: {connection_signature}")
    ```
 
 3. **Create connection-specific session:**
+
    ```python
    session = await get_or_create_session(
        user_id,
@@ -1516,12 +1616,14 @@ async def change_bgm(track: int, tool_context: ToolContext):
    ```
 
 4. **Create and store FrontendToolDelegate:**
+
    ```python
    connection_delegate = FrontendToolDelegate()
    logger.info(f"[BIDI] Created FrontendToolDelegate for connection: {connection_signature}")
    ```
 
 5. **Store delegate and client_identifier in session.state:**
+
    ```python
    session.state["temp:delegate"] = connection_delegate
    session.state["client_identifier"] = connection_signature
@@ -1529,18 +1631,21 @@ async def change_bgm(track: int, tool_context: ToolContext):
    ```
 
 6. **Uncommented process_tool_use_parts() call:**
+
    ```python
    from tool_delegate import process_tool_use_parts
    process_tool_use_parts(last_msg, connection_delegate)
    ```
 
 **Test Results:**
+
 - All existing tests passing: 104/104 unit tests
 - No regressions introduced
 - Ruff linting: All checks passed
 - Mypy: No new errors (pre-existing errors unchanged)
 
 **Files Modified:**
+
 - `server.py`: Updated `live_chat()` WebSocket endpoint
 
 **Next Steps:** Phase 3 - Update tools to use `tool_context.state`
@@ -1550,6 +1655,7 @@ async def change_bgm(track: int, tool_context: ToolContext):
 **Step-by-Step Implementation Reference:**
 
 1. **Generate connection_signature on WebSocket accept:**
+
    ```python
    import uuid
 
@@ -1563,6 +1669,7 @@ async def change_bgm(track: int, tool_context: ToolContext):
    ```
 
 2. **Create connection-specific session:**
+
    ```python
    # Create session with connection_signature
    user_id = "live_user"  # TODO: Get from auth/JWT token
@@ -1576,6 +1683,7 @@ async def change_bgm(track: int, tool_context: ToolContext):
    ```
 
 3. **Create connection-specific FrontendToolDelegate:**
+
    ```python
    from tool_delegate import FrontendToolDelegate
 
@@ -1585,6 +1693,7 @@ async def change_bgm(track: int, tool_context: ToolContext):
    ```
 
 4. **Store delegate and client_identifier in session.state:**
+
    ```python
    # Store in temp: state (not persisted, session-lifetime only)
    session.state['temp:delegate'] = connection_delegate
@@ -1597,6 +1706,7 @@ async def change_bgm(track: int, tool_context: ToolContext):
    ```
 
 5. **Uncomment process_tool_use_parts() call:**
+
    ```python
    # Currently commented (line 811-813):
    # TODO: Phase 2 - Implement per-connection delegate
@@ -1609,17 +1719,20 @@ async def change_bgm(track: int, tool_context: ToolContext):
    ```
 
 **Expected Changes:**
+
 - Each WebSocket connection creates unique session
 - Delegate stored in `session.state['temp:delegate']`
 - `client_identifier` available for logging/debugging
 
 **Test Plan (Manual):**
+
 1. Open single tab → Verify session created with connection_signature
 2. Open second tab → Verify different session created
 3. Check logs → Both sessions have different IDs
 4. Both tabs should work independently
 
 **Files to Modify:**
+
 - `server.py`: `websocket_endpoint()` function
 
 ---
@@ -1646,6 +1759,7 @@ async def change_bgm(track: int, tool_context: ToolContext):
    - Extract and log client identifier
 
 3. **Backward Compatibility for SSE Mode:**
+
    ```python
    # BIDI mode: Uses connection-specific delegate from session.state
    # SSE mode: Falls back to global frontend_delegate
@@ -1654,17 +1768,20 @@ async def change_bgm(track: int, tool_context: ToolContext):
    ```
 
 **Design Decision:**
+
 - Kept global `frontend_delegate` for SSE mode backward compatibility
 - BIDI mode uses per-connection delegate from `session.state["temp:delegate"]`
 - SSE mode falls back to global delegate (single connection per user)
 - This hybrid approach supports both modes without breaking existing functionality
 
 **Test Results:**
+
 - All 104 unit tests passing
 - No regressions introduced
 - Both SSE and BIDI modes supported
 
 **Files Modified:**
+
 - `server.py`: Updated `change_bgm()` and `get_location()` tools
 
 **Next Steps:** Phase 4 - Integration testing and manual verification
@@ -1676,6 +1793,7 @@ async def change_bgm(track: int, tool_context: ToolContext):
 1. **Update change_bgm() tool:**
 
    **Current Implementation (Global Delegate):**
+
    ```python
    async def change_bgm(track: int, tool_context: ToolContext) -> dict[str, Any]:
        """Change background music track."""
@@ -1693,6 +1811,7 @@ async def change_bgm(track: int, tool_context: ToolContext):
    ```
 
    **New Implementation (Connection-Specific Delegate):**
+
    ```python
    async def change_bgm(track: int, tool_context: ToolContext) -> dict[str, Any]:
        """
@@ -1743,6 +1862,7 @@ async def change_bgm(track: int, tool_context: ToolContext):
 2. **Update get_location() tool:**
 
    **Apply same pattern:**
+
    ```python
    async def get_location(tool_context: ToolContext) -> dict[str, Any]:
        """
@@ -1788,6 +1908,7 @@ async def change_bgm(track: int, tool_context: ToolContext):
    ```
 
 3. **Optional: Deprecate global frontend_delegate:**
+
    ```python
    # Global frontend delegate instance (DEPRECATED)
    # Note: This global instance is kept for backward compatibility but should not be used.
@@ -1797,17 +1918,20 @@ async def change_bgm(track: int, tool_context: ToolContext):
    ```
 
 **Key Changes:**
+
 - ✅ Access delegate via `tool_context.state.get('temp:delegate')`
 - ✅ Access client_identifier via `tool_context.state.get('client_identifier')`
 - ✅ Add error handling for missing delegate
 - ✅ Add logging with client_id for debugging
 
 **Testing:**
+
 - Existing integration tests should continue to pass
 - `tests/integration/test_stream_protocol_tool_approval.py` - 5 tests
 - `tests/integration/test_backend_tool_approval.py` - Tests
 
 **Files to Modify:**
+
 - `server.py`: `change_bgm()` and `get_location()` tool definitions
 
 ---
@@ -1843,16 +1967,19 @@ Created `tests/integration/test_connection_isolation.py` with 5 comprehensive te
    - Confirms traditional session creation still works
 
 **Test Results:**
+
 - 5/5 new integration tests passing ✅
 - 120/120 total tests passing (104 unit + 16 integration) ✅
 - No regressions introduced ✅
 
 **Files Created:**
+
 - `tests/integration/test_connection_isolation.py`
 
 **Manual Test Scenarios (for final verification):**
 
 1. **Single Connection (Baseline):**
+
    ```bash
    # Start server
    just dev
@@ -1865,6 +1992,7 @@ Created `tests/integration/test_connection_isolation.py` with 5 comprehensive te
    ```
 
 2. **Multi-Tab Scenario:**
+
    ```bash
    # Tab 1: Send message "Change BGM to track 0"
    # Tab 2: Send message "Change BGM to track 1"
@@ -1876,6 +2004,7 @@ Created `tests/integration/test_connection_isolation.py` with 5 comprehensive te
    ```
 
 3. **Session Isolation:**
+
    ```bash
    # Tab 1: Check browser console → Note session_id
    # Tab 2: Check browser console → Note session_id
@@ -1886,6 +2015,7 @@ Created `tests/integration/test_connection_isolation.py` with 5 comprehensive te
    ```
 
 4. **Concurrent Tool Calls:**
+
    ```bash
    # Tab 1: Send "Change BGM to track 0" (DO NOT approve yet)
    # Tab 2: Send "What's my location?" (DO NOT approve yet)
@@ -1989,6 +2119,7 @@ async def test_tool_accesses_delegate_from_tool_context():
 **Log Verification:**
 
 Check logs for proper connection tracking:
+
 ```
 [BIDI] New connection: 12345678-1234-1234-1234-123456789abc
 [BIDI] Session created: session_live_user_12345678-1234-1234-1234-123456789abc
@@ -1998,6 +2129,7 @@ Check logs for proper connection tracking:
 ```
 
 **Success Criteria:**
+
 - ✅ Each WebSocket connection gets unique session_id
 - ✅ Tool approval requests route to correct tab
 - ✅ No cross-tab interference
@@ -2005,6 +2137,7 @@ Check logs for proper connection tracking:
 - ✅ All existing tests pass (no regressions)
 
 **Files to Create:**
+
 - `tests/integration/test_connection_isolation.py` (optional but recommended)
 
 ---
@@ -2025,11 +2158,13 @@ Check logs for proper connection tracking:
 ### Trade-offs Accepted
 
 **✅ Supported:**
+
 - Tool approval routing to source connection
 - Concurrent tool approvals from multiple tabs
 - Complete connection isolation
 
 **❌ Not Supported (by design):**
+
 - Conversation continuity across tabs/devices
 - Device switching with conversation handoff
 - Remote device tool execution (requires shared session)
@@ -2155,4 +2290,3 @@ WebSocket Connection Flow:
 **Total Time:** Single session (investigation + implementation)
 **Commits:** 3 commits (Phase 1, Phase 2, Phase 3)
 **Test Status:** ✅ 120/120 passing
-

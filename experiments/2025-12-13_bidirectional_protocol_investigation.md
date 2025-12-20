@@ -5,6 +5,7 @@
 **Status:** 🟢 Complete - Phase 1-3 Implemented ✅
 
 **Implementation:**
+
 - **Phase 1 (Foundation):** ✅ Complete - Structured event protocol implemented
 - **Phase 2 (Interruption):** ✅ Complete - ESC key interruption implemented
 - **Phase 3 (Audio Control):** ✅ Complete - CMD key push-to-talk implemented
@@ -19,10 +20,12 @@
 Current implementation has inconsistent communication formats:
 
 **Backend → Frontend:** ✅ SSE format over WebSocket (AI SDK v6 Data Stream Protocol)
+
 - Events: text-start, text-delta, tool-call, finish, etc.
 - Well-defined protocol with structured events
 
 **Frontend → Backend:** ⚠️ Direct JSON message passing
+
 - Simple `{type, data}` format
 - Not aligned with any standard protocol
 
@@ -34,7 +37,7 @@ Current implementation has inconsistent communication formats:
 
 ### Q1: ADK Client-to-Server Events (Event Authorship)
 
-**Reference:** https://google.github.io/adk-docs/streaming/dev-guide/part3/#event-authorship
+**Reference:** <https://google.github.io/adk-docs/streaming/dev-guide/part3/#event-authorship>
 
 **Question:** What events can frontend/client send to ADK backend?
 
@@ -43,6 +46,7 @@ Current implementation has inconsistent communication formats:
 **Key Finding:** "Event Authorship" refers to attribution, NOT client-to-server protocol
 
 **Event Authorship = Attribution System:**
+
 - `Event.author` field identifies who created each event
 - Model responses: Authored by agent name (e.g., "my_agent")
 - User transcriptions: Authored as "user"
@@ -64,6 +68,7 @@ ADK uses **`LiveRequestQueue`** for bidirectional communication:
    - Control signals: Close/termination
 
 4. **Example Usage:**
+
    ```python
    queue.send_realtime(blob=types.Blob(
        data=audio_chunk,
@@ -78,6 +83,7 @@ ADK uses **`LiveRequestQueue`** for bidirectional communication:
    - Interruption handling with `interrupted=True` flag
 
 **Conclusion:**
+
 - ADK **DOES** support client-to-server events
 - Uses queue-based abstraction (`LiveRequestQueue`)
 - Not a formal event protocol like AI SDK v6
@@ -87,7 +93,7 @@ ADK uses **`LiveRequestQueue`** for bidirectional communication:
 
 ### Q2: AI SDK v6 Data Stream Protocol - Client-to-Server Capabilities
 
-**Reference:** https://v6.ai-sdk.dev/docs/ai-sdk-ui/stream-protocol
+**Reference:** <https://v6.ai-sdk.dev/docs/ai-sdk-ui/stream-protocol>
 
 **Question:** Does AI SDK v6 Data Stream Protocol define client-to-server communication, or only server-to-client?
 
@@ -123,6 +129,7 @@ ADK uses **`LiveRequestQueue`** for bidirectional communication:
    - `sendMessage({ text: input })` - simple function call, no protocol
 
 **Conclusion:**
+
 - AI SDK v6 Data Stream Protocol = **Response streaming only**
 - Client requests use standard HTTP POST (outside protocol scope)
 - Protocol asymmetry is intentional design
@@ -133,6 +140,7 @@ ADK uses **`LiveRequestQueue`** for bidirectional communication:
 ### Q3: sendMessages Interface Contract
 
 **Reference:**
+
 - lib/websocket-chat-transport.ts:146-158
 - node_modules/ai/dist/index.d.ts (ChatTransport interface)
 
@@ -212,12 +220,14 @@ interface ChatTransport<UI_MESSAGE extends UIMessage> {
    - **Usage:** Can pass files, authentication, etc. via these
 
 **Return Value: ReadableStream<UIMessageChunk>**
+
 - Must return stream of UI message chunks
 - Chunk types: text-start, text-delta, tool-input-start, error, etc.
 - Stream must emit AI SDK v6 protocol events
 - Implementation must parse backend response → UIMessageChunk
 
 **Conclusion:**
+
 - `ChatTransport` = **Transport abstraction layer**
 - NOT a wire protocol specification
 - Allows custom protocols (HTTP, WebSocket, etc.)
@@ -233,6 +243,7 @@ interface ChatTransport<UI_MESSAGE extends UIMessage> {
 **File:** lib/websocket-chat-transport.ts
 
 **Current Format:**
+
 ```typescript
 ws.send(JSON.stringify({
   type: "message",
@@ -244,6 +255,7 @@ ws.send(JSON.stringify({
 ```
 
 **Issues:**
+
 - Custom format, not based on any standard
 - No event-based structure
 - Simple request/response pattern
@@ -255,6 +267,7 @@ ws.send(JSON.stringify({
 **File:** server.py
 
 **Current Format:**
+
 ```python
 data = json.loads(message)
 if data.get("type") == "message":
@@ -263,6 +276,7 @@ if data.get("type") == "message":
 ```
 
 **Issues:**
+
 - Tightly coupled to custom frontend format
 - No standard event processing
 - Difficult to extend with new event types
@@ -276,6 +290,7 @@ if data.get("type") == "message":
 **Hypothesis:** AI SDK v6 Data Stream Protocol only defines server-to-client streaming, not client-to-server communication.
 
 **Rationale:**
+
 - Documentation focuses on response streaming
 - No client-to-server event definitions found
 - `useChat` provides functions (sendMessage, append) but no protocol
@@ -291,6 +306,7 @@ if data.get("type") == "message":
 **Hypothesis:** `ChatTransport` interface is an abstraction that allows custom wire protocols while maintaining useChat compatibility.
 
 **Rationale:**
+
 - `sendMessages` returns `ReadableStream<UIMessageChunk>`
 - No wire format specified in interface
 - Implementation freedom for WebSocket vs HTTP
@@ -306,6 +322,7 @@ if data.get("type") == "message":
 **Hypothesis:** `abortSignal` is meant for client-side stream cancellation, not backend notification.
 
 **Rationale:**
+
 - Common pattern in browser APIs
 - May not require backend awareness
 - Or may require explicit abort event to backend
@@ -365,12 +382,14 @@ After investigation, we should understand:
 **ADK provides `LiveRequestQueue` for bidirectional communication:**
 
 ✅ **Supports:**
+
 - Audio streaming: `send_realtime(blob=types.Blob(...))`
 - Text messages: `send_content(...)`
 - Connection control: `close()` sends `LiveRequest(close=True)`
 - Tool streaming: Tools can accept `input_stream: LiveRequestQueue`
 
 ❌ **Does NOT provide:**
+
 - Formal event protocol (like AI SDK v6)
 - Structured event types
 - Client event schemas
@@ -384,6 +403,7 @@ After investigation, we should understand:
 **AI SDK v6 Data Stream Protocol = Server → Client ONLY**
 
 ✅ **Defines** (20+ event types):
+
 - text-start, text-delta, text-end
 - tool-input-start, tool-output-available
 - reasoning-start, reasoning-delta
@@ -391,6 +411,7 @@ After investigation, we should understand:
 - Wire format: Server-Sent Events (SSE) with JSON
 
 ❌ **Does NOT define:**
+
 - Client-to-server events
 - Request format or structure
 - How clients should send messages
@@ -404,11 +425,13 @@ After investigation, we should understand:
 **`ChatTransport` interface defines TypeScript contract, NOT wire protocol**
 
 ✅ **Specifies:**
+
 - Input parameters: messages, chatId, abortSignal, etc.
 - Output type: `ReadableStream<UIMessageChunk>`
 - Interface contract for `useChat` integration
 
 ❌ **Does NOT specify:**
+
 - Wire format (HTTP vs WebSocket vs other)
 - Message serialization format
 - Backend communication protocol
@@ -436,6 +459,7 @@ After investigation, we should understand:
 **Our Current Approach:**
 
 **Frontend → Backend:**
+
 ```typescript
 // lib/websocket-chat-transport.ts:215-216
 const messageData = JSON.stringify({ messages: options.messages });
@@ -443,6 +467,7 @@ this.ws.send(messageData);
 ```
 
 **Backend Processing:**
+
 ```python
 # server.py:855-878
 data = await websocket.receive_text()
@@ -460,6 +485,7 @@ if "messages" in message_data:
 ```
 
 **Current Format:**
+
 - Simple JSON: `{"messages": [...]}` or `{"type": "ping", "timestamp": ...}`
 - No event-based structure
 - Direct message array passing
@@ -502,13 +528,13 @@ if "messages" in message_data:
 **The perceived "inconsistency" in P2-T2 is actually correct architecture:**
 
 - **Backend → Frontend:** Uses AI SDK v6 protocol (SSE format)
-  - Reason: Must emit UIMessageChunk for useChat
-  - Standard: Well-defined protocol with 20+ event types
+    - Reason: Must emit UIMessageChunk for useChat
+    - Standard: Well-defined protocol with 20+ event types
 
 - **Frontend → Backend:** Uses simple JSON
-  - Reason: No protocol standard exists
-  - Freedom: Can use any format
-  - Current: Minimal overhead, works perfectly
+    - Reason: No protocol standard exists
+    - Freedom: Can use any format
+    - Current: Minimal overhead, works perfectly
 
 **Both directions are implemented correctly according to their respective specifications.**
 
@@ -517,6 +543,7 @@ if "messages" in message_data:
 **Option A: Keep Current Implementation (RECOMMENDED)**
 
 ✅ **Pros:**
+
 - Already works correctly
 - Minimal overhead
 - Meets all requirements
@@ -524,6 +551,7 @@ if "messages" in message_data:
 - No complexity
 
 ❌ **Cons:**
+
 - Different formats in each direction (but this is intentional!)
 
 **Reasoning:** The "inconsistency" is not a problem. It reflects the fundamental design of the systems we're integrating.
@@ -533,15 +561,18 @@ if "messages" in message_data:
 **Option B: Create Custom Bidirectional Event Protocol**
 
 Create symmetric event-based protocol for both directions:
+
 - Client→Server: Event-based (ping, message, audio, tool-result, etc.)
 - Server→Client: AI SDK v6 protocol (unchanged)
 
 ✅ **Pros:**
+
 - Symmetric event model
 - More extensible
 - Clearer event types
 
 ❌ **Cons:**
+
 - Adds complexity
 - No standard to follow
 - Requires custom protocol design
@@ -555,13 +586,16 @@ Create symmetric event-based protocol for both directions:
 **Option C: Use AI SDK v6 Protocol Bidirectionally**
 
 Try to use AI SDK v6 events for client→server:
+
 - Client sends: text-delta, tool-result events
 - Server receives: Parse AI SDK v6 events
 
 ✅ **Pros:**
+
 - Symmetric protocol usage
 
 ❌ **Cons:**
+
 - AI SDK v6 protocol NOT designed for this
 - No client→server event definitions
 - Would be misusing the protocol
@@ -577,11 +611,13 @@ Try to use AI SDK v6 events for client→server:
 **Conclusion:** P2-T2 should be **reconsidered or closed**.
 
 The "inconsistency" is:
+
 1. **Intentional design** - Not a bug
 2. **Correct implementation** - Follows both specifications
 3. **Best practice** - Minimal, efficient, works perfectly
 
 **Proposed Action:**
+
 - Update P2-T2 task status to "Investigated - Working as Intended"
 - Document this investigation as the resolution
 - No code changes needed
@@ -591,11 +627,13 @@ The "inconsistency" is:
 If we want to make client→server more structured:
 
 **Low-hanging fruit:**
+
 1. Add explicit event types: `{"type": "message", "data": {...}}`
 2. Add version field: `{"version": "1.0", ...}`
 3. Document the simple protocol
 
 **Implementation:**
+
 ```typescript
 // Frontend
 ws.send(JSON.stringify({
@@ -623,18 +661,21 @@ elif msg_type == "ping":
 ### Next Steps
 
 **Option 1: Close P2-T2 (Recommended)**
+
 1. Update agents/tasks.md with investigation findings
 2. Mark P2-T2 as "Investigated - No Action Needed"
 3. Link to this experiment note
 4. Move to other priorities
 
 **Option 2: Implement Minimal Improvements**
+
 1. Add explicit event types to client messages
 2. Update backend to handle typed events
 3. Document the simple protocol
 4. Mark P2-T2 as complete
 
 **Option 3: Design Custom Protocol**
+
 1. Define bidirectional event specification
 2. Implement client-side event system
 3. Update backend event processing
@@ -646,18 +687,23 @@ elif msg_type == "ping":
 ## Final Answer to Original Questions
 
 ### Q: Does AI SDK v6 define client-to-server protocol?
+
 **A: NO.** It only defines server-to-client streaming (Data Stream Protocol).
 
 ### Q: Can we use AI SDK v6 protocol bidirectionally?
+
 **A: NO.** It's not designed for that purpose.
 
 ### Q: Is current implementation wrong?
+
 **A: NO.** It's correct and follows best practices.
 
 ### Q: Should we make protocols symmetric?
+
 **A: NO.** Asymmetry is intentional and appropriate.
 
 ### Q: What should we do about P2-T2?
+
 **A: Close as "Working as Intended"** or implement minimal event typing if desired.
 
 ---
@@ -669,17 +715,20 @@ After investigation, user identified real-world use cases that require client-to
 ### Required Client Events
 
 **1. Interruption (ESC key) - Active Event**
+
 - User presses ESC → Send interruption signal
 - Backend should stop current generation
 - ADK: Requires `interrupt()` or queue control
 
 **2. Voice Input Control (CMD key) - Active Event**
+
 - CMD key down → Start BIDI audio streaming
 - CMD key up → End audio input (auto-send)
 - BIDI mode: Real-time audio chunks via WebSocket
 - Non-BIDI mode: Browser speech input → text in message field
 
 **3. Tool Call Approval - Reactive Event**
+
 - Backend requests location permission (tool call)
 - Frontend shows approval dialog
 - User approves → Send tool result with location
@@ -689,10 +738,12 @@ After investigation, user identified real-world use cases that require client-to
 ### Event Classification
 
 **Active Events (User-initiated):**
+
 - Interruption (ESC)
 - Audio control (CMD key)
 
 **Reactive Events (Response to backend):**
+
 - Tool call approval/rejection
 
 ---
@@ -1034,16 +1085,19 @@ function ToolCallApprovalDialog({ toolCall, onResponse }) {
 ## Implementation Complexity Analysis
 
 ### Easy (Low Complexity)
+
 - ✅ Message event (already implemented, just wrap in structure)
 - ✅ Ping/pong event (already implemented, already structured)
 - ✅ Interruption event (simple signal, minimal ADK integration)
 - ✅ Audio control event (state management only)
 
 ### Medium (Moderate Complexity)
+
 - ⚠️ Tool result event (requires tool call state management)
 - ⚠️ Audio chunk event (requires MediaRecorder API integration)
 
 ### Hard (High Complexity)
+
 - ❌ None identified
 
 ---
@@ -1051,6 +1105,7 @@ function ToolCallApprovalDialog({ toolCall, onResponse }) {
 ## Recommended Implementation Plan
 
 ### Phase 1: Basic Event Structure (Quick Win)
+
 1. Define TypeScript event types
 2. Wrap existing message sending in structured format
 3. Update backend to handle typed events
@@ -1061,6 +1116,7 @@ function ToolCallApprovalDialog({ toolCall, onResponse }) {
 **Benefit:** Foundation for all other features
 
 ### Phase 2: Interruption Support (High Value)
+
 1. Add ESC key listener
 2. Implement `interrupt()` method in transport
 3. Backend handles interruption (queue close)
@@ -1071,6 +1127,7 @@ function ToolCallApprovalDialog({ toolCall, onResponse }) {
 **Benefit:** Immediate UX improvement
 
 ### Phase 3: Audio Control (Complex but Valuable)
+
 1. Add CMD key listeners (start/stop)
 2. Integrate browser MediaRecorder API
 3. Stream audio chunks to backend
@@ -1082,6 +1139,7 @@ function ToolCallApprovalDialog({ toolCall, onResponse }) {
 **Benefit:** Core BIDI feature enablement
 
 ### Phase 4: Tool Call Approval (Nice to Have)
+
 1. Intercept tool calls on frontend
 2. Show approval dialog
 3. Send tool results back to backend
@@ -1119,7 +1177,7 @@ function ToolCallApprovalDialog({ toolCall, onResponse }) {
 
 ## AI SDK v6 Recommended Pattern (from Community Examples)
 
-**Reference:** https://github.com/vercel/ai/discussions/5607
+**Reference:** <https://github.com/vercel/ai/discussions/5607>
 
 ### Pattern: Constructor Options for Custom Functionality
 
@@ -1194,6 +1252,7 @@ transport.close(); // Example: cleanup
 ### Applying to Our Requirements
 
 **For ESC interruption:**
+
 ```typescript
 constructor(options: {
   url: string;
@@ -1210,6 +1269,7 @@ public interrupt(): void {
 ```
 
 **For CMD audio control:**
+
 ```typescript
 constructor(options: {
   url: string;
@@ -1233,6 +1293,7 @@ public stopAudio(): void {
 ```
 
 **For tool approval:**
+
 ```typescript
 constructor(options: {
   url: string;
@@ -1367,6 +1428,7 @@ export function Chat({ mode }: ChatProps) {
 4. **Phase 4:** Add tool approval (nice to have)
 
 **This provides:**
+
 - ✅ Follows AI SDK community patterns
 - ✅ Real-world UX improvements
 - ✅ Structured, extensible protocol
@@ -1408,6 +1470,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
 ```
 
 **Usage:**
+
 ```typescript
 const transport = new WebSocketChatTransport({
   url: 'ws://localhost:8000/live',
@@ -1423,6 +1486,7 @@ const transport = new WebSocketChatTransport({
 ### User Requirement: Tool Approval Pattern
 
 **Scenario:** AI wants to change BGM track
+
 - Backend sends: `tool-call` event (change_bgm)
 - **Current:** Executes immediately (no approval)
 - **Desired:** Show approval dialog → User approves/denies → Send result
@@ -1464,6 +1528,7 @@ const transport = new WebSocketChatTransport({
 ```
 
 **handleToolCall remains the same:**
+
 - Callback is async → Can wait for user input
 - Returns result → Sends to backend
 - ✅ No changes needed to transport class!
@@ -1517,6 +1582,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
 ```
 
 **Usage:**
+
 ```typescript
 const transport = new WebSocketChatTransport({
   url: 'ws://localhost:8000/live',
@@ -1550,16 +1616,19 @@ const transport = new WebSocketChatTransport({
 #### Option A: Callback Returns Approval Result
 
 **Pros:**
+
 - ✅ No changes to transport class needed
 - ✅ Simple, clean API
 - ✅ Async callback handles everything
 - ✅ Backward compatible
 
 **Cons:**
+
 - ⚠️ Callback must handle UI (mixing concerns)
 - ⚠️ Less flexible for complex approval flows
 
 **Best for:**
+
 - Simple approval dialogs
 - Single-step approval
 - Current implementation already supports this!
@@ -1567,17 +1636,20 @@ const transport = new WebSocketChatTransport({
 #### Option B: Separate Approval Step
 
 **Pros:**
+
 - ✅ Clear separation of concerns
 - ✅ More flexible approval flows
 - ✅ Explicit approval state management
 - ✅ Can support both auto and manual modes
 
 **Cons:**
+
 - ⚠️ More complex API
 - ⚠️ Requires transport changes
 - ⚠️ Manual state management needed
 
 **Best for:**
+
 - Complex multi-step approvals
 - Approval UI in separate components
 - Need to track pending approvals
@@ -1585,6 +1657,7 @@ const transport = new WebSocketChatTransport({
 ### Recommendation: Option A + Gradual Migration to Option B
 
 **Phase 1: Use Current Pattern (Option A)**
+
 ```typescript
 // Works today with zero changes!
 toolCallCallback: async (toolCall) => {
@@ -1594,6 +1667,7 @@ toolCallCallback: async (toolCall) => {
 ```
 
 **Phase 2: Add Optional Approval Pattern (Option B)**
+
 ```typescript
 // Add alongside existing pattern
 onToolCallRequest: (toolCall) => {
@@ -2068,16 +2142,19 @@ useEffect(() => {
 ### Implementation Priority
 
 **Phase 1: Foundation** (1-2 hours)
+
 - ✅ Add `sendEvent()` private method
 - ✅ Keep existing `toolCallCallback` working
 - ✅ Add public methods: `interrupt()`, `startAudio()`, `stopAudio()`
 
 **Phase 2: Tool Approval** (2-3 hours)
+
 - ✅ Add `onToolCallRequest` callback option
 - ✅ Add `sendToolResult()` public method
 - ✅ Support Pattern 3 (manual approval)
 
 **Phase 3: Event Callbacks** (1-2 hours)
+
 - ✅ Add `onInterruptRequest`, `onAudioStart`, `onAudioStop`
 - ✅ Add connection callbacks
 - ✅ Support Pattern 5 (full-featured)
@@ -2094,6 +2171,7 @@ useEffect(() => {
 4. Can upgrade to Pattern 3-5 later as needed
 
 **This gives you:**
+
 - ✅ ESC interruption (Phase 1)
 - ✅ CMD audio control (Phase 1)
 - ✅ Tool approval dialogs (Pattern 2, already supported!)
@@ -2115,6 +2193,7 @@ useEffect(() => {
 ### ✅ Completed Items
 
 **Frontend (lib/websocket-chat-transport.ts):**
+
 1. ✅ Defined structured event types (ClientToServerEvent union type)
    - MessageEvent, InterruptEvent, AudioControlEvent, AudioChunkEvent, ToolResultEvent, PingEvent
    - All events have `type`, `version: "1.0"`, and optional `timestamp`
@@ -2138,6 +2217,7 @@ useEffect(() => {
    - `handleToolCall()` now uses `sendToolResult()` public method
 
 **Backend (server.py):**
+
 1. ✅ Updated `receive_from_client()` to parse structured events
    - Event type routing: `event.get("type")`
    - Version tracking: `event.get("version")`
@@ -2165,10 +2245,12 @@ useEffect(() => {
 ### 📝 Changes Made
 
 **Files Modified:**
+
 - `lib/websocket-chat-transport.ts` - Added 125+ lines of event types and public API
 - `server.py` - Updated event handling in `receive_from_client()` (~50 lines)
 
 **Lines of Code:**
+
 - Frontend: +125 lines (event types + public methods)
 - Backend: ~50 lines (event handlers)
 - Total: ~175 lines added
@@ -2176,6 +2258,7 @@ useEffect(() => {
 ### 🚀 Ready for Phase 2
 
 Phase 1 provides the foundation. Next phases can now:
+
 - Phase 2: Use `interrupt()` method for ESC key handling
 - Phase 3: Use `startAudio()`, `stopAudio()`, `sendAudioChunk()` for CMD key push-to-talk
 - Phase 4: Use `sendToolResult()` with approval status for tool call dialogs
@@ -2190,6 +2273,7 @@ Phase 1 provides the foundation. Next phases can now:
 ### ✅ Completed Items
 
 **Frontend (lib/build-use-chat-options.ts):**
+
 1. ✅ Added `UseChatOptionsWithTransport` interface
    - Returns both `useChatOptions` and optional `transport` reference
    - Enables imperative control of transport from UI components
@@ -2199,6 +2283,7 @@ Phase 1 provides the foundation. Next phases can now:
    - Only BIDI mode returns actual transport instance
 
 **Frontend (components/chat.tsx):**
+
 1. ✅ Added `useRef` for transport instance
    - Stores transport reference for ESC key handler access
    - Available throughout component lifecycle
@@ -2214,6 +2299,7 @@ Phase 1 provides the foundation. Next phases can now:
    - Auto-dismisses with timeout
 
 **Backend (server.py):**
+
 - ✅ Already implemented in Phase 1 (lines 925-930)
 - Handles `interrupt` event by closing `LiveRequestQueue`
 - WebSocket stays open for next turn
@@ -2230,10 +2316,12 @@ Phase 1 provides the foundation. Next phases can now:
 ### 📝 Changes Made
 
 **Files Modified:**
+
 - `lib/build-use-chat-options.ts` - Added transport export (~30 lines)
 - `components/chat.tsx` - ESC key handler + interrupt indicator (~40 lines)
 
 **Lines of Code:**
+
 - Frontend: ~70 lines added
 - Backend: 0 lines (already done in Phase 1)
 - Total: ~70 lines added
@@ -2241,10 +2329,12 @@ Phase 1 provides the foundation. Next phases can now:
 ### 🚀 Ready for Phase 3
 
 Phase 2 provides ESC key interruption. Next phases can now:
+
 - Phase 3: Use `startAudio()`, `stopAudio()`, `sendAudioChunk()` for CMD key push-to-talk
 - Phase 4: Use `sendToolResult()` with approval status for tool call dialogs
 
 **User Experience:**
+
 - User presses ESC during AI response
 - Transport sends `interrupt` event immediately
 - Backend closes LiveRequestQueue (stops generation)
@@ -2261,6 +2351,7 @@ Phase 2 provides ESC key interruption. Next phases can now:
 ### ✅ Completed Items
 
 **Frontend (components/chat.tsx):**
+
 1. ✅ Added audio recording state management
    - `isRecording` state for recording status
    - `mediaRecorderRef` for MediaRecorder instance
@@ -2290,6 +2381,7 @@ Phase 2 provides ESC key interruption. Next phases can now:
    - Pulsing white dot for recording feedback
 
 **Backend (server.py):**
+
 1. ✅ Enhanced `audio_control` handler (lines 933-942)
    - Logs start/stop events with descriptive messages
    - Documents that audio chunks are streamed separately
@@ -2302,6 +2394,7 @@ Phase 2 provides ESC key interruption. Next phases can now:
    - Added TODO for format conversion (WebM → PCM)
 
 **Methods from Phase 1 (already implemented):**
+
 - ✅ `transport.startAudio()` - Send start event to backend
 - ✅ `transport.stopAudio()` - Send stop event to backend
 - ✅ `transport.sendAudioChunk()` - Send audio data to backend
@@ -2319,10 +2412,12 @@ Phase 2 provides ESC key interruption. Next phases can now:
 ### 📝 Changes Made
 
 **Files Modified:**
+
 - `components/chat.tsx` - Audio recording + CMD key handlers (~120 lines)
 - `server.py` - Enhanced audio event handlers (~30 lines)
 
 **Lines of Code:**
+
 - Frontend: ~120 lines added
 - Backend: ~30 lines modified
 - Total: ~150 lines
@@ -2330,9 +2425,11 @@ Phase 2 provides ESC key interruption. Next phases can now:
 ### 🚀 Ready for Phase 4
 
 Phase 3 provides CMD key push-to-talk. Final phase:
+
 - Phase 4: Use `sendToolResult()` with approval status for tool call dialogs
 
 **User Experience:**
+
 1. User presses and holds CMD key (BIDI mode only)
 2. Microphone permission requested (first time)
 3. Red "🎤 Recording..." indicator appears with pulse
@@ -2344,6 +2441,7 @@ Phase 3 provides CMD key push-to-talk. Final phase:
 9. ADK processes voice input and responds
 
 **Known Limitations:**
+
 - Audio format: Browser outputs WebM/Opus, ADK expects PCM
 - Format conversion: Not yet implemented (TODO added)
 - ADK may handle WebM/Opus natively (needs testing)
@@ -2355,10 +2453,12 @@ Phase 3 provides CMD key push-to-talk. Final phase:
 ### 🔄 AudioWorklet Migration (Based on ADK Official Sample)
 
 **Reference:**
-- https://github.com/google/adk-samples/blob/main/python/agents/bidi-demo/app/static/js/audio-recorder.js
-- https://github.com/google/adk-samples/blob/main/python/agents/bidi-demo/app/static/js/pcm-recorder-processor.js
+
+- <https://github.com/google/adk-samples/blob/main/python/agents/bidi-demo/app/static/js/audio-recorder.js>
+- <https://github.com/google/adk-samples/blob/main/python/agents/bidi-demo/app/static/js/pcm-recorder-processor.js>
 
 **Why AudioWorklet?**
+
 - **Better Quality:** Raw PCM audio vs compressed WebM/Opus
 - **ADK Compatibility:** 16kHz 16-bit PCM matches ADK Live API requirements
 - **Low Latency:** Audio processing in dedicated thread
@@ -2388,12 +2488,14 @@ Phase 3 provides CMD key push-to-talk. Final phase:
    - Sends directly to ADK via `send_realtime()`
 
 **Audio Format:**
+
 - Sample Rate: 16,000 Hz (ADK requirement, down from 24kHz)
 - Channels: 1 (mono)
 - Bit Depth: 16-bit signed integer
 - Format: Raw PCM (Int16Array)
 
 **Key Improvements:**
+
 - ✅ Native PCM output (no WebM/Opus)
 - ✅ Matches ADK Live API spec exactly
 - ✅ Echo cancellation, noise suppression, auto gain control enabled
@@ -2401,6 +2503,7 @@ Phase 3 provides CMD key push-to-talk. Final phase:
 - ✅ Cleaner code architecture
 
 **BGM Suppression:**
+
 - AudioContext has built-in echo cancellation
 - Browser's `echoCancellation: true` should suppress BGM playback
 - If needed, can add manual filtering in AudioWorklet processor
@@ -2419,6 +2522,7 @@ Refactor audio recording logic into a custom React hook with proper lifecycle ma
 ### 📚 Investigation: React + AudioWorklet Best Practices
 
 **Research Sources:**
+
 1. ✅ AI SDK v6 documentation - No official audio input examples found
 2. ✅ React + AudioWorklet GitHub projects
    - github.com/jayblack388/use-audio-hooks (separated hooks pattern)
@@ -2430,17 +2534,20 @@ Refactor audio recording logic into a custom React hook with proper lifecycle ma
 **Key Findings:**
 
 #### Pattern A: Unified Provider (Single AudioContext)
+
 - **Not suitable:** Recording (16kHz) and Playback (24kHz) require different sample rates
 - **Conclusion:** Single AudioContext physically impossible due to sample rate constraint
 
 #### Pattern B: Multiple AudioContext Provider
+
 - **Possible but complex:** Manage both playback and recording contexts in one Provider
 - **Issues:**
-  - Violates Single Responsibility Principle
-  - Recording only used in BIDI mode → unnecessary weight in all modes
-  - Testing complexity increases
+    - Violates Single Responsibility Principle
+    - Recording only used in BIDI mode → unnecessary weight in all modes
+    - Testing complexity increases
 
 #### Pattern C: useAudioRecorder Hook (Recommended) ✅
+
 - **OSS Pattern:** `use-audio-hooks` library uses separate hooks for player/recorder
 - **React Best Practices:** Custom hook for encapsulation
 - **Separation of Concerns:** Recording (input) vs Playback (output) are fundamentally different
@@ -2451,6 +2558,7 @@ Refactor audio recording logic into a custom React hook with proper lifecycle ma
 **Chosen Pattern:** useAudioRecorder Hook (Pattern C)
 
 **Rationale:**
+
 1. **Technical Constraint:** Different sample rates (16kHz vs 24kHz) → separate AudioContext required
 2. **Responsibility Separation:** Input (microphone → server) vs Output (server → speakers)
 3. **Usage Scope:** Recording only in BIDI mode, Playback in all modes
@@ -2458,6 +2566,7 @@ Refactor audio recording logic into a custom React hook with proper lifecycle ma
 5. **MDN Recommendation:** "Create one AudioContext and reuse it" - but for same use case only
 
 **Design:**
+
 ```
 AudioProvider (audio-context.tsx)
 ├─ playbackContext (24kHz)
@@ -2475,7 +2584,9 @@ useAudioRecorder (lib/use-audio-recorder.ts)
 ### ✅ Implementation
 
 **Created Files:**
+
 1. **lib/use-audio-recorder.ts** (~170 lines)
+
    ```typescript
    export function useAudioRecorder({ mode }: UseAudioRecorderOptions) {
      const recorderRef = useRef<AudioRecorder | null>(null);
@@ -2512,7 +2623,9 @@ useAudioRecorder (lib/use-audio-recorder.ts)
    ```
 
 **Modified Files:**
+
 1. **components/chat.tsx** - Refactored to use hook
+
    ```typescript
    // Before: Manual AudioRecorder management
    const [isRecording, setIsRecording] = useState(false);
@@ -2549,6 +2662,7 @@ useAudioRecorder (lib/use-audio-recorder.ts)
 ### 🐛 Problems Solved
 
 **Before (Components/chat.tsx):**
+
 1. ❌ **Memory Leak:** `stopRecording()` called `stop()` but not `close()`
    - AudioContext remained in memory
    - MediaStream tracks not released
@@ -2563,6 +2677,7 @@ useAudioRecorder (lib/use-audio-recorder.ts)
    - Unnecessary resource allocation
 
 **After (useAudioRecorder hook):**
+
 1. ✅ **Proper Cleanup:** `stopRecording()` calls `close()` which:
    - Calls `stop()` internally
    - Closes AudioContext: `audioContext.close()`
@@ -2570,6 +2685,7 @@ useAudioRecorder (lib/use-audio-recorder.ts)
    - Disconnects worklet node: `workletNode.disconnect()`
 
 2. ✅ **Unmount Cleanup:** useEffect cleanup function ensures:
+
    ```typescript
    useEffect(() => {
      return () => {
@@ -2590,38 +2706,45 @@ useAudioRecorder (lib/use-audio-recorder.ts)
 ### 📊 Best Practices Applied
 
 **From MDN Web Audio API:**
+
 - ✅ Single AudioContext reuse (within recording sessions)
 - ✅ Proper cleanup: disconnect nodes before closing context
 - ✅ Stop media tracks to release microphone
 
 **From React Patterns:**
+
 - ✅ useRef for instance that survives re-renders
 - ✅ useCallback for stable function references
 - ✅ useEffect cleanup for resource management
 
 **From GitHub Examples:**
+
 - ✅ Separated concerns (recording vs playback)
 - ✅ Custom hook encapsulation
 - ✅ Error state management
 
 **From React Flow Tutorial:**
+
 - ✅ AudioContext outside component lifecycle (via class instance)
 - ✅ Prevent recreation on re-renders
 
 ### 🎯 Benefits
 
 **Code Quality:**
+
 - ✅ Separation of Concerns: Recording logic isolated
 - ✅ Testability: Hook can be tested independently
 - ✅ Reusability: Can be used in other components
 - ✅ Type Safety: Full TypeScript support
 
 **Memory Management:**
+
 - ✅ No leaks: Proper cleanup guaranteed
 - ✅ Automatic: Component unmount triggers cleanup
 - ✅ Explicit: `close()` always called
 
 **Developer Experience:**
+
 - ✅ Simple API: `const { isRecording, startRecording, stopRecording } = useAudioRecorder({ mode })`
 - ✅ Error handling: Built-in error state
 - ✅ BIDI mode guard: Only works in adk-bidi mode
@@ -2629,17 +2752,21 @@ useAudioRecorder (lib/use-audio-recorder.ts)
 ### 📝 Changes Summary
 
 **Files Created:**
+
 - `lib/use-audio-recorder.ts` (~170 lines)
 
 **Files Modified:**
+
 - `components/chat.tsx` (refactored ~50 lines)
 
 **Build Status:**
+
 - ✅ TypeScript compilation: Success
 - ✅ Next.js build: Success
 - ✅ Dev server: Running
 
 **Lines Changed:**
+
 - Added: ~170 lines (new hook)
 - Modified: ~50 lines (chat component)
 - Total: ~220 lines
@@ -2647,16 +2774,19 @@ useAudioRecorder (lib/use-audio-recorder.ts)
 ### 🚀 Future Enhancements (Optional)
 
 **Phase 1 (Current):** Independent useAudioRecorder hook
+
 - ✅ Proper cleanup
 - ✅ Error handling
 - ✅ BIDI mode guard
 
 **Phase 2 (Future):** Provider Integration
+
 - ⏳ Access AudioProvider for BGM ducking
 - ⏳ Auto-duck BGM on recording start
 - ⏳ Restore BGM on recording stop
 
 **Phase 3 (Future):** Module-level AudioContext (React Flow pattern)
+
 - ⏳ Shared AudioContext across recording sessions
 - ⏳ Reuse instead of recreation
 - ⏳ Maximum performance
@@ -2687,6 +2817,7 @@ useAudioRecorder (lib/use-audio-recorder.ts)
 ### Background
 
 Phase 1-3 implementation added significant new code without corresponding unit tests:
+
 - AudioRecorder class (lib/audio-recorder.ts)
 - useAudioRecorder React hook (lib/use-audio-recorder.ts)
 - AudioProvider context (lib/audio-context.tsx)
@@ -2697,42 +2828,46 @@ Phase 1-3 implementation added significant new code without corresponding unit t
 #### TypeScript/React Tests
 
 **1. AudioRecorder Unit Tests** (`lib/audio-recorder.test.ts`)
+
 - **Coverage:** 25 tests
 - **Test Areas:**
-  - AudioContext initialization (16kHz sample rate)
-  - AudioWorklet processor module loading
-  - MediaStream and microphone access
-  - Recording lifecycle (start → stop → close)
-  - PCM conversion (Float32 → Int16)
-  - Error handling (getUserMedia failures, module loading errors)
-  - Resource cleanup verification
-  - Edge cases (empty arrays, value clamping)
+    - AudioContext initialization (16kHz sample rate)
+    - AudioWorklet processor module loading
+    - MediaStream and microphone access
+    - Recording lifecycle (start → stop → close)
+    - PCM conversion (Float32 → Int16)
+    - Error handling (getUserMedia failures, module loading errors)
+    - Resource cleanup verification
+    - Edge cases (empty arrays, value clamping)
 
 **2. useAudioRecorder Hook Tests** (`lib/use-audio-recorder.test.ts`)
+
 - **Coverage:** 23 tests
 - **Test Areas:**
-  - Hook initialization and state management
-  - startRecording() functionality
-  - stopRecording() cleanup
-  - Mode-specific behavior (BIDI only)
-  - Error state management
-  - Component unmount cleanup
-  - Function reference stability (useCallback)
-  - Full lifecycle integration
+    - Hook initialization and state management
+    - startRecording() functionality
+    - stopRecording() cleanup
+    - Mode-specific behavior (BIDI only)
+    - Error state management
+    - Component unmount cleanup
+    - Function reference stability (useCallback)
+    - Full lifecycle integration
 
 **3. AudioProvider Context Tests** (`lib/audio-context.test.tsx`)
+
 - **Coverage:** 22 tests
 - **Test Areas:**
-  - AudioProvider initialization (24kHz AudioContext)
-  - AudioWorklet and BGM track loading
-  - Voice channel PCM streaming
-  - BGM channel switching and crossfade
-  - BGM ducking (playback-started/finished events)
-  - WebSocket latency monitoring
-  - Resource cleanup on unmount
-  - Error handling
+    - AudioProvider initialization (24kHz AudioContext)
+    - AudioWorklet and BGM track loading
+    - Voice channel PCM streaming
+    - BGM channel switching and crossfade
+    - BGM ducking (playback-started/finished events)
+    - WebSocket latency monitoring
+    - Resource cleanup on unmount
+    - Error handling
 
 **4. Test Fix: build-use-chat-options**
+
 - **Issue:** Existing tests failed due to API change (new return type)
 - **Fix:** Updated tests to destructure `{ useChatOptions, transport }`
 - **Result:** All 8 tests passing
@@ -2740,21 +2875,23 @@ Phase 1-3 implementation added significant new code without corresponding unit t
 #### Python Tests
 
 **WebSocket Event Handling Tests** (`tests/unit/test_websocket_events.py`)
+
 - **Coverage:** 22 tests
 - **Test Areas:**
-  - Event parsing (ping, message, interrupt, audio_control, audio_chunk, tool_result)
-  - ping/pong latency monitoring
-  - Message event extraction
-  - Interrupt event handling (LiveRequestQueue.close())
-  - Audio chunk PCM decoding (base64 → bytes)
-  - Audio chunk Blob creation for ADK
-  - Tool result event data extraction
-  - Event versioning (defaults to 1.0)
-  - Edge cases (empty messages, missing fields, default values)
+    - Event parsing (ping, message, interrupt, audio_control, audio_chunk, tool_result)
+    - ping/pong latency monitoring
+    - Message event extraction
+    - Interrupt event handling (LiveRequestQueue.close())
+    - Audio chunk PCM decoding (base64 → bytes)
+    - Audio chunk Blob creation for ADK
+    - Tool result event data extraction
+    - Event versioning (defaults to 1.0)
+    - Edge cases (empty messages, missing fields, default values)
 
 ### Test Results
 
 **TypeScript (vitest):**
+
 ```
 ✓ lib/audio-recorder.test.ts       (25 tests) 19ms
 ✓ lib/use-audio-recorder.test.ts   (23 tests) 671ms
@@ -2766,6 +2903,7 @@ Duration: ~2s
 ```
 
 **Python (pytest):**
+
 ```
 ✓ tests/unit/test_websocket_events.py (22 tests)
 ✓ tests/unit/test_*.py (existing)      (63 tests)
@@ -2777,10 +2915,12 @@ Duration: ~1.14s
 ### Dependencies Added
 
 **TypeScript:**
+
 - `@testing-library/react` - React Hook testing utilities
 - `jsdom` - DOM environment for React component tests
 
 **Python:**
+
 - No new dependencies (all testing utilities already present)
 
 ### Test Coverage Analysis
@@ -2797,6 +2937,7 @@ Duration: ~1.14s
 | `public/pcm-recorder-processor.js` | AudioWorklet | Runtime | ⏸️ |
 
 **Coverage Summary:**
+
 - ✅ All testable business logic covered
 - ⏸️ UI components → e2e testing (out of scope)
 - ⏸️ AudioWorklet → Browser runtime testing
@@ -2816,6 +2957,7 @@ Duration: ~1.14s
 ### Best Practices Applied
 
 **TypeScript Testing:**
+
 - ✅ Comprehensive Web Audio API mocking
 - ✅ jsdom environment for React Hook testing
 - ✅ Function syntax for vi.fn() (not arrow functions)
@@ -2823,6 +2965,7 @@ Duration: ~1.14s
 - ✅ Mock lifecycle management (beforeEach reset)
 
 **Python Testing:**
+
 - ✅ Event fixture pattern for test data
 - ✅ Async test support with pytest-asyncio
 - ✅ Mock WebSocket and LiveRequestQueue
@@ -2853,6 +2996,7 @@ Duration: ~1.14s
 Phase 4 goal: Implement user approval dialogs for sensitive tool calls (e.g., `change_bgm`, `get_location`)
 
 Before implementation, comprehensive research was conducted to understand:
+
 1. **ADK official tool approval patterns** (especially BIDI mode compatibility)
 2. **Industry best practices** (Claude Code, Gemini CLI, Aider, Cursor, Cline)
 3. **Recommended approach** for this project
@@ -2863,13 +3007,14 @@ Before implementation, comprehensive research was conducted to understand:
 
 #### 1. Google ADK Official Pattern - `require_confirmation`
 
-**Documentation:** https://google.github.io/adk-docs/tools-custom/confirmation/
+**Documentation:** <https://google.github.io/adk-docs/tools-custom/confirmation/>
 
 **Feature:** Tool Confirmation (Python ADK v1.14.0+, Experimental)
 
 **Two Confirmation Modes:**
 
 **A. Boolean Confirmation** (Simple yes/no)
+
 ```python
 FunctionTool(reimburse, require_confirmation=True)
 
@@ -2881,6 +3026,7 @@ FunctionTool(charge_card, require_confirmation=needs_approval)
 ```
 
 **B. Advanced Confirmation** (Structured data input)
+
 ```python
 def request_time_off(days: int, tool_context: ToolContext):
     if not tool_context.tool_confirmation:
@@ -2895,6 +3041,7 @@ def request_time_off(days: int, tool_context: ToolContext):
 ```
 
 **Confirmation Flow (REST API / `run_async()` mode):**
+
 ```
 1. Tool calls with require_confirmation=True
 2. ADK pauses execution via runner.run_async()
@@ -2905,6 +3052,7 @@ def request_time_off(days: int, tool_context: ToolContext):
 ```
 
 **Known Limitations (from official docs):**
+
 - ❌ `DatabaseSessionService` not supported
 - ❌ `VertexAiSessionService` not supported
 - ⚠️ Experimental feature (feedback welcomed)
@@ -2917,7 +3065,8 @@ def request_time_off(days: int, tool_context: ToolContext):
 **Query:** "How does FunctionTool's require_confirmation work with run_live() in BIDI mode?"
 
 **DeepWiki Search Results:**
-- https://deepwiki.com/search/how-does-functiontools-require_45650c98-c5e6-4b7c-89e5-8d1678dac30e
+
+- <https://deepwiki.com/search/how-does-functiontools-require_45650c98-c5e6-4b7c-89e5-8d1678dac30e>
 - Wiki: [Tool Authentication and Confirmation (google/adk-python)](https://deepwiki.com/google/adk-python#6.7)
 
 **Key Finding:**
@@ -2942,6 +3091,7 @@ def request_time_off(days: int, tool_context: ToolContext):
 | **`run_live()`** (BIDI streaming) | Asynchronous streaming, no pause mechanism | ❌ **Not implemented** (TODO) |
 
 **Why BIDI is Different:**
+
 - BIDI mode designed for **real-time audio/video streaming**
 - Goal: **Seamless conversation experience** (interrupting for confirmations breaks UX)
 - ADK team is considering alternative UX patterns (hence TODO status)
@@ -2963,13 +3113,15 @@ BIDI (run_live):
 **A. Claude Code (Anthropic)**
 
 **Pattern:** Permission-Based Model + Sandboxing
+
 - Default: Read-only, requires approval for all modifications
 - Auto-allow list: Safe commands (`echo`, `cat`)
 - **Sandboxing:** Pre-defined boundaries to reduce prompts by 84%
 
-**Reference:** https://www.anthropic.com/engineering/claude-code-sandboxing
+**Reference:** <https://www.anthropic.com/engineering/claude-code-sandboxing>
 
 **Approval Flow:**
+
 ```
 1. Tool execution attempt
 2. Check if in sandbox boundary
@@ -2979,10 +3131,12 @@ BIDI (run_live):
 ```
 
 **Pros:**
+
 - ✅ Secure by default
 - ✅ Sandboxing balances efficiency and security
 
 **Cons:**
+
 - ❌ Coarse-grained (boundary-based, not tool-specific)
 
 ---
@@ -2992,13 +3146,15 @@ BIDI (run_live):
 **Pattern:** PolicyEngine + Message Bus Architecture
 
 **Architecture:**
+
 - **PolicyEngine:** Evaluates tool execution → ALLOW / DENY / ASK_USER
 - **Message Bus:** Pub/sub pattern decouples core from UI
 - **Pattern Matching:** Tool name + arguments for granular rules
 
-**Reference:** https://github.com/google-gemini/gemini-cli/issues/7231
+**Reference:** <https://github.com/google-gemini/gemini-cli/issues/7231>
 
 **Implementation:**
+
 ```typescript
 // Core layer (tools)
 if (await policyEngine.evaluate(toolName, args) === 'ASK_USER') {
@@ -3012,6 +3168,7 @@ messageBus.subscribe('confirmation-request', (toolCall) => {
 ```
 
 **Approval Flow:**
+
 ```
 1. Tool requests execution
 2. PolicyEngine evaluates: ALLOW/DENY/ASK_USER
@@ -3022,12 +3179,14 @@ messageBus.subscribe('confirmation-request', (toolCall) => {
 ```
 
 **Pros:**
+
 - ✅ Complete separation of concerns (Core vs UI)
 - ✅ Pattern matching for flexible rules
 - ✅ "Always Allow" feature
 - ✅ Non-interactive mode support
 
 **Cons:**
+
 - ❌ Complex architecture (requires Message Bus)
 - ❌ High implementation cost
 
@@ -3036,26 +3195,31 @@ messageBus.subscribe('confirmation-request', (toolCall) => {
 **C. Aider / Cursor / Cline**
 
 **Aider Pattern:** Flag-Based Auto-Approval
+
 ```bash
 --yes-always           # Auto-approve all confirmations
 --auto-accept-architect # Auto-accept architect mode changes
 ```
 
 **Cursor Pattern:** Allowlist + Approval Prompts
+
 - Maintains allowlist for safe commands
 - Prompts for commands outside allowlist
 - Agent mode with guardrails and approvals
 
 **Cline Pattern:** Diff-First Approval
+
 - Every change shown as reviewable diff
 - Developer inspects, approves, or rejects before commit
 
 **Pros:**
+
 - ✅ Simple (flag-based configuration)
 - ✅ Config file + environment variable support
 - ✅ Diff preview (Cline/Cursor) provides good UX
 
 **Cons:**
+
 - ❌ Binary (all or nothing)
 - ❌ No granular tool-level control
 
@@ -3079,6 +3243,7 @@ messageBus.subscribe('confirmation-request', (toolCall) => {
 **Since ADK's `require_confirmation` is unavailable for BIDI mode**, we need a custom implementation.
 
 **Design Philosophy:**
+
 - **Backend-Controlled:** Policy decisions on server (security)
 - **Declarative Configuration:** Clear, readable tool policies
 - **Event-Based:** Extends existing WebSocket protocol
@@ -3088,6 +3253,7 @@ messageBus.subscribe('confirmation-request', (toolCall) => {
 **Proposed Architecture:**
 
 **Frontend Configuration (Declarative):**
+
 ```typescript
 // lib/build-use-chat-options.ts
 const { useChatOptions, transport } = buildUseChatOptions({
@@ -3109,6 +3275,7 @@ const { useChatOptions, transport } = buildUseChatOptions({
 ```
 
 **Backend Implementation (Event-Based):**
+
 ```python
 # server.py - Custom approval protocol
 async def handle_tool_call(tool_name, tool_call_id, args):
@@ -3145,6 +3312,7 @@ async def handle_tool_call(tool_name, tool_call_id, args):
 ```
 
 **Frontend UI (Inline Approval):**
+
 ```tsx
 // components/message.tsx
 {part.type === "tool-approval-request" && (
@@ -3178,16 +3346,19 @@ async def handle_tool_call(tool_name, tool_call_id, args):
 ### Implementation Phases
 
 **Phase 4-1: BGM Approval (Simple)** ← Start here
+
 - `change_bgm` tool approval flow
 - Inline approval UI in Message component
 - AudioContext integration for BGM switching
 
 **Phase 4-2: Location Approval (Sensitive)** ← Next step
+
 - `get_location` tool approval flow
 - Geolocation API integration
 - Privacy considerations
 
 **Future: ADK Official Integration**
+
 - When ADK implements BIDI tool confirmation
 - Migrate to official `require_confirmation` pattern
 - Maintain backward compatibility
@@ -3197,22 +3368,26 @@ async def handle_tool_call(tool_name, tool_call_id, args):
 ### References
 
 **ADK Documentation:**
-- Tool Confirmation: https://google.github.io/adk-docs/tools-custom/confirmation/
-- BIDI Streaming: https://google.github.io/adk-docs/streaming/
-- Streaming Tools: https://google.github.io/adk-docs/streaming/streaming-tools/
+
+- Tool Confirmation: <https://google.github.io/adk-docs/tools-custom/confirmation/>
+- BIDI Streaming: <https://google.github.io/adk-docs/streaming/>
+- Streaming Tools: <https://google.github.io/adk-docs/streaming/streaming-tools/>
 
 **ADK Source Code:**
-- FunctionTool implementation: https://github.com/google/adk-python/blob/main/src/google/adk/flows/llm_flows/functions.py
+
+- FunctionTool implementation: <https://github.com/google/adk-python/blob/main/src/google/adk/flows/llm_flows/functions.py>
 - TODO comment: `FunctionTool._call_live()` - "Tool confirmation is not yet supported for live mode"
 
 **DeepWiki Investigation:**
-- Search: https://deepwiki.com/search/how-does-functiontools-require_45650c98-c5e6-4b7c-89e5-8d1678dac30e
-- Wiki: https://deepwiki.com/google/adk-python#6.7
+
+- Search: <https://deepwiki.com/search/how-does-functiontools-require_45650c98-c5e6-4b7c-89e5-8d1678dac30e>
+- Wiki: <https://deepwiki.com/google/adk-python#6.7>
 
 **Industry Patterns:**
-- Claude Code Sandboxing: https://www.anthropic.com/engineering/claude-code-sandboxing
-- Gemini CLI PolicyEngine: https://github.com/google-gemini/gemini-cli/issues/7231
-- Aider Auto-Approval: https://aider.chat/docs/config/options.html
+
+- Claude Code Sandboxing: <https://www.anthropic.com/engineering/claude-code-sandboxing>
+- Gemini CLI PolicyEngine: <https://github.com/google-gemini/gemini-cli/issues/7231>
+- Aider Auto-Approval: <https://aider.chat/docs/config/options.html>
 
 ---
 
@@ -3224,6 +3399,7 @@ async def handle_tool_call(tool_name, tool_call_id, args):
 ### Background
 
 Our architecture uses:
+
 - **Frontend:** AI SDK UI (`useChat` hook from `@ai-sdk/react`)
 - **Backend:** ADK Python (not AI SDK Core)
 - **Transport:** Custom WebSocket with SSE-format events
@@ -3240,6 +3416,7 @@ Our architecture uses:
 #### AI SDK Core (Backend - Node.js)
 
 **Tool Definition:**
+
 ```typescript
 import { tool } from 'ai';
 
@@ -3256,13 +3433,14 @@ const weatherTool = tool({
 });
 ```
 
-**Reference:** https://sdk.vercel.ai/docs/ai-sdk-core/tools-and-tool-calling#tool-approval
+**Reference:** <https://sdk.vercel.ai/docs/ai-sdk-core/tools-and-tool-calling#tool-approval>
 
 ---
 
 #### AI SDK UI (Frontend - React)
 
 **Hook API:**
+
 ```typescript
 const {
   messages,
@@ -3283,7 +3461,7 @@ await addToolApprovalResponse({
 });
 ```
 
-**Reference:** https://sdk.vercel.ai/docs/ai-sdk-ui/chatbot#tool-approval
+**Reference:** <https://sdk.vercel.ai/docs/ai-sdk-ui/chatbot#tool-approval>
 
 ---
 
@@ -3292,12 +3470,14 @@ await addToolApprovalResponse({
 #### Event Format: `tool-approval-request`
 
 **SSE Format:**
+
 ```
 event: tool-approval-request
 data: {"type":"tool-approval-request","approvalId":"approval-1","toolCallId":"call_abc123"}
 ```
 
 **JSON Structure:**
+
 ```typescript
 {
   type: "tool-approval-request",
@@ -3314,6 +3494,7 @@ data: {"type":"tool-approval-request","approvalId":"approval-1","toolCallId":"ca
 #### Event Format: `tool-approval-response`
 
 **Client sends back (as part of message):**
+
 ```json
 {
   "content": [
@@ -3342,7 +3523,7 @@ AI SDK UI provides specific message states for tool approval:
 - `output-denied`: Tool execution was rejected
 - `output-available`: Tool execution was approved and completed
 
-**Source:** https://sdk.vercel.ai/docs/ai-sdk-ui/chatbot#tool-approval
+**Source:** <https://sdk.vercel.ai/docs/ai-sdk-ui/chatbot#tool-approval>
 **DeepWiki:** Search "AI SDK UI message states tool approval"
 
 ---
@@ -3352,12 +3533,14 @@ AI SDK UI provides specific message states for tool approval:
 AI SDK v6 supports custom events via `data-*` pattern:
 
 **Backend (SSE):**
+
 ```
 event: data-custom-event
 data: {"type":"custom-event","payload":{"foo":"bar"}}
 ```
 
 **Frontend (useChat):**
+
 ```typescript
 const { data } = useChat({
   onCustomEvent: (event) => {
@@ -3378,15 +3561,18 @@ const { data } = useChat({
 #### Protocol Mimicry Approach
 
 **What we CAN do:**
+
 - Generate AI SDK v6-compatible SSE events from our Python backend
 - Use standard event names (`tool-approval-request`, etc.)
 - Follow exact JSON structure from AI SDK v6 protocol
 
 **What we CANNOT do:**
+
 - Use AI SDK Core (it's Node.js, we have ADK Python)
 - Use AI SDK's `tool()` function with `needsApproval` flag
 
 **What we HOPE to do:**
+
 - Use `addToolApprovalResponse()` from `useChat` hook
 - Leverage AI SDK UI's built-in approval states and rendering
 
@@ -3480,45 +3666,52 @@ const { messages, addToolApprovalResponse } = useChat({
 ### DeepWiki Investigation Results
 
 **Search 1: "AI SDK v6 tool approval implementation"**
+
 - Repository: `vercel/ai`
 - Found: `needsApproval` parameter in tool definition
 - Found: `tool-approval-request` and `tool-approval-response` event types
 - Location: `packages/ai/core/generate-text/tool-call.ts`
 
 **Search 2: "useChat addToolApprovalResponse implementation"**
+
 - Repository: `vercel/ai`
 - Found: `addToolApprovalResponse()` function in `useChat` hook
 - Found: Sends `tool` role message with `tool-approval-response` content
 - Location: `packages/react/src/use-chat.ts`
 
 **Search 3: "AI SDK v6 data stream protocol events"**
+
 - Repository: `vercel/ai`
 - Found: Complete SSE event format specifications
 - Found: `data-*` custom event extension pattern
 - Location: `packages/ai/streams/ai-stream.ts`, `packages/ai/streams/stream-parts.ts`
 
 **DeepWiki Links:**
-- Tool Approval Core: https://deepwiki.com/vercel/ai#tool-approval
-- useChat Implementation: https://deepwiki.com/vercel/ai#use-chat-hook
-- Stream Protocol: https://deepwiki.com/vercel/ai#data-stream-protocol
+
+- Tool Approval Core: <https://deepwiki.com/vercel/ai#tool-approval>
+- useChat Implementation: <https://deepwiki.com/vercel/ai#use-chat-hook>
+- Stream Protocol: <https://deepwiki.com/vercel/ai#data-stream-protocol>
 
 ---
 
 ### References
 
 **AI SDK v6 Documentation:**
-- Core Tool Approval: https://sdk.vercel.ai/docs/ai-sdk-core/tools-and-tool-calling#tool-approval
-- UI Tool Approval: https://sdk.vercel.ai/docs/ai-sdk-ui/chatbot#tool-approval
-- Data Stream Protocol: https://sdk.vercel.ai/docs/ai-sdk-core/streaming
+
+- Core Tool Approval: <https://sdk.vercel.ai/docs/ai-sdk-core/tools-and-tool-calling#tool-approval>
+- UI Tool Approval: <https://sdk.vercel.ai/docs/ai-sdk-ui/chatbot#tool-approval>
+- Data Stream Protocol: <https://sdk.vercel.ai/docs/ai-sdk-core/streaming>
 
 **Source Code (via DeepWiki):**
+
 - Tool Call Types: `packages/ai/core/generate-text/tool-call.ts`
 - useChat Hook: `packages/react/src/use-chat.ts`
 - Stream Parts: `packages/ai/streams/stream-parts.ts`
 - AI Stream: `packages/ai/streams/ai-stream.ts`
 
 **GitHub Repository:**
-- AI SDK: https://github.com/vercel/ai
+
+- AI SDK: <https://github.com/vercel/ai>
 
 ---
 
@@ -3545,6 +3738,7 @@ const { messages, addToolApprovalResponse } = useChat({
 ### Background
 
 Our use cases require **client-side tool execution**:
+
 - `change_bgm`: Uses browser AudioContext API (not server-side)
 - `get_location`: Uses browser Geolocation API (not server-side)
 
@@ -3560,6 +3754,7 @@ Our use cases require **client-side tool execution**:
 Translation: Tool approval requests permission to **use browser features on the frontend**, not to execute backend functions. The backend wants the **result** of the tool execution, not to execute it itself.
 
 **Example Flow:**
+
 1. AI: "I want to use `change_bgm`" → Tool approval request
 2. User: "OK" → Approval granted
 3. **Frontend**: Executes `audioContext.switchTrack()` (browser API)
@@ -3575,6 +3770,7 @@ Translation: Tool approval requests permission to **use browser features on the 
 #### Server-Side vs Client-Side Tools
 
 **Server-Side Tool (has `execute` function):**
+
 ```typescript
 // Backend API route
 const weatherTool = {
@@ -3588,6 +3784,7 @@ const weatherTool = {
 ```
 
 **Client-Side Tool (NO `execute` function):**
+
 ```typescript
 // Backend API route - Declaration only
 const getLocationTool = {
@@ -3617,16 +3814,19 @@ const { addToolOutput } = useChat({
 #### Key Functions
 
 **`onToolCall({ toolCall })`:**
+
 - Called when a client-side tool is invoked
 - Receives `toolCall` object with `toolName`, `toolCallId`, `input`
 - Executes tool logic on frontend (browser APIs, UI actions, etc.)
 
 **`addToolOutput({ tool, toolCallId, output })`:**
+
 - Sends tool execution result back to the chat
 - Renamed from deprecated `addToolResult`
 - Can also send errors: `{ state: 'output-error', errorText: '...' }`
 
 **`toolCall.dynamic` property:**
+
 - Indicates runtime-loaded tools (MCP, user-defined functions)
 - Check first for proper TypeScript type narrowing
 
@@ -3715,6 +3915,7 @@ agent = Agent(
 - **No differentiation**: Framework doesn't distinguish server-executed vs client-executed tools
 
 **Note from source code:**
+
 ```python
 # BaseTool comment (appears to be legacy):
 # "Required if this tool needs to run at the client side"
@@ -3732,6 +3933,7 @@ This suggests client-side tools were considered but not implemented in current A
 #### Hybrid Approach: ADK + AI SDK v6 Client-Side Pattern
 
 **Backend (ADK Agent):**
+
 ```python
 # server.py
 def change_bgm(track: int) -> dict:
@@ -3774,6 +3976,7 @@ CLIENT_SIDE_TOOLS = {"change_bgm", "get_location"}  # NEW
 ```
 
 **Frontend (AI SDK v6 useChat):**
+
 ```typescript
 // components/chat-interface.tsx
 const { messages, addToolOutput, addToolApprovalResponse } = useChat({
@@ -3817,6 +4020,7 @@ const { messages, addToolOutput, addToolApprovalResponse } = useChat({
 **Challenge:** How to combine `tool-approval-request` events with `onToolCall` execution?
 
 **Solution 1: Sequential Flow**
+
 ```
 1. AI generates tool call → tool-input-available + tool-approval-request
 2. User approves → addToolApprovalResponse()
@@ -3825,6 +4029,7 @@ const { messages, addToolOutput, addToolApprovalResponse } = useChat({
 ```
 
 **Solution 2: Manual Execution After Approval**
+
 ```
 1. AI generates tool call → tool-approval-request
 2. Approval UI shown → User clicks "Approve"
@@ -3834,6 +4039,7 @@ const { messages, addToolOutput, addToolApprovalResponse } = useChat({
 ```
 
 **Recommended: Solution 2**
+
 - More explicit control flow
 - Clear separation: Approval UI vs Tool Execution
 - Easier to debug and test
@@ -3847,12 +4053,14 @@ const { messages, addToolOutput, addToolApprovalResponse } = useChat({
 **Answer:** YES, but with special handling.
 
 **Rationale:**
+
 1. **AI needs to know the tool exists**: ADK generates `FunctionDeclaration` from tool definition
 2. **Type schema required**: ADK extracts input schema from function signature
 3. **No server execution**: Function body raises `NotImplementedError`
 4. **Client executes via `onToolCall`**: Frontend receives tool call and executes browser API
 
 **Alternative considered (rejected):**
+
 - Define tools only on frontend → AI doesn't know they exist
 - Use `data-*` custom events → Bypasses standard tool calling flow
 
@@ -3861,15 +4069,18 @@ const { messages, addToolOutput, addToolApprovalResponse } = useChat({
 ### References
 
 **AI SDK v6 Documentation:**
-- Client-Side Tool Calling: https://ai-sdk.dev/docs/ai-sdk-ui/chatbot-tool-usage
-- onToolCall Examples: https://ai-sdk.dev/docs/ai-sdk-ui/chatbot#ontoolcall
+
+- Client-Side Tool Calling: <https://ai-sdk.dev/docs/ai-sdk-ui/chatbot-tool-usage>
+- onToolCall Examples: <https://ai-sdk.dev/docs/ai-sdk-ui/chatbot#ontoolcall>
 
 **DeepWiki Investigations:**
-- AI SDK onToolCall: https://deepwiki.com/search/how-does-the-ontoolcall-callba_321039cd-5b18-48c7-b646-9e75c4f4d256
-- ADK Tool Framework: https://deepwiki.com/search/how-does-adk-handle-clientside_87f22dc4-e14b-4af0-9c61-be93a5c8fb39
+
+- AI SDK onToolCall: <https://deepwiki.com/search/how-does-the-ontoolcall-callba_321039cd-5b18-48c7-b646-9e75c4f4d256>
+- ADK Tool Framework: <https://deepwiki.com/search/how-does-adk-handle-clientside_87f22dc4-e14b-4af0-9c61-be93a5c8fb39>
 
 **GitHub Discussion:**
-- Client-side tools with useChat: https://github.com/vercel/ai/discussions/1521
+
+- Client-side tools with useChat: <https://github.com/vercel/ai/discussions/1521>
 
 ---
 
@@ -3892,11 +4103,13 @@ const { messages, addToolOutput, addToolApprovalResponse } = useChat({
 #### Key Differences from Initial Design
 
 **Before (incorrect):**
+
 - Tools execute on backend
 - Approval prevents backend execution
 - Results come from server functions
 
 **After (correct):**
+
 - Tools execute on frontend (browser APIs)
 - Approval allows frontend execution
 - Results come from client-side logic
@@ -3923,10 +4136,12 @@ const { messages, addToolOutput, addToolApprovalResponse } = useChat({
 ### Background
 
 Our challenge is similar to AP2's agent-to-agent delegation:
+
 - **AP2**: Shopping Agent → Merchant Agent (different backends)
 - **Our case**: ADK Backend → Browser Frontend (backend to client)
 
 Both cases involve:
+
 1. Agent decides to call a tool
 2. Tool is NOT executed locally
 3. Tool execution is delegated to another entity
@@ -4019,8 +4234,9 @@ merchant_agent_client = PaymentRemoteA2aClient(
 5. **Tool returns result**: Processed artifacts from remote agent
 
 **References:**
-- AP2 Repository: https://github.com/google-agentic-commerce/AP2
-- DeepWiki Investigation: https://deepwiki.com/search/how-does-ap2-implement-tool-de_a4e5019f-4e4a-4d37-9ef6-d0a65cbaf9dc
+
+- AP2 Repository: <https://github.com/google-agentic-commerce/AP2>
+- DeepWiki Investigation: <https://deepwiki.com/search/how-does-ap2-implement-tool-de_a4e5019f-4e4a-4d37-9ef6-d0a65cbaf9dc>
 
 ---
 
@@ -4090,6 +4306,7 @@ def client_side_tool_interceptor(
 #### Return Value Details: Dict Structure for Skipping `run_async`
 
 When `before_tool_callback` returns a **dict**, ADK:
+
 1. **Skips calling `tool.run_async()`**
 2. **Uses the returned dict as the tool's result**
 3. **Proceeds to generate `function_response` event with this dict**
@@ -4130,6 +4347,7 @@ def client_side_tool_interceptor(
 | **Final Result Source** | `await send_a2a_message()` in tool | Frontend sends via `addToolOutput()` |
 
 In AP2's case, tools return the **actual result** from remote agent:
+
 ```python
 # AP2: Tool delegates and returns real result
 async def find_products(...) -> list[CartMandate]:
@@ -4139,6 +4357,7 @@ async def find_products(...) -> list[CartMandate]:
 ```
 
 In our case, `before_tool_callback` returns a **marker dict**, and the actual result comes from the frontend:
+
 ```python
 # Our case: Callback returns placeholder, frontend provides real result later
 def client_side_tool_interceptor(...) -> Optional[Dict]:
@@ -4195,6 +4414,7 @@ async def change_bgm(track: int, tool_context: ToolContext) -> dict:
 ```
 
 **Challenge:** How to `await` frontend's tool_result in synchronous flow?
+
 - AP2 can `await remote_client.send_a2a_message()` (async HTTP)
 - We can't easily `await` WebSocket message in tool function
 
@@ -4406,7 +4626,8 @@ async def change_bgm(track: int, tool_context: ToolContext) -> dict:
 4. **Access**: Available in tool via `tool_context.function_call_id`
 
 **Reference:**
-- DeepWiki: https://deepwiki.com/search/when-does-adk-generate-functio_9fc77c52-ec7b-453c-b850-d5301b339ee6
+
+- DeepWiki: <https://deepwiki.com/search/when-does-adk-generate-functio_9fc77c52-ec7b-453c-b850-d5301b339ee6>
 - ADK Source: `_create_tool_context()` passes `function_call_id` to `ToolContext`
 
 **Updated Implementation Complexity:**
@@ -4420,10 +4641,12 @@ async def change_bgm(track: int, tool_context: ToolContext) -> dict:
 **4. Timing: Approval Before Execution**
 
 Ensure tool execution doesn't happen before user approval:
+
 - ADK's execution flow: `function_call` → `run_async` (immediate)
 - Need to delay `run_async` until after approval
 
 This requires either:
+
 - Modifying ADK's execution flow (not feasible)
 - OR: Tool itself waits for approval before executing
 
@@ -4449,6 +4672,7 @@ async def change_bgm(track: int, tool_context: ToolContext) -> dict:
 | **5. Approval Timing** | Medium | **Low** | Naturally handled by await |
 
 **Overall Complexity Revision:**
+
 - **Initial Assessment**: Medium (feasible with some refactoring)
 - **Before Tool Call ID Discovery**: Medium-High (Tool Call ID sync was a blocker)
 - **FINAL ASSESSMENT**: ✅ **LOW** (All blockers removed - straightforward implementation!)
@@ -4489,6 +4713,7 @@ Despite Option C being more elegant, Option B was initially chosen for pragmatic
    - No "forcibly stopping" feeling
 
 **Key Insight After Full Verification:**
+
 - ✅ Option C is **fully feasible** with LOW complexity
 - ✅ All infrastructure already exists
 - ✅ Tool Call ID synchronization is **solved** via `ToolContext.function_call_id`
@@ -4521,6 +4746,7 @@ Despite Option C being more elegant, Option B was initially chosen for pragmatic
 **Initial Implementation: Use `before_tool_callback` to intercept client-side tools (Option B)**
 
 **Rationale:**
+
 1. **Pragmatic simplicity**: Works with current `stream_protocol.py` without refactoring
 2. **No async coordination needed**: Don't need to modify ADK execution flow
 3. **Clean separation**: Tool declaration (for LLM) vs execution (on client)
@@ -4530,11 +4756,13 @@ Despite Option C being more elegant, Option B was initially chosen for pragmatic
 7. **Faster to implement**: Can proceed with Phase 4 immediately
 
 **Future Refactoring: Consider Option C (Awaitable) when:**
+
 - `stream_protocol.py` async refactoring is needed for other features
 - Pattern consistency with AP2 becomes architecturally important
 - Engineering team prioritizes code elegance over implementation speed
 
 **Flow:**
+
 ```
 1. LLM generates function_call for change_bgm
 2. ADK calls before_tool_callback
@@ -4557,6 +4785,7 @@ Despite Option C being more elegant, Option B was initially chosen for pragmatic
 #### Backend Changes
 
 1. **Add `before_tool_callback` to agent runners:**
+
 ```python
 # server.py
 CLIENT_SIDE_TOOLS = {"change_bgm", "get_location"}
@@ -4587,7 +4816,8 @@ bidi_agent_runner = InMemoryRunner(
 )
 ```
 
-2. **Update tool definitions to raise errors:**
+1. **Update tool definitions to raise errors:**
+
 ```python
 def change_bgm(track: int) -> dict:
     """Change BGM track (CLIENT-SIDE)."""
@@ -4601,6 +4831,7 @@ def get_location() -> dict:
 #### Frontend Changes
 
 1. **Implement `onToolCall` handler:**
+
 ```typescript
 const { messages, addToolOutput } = useChat({
   async onToolCall({ toolCall }) {
@@ -4617,7 +4848,8 @@ const { messages, addToolOutput } = useChat({
 });
 ```
 
-2. **Integrate with approval UI:**
+1. **Integrate with approval UI:**
+
 ```typescript
 async function handleApproval(approvalId: string, approved: boolean) {
   const pending = pendingApprovals[approvalId];
@@ -4648,17 +4880,19 @@ async function handleApproval(approvalId: string, approved: boolean) {
 ### References
 
 **AP2 Repository:**
-- GitHub Repository: https://github.com/google-agentic-commerce/AP2
+
+- GitHub Repository: <https://github.com/google-agentic-commerce/AP2>
 - Tool Delegation Example: [`samples/python/src/roles/shopping_agent/subagents/shopper/tools.py`](https://github.com/google-agentic-commerce/AP2/blob/main/samples/python/src/roles/shopping_agent/subagents/shopper/tools.py)
 - Agent Configuration: [`samples/python/src/roles/shopping_agent/subagents/shopper/__init__.py`](https://github.com/google-agentic-commerce/AP2/blob/main/samples/python/src/roles/shopping_agent/subagents/shopper/__init__.py)
 - A2A Client: [`src/roles/common/a2a_client.py`](https://github.com/google-agentic-commerce/AP2/blob/main/src/roles/common/a2a_client.py)
-- DeepWiki Investigation: https://deepwiki.com/search/how-does-ap2-implement-tool-de_a4e5019f-4e4a-4d37-9ef6-d0a65cbaf9dc
+- DeepWiki Investigation: <https://deepwiki.com/search/how-does-ap2-implement-tool-de_a4e5019f-4e4a-4d37-9ef6-d0a65cbaf9dc>
 
 **ADK Repository:**
-- GitHub Repository: https://github.com/google/adk-python
-- `before_tool_callback` Documentation: https://google.github.io/adk-docs/tools-custom/confirmation/
+
+- GitHub Repository: <https://github.com/google/adk-python>
+- `before_tool_callback` Documentation: <https://google.github.io/adk-docs/tools-custom/confirmation/>
 - Source Code: [`src/google/adk/flows/llm_flows/in_memory_runner.py`](https://github.com/google/adk-python/blob/main/src/google/adk/flows/llm_flows/in_memory_runner.py)
-- DeepWiki Investigation: https://deepwiki.com/search/when-an-llm-generates-a-functi_156c247b-bb48-4cf0-a7e0-f4829491bdc1
+- DeepWiki Investigation: <https://deepwiki.com/search/when-an-llm-generates-a-functi_156c247b-bb48-4cf0-a7e0-f4829491bdc1>
 
 ---
 

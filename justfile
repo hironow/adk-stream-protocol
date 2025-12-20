@@ -5,6 +5,11 @@ default: help
 help:
     @just --list --unsorted
 
+
+# Define specific commands
+MARKDOWNLINT := "bun x markdownlint-cli2"
+
+
 # Install all dependencies (both Python and Node.js)
 [group("setup")]
 install:
@@ -75,6 +80,13 @@ format-frontend:
 [group("development")]
 semgrep:
     uv run semgrep --config .semgrep/ --error
+
+
+# Run Markdown linting and auto-fix
+[group("development")]
+md-lint:
+    @{{MARKDOWNLINT}} --fix "docs/**/*.md" "README.md" "experiments/**/*.md" "!node_modules/**" "!agents/**"
+
 
 [group("testing")]
 test-server-unit:

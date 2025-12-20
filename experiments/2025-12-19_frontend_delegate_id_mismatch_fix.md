@@ -110,6 +110,7 @@ async def change_bgm(track: int, tool_context: ToolContext | None = None) -> dic
 ## Expected Outcome
 
 After fix:
+
 1. Backend registers Future with `function_call.id`
 2. Frontend sends tool_result with same `function_call.id`
 3. Backend resolves Future successfully

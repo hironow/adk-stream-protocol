@@ -18,6 +18,7 @@ User requested: "何か今のe2eの構成を改めてシンプル化して、uti
 ## Hypothesis
 
 Creating reusable helper functions for common E2E patterns will:
+
 - Reduce test code by ~60%
 - Make tests more readable and maintainable
 - Encapsulate common patterns like tool approval flow
@@ -42,6 +43,7 @@ clearHistory(page)
 ### Phase 2: Simplify Tests
 
 **Before (verbose)**:
+
 ```typescript
 await sendTextMessage(page, "Please change the BGM to track 1");
 
@@ -66,6 +68,7 @@ expect(text.length).toBeGreaterThan(0);
 ```
 
 **After (simplified)**:
+
 ```typescript
 await sendTextMessage(page, "Please change the BGM to track 1");
 await waitForToolApproval(page);
@@ -82,6 +85,7 @@ expect(text.length).toBeGreaterThan(0);
 ### Phase 3: Test Isolation
 
 Use serial execution and history clearing:
+
 ```typescript
 test.describe.serial("Frontend Delegate Fix - SSE Mode", () => {
   test.beforeEach(async ({ page }) => {
@@ -130,11 +134,13 @@ test.describe.serial("Frontend Delegate Fix - SSE Mode", () => {
 ### Phase 2: Test Simplification ✅
 
 **Code Reduction Statistics:**
+
 - Before: ~30 lines per test (including approval flow)
 - After: ~8-10 lines per test
 - **Reduction: ~67%**
 
 **Example Test After Simplification:**
+
 ```typescript
 test("should process tool output and continue conversation in SSE mode", async ({
   page,
@@ -155,32 +161,38 @@ test("should process tool output and continue conversation in SSE mode", async (
 ### Phase 3: Test Results ✅
 
 **SSE Mode: 3/3 PASSING** (Success!)
+
 - ✅ should process tool output and continue conversation in SSE mode (5.5s)
 - ✅ should handle tool rejection in SSE mode (5.4s)
 - ✅ should not hang when processing tool output in SSE mode (5.8s)
 
 **BIDI Mode: 0/3 FAILING** (Outstanding Issue)
+
 - ❌ Conversation history persistence issue
 - Error: Tests look for `.nth(3)` and `.nth(12)` message indices
 - Cause: Messages from previous tests remain visible
 - SSE mode does NOT have this issue
 
 **Mode Switching: 0/1 FAILING** (Same Issue)
+
 - ❌ Same conversation history persistence as BIDI mode
 
 ### Bug Fixes During Implementation
 
 **Bug 1: Backend State Persistence**
+
 - Issue: BGM already set to track 1, AI didn't execute tool
 - Fix: Use alternating track numbers (0→1→0→1)
 - Also discovered: BGM tool only accepts tracks 0 and 1
 
 **Bug 2: Invalid Track Numbers**
+
 - Issue: Tests used tracks 0-7
 - Discovery: BGM tool constraint - only tracks 0 and 1 valid
 - Fix: Updated all tests to alternate between 0 and 1
 
 **Bug 3: Wrong Button Name**
+
 - Issue: Tests looked for "Reject" button
 - Error: `getByRole('button', { name: 'Reject' })` timed out for 3 minutes
 - Discovery: Button is actually called "Deny"
@@ -199,6 +211,7 @@ test("should process tool output and continue conversation in SSE mode", async (
 ### Outstanding Issues
 
 ❌ **BIDI Mode**: Conversation history persistence (0/3 tests passing)
+
 - Not a test implementation issue
 - Indicates BIDI-specific state management problem
 - Needs separate investigation
@@ -224,11 +237,13 @@ test("should process tool output and continue conversation in SSE mode", async (
 ### Next Steps
 
 **Completed**:
+
 - ✅ Document findings in `agents/add_tests.md`
 - ✅ Update experiments README
 - ✅ Update handoff notes
 
 **Future Work** (Optional):
+
 - [ ] Debug BIDI mode history persistence
 - [ ] Investigate separate browser contexts per test
 - [ ] Consider API endpoint for clearing backend state
@@ -237,12 +252,14 @@ test("should process tool output and continue conversation in SSE mode", async (
 ## Files Modified
 
 **New Helper Functions** (`e2e/helpers.ts`):
+
 - `waitForToolApproval()` - lines 162-170
 - `approveToolCall()` - lines 175-181
 - `rejectToolCall()` - lines 186-192
 - `clearHistory()` - lines 150-157
 
 **Simplified Test File** (`e2e/frontend-delegate-fix.spec.ts`):
+
 - Complete rewrite using helper functions
 - Serial execution with `test.describe.serial()`
 - Clean beforeEach: navigate → select mode → clear history
@@ -252,6 +269,7 @@ test("should process tool output and continue conversation in SSE mode", async (
 **Total Duration**: 3-4 hours (including bug fixes)
 
 **Breakdown**:
+
 1. Helper function creation: 1 hour
 2. Test simplification: 30 minutes
 3. Bug fixing (3 bugs): 2 hours

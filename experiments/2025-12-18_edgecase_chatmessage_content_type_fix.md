@@ -25,6 +25,7 @@ content
 ```
 
 **Root Cause**: `ChatMessage.content` was typed as `str | None`, but AI SDK v6 spec allows `content` to be:
+
 1. `str` - simple text messages
 2. `list[Part]` - parts array (used for function_response)
 3. `None`
@@ -100,6 +101,7 @@ content
 **Changes Made**:
 
 1. **Type Definition** (`ai_sdk_v6_compat.py:303`)
+
    ```python
    # Before
    content: str | None = None  # Simple format
@@ -109,6 +111,7 @@ content
    ```
 
 2. **get_text_content() Method** (`ai_sdk_v6_compat.py:306-315`)
+
    ```python
    def get_text_content(self) -> str:
        """Extract text content from either format (str, list[Part], or parts field)"""
@@ -123,6 +126,7 @@ content
    ```
 
 3. **to_adk_content() Method** (`ai_sdk_v6_compat.py:449-463`)
+
    ```python
    adk_parts = []
 
@@ -147,6 +151,7 @@ content
    - Referenced POC Phase 5
 
 **Linting & Type Checking**:
+
 - ✅ `uv run mypy ai_sdk_v6_compat.py` - Success
 - ⚠️ `uv run ruff check` - 2 existing issues (unrelated to changes)
 
@@ -155,6 +160,7 @@ content
 ### ✅ Test Results
 
 **Unit Tests**:
+
 ```bash
 $ uv run pytest tests/unit/test_ai_sdk_v6_compat.py::TestChatMessageContentField -v
 
@@ -166,6 +172,7 @@ $ uv run pytest tests/unit/test_ai_sdk_v6_compat.py::TestChatMessageContentField
 ```
 
 **E2E Verification**:
+
 ```bash
 $ pnpm exec playwright test e2e/poc-longrunning-bidi.spec.ts:148 --project=chromium
 
@@ -175,6 +182,7 @@ $ pnpm exec playwright test e2e/poc-longrunning-bidi.spec.ts:148 --project=chrom
 ```
 
 **Before Fix** (validation error present):
+
 ```
 [BIDI] Error receiving from client: 1 validation error for ChatMessage
 content
@@ -182,6 +190,7 @@ content
 ```
 
 **After Fix** (validation error gone):
+
 ```
 ✓ 1 [chromium] › e2e/poc-longrunning-bidi.spec.ts:148 (5.1s)
 1 passed (7.5s)

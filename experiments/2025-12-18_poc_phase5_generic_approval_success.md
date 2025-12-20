@@ -26,6 +26,7 @@ POC Phase 5 **SUCCESSFULLY** generalized the approval UI to work with ANY tool w
 **Location:** `components/tool-invocation.tsx:66-70`
 
 **Before (POC Phase 3 - Tool-specific):**
+
 ```typescript
 {toolName === "approval_test_tool" &&
   state === "input-available" &&
@@ -35,6 +36,7 @@ POC Phase 5 **SUCCESSFULLY** generalized the approval UI to work with ANY tool w
 ```
 
 **After (POC Phase 5 - Generic):**
+
 ```typescript
 // Detect long-running tools that need approval UI
 // Long-running tools: state="input-available" (paused, waiting for user action)
@@ -48,6 +50,7 @@ const isLongRunningTool =
 ```
 
 **Key Design Decision:**
+
 - Removed hardcoded `toolName === "approval_test_tool"` check
 - Removed unnecessary `output`/`result` field checks (state alone indicates pause)
 - Works automatically for any tool wrapped with `LongRunningFunctionTool()`
@@ -98,6 +101,7 @@ const handleLongRunningToolResponse = (approved: boolean) => {
 ```
 
 **Error Handling Features:**
+
 1. **Double-submission prevention**: Check `approvalSent` state
 2. **Try-catch wrapper**: Catch WebSocket send failures
 3. **Visual error feedback**: Display error message in UI
@@ -108,6 +112,7 @@ const handleLongRunningToolResponse = (approved: boolean) => {
 **Location:** `components/tool-invocation.tsx:376-478`
 
 **Features:**
+
 1. **Generic tool name display**: Shows actual tool name dynamically
 2. **Tool arguments display**: JSON.stringify with proper formatting
 3. **Error message display**: Red background with error details
@@ -139,6 +144,7 @@ messages: [
 ```
 
 **Why needed:**
+
 - AI SDK v6's `UIMessage` type doesn't expose tool-result content structure
 - Backend understands the protocol correctly
 - Type assertion documents the intentional type mismatch
@@ -146,26 +152,31 @@ messages: [
 ## Technical Validation
 
 ✅ **Generic detection** (Phase 5)
+
 - Auto-detects any long-running tool by `state === "input-available"`
 - No tool name hardcoding required
 - Works for future tools automatically
 
 ✅ **Error handling** (Phase 5)
+
 - Try-catch prevents crashes
 - Visual error feedback for users
 - Prevents double-submission
 
 ✅ **Pause mechanism** (Phase 2)
+
 - LongRunningFunctionTool returns `None`
 - ADK adds tool ID to `long_running_tool_ids`
 - Agent pauses automatically
 
 ✅ **Resume mechanism** (Phase 3)
+
 - Frontend sends `function_response` via WebSocket
 - Backend processes and resumes agent
 - Final response generated
 
 ✅ **Connection stability** (Phase 4)
+
 - WebSocket stays OPEN for 2+ minutes
 - Ping/pong keeps connection alive
 - Agent can resume after extended wait
@@ -175,6 +186,7 @@ messages: [
 ### Auto-Detection Pattern
 
 **How it works:**
+
 1. Tool executes and returns `None`
 2. ADK marks tool as long-running (`long_running_tool_ids`)
 3. UI receives tool invocation with `state === "input-available"`
@@ -182,6 +194,7 @@ messages: [
 5. No configuration needed!
 
 **Benefits:**
+
 - Zero boilerplate for new long-running tools
 - Just wrap function with `LongRunningFunctionTool()`
 - Approval UI appears automatically
@@ -189,6 +202,7 @@ messages: [
 ### Standard Response Format
 
 **Generic function_response structure:**
+
 ```json
 {
   "approved": true,
@@ -198,6 +212,7 @@ messages: [
 ```
 
 **Benefits:**
+
 - Consistent format across all tools
 - Tools can check `approved` boolean
 - Human-readable user_message for logging
@@ -206,12 +221,14 @@ messages: [
 ### State Management Pattern
 
 **React state for approval flow:**
+
 ```typescript
 const [approvalSent, setApprovalSent] = useState(false);
 const [approvalError, setApprovalError] = useState<string | null>(null);
 ```
 
 **Benefits:**
+
 - Prevents accidental double-submission
 - Provides visual feedback during wait
 - Handles errors gracefully
@@ -222,6 +239,7 @@ const [approvalError, setApprovalError] = useState<string | null>(null);
 - **After POC Phase 5:** 📈 **99% confidence** ✅ (works for ANY tool!)
 
 **Remaining 1% risk factors:**
+
 - Extreme edge cases (network failures during send)
 - Tools with complex custom approval logic needs
 - **(Acceptable production risks with standard monitoring)**
@@ -247,13 +265,16 @@ const [approvalError, setApprovalError] = useState<string | null>(null);
 ## Files Changed
 
 **Frontend:**
+
 - `components/tool-invocation.tsx` - Generic approval UI with error handling (lines 1, 45-478)
 - `lib/websocket-chat-transport.ts` - Type assertion fix (line 371)
 
 **Tests:**
+
 - No test changes needed - existing tests pass!
 
 **Backend:**
+
 - No changes needed! ✅
 
 ## Conclusion

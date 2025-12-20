@@ -83,6 +83,7 @@ test('Phase 8: Multiple simultaneous long-running tools', async ({ page }) => {
 ## Investigation Results
 
 **Test Output:**
+
 ```
 [POC Phase 8] Testing multiple simultaneous long-running tools
 [POC Phase 8] Sent request for multiple approvals
@@ -97,6 +98,7 @@ test('Phase 8: Multiple simultaneous long-running tools', async ({ page }) => {
 ```
 
 **Findings:**
+
 - ✅ **Only ONE approval UI appears at a time**
 - ✅ **AI calls tools sequentially, not in parallel**
 - ✅ **After first approval, second tool was NOT called**
@@ -111,6 +113,7 @@ After investigating the ADK architecture and Gemini Live API behavior, we found 
 ### 1. Gemini Live API Sequential Execution
 
 From Google's Gemini Live API documentation and observed behavior:
+
 - Tools are executed **sequentially**, not in parallel
 - Each tool call completes before the next one starts
 - This is standard behavior for function calling in LLMs
@@ -118,6 +121,7 @@ From Google's Gemini Live API documentation and observed behavior:
 ### 2. LongRunningFunctionTool Pause Mechanism
 
 From `approval_test_tool` implementation (`adk_ag_tools.py`):
+
 ```python
 @tool
 def approval_test_tool(amount: float, recipient: str) -> None:
@@ -137,11 +141,13 @@ def approval_test_tool(amount: float, recipient: str) -> None:
 ### 3. ADK Protocol Flow
 
 **Normal Tool Execution:**
+
 ```
 AI → tool_call → Backend executes → returns result → AI continues
 ```
 
 **LongRunningFunctionTool Pattern:**
+
 ```
 AI → tool_call → Backend returns None (pause) → STOPS
      ↓
@@ -151,6 +157,7 @@ Backend sends function_response → AI resumes
 ```
 
 **Multiple Tools Scenario:**
+
 ```
 AI → tool_call #1 → returns None → STOPS
      ↓
@@ -160,6 +167,7 @@ AI → tool_call #1 → returns None → STOPS
 ### 4. Why Second Tool Wasn't Called
 
 From test results:
+
 1. AI called `approval_test_tool(100, "Alice")` - first tool
 2. Tool returned `None`, agent execution paused
 3. User approved via WebSocket, agent resumed
@@ -172,12 +180,14 @@ From test results:
 **Decision:** This is **EXPECTED BEHAVIOR**, not a bug or limitation.
 
 **Findings Summary:**
+
 - Multiple simultaneous long-running tools **cannot occur** by design
 - Gemini Live API executes tools sequentially
 - LongRunningFunctionTool pause mechanism stops agent execution
 - Next tool cannot be called until current tool's `function_response` is received
 
 **Implications for Generic Approval UI:**
+
 - ✅ Current implementation is correct for all cases
 - ✅ UI only needs to display ONE approval at a time
 - ✅ No need to handle multiple pending approvals
@@ -185,6 +195,7 @@ From test results:
 
 **Design Validation:**
 The generic approval UI (POC Phase 5) correctly handles all realistic scenarios:
+
 1. ✅ Single long-running tool approval (Phase 3)
 2. ✅ Connection timeout during approval (Phase 4)
 3. ✅ Generic tool auto-detection (Phase 5)
@@ -196,11 +207,13 @@ The generic approval UI (POC Phase 5) correctly handles all realistic scenarios:
 ### User Experience Impact
 
 **Current Behavior:**
+
 - **Impact**: None - scenario does not occur in practice
 - **User Flow**: Clean and simple - one approval at a time
 - **Confusion Risk**: Low - sequential approvals are intuitive
 
 **If Multiple Tools Were Supported (Hypothetical):**
+
 - Would require complex UI for managing multiple pending approvals
 - Would need to handle out-of-order approval scenarios
 - Would add unnecessary complexity for scenario that doesn't happen
@@ -208,6 +221,7 @@ The generic approval UI (POC Phase 5) correctly handles all realistic scenarios:
 ### System Behavior
 
 **Sequential Tool Execution:**
+
 1. AI determines which tools to call based on user request
 2. First tool called and executed
 3. If tool is long-running (returns `None`), agent pauses
@@ -216,6 +230,7 @@ The generic approval UI (POC Phase 5) correctly handles all realistic scenarios:
 6. If second tool needed, process repeats
 
 **No Cleanup Needed:**
+
 - No orphaned approval states
 - No race conditions between multiple tools
 - No complex state management required
@@ -227,6 +242,7 @@ The generic approval UI (POC Phase 5) correctly handles all realistic scenarios:
 **Test Type:** Investigation test (documents expected behavior)
 
 **Verification:**
+
 ```bash
 pnpm exec playwright test e2e/poc-longrunning-bidi.spec.ts -g "Phase 8" --project=chromium
 ```
@@ -243,12 +259,14 @@ pnpm exec playwright test e2e/poc-longrunning-bidi.spec.ts -g "Phase 8" --projec
 ## Summary: All Edge Cases Complete
 
 **Edge Case Results:**
+
 1. **ChatMessage.content Type Fix** - ✅ **Fixed with TDD** (Critical bug)
 2. **WebSocket Disconnection Error Handling** - ✅ **Fixed with TDD** (Critical UX improvement)
 3. **Page Reload During Approval** - 🔵 **Accepted Limitation** (Future enhancement)
 4. **Multiple Simultaneous Tools** - 🔵 **Expected Behavior** (No action needed)
 
 **Overall Assessment:**
+
 - 2 critical bugs fixed with full TDD coverage
 - 2 scenarios investigated and documented as expected/accepted behavior
 - Generic approval UI production-ready for all realistic scenarios

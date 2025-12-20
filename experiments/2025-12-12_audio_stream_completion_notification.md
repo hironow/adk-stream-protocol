@@ -9,16 +9,20 @@
 ### Current Situation
 
 **Backend (✅ Complete):**
+
 - `finalize()` method sends `finish` event with `messageMetadata.audio` (stream_protocol.py:684-701)
 - Metadata includes: chunks, bytes, sampleRate, duration
 - Example log:
+
   ```
   [AUDIO COMPLETE] chunks=654, bytes=111360, sampleRate=24000, duration=14.50s
   ```
 
 **Frontend (❌ Incomplete):**
+
 - WebSocket transport receives `finish` event (lib/websocket-chat-transport.ts:402-412)
 - Logs metadata to console only:
+
   ```javascript
   [Audio Stream] Audio streaming completed
   [Audio Stream] Total chunks: 654
@@ -26,12 +30,14 @@
   [Audio Stream] Sample rate: 24000Hz
   [Audio Stream] Duration: 14.50s
   ```
+
 - **Does NOT notify AudioContext** - no callback mechanism
 - **Does NOT update UI** - no visual completion indicator
 
 ### Problem
 
 Users cannot tell when audio playback has finished:
+
 - No visual feedback that audio is complete
 - AudioContext doesn't know when to update state
 - Related feature ([ST-1] Audio Recording) cannot trigger recording finalization
@@ -39,6 +45,7 @@ Users cannot tell when audio playback has finished:
 ## Hypothesis
 
 By adding a completion callback to AudioContext and calling it from WebSocket transport, we can:
+
 1. Update AudioContext state when audio finishes
 2. Display completion status in UI
 3. Enable downstream features (audio recording, auto-advance, etc.)
@@ -52,6 +59,7 @@ By adding a completion callback to AudioContext and calling it from WebSocket tr
 **Changes:**
 
 1. Add `AudioMetadata` interface:
+
 ```typescript
 interface AudioMetadata {
   chunks: number;
@@ -61,12 +69,14 @@ interface AudioMetadata {
 }
 ```
 
-2. Add state for last completion:
+1. Add state for last completion:
+
 ```typescript
 const [lastCompletion, setLastCompletion] = useState<AudioMetadata | null>(null);
 ```
 
-3. Add `onComplete` callback to voiceChannel:
+1. Add `onComplete` callback to voiceChannel:
+
 ```typescript
 const handleAudioComplete = (metadata: AudioMetadata) => {
   console.log("[AudioContext] Audio streaming completed:", metadata);
@@ -86,7 +96,8 @@ const value: AudioContextValue = {
 };
 ```
 
-4. Update `AudioContextValue` interface:
+1. Update `AudioContextValue` interface:
+
 ```typescript
 interface AudioContextValue {
   voiceChannel: {
@@ -108,6 +119,7 @@ interface AudioContextValue {
 **Changes:**
 
 Update finish event handler (line 402-412):
+
 ```typescript
 // Finish event: Log completion metrics
 if (chunk.type === "finish" && chunk.messageMetadata) {
@@ -136,6 +148,7 @@ if (chunk.type === "finish" && chunk.messageMetadata) {
 **Option A: Message Component (components/message.tsx)**
 
 Show completion metadata in each message:
+
 ```typescript
 const audioCompletion = message.data?.audioCompletion;  // From messageMetadata.audio
 
@@ -150,6 +163,7 @@ const audioCompletion = message.data?.audioCompletion;  // From messageMetadata.
 **Option B: Chat Status Area (components/chat.tsx)**
 
 Show global completion status for BIDI mode:
+
 ```typescript
 const audioContext = useAudio();
 
@@ -186,6 +200,7 @@ const audioContext = useAudio();
    - Indicator clears on next audio stream
 
 3. **Console Verification:**
+
    ```
    [Audio Stream] Audio streaming completed
    [Audio Stream] Total chunks: 654
@@ -212,6 +227,7 @@ const audioContext = useAudio();
 ## Implementation Plan
 
 ### Step 1: Update AudioContext (15 min)
+
 - [ ] Add `AudioMetadata` interface
 - [ ] Add `lastCompletion` state
 - [ ] Add `handleAudioComplete` callback
@@ -219,16 +235,19 @@ const audioContext = useAudio();
 - [ ] Export in context value
 
 ### Step 2: Update WebSocket Transport (10 min)
+
 - [ ] Add onComplete call in finish event handler
 - [ ] Verify TypeScript types
 - [ ] Test that callback exists before calling
 
 ### Step 3: Add UI Display (15 min)
+
 - [ ] Implement Option B (status area in chat.tsx)
 - [ ] Style completion indicator
 - [ ] Add fade-in/fade-out animation (optional)
 
 ### Step 4: Testing (30 min)
+
 - [ ] Test with BIDI mode audio response
 - [ ] Verify callback is called
 - [ ] Verify UI appears
@@ -237,6 +256,7 @@ const audioContext = useAudio();
 - [ ] Verify no console errors
 
 ### Step 5: Cleanup (10 min)
+
 - [ ] Remove experimental console.logs (or keep for debugging)
 - [ ] Update documentation
 - [ ] Commit changes
@@ -248,6 +268,7 @@ const audioContext = useAudio();
 ### Manual Testing Scenarios
 
 **Test 1: Single Audio Response**
+
 1. Switch to ADK BIDI mode
 2. Send query: "What's the weather in Tokyo?"
 3. Wait for audio to complete
@@ -257,6 +278,7 @@ const audioContext = useAudio();
    - Metadata matches backend logs
 
 **Test 2: Multiple Audio Responses**
+
 1. Send first query, wait for completion
 2. Send second query, wait for completion
 3. **Expected:**
@@ -265,6 +287,7 @@ const audioContext = useAudio();
    - No memory leaks
 
 **Test 3: Error Handling**
+
 1. Test with network issues
 2. Test with backend errors
 3. **Expected:**
@@ -272,6 +295,7 @@ const audioContext = useAudio();
    - Graceful fallback
 
 **Test 4: Mode Switching**
+
 1. Switch from BIDI to Gemini Direct
 2. Switch back to BIDI
 3. **Expected:**
@@ -304,6 +328,7 @@ const audioContext = useAudio();
    - Only visible in BIDI mode when `lastCompletion` is set
 
 **Code Changes:**
+
 - Lines added: 49
 - Lines modified: 2
 - Total files changed: 3
@@ -311,23 +336,27 @@ const audioContext = useAudio();
 ### Test Results
 
 **Test 1: Single Audio Response**
+
 - Status: ✅ PASS
 - Result:
-  - Console shows: `[Audio Recording] Converting PCM to WAV...` and `[Audio Recording] WAV created: XX.XX KB`
-  - UI shows completion indicator: "✓ Audio: 16.16s (381 chunks)"
-  - Message contains recorded audio player with 16 second playback
-  - Audio playback works correctly with HTML5 controls
-  - Format shows: audio/wav
+    - Console shows: `[Audio Recording] Converting PCM to WAV...` and `[Audio Recording] WAV created: XX.XX KB`
+    - UI shows completion indicator: "✓ Audio: 16.16s (381 chunks)"
+    - Message contains recorded audio player with 16 second playback
+    - Audio playback works correctly with HTML5 controls
+    - Format shows: audio/wav
 
 **Test 2: Multiple Audio Responses**
+
 - Status: ⏳ Not yet tested
 - Result:
 
 **Test 3: Error Handling**
+
 - Status: ⏳ Not yet tested
 - Result:
 
 **Test 4: Mode Switching**
+
 - Status: ⏳ Not yet tested
 - Result:
 
@@ -339,11 +368,11 @@ const audioContext = useAudio();
 
 ### Issues Encountered
 
-_To be filled during implementation_
+*To be filled during implementation*
 
 ## Conclusion
 
-_To be filled after implementation_
+*To be filled after implementation*
 
 ## References
 

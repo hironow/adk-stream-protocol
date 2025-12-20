@@ -193,11 +193,13 @@ const stopRecording = useCallback(async () => {
 ### When to Memoize Props
 
 **✅ DO memoize when:**
+
 - Passing functions or objects to **React components** (not DOM elements)
 - The parent component re-renders frequently
 - The child component is expensive to render
 
 **❌ DON'T memoize when:**
+
 - Passing to **DOM elements** (`<button>`, `<div>`, etc.)
 - The component rarely re-renders
 - Premature optimization

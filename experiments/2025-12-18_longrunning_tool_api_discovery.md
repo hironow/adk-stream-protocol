@@ -35,6 +35,7 @@ if tool.is_long_running:
 ```
 
 **Key Requirements**:
+
 1. Use `LongRunningFunctionTool(your_function)` wrapper
 2. Function must return `None` to signal "waiting for user action"
 3. Returning data (like `{status: 'pending'}`) defeats the mechanism!
@@ -58,6 +59,7 @@ def should_pause_invocation(self, event: Event) -> bool:
 ```
 
 **Resume Flow**:
+
 - Frontend sends `function_response` with original `function_call_id`
 - Agent receives function_response and resumes execution
 - Continues from where it paused
@@ -81,6 +83,7 @@ The `is_long_running` attribute propagates from tool → metadata → event fiel
 ### 4. Why POC Phase 1 Failed
 
 **Problem**:
+
 ```python
 def approval_test_tool(amount: float, recipient: str) -> dict[str, Any]:
     return {
@@ -90,6 +93,7 @@ def approval_test_tool(amount: float, recipient: str) -> dict[str, Any]:
 ```
 
 **What happened**:
+
 1. ✅ Tool executed successfully
 2. ❌ Returned dict (not `None`)
 3. ❌ ADK created function_response event immediately
@@ -97,6 +101,7 @@ def approval_test_tool(amount: float, recipient: str) -> dict[str, Any]:
 5. ❌ Agent treated tool as completed
 
 **Correct Pattern**:
+
 ```python
 def approval_test_tool(amount: float, recipient: str) -> None:
     # Save approval request to session or database
@@ -137,12 +142,14 @@ Two separate mechanisms discovered:
 ### BIDI Mode Compatibility
 
 **Positive Signals**:
+
 - ✅ `long_running_tool_ids` field exists in Event model
 - ✅ Pause/resume logic works in both SSE and Live API paths
 - ✅ `should_pause_invocation()` agnostic to API mode
 - ✅ A2A converter handles `is_long_running` metadata
 
 **Potential Issues**:
+
 - ⚠️ Live API event stream behavior during pause (unknown)
 - ⚠️ WebSocket connection timeout during long wait (needs testing)
 - ⚠️ How to inject `function_response` via WebSocket (needs testing)
@@ -150,11 +157,13 @@ Two separate mechanisms discovered:
 ### Resume via WebSocket
 
 **Expected Flow**:
+
 1. Agent calls `LongRunningFunctionTool`, returns `None`
 2. Agent pauses (stream stops)
 3. Frontend shows approval UI
 4. User clicks Approve
 5. Frontend sends via WebSocket:
+
    ```typescript
    ws.send(JSON.stringify({
        type: 'function_response',  // Or similar
@@ -162,6 +171,7 @@ Two separate mechanisms discovered:
        response: { approved: true, ... }
    }))
    ```
+
 6. Agent resumes with function_response
 
 **Question**: What is the exact WebSocket message format?
@@ -172,11 +182,13 @@ Two separate mechanisms discovered:
 **After Discovery**: 📈 **75%** (API found, mechanism understood)
 
 **Why 75% (not 100%)**:
+
 - Still need to test WebSocket `function_response` injection format
 - Event stream pause behavior in Live API unconfirmed
 - Connection timeout handling needs verification
 
 **Remaining Unknowns**:
+
 1. Exact WebSocket message format for `function_response`
 2. Does Live API truly stop streaming after pause?
 3. How long can connection stay open during pause?
@@ -187,6 +199,7 @@ Two separate mechanisms discovered:
 ### POC Phase 2: Proper `LongRunningFunctionTool` Implementation
 
 **Changes from Phase 1**:
+
 ```python
 # OLD (Phase 1) - WRONG:
 def approval_test_tool(amount: float, recipient: str) -> dict[str, Any]:
@@ -203,6 +216,7 @@ LongRunningFunctionTool(approval_test_tool)  # ✅ Use wrapper class!
 ```
 
 **Expected Behavior**:
+
 1. ✅ Tool executes
 2. ✅ Returns `None`
 3. ✅ `long_running_tool_ids` gets populated with tool ID
@@ -213,6 +227,7 @@ LongRunningFunctionTool(approval_test_tool)  # ✅ Use wrapper class!
 ### Test Phases 2-5
 
 If Phase 2 shows proper pausing:
+
 - **Phase 3**: Test `function_response` injection via WebSocket
 - **Phase 4**: Test connection timeout (2-minute wait)
 - **Phase 5**: Complete end-to-end approval flow
@@ -224,6 +239,7 @@ If Phase 2 shows proper pausing:
 **Recommendation**: **PROCEED TO POC PHASE 2** with proper implementation.
 
 **Risk Level**: 🟡 **MEDIUM** (down from HIGH)
+
 - API exists ✅
 - Mechanism understood ✅
 - BIDI compatibility likely ⚠️

@@ -7,9 +7,9 @@ This document tracks the implementation status of [AI SDK v6 Data Stream Protoco
 
 ## References
 
-- **AI SDK v6 Stream Protocol Specification**: https://v6.ai-sdk.dev/docs/ai-sdk-ui/stream-protocol
-- **ADK Documentation**: https://google.github.io/adk-docs/
-- **ADK Live API Events**: https://google.github.io/adk-docs/streaming/dev-guide/part5/
+- **AI SDK v6 Stream Protocol Specification**: <https://v6.ai-sdk.dev/docs/ai-sdk-ui/stream-protocol>
+- **ADK Documentation**: <https://google.github.io/adk-docs/>
+- **ADK Live API Events**: <https://google.github.io/adk-docs/streaming/dev-guide/part5/>
 - **Implementation**: `stream_protocol.py` - `StreamProtocolConverter` class
 - **Tests**: `tests/unit/test_stream_protocol_comprehensive.py`
 
@@ -186,24 +186,28 @@ These custom events follow the `data-*` pattern specified in the AI SDK v6 proto
 ### Multimodal Support Implementation Status
 
 **Phase 1: Image Support** ✅ **COMPLETE**
+
 - Image upload (PNG, JPEG, WebP) via `experimental_attachments`
 - Image display with custom `ImageDisplay` component
 - Bidirectional image support (user → AI, AI → user)
 - Implementation: `stream_protocol.py`, `components/image-upload.tsx`, `components/image-display.tsx`
 
 **Phase 2: Audio Output** ✅ **COMPLETE**
+
 - PCM audio streaming (24kHz) via `data-pcm` events
 - WAV format generation for browser playback
 - Audio transcription (output speech-to-text)
 - Implementation: `stream_protocol.py`, `components/audio-player.tsx`
 
 **Phase 3: Audio Input** ✅ **COMPLETE**
+
 - Microphone recording via AudioWorklet (16kHz PCM)
 - Push-to-talk control (CMD/Ctrl key)
 - Audio transcription (input speech-to-text)
 - Implementation: `lib/audio-recorder.ts`, `components/chat.tsx`, `stream_protocol.py`
 
 **Phase 4: Video Support** ⬜ **FUTURE**
+
 - Planned similar approach to audio
 - Requires `data-video-*` custom events
 
@@ -226,11 +230,13 @@ This section discusses ADK fields that are currently unmapped but may be valuabl
 **AI SDK v6 Equivalent**: `file` event with URL and mediaType
 
 **Challenge**:
+
 - File URIs (gs://) require signed URLs or proxy for browser access
 - Files are not streamable content - just references
 - Need backend endpoint to serve/proxy Cloud Storage files
 
 **Proposal**:
+
 ```python
 # Convert gs:// to publicly accessible URL via backend proxy
 {"type": "file", "url": "/api/files/proxy?uri=gs://...", "mediaType": "image/png"}
@@ -247,6 +253,7 @@ This section discusses ADK fields that are currently unmapped but may be valuabl
 **Status**: ❌ Not Mapped
 
 **Rationale**:
+
 - These are advanced/debugging features not typically displayed in chat UI
 - `logprobs` - For model developers, not end users
 - `interrupted` - Handled by frontend WebSocket disconnect
@@ -272,6 +279,7 @@ This section discusses ADK fields that are currently unmapped but may be valuabl
 | **Advanced Metadata** | ❌ Missing | Low priority - debugging/optimization info (logprobs, video metadata) |
 
 **Recommendation**:
+
 1. **Current Status**: All major Gemini API features are implemented (Phase 1-3 Complete)
 2. **Multimodal Capabilities**: Images, Audio I/O fully functional
 3. **Future Enhancements**:
@@ -279,5 +287,6 @@ This section discusses ADK fields that are currently unmapped but may be valuabl
    - File reference proxy if gs:// URL support is needed
 
 **See Also:**
+
 - Architecture documentation: `ARCHITECTURE.md`
 - Multimodal experiment notes: `experiments/2025-12-11_adk_bidi_multimodal_support.md`

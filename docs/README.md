@@ -12,15 +12,15 @@ This directory contains documentation for the current implementation of the ADK 
 ## Architecture & Implementation
 
 - **[Architecture](ARCHITECTURE.md)** - System architecture and patterns
-  - AudioWorklet PCM Streaming
-  - Tool Approval Flow (Frontend Delegation Pattern)
-  - Per-Connection State Management
-  - Multimodal Support Architecture
+    - AudioWorklet PCM Streaming
+    - Tool Approval Flow (Frontend Delegation Pattern)
+    - Per-Connection State Management
+    - Multimodal Support Architecture
 
 - **[Implementation](IMPLEMENTATION.md)** - Implementation details
-  - Protocol conversion (ADK ↔ AI SDK v6)
-  - Event streaming
-  - Tool execution
+    - Protocol conversion (ADK ↔ AI SDK v6)
+    - Event streaming
+    - Tool execution
 
 ## Testing
 

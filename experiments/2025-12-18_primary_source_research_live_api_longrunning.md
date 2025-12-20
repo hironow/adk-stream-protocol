@@ -13,6 +13,7 @@ After comprehensive investigation of ADK Python primary sources (GitHub issues, 
 ### Key Finding
 
 **The absence of evidence is itself significant evidence:**
+
 - No official documentation mentions Live API compatibility with LongRunningFunctionTool
 - No test coverage combining these features
 - No working examples in samples/
@@ -22,6 +23,7 @@ After comprehensive investigation of ADK Python primary sources (GitHub issues, 
 ### Recommendation
 
 **POC (Proof of Concept) is MANDATORY** before committing to 8-12 hour implementation:
+
 1. Create minimal LongRunningFunctionTool test with Live API
 2. Verify pending status handling in WebSocket stream
 3. Test function_response injection via WebSocket
@@ -34,7 +36,8 @@ After comprehensive investigation of ADK Python primary sources (GitHub issues, 
 ### 1. GitHub Issues
 
 #### Issue #1851: "How to achieve proper human in the loop approval with long running function calls?"
-- **URL:** https://github.com/google/adk-python/issues/1851
+
+- **URL:** <https://github.com/google/adk-python/issues/1851>
 - **Status:** CLOSED as COMPLETED
 - **Solution:** ADK team referenced "Tool Confirmation" feature (require_confirmation=True)
 - **Critical Limitation:** "Tool Confirmation lacks support for Vertex AI session service and Database session service"
@@ -45,19 +48,21 @@ After comprehensive investigation of ADK Python primary sources (GitHub issues, 
 ---
 
 #### Issue #1768: "Support tool callback for live(bidi)"
-- **URL:** https://github.com/google/adk-python/issues/1768
+
+- **URL:** <https://github.com/google/adk-python/issues/1768>
 - **Status:** CLOSED as COMPLETED (Oct 24, 2025)
 - **Resolution:** "Supported now" via PR #1769 and PR #1774
 - **Quotes:**
-  - "Streaming(bidi/live) handling is going through a diff code path. So callbacks is not implemented for live/bidi."
-  - Tool callbacks should be prioritized (easier than other callback types)
+    - "Streaming(bidi/live) handling is going through a diff code path. So callbacks is not implemented for live/bidi."
+    - Tool callbacks should be prioritized (easier than other callback types)
 
 **Significance:** ✅ Tool callbacks NOW work in live/bidi mode (as of Oct 2025). This is positive for Option A feasibility.
 
 ---
 
 #### Issue #1897: "Callbacks not getting executed with ADK Bidi-streaming [Audio to Audio conversation]"
-- **URL:** https://github.com/google/adk-python/issues/1897
+
+- **URL:** <https://github.com/google/adk-python/issues/1897>
 - **Status:** CLOSED as COMPLETED (Nov 8, 2025)
 - **Problem:** before_agent/after_agent/before_model/after_model callbacks don't work in audio-to-audio
 - **ADK Team Response:** "We only support before/after_tool_callback. For the other two, it's not supported yet."
@@ -67,7 +72,8 @@ After comprehensive investigation of ADK Python primary sources (GitHub issues, 
 ---
 
 #### Issue #3184: "Human in the loop within custom agent and SequentialAgent workflow does not pause execution"
-- **URL:** https://github.com/google/adk-python/issues/3184
+
+- **URL:** <https://github.com/google/adk-python/issues/3184>
 - **Status:** COMPLETED
 - **Problem:** Custom agent with overridden `_run_async_impl` doesn't pause when sub-agent enters PAUSED state
 - **Resolution:** PR #3224 introduced "backend blocking poll pattern" as alternative
@@ -80,13 +86,14 @@ After comprehensive investigation of ADK Python primary sources (GitHub issues, 
 ### 2. GitHub Discussions
 
 #### Discussion #2739: "Issues with multiple consecutive Long Running Function Tools with HITL"
-- **URL:** https://github.com/google/adk-python/discussions/2739
+
+- **URL:** <https://github.com/google/adk-python/discussions/2739>
 - **Problem:** Multiple chained LongRunningFunctionTool calls cause agent to get stuck
 - **Root Cause:** "Missing client-side logic to handle pending states and resume"
 - **Solution:**
-  - State management via `EventActions.state_delta`
-  - Use `InMemorySessionService` for state persistence
-  - Implement dedicated endpoints for A2A state management
+    - State management via `EventActions.state_delta`
+    - Use `InMemorySessionService` for state persistence
+    - Implement dedicated endpoints for A2A state management
 - **Limitation:** "Tool callbacks don't trigger after long-running tool responses"
 
 **Significance:** LongRunningFunctionTool requires complex state management for multiple consecutive calls. Live API mention: ❌ None.
@@ -96,19 +103,23 @@ After comprehensive investigation of ADK Python primary sources (GitHub issues, 
 ### 3. Official Documentation
 
 #### Tool Confirmation Documentation
-- **URL:** https://google.github.io/adk-docs/tools-custom/confirmation/
+
+- **URL:** <https://google.github.io/adk-docs/tools-custom/confirmation/>
 - **Availability:** ADK Python v1.14.0+
 - **Status:** Experimental
 
 **Supported Backends:**
+
 - ✅ SSE (Server-Sent Events)
 - ❌ DatabaseSessionService
 - ❌ VertexAiSessionService
 
 **Live API / BIDI Compatibility:**
+
 - ❌ **No mention** in documentation
 
 **Implementation:**
+
 ```python
 # Boolean confirmation
 FunctionTool(reimburse, require_confirmation=True)
@@ -134,10 +145,12 @@ def reimburse(amount: float, tool_context: ToolContext):
 ### 4. Code Samples
 
 #### human_in_loop Sample
+
 - **Location:** `contributing/samples/human_in_loop/`
-- **Files:** README.md, agent.py, main.py, __init__.py
+- **Files:** README.md, agent.py, main.py, **init**.py
 
 **Implementation Pattern:**
+
 ```python
 # 1. Tool returns pending status
 def _ask_for_approval_impl(task_description: str) -> dict[str, Any]:
@@ -175,6 +188,7 @@ async for event in runner.run_async(
 ```
 
 **Streaming Compatibility:**
+
 - Uses `async for` iteration throughout (streaming-capable)
 - Session-based architecture supports continuous dialog
 
@@ -187,10 +201,12 @@ async for event in runner.run_async(
 ### 5. Pull Requests
 
 #### PR #3224: "Backend blocking poll pattern for HITL workflows"
+
 - **Status:** MERGED
 - **Alternative Approach:** Internal polling instead of pause/resume
 
 **Architectural Difference:**
+
 - **LongRunningFunctionTool (Resumable):**
   1. Tool returns `{'status': 'pending'}`
   2. Agent pauses
@@ -204,11 +220,13 @@ async for event in runner.run_async(
   4. Returns directly when ready
 
 **Production Impact:**
+
 - 93% reduction in LLM API calls vs agent-level polling
 - Reduced manual interactions from "20+ 'continue' clicks" to zero
 - Successfully handled 10-minute average approval durations
 
 **When to Use Each:**
+
 - **Blocking Poll:** Simple approvals, <10 min completion, poll-only systems (Jira, ServiceNow)
 - **LongRunningFunctionTool:** Webhook-capable systems, progress updates, multi-step workflows, extended periods
 
@@ -219,6 +237,7 @@ async for event in runner.run_async(
 ### 6. Release Notes
 
 #### Release v1.19.0 (Key Points)
+
 - ✅ "Update conformance test CLI to handle long-running tool calls"
 - ✅ "Updated Gemini Live model names in live bidi streaming sample"
 - ✅ "Improved handling of partial and complete transcriptions in live calls"
@@ -229,6 +248,7 @@ async for event in runner.run_async(
 ---
 
 #### Release v1.20.0 (Key Points)
+
 - ✅ "Support streaming function call arguments in progressive SSE streaming"
 - ✅ **Critical:** "Fixes double response processing issue in base_llm_flow.py where, in Bidi-streaming (live) mode, the multi-agent structure causes duplicated responses after tool calling"
 
@@ -239,12 +259,13 @@ async for event in runner.run_async(
 ### 7. Source Code Investigation
 
 #### gemini_llm_connection.py
+
 - **Location:** `src/google/adk/models/gemini_llm_connection.py`
 - **Finding:** No `_call_live` method found
 - **Tool Handling:**
-  - `send_content()`: Validates function_response parts
-  - `receive()`: Detects tool invocations and yields LlmResponse
-  - **No special handling for pending status or paused states visible**
+    - `send_content()`: Validates function_response parts
+    - `receive()`: Detects tool invocations and yields LlmResponse
+    - **No special handling for pending status or paused states visible**
 
 **Significance:** Live API implementation details not accessible through this file. Mechanism for handling LongRunningFunctionTool in Live API unclear.
 
@@ -279,12 +300,14 @@ async for event in runner.run_async(
 **The absence of evidence is evidence itself:**
 
 In a mature, well-documented framework, we would expect:
+
 - ✅ Official documentation covering feature combinations
 - ✅ Sample code demonstrating best practices
 - ✅ Test coverage validating behavior
 - ✅ Community discussions sharing experiences
 
 **The fact that NONE of these exist suggests:**
+
 - Either the combination is untested/unsupported
 - Or it's a known limitation that hasn't been explicitly documented
 
@@ -348,6 +371,7 @@ In a mature, well-documented framework, we would expect:
 ### Why It MIGHT Work
 
 **Architecture Alignment:**
+
 ```
 LongRunningFunctionTool Pattern:
 1. Tool invoked → returns {'status': 'pending', 'approval_id': '...'}
@@ -364,6 +388,7 @@ Live API WebSocket:
 ```
 
 **Theoretical Flow:**
+
 ```
 Frontend                  Backend (Live API)              ADK Agent
    |                            |                             |
@@ -394,6 +419,7 @@ Frontend                  Backend (Live API)              ADK Agent
 **Architecture Mismatch:**
 
 **Our Current BIDI Problem:**
+
 ```
 inject_confirmation_for_bidi() (adk_compat.py:368-372)
    |
@@ -408,6 +434,7 @@ inject_confirmation_for_bidi() (adk_compat.py:368-372)
 ```
 
 **LongRunningFunctionTool with Live API might have similar issue:**
+
 ```
 LongRunningFunctionTool returns pending
    |
@@ -424,12 +451,14 @@ LongRunningFunctionTool returns pending
 **Critical Unknown:** Does ADK + Live API have explicit PAUSED state that stops event generation?
 
 **Without PAUSED state:**
+
 - Live API might continue sending events during wait
 - Frontend status="streaming" never becomes "awaiting-message"
 - sendAutomaticallyWhen remains blocked
 - Same deadlock as current approach
 
 **With PAUSED state:**
+
 - Live API stops generating events
 - Frontend status becomes stable (not "streaming")
 - Client can send function_response
@@ -442,33 +471,41 @@ LongRunningFunctionTool returns pending
 ## Comparison: Three HITL Approaches
 
 ### Approach 1: Tool Confirmation (require_confirmation=True)
+
 **Current Status:**
+
 - ✅ Works in SSE mode
 - ❌ Doesn't work in BIDI mode (our investigation confirmed)
 - ❌ Explicitly unsupported: DatabaseSessionService, VertexAiSessionService
 
 **Advantages:**
+
 - Native ADK feature
 - Simple to use
 - No custom code required
 
 **Disadvantages:**
+
 - BIDI incompatibility confirmed by our testing
 - Session service limitations
 
 ---
 
 ### Approach 2: LongRunningFunctionTool (Option A - Current Plan)
+
 **Current Status:**
+
 - ✅ Works in non-streaming mode (confirmed by human_in_loop sample)
 - ❓ Live API compatibility UNKNOWN
 
 **Advantages:**
+
 - Designed for HITL workflows
 - Explicit pause/resume cycle
 - Well-documented pattern
 
 **Disadvantages:**
+
 - Requires complex state management for multiple calls
 - No Live API testing evidence
 - POC mandatory to verify feasibility
@@ -478,18 +515,22 @@ LongRunningFunctionTool returns pending
 ---
 
 ### Approach 3: Backend Blocking Poll Pattern (PR #3224)
+
 **Current Status:**
+
 - ✅ Production-proven (93% API reduction, 10-min waits)
 - ✅ Handles long approval durations
 - ❓ Live API compatibility UNKNOWN (but likely better than Approach 2)
 
 **Advantages:**
+
 - No pause/resume complexity
 - Agent waits automatically
 - Zero manual interactions
 - Simpler architecture than LongRunningFunctionTool
 
 **Disadvantages:**
+
 - Requires custom tool implementation
 - Polling-based (not webhook-driven)
 - May not be suitable for very long waits (hours/days)
@@ -503,6 +544,7 @@ LongRunningFunctionTool returns pending
 **Before committing to any implementation, we MUST test:**
 
 ### POC Test 1: Basic Pending Status
+
 ```python
 # Create minimal long-running tool
 def _approval_test(amount: float) -> dict[str, Any]:
@@ -525,6 +567,7 @@ bidi_agent = Agent(
 ```
 
 ### POC Test 2: Function Response Injection
+
 ```python
 # After receiving pending status, send function_response
 function_response = types.FunctionResponse(
@@ -549,6 +592,7 @@ websocket.send(json.dumps({
 ```
 
 ### POC Test 3: Connection Timeout
+
 ```python
 # Return pending status and wait 2 minutes
 # Observe:
@@ -558,6 +602,7 @@ websocket.send(json.dumps({
 ```
 
 ### Success Criteria
+
 - ✅ Agent emits long_running_tool_ids event in BIDI
 - ✅ Live API stops generating events after pending (not continuous reasoning)
 - ✅ WebSocket connection stays open during wait
@@ -566,6 +611,7 @@ websocket.send(json.dumps({
 - ✅ No timeout errors during 2-minute wait
 
 ### Failure Criteria
+
 - ❌ Live API continues generating events after pending (same as current problem)
 - ❌ WebSocket connection times out
 - ❌ function_response injection fails
@@ -581,6 +627,7 @@ websocket.send(json.dumps({
 **DO NOT proceed with 8-12 hour implementation without POC.**
 
 **POC Phases:**
+
 1. **Phase 1 (30 min):** Create minimal LongRunningFunctionTool with BIDI agent
 2. **Phase 2 (30 min):** Test pending status handling and event stream behavior
 3. **Phase 3 (30 min):** Test function_response injection via WebSocket
@@ -589,6 +636,7 @@ websocket.send(json.dumps({
 **Total POC Time:** 2 hours
 
 **GO/NO-GO Decision:**
+
 - If all success criteria met → Proceed with full implementation (8-12 hours)
 - If any failure criteria met → Stop and pivot to alternative
 
@@ -597,16 +645,19 @@ websocket.send(json.dumps({
 ### Alternative If POC Fails
 
 **Option B-Revised: Accept SSE-Only Support**
+
 - Document BIDI limitation clearly
 - Disable BIDI confirmation features in UI
 - Focus on improving SSE experience
 
 **Option C: Backend Blocking Poll Pattern**
+
 - Investigate PR #3224 implementation
 - Test with Live API
 - May be more compatible than pause/resume
 
 **Option D: Hybrid Approach**
+
 - SSE mode: Use Tool Confirmation (require_confirmation=True)
 - BIDI mode: Use different approval mechanism (e.g., separate HTTP endpoint)
 - Accept that BIDI can't do inline confirmation
@@ -640,6 +691,7 @@ websocket.send(json.dumps({
 The 2-hour POC investment will save potentially 8-12 hours of wasted implementation effort if Live API doesn't support the pause/resume pattern.
 
 **Risk Level:** 🟡 MEDIUM-HIGH
+
 - Positive signals exist (tool callbacks working, conformance tests, async pattern)
 - But absence of documentation/examples is concerning
 - Recent bugs in BIDI + tools suggest ongoing maturity issues
@@ -654,27 +706,33 @@ The 2-hour POC investment will save potentially 8-12 hours of wasted implementat
 ## References
 
 ### GitHub Issues
+
 - #1851: How to achieve proper human in the loop approval
 - #1768: Support tool callback for live(bidi) ✅ COMPLETED
 - #1897: Callbacks not getting executed with ADK Bidi-streaming
 - #3184: Human in the loop within custom agent doesn't pause
 
 ### GitHub Discussions
+
 - #2739: Issues with multiple consecutive Long Running Function Tools with HITL
 
 ### Pull Requests
+
 - #3224: Backend blocking poll pattern for HITL workflows
 - #1769, #1774: Tool callback support in live mode
 
 ### Documentation
-- https://google.github.io/adk-docs/tools-custom/confirmation/
-- https://google.github.io/adk-docs/callbacks/
-- https://github.com/google/adk-python/tree/main/contributing/samples/human_in_loop
+
+- <https://google.github.io/adk-docs/tools-custom/confirmation/>
+- <https://google.github.io/adk-docs/callbacks/>
+- <https://github.com/google/adk-python/tree/main/contributing/samples/human_in_loop>
 
 ### Release Notes
+
 - v1.19.0: Conformance test CLI for long-running tools
 - v1.20.0: Fixed double response processing in BIDI tool calling
 
 ### Source Code
+
 - gemini_llm_connection.py: Live API connection (no _call_live found)
 - contributing/samples/human_in_loop/main.py: HITL pattern example

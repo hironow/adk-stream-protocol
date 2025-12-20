@@ -11,6 +11,7 @@ Fix user experience issue where clicking Approve/Deny buttons after WebSocket di
 ## Background
 
 During POC Phase 5 development, we identified an edge case:
+
 - **Scenario**: User triggers a long-running tool (e.g., approval_test_tool)
 - **Edge Case**: WebSocket connection drops before user clicks Approve/Deny
 - **Current Behavior**: Button click silently fails with no user feedback
@@ -30,6 +31,7 @@ private sendEvent(event: ClientToServerEvent): void {
 ## Expected Behavior
 
 When WebSocket is disconnected and user tries to approve/deny:
+
 1. ❌ **Before**: Button click does nothing, user confused
 2. ✅ **After**: Error message displayed: "Error sending approval: WebSocket not open - cannot send event"
 
@@ -109,6 +111,7 @@ test('Phase 6: WebSocket disconnection during approval', async ({ page }) => {
 ```
 
 **RED Test Result** (First run):
+
 ```
 [Browser Console] [WS Transport] Cannot send event, WebSocket not open
 [POC Phase 6] ❌ FAIL: No error message displayed to user
@@ -140,11 +143,13 @@ private sendEvent(event: ClientToServerEvent): void {
 POC Phase 5 already implemented complete error handling in `components/tool-invocation.tsx`:
 
 **Error State** (line 47):
+
 ```typescript
 const [approvalError, setApprovalError] = useState<string | null>(null);
 ```
 
 **Try-Catch Block** (lines 97-124):
+
 ```typescript
 try {
   console.info(
@@ -176,6 +181,7 @@ try {
 ```
 
 **Error Display UI** (lines 417-429):
+
 ```typescript
 {/* Error message if WebSocket send fails */}
 {approvalError && (
@@ -195,6 +201,7 @@ try {
 ```
 
 **GREEN Test Result** (After fix):
+
 ```
 [Browser Console] [WS Transport] Cannot send event, WebSocket not open
 [Browser Console] [LongRunningTool] Failed to send function_response: WebSocket not open - cannot send event
@@ -220,6 +227,7 @@ try {
 **E2E Test**: `e2e/poc-longrunning-bidi.spec.ts` - Phase 6
 
 **Test Scenarios**:
+
 1. ✅ Trigger approval_test_tool
 2. ✅ Wait for approval UI to appear
 3. ✅ Manually close WebSocket connection
@@ -230,14 +238,17 @@ try {
 ## Impact Assessment
 
 **User Experience**:
+
 - **Before**: Silent failure, user confused and may retry indefinitely
 - **After**: Clear error message explaining what happened
 
 **Error Messages**:
+
 - Error text: "Error sending approval: WebSocket not open - cannot send event"
 - Visual feedback: Red background (#7f1d1d) with pink text (#fca5a5)
 
 **Related Edge Cases**:
+
 - ✅ Network timeout during long-running approval (Phase 4 - connection keep-alive)
 - ✅ WebSocket disconnection before approval (Phase 6 - this fix)
 - 🔄 Page reload before approval (future consideration)

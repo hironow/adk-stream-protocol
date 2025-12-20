@@ -21,12 +21,14 @@ We use AI SDK v6's **standard event streaming approach** with `addToolOutput` an
 ### Architecture Pattern
 
 **Backend (server.py):**
+
 - Tools are defined as ADK Agent functions with `ToolContext`
 - `FrontendToolDelegate` creates `asyncio.Future` and awaits frontend execution
 - Tool functions: `await frontend_delegate.execute_on_frontend(...)`
 - WebSocket handler resolves Future when receiving `tool-result` event
 
 **Frontend (useChat):**
+
 - Uses AI SDK v6 standard functions: `addToolOutput`, `addToolApprovalResponse`
 - Does NOT use `onToolCall` callback
 - Browser APIs execute after user approval: `AudioContext`, `Geolocation`, etc.
@@ -56,11 +58,13 @@ We use AI SDK v6's **standard event streaming approach** with `addToolOutput` an
 ### Why NOT `onToolCall`
 
 `onToolCall` is designed for **client-side local tool execution** where:
+
 - Tools are defined only in frontend code
 - Frontend executes tools independently
 - No backend involvement needed
 
 Our architecture is different:
+
 - Tools are defined in **backend for AI awareness**
 - Backend delegates execution to frontend
 - Tool call events come **from backend** (not generated locally)
@@ -72,6 +76,7 @@ Using `onToolCall` would create architectural confusion between local and delega
 We explicitly **removed custom `onToolApprovalRequest` callback** that we initially implemented.
 
 **Initial Wrong Pattern:**
+
 ```typescript
 // ❌ WRONG - Custom callback pattern
 interface WebSocketChatTransportConfig {
@@ -88,6 +93,7 @@ if (chunk.type === "tool-approval-request") {
 ```
 
 **Correct Pattern:**
+
 ```typescript
 // ✅ CORRECT - No custom callback needed
 const { messages, addToolApprovalResponse } = useChat(useChatOptions);

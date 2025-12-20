@@ -46,6 +46,7 @@ WebSocket → ADK Live API
 ```
 
 **Legend / 凡例:**
+
 - MediaDevices.getUserMedia(): マイクアクセスAPI
 - MediaStreamSource: メディアストリームソース
 - AudioWorklet: 低レイテンシ音声処理ワークレット
@@ -59,6 +60,7 @@ WebSocket → ADK Live API
 **Key Components:**
 
 1. **AudioContext Configuration:**
+
    ```typescript
    new AudioContext({
      sampleRate: 16000, // ADK requirement: 16kHz
@@ -66,6 +68,7 @@ WebSocket → ADK Live API
    ```
 
 2. **Microphone Constraints:**
+
    ```typescript
    navigator.mediaDevices.getUserMedia({
      audio: {
@@ -136,6 +139,7 @@ Backend (server.py)
 ```
 
 **Legend / 凡例:**
+
 - AI Agent: AIエージェント（ADK）
 - Backend: バックエンドサーバー
 - Frontend: フロントエンドUI
@@ -230,6 +234,7 @@ ADK Agent Runner (shared)       ADK Agent Runner (shared)
 ```
 
 **Legend / 凡例:**
+
 - Client WebSocket: クライアントWebSocket接続
 - Session: セッション（接続ごとに一意、connection_signature使用）
 - ToolApprovalDelegate: ツール承認デリゲート（FrontendToolDelegate）
@@ -241,6 +246,7 @@ ADK Agent Runner (shared)       ADK Agent Runner (shared)
 **File:** `server.py` (live_chat async function)
 
 **Key Implementation Points:**
+
 - Session creation: `get_or_create_session()` with `connection_signature` parameter
 - Delegate storage: `session.state["temp:delegate"]` (connection-specific)
 - Tool access: Tools retrieve delegate from `tool_context.state.get("temp:delegate")`
@@ -284,12 +290,14 @@ async def live_chat(websocket: WebSocket):
 ### Why Per-Connection State?
 
 **Problem Without Isolation:**
+
 - Multiple clients would share the same session
 - Tool approval requests would interfere
 - Message history would mix between users
 - Race conditions in queue processing
 
 **Solution:**
+
 1. **Unique Session ID:** Each connection generates `connection_signature` (UUID) for unique session
 2. **Isolated Delegate:** `FrontendToolDelegate` stored in `session.state["temp:delegate"]`
 3. **Separate Queue:** Each connection has its own `LiveRequestQueue`
@@ -322,6 +330,7 @@ Clean up session (no automatic resumption)
 ```
 
 **Legend / 凡例:**
+
 - WebSocket Connect: WebSocket接続
 - Create Session: セッション作成
 - Create Delegate + Queue: デリゲートとキュー作成
@@ -337,6 +346,7 @@ Clean up session (no automatic resumption)
 ### Overview
 
 The project implements **Phase 1-3 of multimodal support** through ADK's BIDI mode:
+
 - ✅ **Phase 1:** Images (input/output)
 - ✅ **Phase 2:** Audio Output (PCM streaming)
 - ✅ **Phase 3:** Audio Input (microphone recording)
@@ -390,6 +400,7 @@ Frontend: Custom ImageDisplay component
 ```
 
 **Legend / 凡例:**
+
 - User Uploads Image: ユーザーが画像をアップロード
 - Frontend: フロントエンド
 - WebSocket: WebSocket接続
@@ -423,6 +434,7 @@ Browser Audio Playback
 ```
 
 **Legend / 凡例:**
+
 - ADK Agent (native-audio model): ADKエージェント（ネイティブ音声モデル）
 - Generate audio chunks: 音声チャンク生成
 - Convert to SSE format: SSE形式に変換
@@ -471,6 +483,7 @@ Response (text + transcription)
 ```
 
 **Legend / 凡例:**
+
 - User Holds CMD Key: ユーザーがCMDキーを押下
 - AudioRecorder.start(): 音声録音開始
 - AudioWorklet: 音声ワークレット
@@ -491,7 +504,6 @@ The project uses AI SDK v6's extensible `data-*` pattern for multimodal content:
 | `audio_chunk` | Audio input (WebSocket) | `{ chunk: "base64...", sampleRate: 16000, channels: 1, bitDepth: 16 }` |
 
 ---
-
 
 ---
 
@@ -576,16 +588,19 @@ function lastAssistantMessageIsCompleteWithApprovalResponses({
 ### Use Cases
 
 ✅ **セキュリティ・プライバシーに関わる操作**
+
 - ブラウザAPI（AudioContext、Geolocation、Camera）
 - ファイルアクセス
 - ネットワークリクエスト
 
 ✅ **フロントエンド委譲型ツール実行**
+
 - バックエンドでツールを定義
 - フロントエンドで実行
 - ユーザー承認が必須
 
 ✅ **コンプライアンス要件**
+
 - ユーザー同意の記録が必要
 - 規制対応
 
@@ -672,21 +687,25 @@ function lastAssistantMessageIsCompleteWithToolCalls({
 - `output-error` - ツール実行失敗（エラーも完了扱い）
 
 **NOT Accepted:**
+
 - ❌ `approval-responded` - 承認のみでは不十分（出力が必要）
 
 ### Use Cases
 
 ✅ **安全な読み取り専用操作**
+
 - データ取得
 - 計算処理
 - フォーマット・パース
 
 ✅ **サーバー側ツール実行**
+
 - データベースクエリ
 - ファイル読み取り（サーバー上）
 - 内部API呼び出し
 
 ✅ **承認不要な信頼された操作**
+
 - 非機密データアクセス
 - 自動化されたワークフロー
 
@@ -715,6 +734,7 @@ addToolOutput({
 ### Scenario 1: Single Tool with Approval Response
 
 **State:**
+
 ```javascript
 parts: [
   { toolCallId: "1", state: "approval-responded", approval: { approved: true/false } }
@@ -731,6 +751,7 @@ parts: [
 ### Scenario 2: Tool with Output Only
 
 **State:**
+
 ```javascript
 parts: [
   { toolCallId: "1", state: "output-available", output: {...} }
@@ -745,6 +766,7 @@ parts: [
 ### Scenario 3: Multiple Tools - Mixed States
 
 **State:**
+
 ```javascript
 parts: [
   { toolCallId: "1", state: "approval-responded", approval: { approved: true/false } },
@@ -762,6 +784,7 @@ parts: [
 ### Scenario 4: Incomplete Tools
 
 **State:**
+
 ```javascript
 parts: [
   { toolCallId: "1", state: "approval-requested" }, // Not responded
@@ -789,6 +812,7 @@ const lastStepStartIndex = message.parts.reduce((lastIndex, part, index) => {
 ```
 
 **Why?**
+
 - マルチステップ推論では複数のツール呼び出しラウンドが発生する可能性がある
 - **最新ステップのツールのみ**が自動送信の判定対象
 - 過去のステップは既に完了済み
@@ -802,6 +826,7 @@ const lastStepStartIndex = message.parts.reduce((lastIndex, part, index) => {
 ```
 
 **Why?**
+
 - 一部のLLMプロバイダー（Claude、GPT-4など）はツールを**サーバー側**で実行する
 - これらのツールはクライアント側での出力や承認が不要
 - **クライアント側ツールのみ**が完了チェックの対象
@@ -819,11 +844,13 @@ call → approval-requested → approval-responded → output-available
 ```
 
 **Complete States (完了状態):**
+
 - `output-available` - 成功
 - `output-error` - 失敗（完了扱い）
 - `approval-responded` - 承認済み（WithApprovalResponsesのみ）
 
 **Incomplete States (未完了状態):**
+
 - `call` - 呼び出されたが待機中
 - `approval-requested` - ユーザーの決定が必要
 
@@ -848,6 +875,7 @@ call → approval-requested → approval-responded → output-available
    - ユーザーエクスペリエンス（BGM変更）
 
 4. **Architecture: Backend Delegates, Frontend Executes**
+
    ```
    Backend (server.py)          Frontend (Next.js)
    ===================          ==================
@@ -916,25 +944,31 @@ export function buildUseChatOptions(config: BuildUseChatOptionsConfig) {
 **File:** `lib/use-chat-integration.test.tsx`
 
 **Test 1: Approval Only**
+
 ```typescript
 it("should verify addToolApprovalResponse triggers auto-submit when all tools complete", ...)
 ```
+
 - ✅ `addToolApprovalResponse()` 呼び出し
 - ✅ 条件1・2両方満足
 - ✅ Auto-submit実行確認
 
 **Test 2: Output Only**
+
 ```typescript
 it("should verify addToolOutput updates message state but does NOT auto-submit", ...)
 ```
+
 - ✅ `addToolOutput()` 呼び出し
 - ❌ 条件1未満足（approval-respondedなし）
 - ❌ Auto-submit実行されないことを確認
 
 **Test 3: Mixed Scenario**
+
 ```typescript
 it("should verify mixed approval + output triggers auto-submit", ...)
 ```
+
 - ✅ Tool A: `addToolApprovalResponse()`
 - ⚠️ まだ送信されない（Tool Bが未完了）
 - ✅ Tool B: `addToolOutput()`
@@ -968,6 +1002,7 @@ Complete test matrix coverage for all conditional logic branches.
 | **このプロジェクト** | ✅ 使用中 | - |
 
 **重要な注意点:**
+
 - `approved: true` と `approved: false` の動作は**完全に同じ**（タイミングに影響なし）
 - 単一ツール: `addToolApprovalResponse` 後に即座に送信
 - 複数ツール: 全ツール完了後に送信
@@ -978,6 +1013,7 @@ Complete test matrix coverage for all conditional logic branches.
 このプロジェクトでは**セキュリティとユーザー体験**を重視し、`lastAssistantMessageIsCompleteWithApprovalResponses`を採用しています。
 
 **Key Benefits:**
+
 - ✅ ユーザーに明示的な制御権を与える
 - ✅ プライバシー保護（位置情報など）
 - ✅ 予期しない動作を防ぐ（BGM変更など）
@@ -987,7 +1023,7 @@ Complete test matrix coverage for all conditional logic branches.
 
 ## References
 
-- **AI SDK v6 Documentation**: https://sdk.vercel.ai/docs
+- **AI SDK v6 Documentation**: <https://sdk.vercel.ai/docs>
 - **Source Code**: `node_modules/ai/dist/index.mjs:11342-11383`
 - **Our Implementation**: `lib/build-use-chat-options.ts`
 - **Integration Tests**: `lib/use-chat-integration.test.tsx`
@@ -1019,6 +1055,7 @@ Complete test matrix coverage for all conditional logic branches.
 **Limitation:** Users must manually trigger audio recording (not hands-free).
 
 **Future Solution:**
+
 - Implement browser-based VAD using Web Audio API analysis
 - Detect speech start/stop automatically
 
@@ -1031,6 +1068,7 @@ Complete test matrix coverage for all conditional logic branches.
 **Status:** Fundamental ADK limitation (not fixable)
 
 **Current Behavior:**
+
 - BIDI mode uses `response_modalities=["AUDIO"]` for native-audio models
 - Text responses are provided via transcription only
 - Cannot switch modalities mid-session
@@ -1053,9 +1091,9 @@ Complete test matrix coverage for all conditional logic branches.
 
 ## References
 
-- **ADK Documentation:** https://developers.google.com/gemini/docs/adk
-- **AI SDK v6 Documentation:** https://sdk.vercel.ai/docs
-- **AudioWorklet API:** https://developer.mozilla.org/en-US/docs/Web/API/AudioWorklet
+- **ADK Documentation:** <https://developers.google.com/gemini/docs/adk>
+- **AI SDK v6 Documentation:** <https://sdk.vercel.ai/docs>
+- **AudioWorklet API:** <https://developer.mozilla.org/en-US/docs/Web/API/AudioWorklet>
 - **Experiment Notes:** `experiments/2025-12-11_adk_bidi_multimodal_support.md`
 - **Tool Approval Tests:** `tests/unit/test_tool_approval.py`, `tests/integration/test_backend_tool_approval.py`
 - **WebSocket Event Tests:** `tests/unit/test_websocket_events.py`

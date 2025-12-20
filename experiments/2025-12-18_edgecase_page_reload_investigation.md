@@ -11,11 +11,13 @@ Investigate what happens when a user accidentally reloads the page while a long-
 ## Background
 
 After completing Edge Cases #1 and #2, we identified additional edge cases to investigate. Page reload during approval is a realistic user scenario where they might:
+
 - Accidentally hit F5 or Cmd+R
 - Click browser refresh button
 - Navigate away and back using browser history
 
 **Questions to Answer:**
+
 1. What happens to the pending approval state?
 2. Does the approval UI reappear after reload?
 3. Is the WebSocket reconnected?
@@ -76,6 +78,7 @@ test('Phase 7: Page reload during approval', async ({ page }) => {
 ## Investigation Results
 
 **Test Output:**
+
 ```
 [POC Phase 7] Testing page reload during approval wait
 [POC Phase 7] Approval UI visible
@@ -93,6 +96,7 @@ test('Phase 7: Page reload during approval', async ({ page }) => {
 ```
 
 **Findings:**
+
 - ❌ **Approval UI**: NOT restored after reload
 - ❌ **WebSocket**: NOT reconnected
 - ❌ **Message History**: NOT preserved
@@ -107,6 +111,7 @@ After investigating the codebase, we found this is **NOT a bug** but a **documen
 ### 1. Session Resumption Not Implemented for Google AI Studio
 
 From `server.py:576`:
+
 ```python
 if use_vertexai:
     logger.info("[BIDI] Using Vertex AI with session resumption enabled")
@@ -115,6 +120,7 @@ else:
 ```
 
 Session resumption configuration:
+
 ```python
 # server.py:588, 611
 session_resumption=types.SessionResumptionConfig() if use_vertexai else None
@@ -123,10 +129,12 @@ session_resumption=types.SessionResumptionConfig() if use_vertexai else None
 ### 2. Session Resumption Only Supported on Vertex AI
 
 From ADK SDK limitations:
+
 - **Google AI Studio**: Session resumption API not available
 - **Vertex AI**: Session resumption supported via `types.SessionResumptionConfig()`
 
 Currently using Google AI Studio for development (see `.env.example`):
+
 ```bash
 # ADK Configuration - Use Google AI Studio (not Vertex AI)
 GOOGLE_GENAI_USE_VERTEXAI=0
@@ -135,6 +143,7 @@ GOOGLE_GENAI_USE_VERTEXAI=0
 ### 3. Future Implementation Planned
 
 From `docs/ARCHITECTURE.md:1009`:
+
 ```markdown
 **Workaround:** Users must refresh the page to restart conversation.
 
@@ -142,6 +151,7 @@ From `docs/ARCHITECTURE.md:1009`:
 ```
 
 From `docs/ARCHITECTURE.md:321`:
+
 ```
 Clean up session (no automatic resumption)
 ```
@@ -149,10 +159,12 @@ Clean up session (no automatic resumption)
 ### 4. Related Documentation
 
 **ADR-0001: Per-Connection State Management**
+
 - States: "Session Persistence: Store sessions in database for resumption after browser restart" (future)
 - Current design: Per-connection state, no cross-connection sharing
 
 **Previous Experiments:**
+
 - `2025-12-11_adk_bidi_ai_sdk_v6_integration.md`: "No session resumption after disconnect"
 - `2025-12-11_adk_bidi_ai_sdk_v6_integration.md:504`: "WebSocket reconnection with session resumption" (future need)
 
@@ -161,11 +173,13 @@ Clean up session (no automatic resumption)
 ### User Experience Impact
 
 **Normal Chat Usage:**
+
 - **Impact**: Medium
 - **Workaround**: User can simply restart conversation
 - **Loss**: Message history and context
 
 **Long-Running Tool Approval (Critical!):**
+
 - **Impact**: **High** 🔴
 - **Scenario**: User is waiting for approval, accidentally reloads
 - **Loss**: Pending approval state lost
@@ -175,6 +189,7 @@ Clean up session (no automatic resumption)
 ### System Behavior
 
 **On Page Reload:**
+
 1. Frontend React state completely reset
 2. WebSocket connection closed and not restored
 3. Backend agent session remains in memory but unreachable
@@ -182,6 +197,7 @@ Clean up session (no automatic resumption)
 5. No cleanup mechanism for orphaned backend sessions
 
 **Backend Session Cleanup:**
+
 - Sessions are cleaned up eventually but not immediately
 - Agent remains paused waiting for function_response
 - No timeout mechanism for long-running tool approvals
@@ -190,7 +206,7 @@ Clean up session (no automatic resumption)
 
 After analysis, we conclude this is an **accepted limitation** rather than a bug to fix, because:
 
-### Reasons to Accept:
+### Reasons to Accept
 
 1. **Documented Design Decision**
    - Already documented in ARCHITECTURE.md
@@ -213,7 +229,7 @@ After analysis, we conclude this is an **accepted limitation** rather than a bug
    - Better to implement properly later than quick hack now
    - Should be part of larger session persistence feature
 
-### Reasons to Fix (Why We're NOT Fixing):
+### Reasons to Fix (Why We're NOT Fixing)
 
 1. Poor UX during long-running approvals
    - **Mitigation**: Document clearly, add UI warning
@@ -230,6 +246,7 @@ Since we're accepting this as a limitation, we should mitigate the impact:
 ### 1. Documentation (High Priority)
 
 **Update `docs/ARCHITECTURE.md` - Known Limitations:**
+
 ```markdown
 ### Page Reload During Long-Running Tool Approval
 
@@ -309,18 +326,21 @@ Add visual indicator that session is not persistent:
 **Decision:** Accept as documented limitation, do NOT implement fix now.
 
 **Rationale:**
+
 - Technically complex (requires Vertex AI or major refactoring)
 - Already documented as future enhancement
 - Limited user impact (edge case)
 - Proper solution requires broader session persistence feature
 
 **Action Items:**
+
 1. ✅ Document behavior in this experiment file
 2. 🔄 Update `experiments/README.md` with investigation result
 3. 🔄 Consider adding `beforeunload` warning (optional)
 4. 🔄 Consider backend session timeout (optional)
 
 **Future Work:**
+
 - Implement full session persistence when migrating to Vertex AI
 - OR implement custom session state management with database
 - Ref: ADR-0001, `docs/ARCHITECTURE.md:1009`
@@ -332,6 +352,7 @@ Add visual indicator that session is not persistent:
 **Test Type:** Investigation test (documents behavior, does not enforce)
 
 **Verification:**
+
 ```bash
 pnpm exec playwright test e2e/poc-longrunning-bidi.spec.ts -g "Phase 7" --project=chromium
 ```

@@ -24,6 +24,7 @@ Translation: "For the tests that are timing out, could you add a bit more margin
 ## Hypothesis
 
 **Primary:** E2E tests are timing out due to insufficient timeout values for:
+
 1. Global test timeout (Playwright configuration)
 2. Assertion-level timeouts (waiting for "Thinking..." indicator and LLM responses)
 
@@ -34,6 +35,7 @@ Translation: "For the tests that are timing out, could you add a bit more margin
 ### Step 1: Identify Timeout Configuration Hierarchy ✅
 
 **Files Examined:**
+
 - `playwright.config.ts` - Global test configuration
 - `tests/e2e/helpers.ts` - Test helper functions with assertions
 
@@ -87,6 +89,7 @@ timeout: 180 * 1000,
 **New Value:** `180 * 1000` (3 minutes)
 
 **Rationale:**
+
 - LLM responses: 5-15 seconds (typical)
 - Image processing: 10-20 seconds (slower)
 - Multiple API calls per test: 3-5 calls
@@ -99,6 +102,7 @@ timeout: 180 * 1000,
 **Command:** `just test-e2e-clean`
 
 **Results:**
+
 - **15 failed tests**
 - **1 passed test**
 - **Execution time:** 33.2 minutes
@@ -111,6 +115,7 @@ timeout: 180 * 1000,
 **Investigation:**
 
 1. **Error Location:** All failures in `getMessageText()` function (tests/e2e/helpers.ts:104-106)
+
    ```typescript
    export async function getMessageText(messageLocator: any): Promise<string> {
      return await messageLocator.locator('[data-testid="message-text"]').first().textContent() || '';
@@ -125,6 +130,7 @@ timeout: 180 * 1000,
 3. **Component Analysis:** (components/message.tsx)
 
    **Handles experimental_attachments:** (lines 66-96)
+
    ```typescript
    {(message as any).experimental_attachments?.map((attachment: any, index: number) => {
      if (attachment.type === "text") {
@@ -138,6 +144,7 @@ timeout: 180 * 1000,
    ```
 
    **Handles message.parts:** (lines 99-236)
+
    ```typescript
    {message.parts?.map((part: any, index: number) => {
      if (part.type === "text") {
@@ -158,6 +165,7 @@ timeout: 180 * 1000,
 **Root Cause Identified:** 🎯
 
 AI SDK v6 Message Format Consolidation:
+
 1. During streaming: `message.parts = [{ type: "text", text: "..." }]` ✅ Renders with test ID
 2. After streaming: `message.content = "..."` (parts removed) ❌ Renders WITHOUT test ID
 3. Test selector: `[data-testid="message-text"]` → Not found → Timeout
@@ -186,6 +194,7 @@ File: `components/message.tsx` (lines 238-249)
 **Placement:** After `message.parts` handling, before closing `</div>` of message content section
 
 **Logic:**
+
 - Only render if NO `experimental_attachments`
 - AND NO `message.parts`
 - AND `message.content` exists
@@ -199,6 +208,7 @@ File: `components/message.tsx` (lines 238-249)
 **Started:** 2025-12-11 12:51 JST
 
 **Observations so far:**
+
 - Next.js dev server reloaded successfully
 - ADK backend server running
 - 16 tests started with 2 workers
@@ -256,6 +266,7 @@ File: `components/message.tsx` (lines 238-249)
 ### API Performance
 
 All API calls successful with reasonable latency:
+
 - Typical: 5-8 seconds
 - Image processing: 11-13 seconds
 - Maximum observed: ~14 seconds
@@ -311,6 +322,7 @@ All API calls successful with reasonable latency:
 **Objective:** Improve code architecture by encapsulating backend configuration logic
 
 **Motivation:**
+
 - Backend switching implementation was spread across page.tsx (UI layer)
 - Endpoint calculation, WebSocket transport creation, and environment variable reading were mixed with UI code
 - Difficult to test backend configuration logic in isolation
@@ -318,6 +330,7 @@ All API calls successful with reasonable latency:
 **Changes Implemented:**
 
 1. **lib/build-use-chat-options.ts** - Enhanced function signature:
+
    ```typescript
    // Before
    buildUseChatOptions({
@@ -358,6 +371,7 @@ All API calls successful with reasonable latency:
      - Message history preservation
 
 **Test Results:**
+
 ```
 ✓ lib/build-use-chat-options.test.ts (8 tests) 3ms
   Test Files  1 passed (1)
@@ -366,6 +380,7 @@ All API calls successful with reasonable latency:
 ```
 
 **Benefits:**
+
 - ✅ **Separation of Concerns:** UI layer only handles presentation, lib handles backend logic
 - ✅ **Testability:** Backend configuration now fully unit-testable
 - ✅ **Maintainability:** All backend logic in one place, easier to modify
@@ -373,6 +388,7 @@ All API calls successful with reasonable latency:
 - ✅ **Encapsulation:** Environment variables and endpoint logic hidden from UI
 
 **Known Issues:**
+
 - TypeScript error in page.tsx:39 - WebSocketChatTransport type compatibility issue (non-blocking, runtime works correctly)
 
 ### Issues Encountered
@@ -428,11 +444,13 @@ All API calls successful with reasonable latency:
 ### Impact
 
 This investigation revealed critical issues with:
+
 - E2E test timeout configuration for LLM-based applications
 - AI SDK v6 message format handling in React components
 - Test selector patterns for streaming UIs
 
 The fixes enable:
+
 - Stable E2E testing with real LLM API calls
 - Robust handling of AI SDK v6's dynamic message formats
 - Better developer experience with clearer failure modes
@@ -456,6 +474,7 @@ const activeChat = mode === "gemini" ? geminiChat
 ```
 
 **Debug Logs Confirmed Correct Configuration:**
+
 ```
 [buildUseChatOptions] Gemini options: {"id":"chat-gemini--api-chat","api":"/api/chat","messagesCount":0}
 [buildUseChatOptions] ADK SSE options: {"id":"chat-adk-sse-http---localhost-8000-stream","api":"http://localhost:8000/stream","messagesCount":0}
@@ -477,12 +496,14 @@ const activeChat = mode === "gemini" ? geminiChat
    - **Result: WRONG ENDPOINT**
 
 **Network Evidence:**
+
 ```
 reqid=301 POST http://localhost:3001/api/chat [success - 200]  # Gemini Direct (correct)
 reqid=304 POST http://localhost:3001/api/chat [success - 200]  # ADK SSE (WRONG!)
 ```
 
 **Server Logs Confirmed Bug:**
+
 ```
 [Gemini Direct] Received request body: {
   "id": "chat-adk-sse-http---localhost-8000-stream",  // Correct ID
@@ -526,6 +547,7 @@ After exhaustive testing proved that the `api` option is completely non-function
 **Hypothesis:** Using 3 completely independent React components (each with exactly 1 useChat instance) might isolate the bug.
 
 **Implementation:**
+
 ```typescript
 // app/page.tsx
 {mode === "gemini" && <GeminiChat key="gemini" />}
@@ -541,6 +563,7 @@ export function GeminiChat() {
 ```
 
 **Test Results:**
+
 ```
 reqid=239 POST http://localhost:3002/api/chat  ✅ Test 1: Gemini (correct)
 reqid=242 POST http://localhost:3002/api/chat  ❌ Test 2: ADK SSE (should be http://localhost:8000/stream)
@@ -554,6 +577,7 @@ reqid=242 POST http://localhost:3002/api/chat  ❌ Test 2: ADK SSE (should be ht
 Examined AI SDK v6 source code (`node_modules/ai/dist/index.js` and `index.d.ts`) to understand how the `api` option is actually used:
 
 **Key Finding 1:** `ChatInit` interface does NOT include `prepareSendMessagesRequest`
+
 ```typescript
 interface ChatInit<UI_MESSAGE extends UIMessage> {
     id?: string;
@@ -565,6 +589,7 @@ interface ChatInit<UI_MESSAGE extends UIMessage> {
 ```
 
 **Key Finding 2:** `prepareSendMessagesRequest` exists in `HttpChatTransportInitOptions`
+
 ```typescript
 type HttpChatTransportInitOptions<UI_MESSAGE extends UIMessage> = {
     api?: string;
@@ -578,6 +603,7 @@ type HttpChatTransportInitOptions<UI_MESSAGE extends UIMessage> = {
 ```
 
 **Key Finding 3:** AI SDK uses `prepareSendMessagesRequest` to allow request modification
+
 ```javascript
 const preparedRequest = await this.prepareSendMessagesRequest?.call(this, {
   api: this.api,
@@ -627,11 +653,13 @@ return {
 ```
 
 **Critical Discovery:** The `body` field exclusion is essential. Initially tried:
+
 ```typescript
 return { ...options, api: apiEndpoint }; // ❌ This includes body: {}
 ```
 
 This caused empty requests because AI SDK checks:
+
 ```javascript
 const body = preparedRequest?.body !== undefined ? preparedRequest.body : /* construct body */
 ```
@@ -641,12 +669,14 @@ If `body: {}` is present (even empty), AI SDK uses it directly instead of constr
 #### Verification Results ✅
 
 **Test 1: Gemini Direct Mode**
+
 ```
 POST http://localhost:3002/api/chat [200 OK]
 Debug Log: [prepareSendMessagesRequest] Overriding endpoint to: /api/chat
 ```
 
 **Test 2: ADK SSE Mode**
+
 ```
 POST http://localhost:8000/stream [200 OK]
 Debug Log: [prepareSendMessagesRequest] Overriding endpoint to: http://localhost:8000/stream
@@ -654,30 +684,36 @@ Debug Log: [prepareSendMessagesRequest] Overriding endpoint to: http://localhost
 
 **Test 3: Component Consolidation**
 After verifying the solution, consolidated 3 separate components back to single unified `Chat` component:
+
 ```typescript
 <Chat key={mode} mode={mode} />
 ```
+
 Endpoint switching continued to work correctly. The `key` prop ensures React remounts the component when mode changes.
 
 #### Summary
 
 **Problem:** AI SDK v6 `api` option completely non-functional
+
 - Affects dynamic endpoint switching
 - Even separate Chat instances don't work
 - Bug appears to be at module/global level
 
 **Solution:** Manual `DefaultChatTransport` creation with `prepareSendMessagesRequest`
+
 - Use AI SDK's proper extension point
 - Override `api` in callback
 - CRITICAL: Exclude `body` field from return value
 
 **Benefits:**
+
 - ✅ Endpoint switching works correctly
 - ✅ Clean architecture (single Chat component)
 - ✅ Leverages official AI SDK extension point
 - ✅ No hacky workarounds or monkey-patching
 
 **Implementation Commits:**
+
 - `ee4784a` - Fix AI SDK v6 endpoint switching bug with manual transport creation
 - `8bea94e` - Consolidate 3 separate chat components into unified Chat component
 

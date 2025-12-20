@@ -7,9 +7,11 @@
 ## Background
 
 ### Context
+
 We implemented ADK tool confirmation flow for BIDI mode (WebSocket-based `/live` endpoint). The confirmation UI appears correctly, users can approve/deny, but the FunctionResponse from `adk_request_confirmation` never reaches the ADK Live API, causing an infinite loop.
 
 ### Current Implementation State
+
 - ✅ Approval UI appears (confirmation event injection working)
 - ✅ `adk_request_confirmation` tool executes → returns `{ confirmed: true }`
 - ✅ `ChatMessage.to_adk_content()` converts to `FunctionResponse` correctly
@@ -21,13 +23,16 @@ We implemented ADK tool confirmation flow for BIDI mode (WebSocket-based `/live`
 - ❌ Infinite loop (AI keeps asking for confirmation)
 
 ### Code Location
+
 - `ai_sdk_v6_compat.py:545-561` - FunctionResponse isolation logic
 - `server.py:684` - `live_request_queue.send_content()` call
 
 ### Test Case
+
 - `e2e/adk-confirmation-minimal-bidi.spec.ts:32` - Test 1: Normal Flow - Approve Once
 
 ### Server Logs Show
+
 ```python
 [STEP 2] Processing 1 parts from last_msg
 [STEP 2] Part type: ToolUsePart
@@ -38,6 +43,7 @@ We implemented ADK tool confirmation flow for BIDI mode (WebSocket-based `/live`
 ```
 
 ### Evidence of Problem
+
 - Backend chunk logs show no outgoing events (`direction: "out"`) after `send_content()` call
 - Frontend chunk logs show AI continues to request confirmation
 - UI stuck in "Thinking..." state
@@ -46,9 +52,11 @@ We implemented ADK tool confirmation flow for BIDI mode (WebSocket-based `/live`
 ## Hypothesis
 
 ### Primary Hypothesis
+
 `LiveRequestQueue.send_content()` in ADK Live API may have undocumented constraints or requirements that reject FunctionResponse, or FunctionResponse may need to be sent through a different mechanism in BIDI mode.
 
 ### Alternative Hypotheses
+
 1. FunctionResponse structure may be incorrect for BIDI mode (different from SSE mode)
 2. ADK Live API may require different Content/Part format than documented
 3. LiveRequestQueue may require specific metadata or headers for tool responses
@@ -59,21 +67,25 @@ We implemented ADK tool confirmation flow for BIDI mode (WebSocket-based `/live`
 ### Research Phase (Using DeepWiki MCP)
 
 #### Step 1: Research ADK Live API Documentation
+
 - Use DeepWiki MCP to query official Google ADK repository
 - Search for: "Live API FunctionResponse", "LiveRequestQueue", "tool response BIDI"
 - Document official requirements for sending FunctionResponse
 
 #### Step 2: Research LiveRequestQueue Implementation
+
 - Query DeepWiki for `LiveRequestQueue` class implementation
 - Understand `send_content()` method behavior and constraints
 - Check for validation logic or filtering that might reject FunctionResponse
 
 #### Step 3: Compare SSE vs BIDI Patterns
+
 - Research how SSE mode handles FunctionResponse vs BIDI mode
 - Check if there are different mechanisms for different modes
 - Document any mode-specific requirements
 
 #### Step 4: Investigate Content/Part Structure Requirements
+
 - Query for ADK `types.Content` and `types.Part` structure requirements
 - Verify if FunctionResponse needs specific wrapping or metadata
 - Check role requirements ("user" vs "assistant")
@@ -81,11 +93,13 @@ We implemented ADK tool confirmation flow for BIDI mode (WebSocket-based `/live`
 ### Verification Phase (After Research)
 
 #### Step 5: Implement Findings
+
 - Apply any discovered requirements from documentation
 - Update `process_chat_message_for_bidi()` if needed
 - Add additional logging to trace request path
 
 #### Step 6: Test Implementation
+
 - Run minimal BIDI test: `pnpm exec playwright test e2e/adk-confirmation-minimal-bidi.spec.ts:32`
 - Verify FunctionResponse appears in backend chunk logs with `direction: "out"`
 - Verify AI processes confirmation and completes tool execution
@@ -93,11 +107,13 @@ We implemented ADK tool confirmation flow for BIDI mode (WebSocket-based `/live`
 ## Expected Results
 
 ### Before Research
+
 - [ ] Clear understanding of LiveRequestQueue.send_content() requirements
 - [ ] Documentation of FunctionResponse structure requirements for BIDI mode
 - [ ] Identification of any missing metadata, headers, or structure elements
 
 ### After Implementation
+
 - [ ] FunctionResponse successfully sent to ADK Live API
 - [ ] Backend chunk logs show `direction: "out"` events with FunctionResponse
 - [ ] AI processes confirmation and completes `process_payment` tool
@@ -121,6 +137,7 @@ From ADK documentation (Part 2 - Sending messages with LiveRequestQueue):
 #### Finding 2: SSE vs BIDI Architecture Difference
 
 **SSE Mode** (WORKING):
+
 ```python
 # server.py:463
 message_content = _process_latest_message(request.messages[-1])  # Returns Content with FunctionResponse
@@ -134,6 +151,7 @@ event_stream = sse_agent_runner.run_async(
 ```
 
 **BIDI Mode** (BROKEN):
+
 ```python
 # server.py:675
 image_blobs, text_content = process_chat_message_for_bidi(message_data)  # Returns Content with FunctionResponse
@@ -143,17 +161,20 @@ live_request_queue.send_content(text_content)  # FunctionResponse sent to send_c
 ```
 
 **Key Difference**:
+
 - SSE uses `run_async(new_message=content)` which processes FunctionResponse in conversation context
 - BIDI uses `LiveRequestQueue.send_content()` which is designed for text input, not tool results
 
 #### Finding 3: FunctionResponse Requirements
 
 From ADK documentation:
+
 - FunctionResponse should be handled by ADK's automatic function calling loop
 - For registered functions, ADK receives calls → executes → sends responses back
 - Manual construction of FunctionResponse is discouraged
 
 **Problem with Our Approach**:
+
 - `adk_request_confirmation` is NOT a registered ADK function
 - It's a meta-tool we inject for UI confirmation pattern
 - We're trying to manually send its FunctionResponse back to ADK
@@ -166,6 +187,7 @@ From ADK Session documentation:
 > "State should always be updated as part of adding an Event to the session history using `session_service.append_event()`, which ensures changes are tracked, persistence works correctly, and updates are thread-safe."
 
 **Event Construction** (from `tests/unit/test_stream_protocol.py:101`):
+
 ```python
 from google.adk.events import Event
 
@@ -175,6 +197,7 @@ session_service.append_event(session, event)
 
 **Solution**:
 Instead of using `LiveRequestQueue.send_content()` for FunctionResponse, we should:
+
 1. Create Content with Function Response (already done by `ChatMessage.to_adk_content()`)
 2. Wrap it in an Event object with `author="user"`
 3. Use `bidi_agent_runner.session_service.append_event(session, event)`
@@ -187,12 +210,14 @@ Instead of using `LiveRequestQueue.send_content()` for FunctionResponse, we shou
 **Line**: 684 (BIDI WebSocket handler)
 
 **Before** (BROKEN):
+
 ```python
 if text_content:
     live_request_queue.send_content(text_content)  # ❌ Wrong API for FunctionResponse
 ```
 
 **After** (FIXED):
+
 ```python
 if text_content:
     # Check if this is a FunctionResponse (tool confirmation)
@@ -219,6 +244,7 @@ if text_content:
 #### Attempt 1: session_service.append_event() Implementation
 
 **Test Command:**
+
 ```bash
 pnpm exec playwright test e2e/adk-confirmation-minimal-bidi.spec.ts:32 --timeout=60000
 ```
@@ -226,6 +252,7 @@ pnpm exec playwright test e2e/adk-confirmation-minimal-bidi.spec.ts:32 --timeout
 **Result:** ❌ FAILED (Different error pattern)
 
 **Error:**
+
 ```
 Error: models/gemini-live-2.5-flash-preview is not found for API version v1alpha,
 or is not supported for bidiGenerateContent
@@ -234,12 +261,14 @@ or is not supported for bidiGenerateContent
 **Analysis:**
 
 Logs show contradictory model names:
+
 - Server log: `[BIDI] Detected native-audio model: gemini-2.5-flash-native-audio-preview-12-2025`
 - Error message: `models/gemini-live-2.5-flash-preview is not found`
 
 The server is using the correct model (`gemini-2.5-flash-native-audio-preview-12-2025`), but ADK internally appears to be converting it to `gemini-live-2.5-flash-preview`.
 
 **Hypothesis:**
+
 1. ADK SDK may have internal model name mapping/aliasing
 2. The native-audio model may require different configuration for BIDI mode
 3. This could be an ADK SDK version issue
@@ -247,6 +276,7 @@ The server is using the correct model (`gemini-2.5-flash-native-audio-preview-12
 **Investigation Results:**
 
 **Findings from Source Code Analysis:**
+
 1. ✅ ADK SDK does NOT convert model names - confirmed by reading `.venv/.../google/adk/utils/model_name_utils.py`
 2. ✅ Genai SDK defaults to `api_version="v1beta"` - confirmed in `.venv/.../google/genai/_interactions/_client.py:74`
 3. ✅ Model name `gemini-2.5-flash-native-audio-preview-12-2025` IS supported for Live API (confirmed via Google documentation)
@@ -256,11 +286,13 @@ The server is using the correct model (`gemini-2.5-flash-native-audio-preview-12
 The error is **NOT related to session_service.append_event() implementation**. This is a separate API configuration issue.
 
 **Root Cause Hypotheses:**
+
 1. ADK SDK may be overriding API version to `v1alpha` for Live API specifically
 2. The native-audio preview model may require special configuration
 3. Google AI Studio API may have model name compatibility issues with `v1alpha`
 
 **Next Steps:**
+
 1. **Option A (Quick Test)**: Try a stable non-preview model to isolate the issue
    - Use `gemini-2.0-flash-exp` or `gemini-exp-1206`
    - If this works, the issue is model-specific, not append_event()-specific
@@ -284,6 +316,7 @@ The error is **NOT related to session_service.append_event() implementation**. T
 ### [2025-12-18] Starting Research Phase
 
 **Queries to execute:**
+
 1. DeepWiki: Search ADK repository for "Live API" and "FunctionResponse"
 2. DeepWiki: Search ADK repository for "LiveRequestQueue" implementation
 3. DeepWiki: Search for BIDI/SSE mode differences in tool handling

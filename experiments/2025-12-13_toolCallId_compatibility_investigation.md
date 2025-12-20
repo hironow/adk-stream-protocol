@@ -20,6 +20,7 @@
 **Source:** [Google ADK Documentation](https://google.github.io/adk-docs/)
 
 **Field Definition:**
+
 ```python
 class FunctionCall(_common.BaseModel):
     id: Optional[str] = Field(
@@ -30,6 +31,7 @@ class FunctionCall(_common.BaseModel):
 ```
 
 **Format:**
+
 - **Prefix:** `adk-`
 - **UUID:** Standard UUID v4 format
 - **Complete format:** `adk-{UUID}`
@@ -38,6 +40,7 @@ class FunctionCall(_common.BaseModel):
 **Availability:** Optional (can be None)
 
 **Purpose:**
+
 - Unique identifier for tracking tool invocations
 - Correlating tool calls with their responses
 - Useful when multiple tools are called in a single response
@@ -49,12 +52,14 @@ class FunctionCall(_common.BaseModel):
 **Format Requirements:** **NONE** (no strict specification found)
 
 **Observed Examples:**
+
 - `call_fJdQDqnXeGxTmr4E3YPSR7Ar` (from official documentation)
 - `call_5e4a50a2-0b51-451d-954d-962bdae2388d` (from GitHub discussion)
 - `tool-123` (from Python implementation)
 - `call-1`, `call-2`, `call-456` (from our frontend tests)
 
 **Purpose:**
+
 - Correlate tool results back to their calls
 - Essential for streaming scenarios
 - No regex pattern, required prefix, or length constraints documented
@@ -79,6 +84,7 @@ class FunctionCall(_common.BaseModel):
 **Location:** `stream_protocol.py:466`
 
 **Current Code:**
+
 ```python
 def _process_function_call(self, function_call: types.FunctionCall) -> list[str]:
     tool_call_id = self._generate_tool_call_id()  # ← Generates "call_0", "call_1", ...
@@ -87,6 +93,7 @@ def _process_function_call(self, function_call: types.FunctionCall) -> list[str]
 ```
 
 **Problem:**
+
 - Ignores ADK's `function_call.id`
 - Generates sequential IDs: "call_0", "call_1", "call_2"
 - Uses tool_name-based mapping to track calls
@@ -96,6 +103,7 @@ def _process_function_call(self, function_call: types.FunctionCall) -> list[str]
 **Location:** `stream_protocol.py:476`
 
 **Current Code:**
+
 ```python
 # Store mapping so function_response can use the same ID
 self.tool_call_id_map[tool_name] = tool_call_id
@@ -121,10 +129,12 @@ self.tool_call_id_map["web_search"] = "call_1"
 **Commit:** `5ff0822` - "fix: Ensure tool call and result share the same toolCallId"
 
 **What it fixed:**
+
 - function_call and function_response were generating different toolCallIds
 - Added tool_call_id_map to maintain consistency
 
 **What it missed:**
+
 - Did not consider using ADK's existing `function_call.id`
 - Implemented workaround (tool_name mapping) instead of proper solution
 
@@ -135,6 +145,7 @@ self.tool_call_id_map["web_search"] = "call_1"
 ### Solution: Use ADK's function_call.id with Fallback
 
 **Rationale:**
+
 1. ADK already provides unique IDs
 2. AI SDK v6 has no format restrictions
 3. Eliminates custom ID generation complexity
@@ -271,11 +282,13 @@ async def test_stream_protocol_handles_concurrent_same_tool():
 ### 🟡 Severity: MEDIUM
 
 **Current State:**
+
 - Works for single tool calls
 - Breaks for concurrent calls to same tool
 - Unnecessary complexity (custom ID generation + mapping)
 
 **After Fix:**
+
 - ✅ Handles concurrent calls correctly
 - ✅ Simpler implementation
 - ✅ Uses ADK's intended design
@@ -290,6 +303,7 @@ async def test_stream_protocol_handles_concurrent_same_tool():
 - Frontend doesn't care about ID format, only uniqueness
 
 **Migration Path:**
+
 1. Deploy new stream_protocol (uses ADK IDs)
 2. Existing sessions continue with old IDs
 3. New sessions use ADK IDs
@@ -310,8 +324,8 @@ async def test_stream_protocol_handles_concurrent_same_tool():
 
 ## References
 
-- ADK Documentation: https://google.github.io/adk-docs/
-- AI SDK v6 Stream Protocol: https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol
+- ADK Documentation: <https://google.github.io/adk-docs/>
+- AI SDK v6 Stream Protocol: <https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol>
 - Commit 5ff0822: "fix: Ensure tool call and result share the same toolCallId"
 - FunctionCall definition: `.venv/lib/python3.13/site-packages/google/genai/types.py:1169-1194`
 - Frontend tests: `lib/use-chat-integration.test.tsx` (toolCallId usage examples)

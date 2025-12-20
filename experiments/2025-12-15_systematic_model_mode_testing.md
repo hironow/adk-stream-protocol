@@ -11,11 +11,13 @@ Successfully established comprehensive test suite for mode/model combinations. C
 ## Background
 
 The ADK AI Data Protocol supports three modes:
+
 1. **Gemini Direct** - Direct Gemini API via Next.js API route
 2. **ADK SSE** - Server-Sent Events via ADK backend
 3. **ADK BIDI** - Bidirectional WebSocket with audio support
 
 Each mode can potentially work with different Gemini models:
+
 - `gemini-2.0-flash-exp` (Latest, supports audio)
 - `gemini-1.5-pro` (Stable production model)
 - `gemini-1.5-flash` (Fast, cost-effective)
@@ -50,6 +52,7 @@ Each mode can potentially work with different Gemini models:
 ## Test Scenarios
 
 ### Scenario 1: Basic Text Conversation
+
 ```
 1. Send "Hello, how are you?"
 2. Verify response received
@@ -58,6 +61,7 @@ Each mode can potentially work with different Gemini models:
 ```
 
 ### Scenario 2: Image Analysis
+
 ```
 1. Upload test image
 2. Ask "What's in this image?"
@@ -66,6 +70,7 @@ Each mode can potentially work with different Gemini models:
 ```
 
 ### Scenario 3: Tool Usage
+
 ```
 1. Ask "What's the weather in Tokyo?"
 2. Verify tool approval (if applicable)
@@ -74,6 +79,7 @@ Each mode can potentially work with different Gemini models:
 ```
 
 ### Scenario 4: Mode Switching (Critical)
+
 ```
 1. Start in Gemini Direct
 2. Send 3 messages
@@ -86,6 +92,7 @@ Each mode can potentially work with different Gemini models:
 ```
 
 ### Scenario 5: Audio Streaming (BIDI only)
+
 ```
 1. Start in ADK BIDI mode
 2. Send text message
@@ -98,26 +105,31 @@ Each mode can potentially work with different Gemini models:
 ## Implementation Plan
 
 ### Step 1: Environment Setup (30 min)
+
 - [ ] Create test environment configuration
 - [ ] Set up model switching mechanism
 - [ ] Prepare test data (images, audio samples)
 
 ### Step 2: Automated Test Suite (2 hours)
+
 - [ ] Create Playwright test for each scenario
 - [ ] Implement model/mode matrix runner
 - [ ] Add result logging and reporting
 
 ### Step 3: Manual Testing (2 hours)
+
 - [ ] Execute each test scenario manually
 - [ ] Document edge cases
 - [ ] Record any bugs found
 
 ### Step 4: Performance Testing (1 hour)
+
 - [ ] Measure response times per mode/model
 - [ ] Test with large contexts
 - [ ] Monitor memory usage
 
 ### Step 5: Documentation (30 min)
+
 - [ ] Update compatibility matrix
 - [ ] Document known limitations
 - [ ] Create troubleshooting guide
@@ -125,11 +137,13 @@ Each mode can potentially work with different Gemini models:
 ## Test Data
 
 ### Images
+
 - `test-image-1.png` - Simple object (cat)
 - `test-image-2.jpg` - Complex scene (cityscape)
 - `test-image-3.png` - Text document screenshot
 
 ### Audio Samples
+
 - `test-audio-1.wav` - "Hello world" (2 sec)
 - `test-audio-2.wav` - Question (5 sec)
 - `test-audio-3.wav` - Long narrative (30 sec)
@@ -163,8 +177,9 @@ Each mode can potentially work with different Gemini models:
 ### 2025-12-15 Session Start
 
 **Environment:**
-- Frontend: http://localhost:3000
-- Backend: http://localhost:8000
+
+- Frontend: <http://localhost:3000>
+- Backend: <http://localhost:8000>
 - Browser: Chrome 120+
 - API Keys: Configured in .env.local
 
@@ -173,10 +188,12 @@ Each mode can potentially work with different Gemini models:
 #### Run 1: Initial Test Suite Execution (20:10 JST)
 
 **Setup Issues Fixed:**
+
 - Fixed helper function imports (setupPage → navigateToChat, etc.)
 - Updated function names to match actual exports
 
 **Initial Results:**
+
 - Total: 19 tests
 - Passed: 7
 - Failed: 10
@@ -185,11 +202,13 @@ Each mode can potentially work with different Gemini models:
 #### Run 2: After Model Configuration Fix (20:25 JST)
 
 **Changes Made:**
+
 - Confirmed ADK BIDI correctly uses `gemini-2.5-flash-native-audio-preview-09-2025`
 - Made BIDI model configurable via `ADK_BIDI_MODEL` env var
 - Updated test expectations to match native-audio model for BIDI
 
 **Updated Test Results:**
+
 - Total: 22 tests
 - Passed: 10
 - Failed: 7
@@ -204,11 +223,13 @@ Each mode can potentially work with different Gemini models:
 | ADK BIDI | ❌ Fail (empty response) | ⏭️ Skip | ⏭️ Skip |
 
 **Performance Metrics:**
+
 - Gemini Direct: avg=2009ms, range=2007-2013ms
 - ADK SSE: avg=2001ms, range=1988-2010ms
 - ADK BIDI: Failed to get response
 
 **Issues Found:**
+
 1. ADK BIDI mode not returning response content properly
 2. Helper functions need timeout adjustments for slower responses
 3. Model switching not implemented (tests use default model)
@@ -218,12 +239,14 @@ Each mode can potentially work with different Gemini models:
 ## Key Findings
 
 ### Working Configurations
+
 - ✅ **Gemini Direct**: All 3 models working perfectly (2.0-flash-exp, 1.5-pro, 1.5-flash)
 - ✅ **ADK SSE**: Basic text working with all 3 models
 - ✅ **Performance**: Fast response times (Gemini: ~1.3s, SSE: ~2s, BIDI: ~3s)
 - ✅ **Model Configuration**: BIDI model now configurable via `ADK_BIDI_MODEL` env var
 
 ### Issues Found & Resolved
+
 - ✅ **ADK BIDI Model**: Correctly uses `gemini-2.5-flash-native-audio-preview-09-2025` (by design for audio support)
 - ✅ **Test Infrastructure**: Fixed helper function imports and names
 - ✅ **Model Configuration**: Made BIDI model configurable via `ADK_BIDI_MODEL` env var
@@ -231,25 +254,28 @@ Each mode can potentially work with different Gemini models:
 ### Known Issues (Resolved)
 
 #### 1. ✅ ADK SSE Context Preservation Problem (BUG-006) - **FIXED**
+
 - **Issue**: ADK SSE created new session for each request (stateless)
 - **Evidence**: "Creating new session for user: stream_user" on each request
 - **Impact**: Context not preserved between messages
 - **Root Cause**: Only sending last message to ADK, not full conversation history
 - **Solution**: Created `adk_compat.py` module with session synchronization
-  - `sync_conversation_history_to_session()` syncs message history to ADK sessions
-  - Tracks synced messages to avoid duplicates
-  - Used by both ADK SSE and ADK BIDI modes
-  - Full conversation context now preserved across all messages
+    - `sync_conversation_history_to_session()` syncs message history to ADK sessions
+    - Tracks synced messages to avoid duplicates
+    - Used by both ADK SSE and ADK BIDI modes
+    - Full conversation context now preserved across all messages
 - **Test Coverage**: Added comprehensive unit tests in `test_adk_compat.py`
 
 ### Known Issues (Not Yet Resolved)
 
 #### 1. ADK UI Indicator Differences
+
 - **Issue**: "Thinking..." indicator not shown in ADK modes
 - **Impact**: waitForAssistantResponse helper fails for ADK modes
 - **Workaround Needed**: Different waiting strategy for ADK modes
 
 #### 2. BIDI Model Name Mismatch Error
+
 - **Issue**: ERROR: "models/gemini-live-2.5-flash-preview is not found"
 - **Impact**: BIDI tests intermittently fail
 - **Possible Cause**: Model name format issue in API calls

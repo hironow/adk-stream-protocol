@@ -52,6 +52,7 @@ private startPing() {
 ```
 
 **Key Design:**
+
 - Ping interval: 2 seconds
 - Automatic ping when WebSocket is OPEN
 - Keeps connection alive during idle periods
@@ -72,6 +73,7 @@ if (typeof window !== "undefined") {
 ```
 
 **Purpose:**
+
 - E2E test can monitor WebSocket `readyState`
 - Validates connection remains OPEN during wait
 - Production-safe (only affects browser environment)
@@ -81,6 +83,7 @@ if (typeof window !== "undefined") {
 **Location:** `e2e/poc-longrunning-bidi.spec.ts:221-296`
 
 **Test Strategy:**
+
 1. Trigger approval flow (tool pauses)
 2. Verify initial WebSocket state (OPEN)
 3. Wait 2 minutes with 4 periodic checks (every 30s)
@@ -89,6 +92,7 @@ if (typeof window !== "undefined") {
 6. Verify agent resumes and generates response
 
 **Periodic Status Checks:**
+
 ```typescript
 for (let i = 0; i < 4; i++) {
   await page.waitForTimeout(30000); // 30 seconds
@@ -106,6 +110,7 @@ for (let i = 0; i < 4; i++) {
 ```
 
 **Benefits:**
+
 - Early failure detection (don't wait full 2 minutes if connection drops)
 - Continuous monitoring provides evidence of stability
 - Clear progress indication in test logs
@@ -156,22 +161,26 @@ for (let i = 0; i < 4; i++) {
 ## Technical Validation
 
 ✅ **Pause mechanism** (Phase 2)
+
 - LongRunningFunctionTool returns `None`
 - ADK adds tool ID to `long_running_tool_ids`
 - Agent pauses automatically
 
 ✅ **Resume mechanism** (Phase 3)
+
 - Frontend sends `function_response` via WebSocket
 - Backend processes and resumes agent
 - Final response generated
 
 ✅ **Connection stability** (Phase 4) 🎉
+
 - WebSocket stays OPEN for 2+ minutes
 - Ping/pong keeps connection alive
 - No timeout or disconnection
 - Agent can resume after extended wait
 
 ✅ **Production-ready**
+
 - Handles real-world approval delays (human decision time)
 - Connection remains stable during user deliberation
 - No manual keep-alive required
@@ -182,6 +191,7 @@ for (let i = 0; i < 4; i++) {
 ### Why 2-Second Ping Interval?
 
 **Design rationale:**
+
 - **Balance:** Frequent enough to prevent timeouts, infrequent enough to minimize overhead
 - **WebSocket timeout:** Most servers have 30-60 second idle timeouts
 - **Safety margin:** 2s interval provides 15-30 pings before typical timeout
@@ -199,6 +209,7 @@ for (let i = 0; i < 4; i++) {
 ### Real-World Scenarios
 
 **Phase 4 validates these use cases:**
+
 1. **User deliberation:** Manager reviewing payment before approval (30-120s)
 2. **Context switching:** User checks email/documents before deciding (1-2 minutes)
 3. **Multi-step approval:** User consults with team before approving (2+ minutes)
@@ -212,6 +223,7 @@ for (let i = 0; i < 4; i++) {
 - **After POC Phase 4:** 📈 **98% confidence** ✅ 🎉 (production-ready!)
 
 **Remaining 2% risk factors:**
+
 - Extreme edge cases (10+ minute waits, network interruptions)
 - Production server timeout configurations
 - Load testing under high concurrency
@@ -228,12 +240,15 @@ for (let i = 0; i < 4; i++) {
 ## Files Changed
 
 **Frontend:**
+
 - `lib/websocket-chat-transport.ts` - Added WebSocket debug access (line 530-536)
 
 **Tests:**
+
 - `e2e/poc-longrunning-bidi.spec.ts` - Phase 4 test implementation (lines 221-296)
 
 **Backend:**
+
 - No changes needed! ✅
 
 ## Conclusion

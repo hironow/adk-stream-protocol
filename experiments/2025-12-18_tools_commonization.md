@@ -15,6 +15,7 @@ Create a single source of truth for tools definition that works seamlessly acros
 SSE and BIDI agents had **separate tools definitions** with subtle differences:
 
 **SSE Agent:**
+
 ```python
 sse_agent = Agent(
     tools=[
@@ -27,6 +28,7 @@ sse_agent = Agent(
 ```
 
 **BIDI Agent:**
+
 ```python
 bidi_agent = Agent(
     tools=[
@@ -40,6 +42,7 @@ bidi_agent = Agent(
 ```
 
 **Problems:**
+
 1. Agent implementers had to modify **two separate lists** when adding/removing tools
 2. Risk of inconsistency between SSE and BIDI
 3. Implementers needed to understand mode-specific differences (e.g., LongRunningFunctionTool)
@@ -128,6 +131,7 @@ AGENT_INSTRUCTION = (
 ### How Each Tool Works
 
 #### 1. get_weather (Server, No Approval)
+
 ```python
 async def get_weather(location: str) -> dict[str, Any]:
     # Direct server execution, returns immediately
@@ -135,6 +139,7 @@ async def get_weather(location: str) -> dict[str, Any]:
 ```
 
 #### 2. process_payment (Server, With Approval)
+
 ```python
 # Wrapped with FunctionTool(require_confirmation=True)
 def process_payment(amount: float, recipient: str, currency: str = "USD") -> dict[str, Any]:
@@ -146,6 +151,7 @@ def process_payment(amount: float, recipient: str, currency: str = "USD") -> dic
 ```
 
 #### 3. change_bgm (Client, No Approval)
+
 ```python
 async def change_bgm(track: int, tool_context: ToolContext) -> dict[str, Any]:
     # 1. Delegates to FrontendToolDelegate
@@ -156,6 +162,7 @@ async def change_bgm(track: int, tool_context: ToolContext) -> dict[str, Any]:
 ```
 
 #### 4. get_location (Client, With Approval)
+
 ```python
 # Wrapped with FunctionTool(require_confirmation=True)
 async def get_location(tool_context: ToolContext) -> dict[str, Any]:
@@ -171,17 +178,20 @@ async def get_location(tool_context: ToolContext) -> dict[str, Any]:
 ```
 
 **Key Difference from change_bgm:**
+
 - `change_bgm`: Immediate client execution (no approval UI)
 - `get_location`: Approval UI → then client execution
 
 ### Cross-Mode Compatibility
 
 **LongRunningFunctionTool in SSE Mode:**
+
 - BIDI Mode: Uses pause/resume mechanism (agent stops until function_response)
 - SSE Mode: Behaves like normal FunctionTool (no pause, immediate execution)
 - **Result:** Can be registered in both modes without issues
 
 **FunctionTool(require_confirmation=True):**
+
 - SSE Mode: ADK handles confirmation flow automatically
 - BIDI Mode: ADK generates `adk_request_confirmation` tool call
 - **Result:** Works seamlessly in both modes
@@ -231,11 +241,13 @@ async def get_location(tool_context: ToolContext) -> dict[str, Any]:
 **Previous Matrix:** 4 Tools × 2 Modes × 2 Approvals = 16 patterns
 
 **After Commonization:**
+
 - Tool set identical across SSE and BIDI
 - Approval behavior consistent across modes
 - Test matrix remains 16 patterns but now **guaranteed consistent**
 
 **Approval Requirement Changes:**
+
 - `get_weather`: No approval (unchanged)
 - `process_payment`: Requires approval (unchanged)
 - `change_bgm`: No approval (unchanged)
@@ -244,6 +256,7 @@ async def get_location(tool_context: ToolContext) -> dict[str, Any]:
 ## Verification
 
 ### Code Quality
+
 ```bash
 just lint
 # Result: All checks passed ✅
@@ -252,6 +265,7 @@ just lint
 ### Expected Behavior
 
 **SSE Mode:**
+
 1. User: "私の位置を教えて" (Tell me my location)
 2. AI calls `get_location`
 3. ADK shows approval UI automatically
@@ -261,6 +275,7 @@ just lint
 7. Location returned to server → AI responds
 
 **BIDI Mode:**
+
 1. User: "私の位置を教えて"
 2. AI calls `get_location`
 3. ADK shows approval UI (same as SSE)
@@ -290,6 +305,7 @@ just lint
 **Before:** Agent implementers managed two separate tool lists with subtle differences and missing approval requirements.
 
 **After:** Single `COMMON_TOOLS` definition that:
+
 - Works seamlessly in both SSE and BIDI modes
 - Enforces correct approval requirements (`get_location` now has approval)
 - Eliminates duplication and inconsistency risk

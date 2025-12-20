@@ -23,6 +23,7 @@
 **Location:** `server.py:1155-1174` (WebSocket handler)
 
 **Current Code:**
+
 ```python
 elif event_type == "tool_result":
     result_data = event.get("data", {})
@@ -38,18 +39,21 @@ elif event_type == "tool_result":
 ```
 
 **Problem:**
+
 - `status` field is read but **NEVER USED**
 - `frontend_delegate.resolve_tool_result()` is called **regardless of approved/rejected**
 - Tool function returns the result even when user rejected (approved=false)
 
 **Expected Behavior:**
 When `approved: false`:
+
 1. Backend should receive rejection
 2. Future should be resolved with rejection info (or rejected with exception)
 3. Tool function should return error result to AI
 4. AI should know the tool was rejected
 
 **Current Behavior:**
+
 - Backend treats rejection same as approval
 - Tool function receives `result` even if user said NO
 - No distinction between approval and rejection
@@ -59,6 +63,7 @@ When `approved: false`:
 **Location:** `server.py:143-164` (FrontendToolDelegate)
 
 **Current Code:**
+
 ```python
 def resolve_tool_result(self, tool_call_id: str, result: dict[str, Any]) -> None:
     """Resolve a pending tool call with its result."""
@@ -69,11 +74,13 @@ def resolve_tool_result(self, tool_call_id: str, result: dict[str, Any]) -> None
 ```
 
 **Problem:**
+
 - Only has `.set_result()` (success path)
 - No `.set_exception()` (rejection path)
 - Cannot distinguish between approval and rejection
 
 **Missing:**
+
 ```python
 def reject_tool_call(self, tool_call_id: str, reason: str) -> None:
     """Reject a pending tool call (user denied permission)."""
@@ -89,6 +96,7 @@ def reject_tool_call(self, tool_call_id: str, reason: str) -> None:
 **Location:** `tests/unit/test_tool_approval.py`
 
 **Current Tests:**
+
 - ✅ Test approval request event generation
 - ✅ Test required fields in approval request
 - ❌ **NO TEST for approved=true handling**
@@ -97,6 +105,7 @@ def reject_tool_call(self, tool_call_id: str, reason: str) -> None:
 - ❌ **NO TEST for WebSocket tool_result event handling**
 
 **What's Missing:**
+
 1. Integration test: StreamProtocolConverter → tool-approval-request generation
 2. Integration test: FrontendToolDelegate awaiting result (approval)
 3. Integration test: FrontendToolDelegate awaiting result (rejection)
@@ -109,6 +118,7 @@ def reject_tool_call(self, tool_call_id: str, reason: str) -> None:
 **Location:** `components/chat.tsx:161-185` (handleRejectTool)
 
 **Current Frontend Code:**
+
 ```typescript
 // Step 1: Send rejection
 addToolApprovalResponse({
@@ -127,11 +137,13 @@ addToolOutput({
 ```
 
 **Problem:**
+
 - Frontend sends BOTH approval-responded AND output-available
 - Backend receives tool-result with full output data
 - But user said NO - tool was NEVER executed!
 
 **What Actually Happened:**
+
 1. User clicks [Deny]
 2. Frontend sends approval-responded (approved=false) → Auto-submit (single tool)
 3. Backend receives tool-result with `output: { success: false, denied: true }`
@@ -139,11 +151,13 @@ addToolOutput({
 5. Tool function returns this to AI as if tool was executed
 
 **Expected Behavior (Option A):**
+
 - On rejection, send ONLY approval-responded
 - Backend should resolve Future with rejection error
 - Tool function should return error to AI
 
 **Expected Behavior (Option B):**
+
 - On rejection, send approval-responded + minimal error output
 - Backend checks `approved: false` and creates proper error response
 - Tool function returns rejection error to AI
@@ -155,15 +169,18 @@ addToolOutput({
 ### 🔴 Severity: HIGH
 
 **Current State:**
+
 - User clicks [Deny] → Backend thinks tool succeeded
 - No distinction between user approval and user rejection
 - AI receives misleading results
 
 **Security Impact:**
+
 - User denies permission → Tool "result" is still processed
 - Could leak that user denied (vs tool failing for other reasons)
 
 **User Experience Impact:**
+
 - User says NO → System behaves as if user said YES
 - Confusing behavior: rejection treated as success
 
@@ -178,6 +195,7 @@ addToolOutput({
 **Changes:**
 
 1. **WebSocket Handler:**
+
 ```python
 elif event_type == "tool_result":
     result_data = event.get("data", {})
@@ -198,7 +216,7 @@ elif event_type == "tool_result":
             frontend_delegate.resolve_tool_result(tool_call_id, result)
 ```
 
-2. **No FrontendToolDelegate changes needed** (keeps current API)
+1. **No FrontendToolDelegate changes needed** (keeps current API)
 
 ### Solution B: Add Rejection Method to FrontendToolDelegate
 
@@ -207,6 +225,7 @@ elif event_type == "tool_result":
 **Changes:**
 
 1. **FrontendToolDelegate:**
+
 ```python
 def reject_tool_call(self, tool_call_id: str, reason: str) -> None:
     """Reject a pending tool call."""
@@ -220,7 +239,8 @@ def reject_tool_call(self, tool_call_id: str, reason: str) -> None:
         del self._pending_calls[tool_call_id]
 ```
 
-2. **WebSocket Handler:**
+1. **WebSocket Handler:**
+
 ```python
 elif event_type == "tool_result":
     result_data = event.get("data", {})
@@ -260,21 +280,21 @@ elif event_type == "tool_result":
 
 ### Phase 2: Integration Tests for Rejection Flow
 
-4. **Test: FrontendToolDelegate handles rejection**
+1. **Test: FrontendToolDelegate handles rejection**
    - Given: Pending tool call
    - When: reject_tool_call() called or approved=false
    - Then: Future resolves with rejection error
 
-5. **Test: Full flow - rejection path**
+2. **Test: Full flow - rejection path**
    - Given: Tool requiring approval
    - When: Frontend sends approved=false
    - Then: Tool function returns rejection error
 
 ### Phase 3: Error Scenario Tests
 
-6. **Test: Missing tool_call_id**
-7. **Test: Missing result data**
-8. **Test: Timeout (tool never responds)**
+1. **Test: Missing tool_call_id**
+2. **Test: Missing result data**
+3. **Test: Timeout (tool never responds)**
 
 ---
 
@@ -375,6 +395,7 @@ elif event_type == "tool_result":
 ```
 
 **Key Changes:**
+
 - Check `approved` field from frontend
 - Route to `reject_tool_call()` when `approved is False`
 - Route to `resolve_tool_result()` when approved or result available
@@ -385,16 +406,19 @@ elif event_type == "tool_result":
 ### Verification
 
 **All Tests Passing:**
+
 - Integration tests: 6 passed
 - Unit tests: 15 passed
 - Total: 21 passed, 0 failed
 
 **Code Quality:**
+
 - Ruff: All checks passed
 - Mypy: No type errors
 - All linting errors fixed
 
 **TDD Cycle Completed:**
+
 1. ✅ RED: Created failing test for rejection handling
 2. ✅ GREEN: Implemented reject_tool_call() and WebSocket routing
 3. ✅ REFACTOR: Fixed linting errors, improved logging
@@ -402,12 +426,14 @@ elif event_type == "tool_result":
 ### Behavior Verification
 
 **Approval Path (approved=true or approval not required):**
+
 1. Frontend sends tool_result with `approved: true` (or omitted)
 2. WebSocket handler calls `frontend_delegate.resolve_tool_result(tool_call_id, result)`
 3. Future resolves with success result
 4. Tool function returns result to AI
 
 **Rejection Path (approved=false):**
+
 1. Frontend sends tool_result with `approved: false`
 2. WebSocket handler calls `frontend_delegate.reject_tool_call(tool_call_id, reason)`
 3. Future resolves with rejection error dict `{success: false, error: reason, denied: true}`

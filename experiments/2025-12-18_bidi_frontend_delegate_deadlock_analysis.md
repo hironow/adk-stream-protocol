@@ -22,31 +22,38 @@ Identified the root cause of BIDI mode failures for frontend delegate tools (cha
 ### Frontend Chunk Logs Analysis
 
 **✅ get_weather (SUCCESS):**
+
 ```jsonl
 {"sequence_number":11,"chunk":"data: {\"type\": \"tool-input-available\", ...}"}
 {"sequence_number":42,"chunk":"data: {\"type\": \"tool-output-available\", ...}"}
 ```
+
 - Has complete flow: tool-input → **tool-output**
 
 **❌ change_bgm (FAILURE):**
+
 ```jsonl
 {"sequence_number":10,"chunk":"data: {\"type\": \"tool-input-available\", ...}"}
 {"sequence_number":11,"chunk":"{\"type\":\"ping\",...}"}
 ```
+
 - **Missing:** tool-output-available
 - Only ping/pong after tool-input-available → Deadlock
 
 **❌ process_payment (FAILURE):**
+
 ```jsonl
 {"sequence_number":14,"chunk":"data: {\"type\": \"tool-input-available\", ...}"}
 {"sequence_number":16,"chunk":"{\"type\":\"message\",\"data\":{\"messages\":[{\"content\":[{\"type\":\"tool-result\",\"result\":{\"approved\":true,...}}]}]}}"}
 ```
+
 - User approval sent (approved: true)
 - **Missing:** tool-output-available after approval → Deadlock
 
 ### Backend Logs Analysis
 
 **change_bgm deadlock timestamp gap:**
+
 ```python
 # Line 179: change_bgm function_call
 {"timestamp": 1766077628391, "chunk": "Event(...function_call=FunctionCall(name='change_bgm'..."}
@@ -54,6 +61,7 @@ Identified the root cause of BIDI mode failures for frontend delegate tools (cha
 # Line 180: Next event 105 seconds later (next test!)
 {"timestamp": 1766077733260, "sequence_number": 180}
 ```
+
 - 105-second gap = Test timeout (60s) + next test start
 - Proves backend is blocked waiting for frontend response
 
@@ -84,6 +92,7 @@ class FrontendToolDelegate:
 ```
 
 **Backend WebSocket Handler (server.py:784-798):**
+
 ```python
 elif event_type == "tool_result":
     tool_result_data = event.get("data", {})
@@ -169,6 +178,7 @@ const executeToolCallback = useCallback(
 ### Frontend: UI Component (components/tool-invocation.tsx)
 
 **Current behavior - Only executes for approved tools:**
+
 ```typescript
 // Line 85-86: Long-running tool detection
 const isLongRunningTool =
@@ -256,11 +266,13 @@ Test fails with timeout
    - WebSocket transport available
 
 2. **Execution:** Automatically call:
+
    ```typescript
    const result = await executeToolCallback(toolName, toolCallId, args);
    ```
 
 3. **Result transmission:** Send result back via WebSocket:
+
    ```typescript
    transport.sendToolResult(toolCallId, result);
    ```

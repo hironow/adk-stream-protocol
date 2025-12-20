@@ -12,6 +12,7 @@
 ## What We Tested
 
 Created minimal POC tool (`approval_test_tool`) that immediately returns:
+
 ```python
 {
     "status": "pending",
@@ -64,11 +65,13 @@ The tool output was treated as a regular `function_response`, not a special long
 ### Why It Didn't Work
 
 ADK's `LongRunningFunctionTool` is likely:
+
 - A specific class/decorator (not just a return value convention)
 - Requires special registration or metadata
 - May need ADK-specific APIs to signal pause/resume
 
 Simply returning Python dict with `status: 'pending'` creates:
+
 - ✅ Valid tool output data
 - ❌ NOT a LongRunningFunctionTool behavior
 
@@ -81,16 +84,19 @@ Simply returning Python dict with `status: 'pending'` creates:
 ## Next Steps
 
 ### Option 1: Find Real LongRunningFunctionTool API
+
 - Search ADK codebase for `LongRunningFunctionTool` class
 - Check if there's a decorator like `@LongRunningFunctionTool`
 - Review ADK documentation for proper pause/resume pattern
 
 ### Option 2: Test Backend Blocking Pattern
+
 - If LongRunningFunctionTool doesn't exist for Live API
 - Test PR #3224 backend blocking poll approach
 - This doesn't require agent pause
 
 ### Option 3: Accept SSE-Only Limitation
+
 - LongRunningFunctionTool may only work in generateContent (SSE)
 - Not supported in Live API due to streaming nature
 - Document limitation and recommend SSE mode for confirmations
@@ -106,6 +112,7 @@ Simply returning Python dict with `status: 'pending'` creates:
 **Confidence in Option A (LongRunningFunctionTool)**: 📉 **Decreased from 60% to 30%**
 
 The fact that `long_running_tool_ids` stayed empty suggests:
+
 - Either: We're using the wrong API
 - Or: LongRunningFunctionTool doesn't work with Live API
 

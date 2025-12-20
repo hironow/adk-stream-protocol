@@ -4,8 +4,6 @@ This document describes the E2E testing strategy for both frontend and backend u
 
 ---
 
-
-
 ## Overview
 
 This document describes the E2E testing strategy for the frontend using the Chunk Player pattern. This approach enables deterministic UI testing without requiring real LLM API calls.
@@ -54,6 +52,7 @@ This document describes the E2E testing strategy for the frontend using the Chun
 ```
 
 Legend / 凡例:
+
 - Recording Phase: 記録フェーズ
 - Playback Phase: 再生フェーズ
 - Chunk Logger: チャンクロガー
@@ -64,6 +63,7 @@ Legend / 凡例:
 ## Test Patterns
 
 ### Pattern 1: Gemini Direct Only
+
 - **Mode**: Gemini Direct (fixed throughout test)
 - **Steps**: 4 messages
   1. "こんにちは" (greeting)
@@ -71,27 +71,30 @@ Legend / 凡例:
   3. "123 + 456は？" (calculator tool)
   4. "ありがとう" (thanks)
 - **Verifies**:
-  - Basic message rendering
-  - Tool invocation UI
-  - Mode indicator shows Gemini Direct
+    - Basic message rendering
+    - Tool invocation UI
+    - Mode indicator shows Gemini Direct
 
 ### Pattern 2: ADK SSE Only
+
 - **Mode**: ADK SSE (fixed throughout test)
 - **Steps**: 4 messages (same as Pattern 1)
 - **Verifies**:
-  - Token count display
-  - Model name display (gemini-2.5-flash)
-  - Mode indicator shows ADK SSE
+    - Token count display
+    - Model name display (gemini-2.5-flash)
+    - Mode indicator shows ADK SSE
 
 ### Pattern 3: ADK BIDI Only
+
 - **Mode**: ADK BIDI (fixed throughout test)
 - **Steps**: 4 messages (same as Pattern 1)
 - **Verifies**:
-  - Audio player rendering (one per assistant message)
-  - WebSocket latency display
-  - Mode indicator shows ADK BIDI
+    - Audio player rendering (one per assistant message)
+    - WebSocket latency display
+    - Mode indicator shows ADK BIDI
 
 ### Pattern 4: Mode Switching (CRITICAL)
+
 - **Mode**: Gemini → ADK SSE → ADK BIDI → ADK SSE → Gemini
 - **Steps**: 5 messages (one per mode)
   1. Gemini Direct: "こんにちは"
@@ -100,66 +103,73 @@ Legend / 凡例:
   4. ADK SSE: "ありがとう"
   5. Gemini Direct: "さようなら"
 - **Verifies**:
-  - **CRITICAL**: Message history preservation across mode switches
-  - Final message count: exactly 10 (5 user + 5 assistant)
-  - All messages remain visible after each mode switch
+    - **CRITICAL**: Message history preservation across mode switches
+    - Final message count: exactly 10 (5 user + 5 assistant)
+    - All messages remain visible after each mode switch
 
 ## Implementation Files
 
 ### Core Transport Layer
+
 - **lib/chunk-player-transport.ts**
-  - Implements `ChatTransport<UIMessage>` interface
-  - Lazy-loads fixture files on first `sendMessages()` call
-  - Replays chunks in fast-forward mode (no delays)
+    - Implements `ChatTransport<UIMessage>` interface
+    - Lazy-loads fixture files on first `sendMessages()` call
+    - Replays chunks in fast-forward mode (no delays)
 
 - **lib/chunk-player.ts**
-  - JSONL chunk player engine (already exists)
-  - Loads chunks from URL or File object
-  - Supports real-time and fast-forward playback
+    - JSONL chunk player engine (already exists)
+    - Loads chunks from URL or File object
+    - Supports real-time and fast-forward playback
 
 ### E2E Test Files
+
 - **e2e/chunk-player-ui-verification.spec.ts**
-  - Test scenarios for all 4 patterns
-  - Pattern 4 has two tests (general + critical message count)
+    - Test scenarios for all 4 patterns
+    - Pattern 4 has two tests (general + critical message count)
 
 - **e2e/helpers.ts**
-  - `enableChunkPlayerMode(page, fixturePath)` - Setup helper
-  - `disableChunkPlayerMode(page)` - Cleanup helper
-  - `getChunkPlayerFixturePath(patternName)` - Path resolver
+    - `enableChunkPlayerMode(page, fixturePath)` - Setup helper
+    - `disableChunkPlayerMode(page)` - Cleanup helper
+    - `getChunkPlayerFixturePath(patternName)` - Path resolver
 
 ### Integration Point
+
 - **lib/build-use-chat-options.ts**
-  - Checks `localStorage.getItem('E2E_CHUNK_PLAYER_MODE')`
-  - If enabled, creates ChunkPlayerTransport
-  - Otherwise, creates normal transport (Default, WebSocket)
+    - Checks `localStorage.getItem('E2E_CHUNK_PLAYER_MODE')`
+    - If enabled, creates ChunkPlayerTransport
+    - Otherwise, creates normal transport (Default, WebSocket)
 
 ### Fixture Files
+
 - **tests/fixtures/e2e-chunks/**
-  - `README.md` - Pattern overview and recording procedures for all patterns
-  - `pattern1-gemini-only/frontend-chunks.jsonl` - Fixture (to be recorded)
-  - `pattern2-adk-sse-only/frontend-chunks.jsonl` - Fixture (to be recorded)
-  - `pattern3-adk-bidi-only/frontend-chunks.jsonl` - Fixture (to be recorded)
-  - `pattern4-mode-switching/frontend-chunks.jsonl` - Fixture (to be recorded)
+    - `README.md` - Pattern overview and recording procedures for all patterns
+    - `pattern1-gemini-only/frontend-chunks.jsonl` - Fixture (to be recorded)
+    - `pattern2-adk-sse-only/frontend-chunks.jsonl` - Fixture (to be recorded)
+    - `pattern3-adk-bidi-only/frontend-chunks.jsonl` - Fixture (to be recorded)
+    - `pattern4-mode-switching/frontend-chunks.jsonl` - Fixture (to be recorded)
 
 - **public/fixtures/e2e-chunks/**
-  - Symlinks to `tests/fixtures/e2e-chunks/pattern*/`
-  - Allows HTTP access via Next.js dev server
+    - Symlinks to `tests/fixtures/e2e-chunks/pattern*/`
+    - Allows HTTP access via Next.js dev server
 
 ## Recording Fixtures (Manual Process)
 
 ### Prerequisites
 
 1. Start backend server:
+
    ```bash
    uv run uvicorn server:app --reload
    ```
 
 2. Start frontend dev server:
+
    ```bash
    pnpm dev
    ```
 
 3. Open browser:
+
    ```bash
    open http://localhost:3000
    ```
@@ -171,6 +181,7 @@ Legend / 凡例:
 1. **Enable Chunk Logger**
 
    Open browser console and execute:
+
    ```javascript
    localStorage.setItem('CHUNK_LOGGER_ENABLED', 'true');
    localStorage.setItem('CHUNK_LOGGER_SESSION_ID', 'pattern1-gemini-only');
@@ -193,6 +204,7 @@ Legend / 凡例:
 3. **Export Chunks**
 
    Open browser console and execute:
+
    ```javascript
    window.__chunkLogger__.export();
    ```
@@ -202,6 +214,7 @@ Legend / 凡例:
 4. **Save Fixture**
 
    Move the downloaded file to the fixture directory:
+
    ```bash
    mv ~/Downloads/pattern1-gemini-only.jsonl \
       tests/fixtures/e2e-chunks/pattern1-gemini-only/frontend-chunks.jsonl
@@ -210,6 +223,7 @@ Legend / 凡例:
 5. **Verify Fixture**
 
    Check the file exists and has content:
+
    ```bash
    wc -l tests/fixtures/e2e-chunks/pattern1-gemini-only/frontend-chunks.jsonl
    head -n 3 tests/fixtures/e2e-chunks/pattern1-gemini-only/frontend-chunks.jsonl
@@ -260,6 +274,7 @@ pnpm exec playwright test -g "empty fixture"
 ```
 
 This test ensures:
+
 - No error when fixture file is empty
 - No messages are displayed
 - UI remains in initial state
@@ -273,6 +288,7 @@ pnpm exec playwright test e2e/chunk-player-ui-verification.spec.ts
 ```
 
 Expected results:
+
 - ✅ Pattern 1: Gemini Direct - 8 messages rendered
 - ✅ Pattern 2: ADK SSE - 8 messages with token counts
 - ✅ Pattern 3: ADK BIDI - 8 messages with audio players
@@ -286,12 +302,15 @@ Expected results:
 **Symptom**: Test fails with "Failed to load fixture"
 
 **Solution**:
+
 1. Check symlinks exist:
+
    ```bash
    ls -la public/fixtures/e2e-chunks/
    ```
 
 2. Verify Next.js dev server is running:
+
    ```bash
    curl http://localhost:3000/fixtures/e2e-chunks/pattern1-gemini-only/frontend-chunks.jsonl
    ```
@@ -303,12 +322,15 @@ Expected results:
 **Symptom**: Tests fail with timeout or incorrect message count
 
 **Solution**:
+
 1. Verify fixture files exist and have content:
+
    ```bash
    ls -lh tests/fixtures/e2e-chunks/pattern*/frontend-chunks.jsonl
    ```
 
 2. Check JSONL format is valid:
+
    ```bash
    cat tests/fixtures/e2e-chunks/pattern1-gemini-only/frontend-chunks.jsonl | jq
    ```
@@ -320,12 +342,15 @@ Expected results:
 **Symptom**: Chunk logger not working, no chunks captured
 
 **Solution**:
+
 1. Verify chunk logger is enabled:
+
    ```javascript
    localStorage.getItem('CHUNK_LOGGER_ENABLED')  // Should return "true"
    ```
 
 2. Check `window.__chunkLogger__` exists:
+
    ```javascript
    console.log(window.__chunkLogger__)
    ```
@@ -337,6 +362,7 @@ Expected results:
 **Symptom**: Messages disappear after mode switch in recording
 
 **Solution**:
+
 - This is a bug in the application, not the test
 - Do NOT proceed with recording - fix the bug first
 - Pattern 4 is designed to catch this exact issue
@@ -346,6 +372,7 @@ Expected results:
 ### Adding New Test Patterns
 
 1. Create pattern directory:
+
    ```bash
    mkdir -p tests/fixtures/e2e-chunks/pattern5-new-scenario
    ```
@@ -353,6 +380,7 @@ Expected results:
 2. Document recording steps in `tests/fixtures/e2e-chunks/README.md`
 
 3. Create symlink in public:
+
    ```bash
    cd public/fixtures/e2e-chunks
    ln -sf ../../../tests/fixtures/e2e-chunks/pattern5-new-scenario .
@@ -369,6 +397,7 @@ Expected results:
 When UI or backend behavior changes:
 
 1. Delete old fixture:
+
    ```bash
    rm tests/fixtures/e2e-chunks/pattern1-gemini-only/frontend-chunks.jsonl
    ```
@@ -376,6 +405,7 @@ When UI or backend behavior changes:
 2. Re-record using `tests/fixtures/e2e-chunks/README.md`
 
 3. Run tests to verify:
+
    ```bash
    pnpm exec playwright test -g "Pattern 1"
    ```
@@ -452,7 +482,6 @@ jobs:
 
 ## Backend E2E Testing
 
-
 ## Overview
 
 This document describes the E2E testing strategy for the backend server using the Chunk Player pattern. This approach enables deterministic backend testing without requiring real LLM API calls.
@@ -505,6 +534,7 @@ This document describes the E2E testing strategy for the backend server using th
 ```
 
 Legend / 凡例:
+
 - Recording Phase: 記録フェーズ
 - Playback Phase: 再生フェーズ
 - Chunk Logger: チャンクロガー
@@ -514,82 +544,90 @@ Legend / 凡例:
 ## Test Patterns
 
 ### Pattern 1: Gemini Direct (No Backend Processing)
+
 - **Mode**: Gemini Direct
 - **Backend Involvement**: None (frontend calls Gemini directly)
 - **Expected**: No backend chunks recorded
 - **Note**: This pattern exists for frontend testing only
 
 ### Pattern 2: ADK SSE Only
+
 - **Mode**: ADK SSE (Server-Sent Events)
 - **Steps**: 4 messages (same as frontend)
 - **Backend Chunks**:
-  - `backend-adk-event.jsonl` - Raw ADK events
-  - `backend-sse-event.jsonl` - Formatted SSE events
+    - `backend-adk-event.jsonl` - Raw ADK events
+    - `backend-sse-event.jsonl` - Formatted SSE events
 - **Verifies**:
-  - SSE event formatting
-  - Tool invocation handling (weather, calculator)
-  - Token count metadata
+    - SSE event formatting
+    - Tool invocation handling (weather, calculator)
+    - Token count metadata
 
 ### Pattern 3: ADK BIDI Only
+
 - **Mode**: ADK BIDI (WebSocket)
 - **Steps**: 4 messages (same as frontend)
 - **Backend Chunks**:
-  - `backend-adk-event.jsonl` - Raw ADK events
-  - `backend-sse-event.jsonl` - Formatted events (converted to SSE format)
+    - `backend-adk-event.jsonl` - Raw ADK events
+    - `backend-sse-event.jsonl` - Formatted events (converted to SSE format)
 - **Verifies**:
-  - WebSocket message handling
-  - Audio chunk processing (PCM data)
-  - Latency measurement
+    - WebSocket message handling
+    - Audio chunk processing (PCM data)
+    - Latency measurement
 
 ### Pattern 4: Mode Switching
+
 - **Mode**: Gemini → ADK SSE → ADK BIDI → ADK SSE → Gemini
 - **Steps**: 5 messages
 - **Backend Chunks**:
-  - Mixed ADK SSE and BIDI events
-  - Mode transitions visible in chunk metadata
+    - Mixed ADK SSE and BIDI events
+    - Mode transitions visible in chunk metadata
 - **Verifies**:
-  - Backend handles mode transitions correctly
-  - No state leakage between modes
+    - Backend handles mode transitions correctly
+    - No state leakage between modes
 
 ## Implementation Files
 
 ### Core Server Files
+
 - **chunk_logger.py**
-  - Logs chunks during execution
-  - Outputs JSONL files per location
-  - Environment variable configuration
+    - Logs chunks during execution
+    - Outputs JSONL files per location
+    - Environment variable configuration
 
 - **chunk_player.py**
-  - Replays chunks from JSONL files
-  - `ChunkPlayer` class with `from_file()` method
-  - `ChunkPlayerManager` for E2E mode detection
+    - Replays chunks from JSONL files
+    - `ChunkPlayer` class with `from_file()` method
+    - `ChunkPlayerManager` for E2E mode detection
 
 - **stream_protocol.py**
-  - Contains `stream_adk_to_ai_sdk()` function
-  - Integration point for chunk player (future)
+    - Contains `stream_adk_to_ai_sdk()` function
+    - Integration point for chunk player (future)
 
 - **server.py**
-  - FastAPI application
-  - SSE and WebSocket endpoints
-  - Integration point for chunk player (future)
+    - FastAPI application
+    - SSE and WebSocket endpoints
+    - Integration point for chunk player (future)
 
 ### Test Files (Future)
+
 - **tests/e2e/test_server_chunk_player.py** (to be created)
-  - Pytest-based E2E tests
-  - One test per pattern
-  - Verifies response format and behavior
+    - Pytest-based E2E tests
+    - One test per pattern
+    - Verifies response format and behavior
 
 ### Fixture Files
+
 - **tests/fixtures/e2e-chunks/pattern*/backend-chunks.jsonl**
-  - Pre-recorded backend chunks
-  - Combined from all backend locations
-  - Used by E2E tests
+    - Pre-recorded backend chunks
+    - Combined from all backend locations
+    - Used by E2E tests
 
 ## Recording Fixtures (Manual Process)
 
 ### Prerequisites
 
 1. Ensure frontend and backend are ready:
+
    ```bash
    # Terminal 1: Backend
    uv run uvicorn server:app --reload
@@ -599,6 +637,7 @@ Legend / 凡例:
    ```
 
 2. Open browser:
+
    ```bash
    open http://localhost:3000
    ```
@@ -624,6 +663,7 @@ Legend / 凡例:
 2. **Set Frontend Chunk Logger**
 
    Open browser console:
+
    ```javascript
    localStorage.setItem('CHUNK_LOGGER_ENABLED', 'true');
    localStorage.setItem('CHUNK_LOGGER_SESSION_ID', 'pattern2-frontend');
@@ -640,6 +680,7 @@ Legend / 凡例:
 4. **Collect Backend Chunks**
 
    Backend chunks are written to:
+
    ```
    chunk_logs/pattern2-backend/
    ├── backend-adk-event.jsonl
@@ -658,6 +699,7 @@ Legend / 凡例:
    ```
 
    **Alternative**: Use just one location if that's sufficient for testing:
+
    ```bash
    cp chunk_logs/pattern2-backend/backend-adk-event.jsonl \
       tests/fixtures/e2e-chunks/pattern2-adk-sse-only/backend-chunks.jsonl
@@ -804,7 +846,9 @@ async def websocket_endpoint(websocket: WebSocket):
 **Symptom**: `chunk_logs/` directory empty or missing files
 
 **Solution**:
+
 1. Verify environment variables are set:
+
    ```bash
    echo $CHUNK_LOGGER_ENABLED  # Should print "true"
    echo $CHUNK_LOGGER_SESSION_ID
@@ -819,6 +863,7 @@ async def websocket_endpoint(websocket: WebSocket):
 **Symptom**: `backend-chunks.jsonl` has 0 bytes
 
 **Solution**:
+
 1. Verify you executed the test scenario correctly
 2. Check that you're using ADK SSE or BIDI mode (Gemini Direct doesn't use backend)
 3. Look for `chunk_logs/` directory - files should be there first
@@ -828,12 +873,15 @@ async def websocket_endpoint(websocket: WebSocket):
 **Symptom**: Tests fail with "Invalid JSONL format"
 
 **Solution**:
+
 1. Validate JSONL syntax:
+
    ```bash
    cat backend-chunks.jsonl | jq
    ```
 
 2. Check for corrupt lines:
+
    ```bash
    while IFS= read -r line; do echo "$line" | jq .; done < backend-chunks.jsonl
    ```
@@ -845,7 +893,9 @@ async def websocket_endpoint(websocket: WebSocket):
 **Symptom**: E2E tests still call real LLM
 
 **Solution**:
+
 1. Verify environment variables:
+
    ```bash
    export E2E_CHUNK_PLAYER_MODE=true
    export E2E_CHUNK_PLAYER_FIXTURE=tests/fixtures/e2e-chunks/pattern2-adk-sse-only/backend-chunks.jsonl
@@ -860,11 +910,13 @@ async def websocket_endpoint(websocket: WebSocket):
 ### Adding Backend E2E Tests
 
 1. **Create test file**:
+
    ```bash
    touch tests/e2e/test_server_chunk_player.py
    ```
 
 2. **Write test skeleton**:
+
    ```python
    import pytest
    from chunk_player import ChunkPlayerManager
@@ -889,6 +941,7 @@ async def websocket_endpoint(websocket: WebSocket):
 4. **Record fixtures** following this guide
 
 5. **Run tests**:
+
    ```bash
    export E2E_CHUNK_PLAYER_MODE=true
    uv run pytest tests/e2e/test_server_chunk_player.py
@@ -899,6 +952,7 @@ async def websocket_endpoint(websocket: WebSocket):
 When backend behavior changes:
 
 1. Delete old fixture:
+
    ```bash
    rm tests/fixtures/e2e-chunks/pattern2-adk-sse-only/backend-chunks.jsonl
    ```
@@ -906,6 +960,7 @@ When backend behavior changes:
 2. Re-record using recording steps
 
 3. Run tests to verify:
+
    ```bash
    export E2E_CHUNK_PLAYER_MODE=true
    uv run pytest tests/e2e/test_server_chunk_player.py -k "pattern2"

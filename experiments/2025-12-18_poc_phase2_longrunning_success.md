@@ -17,6 +17,7 @@ POC Phase 2 **successfully validated** that ADK's `LongRunningFunctionTool` mech
 ## Background
 
 **Phase 1 Results:** Failed because we returned data instead of `None`:
+
 ```python
 # Phase 1 (WRONG):
 def approval_test_tool(...) -> dict:
@@ -24,6 +25,7 @@ def approval_test_tool(...) -> dict:
 ```
 
 **API Discovery:** Found proper pattern requires returning `None`:
+
 ```python
 # Phase 2 (CORRECT):
 def approval_test_tool(...) -> None:
@@ -41,6 +43,7 @@ LongRunningFunctionTool(approval_test_tool)
 ### File: `adk_ag_tools.py`
 
 **Before (Phase 1):**
+
 ```python
 def approval_test_tool(amount: float, recipient: str) -> dict[str, Any]:
     approval_id = f"poc-approval-{uuid.uuid4().hex[:8]}"
@@ -55,6 +58,7 @@ def approval_test_tool(amount: float, recipient: str) -> dict[str, Any]:
 ```
 
 **After (Phase 2):**
+
 ```python
 def approval_test_tool(amount: float, recipient: str) -> None:
     """
@@ -94,6 +98,7 @@ def approval_test_tool(amount: float, recipient: str) -> None:
 ### File: `adk_ag_runner.py`
 
 **Before (Phase 1):**
+
 ```python
 bidi_agent = Agent(
     # ...
@@ -105,6 +110,7 @@ bidi_agent = Agent(
 ```
 
 **After (Phase 2):**
+
 ```python
 from google.adk.tools.long_running_tool import LongRunningFunctionTool
 
@@ -119,13 +125,15 @@ bidi_agent = Agent(
 
 ## Test Execution Results
 
-### Test Command:
+### Test Command
+
 ```bash
 pnpm exec playwright test e2e/poc-longrunning-bidi.spec.ts --grep "Phase 1" \
   --reporter=list --timeout=120000 2>&1 | tee /tmp/poc-phase2.log
 ```
 
-### Test Output:
+### Test Output
+
 ```
 Running 1 test using 1 worker
 
@@ -140,35 +148,40 @@ Running 1 test using 1 worker
     Error: element(s) not found
 ```
 
-### Why Test "Failed":
+### Why Test "Failed"
+
 Test expects "Completed" status, but with proper `LongRunningFunctionTool` implementation, the tool **correctly stays in "Executing..." state** waiting for `function_response`.
 
 This is **not a bug** - this is **correct behavior**! The test expectations need updating.
 
 ## Backend Log Evidence
 
-### Tool Execution Log:
+### Tool Execution Log
+
 ```
 2025-12-18 19:44:46.844 | INFO | adk_ag_tools:approval_test_tool:391 -
 [POC Phase 2 approval_test_tool] Tool executed, returning None to pause:
 approval_id=poc-approval-d5f05c3c, amount=$500, recipient=Alice
 ```
 
-### 🎉 BREAKTHROUGH: `long_running_tool_ids` Populated!
+### 🎉 BREAKTHROUGH: `long_running_tool_ids` Populated
 
 **Phase 1 (WRONG API):**
+
 ```python
 'long_running_tool_ids': set()  # ❌ EMPTY
 ```
 
 **Phase 2 (CORRECT API):**
+
 ```python
 'long_running_tool_ids': {'function-call-17561808245438725350'}  # ✅ POPULATED!
 ```
 
 This is the **smoking gun** evidence that the mechanism works!
 
-### Events Sent to Frontend:
+### Events Sent to Frontend
+
 ```
 [BIDI-SEND] Sending event type: tool-input-start
     tool_call_id: function-call-17561808245438725350
@@ -183,7 +196,8 @@ This is the **smoking gun** evidence that the mechanism works!
 [BIDI] Client disconnected
 ```
 
-### Connection Behavior:
+### Connection Behavior
+
 - Tool executes at ~19:44:46
 - Client disconnects at ~19:44:56 (~10 seconds later)
 - No continuous stream after tool execution
@@ -205,6 +219,7 @@ From `test-results/.../error-context.md`:
 ```
 
 **Key Observations:**
+
 - Tool shows "Executing..." status ✅
 - Input section visible with tool args ✅
 - NO Result/Output section (because `None` returned) ✅
@@ -237,12 +252,14 @@ From `test-results/.../error-context.md`:
 ## Confidence Assessment
 
 **Progression:**
+
 1. **Before POC:** 60% Option A will work
 2. **After Phase 1:** 📉 30% (incorrect API usage)
 3. **After API Discovery:** 📈 75% (API found)
 4. **After Phase 2:** 📈 **85% Option A will work** ✅
 
 **Why 85%?**
+
 - ✅ Pause mechanism **proven to work**
 - ✅ `long_running_tool_ids` population **confirmed**
 - ✅ Event stream behavior **correct**
@@ -260,10 +277,11 @@ From `test-results/.../error-context.md`:
 
 ## Next Steps
 
-### Immediate Tasks:
+### Immediate Tasks
 
 1. ✅ **Document Phase 2 success** (this document)
 2. **Fix POC Phase 1 test expectations:**
+
    ```typescript
    // WRONG:
    await expect(page.locator('text=Completed')).toBeVisible();
@@ -271,20 +289,25 @@ From `test-results/.../error-context.md`:
    // CORRECT:
    await expect(page.locator('text=Executing')).toBeVisible();
    ```
+
 3. **Update `agents/tasks.md`** with Phase 2 results
 
-### POC Phase 3 (Next):
+### POC Phase 3 (Next)
+
 Test `function_response` injection via WebSocket to resume agent:
+
 - Capture tool_call_id from pause
 - Construct `function_response` message
 - Send via WebSocket
 - Verify agent resumes
 - Check final AI response
 
-### POC Phase 4:
+### POC Phase 4
+
 Test connection timeout and keep-alive during 2-minute wait
 
-### POC Phase 5:
+### POC Phase 5
+
 Complete end-to-end approval flow
 
 ## Deep Dive: Finish Event Investigation
@@ -339,6 +362,7 @@ def should_pause_invocation(self, event: Event) -> bool:
 ### Verification via Logs
 
 **Events Sent:**
+
 ```
 [BIDI-SEND] Sending event type: tool-input-start
 [BIDI-SEND] Sending event type: tool-input-available
@@ -346,6 +370,7 @@ def should_pause_invocation(self, event: Event) -> bool:
 ```
 
 **Events NOT Sent:**
+
 - ❌ `tool-output-available` (correct - `None` returned)
 - ❌ `finish` (correct - early return in base_llm_flow.py)
 - ❌ `end` (correct - stream paused)
@@ -377,6 +402,7 @@ stream_protocol:_process_function_call:494 - [TOOL CALL] approval_test_tool(...)
 The "test failure" is actually **correct behavior** - the tool is properly paused and waiting for `function_response`. The test expectations were based on Phase 1's incorrect API usage.
 
 **Key Validation:**
+
 - `long_running_tool_ids` populated ✅
 - Agent pauses automatically ✅
 - Tool stays in executing state ✅
@@ -385,6 +411,7 @@ The "test failure" is actually **correct behavior** - the tool is properly pause
 - **All events processed through stream_protocol.py** ✅
 
 **Deep Verification Complete:**
+
 1. ✅ BIDI mode confirmed via logs
 2. ✅ stream_protocol.py processing confirmed
 3. ✅ finish event absence confirmed (intentional design)
@@ -394,6 +421,7 @@ The "test failure" is actually **correct behavior** - the tool is properly pause
 ---
 
 **References:**
+
 - API Discovery: [2025-12-18_longrunning_tool_api_discovery.md](./2025-12-18_longrunning_tool_api_discovery.md)
 - ADK Source: `.venv/lib/python3.13/site-packages/google/adk/tools/long_running_tool.py`
 - ADK Pause Logic: `.venv/lib/python3.13/site-packages/google/adk/flows/llm_flows/base_llm_flow.py:405-417`

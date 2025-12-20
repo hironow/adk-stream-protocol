@@ -78,12 +78,14 @@
 **Original Issue**: `errorCode` and `errorMessage` fields were IMPLEMENTED but NOT tested
 
 **Resolution**:
+
 - ✅ Added 4 parametrized test cases in `test_stream_protocol_comprehensive.py`
 - ✅ Tests cover: error-with-message, permission-denied, error-without-message-uses-default, error-with-empty-message-uses-default
 - ✅ Coverage: stream_protocol.py (error detection logic)
 - ✅ All 4 test cases passing
 
 **Impact Resolved**:
+
 - ✅ ADK error detection is now fully tested
 - ✅ Error → AI SDK error event conversion is verified
 - ✅ No critical functionality gaps remain
@@ -165,27 +167,27 @@ describe.each([
 ### ✅ Completed
 
 - [x] **Add parametrized test for `errorCode` and `errorMessage` Event fields** ✅ DONE (2025-12-14)
-  - Added 4 parametrized test cases in `test_stream_protocol_comprehensive.py`
-  - Tests: error-with-message, permission-denied, error-without-message-uses-default, error-with-empty-message-uses-default
-  - Coverage: stream_protocol.py (error detection logic)
-  - All tests passing
+    - Added 4 parametrized test cases in `test_stream_protocol_comprehensive.py`
+    - Tests: error-with-message, permission-denied, error-without-message-uses-default, error-with-empty-message-uses-default
+    - Coverage: stream_protocol.py (error detection logic)
+    - All tests passing
 
 - [x] **Add parametrized test for `turnComplete` Event field** ✅ DONE (2025-12-14)
-  - Added 4 parametrized test cases in `test_stream_protocol_comprehensive.py`
-  - Tests: turn-complete-with-metadata, turn-complete-without-metadata, turn-not-complete-no-finish, turn-complete-missing-no-finish
-  - Coverage: stream_protocol.py (BIDI turn completion logic)
-  - All tests passing
+    - Added 4 parametrized test cases in `test_stream_protocol_comprehensive.py`
+    - Tests: turn-complete-with-metadata, turn-complete-without-metadata, turn-not-complete-no-finish, turn-complete-missing-no-finish
+    - Coverage: stream_protocol.py (BIDI turn completion logic)
+    - All tests passing
 
 - [x] **Add parametrized test for `inlineData` Part field with multiple image formats** ✅ ALREADY IMPLEMENTED
-  - Found existing parametrized tests in `test_stream_protocol_comprehensive.py`
-  - 3 image formats tested: PNG, JPEG, WebP
-  - Coverage: Part.inline_data field
+    - Found existing parametrized tests in `test_stream_protocol_comprehensive.py`
+    - 3 image formats tested: PNG, JPEG, WebP
+    - Coverage: Part.inline_data field
 
 - [x] **Add TypeScript parametrized tests for all messageMetadata fields** ✅ DONE (2025-12-14)
-  - Added 4 parametrized test cases in `lib/websocket-chat-transport.test.ts-1516`
-  - Tests: grounding-with-multiple-sources, citations-with-multiple-entries, cache-with-hits-and-misses, model-version-string
-  - Coverage: messageMetadata.grounding, messageMetadata.citations, messageMetadata.cache, messageMetadata.modelVersion
-  - All tests passing
+    - Added 4 parametrized test cases in `lib/websocket-chat-transport.test.ts-1516`
+    - Tests: grounding-with-multiple-sources, citations-with-multiple-entries, cache-with-hits-and-misses, model-version-string
+    - Coverage: messageMetadata.grounding, messageMetadata.citations, messageMetadata.cache, messageMetadata.modelVersion
+    - All tests passing
 
 ### Medium Priority
 
@@ -231,11 +233,13 @@ describe.each([
 - ✅ Part fields are 100% covered (7/7)
 
 **Test Coverage Summary**:
+
 - **Python Tests**: 112 tests passing (including 8 new parametrized test cases)
 - **TypeScript Tests**: All tests passing (including 4 new parametrized test cases)
 - **Total New Tests Added**: 12 parametrized test cases (100% field coverage achieved)
 
 **Completed Actions (2025-12-14)**:
+
 1. ✅ Added errorCode/errorMessage parametrized tests (4 test cases)
 2. ✅ Added turnComplete parametrized tests (4 test cases)
 3. ✅ Verified inlineData already has parametrized tests (3 image formats)

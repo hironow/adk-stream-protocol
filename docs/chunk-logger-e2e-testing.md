@@ -341,7 +341,7 @@ await page.evaluate(() => {
 });
 ```
 
-2. ページリロード後に確認:
+1. ページリロード後に確認:
 
 ```typescript
 await enableChunkLogger(page, "test-session");
@@ -393,14 +393,14 @@ cat chunk_logs/my-session/backend-sse-event.jsonl | grep "process_payment" | wc 
 cat chunk_logs/frontend/test-my-session.jsonl | grep "process_payment" | wc -l
 ```
 
-2. ツールIDが一致しているか確認:
+1. ツールIDが一致しているか確認:
 
 ```bash
 grep -o 'adk-[a-z0-9\-]*' chunk_logs/my-session/backend-adk-event.jsonl | sort | uniq
 grep -o 'adk-[a-z0-9\-]*' chunk_logs/my-session/backend-sse-event.jsonl | sort | uniq
 ```
 
-3. イベントの順序を確認:
+1. イベントの順序を確認:
 
 ```bash
 jq '.sequence_number' chunk_logs/my-session/backend-sse-event.jsonl | head -20
@@ -418,7 +418,7 @@ jq '.sequence_number' chunk_logs/my-session/backend-sse-event.jsonl | head -20
 await waitForAssistantResponse(page, { timeout: 60000 }); // 60秒
 ```
 
-2. チャンクログで無限ループをチェック:
+1. チャンクログで無限ループをチェック:
 
 ```bash
 grep -c '"type": "finish"' chunk_logs/my-session/backend-sse-event.jsonl

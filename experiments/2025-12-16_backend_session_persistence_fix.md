@@ -7,6 +7,7 @@
 ## Background
 
 After implementing the frontend delegate fix and adding E2E tests, we discovered that:
+
 - ✅ SSE Mode E2E Tests: Initially 3/3 passing
 - ❌ BIDI Mode E2E Tests: 0/3 failing - conversation history persistence
 - ❌ Mode Switching Test: 0/1 failing - same issue
@@ -18,19 +19,22 @@ The `clearHistory()` helper only cleared frontend React state, not backend sessi
 ### Phase 1: Evidence Collection
 
 **Backend Session Management** (`adk_compat.py:54-74`):
+
 - **SSE mode**: `session_id = f"session_{user_id}_{app_name}"`
-  - Same session ID reused across all requests from the same user/app
-  - Sessions stored in global `_sessions` dictionary
-  - **Never cleared between tests!**
+    - Same session ID reused across all requests from the same user/app
+    - Sessions stored in global `_sessions` dictionary
+    - **Never cleared between tests!**
 
 - **BIDI mode**: `session_id = f"session_{user_id}_{connection_signature}"`
-  - Each WebSocket connection gets unique UUID
-  - New session per connection
+    - Each WebSocket connection gets unique UUID
+    - New session per connection
 
 **Frontend Clear History** (`app/page.tsx:132-153`):
+
 ```typescript
 <button onClick={() => { setMessages([]) }}>Clear History</button>
 ```
+
 - Only calls `setMessages([])` - clears React state only
 - Does NOT clear backend session or conversation history
 
@@ -68,6 +72,7 @@ async def clear_backend_sessions():
 ```
 
 **Import added** (`server.py:43`):
+
 ```python
 from adk_compat import (
     clear_sessions,  # ← Added
@@ -139,6 +144,7 @@ export async function clearHistory(page: Page) {
 **Command**: `pnpm exec playwright test e2e/frontend-delegate-fix.spec.ts --reporter=list`
 
 **Results**: 3 failed, 4 did not run
+
 - ✘ SSE Mode test 1: "Approval Required" dialog never appeared (30s timeout)
 - ✘ BIDI Mode test: Test timeout (3 minutes) trying to access message .nth(3)
 - ✘ Mode Switching test: "Approval Required" dialog never appeared (30s timeout)
@@ -148,6 +154,7 @@ export async function clearHistory(page: Page) {
 **Log File**: `logs/server_20251216_040548.log`
 
 **Finding at 16:46:35**:
+
 ```
 2025-12-16 16:46:38.681 | DEBUG | stream_protocol:convert_event:217 - [convert_event INPUT] type=Event, content=parts=[Part(
   text='The BGM is already set to track 1.',
@@ -155,6 +162,7 @@ export async function clearHistory(page: Page) {
 ```
 
 **Analysis**:
+
 - AI responded with **text** instead of calling the `change_bgm` tool
 - Same symptom as original session persistence bug
 - Indicates `/clear-sessions` was never called or didn't work
@@ -166,18 +174,21 @@ export async function clearHistory(page: Page) {
 ### `/clear-sessions` Endpoint Hangs
 
 **Test**: Direct curl request
+
 ```bash
 $ curl -X POST http://localhost:8000/clear-sessions -H "Content-Type: application/json" --max-time 2
 curl: (28) Operation timed out after 2002 milliseconds with 0 bytes received
 ```
 
 **Symptoms**:
+
 - Endpoint connects successfully
 - Server receives request but never responds
 - Request hangs indefinitely
 - No log entry showing "[/clear-sessions] Clearing all backend sessions"
 
 **Hypothesis**:
+
 - The endpoint may be stuck waiting for something
 - Could be event loop blocking issue
 - `clear_sessions()` function itself is simple (just `_sessions.clear()`), shouldn't block
@@ -185,10 +196,12 @@ curl: (28) Operation timed out after 2002 milliseconds with 0 bytes received
 ### Current State
 
 **Files Modified (Staged for Commit)**:
+
 1. `server.py` - Added `/clear-sessions` endpoint (HANGS)
 2. `e2e/helpers.ts` - Updated `clearHistory()` to use `page.request.post()`
 
 **E2E Test Status**: ❌ All tests failing
+
 - SSE tests fail because AI sees persistent session history
 - BIDI tests timeout due to persistent message history
 - `/clear-sessions` endpoint exists but is not functional
@@ -212,16 +225,19 @@ curl: (28) Operation timed out after 2002 milliseconds with 0 bytes received
 ### Recommended Path Forward
 
 **Option A**: Debug `/clear-sessions` hanging issue
+
 - Add detailed logging
 - Check FastAPI route registration
 - Verify no middleware interference
 
 **Option B**: Alternative implementation
+
 - Add `?clear_session=true` parameter to `/stream` endpoint
 - Clear session at start of each `/stream` request when parameter present
 - Simpler, less risk of hanging
 
 **Option C**: Test-level solution
+
 - Clear sessions directly in test setup via Python test fixtures
 - No HTTP endpoint needed
 - Better test isolation

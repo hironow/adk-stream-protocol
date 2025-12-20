@@ -5,6 +5,7 @@
 **Status:** ✅ Complete
 
 **Results:**
+
 - Hypothesis: ✅ **CONFIRMED** - AI SDK v6 handles tool approval natively
 - Action: ✅ **IMPLEMENTED** - Removed custom `onToolApprovalRequest` callback mechanism
 
@@ -51,16 +52,19 @@ if (chunk.type === "tool-approval-request") {
 ## Hypothesis
 
 **Original Assumption**:
+
 - Custom callback needed to notify UI about tool approval requests
 - `tool-approval-request` events are "custom" and shouldn't go to useChat
 
 **New Hypothesis**:
+
 - AI SDK v6 has native `addToolApprovalResponse` method
 - Framework expects `tool-approval-request` events in `UIMessageChunk` stream
 - Custom callback is unnecessary duplication
 
 **Evidence**:
-1. AI SDK v6 documentation shows `addToolApprovalResponse` method: https://v6.ai-sdk.dev/docs/announcing-ai-sdk-6-beta
+
+1. AI SDK v6 documentation shows `addToolApprovalResponse` method: <https://v6.ai-sdk.dev/docs/announcing-ai-sdk-6-beta>
 2. Type definitions show `tool-approval-request` is a valid `UIMessageChunk` type
 3. `UseChatHelpers` includes `addToolApprovalResponse` in its interface
 
@@ -73,6 +77,7 @@ if (chunk.type === "tool-approval-request") {
 **Source**: `./node_modules/ai/dist/index.d.ts`
 
 **ChatTransport Interface**:
+
 ```typescript
 interface ChatTransport<UI_MESSAGE extends UIMessage> {
   sendMessages: (options: {
@@ -90,6 +95,7 @@ interface ChatTransport<UI_MESSAGE extends UIMessage> {
 ```
 
 **UIMessageChunk Type**:
+
 ```typescript
 | {
     type: 'tool-approval-request';
@@ -101,6 +107,7 @@ interface ChatTransport<UI_MESSAGE extends UIMessage> {
 **Key Finding**: `tool-approval-request` is a **standard** `UIMessageChunk` type, not a custom event!
 
 **ChatAddToolApproveResponseFunction**:
+
 ```typescript
 type ChatAddToolApproveResponseFunction = ({
   id,
@@ -114,6 +121,7 @@ type ChatAddToolApproveResponseFunction = ({
 ```
 
 **UseChatHelpers Interface** (from `@ai-sdk/react`):
+
 ```typescript
 & Pick<AbstractChat<UI_MESSAGE>,
   'sendMessage' | 'regenerate' | 'stop' | 'resumeStream' |
@@ -128,6 +136,7 @@ type ChatAddToolApproveResponseFunction = ({
 ### Phase 2: Architecture Analysis
 
 **Current (Incorrect) Flow**:
+
 ```
 Backend → WebSocket → WebSocketChatTransport
                               ↓
@@ -143,6 +152,7 @@ Backend → WebSocket → WebSocketChatTransport
 ```
 
 **Expected (Correct) Flow**:
+
 ```
 Backend → WebSocket → WebSocketChatTransport
                               ↓
@@ -160,6 +170,7 @@ Backend → WebSocket → WebSocketChatTransport
 ```
 
 **Key Difference**:
+
 - ❌ Custom callback creates parallel path outside AI SDK v6
 - ✅ Native handling integrates with useChat state and lifecycle
 
@@ -172,6 +183,7 @@ Backend → WebSocket → WebSocketChatTransport
 **1. Removed Custom Callback** (`lib/websocket-chat-transport.ts`):
 
 **Before**:
+
 ```typescript
 export interface WebSocketChatTransportConfig {
   url: string;
@@ -188,6 +200,7 @@ export interface WebSocketChatTransportConfig {
 ```
 
 **After**:
+
 ```typescript
 export interface WebSocketChatTransportConfig {
   url: string;
@@ -200,6 +213,7 @@ export interface WebSocketChatTransportConfig {
 **2. Stopped Filtering Events** (`lib/websocket-chat-transport.ts:727-730`):
 
 **Before**:
+
 ```typescript
 // Phase 4: Tool approval request events
 if (chunk.type === "tool-approval-request") {
@@ -217,6 +231,7 @@ if (chunk.type === "tool-approval-request") {
 ```
 
 **After**:
+
 ```typescript
 // Phase 4: Tool approval request events
 // AI SDK v6 handles tool-approval-request natively via UIMessageChunk stream
@@ -227,6 +242,7 @@ if (chunk.type === "tool-approval-request") {
 **3. Removed Parameter** (`lib/build-use-chat-options.ts`):
 
 **Before**:
+
 ```typescript
 export function buildUseChatOptions({
   mode,
@@ -251,6 +267,7 @@ export function buildUseChatOptions({
 ```
 
 **After**:
+
 ```typescript
 export function buildUseChatOptions({
   mode,
@@ -268,6 +285,7 @@ export function buildUseChatOptions({
 ```
 
 **4. Updated Tests**:
+
 - Removed callback-related tests from `websocket-chat-transport.test.ts`
 - Removed callback-related tests from `use-chat-integration.test.tsx`
 - Removed callback-related tests from `transport-integration.test.ts`
@@ -294,6 +312,7 @@ Test Files  4 passed (4)
 ### Expected Usage Pattern
 
 **UI Component** (example):
+
 ```typescript
 import { useChat } from '@ai-sdk/react';
 import { buildUseChatOptions } from './build-use-chat-options';
@@ -322,6 +341,7 @@ function ChatComponent() {
 ```
 
 **Key Points**:
+
 - No custom callback needed
 - `addToolApprovalResponse` is provided by AI SDK v6
 - Events flow naturally through useChat state
@@ -341,16 +361,19 @@ function ChatComponent() {
 ### Architectural Principles
 
 **Transport Layer Responsibility**:
+
 - Convert backend protocol to AI SDK v6 `UIMessageChunk` format
 - Stream events to framework
 - Handle bidirectional communication (WebSocket)
 
 **NOT Transport Layer Responsibility**:
+
 - Parse event semantics (tool approval, etc.)
 - Invoke UI callbacks
 - Manage application state
 
 **AI SDK v6 Framework Responsibility**:
+
 - Process `UIMessageChunk` events
 - Update useChat state
 - Provide imperative methods (`addToolApprovalResponse`, etc.)
@@ -372,12 +395,14 @@ The custom `onToolApprovalRequest` callback mechanism was **unnecessary and inco
 ### Architecture After Fix
 
 **Clean Separation of Concerns**:
+
 - Backend: Sends `tool-approval-request` events via WebSocket
 - Transport: Converts to `UIMessageChunk` and streams to framework
 - AI SDK v6: Processes events, updates state, provides `addToolApprovalResponse`
 - UI: Calls `addToolApprovalResponse()` when user approves/denies
 
 **Benefits**:
+
 - ✅ Consistent with AI SDK v6 patterns
 - ✅ Simpler codebase (less custom logic)
 - ✅ Better separation of concerns
@@ -403,6 +428,6 @@ The custom `onToolApprovalRequest` callback mechanism was **unnecessary and inco
 
 ## References
 
-- AI SDK v6 Announcement: https://v6.ai-sdk.dev/docs/announcing-ai-sdk-6-beta
-- AI SDK v6 Documentation: https://v6.ai-sdk.dev/
+- AI SDK v6 Announcement: <https://v6.ai-sdk.dev/docs/announcing-ai-sdk-6-beta>
+- AI SDK v6 Documentation: <https://v6.ai-sdk.dev/>
 - Tool Approval API: `addToolApprovalResponse(id, approved, reason?)`

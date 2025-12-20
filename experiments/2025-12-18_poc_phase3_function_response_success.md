@@ -175,17 +175,20 @@ const aiResponseOrToolResult = await Promise.race([
 ## Technical Validation
 
 ✅ **Pause mechanism** (Phase 2)
+
 - LongRunningFunctionTool returns `None`
 - ADK adds tool ID to `long_running_tool_ids`
 - Agent pauses automatically
 
 ✅ **Resume mechanism** (Phase 3)
+
 - Frontend sends `function_response` via WebSocket
 - Backend detects `function_response` → adds to session history
 - ADK resumes agent automatically
 - Agent generates final response
 
 ✅ **End-to-end flow**
+
 - User triggers long-running tool
 - Tool pauses with approval UI
 - User approves via button click
@@ -199,6 +202,7 @@ const aiResponseOrToolResult = await Promise.race([
 No new WebSocket event type needed. Uses existing AI SDK v6 message format that backend already understands.
 
 **2. Separation of Concerns**
+
 - Frontend: UI rendering + message construction
 - Transport: Message serialization + WebSocket send
 - Backend: Message parsing + ADK session management
@@ -215,6 +219,7 @@ E2E test verifies entire flow with real WebSocket, real ADK backend, real agent�
 - **After POC Phase 3:** 📈 **95% confidence** ✅ (complete flow validated)
 
 **Remaining 5% risk factors:**
+
 - Long connection timeouts (Phase 4 will test 2-minute wait)
 - Real-world error scenarios (network issues, malformed responses)
 - Scale/performance under load
@@ -229,15 +234,18 @@ E2E test verifies entire flow with real WebSocket, real ADK backend, real agent�
 ## Files Changed
 
 **Frontend:**
+
 - `lib/websocket-chat-transport.ts` - Added `sendFunctionResponse()` method
 - `components/tool-invocation.tsx` - Added approval UI for long-running tools
 - `components/message.tsx` - Added `websocketTransport` prop propagation
 - `components/chat.tsx` - Pass transport to MessageComponent in BIDI mode
 
 **Tests:**
+
 - `e2e/poc-longrunning-bidi.spec.ts` - Phase 3 test implementation
 
 **Backend:**
+
 - No changes needed! Existing infrastructure handled function_response correctly ✅
 
 ## Conclusion

@@ -76,12 +76,12 @@ Legend:
 
 - Real-time bidirectional communication
 - Backend sends **SSE format over WebSocket** (not raw JSON)
-  - Format: `data: {"type":"text-delta","text":"..."}\n\n`
-  - Same format as HTTP SSE, just delivered via WebSocket
+    - Format: `data: {"type":"text-delta","text":"..."}\n\n`
+    - Same format as HTTP SSE, just delivered via WebSocket
 - Custom `WebSocketChatTransport` (frontend):
-  - Parses SSE format from WebSocket messages
-  - Converts to `ReadableStream<UIMessageChunk>`
-  - Makes WebSocket transparent to `useChat` hook
+    - Parses SSE format from WebSocket messages
+    - Converts to `ReadableStream<UIMessageChunk>`
+    - Makes WebSocket transparent to `useChat` hook
 
 **Why SSE format over WebSocket?**
 
@@ -166,6 +166,7 @@ NEXT_PUBLIC_BACKEND_MODE=gemini
 ```
 
 **Get your API key:**
+
 1. Visit [Google AI Studio](https://aistudio.google.com/apikey)
 2. Create a new API key
 3. Copy and paste into `GOOGLE_GENERATIVE_AI_API_KEY`
@@ -184,6 +185,7 @@ NEXT_PUBLIC_ADK_BACKEND_URL=http://localhost:8000
 ```
 
 **Important Notes:**
+
 - ADK modes use `GOOGLE_API_KEY` (NOT `GOOGLE_GENERATIVE_AI_API_KEY`)
 - Backend runs on port 8000 by default
 - Frontend runs on port 3000 by default
@@ -199,9 +201,10 @@ This mode requires no backend server - AI SDK v6 connects directly to Gemini API
 pnpm dev
 ```
 
-Visit: http://localhost:3000
+Visit: <http://localhost:3000>
 
 **What happens:**
+
 - Next.js API route (`/app/api/chat/route.ts`) handles requests
 - AI SDK v6 `streamText()` calls Gemini API directly
 - Tools execute on Next.js server
@@ -217,8 +220,9 @@ just dev
 ```
 
 This starts:
-- Backend on http://localhost:8000
-- Frontend on http://localhost:3000
+
+- Backend on <http://localhost:8000>
+- Frontend on <http://localhost:3000>
 
 **Option B: Run separately:**
 
@@ -271,7 +275,7 @@ just fmt             # Format code
 
 ### Example 1: Simple Text Chat
 
-1. Open http://localhost:3000
+1. Open <http://localhost:3000>
 2. Type: "Hello, tell me about AI SDK v6"
 3. Press Enter or click Send
 4. Watch the response stream token-by-token
@@ -535,6 +539,7 @@ The frontend uses:
 **Error:** `ModuleNotFoundError: No module named 'google.adk'`
 
 **Solution:**
+
 ```bash
 uv sync  # Reinstall Python dependencies
 ```
@@ -544,6 +549,7 @@ uv sync  # Reinstall Python dependencies
 **Error:** `Module not found: Can't resolve 'ai'`
 
 **Solution:**
+
 ```bash
 pnpm install  # Reinstall Node.js dependencies
 rm -rf .next && pnpm dev  # Clear cache and restart
@@ -554,11 +560,12 @@ rm -rf .next && pnpm dev  # Clear cache and restart
 **Error:** `401 Unauthorized` or `Invalid API key`
 
 **Solution:**
+
 - Check `.env.local` file exists
 - Verify API key is correct
 - Use correct variable name:
-  - Gemini Direct: `GOOGLE_GENERATIVE_AI_API_KEY`
-  - ADK modes: `GOOGLE_API_KEY`
+    - Gemini Direct: `GOOGLE_GENERATIVE_AI_API_KEY`
+    - ADK modes: `GOOGLE_API_KEY`
 - Restart development server after changing `.env.local`
 
 #### 4. WebSocket connection fails
@@ -566,6 +573,7 @@ rm -rf .next && pnpm dev  # Clear cache and restart
 **Error:** `WebSocket connection to 'ws://localhost:8000/live' failed`
 
 **Solution:**
+
 - Verify backend is running (`curl http://localhost:8000/health`)
 - Check `ADK_BACKEND_URL` in `.env.local`
 - Check browser console for CORS errors
@@ -576,6 +584,7 @@ rm -rf .next && pnpm dev  # Clear cache and restart
 **Error:** Approval dialog doesn't appear
 
 **Solution:**
+
 - Verify you're using ADK SSE or BIDI mode (not Gemini Direct)
 - Check that tool is in `TOOLS_REQUIRING_APPROVAL` list (server.py)
 - Check browser console for errors

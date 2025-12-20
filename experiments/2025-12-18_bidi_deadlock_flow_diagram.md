@@ -86,6 +86,7 @@ Backend hangs forever
 ```
 
 Legend / 凡例:
+
 - Backend: バックエンド
 - Frontend: フロントエンド
 - Tool: ツール
@@ -229,6 +230,7 @@ Agent continues execution
 ```
 
 Legend / 凡例:
+
 - AUTO-EXECUTE: 自動実行
 - SEND: 送信
 - Future resolves: Futureが解決される
@@ -293,6 +295,7 @@ Legend / 凡例:
 ```
 
 Legend / 凡例:
+
 - Backend Tool: バックエンドツール
 - Frontend Delegate: フロントエンド委譲ツール
 - Long-Running Tool: 長時間実行ツール
@@ -366,6 +369,7 @@ useEffect(() => {
 ```
 
 Legend / 凡例:
+
 - Current Code: 現在のコード
 - NEED TO ADD: 追加が必要なコード
 - Auto-execute: 自動実行

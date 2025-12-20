@@ -16,11 +16,13 @@
 ### Bug 1: Server Chunk Recorder Not Working
 
 **Root Cause:**
+
 - `chunk_logger.py` was being imported before `load_dotenv()` was called
 - ChunkLogger singleton was initialized with environment variables not yet loaded
 - Result: `CHUNK_LOGGER_ENABLED` was always false
 
 **Fix Applied:**
+
 ```python
 # server.py:20-24
 from dotenv import load_dotenv
@@ -33,6 +35,7 @@ from stream_protocol import stream_adk_to_ai_sdk  # Now this gets correct env
 ```
 
 **Verification:**
+
 ```python
 >>> from chunk_logger import chunk_logger
 >>> print(chunk_logger._enabled)
@@ -42,11 +45,13 @@ True  # Now correctly reads from .env.local
 ### Bug 2: WebSocket Capacity Error Broke ADK BIDI
 
 **Root Cause:**
+
 - Previous session added aggressive message truncation (limit 50 messages)
 - This was breaking ADK BIDI which needs full conversation context
 - Truncation was causing context loss in multi-turn conversations
 
 **Previous (Broken) Implementation:**
+
 ```typescript
 // lib/websocket-chat-transport.ts
 const truncatedMessages =
@@ -56,6 +61,7 @@ const truncatedMessages =
 ```
 
 **Fix Applied:**
+
 ```typescript
 // Send ALL messages without truncation
 const event: MessageEvent = {
@@ -72,6 +78,7 @@ private static readonly ERROR_SIZE_MB = 10;   // Was 5MB
 ```
 
 **Impact:**
+
 - ADK BIDI now maintains full context
 - Only logs warnings for large payloads, doesn't truncate
 - Removed obsolete test file: `lib/websocket-chat-transport-payload.test.ts`
@@ -79,10 +86,12 @@ private static readonly ERROR_SIZE_MB = 10;   // Was 5MB
 ### Bug 3: BGM Plays When Tab Inactive
 
 **Root Cause:**
+
 - No `visibilitychange` event listener implemented
 - BGM continued playing when user switched tabs
 
 **Fix Applied:**
+
 ```typescript
 // lib/audio-context.tsx:256-295
 const handleVisibilityChange = () => {
@@ -120,16 +129,19 @@ document.addEventListener("visibilitychange", handleVisibilityChange);
 ```
 
 **Additional Changes:**
+
 - Added refs to track state: `currentBgmTrackRef`, `isPlayingRef`
 - Updated all state setters to also update refs for visibility handler access
 
 ### Bug 4: Audio File UI Overlaps Send Button
 
 **Root Cause:**
+
 - Audio completion indicator positioned at bottom-right
 - Overlapped with message send button
 
 **Previous Position:**
+
 ```typescript
 position: "fixed",
 bottom: "1rem",
@@ -137,6 +149,7 @@ right: "1rem",
 ```
 
 **Fix Applied:**
+
 ```typescript
 // components/chat.tsx
 
@@ -166,11 +179,13 @@ transform: audioContext.wsLatency !== null ? "none" : "translateX(-50%)",
 ## Test Results
 
 ### Python Tests
+
 ```bash
 ============================= 133 passed in 1.84s ==============================
 ```
 
 ### JavaScript/TypeScript Tests
+
 ```bash
 Test Files  9 passed (13)
 Tests      200 passed | 2 skipped (202)

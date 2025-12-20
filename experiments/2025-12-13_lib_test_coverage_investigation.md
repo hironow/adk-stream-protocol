@@ -5,6 +5,7 @@
 **Status:** 🟢 Complete
 
 **Latest Update:** 2025-12-13 16:40 JST
+
 - ✅ All 3 phases of test implementation completed
 - ✅ Bug 1 (WebSocket connection reuse) fixed and verified
 - ✅ Step 4-5 integration test implemented (tool-approval-request flow)
@@ -20,11 +21,13 @@
 After removing the custom `onToolApprovalRequest` callback and discovering how AI SDK v6 native handling works, we realized the importance of comprehensive testing to prevent similar architectural mistakes.
 
 **Key Concern:**
+
 - Critical functionality (`sendMessages()`, message event flow) has ZERO tests
 - Current test count: Only 2 tests for 829-line implementation
 - Risk: Production bugs in core WebSocket transport layer
 
 **Investigation Goal:**
+
 - Identify ALL missing test scenarios (edge cases, error paths, state transitions)
 - Prioritize gaps by severity (Critical/High/Medium/Low)
 - Create actionable test implementation plan
@@ -51,6 +54,7 @@ After removing the custom `onToolApprovalRequest` callback and discovering how A
    - use-chat-integration.test.tsx: 7 tests
 
 **Recommended Action:**
+
 - **Phase 1 (Week 1 Priority)**: Add 15-22 tests for `websocket-chat-transport.ts` critical path
 - **Phase 2**: Add 14-20 tests for high-priority features
 - **Phase 3**: Complete remaining gaps
@@ -68,6 +72,7 @@ After removing the custom `onToolApprovalRequest` callback and discovering how A
 | use-audio-recorder.ts | ? | ? | ? | ? tests | 🟡 Needs review |
 
 **Integration Tests:**
+
 - transport-integration.test.ts: 16 tests
 - use-chat-integration.test.tsx: 7 tests
 
@@ -78,63 +83,69 @@ After removing the custom `onToolApprovalRequest` callback and discovering how A
 ### Public API (17 methods/operations)
 
 **Constructor & Configuration:**
+
 - ✅ constructor(config)
-  - ❌ Missing: Invalid URL format
-  - ❌ Missing: Missing required config fields
-  - ❌ Missing: Invalid timeout values
+    - ❌ Missing: Invalid URL format
+    - ❌ Missing: Missing required config fields
+    - ❌ Missing: Invalid timeout values
 
 **ChatTransport Interface (AI SDK v6):**
+
 - ❌ sendMessages() - **CRITICAL - NOT TESTED**
-  - Missing: Normal message send
-  - Missing: Connection timeout
-  - Missing: WebSocket connection failure
-  - Missing: Message serialization error
-  - Missing: Abort signal handling
-  - Missing: Regenerate trigger vs submit-message trigger
+    - Missing: Normal message send
+    - Missing: Connection timeout
+    - Missing: WebSocket connection failure
+    - Missing: Message serialization error
+    - Missing: Abort signal handling
+    - Missing: Regenerate trigger vs submit-message trigger
 - ❌ reconnectToStream() - **CRITICAL - NOT TESTED**
-  - Missing: Successful reconnection
-  - Missing: Failed reconnection
-  - Missing: Multiple reconnection attempts
+    - Missing: Successful reconnection
+    - Missing: Failed reconnection
+    - Missing: Multiple reconnection attempts
 
 **Audio Control (BIDI Mode):**
+
 - ❌ startAudio() - **NOT TESTED**
-  - Missing: Start without active connection
-  - Missing: Start when already started
-  - Missing: AudioContext integration
+    - Missing: Start without active connection
+    - Missing: Start when already started
+    - Missing: AudioContext integration
 - ❌ stopAudio() - **NOT TESTED**
-  - Missing: Stop without active connection
-  - Missing: Stop when not started
+    - Missing: Stop without active connection
+    - Missing: Stop when not started
 - ❌ sendAudioChunk() - **NOT TESTED**
-  - Missing: Send valid PCM chunk
-  - Missing: Send without active connection
-  - Missing: Invalid chunk format
-  - Missing: Latency callback integration
+    - Missing: Send valid PCM chunk
+    - Missing: Send without active connection
+    - Missing: Invalid chunk format
+    - Missing: Latency callback integration
 
 **Tool Execution:**
+
 - ✅ sendToolResult() - PARTIALLY TESTED (2 tests)
-  - ✅ Success case with result object
-  - ✅ Error case with error status
-  - ❌ Missing: Send without WebSocket connection
-  - ❌ Missing: Invalid toolCallId format
-  - ❌ Missing: Result serialization edge cases
+    - ✅ Success case with result object
+    - ✅ Error case with error status
+    - ❌ Missing: Send without WebSocket connection
+    - ❌ Missing: Invalid toolCallId format
+    - ❌ Missing: Result serialization edge cases
 
 **Connection Management:**
+
 - ❌ interrupt() - **NOT TESTED**
-  - Missing: User abort
-  - Missing: Timeout abort
-  - Missing: Error abort
-  - Missing: Double interrupt
+    - Missing: User abort
+    - Missing: Timeout abort
+    - Missing: Error abort
+    - Missing: Double interrupt
 - ❌ close() - **NOT TESTED**
-  - Missing: Clean closure
-  - Missing: Close during active stream
-  - Missing: Close after already closed
+    - Missing: Clean closure
+    - Missing: Close during active stream
+    - Missing: Close after already closed
 
 **Latency Monitoring (WebSocket Ping/Pong):**
+
 - ❌ startPing() - **NOT TESTED** (private but important)
 - ❌ stopPing() - **NOT TESTED** (private but important)
 - ❌ handlePong() - **NOT TESTED** (private but important)
-  - Missing: Latency calculation correctness
-  - Missing: Callback invocation
+    - Missing: Latency calculation correctness
+    - Missing: Callback invocation
 
 ---
 
@@ -143,30 +154,36 @@ After removing the custom `onToolApprovalRequest` callback and discovering how A
 **Server-to-Client Events (via handleWebSocketMessage):**
 
 **Phase 1: Text Events**
+
 - ❌ text-start event
 - ❌ text-delta event
 - ❌ text-end event
 
 **Phase 2: PCM Audio Events**
+
 - ❌ data-pcm event
-  - Missing: Valid PCM chunk processing
-  - Missing: AudioContext integration
-  - Missing: Latency tracking
+    - Missing: Valid PCM chunk processing
+    - Missing: AudioContext integration
+    - Missing: Latency tracking
 
 **Phase 3: Tool Events**
+
 - ❌ tool-input-available (tool call from backend)
 - ❌ tool-output-available (tool result from backend)
 
 **Phase 4: Tool Approval (NOW REMOVED - flows to AI SDK v6)**
+
 - ✅ tool-approval-request flows through (verified by architecture fix)
 
 **Phase 5: Metadata Events**
+
 - ❌ finish event (turn completion)
-  - Missing: Usage metadata extraction
-  - Missing: Error metadata
-  - Missing: Finish reason handling
+    - Missing: Usage metadata extraction
+    - Missing: Error metadata
+    - Missing: Finish reason handling
 
 **Error Handling:**
+
 - ❌ Invalid SSE format
 - ❌ Malformed JSON
 - ❌ Unknown event type
@@ -177,6 +194,7 @@ After removing the custom `onToolApprovalRequest` callback and discovering how A
 ### Connection Lifecycle
 
 **States to Test:**
+
 - ❌ CONNECTING → OPEN (successful connection)
 - ❌ CONNECTING → CLOSED (connection failure)
 - ❌ OPEN → MESSAGE FLOW (normal operation)
@@ -185,6 +203,7 @@ After removing the custom `onToolApprovalRequest` callback and discovering how A
 - ❌ Multiple rapid connect/disconnect cycles
 
 **Edge Cases:**
+
 - ❌ WebSocket connection timeout
 - ❌ Network interruption during stream
 - ❌ Server closes connection unexpectedly
@@ -222,33 +241,33 @@ After removing the custom `onToolApprovalRequest` callback and discovering how A
 
 #### 🟠 High (Should Fix Soon)
 
-4. **reconnectToStream()**
+1. **reconnectToStream()**
    - **Why High**: Used for resuming streams, affects user experience
    - **Missing**: All reconnection scenarios
 
-5. **Audio Streaming (data-pcm events)**
+2. **Audio Streaming (data-pcm events)**
    - **Why High**: BIDI mode feature, affects multimodal experience
    - **Missing**: PCM chunk processing, AudioContext integration
 
-6. **Tool Events (tool-input-available, tool-output-available)**
+3. **Tool Events (tool-input-available, tool-output-available)**
    - **Why High**: Function calling is core feature
    - **Missing**: Tool call flow verification
 
-7. **interrupt()**
+4. **interrupt()**
    - **Why High**: User abort functionality
    - **Missing**: All interrupt scenarios
 
 #### 🟡 Medium (Can Wait)
 
-8. **Audio Control Methods (startAudio, stopAudio, sendAudioChunk)**
+1. **Audio Control Methods (startAudio, stopAudio, sendAudioChunk)**
    - **Why Medium**: Important for BIDI but has UI-level integration tests
    - **Missing**: Unit-level validation
 
-9. **Latency Monitoring (Ping/Pong)**
+2. **Latency Monitoring (Ping/Pong)**
    - **Why Medium**: Nice-to-have feature, not critical for functionality
    - **Missing**: Latency calculation tests
 
-10. **close()**
+3. **close()**
     - **Why Medium**: Basic cleanup, but failures are usually obvious
     - **Missing**: Clean shutdown scenarios
 
@@ -259,6 +278,7 @@ After removing the custom `onToolApprovalRequest` callback and discovering how A
 ### Current Test Coverage: 19 tests
 
 Need to review test file to assess coverage:
+
 - Configuration generation for each mode (gemini, adk-sse, adk-bidi)
 - Transport creation logic
 - chatId generation
@@ -273,6 +293,7 @@ Need to review test file to assess coverage:
 **Status:** 🟡 Review needed
 
 Need to analyze:
+
 - AudioContext creation and management
 - Voice channel operations
 - PCM chunk buffering
@@ -285,6 +306,7 @@ Need to analyze:
 **Status:** 🟡 Review needed
 
 Need to analyze:
+
 - MediaRecorder integration
 - PCM encoding
 - State management
@@ -297,6 +319,7 @@ Need to analyze:
 **Status:** 🟡 Review needed
 
 Need to analyze:
+
 - React hook lifecycle
 - Recording state management
 - Integration with audio-recorder.ts
@@ -310,6 +333,7 @@ Need to analyze:
 **Purpose:** Test buildUseChatOptions + Transport integration (2-component)
 
 **Coverage:**
+
 - ✅ WebSocketChatTransport creation for BIDI mode
 - ✅ DefaultChatTransport for SSE/Gemini modes
 - ✅ AudioContext passing
@@ -318,6 +342,7 @@ Need to analyze:
 - ✅ Configuration validation
 
 **Gaps:**
+
 - ❌ Missing: Error scenarios (invalid URLs, connection failures)
 - ❌ Missing: Transport lifecycle with actual message sending
 
@@ -326,12 +351,14 @@ Need to analyze:
 **Purpose:** Test buildUseChatOptions + Transport + useChat integration (3-component)
 
 **Coverage:**
+
 - ✅ Configuration acceptance by useChat
 - ✅ Transport reference exposure
 - ✅ Initial messages preservation
 - ✅ chatId uniqueness across modes
 
 **Gaps:**
+
 - ❌ Missing: Actual message flow through useChat
 - ❌ Missing: Tool approval flow (removed due to React lifecycle issues)
 - ❌ Missing: Error scenarios
@@ -345,6 +372,7 @@ Need to analyze:
 **Week 1 Priority:**
 
 1. **sendMessages() Core Flow** (5-8 tests)
+
    ```typescript
    describe("sendMessages()", () => {
      it("should establish WebSocket connection on first call")
@@ -359,6 +387,7 @@ Need to analyze:
    ```
 
 2. **Message Event Processing** (6-8 tests)
+
    ```typescript
    describe("Message Events", () => {
      it("should process text-start event")
@@ -371,6 +400,7 @@ Need to analyze:
    ```
 
 3. **Connection Lifecycle** (4-6 tests)
+
    ```typescript
    describe("Connection Lifecycle", () => {
      it("should transition CONNECTING → OPEN")
@@ -384,24 +414,24 @@ Need to analyze:
 
 ### Phase 2: High Priority Features
 
-4. **reconnectToStream()** (3-4 tests)
-5. **Audio Streaming** (4-6 tests)
-6. **Tool Events** (4-6 tests)
-7. **interrupt()** (3-4 tests)
+1. **reconnectToStream()** (3-4 tests)
+2. **Audio Streaming** (4-6 tests)
+3. **Tool Events** (4-6 tests)
+4. **interrupt()** (3-4 tests)
 
 **Total Phase 2: ~14-20 tests**
 
 ### Phase 3: Medium Priority
 
-8. **Audio Control Methods** (4-6 tests)
-9. **Latency Monitoring** (2-3 tests)
-10. **close()** (2-3 tests)
+1. **Audio Control Methods** (4-6 tests)
+2. **Latency Monitoring** (2-3 tests)
+3. **close()** (2-3 tests)
 
 **Total Phase 3: ~8-12 tests**
 
 ### Phase 4: Other Files
 
-11. Review and gap-fill other lib/ files based on detailed analysis
+1. Review and gap-fill other lib/ files based on detailed analysis
 
 ---
 
@@ -455,6 +485,7 @@ Need to analyze:
 **Location**: `lib/websocket-chat-transport.ts:382`
 
 **Current Behavior**:
+
 ```typescript
 async sendMessages(...) {
   return new ReadableStream({
@@ -464,11 +495,13 @@ async sendMessages(...) {
 ```
 
 **Expected Behavior**:
+
 - Check if `this.ws` exists and `readyState === WebSocket.OPEN`
 - Reuse existing connection if available
 - Only create new connection if none exists or previous is closed
 
 **Impact**:
+
 - 🔴 **Critical**: Every user message creates new WebSocket connection
 - Inefficient connection management (reconnection overhead)
 - Previous stream gets closed unexpectedly
@@ -476,6 +509,7 @@ async sendMessages(...) {
 - Audio streaming might be interrupted
 
 **Suggested Fix**:
+
 ```typescript
 async sendMessages(...) {
   return new ReadableStream({
@@ -493,6 +527,7 @@ async sendMessages(...) {
 ```
 
 **Test Coverage**:
+
 - Test "should reuse existing connection for subsequent messages" currently skipped with FIXME
 - Will be enabled after implementation fix
 
@@ -501,6 +536,7 @@ async sendMessages(...) {
 **Resolution**: ✅ FIXED (2025-12-13)
 
 **Implementation**:
+
 ```typescript
 // lib/websocket-chat-transport.ts:382-458
 async sendMessages(...): Promise<ReadableStream<UIMessageChunk>> {
@@ -535,10 +571,12 @@ async sendMessages(...): Promise<ReadableStream<UIMessageChunk>> {
 ```
 
 **Tests Enabled**:
+
 - "should reuse existing connection for subsequent messages" (line 207)
 - "should handle multiple rapid connect/disconnect cycles" (line 882)
 
 **Test Results**:
+
 - All 45 tests passing (previously 43 passing + 2 skipped)
 - Execution time: ~2.5s
 - Connection reuse verified via console logs showing "Reusing existing connection"
@@ -548,25 +586,32 @@ async sendMessages(...): Promise<ReadableStream<UIMessageChunk>> {
 ## Test Implementation Results
 
 ### Phase 1: Critical Path ✅ COMPLETED
+
 **Added**: 21 tests (19 passing + 2 skipped)
+
 - sendMessages() Core Flow: 7 tests
 - Message Event Processing: 8 tests
 - Connection Lifecycle: 6 tests
 
 ### Phase 2: High Priority Features ✅ COMPLETED
+
 **Added**: 13 tests (all passing)
+
 - reconnectToStream(): 3 tests
 - interrupt(): 3 tests
 - Audio Streaming (data-pcm): 4 tests
 - Tool Events: 3 tests
 
 ### Phase 3: Medium Priority ✅ COMPLETED
+
 **Added**: 11 tests (all passing)
+
 - Audio Control Methods: 5 tests
 - Latency Monitoring (Ping/Pong): 3 tests
 - close(): 3 tests
 
 ### Final Test Coverage
+
 - **Total Tests**: 47 (45 passing + 2 skipped)
 - **Before**: 2 tests
 - **After**: 47 tests (23.5x increase)
@@ -575,6 +620,7 @@ async sendMessages(...): Promise<ReadableStream<UIMessageChunk>> {
 - **Bug 1 (Connection Reuse)**: ✅ Fixed and verified
 
 **Note**: 2 tests remain skipped:
+
 - "should handle connection timeout" - behavior clarification needed
 - "should handle connection failure gracefully" - error handling semantics need clarification
 
@@ -631,18 +677,22 @@ async sendMessages(...): Promise<ReadableStream<UIMessageChunk>> {
 ### ✅ Completed Work
 
 **Phase 1: Critical Path (Week 1)**
+
 - ✅ 21 tests added for sendMessages(), message events, connection lifecycle
 - ✅ All critical path scenarios covered
 
 **Phase 2: High Priority Features**
+
 - ✅ 13 tests added for reconnectToStream(), interrupt(), audio streaming, tool events
 - ✅ All high-priority features covered
 
 **Phase 3: Medium Priority**
+
 - ✅ 11 tests added for audio control, latency monitoring, close()
 - ✅ All medium-priority features covered
 
 **Bug Fixes**
+
 - ✅ Bug 1: WebSocket connection reuse - FIXED (lib/websocket-chat-transport.ts:382-458)
 - ✅ Test fix: "network interruption" test updated to expect proper error handling
 - ✅ All connection reuse tests now passing
@@ -650,6 +700,7 @@ async sendMessages(...): Promise<ReadableStream<UIMessageChunk>> {
 ### 📊 Test Coverage Metrics
 
 **websocket-chat-transport.test.ts:**
+
 - Before: 2 tests (only sendToolResult)
 - After: 47 tests (45 passing + 2 skipped)
 - Coverage: All 17 public API methods tested
@@ -657,32 +708,37 @@ async sendMessages(...): Promise<ReadableStream<UIMessageChunk>> {
 - **Increase: 23.5x**
 
 **All lib/ files:**
+
 - Total: 110 tests passing
 - Files covered:
-  - websocket-chat-transport.test.ts: 47 tests
-  - build-use-chat-options.test.ts: 19 tests
-  - audio-recorder.test.ts: 25 tests
-  - use-audio-recorder.test.ts: 23 tests
-  - transport-integration.test.ts: 16 tests
-  - use-chat-integration.test.tsx: 7 tests
+    - websocket-chat-transport.test.ts: 47 tests
+    - build-use-chat-options.test.ts: 19 tests
+    - audio-recorder.test.ts: 25 tests
+    - use-audio-recorder.test.ts: 23 tests
+    - transport-integration.test.ts: 16 tests
+    - use-chat-integration.test.tsx: 7 tests
 
 ### 🔧 Implementation Changes
 
 **lib/websocket-chat-transport.ts (Bug 1 Fix):**
+
 - Lines 382-458: Added connection reuse logic
 - Check `readyState` before creating new WebSocket
 - Reuse OPEN connections, only create new if CLOSED/CLOSING
 - Update handlers for each new stream while preserving connection
 
 **lib/websocket-chat-transport.test.ts:**
+
 - Lines 207-226: Enabled "should reuse existing connection" test
 - Lines 882-922: Enabled "should handle multiple rapid connect/disconnect cycles" test
 - Lines 921-946: Fixed "should handle network interruption" test expectations
 
 **lib/transport-integration.test.ts:**
+
 - No functional changes (formatting only)
 
 **lib/use-chat-integration.test.tsx:**
+
 - No functional changes (formatting only)
 
 ### 🚀 Production Readiness
@@ -698,12 +754,14 @@ async sendMessages(...): Promise<ReadableStream<UIMessageChunk>> {
 - ✅ Error handling verified
 
 **Remaining Skipped Tests (Non-Blocking):**
+
 - "should handle connection timeout" - needs behavior clarification (not a bug)
 - "should handle connection failure gracefully" - needs error semantics clarification (not a bug)
 
 ### 📝 Git Status
 
 **Staged Files (ready to commit):**
+
 ```
 M experiments/2025-12-13_lib_test_coverage_investigation.md  (+145 lines)
 M lib/websocket-chat-transport.ts                            (+112 lines, -0 lines)
@@ -717,6 +775,7 @@ M lib/use-chat-integration.test.tsx                          (formatting)
 ### 🎯 Next Actions (Optional)
 
 **Remaining from Original Plan:**
+
 1. ⏳ Review integration tests for additional edge case gaps
 2. ⏳ Review other lib/ files (audio-context.tsx - currently no test file)
 3. ⏳ Address skipped tests (timeout/error handling behavior clarification)
@@ -742,6 +801,7 @@ M lib/use-chat-integration.test.tsx                          (formatting)
 ### 現状のテストカバレッジ分析
 
 **完全なフロー（想定）:**
+
 ```
 1. User sends message
    useChat.append({ role: 'user', content: '...' })
@@ -783,6 +843,7 @@ M lib/use-chat-integration.test.tsx                          (formatting)
 | 9. Backend processes result | ❌ | - | E2E | Backend側テスト |
 
 **Critical Gap (Step 7):**
+
 - AI SDK v6の `addToolApprovalResponse()` が `transport.sendToolResult()` を呼ぶかどうか**不明**
 - ドキュメントに記載なし
 - この連携がないと、ツール承認フローが完結しない
@@ -790,6 +851,7 @@ M lib/use-chat-integration.test.tsx                          (formatting)
 ### テスト実装の詳細
 
 **✅ Step 3-4: tool-approval-request受信テスト**
+
 ```typescript
 // lib/websocket-chat-transport.test.ts:1372-1412
 it("should process tool-approval-request event through stream", async () => {
@@ -823,6 +885,7 @@ it("should process tool-approval-request event through stream", async () => {
 **カバー範囲:** Backend → Transport → ReadableStream（ここまで）
 
 **✅ Step 8: sendToolResult送信テスト**
+
 ```typescript
 // lib/websocket-chat-transport.test.ts:954-1023
 it("should send tool_result event with correct format", async () => {
@@ -860,6 +923,7 @@ it("should send tool_result event with correct format", async () => {
 想定される実装パターン:
 
 **パターン1: AI SDK v6が自動的に呼ぶ（期待）**
+
 ```typescript
 // AI SDK v6内部実装（想定）
 async function addToolApprovalResponse(approvalId, result) {
@@ -873,6 +937,7 @@ async function addToolApprovalResponse(approvalId, result) {
 ```
 
 **パターン2: 手動実装が必要（悪夢）**
+
 ```typescript
 // Frontend側で手動実装が必要
 const handleToolApproval = async (approvalId: string, approved: boolean) => {
@@ -891,6 +956,7 @@ const handleToolApproval = async (approvalId: string, approved: boolean) => {
 ```
 
 **パターン3: experimental_addToolResult使用**
+
 ```typescript
 // AI SDK v6 v4.0.19+の新しいAPI
 const { experimental_addToolResult } = useChat({...});
@@ -904,6 +970,7 @@ await experimental_addToolResult({
 ### 調査が必要な事項
 
 **🔴 Critical (即座に調査):**
+
 1. AI SDK v6の `addToolApprovalResponse()` の実装を確認
    - `node_modules/ai/react/dist/index.js` のソースコード
    - `addToolApprovalResponse` が transport のどのメソッドを呼ぶか
@@ -915,10 +982,11 @@ await experimental_addToolResult({
 
 **🟡 Important (次の優先度):**
 3. 統合テスト追加
-   - useChat + WebSocketChatTransport でツール承認フロー検証
-   - React lifecycle問題の回避方法検討
 
-4. E2Eテスト追加
+- useChat + WebSocketChatTransport でツール承認フロー検証
+- React lifecycle問題の回避方法検討
+
+1. E2Eテスト追加
    - 実際のブラウザでツール承認フロー確認
 
 ### Next Actions
@@ -946,21 +1014,25 @@ await experimental_addToolResult({
 ### ソースコードへのリンク
 
 **AI SDK v6 実装コード:**
+
 - `node_modules/ai/dist/index.mjs:11103-11129` - `addToolApprovalResponse()` 実装
 - `node_modules/ai/dist/index.mjs:11212-11338` - `makeRequest()` 実装
 - `node_modules/ai/dist/index.mjs:11342-11361` - `lastAssistantMessageIsCompleteWithApprovalResponses()` 実装
 
 **AI SDK v6 型定義:**
+
 - `node_modules/ai/dist/index.d.ts:3026-3036` - `ChatAddToolApproveResponseFunction` 型定義
 - `node_modules/ai/dist/index.d.ts:3112-3114` - `sendAutomaticallyWhen` オプション型定義
 - `node_modules/ai/dist/index.d.ts:2936-2999` - `ChatTransport` インターフェース定義
 
 **AI SDK v6 公式ドキュメント:**
-- https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-chat - useChat API Reference (sendAutomaticallyWhen documented)
-- https://ai-sdk.dev/docs/ai-sdk-ui/chatbot - General chatbot documentation
-- https://github.com/vercel/ai - AI SDK GitHub Repository (v6.0.0+)
+
+- <https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-chat> - useChat API Reference (sendAutomaticallyWhen documented)
+- <https://ai-sdk.dev/docs/ai-sdk-ui/chatbot> - General chatbot documentation
+- <https://github.com/vercel/ai> - AI SDK GitHub Repository (v6.0.0+)
 
 **AI SDK v6 Export確認:**
+
 - `node_modules/ai/dist/index.d.ts:5324` - `lastAssistantMessageIsCompleteWithApprovalResponses` exported
 - `node_modules/ai/dist/index.d.ts:5324` - `lastAssistantMessageIsCompleteWithToolCalls` exported
 - `node_modules/ai/dist/index.d.ts:3363-3365` - `lastAssistantMessageIsCompleteWithApprovalResponses` 型定義
@@ -1017,6 +1089,7 @@ this.addToolApprovalResponse = async ({
 ```
 
 **動作:**
+
 1. UI messageのpartを `"approval-responded"` に更新
 2. `sendAutomaticallyWhen` 関数をチェック
 3. 条件が真なら `makeRequest()` → `transport.sendMessages()` を呼ぶ
@@ -1037,6 +1110,7 @@ sendAutomaticallyWhen?: (options: {
 ```
 
 **重要:**
+
 - `sendAutomaticallyWhen` は **optional**
 - デフォルトは `undefined`
 - つまり、デフォルト動作では **自動的にメッセージを再送信しない**
@@ -1068,6 +1142,7 @@ interface ChatTransport<UI_MESSAGE extends UIMessage> {
 ```
 
 **重要:**
+
 - `ChatTransport`インターフェースには **`sendToolResult()` メソッドが存在しない**
 - メソッドは `sendMessages()` と `reconnectToStream()` のみ
 - つまり、`sendToolResult()` は **WebSocketChatTransport独自の拡張メソッド**
@@ -1075,6 +1150,7 @@ interface ChatTransport<UI_MESSAGE extends UIMessage> {
 ### Tool Approval Flowの正しい理解
 
 **❌ 誤った理解（以前の想定）:**
+
 ```
 addToolApprovalResponse(approvalId, approved)
   ↓
@@ -1086,6 +1162,7 @@ Backend receives tool_result
 **✅ 正しい理解（AI SDK v6の実装）:**
 
 **パターンA: sendAutomaticallyWhen未指定（デフォルト）**
+
 ```
 addToolApprovalResponse(approvalId, approved)
   ↓
@@ -1095,6 +1172,7 @@ UI state更新 (state: "approval-responded")
 ```
 
 **パターンB: sendAutomaticallyWhen指定**
+
 ```
 addToolApprovalResponse(approvalId, approved)
   ↓
@@ -1110,6 +1188,7 @@ Backend receives ALL messages including approval-responded parts
 ```
 
 **重要な違い:**
+
 - `sendToolResult()` を直接呼ぶのではなく、**全メッセージを再送信**
 - Backendは `messages` 配列の中から `state: "approval-responded"` を見つける必要がある
 
@@ -1130,6 +1209,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
 ```
 
 **問題点:**
+
 1. `sendToolResult()` はAI SDK v6から **自動的に呼ばれない**
 2. Frontend実装で **手動で呼ぶ必要がある**
 3. または `sendAutomaticallyWhen` を設定して自動再送信
@@ -1137,6 +1217,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
 **正しい使用方法（3つのオプション）:**
 
 **オプション1: sendAutomaticallyWhenを使用（推奨）**
+
 ```typescript
 const options = buildUseChatOptions({
   mode: "adk-bidi",
@@ -1152,6 +1233,7 @@ await addToolApprovalResponse({ id: "approval-123", approved: true });
 ```
 
 **オプション2: 手動でsendToolResultを呼ぶ**
+
 ```typescript
 const { addToolApprovalResponse, transportRef } = useChat(options);
 
@@ -1162,6 +1244,7 @@ transportRef.current.sendToolResult("call-456", { approved: true });
 ```
 
 **オプション3: 手動でsendMessageを呼ぶ**
+
 ```typescript
 const { addToolApprovalResponse, sendMessage } = useChat(options);
 
@@ -1184,6 +1267,7 @@ await sendMessage("");
 | 4. Backend受信（tool_result） | ✅ | MockWebSocketで検証済み |
 
 **Critical Gap（再定義）:**
+
 - AI SDK v6の `addToolApprovalResponse()` が **デフォルトでは何も送信しない**
 - **Frontend実装が必要**（sendAutomaticallyWhen設定 or 手動sendToolResult）
 - この動作は **ドキュメント化されていない**
@@ -1191,6 +1275,7 @@ await sendMessage("");
 ### 推奨される修正
 
 **1. buildUseChatOptions に sendAutomaticallyWhen を追加**
+
 ```typescript
 // lib/build-use-chat-options.ts
 import { lastAssistantMessageIsCompleteWithApprovalResponses } from 'ai';
@@ -1209,6 +1294,7 @@ export function buildUseChatOptions({
 ```
 
 **2. 統合テスト追加**
+
 ```typescript
 // lib/tool-approval-flow-integration.test.ts
 describe("Tool Approval Flow with sendAutomaticallyWhen", () => {
@@ -1242,6 +1328,7 @@ type ChatAddToolApproveResponseFunction = ({
 ```
 
 **実装確認:**
+
 - `addToolApprovalResponse()` は **void を返す**（非同期だが結果なし）
 - Transport メソッド呼び出しは **内部的に条件付き**
 - ユーザーが明示的に設定しない限り **何も送信されない**
@@ -1257,11 +1344,13 @@ type ChatAddToolApproveResponseFunction = ({
 5. 📝 この動作は **ドキュメント化されていない**
 
 **現在の実装の問題:**
+
 - `sendToolResult()` は独自拡張だが、AI SDK v6から **自動的に呼ばれない**
 - Frontend実装で **手動呼び出しが必要**
 - または `sendAutomaticallyWhen` 設定が **必須**
 
 **Next Actions:**
+
 1. ⏳ `buildUseChatOptions` に `sendAutomaticallyWhen` を追加
 2. ⏳ 統合テストで動作検証
 3. ⏳ ドキュメント更新（この動作を明記）
@@ -1277,6 +1366,7 @@ type ChatAddToolApproveResponseFunction = ({
 ### 回答: **全messages配列がJSON bodyとしてPOSTされる**
 
 **送信される内容:**
+
 - **Data Stream Protocolではない** (それはBackend→Frontendの方向)
 - **特別なメッセージでもない**
 - **通常のHTTP POST** with **全messages配列**を含むJSON body
@@ -1467,6 +1557,7 @@ Frontend receives UIMessageChunk stream
 ```
 
 **結論:**
+
 - ✅ **通常のメッセージ送信と同じフロー**
 - ✅ **全messages配列がそのまま送信される**
 - ✅ **Backendが`state: "approval-responded"`を検出する責任**
@@ -1485,6 +1576,7 @@ AI SDK v6が提供する以下の2つのヘルパー関数の内部実装を調�
 2. `lastAssistantMessageIsCompleteWithToolCalls` - Tool Execution Flow用
 
 **調査目的:**
+
 - 各ヘルパーが具体的に何をチェックしているか理解する
 - どちらのヘルパーを使うべきか判断する
 - `sendToolResult()` メソッドが不要になるか確認する
@@ -1523,12 +1615,14 @@ function lastAssistantMessageIsCompleteWithApprovalResponses({ messages }) {
 **動作解析:**
 
 1. **最後のassistantメッセージを取得**
+
    ```javascript
    const message = messages[messages.length - 1];
    if (!message || message.role !== "assistant") return false;
    ```
 
 2. **最後のstep内のツール呼び出しを抽出**
+
    ```javascript
    const lastStepStartIndex = message.parts.reduce((lastIndex, part, index) => {
      return part.type === "step-start" ? index : lastIndex;
@@ -1541,6 +1635,7 @@ function lastAssistantMessageIsCompleteWithApprovalResponses({ messages }) {
    ```
 
 3. **承認完了条件をチェック**
+
    ```javascript
    return (
      // 条件1: 少なくとも1つの"approval-responded"が存在
@@ -1561,6 +1656,7 @@ function lastAssistantMessageIsCompleteWithApprovalResponses({ messages }) {
 **重要な発見:**
 
 このヘルパーは**3つの状態を許容**:
+
 - `"approval-responded"` - ユーザーが承認したが、まだツール実行していない
 - `"output-available"` - ツール実行完了
 - `"output-error"` - ツール実行エラー
@@ -1598,6 +1694,7 @@ function lastAssistantMessageIsCompleteWithToolCalls({ messages }) {
 1. **最後のassistantメッセージを取得** (同じ)
 2. **最後のstep内のツール呼び出しを抽出** (同じ)
 3. **ツール実行完了条件をチェック**
+
    ```javascript
    return lastStepToolInvocations.length > 0 &&  // ツール呼び出しが存在
      lastStepToolInvocations.every(
@@ -1609,6 +1706,7 @@ function lastAssistantMessageIsCompleteWithToolCalls({ messages }) {
 **重要な発見:**
 
 このヘルパーは**2つの状態のみ許容**:
+
 - `"output-available"` - ツール実行完了
 - `"output-error"` - ツール実行エラー
 
@@ -1630,6 +1728,7 @@ function lastAssistantMessageIsCompleteWithToolCalls({ messages }) {
 Tool Approval Flowを採用しているため、`lastAssistantMessageIsCompleteWithApprovalResponses` を使うべき。
 
 **理由:**
+
 1. ユーザーが承認した時点で `state: "approval-responded"` になる
 2. このヘルパーは承認直後に `true` を返す
 3. `transport.sendMessages()` が呼ばれる
@@ -1651,6 +1750,7 @@ sendAutomaticallyWhenを設定しない（Tool Approval Flow未サポート）�
    - 標準は `sendMessages()` のみ
 
 2. **Tool Approval Flowの標準実装**
+
    ```
    addToolApprovalResponse()
      → state更新 (approval-responded)
@@ -1659,6 +1759,7 @@ sendAutomaticallyWhenを設定しない（Tool Approval Flow未サポート）�
    ```
 
 3. **Tool Execution Flowも同様**
+
    ```
    addToolOutput()
      → state更新 (output-available)
@@ -1672,11 +1773,13 @@ sendAutomaticallyWhenを設定しない（Tool Approval Flow未サポート）�
    - 将来的に混乱を招く
 
 **削除対象:**
+
 - `WebSocketChatTransport.sendToolResult()` メソッド
 - 関連するイベントハンドリングコード
 - テストコード中の `sendToolResult()` 呼び出し
 
 **残すべきもの:**
+
 - `sendMessages()` - これが標準プロトコル
 - `startAudio()` / `stopAudio()` - Audio制御は独自機能として有用
 
@@ -1685,6 +1788,7 @@ sendAutomaticallyWhenを設定しない（Tool Approval Flow未サポート）�
 **GREEN Phase での実装:**
 
 1. `build-use-chat-options.ts` に `sendAutomaticallyWhen` を追加
+
    ```typescript
    // ADK BIDI / ADK SSE モード
    import { lastAssistantMessageIsCompleteWithApprovalResponses } from "ai";
@@ -1740,6 +1844,7 @@ describe("Tool Approval Auto-Submission", () => {
 ```
 
 **テスト結果 (RED):**
+
 ```
 FAIL  2 failed | 20 passed (22)
   ✗ should configure sendAutomaticallyWhen for ADK BIDI mode
@@ -1752,11 +1857,13 @@ FAIL  2 failed | 20 passed (22)
 **実装ファイル:** `lib/build-use-chat-options.ts`
 
 **変更1: ヘルパー関数のインポート (line 2)**
+
 ```typescript
 import { DefaultChatTransport, lastAssistantMessageIsCompleteWithApprovalResponses } from "ai";
 ```
 
 **変更2: 型定義の更新 (lines 56-63)**
+
 ```typescript
 export interface UseChatOptionsWithTransport {
   useChatOptions: {
@@ -1770,6 +1877,7 @@ export interface UseChatOptionsWithTransport {
 ```
 
 **変更3: ADK SSE モードに追加 (line 200)**
+
 ```typescript
 const adkSseOptions = {
   ...baseOptions,
@@ -1780,6 +1888,7 @@ const adkSseOptions = {
 ```
 
 **変更4: ADK BIDI モードに追加 (line 223)**
+
 ```typescript
 const adkBidiOptions = {
   ...baseOptions,
@@ -1790,6 +1899,7 @@ const adkBidiOptions = {
 ```
 
 **テスト結果 (GREEN):**
+
 ```
 ✓ 22 passed (22)
 ```
@@ -1818,12 +1928,14 @@ const adkBidiOptions = {
 **ファイル1: `lib/websocket-chat-transport.ts`**
 
 Lines 131-132 (interface削除):
+
 ```typescript
 // ToolResultEvent removed - use AI SDK v6's standard addToolApprovalResponse flow
 // See experiments/2025-12-13_lib_test_coverage_investigation.md:1640-1679 for details
 ```
 
 Lines 145-150 (union type更新):
+
 ```typescript
 type ClientToServerEvent =
   | MessageEvent
@@ -1834,6 +1946,7 @@ type ClientToServerEvent =
 ```
 
 Lines 283-285 (メソッド削除):
+
 ```typescript
 // sendToolResult() removed - use AI SDK v6's standard addToolApprovalResponse flow
 // Tool approval flow: addToolApprovalResponse() → sendAutomaticallyWhen → transport.sendMessages()
@@ -1843,6 +1956,7 @@ Lines 283-285 (メソッド削除):
 **ファイル2: `lib/websocket-chat-transport.test.ts`**
 
 Lines 949-951 (テストケース削除):
+
 ```typescript
 // Tool Approval Flow tests removed
 // AI SDK v6 uses sendAutomaticallyWhen + addToolApprovalResponse instead of sendToolResult
@@ -1852,6 +1966,7 @@ Lines 949-951 (テストケース削除):
 **ファイル3: `lib/use-chat-integration.test.tsx`**
 
 Line 135 削除、137行追加:
+
 ```typescript
 expect(transport.startAudio).toBeDefined();
 expect(transport.stopAudio).toBeDefined();
@@ -1861,11 +1976,13 @@ expect(transport.stopAudio).toBeDefined();
 **ファイル4: `lib/transport-integration.test.ts`**
 
 Line 13 (コメント修正):
+
 ```typescript
 // - Verify transport can be used imperatively (startAudio, stopAudio)
 ```
 
 Line 169 (呼び出し削除):
+
 ```typescript
 expect(() => transport.startAudio()).not.toThrow();
 expect(() => transport.stopAudio()).not.toThrow();
@@ -1873,6 +1990,7 @@ expect(() => transport.stopAudio()).not.toThrow();
 ```
 
 **テスト結果 (REFACTOR完了):**
+
 ```
 ✓ lib/audio-recorder.test.ts (25 tests)
 ✓ lib/build-use-chat-options.test.ts (22 tests)
@@ -1911,12 +2029,14 @@ Tests  150 passed (150)
 ### 次のステップ
 
 **完了:**
+
 - ✅ RED Phase: テストが失敗することを確認
 - ✅ GREEN Phase: 実装してテストを通す
 - ✅ REFACTOR Phase: 不要なコードを削除
 - ✅ 全テスト通過確認 (150 tests passing)
 
 **今後のタスク:**
+
 1. Backend実装の更新 (`tool_result` → `state: "approval-responded"` 検出)
 2. E2Eテストでの動作確認
 3. ドキュメント更新 (API仕様書など)
@@ -1930,6 +2050,7 @@ Tests  150 passed (150)
 ### 各ステップのテスト網羅状況
 
 #### ✅ Step 1: User sends message
+
 ```
 useChat.append({ role: 'user', content: '...' })
 ```
@@ -1937,11 +2058,13 @@ useChat.append({ role: 'user', content: '...' })
 **テスト状況:** ✅ **完全にテスト済み**
 
 **カバレッジ:**
+
 - `use-chat-integration.test.tsx:101-116` - ADK BIDI mode with useChat
 - `use-chat-integration.test.tsx:147-163` - ADK SSE mode with useChat
 - `use-chat-integration.test.tsx:183-199` - useChat API compatibility
 
 **テスト方法:**
+
 ```typescript
 const { result } = renderHook(() => useChat(options.useChatOptions));
 // useChat hook initializes without error
@@ -1953,6 +2076,7 @@ expect(result.current.messages).toBeDefined();
 ---
 
 #### ✅ Step 2: useChat calls transport.sendMessages()
+
 ```
 WebSocketChatTransport.sendMessages() → Backend
 ```
@@ -1960,6 +2084,7 @@ WebSocketChatTransport.sendMessages() → Backend
 **テスト状況:** ✅ **完全にテスト済み**
 
 **カバレッジ:**
+
 - `websocket-chat-transport.test.ts:154-182` - WebSocket connection establishment
 - `websocket-chat-transport.test.ts:184-220` - Message event format
 - `websocket-chat-transport.test.ts:222-264` - Connection reuse
@@ -1967,6 +2092,7 @@ WebSocketChatTransport.sendMessages() → Backend
 - `transport-integration.test.ts:140-170` - Imperative control
 
 **テスト方法:**
+
 ```typescript
 const stream = await transport.sendMessages({
   trigger: "submit-message",
@@ -1989,6 +2115,7 @@ expect(sentMessages.length).toBe(1);
 ---
 
 #### ✅ Step 3: Backend processes and sends tool-approval-request
+
 ```
 Backend → WebSocket → Transport
 ```
@@ -1996,9 +2123,11 @@ Backend → WebSocket → Transport
 **テスト状況:** ⚠️ **部分的にテスト済み（Backend側はMock）**
 
 **カバレッジ:**
+
 - `websocket-chat-transport.test.ts` 全体 - MockWebSocketでBackendレスポンスをシミュレート
 
 **テスト方法:**
+
 ```typescript
 // MockWebSocket simulates backend sending tool-approval-request
 ws.simulateMessage({
@@ -2011,12 +2140,14 @@ ws.simulateMessage({
 ```
 
 **コメント:**
+
 - ✅ Transport側の受信処理は検証済み
 - ❌ 実際のBackend実装は未検証（E2Eテストで検証必要）
 
 ---
 
 #### ✅ Step 4: Transport enqueues to ReadableStream
+
 ```
 UIMessageChunk stream → useChat
 ```
@@ -2024,12 +2155,14 @@ UIMessageChunk stream → useChat
 **テスト状況:** ✅ **完全にテスト済み**
 
 **カバレッジ:**
+
 - `websocket-chat-transport.test.ts:266-306` - Text stream assembly
 - `websocket-chat-transport.test.ts:308-368` - Text-start/delta/end processing
 - `websocket-chat-transport.test.ts:370-409` - Multi-chunk assembly
 - Custom event handling (tool-approval-request flows through)
 
 **テスト方法:**
+
 ```typescript
 const stream = await transport.sendMessages({ /* ... */ });
 const reader = stream.getReader();
@@ -2048,6 +2181,7 @@ expect(chunk1.value).toMatchObject({ type: "text-start" });
 ---
 
 #### ❌ Step 5: useChat receives tool-approval-request
+
 ```
 AI SDK v6 native handling detects approval request
 ```
@@ -2055,6 +2189,7 @@ AI SDK v6 native handling detects approval request
 **テスト状況:** ❌ **未テスト（AI SDK v6内部動作）**
 
 **理由:**
+
 - AI SDK v6の内部実装に依存
 - 我々のコードではない
 - E2Eテストで間接的に検証可能
@@ -2064,6 +2199,7 @@ AI SDK v6 native handling detects approval request
 ---
 
 #### ❌ Step 6: User approves/denies in UI
+
 ```
 Frontend calls addToolApprovalResponse(approvalId, result)
 ```
@@ -2071,6 +2207,7 @@ Frontend calls addToolApprovalResponse(approvalId, result)
 **テスト状況:** ❌ **未テスト（UI層の動作）**
 
 **理由:**
+
 - UI層（React component）のテスト
 - `lib/` ディレクトリのスコープ外
 - E2Eテストで検証必要
@@ -2080,6 +2217,7 @@ Frontend calls addToolApprovalResponse(approvalId, result)
 ---
 
 #### ✅ Step 7: AI SDK v6 internally calls transport method
+
 ```
 (このステップが不明確！)
 ```
@@ -2087,6 +2225,7 @@ Frontend calls addToolApprovalResponse(approvalId, result)
 **テスト状況:** ✅ **明確化 & テスト済み**
 
 **今回の調査結果:**
+
 ```
 addToolApprovalResponse()
   → state更新 (part.state = "approval-responded")
@@ -2095,9 +2234,11 @@ addToolApprovalResponse()
 ```
 
 **カバレッジ:**
+
 - `build-use-chat-options.test.ts:398-451` - sendAutomaticallyWhen設定検証
 
 **テスト方法:**
+
 ```typescript
 it("should configure sendAutomaticallyWhen for ADK BIDI mode", () => {
   const result = buildUseChatOptions({
@@ -2112,6 +2253,7 @@ it("should configure sendAutomaticallyWhen for ADK BIDI mode", () => {
 ```
 
 **コメント:**
+
 - ✅ `sendAutomaticallyWhen` の設定は検証済み
 - ✅ AI SDK v6が `transport.sendMessages()` を呼ぶことを確認
 - ❌ 実際の `addToolApprovalResponse()` 呼び出しは未検証（E2Eで検証必要）
@@ -2119,6 +2261,7 @@ it("should configure sendAutomaticallyWhen for ADK BIDI mode", () => {
 ---
 
 #### ✅ Step 8: Transport sends to backend (修正版)
+
 ```
 旧: transport.sendToolResult(toolCallId, result) → Backend
 新: transport.sendMessages(messages) → Backend (state: "approval-responded" を含む)
@@ -2127,10 +2270,12 @@ it("should configure sendAutomaticallyWhen for ADK BIDI mode", () => {
 **テスト状況:** ✅ **完全にテスト済み**
 
 **カバレッジ:**
+
 - `websocket-chat-transport.test.ts:222-264` - Connection reuse & message sending
 - Step 2と同じテストでカバー済み
 
 **テスト方法:**
+
 ```typescript
 // 既存のsendMessages()テストと同じ
 const stream = await transport.sendMessages({
@@ -2143,12 +2288,14 @@ const stream = await transport.sendMessages({
 ```
 
 **コメント:**
+
 - ✅ `sendMessages()` による全messages配列送信は検証済み
 - ❌ `state: "approval-responded"` を含むメッセージの送信は未検証（テスト追加可能）
 
 ---
 
 #### ✅ Step 9: Backend processes result and continues
+
 ```
 Backend → text-delta events → useChat
 ```
@@ -2156,10 +2303,12 @@ Backend → text-delta events → useChat
 **テスト状況:** ⚠️ **部分的にテスト済み（Backend側はMock）**
 
 **カバレッジ:**
+
 - `websocket-chat-transport.test.ts:266-306` - Text stream processing
 - Step 4と同じテストでカバー済み
 
 **コメント:**
+
 - ✅ text-delta イベントの処理は検証済み
 - ❌ 実際のBackend実装は未検証（E2Eテストで検証必要）
 
@@ -2182,11 +2331,13 @@ Backend → text-delta events → useChat
 ### 全体カバレッジ
 
 **Unit + Integration Tests (lib/):**
+
 - ✅ Steps 1, 2, 4, 7, 8: **完全にカバー**
 - ⚠️ Steps 3, 9: **Transport側は完全、Backend側は未検証**
 - ❌ Steps 5, 6: **スコープ外（AI SDK v6内部、UI層）**
 
 **E2E Tests 必要範囲:**
+
 - Step 3: 実際のBackendからのtool-approval-request送信
 - Step 5: AI SDK v6のtool-approval-request検出
 - Step 6: UIでのユーザー承認・拒否
@@ -2195,16 +2346,19 @@ Backend → text-delta events → useChat
 ### 今回の実装で改善した点
 
 **Before (実装前):**
+
 - Step 7: ❓ 不明確（どうやってBackendに送るか分からない）
 - Step 8: ❌ `sendToolResult()` 独自実装（AI SDK v6非標準）
 
 **After (実装後):**
+
 - Step 7: ✅ 明確化 & 検証済み（`sendAutomaticallyWhen` → `transport.sendMessages()`）
 - Step 8: ✅ 標準化（AI SDK v6標準プロトコル準拠）
 
 ### 推奨される次のアクション
 
 **優先度: 高**
+
 1. E2Eテスト作成（Steps 3, 5, 6, 9の実Backend動作確認）
 2. Step 8の拡張テスト追加（`state: "approval-responded"` を含むメッセージ送信検証）
 
@@ -2224,6 +2378,7 @@ Backend → text-delta events → useChat
 ### 目的
 
 Integration testレベルで、AI SDK v6の内部挙動をspyとmockで検証する：
+
 - **ADK BIDI**: AI SDK v6が `transport.sendMessages()` を呼び出し、mock WSに送信
 - **ADK SSE**: AI SDK v6が `fetch` を呼び出し、mock fetchでキャプチャ
 
@@ -2235,6 +2390,7 @@ Integration testレベルで、AI SDK v6の内部挙動をspyとmockで検証す
 ### 試みた実装
 
 #### ADK BIDI Mode
+
 ```typescript
 it("should verify AI SDK v6 calls transport.sendMessages() on tool approval", async () => {
   const sendMessagesSpy = vi.spyOn(transport, 'sendMessages');
@@ -2249,6 +2405,7 @@ it("should verify AI SDK v6 calls transport.sendMessages() on tool approval", as
 ```
 
 #### ADK SSE Mode
+
 ```typescript
 it("should verify AI SDK v6 calls fetch on message submission", async () => {
   const fetchCalls: { url: string; body: any }[] = [];
@@ -2268,16 +2425,19 @@ it("should verify AI SDK v6 calls fetch on message submission", async () => {
 ### 発見した課題
 
 **課題1: useChat API の制限**
+
 - `useChat` hookの `result.current.append()` が test環境で存在しない
 - AI SDK v6のuseChat APIドキュメント確認が必要
 - Message submission のAPIが不明
 
 **課題2: Tool Approval Flowのセットアップ**
+
 - `addToolApprovalResponse({ id, approved, reason })` の正しいパラメータ構造
 - Tool approval IDの生成方法が不明
 - 初期メッセージに `approval-requested` stateを設定しても、AI SDK v6が認識しない
 
 **課題3: テスト環境の制約**
+
 - React Testing Libraryの `renderHook` + AI SDK v6の組み合わせで、動的なメッセージ送信が困難
 - useChat のライフサイクルとテストフレームワークの相性問題
 
@@ -2306,6 +2466,7 @@ this.sendMessage = async (message, options) => {
 ```
 
 **重要な発見:**
+
 1. ❌ `result.current.append()` は存在しない → ✅ `result.current.sendMessage()` が正しいAPI
 2. ❌ `sendMessage()` をawaitすると永久にhangする → ✅ awaitせずfire-and-forget
 3. ⚠️ `sendMessage()` のPromiseは**ストリーム完了後にresolve**される（backend応答が必要）
@@ -2313,6 +2474,7 @@ this.sendMessage = async (message, options) => {
 #### 成功した実装
 
 **lib/use-chat-integration.test.tsx:140-182**
+
 ```typescript
 it("should verify AI SDK v6 calls transport.sendMessages() on user message (ADK BIDI)", async () => {
   // Given: ADK BIDI mode
@@ -2373,6 +2535,7 @@ $ pnpm exec vitest run lib/
 ```
 
 **達成:**
+
 - ✅ Step 1-2統合検証完了（User sends message → AI SDK v6 calls `transport.sendMessages()`）
 - ✅ AI SDK v6内部フロー検証: `sendMessage()` → `makeRequest()` → `transport.sendMessages()`
 - ✅ Message content検証: User messageがcorrect formatで transportに渡される
@@ -2380,17 +2543,20 @@ $ pnpm exec vitest run lib/
 ### 最終的なテスト戦略（更新）
 
 **Unit Tests (lib/):**
+
 - ✅ 各コンポーネント個別の動作検証
 - ✅ `sendAutomaticallyWhen` 設定検証
 - ✅ `transport.sendMessages()` 動作検証
 
 **Integration Tests (lib/):**
+
 - ✅ buildUseChatOptions + transport 統合検証
 - ✅ buildUseChatOptions + useChat hook 初期化検証
 - ✅ **AI SDK v6 → transport.sendMessages() 統合検証（Step 1-2）**
 - ✅ **Tool approval flow統合検証（Step 6-8）**
 
 **E2E Tests (tests/e2e/):**
+
 - ⏳ 実際のBackendとの統合検証（未実装）
 - ⏳ 実際のuser interactionを通じたフロー検証（未実装）
 - ⏳ Tool approval complete flowの動作確認（未実装）
@@ -2560,17 +2726,20 @@ $ pnpm exec vitest run lib/
 ### 最終的なテスト戦略（完成版）
 
 **Unit Tests (lib/):**
+
 - ✅ 各コンポーネント個別の動作検証
 - ✅ `sendAutomaticallyWhen` 設定検証
 - ✅ `transport.sendMessages()` 動作検証
 
 **Integration Tests (lib/):**
+
 - ✅ buildUseChatOptions + transport 統合検証
 - ✅ buildUseChatOptions + useChat hook 初期化検証
 - ✅ AI SDK v6 → transport.sendMessages() 統合検証（Step 1-2）
 - ✅ Tool approval flow統合検証（Step 6-8）
 
 **E2E Tests (tests/e2e/):**
+
 - ⏳ 実際のBackendとの統合検証（未実装）
 - ⏳ 実際のuser interactionを通じたフロー検証（未実装）
 - ⏳ Tool approval complete flowの動作確認（未実装）
@@ -2633,41 +2802,48 @@ $ pnpm exec vitest run lib/
 ### カバレッジサマリー
 
 **Unit Tests (lib/):**
+
 - **160 tests passing**
 - Steps 2, 3, 7, 8をcomponent単位で検証
 - Transport動作、message送信、WebSocket接続を検証
 
 **Integration Tests (lib/):**
+
 - **9 tests passing** (use-chat-integration.test.tsx)
 - Steps 1-2とSteps 6-8の統合フローを検証
 - AI SDK v6とtransportの連携を検証
 - **カバレッジ:** Steps 1, 2, 3, 6, 7, 8
 
 **E2E Tests (tests/e2e/):**
+
 - **未実装**
 - Steps 4, 5, 9の検証が必要（実際のbackend応答とUI更新）
 
 ### 検証できていないステップの理由
 
 **Step 4-5 (Backend → UI):**
+
 - ✅ **Integration testで実装完了** (use-chat-integration.test.tsx:273-347)
 - MockWebSocketでbackend応答をシミュレート（tool-input-start → tool-input-available → tool-approval-request）
 - AI SDK v6のevent processing検証（message state更新）
 - E2Eテストでは実際のbackend + UI renderingを検証予定
 
 **Step 9 (Backend processes):**
+
 - Backend側の動作検証
 - E2Eテストで実装予定
 
 ### 最終結論
 
 **lib/のIntegration Testで達成:**
+
 - ✅ **Frontend側のcritical pathを完全に検証**
-  - User action → AI SDK v6 → Transport → Backend送信（Steps 1-3, 6-8）
-  - Tool approval flow（sendAutomaticallyWhen）の動作検証
-  - Message format / protocol変換の検証
+    - User action → AI SDK v6 → Transport → Backend送信（Steps 1-3, 6-8）
+    - Tool approval flow（sendAutomaticallyWhen）の動作検証
+    - Message format / protocol変換の検証
 
 **残りの検証（E2E Test）:**
+
 - ⏳ Backend応答処理（Step 9のみ）
 - ⏳ UI rendering更新検証（実際のReact component）
 - ⏳ End-to-end complete flow
@@ -2693,6 +2869,7 @@ I mistakenly believed that `tool-approval-request` was NOT a standard AI SDK v6 
 Translation: "Really? Are you properly checking AI SDK v6 implementation? That's why I decide whether it's sufficient! Don't make decisions on your own!"
 
 **Key Lesson:**
+
 - NEVER assume what is or isn't possible without thorough investigation
 - NEVER decide test sufficiency - that's the user's decision
 - Integration tests that can catch failures early are CRITICAL before E2E
@@ -2730,6 +2907,7 @@ case "tool-approval-request": {
 **Test:** "should verify useChat receives and processes tool-approval-request from backend (ADK BIDI)"
 
 **What it tests:**
+
 1. **Step 4:** Backend sends tool-approval-request via WebSocket
    - Send event sequence: tool-input-start → tool-input-available → tool-approval-request
    - Uses MockWebSocket to simulate backend responses
@@ -2741,10 +2919,12 @@ case "tool-approval-request": {
 **Key Discovery: Dynamic Type Names**
 
 AI SDK v6 creates dynamic type names for tool parts:
+
 - NOT: `{ type: "tool-use", ... }`
 - BUT: `{ type: "tool-web_search", ... }` (concatenates "tool-" + toolName)
 
 **Test Output:**
+
 ```json
 {
   "id": "sfkK589YQhuUzFFv",
@@ -2767,22 +2947,26 @@ AI SDK v6 creates dynamic type names for tool parts:
 ### Coverage Update
 
 **Before:**
+
 - Steps 1-3: ✅ Tested (user message flow)
 - Steps 4-5: ❌ NOT tested (assumed difficult)
 - Steps 6-8: ✅ Tested (tool approval flow)
 
 **After:**
+
 - Steps 1-3: ✅ Tested (user message flow)
 - Steps 4-5: ✅ **NOW TESTED** (backend response processing)
 - Steps 6-8: ✅ Tested (tool approval flow)
 
 **Remaining for E2E:**
+
 - Step 9: Backend processing (server-side logic)
 - UI rendering: Actual React component updates
 
 ### Implementation Details
 
 **Event Sequence Simulation:**
+
 ```typescript
 // Step 4a: Backend sends tool-input-start
 ws.simulateMessage({
@@ -2808,6 +2992,7 @@ ws.simulateMessage({
 ```
 
 **Verification:**
+
 ```typescript
 // Find the assistant message
 const assistantMessage = messages.find(m => m.role === "assistant");
@@ -2852,6 +3037,7 @@ expect((toolPart as any)?.approval?.id).toBe("approval-1");
 ### 重要な発見: addToolOutput は自動送信しない
 
 **期待していた動作:**
+
 ```typescript
 addToolOutput({
   toolCallId: "call-1",
@@ -2863,6 +3049,7 @@ addToolOutput({
 ```
 
 **実際の動作:**
+
 ```typescript
 addToolOutput({
   toolCallId: "call-1",
@@ -2876,12 +3063,14 @@ addToolOutput({
 ### 原因分析
 
 **現在の `sendAutomaticallyWhen` 設定:**
+
 ```typescript
 // lib/build-use-chat-options.ts
 sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithApprovalResponses
 ```
 
 **`lastAssistantMessageIsCompleteWithApprovalResponses` の条件:**
+
 ```javascript
 // node_modules/ai/dist/index.mjs
 function lastAssistantMessageIsCompleteWithApprovalResponses({ messages }) {
@@ -2900,6 +3089,7 @@ function lastAssistantMessageIsCompleteWithApprovalResponses({ messages }) {
 ```
 
 **問題点:**
+
 - この条件は **approval flow専用**
 - `approval-responded` が **少なくとも1つ** 必要
 - Tool output のみ (`output-available`) では条件を満たさない
@@ -2907,6 +3097,7 @@ function lastAssistantMessageIsCompleteWithApprovalResponses({ messages }) {
 ### AI SDK v6の別の条件関数
 
 **`lastAssistantMessageIsCompleteWithToolCalls`:**
+
 ```javascript
 function lastAssistantMessageIsCompleteWithToolCalls({ messages }) {
   // ...
@@ -2923,6 +3114,7 @@ function lastAssistantMessageIsCompleteWithToolCalls({ messages }) {
 ### 現在の動作 (Integration Test で検証済み)
 
 **Scenario 1: Tool Approval Flow** ✅ 自動送信
+
 ```typescript
 // Step 1: Initial message with approval-requested
 { state: "approval-requested", approval: { id: "approval-1" } }
@@ -2938,6 +3130,7 @@ addToolApprovalResponse({ id: "approval-1", approved: true })
 ```
 
 **Scenario 2: Tool Output Only** ❌ 自動送信なし
+
 ```typescript
 // Step 1: Initial message with tool call
 { state: "call", toolCallId: "call-1" }
@@ -2956,6 +3149,7 @@ addToolOutput({ toolCallId: "call-1", output: { ... } })
 ### Test Verification
 
 **Test output:**
+
 ```typescript
 // Message state は正しく更新される
 expect(toolPart?.state).toBe("output-available");
@@ -2970,26 +3164,31 @@ expect(sendMessagesSpy).not.toHaveBeenCalled();
 ### 設計上の意味
 
 **現在の実装は approval flow に特化している:**
+
 - Tool approval を使うプロジェクト向け
 - セキュリティ重視: Tool実行前にユーザー承認が必要
 
 **Tool output のみを使う場合:**
+
 - ユーザーが明示的に `submit()` または `append()` を呼ぶ必要がある
 - より細かい制御が可能だが、手動操作が必要
 
 ### Next Steps
 
 **Option 1: 現状維持**
+
 - Approval flow専用のまま
 - Tool output では手動送信
 - ドキュメントに明記
 
 **Option 2: 両方サポート**
+
 - `sendAutomaticallyWhen` を変更
 - Approval flow と tool output 両方で自動送信
 - より複雑なロジックが必要
 
 **Decision:** 現状維持（Option 1）
+
 - 現在のユースケースは approval flow
 - Integration test で動作を正確に検証済み
 - 必要に応じて将来変更可能
@@ -3017,6 +3216,7 @@ expect(sendMessagesSpy).not.toHaveBeenCalled();
 **Test:** "should verify mixed approval + output triggers auto-submit (ADK BIDI)"
 
 **Scenario:**
+
 ```typescript
 // Initial: 2 tools in assistant message
 {
@@ -3050,6 +3250,7 @@ addToolOutput({ toolCallId: "call-2", output: { result: "..." } })
 | **Approval + Output** | ✅ YES | ✅ YES | ✅ YES | **PASS** |
 
 **Key Insight:**
+
 - **Condition 1:** At least one `approval-responded` must exist
 - **Condition 2:** ALL tools must be complete (`output-available`, `output-error`, or `approval-responded`)
 - **Result:** Both conditions are required for auto-submission
@@ -3057,16 +3258,19 @@ addToolOutput({ toolCallId: "call-2", output: { result: "..." } })
 ### Test Verification
 
 **Before Tool A approval:**
+
 ```typescript
 expect(sendMessagesSpy).not.toHaveBeenCalled(); // Tool B incomplete
 ```
 
 **After Tool B output:**
+
 ```typescript
 expect(sendMessagesSpy).toHaveBeenCalled(); // Both complete!
 ```
 
 **Message verification:**
+
 ```typescript
 expect(lastMessage.parts).toEqual(
   expect.arrayContaining([

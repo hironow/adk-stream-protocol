@@ -53,6 +53,7 @@ LLM generates text: None (Bug #2)
 ```
 
 **Why it doesn't work:**
+
 1. Live API (`_call_live()`) has TODO: "tool confirmation is not yet supported for live mode"
 2. Even with custom interceptor, ADK continues sending events during await, reopening stream
 
@@ -120,12 +121,14 @@ LLM generates final response: "花子さんに50ドル送金しました。"
 ### 1. Tool Design Pattern
 
 **Current (require_confirmation=True):**
+
 - Single tool: `process_payment`
 - ADK intercepts and auto-generates `adk_request_confirmation`
 - Works: SSE mode ✅
 - Broken: BIDI mode ❌
 
 **Proposed (LongRunningFunctionTool):**
+
 - Wrapper tool: `process_payment_approval` (LongRunningFunctionTool)
 - Actual tool: `process_payment` (regular FunctionTool)
 - Explicit pause/resume cycle
@@ -134,6 +137,7 @@ LLM generates final response: "花子さんに50ドル送金しました。"
 ### 2. Agent Run Lifecycle
 
 **Current:**
+
 ```python
 # Single continuous generator
 async for event in runner.run_async(session_id=session_id):
@@ -141,6 +145,7 @@ async for event in runner.run_async(session_id=session_id):
 ```
 
 **Proposed:**
+
 ```python
 # Phase 1: Run until pending
 async for event in runner.run_async(session_id=session_id):
@@ -161,15 +166,18 @@ async for event in runner.run_async(
 ### 3. Frontend Protocol
 
 **Current (AI SDK sendAutomaticallyWhen):**
+
 - Waits for stream completion (`[DONE]`)
 - Checks `status !== "streaming"`
 - Auto-sends tool output
 - **Problem:** Stream never closes due to ADK continuous events
 
 **Proposed (Explicit Resume Message):**
+
 - Detects `status: 'pending'` in tool output
 - Shows approval UI
 - User action → Send explicit WebSocket message:
+
   ```json
   {
     "type": "resume_agent",
@@ -180,6 +188,7 @@ async for event in runner.run_async(
     }
   }
   ```
+
 - Backend routes to `runner.run_async()` with `new_message`
 
 ---
@@ -227,6 +236,7 @@ process_payment_approval = LongRunningFunctionTool(
 ```
 
 **Changes to adk_ag_runner.py:**
+
 ```python
 # BIDI Agent configuration
 bidi_agent = Agent(
@@ -243,6 +253,7 @@ bidi_agent = Agent(
 ```
 
 **Instruction Update:**
+
 ```python
 AGENT_INSTRUCTION_BIDI = (
     "... (existing instructions) ...\n\n"
@@ -390,6 +401,7 @@ function handleDeny(approvalId: string) {
 ### Phase 4: Testing Strategy
 
 **Test 1: Basic Approval Flow**
+
 ```python
 # e2e/bidi-longrunning-approval.spec.ts
 test("BIDI: Approve payment with LongRunningFunctionTool", async ({ page }) => {
@@ -411,6 +423,7 @@ test("BIDI: Approve payment with LongRunningFunctionTool", async ({ page }) => {
 ```
 
 **Test 2: Denial Flow**
+
 ```python
 test("BIDI: Deny payment with LongRunningFunctionTool", async ({ page }) => {
   // ... similar setup ...
@@ -432,11 +445,13 @@ test("BIDI: Deny payment with LongRunningFunctionTool", async ({ page }) => {
 **Risk:** ADK's Live API (`_call_live()`) might not support pause/resume with LongRunningFunctionTool.
 
 **Evidence:**
+
 - Documentation doesn't explicitly mention Live API compatibility
 - Issue #1851 mentions session service limitations
 - No examples found for BIDI + LongRunningFunctionTool
 
 **Mitigation:**
+
 1. Create minimal proof-of-concept test first
 2. Test with simple LongRunningFunctionTool (not payment)
 3. Verify WebSocket connection stays open during pause
@@ -449,6 +464,7 @@ test("BIDI: Deny payment with LongRunningFunctionTool", async ({ page }) => {
 **Risk:** WebSocket might close during pause (30+ seconds for approval).
 
 **Mitigation:**
+
 - Implement keep-alive ping/pong
 - Configure WebSocket timeout to 5 minutes
 - Add connection status monitoring on frontend
@@ -458,6 +474,7 @@ test("BIDI: Deny payment with LongRunningFunctionTool", async ({ page }) => {
 **Risk:** ADK documentation warns "Tools run at least once and may execute multiple times when resuming."
 
 **Mitigation:**
+
 - Implement idempotency key in actual `process_payment`
 - Track executed approval_ids to prevent duplicates
 - Add transaction-level deduplication
@@ -467,6 +484,7 @@ test("BIDI: Deny payment with LongRunningFunctionTool", async ({ page }) => {
 **Risk:** LLM might not follow the multi-step approval workflow correctly.
 
 **Mitigation:**
+
 - Extensive instruction tuning with examples
 - Add chain-of-thought prompting: "Think step by step"
 - Consider using SequentialAgent if single agent struggles
@@ -476,6 +494,7 @@ test("BIDI: Deny payment with LongRunningFunctionTool", async ({ page }) => {
 **Risk:** React state might not properly handle pause/resume cycle.
 
 **Mitigation:**
+
 - Use AI SDK's built-in message state
 - Add explicit "pending" state to message parts
 - Implement state machine for approval UI
@@ -485,6 +504,7 @@ test("BIDI: Deny payment with LongRunningFunctionTool", async ({ page }) => {
 ## 📊 Success Criteria
 
 ### Must Have (MVP)
+
 - ✅ BIDI approval UI displays for pending payments
 - ✅ User can approve/deny via WebSocket
 - ✅ Agent resumes after approval decision
@@ -492,12 +512,14 @@ test("BIDI: Deny payment with LongRunningFunctionTool", async ({ page }) => {
 - ✅ LLM generates appropriate response after completion
 
 ### Should Have
+
 - ✅ Idempotent payment execution
 - ✅ Timeout handling for abandoned approvals
 - ✅ Proper error messages for denied payments
 - ✅ WebSocket reconnection during pause
 
 ### Nice to Have
+
 - ✅ Progress indication during pause
 - ✅ Approval history tracking
 - ✅ Multiple simultaneous approvals
