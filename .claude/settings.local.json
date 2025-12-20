@@ -99,7 +99,8 @@
       "Bash(test:*)",
       "Bash(sed:*)",
       "Bash(tee:*)",
-      "Bash(pnpm exec playwright test:*)"
+      "Bash(pnpm exec playwright test:*)",
+      "Bash(jq:*)"
     ],
     "deny": [
       "Read(.env.keys)",

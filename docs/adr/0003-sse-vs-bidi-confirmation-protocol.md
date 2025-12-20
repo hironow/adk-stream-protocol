@@ -1,0 +1,224 @@
+# 0003. SSE vs BIDI Confirmation Protocol Differences
+
+**Date:** 2025-12-20
+**Status:** Accepted
+
+## Context
+
+After implementing frontend confirmation handler for tool approval flow, we discovered critical protocol differences between SSE and BIDI modes during bug investigation.
+
+**Initial Problem**:
+
+- SSE mode tests: All passing ✅
+- BIDI mode tests: Failing with wrong AI responses 🔴
+- Root cause: Different confirmation protocols needed for each mode
+
+**Discovery Process**:
+
+1. Noticed SSE tests passing but BIDI tests failing
+2. Analyzed baseline chunk logs to understand working implementation
+3. Discovered custom WebSocket events incompatible with AI expectations
+4. Realized SSE and BIDI require fundamentally different approaches
+
+## Decision
+
+Use **different confirmation protocols** for SSE and BIDI modes, aligned with their architectural differences:
+
+### SSE Mode: ADK Native Handling (Two HTTP Requests)
+
+**Protocol**:
+
+```
+Request 1:
+Frontend → Backend: User message requesting tool
+Backend → Frontend: Streams confirmation UI → [DONE]
+
+Request 2 (After user clicks Approve):
+Frontend → Backend: New HTTP request with approval
+  - Uses addToolOutput() with ADK-compatible format
+  - Backend: FrontendToolDelegate receives approval
+  - Backend: Executes tool and generates AI response → [DONE]
+```
+
+**Implementation**:
+
+- Frontend: Use `addToolOutput()` to send approval result
+- Backend: `_handle_confirmation_if_needed()` passes events through (no custom logic)
+- ADK: Natively handles confirmation flow with two separate requests
+
+**Why This Works**:
+
+- ADK's confirmation flow is designed for request-response pattern
+- Each HTTP request is independent
+- Frontend sends new request after user approval
+- No need to manually construct messages
+
+### BIDI Mode: Manual User Message (Single WebSocket Connection)
+
+**Protocol**:
+
+```
+Frontend → Backend: User message requesting tool (via WebSocket)
+Backend → Frontend: Streams confirmation UI (WebSocket stays open)
+
+Frontend → Backend: User message with tool-result (via WebSocket)
+  - Message format: AI SDK v6 standard user message
+  - Content: tool-result for ORIGINAL tool (not confirmation tool)
+  - Tool ID: Original tool ID (e.g., "function-call-123")
+  - Tool Name: Original tool name (e.g., "process_payment")
+  - Result: {approved: true, user_message: "..."}
+
+Backend → Frontend: Executes tool and streams AI response
+```
+
+**Implementation**:
+
+```typescript
+// BIDI confirmation handler sends user message via WebSocket
+const approvalMessage: UIMessage = {
+  id: `fr-${Date.now()}`,
+  role: "user",
+  content: [{
+    type: "tool-result",
+    toolCallId: originalToolInvocation.toolCallId,  // Original tool!
+    toolName: originalToolInvocation.toolName,      // Original tool!
+    result: {
+      approved: confirmed,
+      user_message: confirmed ? "User approved" : "User denied"
+    }
+  }]
+};
+
+// Send via WebSocket message event (not custom tool_result event!)
+transport.websocket.sendMessage([approvalMessage]);
+```
+
+**Why This is Necessary**:
+
+- BIDI maintains single WebSocket connection (no second HTTP request)
+- AI model needs to see approval as part of conversation history
+- Must use AI SDK v6 standard message format for AI to understand
+- Custom WebSocket events don't update AI's conversation context
+
+## Consequences
+
+### Positive
+
+1. **Correct AI Responses**: AI receives approval in format it understands
+2. **Mode-Specific Optimization**: Each mode uses its natural pattern
+3. **Framework Alignment**: Both modes align with AI SDK v6 expectations
+4. **Maintainability**: Clear distinction between SSE and BIDI protocols
+
+### Negative
+
+1. **Code Duplication**: Different implementations for SSE and BIDI
+2. **Complexity**: Developers must understand both patterns
+3. **Testing Burden**: Need separate test suites for each mode
+
+### Neutral
+
+1. **Protocol Divergence**: SSE and BIDI confirmation flows are fundamentally different
+2. **Future Compatibility**: May need updates if AI SDK v6 changes BIDI patterns
+
+## Critical Learnings
+
+### 1. Don't Create Custom Protocols
+
+**Mistake Made**:
+
+```typescript
+// ❌ WRONG - Custom WebSocket event
+transport.websocket.sendToolResult(
+  "confirmation-function-call-...",  // Confirmation tool ID
+  { confirmed: true }                 // Custom format
+)
+```
+
+**Why This Failed**:
+
+- AI never receives approval for original tool
+- AI only sees result for `adk_request_confirmation` tool
+- AI's conversation context is not updated
+- AI responds as if still waiting for approval
+
+**Correct Approach**:
+
+```typescript
+// ✅ CORRECT - AI SDK v6 standard user message
+const message: UIMessage = {
+  role: "user",
+  content: [{
+    type: "tool-result",
+    toolCallId: originalToolId,    // Original tool ID!
+    toolName: originalToolName,    // Original tool name!
+    result: { approved: true }
+  }]
+};
+```
+
+### 2. Always Check Baseline Implementation First
+
+**Process That Would Have Prevented This Bug**:
+
+1. Before implementing custom protocol, check baseline chunk logs
+2. Compare working vs broken implementations
+3. Understand WHAT messages the AI model expects
+4. Use standard protocols when they exist
+
+**Evidence**:
+
+- Baseline chunk logs showed 8 outgoing WebSocket events
+- Current implementation showed 0 outgoing events
+- Baseline used AI SDK v6 message format
+- Current used custom WebSocket event (incompatible)
+
+### 3. SSE ≠ BIDI (Different Architectural Assumptions)
+
+**SSE Assumptions**:
+
+- Multiple HTTP requests are natural
+- Each request is independent
+- ADK handles confirmation natively
+- Frontend: Just send new request with approval
+
+**BIDI Assumptions**:
+
+- Single persistent WebSocket connection
+- All communication through one channel
+- Must manually manage conversation context
+- Frontend: Send user message to update AI context
+
+## References
+
+**Implementation**:
+
+- SSE: `services/sse_event_streamer.py:_handle_confirmation_if_needed()` (pass-through)
+- BIDI: `lib/confirmation-handler.ts` (user message construction)
+- Frontend: `components/tool-invocation.tsx` (mode-aware handling)
+
+**Tests**:
+
+- SSE: `scenarios/tools/process-payment-sse.spec.ts` (all passing)
+- BIDI: `scenarios/tools/process-payment-bidi.spec.ts` (needs protocol fix)
+
+**Evidence**:
+
+- Baseline logs: `chunk_logs/e2e-baseline/frontend/process-payment-bidi-1-normal-flow-approve-once.jsonl`
+- Current logs: `chunk_logs/scenario-11/frontend/process-payment-bidi-1-normal-flow-approve-once.jsonl`
+- Investigation: `agents/bidi-tool-execution-investigation.md`
+
+## Related ADRs
+
+- **ADR 0002**: Tool Approval Architecture with Backend Delegation
+    - Established backend delegation pattern
+    - This ADR refines the protocol details for SSE vs BIDI modes
+
+## Future Considerations
+
+If AI SDK v6 adds native BIDI confirmation patterns:
+
+- May need to update BIDI implementation
+- Could potentially simplify to match SSE's pass-through approach
+- Should re-evaluate this ADR
+
+Until then, maintain separate protocols as documented here.

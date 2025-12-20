@@ -172,6 +172,9 @@ class SseEventStreamer:
         self.confirmation_tools = confirmation_tools
         self.session = session
         self.sse_agent_runner = sse_agent_runner
+        # Track tool IDs currently in confirmation flow
+        # Used to intercept and consume confirmation error FunctionResponses
+        self._confirmation_in_progress: set[str] = set()
 
     async def stream_events(self, live_events: AsyncIterable[Any]) -> AsyncIterable[str]:
         """
@@ -233,164 +236,76 @@ class SseEventStreamer:
         logger.info(f"[SSE] Streamed {event_count} events to client")
         # no except any exceptions. Let them propagate to caller for handling.
 
+    def _is_confirmation_error_response(self, event: Any) -> tuple[bool, str | None]:
+        """
+        Check if event is a confirmation error FunctionResponse from ADK.
+
+        ADK generates error FunctionResponse when a tool requires confirmation:
+        FunctionResponse(
+            id="adk-xxx",
+            name="process_payment",
+            response={"error": "This tool call requires confirmation, please approve or reject."}
+        )
+
+        Args:
+            event: ADK Event object
+
+        Returns:
+            (is_confirmation_error, tool_id)
+        """
+        if not hasattr(event, "content") or not hasattr(event.content, "parts"):
+            return (False, None)
+
+        for part in event.content.parts:
+            if not hasattr(part, "function_response"):
+                continue
+
+            fr = part.function_response
+            if not hasattr(fr, "response") or not isinstance(fr.response, dict):
+                continue
+
+            error_msg = fr.response.get("error", "")
+            if "requires confirmation" in error_msg:
+                tool_id = fr.id if hasattr(fr, "id") else None
+                return (True, tool_id)
+
+        return (False, None)
+
     async def _handle_confirmation_if_needed(self, event: Any):
         """
-        Handle SSE confirmation flow for tools requiring user approval.
+        Handle SSE confirmation flow - pass through to ADK's native handling.
 
-        This internal method handles confirmation in SSE mode.
-        Unlike BIDI mode, SSE doesn't need to send continuation signals
-        because ADK handles the full conversation in run_live() automatically.
+        SSE Mode Design:
+        - ADK natively handles confirmation for tools with require_confirmation=True
+        - ADK generates both process_payment AND adk_request_confirmation FunctionCalls
+        - Stream ends after confirmation UI
+        - Frontend sends NEW request with confirmation result
+        - Server processes confirmation in new request
+
+        This is different from BIDI mode which manually intercepts and handles confirmation.
 
         Args:
             event: ADK event (Event object or dict)
 
         Yields:
-            Processed events (confirmation events, tool execution results, or original event)
+            Original event (pass-through, no interception in SSE mode)
         """
-        from adk_compat import (
-            _extract_function_call_from_event,
-            _is_function_call_requiring_confirmation,
-        )
-
-        # Check if this event requires confirmation
-        if not _is_function_call_requiring_confirmation(event, self.confirmation_tools):
-            logger.debug("[SSE Confirmation] Event doesn't require confirmation - passing through")
-            yield event
-            return
-
-        # Extract function_call details
-        function_call = _extract_function_call_from_event(event)
-        if not function_call:
-            logger.warning("[SSE Confirmation] Could not extract function_call from event")
-            yield event
-            return
-
-        # Extract function call data
-        if isinstance(function_call, dict):
-            fc_id = function_call.get("id", "unknown")
-            fc_name = function_call.get("name", "unknown")
-            fc_args = function_call.get("args", {})
-        else:
-            fc_id = function_call.id if hasattr(function_call, "id") else "unknown"
-            fc_name = function_call.name if hasattr(function_call, "name") else "unknown"
-            fc_args = function_call.args if hasattr(function_call, "args") else {}
-
-        logger.info("[SSE Confirmation] ========== START CONFIRMATION FLOW ==========")
-        logger.info(f"[SSE Confirmation] Tool: {fc_name} (id={fc_id}, args={fc_args})")
-
-        # Generate confirmation UI events
-        confirmation_id = f"confirmation-{fc_id}"
-
-        # Create interceptor for this confirmation
-        interceptor = ToolConfirmationInterceptor(
-            delegate=self.frontend_delegate,
-            confirmation_tools=self.confirmation_tools,
-        )
-
-        # Register confirmation ID in ID mapper
-        interceptor.delegate.id_mapper.register("adk_request_confirmation", confirmation_id)
-
-        # NEW: Send original tool-input events FIRST (so frontend knows about the original tool)
-        # This fixes the bug where frontend only received confirmation events but not the original tool events
-        yield format_sse_event(
-            {
-                "type": "tool-input-start",
-                "toolCallId": fc_id,
-                "toolName": fc_name,
-            }
-        )
-
-        yield format_sse_event(
-            {
-                "type": "tool-input-available",
-                "toolCallId": fc_id,
-                "toolName": fc_name,
-                "input": fc_args,
-            }
-        )
-
-        # THEN send confirmation UI events
-        # Generate confirmation UI events as SSE format strings
-        # Yield tool-input-start as SSE format string
-        yield format_sse_event(
-            {
-                "type": "tool-input-start",
-                "toolCallId": confirmation_id,
-                "toolName": "adk_request_confirmation",
-            }
-        )
-
-        # Yield tool-input-available with full confirmation data as SSE format string
-        yield format_sse_event(
-            {
-                "type": "tool-input-available",
-                "toolCallId": confirmation_id,
-                "toolName": "adk_request_confirmation",
-                "input": {
-                    "originalFunctionCall": {
-                        "id": fc_id,
-                        "name": fc_name,
-                        "args": fc_args,
-                    },
-                    "toolConfirmation": {
-                        "confirmed": False,
-                    },
-                },
-            }
-        )
-
-        # Wait for user decision using Result pattern
-        match await _execute_confirmation_sse(
-            interceptor, confirmation_id, fc_id, fc_name, fc_args
-        ):
-            case Ok(confirmation_result):
-                confirmed = confirmation_result.get("confirmed", False)
-                logger.info(f"[SSE Confirmation] User decision: confirmed={confirmed}")
-
-                # Yield confirmation result as SSE format string
-                yield format_sse_event(
-                    {
-                        "type": "tool-output-available",
-                        "toolCallId": confirmation_id,
-                        "output": confirmation_result,
-                    }
-                )
-
-                # Execute tool if approved
-                if confirmed:
-                    logger.info("[SSE Confirmation] ========== USER APPROVED ==========")
-                    # Execute tool and yield result event
-                    async for tool_event in self._execute_tool(fc_id, fc_name, fc_args):
-                        yield tool_event
-                else:
-                    # User denied - yield error as SSE format string
-                    logger.info(f"[SSE Confirmation] User denied tool: {fc_name}")
-                    yield format_sse_event(
-                        {
-                            "type": "tool-output-error",
-                            "toolCallId": fc_id,
-                            "error": f"Tool execution denied by user: {fc_name}",
-                        }
-                    )
-
-            case Error(error_msg):
-                logger.error(f"[SSE Confirmation] {error_msg}")
-                # Yield error as SSE format string
-                yield format_sse_event(
-                    {
-                        "type": "tool-output-error",
-                        "toolCallId": fc_id,
-                        "error": error_msg,
-                    }
-                )
+        logger.debug("[SSE Confirmation] Passing event through (ADK native handling)")
+        yield event
 
     async def _execute_tool(self, fc_id: str, fc_name: str, fc_args: dict[str, Any]):
         """
-        Execute approved tool (SSE mode).
+        Execute approved tool and trigger ADK continuation (SSE mode).
 
-        Yields tool execution results as pre-converted SSE format strings.
-        Unlike BIDI mode, SSE mode doesn't need manual session history
-        management - ADK's run_live() handles continuation automatically.
+        SSE continuation mechanism (different from BIDI):
+        1. Execute tool and yield result to frontend
+        2. Append FunctionResponse to session history
+        3. Trigger NEW run_async() to generate AI response
+        4. Yield events from continuation run
+
+        This matches the baseline logs showing TWO separate ADK runs:
+        - First run: User message → Confirmation → finish
+        - Second run: FunctionResponse in history → AI response → finish
 
         Args:
             fc_id: Function call ID
@@ -398,8 +313,11 @@ class SseEventStreamer:
             fc_args: Tool arguments
 
         Yields:
-            SSE format strings (tool-output-available or tool-output-error)
+            SSE format strings (tool-output-available, AI response events, or errors)
         """
+        from google.adk.events import Event as ADKEvent
+        from google.genai import types
+
         # Execute tool function using Result pattern
         match await _execute_tool_function_sse(fc_name, fc_args, fc_id, self.session):
             case Ok(tool_result):
@@ -413,6 +331,50 @@ class SseEventStreamer:
                         "output": tool_result,
                     }
                 )
+
+                # SSE Continuation: Append FunctionResponse and trigger new run
+                # (Same approach as BIDI, but using run_async() instead of LiveRequestQueue)
+                if self.sse_agent_runner and hasattr(self.sse_agent_runner, "session_service"):
+                    # Append FunctionResponse to session history
+                    function_response = types.Part(
+                        function_response=types.FunctionResponse(
+                            id=fc_id, name=fc_name, response=tool_result
+                        )
+                    )
+                    content = types.Content(role="user", parts=[function_response])
+                    adk_event = ADKEvent(author="user", content=content)
+
+                    await self.sse_agent_runner.session_service.append_event(
+                        self.session, adk_event
+                    )
+                    logger.info(
+                        "[SSE Confirmation] ✅ FunctionResponse appended to session history"
+                    )
+
+                    # Trigger continuation run (SSE-specific: new run_async() call)
+                    # Send empty message to trigger AI response based on updated history
+                    continuation = types.Content(role="user", parts=[types.Part(text="")])
+                    logger.info("[SSE Confirmation] 🔄 Starting continuation run...")
+
+                    continuation_stream = self.sse_agent_runner.run_async(
+                        user_id=self.session.user_id,
+                        session_id=self.session.id,
+                        new_message=continuation,
+                    )
+
+                    # Yield events from continuation run
+                    async for sse_event in stream_adk_to_ai_sdk(
+                        continuation_stream,
+                        mode="adk-sse",
+                    ):
+                        logger.debug(f"[SSE Confirmation] Continuation event: {sse_event[:100]}...")
+                        yield sse_event
+
+                    logger.info("[SSE Confirmation] ✅ Continuation run completed")
+                else:
+                    logger.warning(
+                        "[SSE Confirmation] ⚠️ Cannot trigger continuation - no session_service"
+                    )
 
             case Error(error_msg):
                 logger.error(f"[SSE Confirmation] {error_msg}")

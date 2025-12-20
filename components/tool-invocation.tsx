@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
-import { createAdkConfirmationOutput } from "@/lib/adk_compat";
+import {
+  createConfirmationTransport,
+  handleConfirmation,
+} from "@/lib/confirmation-handler";
 
 /**
  * Tool invocation state for UI display.
@@ -324,38 +327,25 @@ export function ToolInvocationComponent({
                   console.info(
                     `[ToolInvocationComponent] User approved ${originalToolCall.name}`,
                   );
-                  console.info(
-                    `[DEBUG] toolInvocation.input:`,
-                    toolInvocation.input,
-                  );
-                  console.info(
-                    `[DEBUG] originalToolCall extracted:`,
-                    originalToolCall,
-                  );
-                  const output = createAdkConfirmationOutput(
-                    toolInvocation,
-                    true,
-                  );
-                  console.info(
-                    `[DEBUG] createAdkConfirmationOutput result:`,
-                    output,
+
+                  // Use helper to create transport with correct "this" binding
+                  const transport = createConfirmationTransport(
+                    websocketTransport,
+                    addToolOutput,
                   );
 
-                  // BIDI mode: Send via WebSocket
-                  if (websocketTransport) {
-                    console.info(
-                      `[ToolInvocationComponent] BIDI mode: Sending confirmation via WebSocket`,
+                  // Use confirmation handler
+                  const result = handleConfirmation(
+                    toolInvocation,
+                    true,
+                    transport,
+                  );
+
+                  if (!result.success) {
+                    console.error(
+                      `[ToolInvocationComponent] Confirmation failed:`,
+                      result.error,
                     );
-                    websocketTransport.sendToolResult(
-                      toolInvocation.toolCallId,
-                      { confirmed: true },
-                    );
-                  } else {
-                    // SSE mode: Use addToolOutput
-                    console.info(
-                      `[ToolInvocationComponent] SSE mode: Sending confirmation via addToolOutput`,
-                    );
-                    addToolOutput?.(output);
                   }
                 }}
                 style={{
@@ -378,22 +368,23 @@ export function ToolInvocationComponent({
                     `[ToolInvocationComponent] User denied ${originalToolCall.name}`,
                   );
 
-                  // BIDI mode: Send via WebSocket
-                  if (websocketTransport) {
-                    console.info(
-                      `[ToolInvocationComponent] BIDI mode: Sending denial via WebSocket`,
-                    );
-                    websocketTransport.sendToolResult(
-                      toolInvocation.toolCallId,
-                      { confirmed: false },
-                    );
-                  } else {
-                    // SSE mode: Use addToolOutput
-                    console.info(
-                      `[ToolInvocationComponent] SSE mode: Sending denial via addToolOutput`,
-                    );
-                    addToolOutput?.(
-                      createAdkConfirmationOutput(toolInvocation, false),
+                  // Use helper to create transport with correct "this" binding
+                  const transport = createConfirmationTransport(
+                    websocketTransport,
+                    addToolOutput,
+                  );
+
+                  // Use confirmation handler
+                  const result = handleConfirmation(
+                    toolInvocation,
+                    false,
+                    transport,
+                  );
+
+                  if (!result.success) {
+                    console.error(
+                      `[ToolInvocationComponent] Confirmation failed:`,
+                      result.error,
                     );
                   }
                 }}
