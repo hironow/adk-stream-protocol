@@ -29,6 +29,10 @@ from google.genai import types
 from loguru import logger
 
 import adk_ag_tools
+from adk_compat import (
+    _extract_function_call_from_event,
+    _is_function_call_requiring_confirmation,
+)
 from confirmation_interceptor import ToolConfirmationInterceptor
 from result.result import Error, Ok, Result
 from services.frontend_tool_service import FrontendToolDelegate
@@ -199,27 +203,15 @@ class BidiEventSender:
         # This intercepts tool calls requiring confirmation and handles them inline
         async def events_with_confirmation():
             async for event in live_events:
-                # Handle confirmation for this event if needed
                 async for processed_event in self._handle_confirmation_if_needed(event):
                     yield processed_event
 
-        # Convert ADK events to SSE format and send to WebSocket
-        # IMPORTANT: Protocol conversion happens here!
-        # stream_adk_to_ai_sdk() converts ADK events to AI SDK v6 Data Stream Protocol
-        # Output: SSE-formatted strings like 'data: {"type":"text-delta","text":"..."}\n\n'
-        # This is the SAME converter used in SSE mode (/stream endpoint)
-        # We reuse 100% of the conversion logic - only transport layer differs
-        # WebSocket mode: Send SSE format over WebSocket (instead of HTTP SSE)
-        #
-        # NOTE: Confirmation is already handled by events_with_confirmation() above
         async for sse_event in stream_adk_to_ai_sdk(
             events_with_confirmation(),
             mode="adk-bidi",  # Chunk logger: distinguish from adk-sse mode
         ):
             event_count += 1
 
-            # Process and send SSE-formatted event as WebSocket text message
-            # Frontend will parse "data: {...}" format and extract UIMessageChunk
             await self._send_sse_event(sse_event)
 
         logger.info(f"[BIDI] Sent {event_count} events to client")
@@ -234,6 +226,11 @@ class BidiEventSender:
         """
         # Log event types for debugging
         if sse_event.startswith("data:"):
+            # Skip DONE event
+            if "DONE" == sse_event.strip()[5:].strip():
+                await self.websocket.send_text(sse_event)
+                return
+
             match _parse_sse_event_data(sse_event):
                 case Ok(event_data):
                     event_type = event_data.get("type", "unknown")
@@ -256,9 +253,6 @@ class BidiEventSender:
                                     # ID mapping is optional - log and continue if it fails
                                     logger.debug(f"[BIDI-SEND] {error_msg}")
 
-                case Error(error_msg):
-                    logger.error(f"[BIDI-SEND] Failed to parse SSE event data: {error_msg}")
-
         # Send to WebSocket
         await self.websocket.send_text(sse_event)
 
@@ -275,10 +269,6 @@ class BidiEventSender:
         Yields:
             Processed events (confirmation events, tool execution results)
         """
-        from adk_compat import (
-            _extract_function_call_from_event,
-            _is_function_call_requiring_confirmation,
-        )
 
         # Check if this event requires confirmation
         if not _is_function_call_requiring_confirmation(event, self.confirmation_tools):

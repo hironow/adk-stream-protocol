@@ -253,7 +253,6 @@ async def chat(request: ChatRequest):
 
     # 5. Return collected response
     response_text = response_text.strip()
-    logger.info(f"[/chat] Response: {response_text[:100]}...")
     return ChatResponse(message=response_text)
 
 
@@ -440,7 +439,7 @@ async def live_chat(websocket: WebSocket):  # noqa: PLR0915
 
     2. Server → Client (Downstream):
        - ADK generates: Events from run_live()
-       - stream_adk_to_ai_sdk() converts: ADK events → SSE format
+       - ADK events → SSE format
          (Same converter as /stream endpoint - 100% code reuse!)
        - WebSocket sends: SSE-formatted strings like 'data: {...}\n\n'
        - Client parses: SSE format → UIMessageChunk

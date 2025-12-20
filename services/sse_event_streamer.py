@@ -189,19 +189,9 @@ class SseEventStreamer:
         # This intercepts tool calls requiring confirmation and handles them inline
         async def events_with_confirmation():
             async for event in live_events:
-                # Handle confirmation for this event if needed
                 async for processed_event in self._handle_confirmation_if_needed(event):
                     yield processed_event
 
-        # Convert ADK events to SSE format and yield for FastAPI
-        # IMPORTANT: Protocol conversion happens here!
-        # stream_adk_to_ai_sdk() converts ADK events to AI SDK v6 Data Stream Protocol
-        # Output: SSE-formatted strings like 'data: {"type":"text-delta","text":"..."}\\n\\n'
-        # This is the SAME converter used in BIDI mode (/ws endpoint)
-        # We reuse 100% of the conversion logic - only transport layer differs
-        # SSE mode: Yield SSE format for HTTP response (instead of WebSocket)
-        #
-        # NOTE: Confirmation is already handled by events_with_confirmation() above
         async for sse_event in stream_adk_to_ai_sdk(
             events_with_confirmation(),
             mode="adk-sse",  # Chunk logger: distinguish from adk-bidi mode
@@ -210,6 +200,11 @@ class SseEventStreamer:
 
             # Register function_call.id mapping for frontend delegate tools
             if sse_event.startswith("data:"):
+                # Skip DONE event
+                if "DONE" == sse_event.strip()[5:].strip():
+                    yield sse_event
+                    continue
+
                 match _parse_sse_event_data(sse_event):
                     case Ok(event_data):
                         event_type = event_data.get("type")
@@ -222,15 +217,11 @@ class SseEventStreamer:
                                 logger.debug(
                                     f"[SSE] Registered mapping: {tool_name} → {tool_call_id}"
                                 )
-                    case Error(error_msg):
-                        logger.debug(f"[SSE] Could not parse event data: {error_msg}")
 
-            # Yield SSE-formatted event for FastAPI StreamingResponse
-            # Frontend will parse "data: {...}" format and extract UIMessageChunk
             yield sse_event
 
         logger.info(f"[SSE] Streamed {event_count} events to client")
-        # no except any exceptions. Let them propagate to caller for handling.
+        # no except any other exceptions. Let them propagate to caller for handling.
 
     def _is_confirmation_error_response(self, event: Any) -> tuple[bool, str | None]:
         """
@@ -359,11 +350,12 @@ class SseEventStreamer:
                     )
 
                     # Yield events from continuation run
+                    # TODO: renew stream is needed here?
                     async for sse_event in stream_adk_to_ai_sdk(
                         continuation_stream,
                         mode="adk-sse",
                     ):
-                        logger.debug(f"[SSE Confirmation] Continuation event: {sse_event[:100]}...")
+                        logger.debug(f"[SSE Confirmation] Continuation event: {sse_event[:20]}...")
                         yield sse_event
 
                     logger.info("[SSE Confirmation] ✅ Continuation run completed")

@@ -931,10 +931,6 @@ async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912
 
     Yields:
         SSE-formatted event strings
-
-    Example:
-        >>> async for sse_event in stream_adk_to_ai_sdk(agent_runner.run_async(...)):
-        ...     yield sse_event
     """
     converter = StreamProtocolConverter(message_id)
     error_list: list[Exception] = []
@@ -953,7 +949,7 @@ async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912
                 # Pass through directly without conversion
                 logger.debug(
                     f"[stream_adk_to_ai_sdk] Pre-converted SSE event (pass-through): "
-                    f"{event[:100]}..."
+                    f"{event[:20]}..."
                 )
                 # Chunk Logger: Record SSE event (already converted)
                 chunk_logger.log_chunk(
