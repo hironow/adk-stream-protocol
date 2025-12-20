@@ -24,8 +24,8 @@ from typing import Any
 
 from loguru import logger
 
-from adk_vercel_id_mapper import ADKVercelIDMapper
-from result.result import Error, Ok, Result
+from .adk_vercel_id_mapper import ADKVercelIDMapper
+from .result import Error, Ok, Result
 
 
 class FrontendToolDelegate:

@@ -136,7 +136,7 @@ class ImagePart(BaseModel):
         try:  # nosemgrep: forbid-try-except
             base64.b64decode(v, validate=True)
         except Exception as e:
-            msg = f"Invalid base64 encoding: {e}"
+            msg = f"Invalid base64 encoding: {e!s}"
             raise ValueError(msg) from e
 
         return v

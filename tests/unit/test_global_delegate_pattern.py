@@ -18,7 +18,7 @@ from unittest.mock import Mock, patch
 import pytest
 from google.adk.tools.tool_context import ToolContext
 
-from adk_ag_tools import change_bgm, get_location
+from adk_stream_protocol import change_bgm, get_location
 from server import frontend_delegate
 
 

@@ -12,7 +12,7 @@ from unittest.mock import patch
 import pytest
 from pydantic import ValidationError
 
-from ai_sdk_v6_compat import (
+from adk_stream_protocol import (
     ChatMessage,
     GenericPart,
     StepPart,

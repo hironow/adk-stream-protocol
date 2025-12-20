@@ -211,11 +211,13 @@ export class EventReceiver {
       !("type" in chunk) ||
       typeof chunk.type !== "string"
     ) {
+      console.warn("[Event Receiver] Invalid chunk format:", chunk);
       return false;
     }
 
     // SPECIAL HANDLING: PCM audio chunks (ADK BIDI mode)
     if (chunk.type === "data-pcm") {
+      console.info("[Audio Stream] Received PCM audio chunk");
       this.handlePCMAudioChunk(chunk);
       return true; // Skip standard enqueue
     }
@@ -228,12 +230,23 @@ export class EventReceiver {
    */
   private handlePCMAudioChunk(chunk: any): void {
     try {
-      if (!chunk.data || typeof chunk.data !== "string") {
-        console.warn("[Audio Stream] Invalid PCM chunk: missing data field");
+      // TODO: handle chunk data PCM format changes
+      if (!chunk.data) {
+        console.warn(
+          "[Audio Stream] Invalid PCM chunk: missing data field: ",
+          chunk,
+        );
+        return;
+      }
+      if (!chunk.data.content || typeof chunk.data.content !== "string") {
+        console.warn(
+          "[Audio Stream] Invalid PCM chunk: missing data.content field: ",
+          chunk,
+        );
         return;
       }
 
-      const pcmBase64 = chunk.data;
+      const pcmBase64 = chunk.data.content;
       const pcmBytes = Uint8Array.from(atob(pcmBase64), (c) => c.charCodeAt(0));
       const pcmData = new Int16Array(
         pcmBytes.buffer,

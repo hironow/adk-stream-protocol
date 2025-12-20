@@ -17,7 +17,7 @@ import pytest
 from google.adk.events import Event
 from google.genai import types
 
-from stream_protocol import (
+from adk_stream_protocol import (
     StreamProtocolConverter,
     _map_adk_finish_reason_to_ai_sdk,
     stream_adk_to_ai_sdk,

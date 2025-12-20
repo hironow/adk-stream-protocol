@@ -11,8 +11,8 @@ import pytest
 from fastapi import WebSocketDisconnect
 from google.adk.sessions import Session
 
-from result.result import Error, Ok
-from services.bidi_event_sender import BidiEventSender
+from adk_stream_protocol import BidiEventSender
+from adk_stream_protocol.result import Error, Ok
 
 
 # ============================================================

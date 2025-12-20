@@ -12,13 +12,9 @@ Based on AI SDK v6 Data Stream Protocol.
 
 import json
 import uuid
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import pytest
-
-
-if TYPE_CHECKING:
-    pass
 
 
 # ============================================================

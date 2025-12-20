@@ -15,22 +15,18 @@ Only the transport layer differs (HTTP SSE vs WebSocket).
 This ensures protocol consistency across all modes.
 """
 
+import base64
 import enum
 import json
 import uuid
 from collections.abc import AsyncGenerator
-from pprint import pformat
 from typing import Any
 
 from google.adk.events import Event
 from google.genai import types
 from loguru import logger
 
-# inject_confirmation_for_bidi is no longer used here
-# Confirmation is now handled by:
-# - BidiEventSender (for BIDI mode)
-# - SseEventStreamer (for SSE mode)
-from chunk_logger import Mode, chunk_logger
+from .chunk_logger import Mode, chunk_logger
 
 
 # Type alias for SSE-formatted event strings
@@ -242,7 +238,6 @@ class StreamProtocolConverter:
             )
             return
 
-        # [INPUT] Log incoming ADK event
         event_type = type(event).__name__
         has_content = hasattr(event, "content") and event.content
         is_turn_complete = hasattr(event, "turn_complete") and event.turn_complete
@@ -250,9 +245,9 @@ class StreamProtocolConverter:
         has_finish = hasattr(event, "finish_reason") and event.finish_reason
 
         logger.debug(
-            f"[convert_event INPUT] type={event_type}, "
-            f"content={has_content}, turn_complete={is_turn_complete}, "
-            f"usage={has_usage}, finish_reason={has_finish}"
+            f"[_convert_event] Processing event type: {event_type}, "
+            f"has_content={has_content}, is_turn_complete={is_turn_complete}, "
+            f"has_usage={has_usage}, has_finish={has_finish}"
         )
 
         # Filter out private attributes (starting with _) for cleaner logs
@@ -261,9 +256,8 @@ class StreamProtocolConverter:
             if hasattr(event, "__dict__")
             else {}
         )
-        logger.debug(
-            f"[convert_event INPUT] Event attributes:\n{pformat(event_attrs, width=120, depth=3)}"
-        )
+        # only keys, no values
+        logger.debug(f"[_convert_event] Event attributes keys: {list(event_attrs.keys())!s}")
 
         # Log content parts if present
         if has_content and event.content is not None and event.content.parts:
@@ -285,16 +279,14 @@ class StreamProtocolConverter:
                         if hasattr(part, "__dict__")
                         else {}
                     )
+                    # only keys, no values
                     logger.debug(
-                        f"[convert_event INPUT]   Part[{idx}] attributes:\n{pformat(part_attrs, width=120, depth=2)}"
+                        f"[_convert_event] Part[{idx}] inline_data attributes keys: {list(part_attrs.keys())!s}"
                     )
                 if hasattr(part, "executable_code") and part.executable_code:
                     part_types.append("executable_code")
                 if hasattr(part, "code_execution_result") and part.code_execution_result:
                     part_types.append("code_execution_result")
-
-                if part_types:
-                    logger.debug(f"[convert_event INPUT]   Part[{idx}]: {', '.join(part_types)}")
 
         # Send start event on first event
         if not self.has_started:
@@ -345,6 +337,7 @@ class StreamProtocolConverter:
                     and part.inline_data
                     and isinstance(part.inline_data, types.Blob)
                 ):
+                    logger.info("[INLINE DATA] Processing inline data part")
                     for sse_event in self._process_inline_data_part(part.inline_data):
                         yield sse_event
 
@@ -638,8 +631,6 @@ class StreamProtocolConverter:
 
     def _process_inline_data_part(self, inline_data: types.Blob) -> list[str]:
         """Process inline data (image or audio) as appropriate custom event."""
-        import base64
-
         # Ensure data is not None
         if inline_data.data is None:
             logger.warning("[INLINE DATA] Data is None, skipping")
@@ -649,8 +640,6 @@ class StreamProtocolConverter:
 
         # Process audio data - send PCM chunks directly without buffering
         if mime_type.startswith("audio/pcm"):
-            import base64
-
             # Extract sample rate from mime type (e.g., "audio/pcm;rate=24000")
             sample_rate = None
             if ";rate=" in mime_type:
@@ -666,6 +655,7 @@ class StreamProtocolConverter:
             # Send PCM chunk immediately as data-pcm event (AI SDK v6 Stream Protocol)
             base64_content = base64.b64encode(inline_data.data).decode("utf-8")
 
+            # TODO: before: pcm data is plain data, after: dict with metadata
             event = self.format_sse_event(
                 {
                     "type": "data-pcm",
@@ -905,12 +895,6 @@ async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912
         async for event in event_stream:
             # Type-based handling: str (pre-converted) vs Event (needs conversion)
             if isinstance(event, str):
-                # Pre-converted SSE format string (e.g., confirmation events)
-                # Pass through directly without conversion
-                logger.debug(
-                    f"[stream_adk_to_ai_sdk] Pre-converted SSE event (pass-through): "
-                    f"{event[:20]}..."
-                )
                 # Chunk Logger: Record SSE event (already converted)
                 chunk_logger.log_chunk(
                     location="backend-sse-event",
@@ -921,10 +905,6 @@ async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912
                 yield event
                 continue
 
-            # ADK Event object - needs conversion via converter
-            logger.debug(
-                f"[stream_adk_to_ai_sdk] ADK Event (needs conversion): type={type(event).__name__}"
-            )
             # Chunk Logger: Record ADK event (input)
             chunk_logger.log_chunk(
                 location="backend-adk-event",
@@ -959,7 +939,7 @@ async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912
                 model_version_list.append(event.model_version)
 
     except Exception as e:
-        logger.error(f"[stream_adk_to_ai_sdk] Exception: {e}")
+        logger.error(f"[stream_adk_to_ai_sdk] Exception: {e!s}")
         error_list.append(e)
     finally:
         # Send final events with all collected metadata
@@ -975,7 +955,7 @@ async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912
         model_version = model_version_list[-1] if len(model_version_list) > 0 else None
 
         if error:
-            logger.error(f"[FINALIZE] Sending error: {error}")
+            logger.error(f"[FINALIZE] Sending error: {error!s}")
 
         async for final_event in converter.finalize(
             usage_metadata=usage_metadata,

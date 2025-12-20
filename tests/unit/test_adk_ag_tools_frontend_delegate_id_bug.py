@@ -21,8 +21,8 @@ import pytest
 from google.adk.sessions import Session
 from google.adk.tools import ToolContext
 
-from adk_ag_tools import change_bgm
-from result.result import Ok
+from adk_stream_protocol import change_bgm, get_location
+from adk_stream_protocol.result import Ok
 
 
 @pytest.mark.asyncio
@@ -81,8 +81,6 @@ async def test_get_location_uses_wrong_id_when_calling_execute_on_frontend() -> 
 
     This test verifies that ALL frontend delegate tools use the same fixed pattern.
     """
-    from adk_ag_tools import get_location
-
     # given
     mock_session = Mock(spec=Session)
     mock_session.state = {}

@@ -31,30 +31,26 @@ from google.genai import types  # noqa: E402
 from loguru import logger  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
-from adk_ag_runner import (  # noqa: E402
+from adk_stream_protocol import (  # noqa: E402  # noqa: E402  # noqa: E402
     BIDI_CONFIRMATION_TOOLS,
     SSE_CONFIRMATION_TOOLS,
-    bidi_agent,
-    bidi_agent_runner,
-    sse_agent,
-    sse_agent_runner,
-)
-from adk_compat import (  # noqa: E402
-    clear_sessions,
-    get_or_create_session,
-    sync_conversation_history_to_session,
-)
-from ai_sdk_v6_compat import (  # noqa: E402
+    BidiEventReceiver,
+    BidiEventSender,
     ChatMessage,
+    FrontendToolDelegate,
+    SseEventStreamer,
+    StreamProtocolConverter,
     ToolCallState,
     ToolUsePart,
+    bidi_agent,
+    bidi_agent_runner,
+    chunk_logger,
+    clear_sessions,
+    get_or_create_session,
+    sse_agent,
+    sse_agent_runner,
+    sync_conversation_history_to_session,
 )
-from chunk_logger import chunk_logger  # noqa: E402
-from services.bidi_event_receiver import BidiEventReceiver  # noqa: E402
-from services.bidi_event_sender import BidiEventSender  # noqa: E402
-from services.frontend_tool_service import FrontendToolDelegate  # noqa: E402
-from services.sse_event_streamer import SseEventStreamer  # noqa: E402
-from stream_protocol import StreamProtocolConverter  # noqa: E402
 
 
 def _get_user() -> str:
@@ -592,7 +588,7 @@ async def live_chat(websocket: WebSocket):  # noqa: PLR0915
     except WebSocketDisconnect:
         logger.error("[BIDI] WebSocket disconnected")
     except Exception as e:
-        logger.error(f"[live_chat] Exception: {e}")
+        logger.error(f"[live_chat] Exception: {e!s}")
     finally:
         live_request_queue.close()
 

@@ -225,8 +225,8 @@ clean-port:
     @echo "Ports stopped."
 
 # Clean up generated files
-[group("cleaner")]
-clean-gen:
+[group("hardercleaner")]
+delete-gen:
     @echo "Cleaning up generated files..."
     rm -rf .next
     rm -rf .mypy_cache
@@ -254,8 +254,8 @@ delete-lock:
     @echo "Lock files cleaned."
 
 # Clean up log files
-[group("cleaner")]
-clean-logs:
+[group("hardercleaner")]
+delete-logs:
     @echo "Cleaning up log files..."
     rm -rf logs
     rm -rf chunk_logs
@@ -274,6 +274,6 @@ kill:
     @echo "Servers stopped."
 
 # Run all cleaning tasks
-[group("cleaner")]
-clean-all: clean-port clean-gen clean-logs
+[group("hardercleaner")]
+delete-all: delete-gen delete-logs
     @echo "All cleaning tasks completed."

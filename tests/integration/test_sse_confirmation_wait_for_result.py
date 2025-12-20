@@ -34,8 +34,7 @@ from google.adk.runners import Runner
 from google.adk.sessions import Session
 from google.genai import types
 
-from services.frontend_tool_service import FrontendToolDelegate
-from services.sse_event_streamer import SseEventStreamer
+from adk_stream_protocol import FrontendToolDelegate, SseEventStreamer
 
 
 @pytest.mark.asyncio

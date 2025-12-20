@@ -6,14 +6,11 @@ conversation history synchronization, and other ADK-related operations.
 These functions are used by both ADK SSE and ADK BIDI modes.
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from google.adk.events import Event
 from loguru import logger
 
-
-if TYPE_CHECKING:
-    pass
 
 # Session storage (shared across all ADK modes)
 _sessions: dict[str, Any] = {}
@@ -81,7 +78,7 @@ async def get_or_create_session(
             # This can happen when clear_sessions() clears _sessions dict but ADK sessions persist
             logger.warning(
                 f"Session {session_id} already exists in ADK session_service, retrieving existing session. "
-                f"Error: {e}"
+                f"Error: {e!s}"
             )
             # Reason: ADK SDK session service exception handling - fallback to get_session
             try:  # nosemgrep: forbid-try-except

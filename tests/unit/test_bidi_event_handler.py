@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from google.genai import types
 
-from services.bidi_event_receiver import BidiEventReceiver
+from adk_stream_protocol import BidiEventReceiver
 
 
 # ============================================================

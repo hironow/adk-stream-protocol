@@ -21,8 +21,7 @@ from google.adk.events import Event
 from google.adk.sessions import Session
 from google.genai import types
 
-from services.bidi_event_sender import BidiEventSender
-from services.frontend_tool_service import FrontendToolDelegate
+from adk_stream_protocol import BidiEventSender, FrontendToolDelegate
 
 
 @pytest.mark.asyncio

@@ -23,10 +23,10 @@ from google.adk.sessions import Session
 from google.genai import types
 from loguru import logger
 
-from adk_compat import sync_conversation_history_to_session
-from ai_sdk_v6_compat import ChatMessage, process_chat_message_for_bidi
-from services.frontend_tool_service import FrontendToolDelegate
-from stream_protocol import Event
+from .adk_compat import Event as AdkEvent
+from .adk_compat import sync_conversation_history_to_session
+from .ai_sdk_v6_compat import ChatMessage, process_chat_message_for_bidi
+from .frontend_tool_service import FrontendToolDelegate
 
 
 class BidiEventReceiver:
@@ -188,7 +188,7 @@ class BidiEventReceiver:
         Reference: experiments/2025-12-18_bidi_function_response_investigation.md
         """
         logger.info("[BIDI] Creating Event with FunctionResponse, author='user'")
-        event = Event(author="user", content=text_content)
+        event = AdkEvent(author="user", content=text_content)
 
         logger.info(
             f"[BIDI] Calling session_service.append_event() with session={self._session.id}"

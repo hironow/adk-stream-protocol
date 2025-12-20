@@ -12,6 +12,7 @@ Test Levels:
 """
 
 import asyncio
+import base64
 import binascii
 from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
@@ -19,9 +20,13 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from google.genai import types
 
-from adk_vercel_id_mapper import ADKVercelIDMapper
-from services.bidi_event_receiver import BidiEventReceiver
-from services.frontend_tool_service import FrontendToolDelegate
+from adk_stream_protocol import ADKVercelIDMapper, BidiEventReceiver, FrontendToolDelegate
+from tests.utils.bidi import (
+    create_bidi_event_handler,
+    create_frontend_delegate_with_mapper,
+    create_mock_bidi_components,
+    simulate_pending_tool_call,
+)
 
 
 # ============================================================
@@ -93,12 +98,6 @@ async def test_level2_tool_result_event_with_real_frontend_delegate() -> None:
     Tests that tool results properly resolve through real FrontendToolDelegate.
     """
     # given - Use utils for common setup
-    from tests.utils.bidi import (
-        create_bidi_event_handler,
-        create_frontend_delegate_with_mapper,
-        create_mock_bidi_components,
-        simulate_pending_tool_call,
-    )
 
     mock_session, mock_queue, mock_runner, _ = create_mock_bidi_components()
     frontend_delegate, _ = create_frontend_delegate_with_mapper({"get_location": "call-789"})
@@ -248,8 +247,6 @@ async def test_level3_audio_chunk_with_real_blob_creation() -> None:
         live_request_queue=mock_queue,
         bidi_agent_runner=mock_runner,
     )
-
-    import base64
 
     audio_data = b"raw_pcm_audio_16bit_16khz_mono"
     chunk_base64 = base64.b64encode(audio_data).decode("utf-8")

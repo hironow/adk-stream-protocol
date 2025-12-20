@@ -18,10 +18,8 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 from google.genai import types
 
-from adk_vercel_id_mapper import ADKVercelIDMapper
-from confirmation_interceptor import ToolConfirmationInterceptor
-from result.result import Ok
-from services.frontend_tool_service import FrontendToolDelegate
+from adk_stream_protocol import ADKVercelIDMapper, FrontendToolDelegate, ToolConfirmationInterceptor
+from adk_stream_protocol.result import Ok
 from tests.utils.result_assertions import assert_error, assert_ok
 
 

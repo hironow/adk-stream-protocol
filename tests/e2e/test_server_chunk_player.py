@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-from chunk_player import ChunkPlayer, ChunkPlayerManager
+from adk_stream_protocol import ChunkPlayer, ChunkPlayerManager
 
 
 @pytest.fixture

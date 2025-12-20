@@ -14,15 +14,11 @@ Based on TypeScript implementation in lib/websocket-chat-transport.ts
 
 import base64
 import json
-from typing import TYPE_CHECKING, Any
+from typing import Any
 from unittest.mock import AsyncMock, Mock
 
 import pytest
 from fastapi import WebSocket
-
-
-if TYPE_CHECKING:
-    pass
 
 
 # ============================================================

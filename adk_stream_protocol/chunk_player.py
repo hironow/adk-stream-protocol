@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 # Import from chunk_logger for consistent types
-from chunk_logger import ChunkLogEntry, LogLocation
+from .chunk_logger import ChunkLogEntry, LogLocation
 
 
 PlaybackMode = Literal["real-time", "fast-forward", "step"]

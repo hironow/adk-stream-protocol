@@ -10,10 +10,6 @@ This module contains:
 import os
 
 from google.adk.agents import Agent
-
-# ========== Monkey Patch for Native Audio Model Support ==========
-# ADK SDK hardcodes v1alpha for Google AI Studio, but native-audio models require v1beta
-# Reference: experiments/2025-12-18_bidi_function_response_investigation.md
 from google.adk.models.google_llm import Gemini
 from google.adk.runners import InMemoryRunner
 from google.adk.tools.function_tool import FunctionTool
@@ -21,15 +17,12 @@ from google.adk.tools.long_running_tool import LongRunningFunctionTool
 from google.adk.utils.variant_utils import GoogleLLMVariant
 from loguru import logger
 
-# Import tool functions from adk_ag_tools module
-from adk_ag_tools import (
-    approval_test_tool,  # POC: LongRunningFunctionTool test
+from .adk_ag_tools import (
+    approval_test_tool,
     change_bgm,
     get_location,
     get_weather,
     process_payment,
-    # Note: adk_request_confirmation is imported in server.py for manual execution
-    # It's NOT registered as a tool in the agent to avoid conflict with ADK's auto-generated calls
 )
 
 
@@ -43,8 +36,8 @@ def _patched_live_api_version(self: Gemini) -> str:
 
 
 # Apply monkey patch before agent initialization
-Gemini._live_api_version = property(_patched_live_api_version)  # type: ignore
-logger.info("[MONKEY PATCH] Applied _live_api_version override to use v1beta for Google AI Studio")
+# Gemini._live_api_version = property(_patched_live_api_version)  # type: ignore
+# logger.info("[MONKEY PATCH] Applied _live_api_version override to use v1beta for Google AI Studio")
 
 # ========== Constants for Agent Configuration ==========
 # Fixed values for reproducible behavior
@@ -88,7 +81,7 @@ if not API_KEY:
     logger.error("GOOGLE_API_KEY not found in environment! ADK will fail.")
     logger.error("Note: ADK uses GOOGLE_API_KEY, while AI SDK uses GOOGLE_GENERATIVE_AI_API_KEY")
 else:
-    logger.info(f"ADK API key loaded: {API_KEY[:10]}...")
+    logger.info(f"ADK API key loaded: {API_KEY[:6]}...")
 
 # ========= Common Tools Definition ==========
 # Single source of truth for all agent tools
@@ -141,8 +134,6 @@ bidi_agent = Agent(
 sse_agent_runner = InMemoryRunner(agent=sse_agent, app_name="agents")
 bidi_agent_runner = InMemoryRunner(agent=bidi_agent, app_name="agents")
 
-logger.info("ADK agents and runners initialized successfully")
-
 
 # ========== Tool Confirmation Configuration ==========
 # Extract tools requiring confirmation from agent definitions
@@ -161,32 +152,18 @@ def get_tools_requiring_confirmation(agent: Agent) -> list[str]:
 
     Returns:
         List of tool names requiring confirmation (e.g., ["process_payment"])
-
-    Example:
-        >>> tools = get_tools_requiring_confirmation(bidi_agent)
-        >>> print(tools)
-        ['process_payment']
     """
     confirmation_tools = []
 
-    logger.debug(f"[Agent Config] Checking {len(agent.tools)} tools for confirmation requirement")
-
-    for i, tool in enumerate(agent.tools):
-        logger.debug(f"[Agent Config] Tool[{i}]: type={type(tool).__name__}, tool={tool}")
-
-        # Check if tool is FunctionTool
+    for tool in agent.tools:
         is_function_tool = isinstance(tool, FunctionTool)
-        logger.debug(f"[Agent Config] Tool[{i}]: isinstance(FunctionTool)={is_function_tool}")
 
         if is_function_tool:
             # Check _require_confirmation attribute (ADK uses private attribute)
             has_attr = hasattr(tool, "_require_confirmation")
             attr_value = getattr(tool, "_require_confirmation", None)
-            logger.debug(
-                f"[Agent Config] Tool[{i}]: has _require_confirmation={has_attr}, value={attr_value}"
-            )
 
-            if attr_value:
+            if has_attr and attr_value:
                 # Extract function name from FunctionTool
                 # FunctionTool wraps a callable, get the name from __name__ or func attribute
                 if hasattr(tool, "func") and hasattr(tool.func, "__name__"):
@@ -196,7 +173,8 @@ def get_tools_requiring_confirmation(agent: Agent) -> list[str]:
                     tool_name = str(tool)
 
                 confirmation_tools.append(tool_name)
-                logger.info(f"[Agent Config] ✓ Tool requires confirmation: {tool_name}")
+
+    logger.debug(f"Extracted confirmation tools for agent '{agent.name}': {confirmation_tools}")
 
     return confirmation_tools
 
@@ -208,3 +186,5 @@ BIDI_CONFIRMATION_TOOLS = get_tools_requiring_confirmation(bidi_agent)
 
 logger.info(f"SSE Agent confirmation tools: {SSE_CONFIRMATION_TOOLS}")
 logger.info(f"BIDI Agent confirmation tools: {BIDI_CONFIRMATION_TOOLS}")
+
+logger.info("ADK agents and runners initialized successfully")

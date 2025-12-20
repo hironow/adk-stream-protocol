@@ -13,8 +13,7 @@ from google.adk.agents import Agent
 from google.adk.tools.function_tool import FunctionTool
 from google.adk.tools.long_running_tool import LongRunningFunctionTool
 
-import adk_ag_runner
-from adk_ag_runner import get_tools_requiring_confirmation
+from adk_stream_protocol import adk_ag_runner, get_tools_requiring_confirmation
 
 
 # ============================================================

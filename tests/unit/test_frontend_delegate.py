@@ -16,9 +16,8 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from google.adk.tools.tool_context import ToolContext
 
-from adk_ag_tools import change_bgm, get_location
-from result.result import Ok
-from server import FrontendToolDelegate
+from adk_stream_protocol import FrontendToolDelegate, change_bgm, get_location
+from adk_stream_protocol.result import Ok
 from tests.utils.result_assertions import assert_error, assert_ok
 
 

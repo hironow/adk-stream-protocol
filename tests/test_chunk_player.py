@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from chunk_player import ChunkPlayer
+from adk_stream_protocol import ChunkPlayer
 
 
 @pytest.fixture

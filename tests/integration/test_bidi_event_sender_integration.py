@@ -17,9 +17,7 @@ from fastapi import WebSocketDisconnect
 from google.adk.agents import LiveRequestQueue
 from google.adk.sessions import Session
 
-from adk_vercel_id_mapper import ADKVercelIDMapper
-from services.bidi_event_sender import BidiEventSender
-from services.frontend_tool_service import FrontendToolDelegate
+from adk_stream_protocol import ADKVercelIDMapper, BidiEventSender, FrontendToolDelegate
 
 
 # ============================================================

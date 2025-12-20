@@ -6,8 +6,8 @@ export default defineConfig({
     environment: "node",
     globals: true,
     exclude: [
-      '**/node_modules/**',
-      '**/dist/**',
+      "**/node_modules/**",
+      "**/dist/**",
       // Exclude scenarios as they are for playwright
       "**/scenarios/**",
     ],

@@ -26,7 +26,7 @@ from unittest.mock import Mock
 import pytest
 from google.adk.events import Event
 
-from stream_protocol import StreamProtocolConverter
+from adk_stream_protocol import StreamProtocolConverter
 from tests.utils import MockTranscription, parse_sse_event
 
 

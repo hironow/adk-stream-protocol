@@ -21,7 +21,7 @@ import aiohttp
 from google.adk.tools.tool_context import ToolContext
 from loguru import logger
 
-from result.result import Error, Ok
+from .result import Error, Ok
 
 
 # ========== Weather Tool Configuration ==========
@@ -42,7 +42,7 @@ def _get_weather_from_cache(location: str) -> dict[str, Any] | None:
             if time.time() - cache_data["timestamp"] < WEATHER_CACHE_TTL:
                 return cache_data["data"]
     except Exception as e:
-        logger.warning(f"Failed to read cache for {location}: {e}")
+        logger.warning(f"Failed to read cache for {location}: {e!s}")
 
     return None
 
@@ -58,7 +58,7 @@ def _set_weather_cache(location: str, data: dict[str, Any]) -> None:
         cache_data = {"data": data, "timestamp": time.time()}
         cache_file.write_text(json.dumps(cache_data, indent=2))
     except Exception as e:
-        logger.warning(f"Failed to write cache for {location}: {e}")
+        logger.warning(f"Failed to write cache for {location}: {e!s}")
 
 
 async def get_weather(location: str) -> dict[str, Any]:
@@ -137,7 +137,7 @@ async def get_weather(location: str) -> dict[str, Any]:
                         "note": "Failed to fetch weather data from API",
                     }
     except Exception as e:
-        logger.error(f"Tool call: get_weather({location}) exception: {e}")
+        logger.error(f"Tool call: get_weather({location}) exception: {e!s}")
         return {
             "error": str(e),
             "location": location,

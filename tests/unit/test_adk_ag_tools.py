@@ -8,14 +8,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from adk_ag_tools import (
+from adk_stream_protocol import (
     adk_request_confirmation,
     change_bgm,
     get_location,
     get_weather,
     process_payment,
 )
-from result.result import Ok
+from adk_stream_protocol.result import Ok
 
 
 class TestWeatherTool:
@@ -206,7 +206,7 @@ class TestGetLocation:
         When user approves, frontend returns location data.
         """
         # given: Mock tool_context with frontend delegate (BIDI mode)
-        from adk_vercel_id_mapper import ADKVercelIDMapper
+        from adk_stream_protocol import ADKVercelIDMapper
 
         mock_id_mapper = ADKVercelIDMapper()
         mock_id_mapper.register("get_location", "function-call-123")

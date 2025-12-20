@@ -10,7 +10,7 @@ Tests cover:
 
 import base64
 
-from server import ChatMessage
+from adk_stream_protocol import ChatMessage, GenericPart
 
 
 def test_chat_message_with_text_and_image():
@@ -207,7 +207,6 @@ def test_image_part_rejects_invalid_media_type():
     When ImagePart validation fails, Pydantic Union falls back to GenericPart.
     This is the current implementation behavior to avoid 422 errors.
     """
-    from ai_sdk_v6_compat import GenericPart
 
     # given: Invalid media type (GIF not supported by ImagePart)
     png_data = base64.b64decode(
@@ -236,7 +235,6 @@ def test_image_part_rejects_invalid_base64():
     When ImagePart validation fails on base64 decoding,
     Pydantic Union falls back to GenericPart.
     """
-    from ai_sdk_v6_compat import GenericPart
 
     # given: Invalid base64 string
     invalid_base64 = "This is not base64!@#$"
@@ -262,7 +260,6 @@ def test_image_part_rejects_empty_data():
     When ImagePart validation fails on empty data,
     Pydantic Union falls back to GenericPart.
     """
-    from ai_sdk_v6_compat import GenericPart
 
     # when: Create message with empty data
     message = ChatMessage(

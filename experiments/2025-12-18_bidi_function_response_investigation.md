@@ -129,7 +129,6 @@ We implemented ADK tool confirmation flow for BIDI mode (WebSocket-based `/live`
 From ADK documentation (Part 2 - Sending messages with LiveRequestQueue):
 
 > **Function responses**: "ADK automatically handles the function calling loop - receiving function calls from the model, executing your registered functions, and sending responses back. **You don't manually construct these.**"
-
 > **Supported content**: `send_content()` primarily handles **text-based content**. The `Content` container holds an array of `Part` objects.
 
 **Implication**: We should NOT be manually sending FunctionResponse through `send_content()`.
