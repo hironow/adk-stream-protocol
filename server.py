@@ -240,27 +240,21 @@ async def chat(request: ChatRequest):
 
     # 4. Run ADK agent and collect response
     response_text = ""
-    # Reason: HTTP endpoint error handling - gracefully returning error response to client
-    try:  # nosemgrep: forbid-try-except
-        async for event in sse_agent_runner.run_async(
-            user_id=user_id,
-            session_id=session.id,
-            new_message=message_content,
-        ):
-            # Collect final response text
-            if event.is_final_response() and event.content and event.content.parts:
-                for part in event.content.parts:
-                    if hasattr(part, "text") and part.text:
-                        response_text += part.text
+    async for event in sse_agent_runner.run_async(
+        user_id=user_id,
+        session_id=session.id,
+        new_message=message_content,
+    ):
+        # Collect final response text
+        if event.is_final_response() and event.content and event.content.parts:
+            for part in event.content.parts:
+                if hasattr(part, "text") and part.text:
+                    response_text += part.text
 
-        # 5. Return collected response
-        response_text = response_text.strip()
-        logger.info(f"[/chat] Response: {response_text[:100]}...")
-        return ChatResponse(message=response_text)
-
-    except Exception as e:
-        logger.error(f"[/chat] Error running ADK agent: {e}")
-        return ChatResponse(message=f"Error: {e!s}")
+    # 5. Return collected response
+    response_text = response_text.strip()
+    logger.info(f"[/chat] Response: {response_text[:100]}...")
+    return ChatResponse(message=response_text)
 
 
 def _create_error_sse_response(error_message: str) -> StreamingResponse:
@@ -349,16 +343,11 @@ async def stream(request: ChatRequest):
     # Debug logging for message parts
     for i, msg in enumerate(request.messages):
         logger.info(f"[/stream] Processing Message {i}: role={msg.role}")
-        # Reason: HTTP endpoint error handling - validation and debugging of message conversion
-        try:  # nosemgrep: forbid-try-except
-            msg_context = msg.to_adk_content()
-            logger.info(
-                f"[/stream] Message {i}: role={msg_context.role}, "
-                f"parts={len(msg_context.parts) if msg_context.parts else 0}"
-            )
-        except Exception as e:
-            logger.error(f"[/stream] Failed to convert Message {i}: {e}", exc_info=True)
-            return _create_error_sse_response(f"Failed to convert message: {e!s}")
+        msg_context = msg.to_adk_content()
+        logger.info(
+            f"[/stream] Message {i}: role={msg_context.role}, "
+            f"parts={len(msg_context.parts) if msg_context.parts else 0}"
+        )
 
     # Validate input messages
     if not request.messages:
@@ -433,7 +422,7 @@ async def stream(request: ChatRequest):
 
 
 @app.websocket("/live")
-async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
+async def live_chat(websocket: WebSocket):  # noqa: PLR0915
     """
     WebSocket endpoint for bidirectional streaming with ADK BIDI mode
 
@@ -581,43 +570,29 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
 
         # Receive messages from WebSocket → send to LiveRequestQueue
         async def receive_from_client():
-            # Reason: WebSocket event loop - handling disconnect, JSON parsing, and protocol errors
-            try:  # nosemgrep: forbid-try-except
-                while True:
-                    data = await websocket.receive_text()
-                    # Parse structured event format
-                    event = json.loads(data)
-                    event_type = event.get("type")
+            while True:
+                data = await websocket.receive_text()
+                # Parse structured event format
+                event = json.loads(data)
+                event_type = event.get("type")
 
-                    # Handle ping/pong for latency monitoring
-                    if event_type == "ping":
-                        await websocket.send_text(
-                            json.dumps(
-                                {
-                                    "type": "pong",
-                                    "timestamp": event.get("timestamp"),
-                                }
-                            )
+                # Handle ping/pong for latency monitoring
+                if event_type == "ping":
+                    await websocket.send_text(
+                        json.dumps(
+                            {
+                                "type": "pong",
+                                "timestamp": event.get("timestamp"),
+                            }
                         )
-                        continue
+                    )
+                    continue
 
-                    # Delegate event handling to BidiEventReceiver (upstream: WebSocket → ADK)
-                    # Handles: message, interrupt, audio_control, audio_chunk, tool_result
-                    await bidi_event_receiver.handle_event(event)
+                # Delegate event handling to BidiEventReceiver (upstream: WebSocket → ADK)
+                # Handles: message, interrupt, audio_control, audio_chunk, tool_result
+                await bidi_event_receiver.handle_event(event)
 
-            except WebSocketDisconnect:
-                logger.info("[BIDI] Client disconnected")
-                live_request_queue.close()
-            except json.JSONDecodeError as e:
-                logger.error(f"[BIDI] Invalid JSON from client: {e}")
-                live_request_queue.close()
-                raise
-            except Exception as e:
-                logger.error(f"[BIDI] Error receiving from client: {e}")
-                live_request_queue.close()
-                raise
-
-        # Task 2: Receive ADK events → send to WebSocket
+        # Receive ADK events → send to WebSocket
         async def send_to_client():
             # Delegate to BidiEventSender (downstream: ADK → WebSocket)
             await bidi_event_sender.send_events(live_events)
@@ -630,23 +605,11 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
         )
 
     except WebSocketDisconnect:
-        logger.info("[BIDI] WebSocket connection closed")
+        logger.error("[BIDI] WebSocket disconnected")
     except Exception as e:
-        logger.error(f"[BIDI] WebSocket error: {e}")
-        # Reason: Resource cleanup - ensuring WebSocket close even if connection already closed
-        try:  # nosemgrep: forbid-try-except
-            await websocket.close(code=1011, reason=str(e))
-        except Exception as close_error:
-            logger.debug(
-                f"[BIDI] Could not close WebSocket: {close_error}"
-            )  # Connection might already be closed
+        logger.error(f"[live_chat] Exception: {e}")
     finally:
-        # Ensure queue is closed
-        # Reason: Resource cleanup - ensuring queue close even if already closed
-        try:  # nosemgrep: forbid-try-except
-            live_request_queue.close()
-        except Exception as queue_error:
-            logger.debug(f"[BIDI] Could not close queue: {queue_error}")
+        live_request_queue.close()
 
 
 if __name__ == "__main__":

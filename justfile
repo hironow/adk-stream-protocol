@@ -223,6 +223,9 @@ clean-port:
 clean-gen:
     @echo "Cleaning up generated files..."
     rm -rf .next
+    rm -rf .mypy_cache
+    rm -rf .pytest_cache
+    rm -rf .ruff_cache
     rm -rf __pycache__
     find . -type d -name "*.egg-info" -exec rm -rf {} +
     find . -type d -name "__pycache__" -exec rm -rf {} +

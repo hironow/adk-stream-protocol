@@ -14,12 +14,13 @@ import { createAdkConfirmationOutput } from "./adk_compat";
 export interface ConfirmationTransport {
   /**
    * WebSocket transport for BIDI mode.
-   * Used for long-running tools and frontend delegate tools.
+   * Used for confirmation flow via user message.
    */
   websocket?: {
-    sendToolResult: (
+    sendFunctionResponse: (
       toolCallId: string,
-      result: Record<string, unknown>,
+      toolName: string,
+      response: Record<string, unknown>,
     ) => void;
   };
 
@@ -123,15 +124,27 @@ export function createConfirmationTransport(
       }
     | undefined,
   addToolOutput:
-    | ((response: { tool: string; toolCallId: string; output: unknown }) => void)
+    | ((response: {
+        tool: string;
+        toolCallId: string;
+        output: unknown;
+      }) => void)
     | undefined,
 ): ConfirmationTransport {
   return {
     websocket: websocketTransport
       ? {
           // Arrow function preserves "this" binding
-          sendToolResult: (toolCallId: string, result: Record<string, unknown>) =>
-            websocketTransport.sendToolResult(toolCallId, result),
+          sendFunctionResponse: (
+            toolCallId: string,
+            toolName: string,
+            response: Record<string, unknown>,
+          ) =>
+            websocketTransport.sendFunctionResponse(
+              toolCallId,
+              toolName,
+              response,
+            ),
         }
       : undefined,
     sse: addToolOutput
@@ -143,7 +156,64 @@ export function createConfirmationTransport(
 }
 
 /**
- * Handle confirmation approval/denial.
+ * Handle confirmation click from component (high-level API).
+ *
+ * This function is the main entry point for components.
+ * It creates the transport and delegates to handleConfirmation.
+ *
+ * @param toolInvocation - The confirmation tool invocation
+ * @param confirmed - Whether the user approved (true) or denied (false)
+ * @param websocketTransport - WebSocket transport (BIDI mode)
+ * @param addToolOutput - SSE addToolOutput function (SSE mode)
+ * @returns Result indicating success/failure and mode used
+ *
+ * @example
+ * ```typescript
+ * // From component onClick handler
+ * const result = handleConfirmationClick(
+ *   toolInvocation,
+ *   true,
+ *   websocketTransport,
+ *   addToolOutput
+ * );
+ * ```
+ */
+export function handleConfirmationClick(
+  toolInvocation: ConfirmationToolInvocation,
+  confirmed: boolean,
+  websocketTransport:
+    | {
+        sendToolResult: (
+          toolCallId: string,
+          result: Record<string, unknown>,
+        ) => void;
+        sendFunctionResponse: (
+          toolCallId: string,
+          toolName: string,
+          response: Record<string, unknown>,
+        ) => void;
+      }
+    | undefined,
+  addToolOutput:
+    | ((response: {
+        tool: string;
+        toolCallId: string;
+        output: unknown;
+      }) => void)
+    | undefined,
+): ConfirmationResult {
+  // Create transport with proper "this" binding
+  const transport = createConfirmationTransport(
+    websocketTransport,
+    addToolOutput,
+  );
+
+  // Delegate to core handler
+  return handleConfirmation(toolInvocation, confirmed, transport);
+}
+
+/**
+ * Handle confirmation approval/denial (low-level API).
  *
  * This function encapsulates the logic for sending confirmation results
  * to the backend, choosing the appropriate transport based on availability.
@@ -159,7 +229,7 @@ export function createConfirmationTransport(
  * const result = handleConfirmation(
  *   toolInvocation,
  *   true,
- *   { websocket: { sendToolResult: ws.sendToolResult } }
+ *   { websocket: { sendFunctionResponse: ws.sendFunctionResponse } }
  * );
  *
  * // SSE mode
@@ -187,13 +257,42 @@ export function handleConfirmation(
   }
 
   // Priority 1: WebSocket (BIDI mode)
+  // BIDI Mode Protocol: Send user message with tool-result for ORIGINAL tool
+  // This matches AI SDK v6's expected format and allows the AI to see the approval
+  // in its conversation context.
   if (transport.websocket) {
+    // Extract original tool information
+    const originalToolCall = toolInvocation.input?.originalFunctionCall;
+    if (!originalToolCall) {
+      return {
+        success: false,
+        error: "Missing originalFunctionCall in confirmation tool input",
+        mode: "none",
+      };
+    }
+
     console.info(
-      `[ConfirmationHandler] BIDI mode: Sending confirmation via WebSocket`,
-      { toolCallId, confirmed },
+      `[ConfirmationHandler] BIDI mode: Sending user message with tool-result for original tool`,
+      {
+        confirmationToolCallId: toolCallId,
+        originalToolCallId: originalToolCall.id,
+        originalToolName: originalToolCall.name,
+        confirmed,
+      },
     );
 
-    transport.websocket.sendToolResult(toolCallId, { confirmed });
+    // Send user message with tool-result for the ORIGINAL tool (not confirmation tool)
+    // Format matches baseline: ai_sdk_v6_compat.py's FunctionResponse pattern
+    transport.websocket.sendFunctionResponse(
+      originalToolCall.id, // Original tool ID (e.g., "function-call-123")
+      originalToolCall.name, // Original tool name (e.g., "process_payment")
+      {
+        approved: confirmed,
+        user_message: confirmed
+          ? `User approved ${originalToolCall.name} execution`
+          : `User denied ${originalToolCall.name} execution`,
+      },
+    );
 
     return {
       success: true,

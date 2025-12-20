@@ -41,6 +41,13 @@ test.describe
       // Clear backend chunk logs from previous runs
       clearBackendChunkLogs(SESSION_ID);
 
+      // Setup frontend console logger
+      const sessionId =
+        process.env.NEXT_PUBLIC_CHUNK_LOGGER_SESSION_ID ||
+        process.env.CHUNK_LOGGER_SESSION_ID ||
+        "test";
+      setupFrontendConsoleLogger(page, sessionId);
+
       // Given: User navigates to chat and enables chunk logger
       await navigateToChat(page);
 

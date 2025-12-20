@@ -16,7 +16,7 @@ import {
 
 describe("handleConfirmation", () => {
   describe("BIDI mode (WebSocket transport)", () => {
-    it("should send confirmation via WebSocket when available", () => {
+    it("should send user message with tool-result for ORIGINAL tool (approval)", () => {
       // given
       const toolInvocation: ConfirmationToolInvocation = {
         toolCallId: "confirmation-function-call-123",
@@ -33,10 +33,10 @@ describe("handleConfirmation", () => {
         },
       };
 
-      const mockSendToolResult = vi.fn();
+      const mockSendFunctionResponse = vi.fn();
       const transport: ConfirmationTransport = {
         websocket: {
-          sendToolResult: mockSendToolResult,
+          sendFunctionResponse: mockSendFunctionResponse,
         },
       };
 
@@ -46,24 +46,35 @@ describe("handleConfirmation", () => {
       // then
       expect(result.success).toBe(true);
       expect(result.mode).toBe("websocket");
-      expect(mockSendToolResult).toHaveBeenCalledOnce();
-      expect(mockSendToolResult).toHaveBeenCalledWith(
-        "confirmation-function-call-123",
-        { confirmed: true },
+      expect(mockSendFunctionResponse).toHaveBeenCalledOnce();
+      expect(mockSendFunctionResponse).toHaveBeenCalledWith(
+        "function-call-123", // Original tool ID, not confirmation tool ID
+        "process_payment", // Original tool name, not confirmation tool name
+        {
+          approved: true,
+          user_message: "User approved process_payment execution",
+        },
       );
     });
 
-    it("should handle denial (confirmed=false) via WebSocket", () => {
+    it("should send user message with tool-result for ORIGINAL tool (denial)", () => {
       // given
       const toolInvocation: ConfirmationToolInvocation = {
         toolCallId: "confirmation-adk-456",
         toolName: "adk_request_confirmation",
+        input: {
+          originalFunctionCall: {
+            id: "function-call-789",
+            name: "get_location",
+            args: {},
+          },
+        },
       };
 
-      const mockSendToolResult = vi.fn();
+      const mockSendFunctionResponse = vi.fn();
       const transport: ConfirmationTransport = {
         websocket: {
-          sendToolResult: mockSendToolResult,
+          sendFunctionResponse: mockSendFunctionResponse,
         },
       };
 
@@ -73,9 +84,38 @@ describe("handleConfirmation", () => {
       // then
       expect(result.success).toBe(true);
       expect(result.mode).toBe("websocket");
-      expect(mockSendToolResult).toHaveBeenCalledWith("confirmation-adk-456", {
-        confirmed: false,
-      });
+      expect(mockSendFunctionResponse).toHaveBeenCalledWith(
+        "function-call-789", // Original tool ID
+        "get_location", // Original tool name
+        {
+          approved: false,
+          user_message: "User denied get_location execution",
+        },
+      );
+    });
+
+    it("should return error when originalFunctionCall is missing (BIDI mode)", () => {
+      // given
+      const toolInvocation: ConfirmationToolInvocation = {
+        toolCallId: "confirmation-adk-456",
+        toolName: "adk_request_confirmation",
+        // Missing input.originalFunctionCall
+      };
+
+      const mockSendFunctionResponse = vi.fn();
+      const transport: ConfirmationTransport = {
+        websocket: {
+          sendFunctionResponse: mockSendFunctionResponse,
+        },
+      };
+
+      // when
+      const result = handleConfirmation(toolInvocation, true, transport);
+
+      // then
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("Missing originalFunctionCall");
+      expect(mockSendFunctionResponse).not.toHaveBeenCalled();
     });
   });
 
@@ -153,7 +193,8 @@ describe("handleConfirmation", () => {
       // Frontend MUST send back the EXACT SAME ID
 
       // given
-      const backendToolCallId = "confirmation-adk-6038360e-0572-46c2-b868-9ae035efe8d6";
+      const backendToolCallId =
+        "confirmation-adk-6038360e-0572-46c2-b868-9ae035efe8d6";
       const toolInvocation: ConfirmationToolInvocation = {
         toolCallId: backendToolCallId, // Exact ID from backend
         toolName: "adk_request_confirmation",
@@ -186,13 +227,20 @@ describe("handleConfirmation", () => {
       const toolInvocation: ConfirmationToolInvocation = {
         toolCallId: "test-id",
         toolName: "adk_request_confirmation",
+        input: {
+          originalFunctionCall: {
+            id: "original-id",
+            name: "test_tool",
+            args: {},
+          },
+        },
       };
 
-      const mockSendToolResult = vi.fn();
+      const mockSendFunctionResponse = vi.fn();
       const mockAddToolOutput = vi.fn();
       const transport: ConfirmationTransport = {
         websocket: {
-          sendToolResult: mockSendToolResult,
+          sendFunctionResponse: mockSendFunctionResponse,
         },
         sse: {
           addToolOutput: mockAddToolOutput,
@@ -204,24 +252,29 @@ describe("handleConfirmation", () => {
 
       // then
       expect(result.mode).toBe("websocket");
-      expect(mockSendToolResult).toHaveBeenCalled();
+      expect(mockSendFunctionResponse).toHaveBeenCalled();
       expect(mockAddToolOutput).not.toHaveBeenCalled();
     });
   });
 
   describe("This binding for WebSocket transport", () => {
-    it("RED TEST: should preserve 'this' context when calling sendToolResult", () => {
+    it("RED TEST: should preserve 'this' context when calling sendFunctionResponse", () => {
       // This test reproduces the production bug where `this` is lost
-      // when passing websocketTransport.sendToolResult as a function reference
+      // when passing websocketTransport.sendFunctionResponse as a function reference
 
       // given - Create a mock WebSocketChatTransport that uses 'this'
       class MockWebSocketTransport {
-        private sentEvents: Array<{ toolCallId: string; result: unknown }> = [];
+        private sentEvents: Array<{
+          toolCallId: string;
+          toolName: string;
+          response: unknown;
+        }> = [];
 
         // This method uses 'this' internally (like the real WebSocketChatTransport)
-        public sendToolResult(
+        public sendFunctionResponse(
           toolCallId: string,
-          result: Record<string, unknown>,
+          toolName: string,
+          response: Record<string, unknown>,
         ): void {
           // If 'this' is not the MockWebSocketTransport instance, this will throw
           if (!this.sentEvents) {
@@ -229,7 +282,7 @@ describe("handleConfirmation", () => {
               "Cannot read properties of undefined (reading 'sentEvents') - 'this' context lost!",
             );
           }
-          this.sentEvents.push({ toolCallId, result });
+          this.sentEvents.push({ toolCallId, toolName, response });
         }
 
         public getSentEvents() {
@@ -244,13 +297,20 @@ describe("handleConfirmation", () => {
       const transport: ConfirmationTransport = {
         websocket: {
           // BUG: Direct method reference loses 'this' context
-          sendToolResult: mockTransport.sendToolResult, // ← 'this' is lost here!
+          sendFunctionResponse: mockTransport.sendFunctionResponse, // ← 'this' is lost here!
         },
       };
 
       const toolInvocation: ConfirmationToolInvocation = {
-        toolCallId: "test-id-123",
+        toolCallId: "confirmation-test-id-123",
         toolName: "adk_request_confirmation",
+        input: {
+          originalFunctionCall: {
+            id: "original-test-id-456",
+            name: "test_tool",
+            args: {},
+          },
+        },
       };
 
       // when/then - This should throw because 'this' is not mockTransport
@@ -263,8 +323,12 @@ describe("handleConfirmation", () => {
       // After fix (GREEN), we should verify the event was sent:
       // expect(mockTransport.getSentEvents()).toHaveLength(1);
       // expect(mockTransport.getSentEvents()[0]).toEqual({
-      //   toolCallId: "test-id-123",
-      //   result: { confirmed: true },
+      //   toolCallId: "original-test-id-456",
+      //   toolName: "test_tool",
+      //   response: {
+      //     approved: true,
+      //     user_message: "User approved test_tool execution",
+      //   },
       // });
     });
   });
@@ -295,10 +359,10 @@ describe("handleConfirmation", () => {
         toolName: "wrong_tool", // Invalid tool name
       };
 
-      const mockSendToolResult = vi.fn();
+      const mockSendFunctionResponse = vi.fn();
       const transport: ConfirmationTransport = {
         websocket: {
-          sendToolResult: mockSendToolResult,
+          sendFunctionResponse: mockSendFunctionResponse,
         },
       };
 
@@ -308,7 +372,7 @@ describe("handleConfirmation", () => {
       // then
       expect(result.success).toBe(false);
       expect(result.error).toContain("Invalid tool name");
-      expect(mockSendToolResult).not.toHaveBeenCalled();
+      expect(mockSendFunctionResponse).not.toHaveBeenCalled();
     });
   });
 });

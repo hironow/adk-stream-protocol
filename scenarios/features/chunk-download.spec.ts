@@ -3,9 +3,20 @@
  */
 
 import { test } from "@playwright/test";
-import { navigateToChat, selectBackendMode } from "./helpers";
+import {
+  navigateToChat,
+  selectBackendMode,
+  setupFrontendConsoleLogger,
+} from "./helpers";
 
 test("Check if Download Chunks button is visible", async ({ page }) => {
+  // Setup frontend console logger
+  const sessionId =
+    process.env.NEXT_PUBLIC_CHUNK_LOGGER_SESSION_ID ||
+    process.env.CHUNK_LOGGER_SESSION_ID ||
+    "test";
+  setupFrontendConsoleLogger(page, sessionId);
+
   // Given: Navigate to chat
   await navigateToChat(page);
   await selectBackendMode(page, "adk-sse");

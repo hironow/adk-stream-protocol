@@ -52,6 +52,13 @@ const testResults: TestResult[] = [];
 
 test.describe("Systematic Mode/Model Testing (P4-T4.4)", () => {
   test.beforeEach(async ({ page }) => {
+    // Setup frontend console logger
+    const sessionId =
+      process.env.NEXT_PUBLIC_CHUNK_LOGGER_SESSION_ID ||
+      process.env.CHUNK_LOGGER_SESSION_ID ||
+      "test";
+    setupFrontendConsoleLogger(page, sessionId);
+
     await navigateToChat(page);
   });
 

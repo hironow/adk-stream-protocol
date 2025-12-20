@@ -32,6 +32,9 @@ import type {
   UIMessageChunk,
 } from "ai";
 
+import { EventReceiver } from "./bidi/event_receiver";
+import { EventSender } from "./bidi/event_sender";
+
 /**
  * AudioContext interface for PCM streaming
  * (imported from lib/audio-context.tsx in buildUseChatOptions)
@@ -71,98 +74,6 @@ interface AudioContextValue {
  */
 
 /**
- * Base event structure for all client-to-server events
- */
-interface ClientEvent {
-  type: string;
-  version: "1.0";
-  timestamp?: number;
-}
-
-/**
- * Message event: Send chat messages to backend
- * Used by existing sendMessages() flow
- */
-interface MessageEvent extends ClientEvent {
-  type: "message";
-  data: {
-    messages: UIMessage[];
-  };
-}
-
-/**
- * Interrupt event: User cancels ongoing AI response
- * Use cases:
- *   - ESC key pressed during response generation
- *   - User clicks cancel button
- *   - Timeout or error conditions
- */
-interface InterruptEvent extends ClientEvent {
-  type: "interrupt";
-  reason?: "user_abort" | "timeout" | "error";
-}
-
-/**
- * Audio control event: Start/stop audio input (BIDI mode)
- * Use cases:
- *   - CMD key pressed: start audio input
- *   - CMD key released: stop audio input
- *   - Push-to-talk UI controls
- */
-interface AudioControlEvent extends ClientEvent {
-  type: "audio_control";
-  action: "start" | "stop";
-}
-
-/**
- * Audio chunk event: Send PCM audio data to backend
- * Used for streaming microphone input in BIDI mode
- */
-interface AudioChunkEvent extends ClientEvent {
-  type: "audio_chunk";
-  data: {
-    chunk: string; // Base64-encoded PCM data
-    sampleRate: number;
-    channels: number;
-    bitDepth: number;
-  };
-}
-
-// ToolResultEvent removed - use AI SDK v6's standard addToolApprovalResponse flow
-// See experiments/2025-12-13_lib_test_coverage_investigation.md:1640-1679 for details
-
-/**
- * Ping event: Keep-alive and latency measurement
- * Backend responds with pong event
- */
-interface PingEvent extends ClientEvent {
-  type: "ping";
-}
-
-/**
- * Tool result event (BIDI delegate pattern)
- * Frontend sends tool execution results back to backend to resolve delegate Futures
- */
-interface ToolResultEvent extends ClientEvent {
-  type: "tool_result";
-  data: {
-    toolCallId: string;
-    result: Record<string, unknown>;
-  };
-}
-
-/**
- * Union type for all client-to-server events
- */
-type ClientToServerEvent =
-  | MessageEvent
-  | InterruptEvent
-  | AudioControlEvent
-  | AudioChunkEvent
-  | PingEvent
-  | ToolResultEvent;
-
-/**
  * WebSocket transport configuration
  */
 export interface WebSocketChatTransportConfig {
@@ -186,14 +97,13 @@ export interface WebSocketChatTransportConfig {
  * Compatible with AI SDK v6 useChat hook.
  */
 export class WebSocketChatTransport implements ChatTransport<UIMessage> {
-  // Message size thresholds for logging only (no truncation)
-  // Adjusted to be less aggressive - only warn for truly large messages
-  private static readonly WARN_SIZE_KB = 500; // Warn if message > 500KB (was 100KB)
-  private static readonly ERROR_SIZE_MB = 10; // Error log if message > 10MB (was 5MB)
-
   private config: WebSocketChatTransportConfig;
   private ws: WebSocket | null = null;
-  private audioChunkIndex = 0; // Track audio chunks for logging
+
+  // BIDI event handling (refactored into separate modules)
+  private eventReceiver: EventReceiver;
+  private eventSender: EventSender;
+
   private pingInterval: NodeJS.Timeout | null = null; // Ping interval timer
   private lastPingTime: number | null = null; // Timestamp of last ping
 
@@ -202,12 +112,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
   private currentController: ReadableStreamDefaultController<UIMessageChunk> | null =
     null;
 
-  // [DONE] marker tracking (Session 7: [DONE] Stream Lifecycle Principle)
-  // Prevents processing multiple [DONE] markers which would cause state corruption
-  private doneReceived = false;
-
-  // PCM recording buffer for message replay (Pipeline 2)
-  private pcmBuffer: Int16Array[] = []; // Buffer PCM chunks for WAV conversion
+  // PCM audio parameters (used for bridging EventReceiver → external AudioContext)
   private pcmSampleRate = 24000; // Default sample rate (updated from first chunk)
   private pcmChannels = 1; // Default channels (updated from first chunk)
   private pcmBitDepth = 16; // Default bit depth (updated from first chunk)
@@ -217,79 +122,42 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
       timeout: 30000, // 30 seconds default
       ...config,
     };
+
+    // Initialize BIDI event handling modules
+    this.eventReceiver = new EventReceiver({
+      audioContext: config.audioContext
+        ? {
+            voiceChannel: {
+              reset: () => config.audioContext?.voiceChannel.reset(),
+              playPCM: (pcmData: Int16Array) => {
+                // Convert Int16Array to base64 for playPCM
+                const bytes = new Uint8Array(pcmData.buffer);
+                let binary = "";
+                for (let i = 0; i < bytes.length; i++) {
+                  binary += String.fromCharCode(bytes[i]);
+                }
+                const base64 = btoa(binary);
+
+                config.audioContext?.voiceChannel.sendChunk({
+                  content: base64,
+                  sampleRate: this.pcmSampleRate,
+                  channels: this.pcmChannels,
+                  bitDepth: this.pcmBitDepth,
+                });
+              },
+            },
+          }
+        : undefined,
+      onPong: (timestamp: number) => this.handlePong(timestamp),
+    });
+
+    this.eventSender = new EventSender(this.ws);
   }
 
-  /**
-   * Send structured event to backend (P2-T2)
-   * All client events use this method for type-safe sending
-   */
-  private sendEvent(event: ClientToServerEvent): void {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      const error = new Error("WebSocket not open - cannot send event");
-      console.error("[WS Transport] Cannot send event, WebSocket not open");
-      throw error;
-    }
-
-    // Add timestamp if not present
-    const eventWithTimestamp = {
-      ...event,
-      timestamp: event.timestamp ?? Date.now(),
-    };
-
-    const message = JSON.stringify(eventWithTimestamp);
-
-    // Check message size and warn if large
-    const sizeBytes = new Blob([message]).size;
-    const sizeKB = sizeBytes / 1024;
-    const sizeMB = sizeKB / 1024;
-
-    if (sizeKB > WebSocketChatTransport.WARN_SIZE_KB) {
-      if (sizeMB > WebSocketChatTransport.ERROR_SIZE_MB) {
-        // Message exceeds warning threshold but we still send it
-        console.warn(
-          `[WS Transport] ⚠️ Very large message: ${sizeMB.toFixed(2)}MB (threshold: ${WebSocketChatTransport.ERROR_SIZE_MB}MB)`,
-          {
-            type: eventWithTimestamp.type,
-            sizeBytes,
-            sizeKB: sizeKB.toFixed(2),
-            sizeMB: sizeMB.toFixed(2),
-            thresholdMB: WebSocketChatTransport.ERROR_SIZE_MB,
-          },
-        );
-        // Message is sent anyway to preserve ADK BIDI functionality
-      } else if (sizeMB > 1) {
-        console.warn(`[WS Transport] ⚠️ Large message: ${sizeMB.toFixed(2)}MB`, {
-          type: eventWithTimestamp.type,
-          sizeBytes,
-          sizeKB: sizeKB.toFixed(2),
-          sizeMB: sizeMB.toFixed(2),
-        });
-
-        // Log details for message events
-        if (eventWithTimestamp.type === "message") {
-          const messageEvent = event as MessageEvent;
-          const firstMsg = messageEvent.data.messages[0];
-          const lastMsg =
-            messageEvent.data.messages[messageEvent.data.messages.length - 1];
-          console.warn(`[WS Transport] Message details:`, {
-            messageCount: messageEvent.data.messages.length,
-            firstMessage: firstMsg
-              ? `${firstMsg.role}: ${JSON.stringify(firstMsg).substring(0, 100)}...`
-              : undefined,
-            lastMessage: lastMsg
-              ? `${lastMsg.role}: ${JSON.stringify(lastMsg).substring(0, 100)}...`
-              : undefined,
-          });
-        }
-      } else {
-        console.debug(`[WS Transport] Message size: ${sizeKB.toFixed(2)}KB`, {
-          type: eventWithTimestamp.type,
-        });
-      }
-    }
-
-    this.ws.send(message);
-  }
+  //
+  // NOTE: Event sending methods have been refactored to lib/bidi/event_sender.ts
+  // All sending is now delegated to eventSender instance
+  //
 
   /**
    * PUBLIC API: Interrupt ongoing AI response
@@ -299,12 +167,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
    *   - Timeout or error conditions
    */
   public interrupt(reason?: "user_abort" | "timeout" | "error"): void {
-    const event: InterruptEvent = {
-      type: "interrupt",
-      version: "1.0",
-      reason,
-    };
-    this.sendEvent(event);
+    this.eventSender.interrupt(reason);
   }
 
   /**
@@ -316,15 +179,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
     toolCallId: string,
     result: Record<string, unknown>,
   ): void {
-    const event: ToolResultEvent = {
-      type: "tool_result",
-      version: "1.0",
-      data: {
-        toolCallId,
-        result,
-      },
-    };
-    this.sendEvent(event);
+    this.eventSender.sendToolResult(toolCallId, result);
   }
 
   /**
@@ -345,34 +200,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
     toolName: string,
     response: Record<string, unknown>,
   ): void {
-    // Construct AI SDK v6 message with function_response part
-    // Note: We use 'as any' here because UIMessage type from AI SDK v6 doesn't
-    // directly support the tool-result structure, but the backend understands it
-    const message: MessageEvent = {
-      type: "message",
-      version: "1.0",
-      data: {
-        messages: [
-          {
-            id: `fr-${Date.now()}`,
-            role: "user",
-            content: [
-              {
-                type: "tool-result" as const,
-                toolCallId,
-                toolName,
-                result: response,
-              },
-            ],
-          } as any, // Type assertion needed for internal protocol structure
-        ],
-      },
-    };
-
-    console.log(
-      `[WS Transport] Sending function_response for ${toolName} (tool_call_id=${toolCallId})`,
-    );
-    this.sendEvent(message);
+    this.eventSender.sendFunctionResponse(toolCallId, toolName, response);
   }
 
   /**
@@ -380,12 +208,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
    * Use case: CMD key pressed, start recording microphone
    */
   public startAudio(): void {
-    const event: AudioControlEvent = {
-      type: "audio_control",
-      version: "1.0",
-      action: "start",
-    };
-    this.sendEvent(event);
+    this.eventSender.startAudio();
   }
 
   /**
@@ -393,12 +216,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
    * Use case: CMD key released, stop recording microphone
    */
   public stopAudio(): void {
-    const event: AudioControlEvent = {
-      type: "audio_control",
-      version: "1.0",
-      action: "stop",
-    };
-    this.sendEvent(event);
+    this.eventSender.stopAudio();
   }
 
   /**
@@ -411,17 +229,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
     channels: number;
     bitDepth: number;
   }): void {
-    const event: AudioChunkEvent = {
-      type: "audio_chunk",
-      version: "1.0",
-      data: {
-        chunk: chunk.content,
-        sampleRate: chunk.sampleRate,
-        channels: chunk.channels,
-        bitDepth: chunk.bitDepth,
-      },
-    };
-    this.sendEvent(event);
+    this.eventSender.sendAudioChunk(chunk);
   }
 
   // sendToolResult() removed - use AI SDK v6's standard addToolApprovalResponse flow
@@ -437,12 +245,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
     this.pingInterval = setInterval(() => {
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
         this.lastPingTime = Date.now();
-        const event: PingEvent = {
-          type: "ping",
-          version: "1.0",
-          timestamp: this.lastPingTime,
-        };
-        this.sendEvent(event);
+        this.eventSender.ping(this.lastPingTime);
       }
     }, 2000); // Ping every 2 seconds
   }
@@ -525,6 +328,9 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
                 clearTimeout(timeoutId);
                 this.startPing(); // Start latency monitoring
 
+                // Update EventSender with new WebSocket instance
+                this.eventSender.setWebSocket(this.ws);
+
                 // DEBUG: Expose WebSocket for e2e testing (Phase 4 timeout test)
                 if (typeof window !== "undefined") {
                   (window as any).__websocket = this.ws;
@@ -548,8 +354,8 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
               // Save controller reference (P4-T10)
               this.currentController = controller;
 
-              // Reset [DONE] marker flag for new stream (Session 7)
-              this.doneReceived = false;
+              // Reset EventReceiver state for new stream (Session 7)
+              this.eventReceiver.reset();
 
               this.ws.onmessage = (event) => {
                 this.handleWebSocketMessage(event.data, controller);
@@ -587,8 +393,8 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
             // Save new controller reference (P4-T10)
             this.currentController = controller;
 
-            // Reset [DONE] marker flag for new stream (Session 7)
-            this.doneReceived = false;
+            // Reset EventReceiver state for new stream (Session 7)
+            this.eventReceiver.reset();
 
             // Update message handler for new stream
             if (this.ws) {
@@ -612,14 +418,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
           // Send messages to backend using structured event format (P2-T2)
           // Note: We send ALL messages without truncation to preserve context for ADK BIDI
           // Size warnings are still logged but messages are not truncated
-          const event: MessageEvent = {
-            type: "message",
-            version: "1.0",
-            data: {
-              messages: options.messages,
-            },
-          };
-          this.sendEvent(event);
+          this.eventSender.sendMessages(options.messages);
         } catch (error) {
           console.error("[WS Transport] Error in start:", error);
           controller.error(error);
@@ -635,406 +434,30 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
 
   /**
    * Handle incoming WebSocket messages.
-   * Converts SSE format to UIMessageChunk and enqueues.
+   * Delegates to EventReceiver for SSE parsing and UIMessageChunk conversion.
    *
-   * IMPORTANT: Protocol conversion happens here!
+   * IMPORTANT: Protocol conversion happens in EventReceiver!
    * Backend sends AI SDK v6 Data Stream Protocol in SSE format over WebSocket:
    *   - Format: 'data: {"type":"text-delta","text":"..."}\n\n'
    *   - Same format as HTTP SSE, but delivered via WebSocket
    *
-   * This method:
-   *   1. Parses SSE format (strips "data: " prefix)
-   *   2. Extracts JSON payload
-   *   3. Converts to UIMessageChunk (AI SDK v6 format)
-   *   4. Enqueues to stream for useChat consumption
-   *
    * Architecture: SSE format over WebSocket
    *   - Backend: ADK events → SSE format (stream_protocol.py)
    *   - Transport: SSE format over WebSocket (this layer)
-   *   - Frontend: SSE format → UIMessageChunk (this method)
+   *   - EventReceiver: SSE format → UIMessageChunk (lib/bidi/event_receiver.ts)
    */
   private handleWebSocketMessage(
     data: string,
     controller: ReadableStreamDefaultController<UIMessageChunk>,
   ): void {
-    try {
-      // Handle ping/pong for latency monitoring (not SSE format)
-      if (!data.startsWith("data: ")) {
-        try {
-          const message = JSON.parse(data);
-          if (message.type === "pong" && message.timestamp) {
-            this.handlePong(message.timestamp);
-            return;
-          }
-        } catch {
-          // Not JSON, ignore
-        }
-      }
-
-      // Backend sends SSE-formatted events (data: {...}\n\n)
-      // Parse and convert to UIMessageChunk
-      if (data.startsWith("data: ")) {
-        const jsonStr = data.substring(6).trim(); // Remove "data: " prefix and trim whitespace
-
-        if (jsonStr === "[DONE]") {
-          // Session 7: [DONE] Stream Lifecycle Principle
-          // Protect against multiple [DONE] markers (protocol violation)
-          if (this.doneReceived) {
-            console.warn(
-              "[WS Transport] Protocol violation: Multiple [DONE] markers received. " +
-                "Ignoring subsequent [DONE] to prevent state corruption.",
-            );
-            return; // Ignore subsequent [DONE] markers
-          }
-
-          // Mark [DONE] as received to prevent processing subsequent markers
-          this.doneReceived = true;
-
-          // Reset AudioContext for next turn (BIDI mode)
-          if (this.config.audioContext) {
-            this.config.audioContext.voiceChannel.reset();
-          }
-
-          controller.close();
-
-          // Clear controller reference (P4-T10)
-          this.currentController = null;
-
-          // Reset audio state for next turn
-          this.audioChunkIndex = 0;
-          this.pcmBuffer = []; // Clear PCM recording buffer
-
-          // IMPORTANT: Don't close WebSocket in BIDI mode!
-          // WebSocket stays open for next turn
-          // this.ws?.close(); // <- Removed: Keep WebSocket alive
-          return;
-        }
-
-        // Parse JSON and convert to UIMessageChunk
-        // This is already in AI SDK v6 Data Stream Protocol format
-        // Examples: {"type":"text-delta","text":"..."}
-        //          {"type":"tool-input-available","toolCallId":"...","toolName":"..."}
-        const chunk = JSON.parse(jsonStr);
-
-        // Debug: Log chunk before processing
-        // console.debug("[WS→useChat]", chunk);
-
-        // Special logging for tool-approval-request events
-        if (chunk.type === "tool-approval-request") {
-          console.log(
-            `[WS Transport] Received tool-approval-request: approvalId=${chunk.approvalId}, toolCallId=${chunk.toolCallId}`,
-          );
-        }
-
-        // Custom event handling (skip standard enqueue)
-        // Returns true if standard enqueue should be skipped
-        if (this.handleCustomEventWithSkip(chunk, controller)) {
-          return;
-        }
-
-        // Special handling for finish event with audio: inject recorded audio BEFORE finish
-        if (
-          chunk.type === "finish" &&
-          chunk.messageMetadata?.audio &&
-          this.pcmBuffer.length > 0
-        ) {
-          try {
-            console.log("[Audio Recording] Converting PCM to WAV...");
-            const wavDataUri = this.convertPcmToWav();
-            const wavSizeKB = ((wavDataUri.length * 0.75) / 1024).toFixed(2);
-            console.log(`[Audio Recording] WAV created: ${wavSizeKB} KB`);
-
-            // Enqueue audio file chunk BEFORE finish event
-            const audioChunk: UIMessageChunk = {
-              type: "file",
-              mediaType: "audio/wav",
-              url: wavDataUri,
-            };
-            controller.enqueue(audioChunk);
-          } catch (err) {
-            console.error(
-              "[Audio Recording] Failed to convert PCM to WAV:",
-              err,
-            );
-          }
-        }
-
-        // Standard enqueue: Forward to AI SDK useChat hook
-        // All standard AI SDK v6 events are handled here:
-        //   - text-start, text-delta, text-end
-        //     * [P3-T1] Includes Live API Transcriptions (input/output audio → text)
-        //     * Input: User speaks → ADK input_transcription → text events
-        //     * Output: AI speaks → Native-audio model output_transcription → text events
-        //   - tool-input-start, tool-input-available, tool-output-available, tool-output-error
-        //   - finish (with messageMetadata: usage, audio, grounding, citations, cache, modelVersion)
-        //   - file (images, documents)
-        //   - message-metadata (standalone metadata updates)
-        //   - error, abort, start
-        controller.enqueue(chunk as UIMessageChunk);
-
-        // Custom event handling (after standard enqueue)
-        // These events are enqueued to useChat AND have additional side effects
-        this.handleCustomEventWithoutSkip(chunk);
-      } else {
-        console.warn("[WS Transport] Unexpected message format:", data);
-      }
-    } catch (error) {
-      console.error("[WS Transport] Error handling message:", error);
-      controller.error(error);
-      // Clear controller reference on error (P4-T10)
-      this.currentController = null;
-    }
+    // Delegate to EventReceiver
+    this.eventReceiver.handleMessage(data, controller);
   }
 
-  /**
-   * Convert buffered PCM data to WAV format
-   * Returns base64-encoded data URI for HTML5 audio element
-   */
-  private convertPcmToWav(): string {
-    if (this.pcmBuffer.length === 0) {
-      throw new Error("No PCM data to convert");
-    }
-
-    // Calculate total samples
-    const totalSamples = this.pcmBuffer.reduce(
-      (sum, chunk) => sum + chunk.length,
-      0,
-    );
-
-    // Merge all PCM chunks into single array
-    const pcmData = new Int16Array(totalSamples);
-    let offset = 0;
-    for (const chunk of this.pcmBuffer) {
-      pcmData.set(chunk, offset);
-      offset += chunk.length;
-    }
-
-    // WAV file format specification:
-    // http://soundfile.sapp.org/doc/WaveFormat/
-    const numChannels = this.pcmChannels;
-    const sampleRate = this.pcmSampleRate;
-    const bytesPerSample = this.pcmBitDepth / 8;
-    const blockAlign = numChannels * bytesPerSample;
-    const byteRate = sampleRate * blockAlign;
-    const dataSize = pcmData.length * bytesPerSample;
-    const fileSize = 36 + dataSize;
-
-    // Create WAV file buffer
-    const wavBuffer = new ArrayBuffer(44 + dataSize);
-    const view = new DataView(wavBuffer);
-
-    // Write WAV header
-    // "RIFF" chunk descriptor
-    view.setUint32(0, 0x52494646, false); // "RIFF"
-    view.setUint32(4, fileSize, true); // File size - 8
-    view.setUint32(8, 0x57415645, false); // "WAVE"
-
-    // "fmt " sub-chunk
-    view.setUint32(12, 0x666d7420, false); // "fmt "
-    view.setUint32(16, 16, true); // fmt chunk size (16 for PCM)
-    view.setUint16(20, 1, true); // Audio format (1 = PCM)
-    view.setUint16(22, numChannels, true); // Number of channels
-    view.setUint32(24, sampleRate, true); // Sample rate
-    view.setUint32(28, byteRate, true); // Byte rate
-    view.setUint16(32, blockAlign, true); // Block align
-    view.setUint16(34, this.pcmBitDepth, true); // Bits per sample
-
-    // "data" sub-chunk
-    view.setUint32(36, 0x64617461, false); // "data"
-    view.setUint32(40, dataSize, true); // Data size
-
-    // Write PCM data (little-endian)
-    const dataView = new Int16Array(wavBuffer, 44);
-    dataView.set(pcmData);
-
-    // Convert to base64 data URI
-    const bytes = new Uint8Array(wavBuffer);
-    let binary = "";
-    for (let i = 0; i < bytes.length; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    const base64 = btoa(binary);
-    const dataUri = `data:audio/wav;base64,${base64}`;
-
-    return dataUri;
-  }
-
-  /**
-   * Handle custom events that SKIP standard enqueue.
-   *
-   * These events require special processing and should NOT be forwarded to useChat:
-   *   - data-pcm: PCM audio chunks sent directly to AudioWorklet for low-latency playback
-   *   - Future custom events that bypass useChat
-   *
-   * @returns true if standard enqueue should be skipped, false otherwise
-   */
-  private handleCustomEventWithSkip(
-    chunk: unknown,
-    _controller: ReadableStreamDefaultController<UIMessageChunk>,
-  ): boolean {
-    // Type guard for custom event chunks
-    if (
-      typeof chunk !== "object" ||
-      chunk === null ||
-      !("type" in chunk) ||
-      typeof chunk.type !== "string"
-    ) {
-      return false;
-    }
-
-    // SPECIAL HANDLING: PCM audio chunks (ADK BIDI mode)
-    // Following official ADK implementation pattern:
-    // https://github.com/google/adk-samples/blob/main/python/agents/bidi-demo/app/static/js/app.js
-    //
-    // Dual-path audio architecture:
-    // - Pipeline 1: Real-time playback via AudioWorklet (low-latency)
-    // - Pipeline 2: Recording for message replay (this buffer)
-    if (
-      chunk.type === "data-pcm" &&
-      this.config.audioContext &&
-      "data" in chunk &&
-      typeof chunk.data === "object" &&
-      chunk.data !== null
-    ) {
-      // biome-ignore lint/suspicious/noExplicitAny: PCM data structure is dynamic from backend
-      const pcmData = chunk.data as any;
-
-      // Log audio stream start on first chunk
-      if (this.audioChunkIndex === 0) {
-        // Commented out to reduce log noise during recording
-        // console.log("[Audio Stream] Audio streaming started (BIDI mode)");
-        // console.log(
-        //   `[Audio Stream] Sample rate: ${pcmData.sampleRate}Hz, Channels: ${pcmData.channels}, Bit depth: ${pcmData.bitDepth}`,
-        // );
-
-        // Store audio format for WAV conversion
-        this.pcmSampleRate = pcmData.sampleRate;
-        this.pcmChannels = pcmData.channels;
-        this.pcmBitDepth = pcmData.bitDepth;
-      }
-
-      // Low-latency audio path: directly to AudioWorklet (Pipeline 1)
-      try {
-        this.config.audioContext.voiceChannel.sendChunk({
-          content: pcmData.content,
-          sampleRate: pcmData.sampleRate,
-          channels: pcmData.channels,
-          bitDepth: pcmData.bitDepth,
-        });
-
-        // Recording path: buffer PCM for WAV conversion (Pipeline 2)
-        // Decode base64 PCM data
-        const binaryString = atob(pcmData.content);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
-        }
-
-        // Convert to Int16Array and buffer
-        const int16Array = new Int16Array(bytes.buffer);
-        this.pcmBuffer.push(int16Array);
-
-        this.audioChunkIndex++;
-
-        // Periodic logging for long streams
-        if (this.audioChunkIndex % 50 === 0) {
-          console.log(
-            `[Audio Stream] Streaming... (${this.audioChunkIndex} chunks received)`,
-          );
-        }
-      } catch (err) {
-        console.error("[Audio Stream] Error processing PCM chunk:", err);
-      }
-
-      return true; // Skip standard enqueue for PCM chunks
-    }
-
-    return false; // No skip, proceed with standard enqueue
-  }
-
-  /**
-   * Handle custom events that DO NOT skip standard enqueue.
-   *
-   * These events are forwarded to useChat AND have additional side effects:
-   *   - tool-input-available: Log tool call details, execute callback if provided
-   *   - tool-output-available: Log tool output details
-   *   - finish: Log audio stream completion, usage statistics
-   *   - Future custom events that need logging, telemetry, or side effects
-   *
-   * Standard enqueue happens BEFORE this method is called.
-   */
-  private handleCustomEventWithoutSkip(chunk: unknown): void {
-    // Type guard for custom event chunks
-    if (
-      typeof chunk !== "object" ||
-      chunk === null ||
-      !("type" in chunk) ||
-      typeof chunk.type !== "string"
-    ) {
-      return;
-    }
-
-    // Finish event: Log completion metrics (usage, audio, grounding, citations, cache, model version)
-    if (
-      chunk.type === "finish" &&
-      "messageMetadata" in chunk &&
-      typeof chunk.messageMetadata === "object" &&
-      chunk.messageMetadata !== null
-    ) {
-      // biome-ignore lint/suspicious/noExplicitAny: Message metadata structure is dynamic from backend
-      const metadata = chunk.messageMetadata as any;
-
-      // Log audio stream completion with statistics
-      if (metadata.audio) {
-        // Commented out to reduce log noise during recording
-        // console.log("[Audio Stream] Audio streaming completed");
-        // console.log(`[Audio Stream] Total chunks: ${metadata.audio.chunks}`);
-        // console.log(`[Audio Stream] Total bytes: ${metadata.audio.bytes}`);
-        // console.log(
-        //   `[Audio Stream] Sample rate: ${metadata.audio.sampleRate}Hz`,
-        // );
-        // console.log(
-        //   `[Audio Stream] Duration: ${metadata.audio.duration.toFixed(2)}s`,
-        // );
-
-        // Notify AudioContext of audio completion
-        if (this.config.audioContext?.voiceChannel?.onComplete) {
-          this.config.audioContext.voiceChannel.onComplete(metadata.audio);
-        }
-      }
-
-      // Log usage statistics
-      if (metadata.usage) {
-        console.log("[Usage] Token usage:", metadata.usage);
-      }
-
-      // Log grounding sources (RAG, web search)
-      if (metadata.grounding?.sources) {
-        console.log(
-          `[Grounding] ${metadata.grounding.sources.length} sources:`,
-          metadata.grounding.sources,
-        );
-      }
-
-      // Log citations
-      if (metadata.citations) {
-        console.log(
-          `[Citations] ${metadata.citations.length} citations:`,
-          metadata.citations,
-        );
-      }
-
-      // Log cache statistics
-      if (metadata.cache) {
-        console.log("[Cache] Cache statistics:", metadata.cache);
-      }
-
-      // Log model version
-      if (metadata.modelVersion) {
-        console.log("[Model] Model version:", metadata.modelVersion);
-      }
-    }
-  }
+  //
+  // NOTE: Message handling methods (convertPcmToWav, handleCustomEventWithSkip, handleCustomEventWithoutSkip)
+  // have been refactored to lib/bidi/event_receiver.ts for better modularity and testability.
+  //
 
   /**
    * Reconnect to stream (not supported for WebSocket)

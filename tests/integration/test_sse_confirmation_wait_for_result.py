@@ -26,8 +26,7 @@ Expected to FAIL until stream_protocol.py is fixed.
 """
 
 import asyncio
-from typing import Any
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import Mock
 
 import pytest
 from google.adk.events import Event
@@ -104,6 +103,8 @@ async def test_sse_confirmation_should_wait_for_result_before_done() -> None:
         if "[DONE]" in event:
             done_marker_seen = True
             break
+
+    assert done_marker_seen, "Test setup failure: [DONE] marker not sent in stream"
 
     # then - verify [DONE] was NOT sent prematurely
     confirmation_events = [e for e in sent_events if confirmation_id in e]
@@ -312,8 +313,8 @@ async def test_sse_confirmation_should_not_suppress_error_prematurely() -> None:
     # RED ASSERTION
     # The error suppression should trigger WAITING, not [DONE]
     assert not (has_error_suppression_log and has_premature_done), (
-        f"Backend incorrectly suppressed error AND sent [DONE]!\n"
-        f"When confirmation error is suppressed, backend should WAIT for result.\n"
-        f"Current behavior: Sends [DONE] immediately, ending stream prematurely.\n"
-        f"\nThis is why E2E tests fail - stream ends before user can approve."
+        "Backend incorrectly suppressed error AND sent [DONE]!\n"
+        "When confirmation error is suppressed, backend should WAIT for result.\n"
+        "Current behavior: Sends [DONE] immediately, ending stream prematurely.\n"
+        "\nThis is why E2E tests fail - stream ends before user can approve."
     )

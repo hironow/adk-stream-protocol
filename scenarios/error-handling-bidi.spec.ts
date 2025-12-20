@@ -31,6 +31,9 @@ test.describe("BIDI Error Handling", () => {
       ws.on("close", (code, reason) => {
         closeCode = code;
         closeReason = reason.toString();
+        console.debug(
+          `WebSocket closed with code: ${code}, reason: ${closeReason}`,
+        );
         resolve();
       });
     });

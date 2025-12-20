@@ -24,9 +24,19 @@ import {
   getMessages,
   sendTextMessage,
   setupChunkPlayerMode,
+  setupFrontendConsoleLogger,
 } from "./helpers";
 
 test.describe("Chunk Player UI Verification", () => {
+  test.beforeEach(async ({ page }) => {
+    // Setup frontend console logger
+    const sessionId =
+      process.env.NEXT_PUBLIC_CHUNK_LOGGER_SESSION_ID ||
+      process.env.CHUNK_LOGGER_SESSION_ID ||
+      "test";
+    setupFrontendConsoleLogger(page, sessionId);
+  });
+
   test.afterEach(async ({ page }) => {
     // Clean up: clear message history
     const clearButton = page.getByRole("button", { name: "Clear History" });

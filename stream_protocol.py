@@ -254,19 +254,15 @@ class StreamProtocolConverter:
             f"usage={has_usage}, finish_reason={has_finish}"
         )
 
-        # [DEBUG] Pretty print entire Event object to find transcription fields
-        try:
-            # Filter out private attributes (starting with _) for cleaner logs
-            event_attrs = (
-                {k: v for k, v in vars(event).items() if not k.startswith("_")}
-                if hasattr(event, "__dict__")
-                else {}
-            )
-            logger.debug(
-                f"[convert_event INPUT] Event attributes:\n{pformat(event_attrs, width=120, depth=3)}"
-            )
-        except Exception as e:
-            logger.debug(f"[convert_event INPUT] Could not pformat event: {e}")
+        # Filter out private attributes (starting with _) for cleaner logs
+        event_attrs = (
+            {k: v for k, v in vars(event).items() if not k.startswith("_")}
+            if hasattr(event, "__dict__")
+            else {}
+        )
+        logger.debug(
+            f"[convert_event INPUT] Event attributes:\n{pformat(event_attrs, width=120, depth=3)}"
+        )
 
         # Log content parts if present
         if has_content and event.content is not None and event.content.parts:
@@ -282,19 +278,15 @@ class StreamProtocolConverter:
                     part_types.append(f"function_response({part.function_response.name})")
                 if hasattr(part, "inline_data") and part.inline_data:
                     part_types.append("inline_data")
-                    # [DEBUG] Pretty print Part and inline_data to find transcription
-                    try:
-                        # Filter out private attributes (starting with _) for cleaner logs
-                        part_attrs = (
-                            {k: v for k, v in vars(part).items() if not k.startswith("_")}
-                            if hasattr(part, "__dict__")
-                            else {}
-                        )
-                        logger.debug(
-                            f"[convert_event INPUT]   Part[{idx}] attributes:\n{pformat(part_attrs, width=120, depth=2)}"
-                        )
-                    except Exception as e:
-                        logger.debug(f"[convert_event INPUT]   Part[{idx}] Could not pformat: {e}")
+                    # Filter out private attributes (starting with _) for cleaner logs
+                    part_attrs = (
+                        {k: v for k, v in vars(part).items() if not k.startswith("_")}
+                        if hasattr(part, "__dict__")
+                        else {}
+                    )
+                    logger.debug(
+                        f"[convert_event INPUT]   Part[{idx}] attributes:\n{pformat(part_attrs, width=120, depth=2)}"
+                    )
                 if hasattr(part, "executable_code") and part.executable_code:
                     part_types.append("executable_code")
                 if hasattr(part, "code_execution_result") and part.code_execution_result:
@@ -945,7 +937,7 @@ async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912
         ...     yield sse_event
     """
     converter = StreamProtocolConverter(message_id)
-    error_list = []
+    error_list: list[Exception] = []
     usage_metadata_list = []
     finish_reason_list = []
     grounding_metadata_list = []
@@ -1011,18 +1003,20 @@ async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912
                 model_version_list.append(event.model_version)
 
     except Exception as e:
-        logger.error(f"Error in ADK stream conversion: {e}")
+        logger.error(f"[stream_adk_to_ai_sdk] Exception: {e}")
         error_list.append(e)
     finally:
         # Send final events with all collected metadata
         # Extract last values from lists (most recent)
-        error = error_list[-1] if error_list else None
-        usage_metadata = usage_metadata_list[-1] if usage_metadata_list else None
-        finish_reason = finish_reason_list[-1] if finish_reason_list else None
-        grounding_metadata = grounding_metadata_list[-1] if grounding_metadata_list else None
-        citation_metadata = citation_metadata_list[-1] if citation_metadata_list else None
-        cache_metadata = cache_metadata_list[-1] if cache_metadata_list else None
-        model_version = model_version_list[-1] if model_version_list else None
+        error = error_list[-1] if len(error_list) > 0 else None
+        usage_metadata = usage_metadata_list[-1] if len(usage_metadata_list) > 0 else None
+        finish_reason = finish_reason_list[-1] if len(finish_reason_list) > 0 else None
+        grounding_metadata = (
+            grounding_metadata_list[-1] if len(grounding_metadata_list) > 0 else None
+        )
+        citation_metadata = citation_metadata_list[-1] if len(citation_metadata_list) > 0 else None
+        cache_metadata = cache_metadata_list[-1] if len(cache_metadata_list) > 0 else None
+        model_version = model_version_list[-1] if len(model_version_list) > 0 else None
 
         # Log what we're finalizing with
         if error:

@@ -34,6 +34,13 @@ import {
 test.describe
   .serial("Frontend Delegate Fix - SSE Mode", () => {
     test.beforeEach(async ({ page }) => {
+      // Setup frontend console logger
+      const sessionId =
+        process.env.NEXT_PUBLIC_CHUNK_LOGGER_SESSION_ID ||
+        process.env.CHUNK_LOGGER_SESSION_ID ||
+        "test";
+      setupFrontendConsoleLogger(page, sessionId);
+
       await navigateToChat(page);
       await selectBackendMode(page, "adk-sse");
       await clearHistory(page);

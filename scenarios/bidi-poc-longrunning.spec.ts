@@ -13,6 +13,13 @@ import { expect, test } from "@playwright/test";
 
 test.describe("POC: LongRunningFunctionTool + BIDI", () => {
   test.beforeEach(async ({ page }) => {
+    // Setup frontend console logger
+    const sessionId =
+      process.env.NEXT_PUBLIC_CHUNK_LOGGER_SESSION_ID ||
+      process.env.CHUNK_LOGGER_SESSION_ID ||
+      "test";
+    setupFrontendConsoleLogger(page, sessionId);
+
     await page.goto("http://localhost:3000");
 
     // Select BIDI mode

@@ -79,34 +79,30 @@ async def _execute_tool_function_sse(
     Returns:
         Ok(tool_result) if execution succeeds, Error(str) if execution fails
     """
-    try:
-        # Get tool function
-        tool_func = getattr(adk_ag_tools, fc_name, None)
-        if not tool_func:
-            return Error(f"Tool function '{fc_name}' not found")
+    # Get tool function
+    tool_func = getattr(adk_ag_tools, fc_name, None)
+    if not tool_func:
+        return Error(f"Tool function '{fc_name}' not found")
 
-        # Create tool context
-        tool_context = SimpleNamespace()
-        tool_context.invocation_id = fc_id
-        tool_context.session = session
+    # Create tool context
+    tool_context = SimpleNamespace()
+    tool_context.invocation_id = fc_id
+    tool_context.session = session
 
-        # Execute tool
-        sig = inspect.signature(tool_func)
-        if "tool_context" in sig.parameters:
-            fc_args_with_context = {**fc_args, "tool_context": tool_context}
-            if inspect.iscoroutinefunction(tool_func):
-                tool_result = await tool_func(**fc_args_with_context)
-            else:
-                tool_result = tool_func(**fc_args_with_context)
-        elif inspect.iscoroutinefunction(tool_func):
-            tool_result = await tool_func(**fc_args)
+    # Execute tool
+    sig = inspect.signature(tool_func)
+    if "tool_context" in sig.parameters:
+        fc_args_with_context = {**fc_args, "tool_context": tool_context}
+        if inspect.iscoroutinefunction(tool_func):
+            tool_result = await tool_func(**fc_args_with_context)
         else:
-            tool_result = tool_func(**fc_args)
+            tool_result = tool_func(**fc_args_with_context)
+    elif inspect.iscoroutinefunction(tool_func):
+        tool_result = await tool_func(**fc_args)
+    else:
+        tool_result = tool_func(**fc_args)
 
-        return Ok(tool_result)
-
-    except Exception as e:
-        return Error(f"Tool execution failed: {e}")
+    return Ok(tool_result)
 
 
 async def _execute_confirmation_sse(

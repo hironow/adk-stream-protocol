@@ -1,113 +1,113 @@
 {
-	"default": true,
-	"MD003": {
-		"style": "atx"
-	},
-	"MD004": {
-		"style": "dash"
-	},
-	"MD007": {
-		"indent": 4
-	},
-	"MD013": false,
-	"MD024": false,
-	"MD025": false,
-	"MD033": {
-		"allowed_elements": [
-			"development-guidelines",
-			"role",
-			"title",
-			"description",
-			"purpose",
-			"principle",
-			"core-principles",
-			"tdd-methodology",
-			"step",
-			"defect-fixing",
-			"tidy-first",
-			"separation-rule",
-			"change-types",
-			"structural",
-			"type",
-			"definition",
-			"behavioral",
-			"rule",
-			"commit-discipline",
-			"commit-conditions",
-			"condition",
-			"best-practice",
-			"code-quality",
-			"standard",
-			"refactoring",
-			"guideline",
-			"python-specific",
-			"scripts-guidelines",
-			"considerations",
-			"item",
-			"unittest-guidelines",
-			"test-structure",
-			"phase",
-			"runn-settings",
-			"reference",
-			"workflow",
-			"steps"
-		]
-	},
-	"MD035": {
-		"style": "---"
-	},
-	"MD029": false,
-	"MD036": false,
-	"MD040": {
-		"allowed_languages": [
-			"bash",
-			"sh",
-			"shell",
-			"javascript",
-			"js",
-			"jsx",
-			"typescript",
-			"ts",
-			"tsx",
-			"python",
-			"py",
-			"json",
-			"yaml",
-			"yml",
-			"html",
-			"xml",
-			"markdown",
-			"md",
-			"text",
-			"plaintext",
-			"txt",
-			"diff",
-			"sql",
-			"go",
-			"rust",
-			"c",
-			"cpp",
-			"toml",
-			"tsv",
-			"csv",
-			"nginx",
-			"prisma",
-			"graphql",
-			"docker",
-			"dockerfile"
-		]
-	},
-	"MD041": false,
-	"MD046": {
-		"style": "fenced"
-	},
-	"MD049": {
-		"style": "asterisk"
-	},
-	"MD050": {
-		"style": "asterisk"
-	},
-	"MD051": false,
-	"MD054": false,
-	"MD060": false
+  "default": true,
+  "MD003": {
+    "style": "atx"
+  },
+  "MD004": {
+    "style": "dash"
+  },
+  "MD007": {
+    "indent": 4
+  },
+  "MD013": false,
+  "MD024": false,
+  "MD025": false,
+  "MD033": {
+    "allowed_elements": [
+      "development-guidelines",
+      "role",
+      "title",
+      "description",
+      "purpose",
+      "principle",
+      "core-principles",
+      "tdd-methodology",
+      "step",
+      "defect-fixing",
+      "tidy-first",
+      "separation-rule",
+      "change-types",
+      "structural",
+      "type",
+      "definition",
+      "behavioral",
+      "rule",
+      "commit-discipline",
+      "commit-conditions",
+      "condition",
+      "best-practice",
+      "code-quality",
+      "standard",
+      "refactoring",
+      "guideline",
+      "python-specific",
+      "scripts-guidelines",
+      "considerations",
+      "item",
+      "unittest-guidelines",
+      "test-structure",
+      "phase",
+      "runn-settings",
+      "reference",
+      "workflow",
+      "steps"
+    ]
+  },
+  "MD035": {
+    "style": "---"
+  },
+  "MD029": false,
+  "MD036": false,
+  "MD040": {
+    "allowed_languages": [
+      "bash",
+      "sh",
+      "shell",
+      "javascript",
+      "js",
+      "jsx",
+      "typescript",
+      "ts",
+      "tsx",
+      "python",
+      "py",
+      "json",
+      "yaml",
+      "yml",
+      "html",
+      "xml",
+      "markdown",
+      "md",
+      "text",
+      "plaintext",
+      "txt",
+      "diff",
+      "sql",
+      "go",
+      "rust",
+      "c",
+      "cpp",
+      "toml",
+      "tsv",
+      "csv",
+      "nginx",
+      "prisma",
+      "graphql",
+      "docker",
+      "dockerfile"
+    ]
+  },
+  "MD041": false,
+  "MD046": {
+    "style": "fenced"
+  },
+  "MD049": {
+    "style": "asterisk"
+  },
+  "MD050": {
+    "style": "asterisk"
+  },
+  "MD051": false,
+  "MD054": false,
+  "MD060": false
 }

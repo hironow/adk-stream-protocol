@@ -325,10 +325,10 @@ describe("ToolInvocation Frontend Delegate Auto-Execution Tests", () => {
     const isAdkConfirmation =
       toolInvocation.toolName === "adk_request_confirmation";
 
-    const isLongRunningTool =
-      toolInvocation.state === "input-available" &&
-      websocketTransport !== undefined &&
-      executeToolCallback === undefined; // Long-running tools DON'T have executeToolCallback
+    // const isLongRunningTool =
+    //   toolInvocation.state === "input-available" &&
+    //   websocketTransport !== undefined &&
+    //   executeToolCallback === undefined; // Long-running tools DON'T have executeToolCallback
 
     const isFrontendDelegateTool =
       toolInvocation.state === "input-available" &&

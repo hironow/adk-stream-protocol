@@ -36,6 +36,13 @@ test.describe("Backend Equivalence Tests", () => {
   backends.forEach((backend) => {
     test.describe(`${backend.toUpperCase()} Backend`, () => {
       test.beforeEach(async ({ page }) => {
+        // Setup frontend console logger
+        const sessionId =
+          process.env.NEXT_PUBLIC_CHUNK_LOGGER_SESSION_ID ||
+          process.env.CHUNK_LOGGER_SESSION_ID ||
+          "test";
+        setupFrontendConsoleLogger(page, sessionId);
+
         // Given: User navigates to chat and selects backend
         await navigateToChat(page);
         await selectBackendMode(page, backend);

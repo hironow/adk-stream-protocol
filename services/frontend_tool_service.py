@@ -25,7 +25,7 @@ from typing import Any
 from loguru import logger
 
 from adk_vercel_id_mapper import ADKVercelIDMapper
-from result.result import Error, Ok, Result
+from result.result import Ok, Result
 
 
 class FrontendToolDelegate:
@@ -118,53 +118,13 @@ class FrontendToolDelegate:
         # - WebSocket handler doesn't call resolve_tool_result()
         # - Circular dependency causes deadlock
         # Reason: Timeout and exception handling - converting to Result type for API contract
-        try:  # nosemgrep: forbid-try-except
-            result = await asyncio.wait_for(future, timeout=5.0)
-            logger.info(
-                f"[FrontendDelegate] Received result for tool={tool_name} "
-                f"(function_call.id={function_call_id}): {result}"
-            )
-            return Ok(result)
-        except TimeoutError:
-            logger.error("[FrontendDelegate] ========== TIMEOUT DETECTED ==========")
-            logger.error(
-                f"[FrontendDelegate] Tool: {tool_name}, function_call.id={function_call_id}"
-            )
-            logger.error("[FrontendDelegate] Frontend never sent result after 5 seconds.")
-            logger.error("[FrontendDelegate] Possible causes:")
-            logger.error("[FrontendDelegate]   1. tool-input-available never yielded to frontend")
-            logger.error(
-                "[FrontendDelegate]   2. WebSocket handler not calling resolve_tool_result()"
-            )
-            logger.error(
-                "[FrontendDelegate]   3. Deadlock: tool awaits delegate while in delegate flow"
-            )
-            logger.error(f"[FrontendDelegate] Pending calls: {list(self._pending_calls.keys())}")
 
-            # Clean up the pending future
-            if function_call_id in self._pending_calls:
-                del self._pending_calls[function_call_id]
-
-            # Return error instead of raising
-            return Error(
-                f"Frontend tool execution timeout for {tool_name} ({function_call_id}). "
-                f"Frontend never responded after 5 seconds. "
-                f"Check if tool-input-available was yielded to frontend."
-            )
-        except Exception as e:
-            # Catch all other exceptions (CancelledError, etc.) and clean up Future
-            logger.error(
-                f"[FrontendDelegate] Unexpected error while awaiting result: {type(e).__name__}: {e}"
-            )
-
-            # Clean up the pending future
-            if function_call_id in self._pending_calls:
-                del self._pending_calls[function_call_id]
-
-            return Error(
-                f"Frontend tool execution failed for {tool_name} ({function_call_id}): "
-                f"{type(e).__name__}: {e}"
-            )
+        result = await asyncio.wait_for(future, timeout=5.0)
+        logger.info(
+            f"[FrontendDelegate] Received result for tool={tool_name} "
+            f"(function_call.id={function_call_id}): {result}"
+        )
+        return Ok(result)
 
     def resolve_tool_result(self, tool_call_id: str, result: dict[str, Any]) -> None:
         """

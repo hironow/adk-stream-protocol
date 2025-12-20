@@ -24,6 +24,7 @@ import {
   selectBackendMode,
   sendImageMessage,
   sendTextMessage,
+  setupFrontendConsoleLogger,
   waitForAssistantResponse,
 } from "./helpers";
 
@@ -31,6 +32,13 @@ test.describe("History Sharing Tests", () => {
   test("should preserve history when switching from Gemini Direct to ADK SSE", async ({
     page,
   }) => {
+    // Setup frontend console logger
+    const sessionId =
+      process.env.NEXT_PUBLIC_CHUNK_LOGGER_SESSION_ID ||
+      process.env.CHUNK_LOGGER_SESSION_ID ||
+      "test";
+    setupFrontendConsoleLogger(page, sessionId);
+
     // Given: User has conversation in Gemini Direct mode
     await navigateToChat(page);
     await selectBackendMode(page, "gemini");
@@ -71,6 +79,13 @@ test.describe("History Sharing Tests", () => {
   test("should preserve history when switching from ADK SSE to Gemini Direct", async ({
     page,
   }) => {
+    // Setup frontend console logger
+    const sessionId =
+      process.env.NEXT_PUBLIC_CHUNK_LOGGER_SESSION_ID ||
+      process.env.CHUNK_LOGGER_SESSION_ID ||
+      "test";
+    setupFrontendConsoleLogger(page, sessionId);
+
     // Given: User has conversation in ADK SSE mode
     await navigateToChat(page);
     await selectBackendMode(page, "adk-sse");
@@ -109,6 +124,13 @@ test.describe("History Sharing Tests", () => {
   test("should preserve image history when switching backends", async ({
     page,
   }) => {
+    // Setup frontend console logger
+    const sessionId =
+      process.env.NEXT_PUBLIC_CHUNK_LOGGER_SESSION_ID ||
+      process.env.CHUNK_LOGGER_SESSION_ID ||
+      "test";
+    setupFrontendConsoleLogger(page, sessionId);
+
     // Given: User sends image in Gemini Direct mode
     await navigateToChat(page);
     await selectBackendMode(page, "gemini");

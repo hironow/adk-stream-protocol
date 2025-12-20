@@ -20,7 +20,7 @@ from collections.abc import AsyncIterable
 from types import SimpleNamespace
 from typing import Any, assert_never
 
-from fastapi import WebSocket, WebSocketDisconnect
+from fastapi import WebSocket
 from google.adk.agents import LiveRequestQueue
 from google.adk.events import Event as ADKEvent
 from google.adk.sessions import Session
@@ -83,34 +83,30 @@ async def _execute_tool_function(
     Returns:
         Ok(tool_result) if execution succeeds, Error(str) if execution fails
     """
-    try:
-        # Get tool function
-        tool_func = getattr(adk_ag_tools, fc_name, None)
-        if not tool_func:
-            return Error(f"Tool function '{fc_name}' not found")
+    # Get tool function
+    tool_func = getattr(adk_ag_tools, fc_name, None)
+    if not tool_func:
+        return Error(f"Tool function '{fc_name}' not found")
 
-        # Create tool context
-        tool_context = SimpleNamespace()
-        tool_context.invocation_id = fc_id
-        tool_context.session = session
+    # Create tool context
+    tool_context = SimpleNamespace()
+    tool_context.invocation_id = fc_id
+    tool_context.session = session
 
-        # Execute tool
-        sig = inspect.signature(tool_func)
-        if "tool_context" in sig.parameters:
-            fc_args_with_context = {**fc_args, "tool_context": tool_context}
-            if inspect.iscoroutinefunction(tool_func):
-                tool_result = await tool_func(**fc_args_with_context)
-            else:
-                tool_result = tool_func(**fc_args_with_context)
-        elif inspect.iscoroutinefunction(tool_func):
-            tool_result = await tool_func(**fc_args)
+    # Execute tool
+    sig = inspect.signature(tool_func)
+    if "tool_context" in sig.parameters:
+        fc_args_with_context = {**fc_args, "tool_context": tool_context}
+        if inspect.iscoroutinefunction(tool_func):
+            tool_result = await tool_func(**fc_args_with_context)
         else:
-            tool_result = tool_func(**fc_args)
+            tool_result = tool_func(**fc_args_with_context)
+    elif inspect.iscoroutinefunction(tool_func):
+        tool_result = await tool_func(**fc_args)
+    else:
+        tool_result = tool_func(**fc_args)
 
-        return Ok(tool_result)
-
-    except Exception as e:
-        return Error(f"Tool execution failed: {e}")
+    return Ok(tool_result)
 
 
 async def _execute_confirmation(
@@ -195,42 +191,35 @@ class BidiEventSender:
             ValueError: ADK connection errors (session resumption, etc.)
             Exception: Other errors during sending
         """
-        try:
-            event_count = 0
-            logger.info("[BIDI] Starting to stream ADK events to WebSocket")
+        event_count = 0
+        logger.info("[BIDI] Starting to stream ADK events to WebSocket")
 
-            # Wrap live_events with confirmation processing
-            # This intercepts tool calls requiring confirmation and handles them inline
-            async def events_with_confirmation():
-                async for event in live_events:
-                    # Handle confirmation for this event if needed
-                    async for processed_event in self._handle_confirmation_if_needed(event):
-                        yield processed_event
+        # Wrap live_events with confirmation processing
+        # This intercepts tool calls requiring confirmation and handles them inline
+        async def events_with_confirmation():
+            async for event in live_events:
+                # Handle confirmation for this event if needed
+                async for processed_event in self._handle_confirmation_if_needed(event):
+                    yield processed_event
 
-            # Convert ADK events to SSE format and send to WebSocket
-            # IMPORTANT: Protocol conversion happens here!
-            # stream_adk_to_ai_sdk() converts ADK events to AI SDK v6 Data Stream Protocol
-            # Output: SSE-formatted strings like 'data: {"type":"text-delta","text":"..."}\n\n'
-            # This is the SAME converter used in SSE mode (/stream endpoint)
-            # We reuse 100% of the conversion logic - only transport layer differs
-            # WebSocket mode: Send SSE format over WebSocket (instead of HTTP SSE)
-            #
-            # NOTE: Confirmation is already handled by events_with_confirmation() above
-            async for sse_event in stream_adk_to_ai_sdk(
-                events_with_confirmation(),
-                mode="adk-bidi",  # Chunk logger: distinguish from adk-sse mode
-            ):
-                event_count += 1
+        # Convert ADK events to SSE format and send to WebSocket
+        # IMPORTANT: Protocol conversion happens here!
+        # stream_adk_to_ai_sdk() converts ADK events to AI SDK v6 Data Stream Protocol
+        # Output: SSE-formatted strings like 'data: {"type":"text-delta","text":"..."}\n\n'
+        # This is the SAME converter used in SSE mode (/stream endpoint)
+        # We reuse 100% of the conversion logic - only transport layer differs
+        # WebSocket mode: Send SSE format over WebSocket (instead of HTTP SSE)
+        #
+        # NOTE: Confirmation is already handled by events_with_confirmation() above
+        async for sse_event in stream_adk_to_ai_sdk(
+            events_with_confirmation(),
+            mode="adk-bidi",  # Chunk logger: distinguish from adk-sse mode
+        ):
+            event_count += 1
 
-                # Process and send SSE-formatted event as WebSocket text message
-                # Frontend will parse "data: {...}" format and extract UIMessageChunk
-                await self._send_sse_event(sse_event)
-
-            logger.info(f"[BIDI] Sent {event_count} events to client")
-
-        except WebSocketDisconnect:
-            # Client disconnected during streaming - this is expected during page reload
-            logger.info("[BIDI] Client disconnected during streaming")
+            # Process and send SSE-formatted event as WebSocket text message
+            # Frontend will parse "data: {...}" format and extract UIMessageChunk
+            await self._send_sse_event(sse_event)
 
         logger.info(f"[BIDI] Sent {event_count} events to client")
         # no except any other exceptions. Let them propagate to caller for handling.

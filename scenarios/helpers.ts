@@ -477,6 +477,64 @@ export async function downloadFrontendChunkLogs(
 }
 
 /**
+ * Setup frontend console logger for E2E tests
+ *
+ * Captures all browser console output (log, info, warn, error, debug)
+ * and saves to logs/frontend_{sessionId}.log
+ *
+ * Call this in beforeEach to automatically capture logs for each test.
+ *
+ * @param page - Playwright page object
+ * @param sessionId - Session ID from NEXT_PUBLIC_CHUNK_LOGGER_SESSION_ID or custom ID
+ *
+ * @example
+ * beforeEach(async ({ page }) => {
+ *   const sessionId = process.env.NEXT_PUBLIC_CHUNK_LOGGER_SESSION_ID || 'test';
+ *   setupFrontendConsoleLogger(page, sessionId);
+ * });
+ */
+export function setupFrontendConsoleLogger(
+  page: Page,
+  sessionId: string,
+): void {
+  // Ensure logs directory exists
+  const logsDir = path.join(process.cwd(), "logs");
+  if (!fs.existsSync(logsDir)) {
+    fs.mkdirSync(logsDir, { recursive: true });
+  }
+
+  const logFilePath = path.join(logsDir, `frontend_${sessionId}.log`);
+
+  // Create write stream (append mode)
+  const logStream = fs.createWriteStream(logFilePath, { flags: "a" });
+
+  // Listen to all console events
+  page.on("console", (msg) => {
+    const timestamp = new Date().toISOString();
+    const type = msg.type();
+    const text = msg.text();
+
+    // Format: [timestamp] [TYPE] message
+    const logLine = `[${timestamp}] [${type.toUpperCase()}] ${text}\n`;
+    logStream.write(logLine);
+  });
+
+  // Listen to page errors (uncaught exceptions)
+  page.on("pageerror", (error) => {
+    const timestamp = new Date().toISOString();
+    const logLine = `[${timestamp}] [PAGE_ERROR] ${error.message}\n${error.stack}\n`;
+    logStream.write(logLine);
+  });
+
+  // Close stream when page closes
+  page.on("close", () => {
+    logStream.end();
+  });
+
+  console.log(`📝 Frontend console logger enabled: ${logFilePath}`);
+}
+
+/**
  * Parse JSONL chunk log file
  *
  * @param filePath - Path to JSONL file

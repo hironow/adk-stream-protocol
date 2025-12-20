@@ -1,8 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  createConfirmationTransport,
-  handleConfirmation,
-} from "@/lib/confirmation-handler";
+import { handleConfirmationClick } from "@/lib/confirmation-handler";
 
 /**
  * Tool invocation state for UI display.
@@ -327,18 +324,25 @@ export function ToolInvocationComponent({
                   console.info(
                     `[ToolInvocationComponent] User approved ${originalToolCall.name}`,
                   );
+                  console.info(
+                    `[ToolInvocationComponent] websocketTransport:`,
+                    websocketTransport,
+                  );
+                  console.info(
+                    `[ToolInvocationComponent] toolInvocation:`,
+                    toolInvocation,
+                  );
 
-                  // Use helper to create transport with correct "this" binding
-                  const transport = createConfirmationTransport(
+                  const result = handleConfirmationClick(
+                    toolInvocation,
+                    true,
                     websocketTransport,
                     addToolOutput,
                   );
 
-                  // Use confirmation handler
-                  const result = handleConfirmation(
-                    toolInvocation,
-                    true,
-                    transport,
+                  console.info(
+                    `[ToolInvocationComponent] handleConfirmationClick result:`,
+                    result,
                   );
 
                   if (!result.success) {
@@ -368,17 +372,11 @@ export function ToolInvocationComponent({
                     `[ToolInvocationComponent] User denied ${originalToolCall.name}`,
                   );
 
-                  // Use helper to create transport with correct "this" binding
-                  const transport = createConfirmationTransport(
-                    websocketTransport,
-                    addToolOutput,
-                  );
-
-                  // Use confirmation handler
-                  const result = handleConfirmation(
+                  const result = handleConfirmationClick(
                     toolInvocation,
                     false,
-                    transport,
+                    websocketTransport,
+                    addToolOutput,
                   );
 
                   if (!result.success) {

@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import {
   downloadFrontendChunkLogs,
   sendTextMessage,
+  setupFrontendConsoleLogger,
   waitForAssistantResponse,
 } from "../helpers";
 
@@ -21,10 +22,16 @@ import {
 
 test.describe("change_bgm Tool - BIDI Mode", () => {
   test.beforeEach(async ({ page }) => {
+    // Setup frontend console logger
+    const sessionId =
+      process.env.NEXT_PUBLIC_CHUNK_LOGGER_SESSION_ID ||
+      process.env.CHUNK_LOGGER_SESSION_ID ||
+      "test";
+    setupFrontendConsoleLogger(page, sessionId);
+
     await page.goto("http://localhost:3000");
 
     // Enable chunk logger via localStorage
-    const sessionId = process.env.CHUNK_LOGGER_SESSION_ID;
     if (sessionId) {
       await page.evaluate((sid) => {
         localStorage.setItem("CHUNK_LOGGER_ENABLED", "true");

@@ -76,7 +76,7 @@ function splitIntoTurns(fixture: BaselineFixture): {
   let currentTurnEvents: string[] = [];
   let turnStartIndex = 0;
 
-  fixture.output.rawEvents.forEach((event, index) => {
+  fixture.output.rawEvents.forEach((event, _index) => {
     currentTurnEvents.push(event);
 
     // Check if this is a [DONE] marker

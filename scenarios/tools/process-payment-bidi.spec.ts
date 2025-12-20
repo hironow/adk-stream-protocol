@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import {
   downloadFrontendChunkLogs,
   sendTextMessage,
+  setupFrontendConsoleLogger,
   waitForAssistantResponse,
 } from "../helpers";
 
@@ -26,15 +27,21 @@ import {
 
 test.describe("ADK Tool Confirmation - Minimal Test Suite (BIDI)", () => {
   test.beforeEach(async ({ page }) => {
+    // Setup frontend console logger
+    const sessionId =
+      process.env.NEXT_PUBLIC_CHUNK_LOGGER_SESSION_ID ||
+      process.env.CHUNK_LOGGER_SESSION_ID ||
+      "test-bidi";
+    setupFrontendConsoleLogger(page, sessionId);
+
     await page.goto("http://localhost:3000");
 
     // Enable chunk logger via localStorage
-    const sessionId = process.env.CHUNK_LOGGER_SESSION_ID;
-    if (sessionId) {
+    if (process.env.CHUNK_LOGGER_SESSION_ID) {
       await page.evaluate((sid) => {
         localStorage.setItem("CHUNK_LOGGER_ENABLED", "true");
         localStorage.setItem("CHUNK_LOGGER_SESSION_ID", sid);
-      }, sessionId);
+      }, process.env.CHUNK_LOGGER_SESSION_ID);
       // Reload to apply chunk logger settings
       await page.reload();
     }
