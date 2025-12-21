@@ -60,7 +60,7 @@ async def test_handle_event_routes_to_message_handler() -> None:
     event = {"type": "message", "data": {}}
 
     # when
-    with patch.object(handler, "handle_message_event", new=AsyncMock()) as mock_handler:
+    with patch.object(handler, "_handle_message_event", new=AsyncMock()) as mock_handler:
         await handler.handle_event(event)
 
         # then
@@ -69,7 +69,7 @@ async def test_handle_event_routes_to_message_handler() -> None:
 
 @pytest.mark.asyncio
 async def test_handle_event_routes_to_interrupt_handler() -> None:
-    """handle_event() should route 'interrupt' events to handle_interrupt_event()."""
+    """handle_event() should route 'interrupt' events to _handle_interrupt_event()."""
     # given
     handler = BidiEventReceiver(
         session=Mock(),
@@ -81,7 +81,7 @@ async def test_handle_event_routes_to_interrupt_handler() -> None:
     event = {"type": "interrupt", "reason": "user_abort"}
 
     # when
-    with patch.object(handler, "handle_interrupt_event", new=AsyncMock()) as mock_handler:
+    with patch.object(handler, "_handle_interrupt_event", new=AsyncMock()) as mock_handler:
         await handler.handle_event(event)
 
         # then
@@ -102,7 +102,7 @@ async def test_handle_event_routes_to_audio_control_handler() -> None:
     event = {"type": "audio_control", "action": "start"}
 
     # when
-    with patch.object(handler, "handle_audio_control_event", new=AsyncMock()) as mock_handler:
+    with patch.object(handler, "_handle_audio_control_event", new=AsyncMock()) as mock_handler:
         await handler.handle_event(event)
 
         # then
@@ -123,7 +123,7 @@ async def test_handle_event_routes_to_audio_chunk_handler() -> None:
     event = {"type": "audio_chunk", "data": {"chunk": "base64data"}}
 
     # when
-    with patch.object(handler, "handle_audio_chunk_event", new=AsyncMock()) as mock_handler:
+    with patch.object(handler, "_handle_audio_chunk_event", new=AsyncMock()) as mock_handler:
         await handler.handle_event(event)
 
         # then
@@ -144,7 +144,7 @@ async def test_handle_event_routes_to_tool_result_handler() -> None:
     event = {"type": "tool_result", "data": {"toolCallId": "call_123", "result": {}}}
 
     # when
-    with patch.object(handler, "handle_tool_result_event", new=AsyncMock()) as mock_handler:
+    with patch.object(handler, "_handle_tool_result_event", new=AsyncMock()) as mock_handler:
         await handler.handle_event(event)
 
         # then
@@ -191,8 +191,8 @@ async def test_handle_event_logs_warning_for_unknown_type() -> None:
 
 
 @pytest.mark.asyncio
-@patch("services.bidi_event_receiver.sync_conversation_history_to_session")
-@patch("services.bidi_event_receiver.process_chat_message_for_bidi")
+@patch("adk_stream_protocol.bidi_event_receiver.sync_conversation_history_to_session")
+@patch("adk_stream_protocol.bidi_event_receiver.process_chat_message_for_bidi")
 async def test_handle_message_event_syncs_history(mock_process, mock_sync) -> None:
     """handle_message_event() should sync conversation history when messages present."""
     # given
@@ -229,7 +229,7 @@ async def test_handle_message_event_syncs_history(mock_process, mock_sync) -> No
 
 
 @pytest.mark.asyncio
-@patch("services.bidi_event_receiver.process_chat_message_for_bidi")
+@patch("adk_stream_protocol.bidi_event_receiver.process_chat_message_for_bidi")
 async def test_handle_message_event_sends_image_blobs(mock_process) -> None:
     """handle_message_event() should send image blobs via send_realtime()."""
     # given
@@ -258,7 +258,7 @@ async def test_handle_message_event_sends_image_blobs(mock_process) -> None:
 
 
 @pytest.mark.asyncio
-@patch("services.bidi_event_receiver.process_chat_message_for_bidi")
+@patch("adk_stream_protocol.bidi_event_receiver.process_chat_message_for_bidi")
 async def test_handle_message_event_sends_regular_text(mock_process) -> None:
     """handle_message_event() should send regular text via send_content()."""
     # given
@@ -284,7 +284,7 @@ async def test_handle_message_event_sends_regular_text(mock_process) -> None:
 
 
 @pytest.mark.asyncio
-@patch("services.bidi_event_receiver.process_chat_message_for_bidi")
+@patch("adk_stream_protocol.bidi_event_receiver.process_chat_message_for_bidi")
 async def test_handle_message_event_handles_function_response(mock_process) -> None:
     """handle_message_event() should handle FunctionResponse via append_event()."""
     # given
@@ -551,7 +551,7 @@ async def test_handle_tool_result_event_missing_result() -> None:
 
 
 @pytest.mark.asyncio
-@patch("services.bidi_event_receiver.process_chat_message_for_bidi")
+@patch("adk_stream_protocol.bidi_event_receiver.process_chat_message_for_bidi")
 async def test_event_sequence_message_then_interrupt(mock_process) -> None:
     """Should handle message event followed by interrupt event."""
     # given
@@ -661,7 +661,7 @@ async def test_handle_message_event_with_process_chat_error_raises() -> None:
 
     # when/then
     with patch(
-        "services.bidi_event_receiver.process_chat_message_for_bidi",
+        "adk_stream_protocol.bidi_event_receiver.process_chat_message_for_bidi",
         side_effect=ValueError("Invalid message format"),
     ):
         with pytest.raises(ValueError, match="Invalid message format"):
@@ -688,7 +688,7 @@ async def test_handle_message_event_with_sync_history_error_raises() -> None:
 
     # when/then
     with patch(
-        "services.bidi_event_receiver.sync_conversation_history_to_session",
+        "adk_stream_protocol.bidi_event_receiver.sync_conversation_history_to_session",
         side_effect=RuntimeError("Session sync failed"),
     ):
         with pytest.raises(RuntimeError, match="Session sync failed"):
@@ -717,7 +717,7 @@ async def test_handle_message_event_with_send_content_error_raises() -> None:
 
     # when/then
     with patch(
-        "services.bidi_event_receiver.process_chat_message_for_bidi",
+        "adk_stream_protocol.bidi_event_receiver.process_chat_message_for_bidi",
         return_value=([], text_content),
     ):
         with pytest.raises(RuntimeError, match="Queue send failed"):
@@ -742,7 +742,7 @@ async def test_handle_message_event_with_send_realtime_error_raises() -> None:
 
     # when/then
     with patch(
-        "services.bidi_event_receiver.process_chat_message_for_bidi",
+        "adk_stream_protocol.bidi_event_receiver.process_chat_message_for_bidi",
         return_value=([Mock()], None),  # Return image blob
     ):
         with pytest.raises(RuntimeError, match="Realtime send failed"):

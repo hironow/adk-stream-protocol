@@ -559,7 +559,7 @@ async def test_message_conversion_pipeline_call_count():
 
     # when - spy on process_chat_message_for_bidi
     with patch(
-        "ai_sdk_v6_compat.process_chat_message_for_bidi",
+        "adk_stream_protocol.ai_sdk_v6_compat.process_chat_message_for_bidi",
         wraps=process_chat_message_for_bidi,
     ) as spy_process:
         image_blobs, text_content = spy_process(message_data)

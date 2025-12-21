@@ -197,7 +197,7 @@ class TestChunkLoggerEnvironment(unittest.TestCase):
 
         # Mock file operations
         with patch("builtins.open", Mock()) as mock_open:
-            with patch("chunk_logger.json.dump") as mock_json_dump:
+            with patch("adk_stream_protocol.chunk_logger.json.dump") as mock_json_dump:
                 # Try to log a chunk
                 chunk_logger.log_chunk(
                     location="backend-adk-event",

@@ -241,15 +241,17 @@ def create_mock_live_request_queue() -> Mock:
 def create_mock_agent(
     tools: list[Any] | None = None,
     model: str = "gemini-3-flash-preview",
+    name: str = "test-agent",
 ) -> Mock:
     """Create a mock Agent for ADK testing.
 
     Args:
         tools: Optional list of tools for the agent
         model: Model name (default: gemini-3-flash-preview)
+        name: Agent name (default: test-agent)
 
     Returns:
-        Mock Agent with tools and model configured
+        Mock Agent with tools, model, and name configured
 
     Examples:
         >>> agent = create_mock_agent(tools=[tool1, tool2])
@@ -261,6 +263,7 @@ def create_mock_agent(
     mock_agent = Mock(spec=Agent)
     mock_agent.tools = tools or []
     mock_agent.model = model
+    mock_agent.name = name
     return mock_agent
 
 

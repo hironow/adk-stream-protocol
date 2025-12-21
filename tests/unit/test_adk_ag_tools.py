@@ -30,7 +30,7 @@ class TestWeatherTool:
         """
         # given: No API key and clean cache directory
         monkeypatch.delenv("OPENWEATHERMAP_API_KEY", raising=False)
-        monkeypatch.setattr("adk_ag_tools.CACHE_DIR", tmp_path / ".cache")
+        monkeypatch.setattr("adk_stream_protocol.adk_ag_tools.CACHE_DIR", tmp_path / ".cache")
 
         # when: Request weather for known city
         result = await get_weather("Tokyo")
@@ -47,7 +47,7 @@ class TestWeatherTool:
         """
         # given: No API key and clean cache directory
         monkeypatch.delenv("OPENWEATHERMAP_API_KEY", raising=False)
-        monkeypatch.setattr("adk_ag_tools.CACHE_DIR", tmp_path / ".cache")
+        monkeypatch.setattr("adk_stream_protocol.adk_ag_tools.CACHE_DIR", tmp_path / ".cache")
 
         # when: Request weather for unknown city
         result = await get_weather("Unknown City")
@@ -65,7 +65,7 @@ class TestWeatherTool:
         """
         # given: Set cache directory to temp path
         cache_dir = tmp_path / ".cache"
-        monkeypatch.setattr("adk_ag_tools.CACHE_DIR", cache_dir)
+        monkeypatch.setattr("adk_stream_protocol.adk_ag_tools.CACHE_DIR", cache_dir)
         monkeypatch.delenv("OPENWEATHERMAP_API_KEY", raising=False)
 
         # when: First call (should save to cache)
@@ -85,14 +85,14 @@ class TestWeatherTool:
         assert result2["condition"] == result1["condition"]
 
     @pytest.mark.asyncio
-    @patch("adk_ag_tools.aiohttp.ClientSession")
+    @patch("adk_stream_protocol.adk_ag_tools.aiohttp.ClientSession")
     async def test_get_weather_with_api_success(self, mock_session_class, monkeypatch, tmp_path):
         """
         Should call OpenWeatherMap API when API key is set.
         """
         # given: API key is set and clean cache directory
         monkeypatch.setenv("OPENWEATHERMAP_API_KEY", "test_api_key")
-        monkeypatch.setattr("adk_ag_tools.CACHE_DIR", tmp_path / ".cache")
+        monkeypatch.setattr("adk_stream_protocol.adk_ag_tools.CACHE_DIR", tmp_path / ".cache")
 
         # Mock API response
         mock_response = MagicMock()
@@ -137,14 +137,14 @@ class TestWeatherTool:
         assert call_args[1]["params"]["appid"] == "test_api_key"
 
     @pytest.mark.asyncio
-    @patch("adk_ag_tools.aiohttp.ClientSession")
+    @patch("adk_stream_protocol.adk_ag_tools.aiohttp.ClientSession")
     async def test_get_weather_api_error(self, mock_session_class, monkeypatch, tmp_path):
         """
         Should handle API errors gracefully.
         """
         # given: API key is set but API returns error, clean cache directory
         monkeypatch.setenv("OPENWEATHERMAP_API_KEY", "test_api_key")
-        monkeypatch.setattr("adk_ag_tools.CACHE_DIR", tmp_path / ".cache")
+        monkeypatch.setattr("adk_stream_protocol.adk_ag_tools.CACHE_DIR", tmp_path / ".cache")
 
         mock_response = MagicMock()
         mock_response.status = 404  # City not found

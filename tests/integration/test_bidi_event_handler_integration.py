@@ -71,7 +71,7 @@ async def test_level2_message_event_with_real_frontend_delegate() -> None:
     text_content = types.Content(parts=[types.Part(function_response=function_response)])
 
     with patch(
-        "services.bidi_event_receiver.process_chat_message_for_bidi",
+        "adk_stream_protocol.bidi_event_receiver.process_chat_message_for_bidi",
         return_value=([], text_content),
     ):
         event = {"type": "message", "data": {"messages": []}}
@@ -170,7 +170,7 @@ async def test_level2_confirmation_flow_with_real_delegate() -> None:
     frontend_delegate._pending_calls["payment-call-001"] = pending_future
 
     with patch(
-        "services.bidi_event_receiver.process_chat_message_for_bidi",
+        "adk_stream_protocol.bidi_event_receiver.process_chat_message_for_bidi",
         return_value=([], text_content),
     ):
         event = {"type": "message", "data": {"messages": []}}
@@ -306,7 +306,7 @@ async def test_level4_complete_message_flow() -> None:
     text_content = types.Content(parts=[types.Part(text="What's the weather like in Tokyo?")])
 
     with patch(
-        "services.bidi_event_receiver.process_chat_message_for_bidi",
+        "adk_stream_protocol.bidi_event_receiver.process_chat_message_for_bidi",
         return_value=([], text_content),
     ):
         event = {"type": "message", "data": {"messages": []}}
@@ -351,7 +351,7 @@ async def test_level4_sequential_events() -> None:
     # Step 1: Initial message
     text_content_1 = types.Content(parts=[types.Part(text="Where am I?")])
     with patch(
-        "services.bidi_event_receiver.process_chat_message_for_bidi",
+        "adk_stream_protocol.bidi_event_receiver.process_chat_message_for_bidi",
         return_value=([], text_content_1),
     ):
         event_1 = {"type": "message", "data": {"messages": []}}
@@ -378,7 +378,7 @@ async def test_level4_sequential_events() -> None:
     )
     text_content_3 = types.Content(parts=[types.Part(function_response=function_response)])
     with patch(
-        "services.bidi_event_receiver.process_chat_message_for_bidi",
+        "adk_stream_protocol.bidi_event_receiver.process_chat_message_for_bidi",
         return_value=([], text_content_3),
     ):
         event_3 = {"type": "message", "data": {"messages": []}}

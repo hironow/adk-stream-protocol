@@ -143,9 +143,9 @@ async def test_level3_websocket_disconnect_during_send() -> None:
 
     # when - WebSocketDisconnect should be caught gracefully
     with (
-        patch("services.bidi_event_sender.ToolConfirmationInterceptor"),
+        patch("adk_stream_protocol.bidi_event_sender.ToolConfirmationInterceptor"),
         patch(
-            "services.bidi_event_sender.stream_adk_to_ai_sdk",
+            "adk_stream_protocol.bidi_event_sender.stream_adk_to_ai_sdk",
             side_effect=lambda *args, **kwargs: mock_stream(),
         ),
     ):
@@ -198,7 +198,7 @@ async def test_level4_complete_event_stream_with_confirmation_tools() -> None:
 
     # when
     with patch(
-        "services.bidi_event_sender.stream_adk_to_ai_sdk",
+        "adk_stream_protocol.bidi_event_sender.stream_adk_to_ai_sdk",
         side_effect=lambda *args, **kwargs: mock_stream(),
     ):
         await sender.send_events(mock_live_events())
@@ -247,9 +247,9 @@ async def test_level4_mixed_event_types() -> None:
 
     # when
     with (
-        patch("services.bidi_event_sender.ToolConfirmationInterceptor"),
+        patch("adk_stream_protocol.bidi_event_sender.ToolConfirmationInterceptor"),
         patch(
-            "services.bidi_event_sender.stream_adk_to_ai_sdk",
+            "adk_stream_protocol.bidi_event_sender.stream_adk_to_ai_sdk",
             side_effect=lambda *args, **kwargs: mock_stream(),
         ),
     ):

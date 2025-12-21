@@ -77,7 +77,7 @@ async def test_send_events_wraps_events_with_confirmation_processing() -> None:
 
     # when
     with patch(
-        "services.bidi_event_sender.stream_adk_to_ai_sdk",
+        "adk_stream_protocol.bidi_event_sender.stream_adk_to_ai_sdk",
         return_value=create_mock_sse_stream('data: {"type":"text-delta","text":"Hello"}\n\n'),
     ):
         await sender.send_events(create_mock_live_events(Mock()))
@@ -112,7 +112,7 @@ async def test_send_events_calls_stream_adk_to_ai_sdk_with_correct_params() -> N
 
     # when
     with patch(
-        "services.bidi_event_sender.stream_adk_to_ai_sdk", return_value=mock_stream()
+        "adk_stream_protocol.bidi_event_sender.stream_adk_to_ai_sdk", return_value=mock_stream()
     ) as mock_stream_func:
         live_events = mock_live_events()
         await sender.send_events(live_events)
@@ -153,8 +153,8 @@ async def test_send_events_sends_sse_events_to_websocket() -> None:
 
     # when
     with (
-        patch("services.bidi_event_sender.ToolConfirmationInterceptor"),
-        patch("services.bidi_event_sender.stream_adk_to_ai_sdk", return_value=mock_stream()),
+        patch("adk_stream_protocol.bidi_event_sender.ToolConfirmationInterceptor"),
+        patch("adk_stream_protocol.bidi_event_sender.stream_adk_to_ai_sdk", return_value=mock_stream()),
     ):
         await sender.send_events(mock_live_events())
 
@@ -195,8 +195,8 @@ async def test_send_events_handles_websocket_disconnect_gracefully() -> None:
 
     # when/then - should not raise
     with (
-        patch("services.bidi_event_sender.ToolConfirmationInterceptor"),
-        patch("services.bidi_event_sender.stream_adk_to_ai_sdk", return_value=mock_stream()),
+        patch("adk_stream_protocol.bidi_event_sender.ToolConfirmationInterceptor"),
+        patch("adk_stream_protocol.bidi_event_sender.stream_adk_to_ai_sdk", return_value=mock_stream()),
     ):
         await sender.send_events(mock_live_events())
         # No exception should be raised
@@ -228,9 +228,9 @@ async def test_send_events_handles_session_resumption_error_silently() -> None:
 
     # when
     with (
-        patch("services.bidi_event_sender.ToolConfirmationInterceptor"),
+        patch("adk_stream_protocol.bidi_event_sender.ToolConfirmationInterceptor"),
         patch(
-            "services.bidi_event_sender.stream_adk_to_ai_sdk",
+            "adk_stream_protocol.bidi_event_sender.stream_adk_to_ai_sdk",
             side_effect=lambda *args, **kwargs: mock_stream_generator(),
         ),
     ):
@@ -264,9 +264,9 @@ async def test_send_events_raises_other_value_errors() -> None:
 
     # when/then
     with (
-        patch("services.bidi_event_sender.ToolConfirmationInterceptor"),
+        patch("adk_stream_protocol.bidi_event_sender.ToolConfirmationInterceptor"),
         patch(
-            "services.bidi_event_sender.stream_adk_to_ai_sdk",
+            "adk_stream_protocol.bidi_event_sender.stream_adk_to_ai_sdk",
             side_effect=lambda *args, **kwargs: mock_stream_generator(),
         ),
     ):
@@ -300,9 +300,9 @@ async def test_send_events_raises_other_exceptions() -> None:
 
     # when/then
     with (
-        patch("services.bidi_event_sender.ToolConfirmationInterceptor"),
+        patch("adk_stream_protocol.bidi_event_sender.ToolConfirmationInterceptor"),
         patch(
-            "services.bidi_event_sender.stream_adk_to_ai_sdk",
+            "adk_stream_protocol.bidi_event_sender.stream_adk_to_ai_sdk",
             side_effect=lambda *args, **kwargs: mock_stream_generator(),
         ),
     ):
@@ -564,9 +564,9 @@ async def test_send_events_with_stream_error_after_first_event() -> None:
 
     # when/then
     with (
-        patch("services.bidi_event_sender.ToolConfirmationInterceptor"),
+        patch("adk_stream_protocol.bidi_event_sender.ToolConfirmationInterceptor"),
         patch(
-            "services.bidi_event_sender.stream_adk_to_ai_sdk",
+            "adk_stream_protocol.bidi_event_sender.stream_adk_to_ai_sdk",
             side_effect=lambda *args, **kwargs: mock_stream_generator(),
         ),
     ):
@@ -659,9 +659,9 @@ async def test_send_events_with_empty_live_events() -> None:
 
     # when
     with (
-        patch("services.bidi_event_sender.ToolConfirmationInterceptor"),
+        patch("adk_stream_protocol.bidi_event_sender.ToolConfirmationInterceptor"),
         patch(
-            "services.bidi_event_sender.stream_adk_to_ai_sdk",
+            "adk_stream_protocol.bidi_event_sender.stream_adk_to_ai_sdk",
             side_effect=lambda *args, **kwargs: mock_stream(),
         ),
     ):

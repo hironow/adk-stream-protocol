@@ -68,8 +68,8 @@ class TestProcessChatMessageForBidi:
 
         # when - mock both base64 decoding and PIL Image.open
         with (
-            patch("ai_sdk_v6_compat.base64.b64decode") as mock_decode,
-            patch("ai_sdk_v6_compat.Image.open") as mock_image_open,
+            patch("adk_stream_protocol.ai_sdk_v6_compat.base64.b64decode") as mock_decode,
+            patch("adk_stream_protocol.ai_sdk_v6_compat.Image.open") as mock_image_open,
         ):
             mock_decode.return_value = b"fake_image_data"
 
@@ -117,7 +117,7 @@ class TestProcessChatMessageForBidi:
         }
 
         # when - spy on ChatMessage to verify it's called for last message only
-        with patch("ai_sdk_v6_compat.ChatMessage", wraps=ChatMessage) as spy_chat_message:
+        with patch("adk_stream_protocol.ai_sdk_v6_compat.ChatMessage", wraps=ChatMessage) as spy_chat_message:
             _image_blobs, text_content = process_chat_message_for_bidi(message_data)
 
             # then - should be called exactly once (for last message only)
