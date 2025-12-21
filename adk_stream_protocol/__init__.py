@@ -18,7 +18,7 @@ from .adk_ag_runner import (
     sse_agent_runner,
 )
 from .adk_ag_tools import (
-    adk_request_confirmation,
+    _adk_request_confirmation,
     change_bgm,
     get_location,
     get_weather,
@@ -73,8 +73,8 @@ __all__ = [
     "ToolCallState",
     "ToolConfirmationInterceptor",
     "ToolUsePart",
+    "_adk_request_confirmation",
     "_map_adk_finish_reason_to_ai_sdk",
-    "adk_request_confirmation",
     "bidi_agent",
     "bidi_agent_runner",
     "change_bgm",

@@ -258,6 +258,7 @@ async def change_bgm(track: int, tool_context: ToolContext | None = None) -> dic
                 case _:
                     assert_never(result_or_error)
 
+    # TODO: remove suspicious execution path if not needed
     # SSE mode or no delegate - direct return (frontend handles via onToolCall)
     logger.info(f"[change_bgm] SSE mode: track={track} (frontend auto-executes)")
     return {
@@ -321,7 +322,7 @@ async def get_location(tool_context: ToolContext) -> dict[str, Any]:
             assert_never(result_or_error)
 
 
-async def adk_request_confirmation(
+async def _adk_request_confirmation(
     originalFunctionCall: dict[str, Any],  # noqa: N803 - ADK API spec uses camelCase
     toolConfirmation: dict[str, Any],  # noqa: N803 - ADK API spec uses camelCase
     tool_context: ToolContext,
@@ -369,6 +370,7 @@ async def adk_request_confirmation(
         logger.error(f"[adk_request_confirmation] {error_msg}")
         return {"confirmed": False, "error": error_msg}
 
+    # TODO: 利用されるtoolが request_confirmation = true にした場合のみ、機能が前段に入る想定をかなり超えてしまっている
     # Delegate to frontend and await user decision
     # This blocks AI processing until user approves/rejects
     result_or_error = await delegate.execute_on_frontend(

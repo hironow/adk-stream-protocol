@@ -97,6 +97,7 @@ COMMON_TOOLS = [
         get_location, require_confirmation=True
     ),  # User location retrieval (client execution with user approval)
     LongRunningFunctionTool(
+        # TODO: 現状これは使っていない & 想定していない
         approval_test_tool
     ),  # Test tool for approval flow (BIDI: pause/resume, SSE: normal execution)
     # Note: adk_request_confirmation is NOT registered as a tool

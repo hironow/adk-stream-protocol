@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from adk_stream_protocol import (
-    adk_request_confirmation,
+    _adk_request_confirmation,
     change_bgm,
     get_location,
     get_weather,
@@ -473,7 +473,7 @@ class TestAdkRequestConfirmation:
         }
 
         # when
-        result = await adk_request_confirmation(
+        result = await _adk_request_confirmation(
             originalFunctionCall=original_fc,
             toolConfirmation={"confirmed": False},
             tool_context=mock_tool_context,
@@ -507,7 +507,7 @@ class TestAdkRequestConfirmation:
         original_fc = {"id": "original-call-111", "name": "delete_account", "args": {"user_id": 42}}
 
         # when
-        result = await adk_request_confirmation(
+        result = await _adk_request_confirmation(
             originalFunctionCall=original_fc,
             toolConfirmation={"confirmed": False},
             tool_context=mock_tool_context,
@@ -530,7 +530,7 @@ class TestAdkRequestConfirmation:
         original_fc = {"id": "original-call-222", "name": "process_payment", "args": {}}
 
         # when
-        result = await adk_request_confirmation(
+        result = await _adk_request_confirmation(
             originalFunctionCall=original_fc,
             toolConfirmation={"confirmed": False},
             tool_context=mock_tool_context,
@@ -555,7 +555,7 @@ class TestAdkRequestConfirmation:
         original_fc = {"id": "original-call-444", "name": "process_payment", "args": {}}
 
         # when
-        result = await adk_request_confirmation(
+        result = await _adk_request_confirmation(
             originalFunctionCall=original_fc,
             toolConfirmation={"confirmed": False},
             tool_context=mock_tool_context,
@@ -580,7 +580,7 @@ class TestAdkRequestConfirmation:
         original_fc = {"id": "original-call-666", "name": "process_payment", "args": {}}
 
         # when
-        result = await adk_request_confirmation(
+        result = await _adk_request_confirmation(
             originalFunctionCall=original_fc,
             toolConfirmation={"confirmed": False},
             tool_context=mock_tool_context,
@@ -617,7 +617,7 @@ class TestAdkRequestConfirmation:
         }
 
         # when
-        result = await adk_request_confirmation(
+        result = await _adk_request_confirmation(
             originalFunctionCall=original_fc,
             toolConfirmation={"confirmed": False},
             tool_context=mock_tool_context,
