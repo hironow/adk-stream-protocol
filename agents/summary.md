@@ -32,6 +32,29 @@
 
 ---
 
+## 🎯 現在取り組んでいる主要トピック
+
+**全体**: ツール確認フロー（Tool Confirmation Flow）の修正と完成
+
+**3つの主要課題**:
+
+1. **BIDIプロトコルミスマッチ修正** 🔴 CRITICAL
+   - 問題: カスタムWebSocketイベントでなくAI SDK v6標準メッセージフォーマットが必要
+   - 影響: E2E BIDIテストでAIが誤応答（"waiting for approval"）
+   - 対応: `lib/confirmation-handler.ts` のプロトコル変更
+
+2. **Missing Tool-Input Events バグ修正** 🟡 HIGH  
+   - 問題: 確認フローで元のツールIDの`tool-input-*`イベントが欠落
+   - 影響: フロントエンドが「tool invocation not found」エラー
+   - 対応: `services/bidi_event_sender.py`, `services/sse_event_streamer.py` にイベント追加
+
+3. **ID Mapper実装ギャップ解消** 🟡 HIGH
+   - 問題: ID登録後に`get_function_call_id()`でIDが見つからない
+   - 影響: Python unit test 44個失敗（confirmation系、delegate系）
+   - 対応: `adk_vercel_id_mapper.py` のルックアップロジック修正
+
+---
+
 ## 現在の状況
 
 ### 全体テスト状況
