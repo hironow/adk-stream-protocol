@@ -4,8 +4,9 @@
  */
 
 import { act, renderHook } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AudioProvider, useAudio } from "./audio-context";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { AudioProvider, useAudio } from "../../audio-context";
+import { server } from "../mocks/server";
 
 describe("AudioContext - Tab Visibility Handling", () => {
   let mockAudioContext: any;
@@ -77,10 +78,8 @@ describe("AudioContext - Tab Visibility Handling", () => {
       return mockAudioContext;
     }) as any;
 
-    // Mock fetch for BGM files
-    global.fetch = vi.fn().mockResolvedValue({
-      arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(1024)),
-    });
+    // Start MSW server for BGM files
+    server.listen({ onUnhandledRequest: "warn" });
 
     // Mock document.hidden
     Object.defineProperty(document, "hidden", {
@@ -91,7 +90,12 @@ describe("AudioContext - Tab Visibility Handling", () => {
   });
 
   afterEach(() => {
+    server.resetHandlers();
     vi.clearAllMocks();
+  });
+
+  afterAll(() => {
+    server.close();
   });
 
   // SKIPPED: Test has mock timing issues - functionality is covered by other passing tests

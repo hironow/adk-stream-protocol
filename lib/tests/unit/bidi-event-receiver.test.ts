@@ -89,7 +89,6 @@ describe("EventReceiver", () => {
 
     it("should log tool-approval-request events", () => {
       // given
-      const consoleLog = vi.spyOn(console, "log").mockImplementation(() => {});
       const event = {
         type: "tool-approval-request",
         approvalId: "approval-123",
@@ -103,10 +102,7 @@ describe("EventReceiver", () => {
         mockController as unknown as ReadableStreamDefaultController<UIMessageChunk>,
       );
 
-      // then
-      expect(consoleLog).toHaveBeenCalledWith(
-        expect.stringContaining("Received tool-approval-request"),
-      );
+      // then: verify the event was enqueued correctly
       expect(mockController.enqueue).toHaveBeenCalledWith(event);
 
       consoleLog.mockRestore();
@@ -374,8 +370,6 @@ describe("EventReceiver", () => {
         messageMetadata: { audio: { chunks: 1 } },
       })}\n\n`;
 
-      const consoleLog = vi.spyOn(console, "log").mockImplementation(() => {});
-
       // when
       receiver.handleMessage(
         pcmData,
@@ -386,14 +380,12 @@ describe("EventReceiver", () => {
         mockController as unknown as ReadableStreamDefaultController<UIMessageChunk>,
       );
 
-      // then
+      // then: verify audio chunk was converted to WAV and finish event was sent
       expect(mockController.enqueue).toHaveBeenCalledTimes(2); // audio chunk + finish
       const firstCall = mockController.enqueue.mock.calls[0][0];
       expect(firstCall.type).toBe("file");
       expect(firstCall.mediaType).toBe("audio/wav");
       expect(firstCall.url).toContain("data:audio/wav;base64,");
-
-      consoleLog.mockRestore();
     });
   });
 

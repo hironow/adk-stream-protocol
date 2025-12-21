@@ -3,8 +3,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-import type { ChunkLogEntry } from "./chunk-logger";
-import { ChunkPlayer } from "./chunk-player";
+import type { ChunkLogEntry } from "../../chunk-logger";
+import { ChunkPlayer } from "../../chunk-player";
 
 describe("ChunkPlayer", () => {
   const sampleJsonl = `{"timestamp":1000,"session_id":"test-001","mode":"adk-sse","location":"frontend-ws-chunk","direction":"in","sequence_number":1,"chunk":{"event":"1"},"metadata":null}

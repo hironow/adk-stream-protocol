@@ -19,7 +19,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   type BackendMode,
   buildUseChatOptions,
-} from "./build-use-chat-options";
+} from "../../build-use-chat-options";
 
 describe("buildUseChatOptions", () => {
   const initialMessages: UIMessage[] = [

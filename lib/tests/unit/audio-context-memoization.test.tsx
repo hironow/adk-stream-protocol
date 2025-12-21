@@ -20,7 +20,7 @@
 import { fireEvent, render } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it } from "vitest";
-import { AudioProvider, useAudio } from "./audio-context";
+import { AudioProvider, useAudio } from "../../audio-context";
 
 describe("AudioContext Memoization", () => {
   it("should maintain stable value reference when parent re-renders without state change", () => {

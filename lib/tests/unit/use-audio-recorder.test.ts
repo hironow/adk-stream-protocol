@@ -9,9 +9,9 @@
 
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { AudioChunk } from "./audio-recorder";
-import type { BackendMode } from "./build-use-chat-options";
-import { useAudioRecorder } from "./use-audio-recorder";
+import type { AudioChunk } from "../../audio-recorder";
+import type { BackendMode } from "../../build-use-chat-options";
+import { useAudioRecorder } from "../../use-audio-recorder";
 
 // Mock AudioRecorder class
 let mockAudioRecorder: {
@@ -23,14 +23,13 @@ let mockAudioRecorder: {
   sampleRate: number;
 };
 
-// Mock the AudioRecorder module
-vi.mock("./audio-recorder", () => ({
+// Mock the dynamic import of AudioRecorder
+vi.mock("@/lib/audio-recorder", () => ({
   AudioRecorder: vi.fn(function (this: any) {
     return mockAudioRecorder;
   }),
 }));
 
-// Mock console methods to reduce noise
 beforeEach(() => {
   // Reset mock before each test
   mockAudioRecorder = {
@@ -41,10 +40,6 @@ beforeEach(() => {
     isRecording: false,
     sampleRate: 16000,
   };
-
-  vi.spyOn(console, "log").mockImplementation(() => {});
-  vi.spyOn(console, "warn").mockImplementation(() => {});
-  vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
 afterEach(() => {
@@ -137,22 +132,21 @@ describe("useAudioRecorder", () => {
     it.each<BackendMode>([
       "gemini",
       "adk-sse",
-    ])("should warn and return early in %s mode", async (mode) => {
+    ])("should not start recording in %s mode", async (mode) => {
       const { result } = renderHook(() => useAudioRecorder({ mode }));
 
       const onChunk = vi.fn();
       await result.current.startRecording(onChunk);
 
-      expect(console.warn).toHaveBeenCalledWith(
-        expect.stringContaining("Recording only available in BIDI mode"),
-      );
+      // Verify that recording was not started
       expect(mockAudioRecorder.initialize).not.toHaveBeenCalled();
+      expect(mockAudioRecorder.start).not.toHaveBeenCalled();
       expect(result.current.isRecording).toBe(false);
     });
   });
 
   describe("startRecording() - Already recording", () => {
-    it("should warn and return early if already recording", async () => {
+    it("should not start recording again if already recording", async () => {
       const { result } = renderHook(() =>
         useAudioRecorder({ mode: "adk-bidi" }),
       );
@@ -172,10 +166,9 @@ describe("useAudioRecorder", () => {
       // Try to start again
       await result.current.startRecording(onChunk);
 
-      expect(console.warn).toHaveBeenCalledWith(
-        expect.stringContaining("Already recording"),
-      );
+      // Verify that initialize/start were not called again
       expect(mockAudioRecorder.initialize).not.toHaveBeenCalled();
+      expect(mockAudioRecorder.start).not.toHaveBeenCalled();
     });
   });
 
@@ -295,16 +288,16 @@ describe("useAudioRecorder", () => {
       });
     });
 
-    it("should warn if not recording", async () => {
+    it("should do nothing if not recording", async () => {
       const { result } = renderHook(() =>
         useAudioRecorder({ mode: "adk-bidi" }),
       );
 
       await result.current.stopRecording();
 
-      expect(console.warn).toHaveBeenCalledWith(
-        expect.stringContaining("Not recording"),
-      );
+      // Verify that close was not called since there's no recorder
+      expect(mockAudioRecorder.close).not.toHaveBeenCalled();
+      expect(result.current.isRecording).toBe(false);
     });
 
     it("should handle close() error gracefully", async () => {

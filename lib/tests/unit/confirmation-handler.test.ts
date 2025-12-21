@@ -12,7 +12,7 @@ import {
   type ConfirmationToolInvocation,
   type ConfirmationTransport,
   handleConfirmation,
-} from "./confirmation-handler";
+} from "../../confirmation-handler";
 
 describe("handleConfirmation", () => {
   describe("BIDI mode (WebSocket transport)", () => {

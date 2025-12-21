@@ -9,8 +9,9 @@
 
 import { renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AudioProvider, useAudio } from "./audio-context";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { AudioProvider, useAudio } from "../../audio-context";
+import { server } from "../mocks/server";
 
 // Mock Web Audio API
 class MockAudioContext {
@@ -86,36 +87,23 @@ beforeEach(() => {
     return new MockAudioWorkletNode();
   }) as any;
 
-  // Mock fetch for BGM loading
-  global.fetch = vi.fn((input: RequestInfo | URL) => {
-    const url =
-      typeof input === "string"
-        ? input
-        : input instanceof URL
-          ? input.toString()
-          : (input as Request).url;
-    if (url === "/bgm.wav" || url === "/bgm2.wav") {
-      return Promise.resolve({
-        arrayBuffer: () => Promise.resolve(new ArrayBuffer(1024)),
-      } as Response);
-    }
-    return Promise.reject(new Error(`Unexpected fetch: ${url}`));
-  });
+  // Start MSW server for BGM loading
+  server.listen({ onUnhandledRequest: "error" });
 
   // Mock atob for base64 decoding
   global.atob = vi.fn((_str: string) => {
     // Simple mock that returns 4 bytes (2 int16 samples)
     return "\x00\x01\x02\x03";
   });
-
-  // Mock console methods to reduce noise
-  vi.spyOn(console, "log").mockImplementation(() => {});
-  vi.spyOn(console, "warn").mockImplementation(() => {});
-  vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
 afterEach(() => {
+  server.resetHandlers();
   vi.restoreAllMocks();
+});
+
+afterAll(() => {
+  server.close();
 });
 
 describe("AudioProvider", () => {
@@ -148,15 +136,18 @@ describe("AudioProvider", () => {
     });
 
     it("should load both BGM tracks", async () => {
-      renderHook(() => useAudio(), {
+      // MSW will handle the fetch requests for /bgm.wav and /bgm2.wav
+      // This test verifies that the AudioProvider successfully loads both tracks
+      // by checking that isReady becomes true after initialization
+      const { result } = renderHook(() => useAudio(), {
         wrapper: ({ children }: { children: ReactNode }) => (
           <AudioProvider>{children}</AudioProvider>
         ),
       });
 
+      // If BGM tracks load successfully, isReady should be true
       await waitFor(() => {
-        expect(global.fetch).toHaveBeenCalledWith("/bgm.wav");
-        expect(global.fetch).toHaveBeenCalledWith("/bgm2.wav");
+        expect(result.current.isReady).toBe(true);
       });
     });
 

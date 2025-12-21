@@ -19,8 +19,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   type BackendMode,
   buildUseChatOptions,
-} from "./build-use-chat-options";
-import { WebSocketChatTransport } from "./websocket-chat-transport";
+} from "../../build-use-chat-options";
+import { WebSocketChatTransport } from "../../websocket-chat-transport";
 
 // Mock WebSocket for transport testing
 class MockWebSocket {

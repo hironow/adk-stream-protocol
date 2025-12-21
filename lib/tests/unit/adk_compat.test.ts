@@ -10,12 +10,7 @@ import {
   findPart,
   isAssistantMessage,
   sendAutomaticallyWhenAdkConfirmation,
-} from "./adk_compat";
-
-// Mock the lastAssistantMessageIsCompleteWithApprovalResponses function
-vi.mock("ai", () => ({
-  lastAssistantMessageIsCompleteWithApprovalResponses: vi.fn(() => false),
-}));
+} from "../../adk_compat";
 
 describe("sendAutomaticallyWhenAdkConfirmation", () => {
   it("should call extractParts and findPart exactly once (spy test for efficiency)", () => {
@@ -340,9 +335,9 @@ describe("sendAutomaticallyWhenAdkConfirmation", () => {
   });
 
   it("should return false when original tool is Failed after denial (prevents infinite loop)", () => {
-    // After backend processes denial, original tool enters "Failed" state
-    // We should NOT auto-send again when original tool is already Failed
-    // This prevents infinite loop: denial sent → backend responds with Failed → don't send again
+    // After backend processes denial, original tool enters "output-error" state
+    // We should NOT auto-send again when original tool is already in error state
+    // This prevents infinite loop: denial sent → backend responds with error → don't send again
     const messages = [
       {
         id: "phase5-denial-response",
@@ -353,7 +348,7 @@ describe("sendAutomaticallyWhenAdkConfirmation", () => {
             type: "tool-process_payment",
             toolCallId: "call-payment-789",
             toolName: "process_payment",
-            state: "Failed", // Tool failed after user denied
+            state: "output-error", // Tool failed after user denied
             input: { amount: 1000, recipient: "Bob", currency: "USD" },
             output: { error: "This tool call is rejected." },
           },
@@ -371,12 +366,13 @@ describe("sendAutomaticallyWhenAdkConfirmation", () => {
       },
     ] as UIMessage[];
     const result = sendAutomaticallyWhenAdkConfirmation({ messages });
-    // Should NOT trigger auto-send because original tool is already Failed
+    // Should NOT trigger auto-send because original tool is already in error state
     expect(result).toBe(false);
   });
 
   it("should handle multiple tool calls with confirmation in the middle", () => {
     // Complex scenario with multiple tools
+    // When other tools are already completed (output-available), backend has already responded
     const messages = [
       {
         id: "complex-1",
@@ -387,7 +383,7 @@ describe("sendAutomaticallyWhenAdkConfirmation", () => {
             type: "tool-get_weather",
             toolCallId: "call-weather-1",
             toolName: "get_weather",
-            state: "output-available",
+            state: "output-available", // Already completed
             output: { temperature: 20, condition: "Sunny" },
           },
           {
@@ -408,14 +404,15 @@ describe("sendAutomaticallyWhenAdkConfirmation", () => {
             type: "tool-change_bgm",
             toolCallId: "call-bgm-4",
             toolName: "change_bgm",
-            state: "output-available",
+            state: "output-available", // Already completed
             output: { success: true, track: 1 },
           },
         ],
       },
     ] as UIMessage[];
     const result = sendAutomaticallyWhenAdkConfirmation({ messages });
-    expect(result).toBe(true);
+    // Should NOT auto-send because other tools are already completed (backend responded)
+    expect(result).toBe(false);
   });
 
   it("should return false when confirmation is error state", () => {

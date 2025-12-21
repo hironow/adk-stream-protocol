@@ -6,8 +6,8 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { AudioChunk } from "./audio-recorder";
-import { AudioRecorder } from "./audio-recorder";
+import type { AudioChunk } from "../../audio-recorder";
+import { AudioRecorder } from "../../audio-recorder";
 
 // Mock Web Audio API
 class MockAudioContext {
@@ -80,10 +80,6 @@ beforeEach(() => {
       },
     },
   });
-
-  // Mock console methods to reduce noise
-  vi.spyOn(console, "log").mockImplementation(() => {});
-  vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
 afterEach(() => {
