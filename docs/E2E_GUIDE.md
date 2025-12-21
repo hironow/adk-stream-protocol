@@ -53,12 +53,14 @@ adk-stream-protocol/
 **目的**: システム全体の統合テスト（フロントエンド + バックエンド + ブラウザ）
 
 **特徴**:
+
 - Playwrightを使用した実際のブラウザテスト
 - フロントエンドUIとバックエンドAPIの両方を含む
 - ユーザーシナリオ全体を検証
 - Chunk Player/Loggerを使ったLLMモック
 
 **主要テスト**:
+
 - UI検証 (`chunk-player-ui-verification.spec.ts`)
 - Tool承認フロー (`tool-approval.spec.ts`)
 - Chunk Logger記録 (`chunk-logger-*.spec.ts`)
@@ -69,12 +71,14 @@ adk-stream-protocol/
 **目的**: libとそれを利用するフロントエンドコンポーネントのテスト
 
 **特徴**:
+
 - フロントエンドロジックとUI統合
 - バックエンドAPIをモック
 - ブラウザ環境での動作検証
 - React Hooksとコンポーネントの統合
 
 **主要テスト**:
+
 - チャットフロー (`chat-flow.e2e.test.ts`)
 - モード切替 (`mode-switching.e2e.test.ts`)
 - ツール実行 (`tool-execution.e2e.test.ts`)
@@ -87,15 +91,18 @@ adk-stream-protocol/
 **目的**: serverとそれを利用するバックエンド処理のテスト
 
 **特徴**:
+
 - Python FastAPIサーバーのテスト
 - Chunk Playerによる決定論的テスト
 - LLM APIなしでのバックエンド検証
 - ストリーミング処理の検証
 
 **主要テスト**:
+
 - Chunk Player動作 (`test_server_chunk_player.py`)
 
 **Fixtures**: `tests/fixtures/` - Backend/Frontend chunks (JSONL)
+
 - Pattern 1-4のバックエンド/フロントエンドチャンク
 - 記録済みのLLMレスポンス
 

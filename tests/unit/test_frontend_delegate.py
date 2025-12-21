@@ -11,10 +11,9 @@ Based on implementation in server.py (FrontendToolDelegate class)
 
 import asyncio
 from typing import Any
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import patch
 
 import pytest
-from google.adk.tools.tool_context import ToolContext
 
 from adk_stream_protocol import FrontendToolDelegate, change_bgm, get_location
 from adk_stream_protocol.result import Ok
@@ -188,9 +187,7 @@ async def test_frontend_delegate_multiple_pending_calls() -> None:
 async def test_change_bgm_uses_delegate_in_bidi_mode() -> None:
     """change_bgm should use delegate when tool_context with delegate is provided."""
     # Create mock delegate
-    mock_delegate = create_mock_frontend_delegate(
-        execute_result=Ok({"success": True, "track": 1})
-    )
+    mock_delegate = create_mock_frontend_delegate(execute_result=Ok({"success": True, "track": 1}))
 
     # Create mock ToolContext with delegate
     mock_tool_context = create_mock_tool_context(

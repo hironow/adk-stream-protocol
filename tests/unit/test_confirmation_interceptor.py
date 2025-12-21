@@ -13,7 +13,6 @@ Design Context:
 """
 
 import asyncio
-from unittest.mock import AsyncMock, Mock
 
 import pytest
 from google.genai import types
@@ -218,9 +217,7 @@ async def test_execute_confirmation_denied() -> None:
 async def test_execute_confirmation_calls_delegate_with_correct_args() -> None:
     """execute_confirmation() should call delegate.execute_on_frontend with correct arguments."""
     # given
-    mock_delegate = create_mock_frontend_delegate(
-        execute_result=Ok({"confirmed": True})
-    )
+    mock_delegate = create_mock_frontend_delegate(execute_result=Ok({"confirmed": True}))
 
     interceptor = ToolConfirmationInterceptor(mock_delegate, ["process_payment"])
 

@@ -1,11 +1,11 @@
 /**
  * E2E Test: Tool Execution
- * 
+ *
  * Tests complete tool calling flow from AI request to execution result.
  * Includes: tool calls, approval flow, result handling.
  */
 
-import { describe, expect, it, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 describe("Tool Execution E2E", () => {
   beforeEach(async () => {

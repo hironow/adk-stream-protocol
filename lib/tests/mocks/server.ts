@@ -1,5 +1,5 @@
+import { HttpResponse, http } from "msw";
 import { setupServer } from "msw/node";
-import { http, HttpResponse } from "msw";
 
 /**
  * MSW server for mocking HTTP requests in tests

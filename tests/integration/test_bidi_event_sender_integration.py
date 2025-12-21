@@ -14,8 +14,6 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from fastapi import WebSocketDisconnect
-from google.adk.agents import LiveRequestQueue
-from google.adk.sessions import Session
 
 from adk_stream_protocol import ADKVercelIDMapper, BidiEventSender, FrontendToolDelegate
 from tests.utils.mocks import (

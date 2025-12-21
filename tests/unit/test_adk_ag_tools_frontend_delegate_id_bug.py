@@ -18,8 +18,6 @@ Expected to FAIL until fixed.
 from unittest.mock import AsyncMock, Mock
 
 import pytest
-from google.adk.sessions import Session
-from google.adk.tools import ToolContext
 
 from adk_stream_protocol import change_bgm, get_location
 from adk_stream_protocol.result import Ok

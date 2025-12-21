@@ -10,7 +10,6 @@ from unittest.mock import AsyncMock, Mock
 
 from fastapi import WebSocket
 from google.adk.sessions import Session
-from google.genai import types
 
 
 # ============================================================
@@ -36,23 +35,23 @@ def create_mock_websocket(
         >>> # Basic WebSocket mock
         >>> ws = create_mock_websocket()
         >>> await ws.send_text('{"type": "pong"}')
-        
+
         >>> # With receive data
         >>> ws = create_mock_websocket(receive_data={"type": "ping"})
         >>> data = await ws.receive_text()
-        
+
         >>> # With send error
         >>> from fastapi import WebSocketDisconnect
         >>> ws = create_mock_websocket(send_side_effect=WebSocketDisconnect())
     """
     mock_ws = Mock(spec=WebSocket)
-    
+
     # Configure send_text
     if send_side_effect:
         mock_ws.send_text = AsyncMock(side_effect=send_side_effect)
     else:
         mock_ws.send_text = AsyncMock()
-    
+
     # Configure receive_text
     if receive_data is not None:
         if isinstance(receive_data, dict):
@@ -60,7 +59,7 @@ def create_mock_websocket(
         mock_ws.receive_text = AsyncMock(return_value=receive_data)
     else:
         mock_ws.receive_text = AsyncMock()
-    
+
     return mock_ws
 
 
@@ -85,7 +84,7 @@ def create_mock_session(
     Examples:
         >>> session = create_mock_session()
         >>> assert session.id == "test-session-123"
-        
+
         >>> session = create_mock_session(
         ...     session_id="custom-id",
         ...     initial_state={"frontend_delegate": delegate}
@@ -139,11 +138,11 @@ def create_mock_tool_context(
         >>> # Basic usage
         >>> ctx = create_mock_tool_context()
         >>> assert ctx.invocation_id == "call-123"
-        
+
         >>> # With custom session
         >>> session = create_mock_session()
         >>> ctx = create_mock_tool_context(invocation_id="call-001", session=session)
-        
+
         >>> # With frontend delegate in state
         >>> ctx = create_mock_tool_context(
         ...     invocation_id="payment-call-001",
@@ -152,17 +151,17 @@ def create_mock_tool_context(
         >>> await process_payment(amount=100, tool_context=ctx)
     """
     from google.adk.tools import ToolContext  # Import here to avoid circular deps
-    
+
     mock_context = Mock(spec=ToolContext)
     mock_context.invocation_id = invocation_id
-    
+
     if session is not None:
         mock_context.session = session
     else:
         mock_context.session = Mock()
         mock_context.session.id = session_id
         mock_context.session.state = session_state or {}
-    
+
     return mock_context
 
 
@@ -258,7 +257,7 @@ def create_mock_agent(
         >>> assert len(agent.tools) == 2
     """
     from google.adk.agents import Agent
-    
+
     mock_agent = Mock(spec=Agent)
     mock_agent.tools = tools or []
     mock_agent.model = model
@@ -282,7 +281,7 @@ def create_mock_runner(
         >>> assert runner.agent is agent
     """
     from google.adk.runners import Runner
-    
+
     mock_runner = Mock(spec=Runner)
     mock_runner.agent = agent or create_mock_agent()
     return mock_runner
@@ -303,7 +302,7 @@ def create_mock_frontend_delegate(
     Examples:
         >>> delegate = create_mock_frontend_delegate()
         >>> result = await delegate.execute_on_frontend(tool_name="test", args={})
-        
+
         >>> # With custom result
         >>> from adk_stream_protocol.result import Ok
         >>> delegate = create_mock_frontend_delegate(
@@ -311,19 +310,21 @@ def create_mock_frontend_delegate(
         ... )
     """
     from unittest.mock import AsyncMock
+
     from adk_stream_protocol import FrontendToolDelegate
     from adk_stream_protocol.result import Ok
-    
+
     mock_delegate = Mock(spec=FrontendToolDelegate)
-    
+
     if execute_result is None:
         execute_result = Ok({"success": True})
-    
+
     mock_delegate.execute_on_frontend = AsyncMock(return_value=execute_result)
     return mock_delegate
 
 
-def create_custom_event(
+def create_custom_event(  # noqa: PLR0913
+    *,
     content: str | None = None,
     turn_complete: bool | None = None,
     usage_metadata: Any = None,
@@ -356,6 +357,7 @@ def create_custom_event(
         ... )
     """
     from unittest.mock import Mock
+
     from google.adk.events import Event
 
     mock_event = Mock(spec=Event)
@@ -371,4 +373,3 @@ def create_custom_event(
         setattr(mock_event, key, value)
 
     return mock_event
-

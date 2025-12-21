@@ -1,11 +1,11 @@
 /**
  * E2E Test: Audio Control
- * 
+ *
  * Tests audio input/output functionality in BIDI mode.
  * Includes: recording, playback, BGM control, audio streaming.
  */
 
-import { describe, expect, it, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 describe("Audio Control E2E", () => {
   beforeEach(async () => {

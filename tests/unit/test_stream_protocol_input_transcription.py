@@ -18,10 +18,8 @@ RED phase: These tests will fail until implementation is added.
 """
 
 from typing import Any
-from unittest.mock import Mock
 
 import pytest
-from google.adk.events import Event
 
 from adk_stream_protocol import StreamProtocolConverter
 from tests.utils import MockTranscription, parse_sse_event

@@ -8,7 +8,10 @@ import type { UIMessageChunk } from "@ai-sdk/ui-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EventReceiver } from "../../bidi/event_receiver";
 import { EventSender } from "../../bidi/event_sender";
-import { createMockWebSocket, type MockWebSocketInstance } from "../helpers/websocket-mock";
+import {
+  createMockWebSocket,
+  type MockWebSocketInstance,
+} from "../helpers/websocket-mock";
 
 describe("BIDI Event Flow Integration", () => {
   let mockWebSocket: MockWebSocketInstance & { sentMessages: string[] };

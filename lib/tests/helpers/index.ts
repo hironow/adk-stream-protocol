@@ -3,7 +3,7 @@
  * Centralized export of all test utilities
  */
 
-export * from "./websocket-mock";
-export * from "./render-helpers";
-export * from "./message-fixtures";
 export * from "./e2e-environment";
+export * from "./message-fixtures";
+export * from "./render-helpers";
+export * from "./websocket-mock";

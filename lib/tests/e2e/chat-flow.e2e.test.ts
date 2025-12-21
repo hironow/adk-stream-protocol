@@ -1,11 +1,11 @@
 /**
  * E2E Test: Chat Flow
- * 
+ *
  * Tests complete chat interaction from user input to AI response.
  * Includes: message sending, streaming responses, message history.
  */
 
-import { describe, expect, it, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 describe("Chat Flow E2E", () => {
   beforeEach(async () => {

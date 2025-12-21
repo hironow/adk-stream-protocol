@@ -5,7 +5,10 @@
 import type { UIMessage } from "@ai-sdk/react-v6";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WebSocketChatTransport } from "../../websocket-chat-transport";
-import { setupWebSocketMock, type MockWebSocketInstance } from "../helpers/websocket-mock";
+import {
+  type MockWebSocketInstance,
+  setupWebSocketMock,
+} from "../helpers/websocket-mock";
 
 describe("WebSocketChatTransport - Message Preservation", () => {
   let mockWebSocket: MockWebSocketInstance;

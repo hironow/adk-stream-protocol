@@ -17,21 +17,18 @@ Expected to FAIL until fixed.
 """
 
 import asyncio
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock
 
 import pytest
-from google.adk.agents import LiveRequestQueue
 from google.adk.events import Event
-from google.adk.sessions import Session
+from google.genai import types
 
+from adk_stream_protocol import BidiEventSender, FrontendToolDelegate
 from tests.utils.mocks import (
     create_mock_live_request_queue,
     create_mock_session,
     create_mock_websocket,
 )
-from google.genai import types
-
-from adk_stream_protocol import BidiEventSender, FrontendToolDelegate
 
 
 @pytest.mark.asyncio

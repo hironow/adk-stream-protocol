@@ -17,12 +17,11 @@ import json
 from unittest.mock import AsyncMock, Mock
 
 import pytest
-from google.adk.agents import LiveRequestQueue
 from google.adk.events import Event
-from google.adk.sessions import Session
 from google.genai import types
-from tests.utils.mocks import create_mock_live_request_queue, create_mock_session
+
 from adk_stream_protocol import BidiEventSender, FrontendToolDelegate
+from tests.utils.mocks import create_mock_live_request_queue, create_mock_session
 
 
 @pytest.mark.asyncio

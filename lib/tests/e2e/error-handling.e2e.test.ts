@@ -1,11 +1,11 @@
 /**
  * E2E Test: Error Handling
- * 
+ *
  * Tests system behavior under error conditions.
  * Includes: network errors, backend errors, timeout scenarios.
  */
 
-import { describe, expect, it, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 describe("Error Handling E2E", () => {
   beforeEach(async () => {

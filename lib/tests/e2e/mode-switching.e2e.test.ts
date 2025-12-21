@@ -1,11 +1,11 @@
 /**
  * E2E Test: Mode Switching
- * 
+ *
  * Tests dynamic mode switching between Gemini Direct, ADK SSE, and ADK BIDI.
  * Verifies message history preservation and connection management.
  */
 
-import { describe, expect, it, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 describe("Mode Switching E2E", () => {
   beforeEach(async () => {

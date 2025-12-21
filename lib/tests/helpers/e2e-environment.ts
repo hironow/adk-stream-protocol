@@ -1,6 +1,6 @@
 /**
  * E2E Environment Setup Helpers
- * 
+ *
  * Utilities for setting up E2E test environment with real or mocked backend.
  */
 
@@ -52,7 +52,7 @@ export async function createTestSession(): Promise<{
   cleanup: () => Promise<void>;
 }> {
   const sessionId = `e2e-test-${Date.now()}`;
-  
+
   const cleanup = async () => {
     // Cleanup session-specific data
     // This would be implemented based on actual storage mechanism
@@ -92,16 +92,18 @@ export function setupMockBackend(): {
   const mocks: Array<() => void> = [];
 
   return {
-    mockWebSocket: (url: string, responses: string[]) => {
+    mockWebSocket: (_url: string, _responses: string[]) => {
       // TODO: Implement WebSocket mocking for E2E
       // Could use service worker or proxy
     },
-    mockHTTP: (pattern: string | RegExp, response: unknown) => {
+    mockHTTP: (_pattern: string | RegExp, _response: unknown) => {
       // TODO: Implement HTTP mocking for E2E
       // Could use MSW service worker
     },
     cleanup: () => {
-      mocks.forEach(cleanupFn => cleanupFn());
+      for (const cleanupFn of mocks) {
+        cleanupFn();
+      }
     },
   };
 }

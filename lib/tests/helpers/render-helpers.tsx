@@ -5,7 +5,6 @@
 
 import { renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { vi } from "vitest";
 
 /**
  * Common wrapper options for renderHook

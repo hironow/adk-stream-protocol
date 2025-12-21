@@ -6,7 +6,10 @@
 
 import type { UIMessage } from "@ai-sdk/react-v6";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setupWebSocketMock, type MockWebSocketInstance } from "../helpers/websocket-mock";
+import {
+  type MockWebSocketInstance,
+  setupWebSocketMock,
+} from "../helpers/websocket-mock";
 
 describe("Mode Switching - 5x3 Matrix Tests", () => {
   let mockWebSocket: MockWebSocketInstance;

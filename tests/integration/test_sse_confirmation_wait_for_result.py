@@ -26,17 +26,13 @@ Expected to FAIL until stream_protocol.py is fixed.
 """
 
 import asyncio
-from unittest.mock import Mock
 
 import pytest
 from google.adk.events import Event
-from google.adk.runners import Runner
-from google.adk.sessions import Session
 from google.genai import types
 
-from tests.utils.mocks import create_mock_session
-
 from adk_stream_protocol import FrontendToolDelegate, SseEventStreamer
+from tests.utils.mocks import create_mock_runner, create_mock_session
 
 
 @pytest.mark.asyncio

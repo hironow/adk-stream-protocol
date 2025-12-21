@@ -818,7 +818,7 @@ class TestMessageControlConversion:
             "error_code": None,
             "content": types.Content(role="model", parts=[types.Part(text="Response")]),
         }
-        
+
         if turn_complete is not None:
             kwargs["turn_complete"] = turn_complete
 
@@ -1063,9 +1063,7 @@ class TestToolErrorHandling:
         )
         function_call_event = create_custom_event(
             error_code=None,
-            content=types.Content(
-                role="model", parts=[types.Part(function_call=function_call)]
-            ),
+            content=types.Content(role="model", parts=[types.Part(function_call=function_call)]),
         )
 
         # Process function call to register tool_call_id
@@ -1112,9 +1110,7 @@ class TestToolErrorHandling:
         function_call = types.FunctionCall(name="get_weather", args={"city": "InvalidCity123"})
         function_call_event = create_custom_event(
             error_code=None,
-            content=types.Content(
-                role="model", parts=[types.Part(function_call=function_call)]
-            ),
+            content=types.Content(role="model", parts=[types.Part(function_call=function_call)]),
         )
 
         asyncio.run(convert_and_collect(converter, function_call_event))
@@ -1156,9 +1152,7 @@ class TestToolErrorHandling:
         function_call = types.FunctionCall(name="calculate", args={"expression": "2 + 2"})
         function_call_event = create_custom_event(
             error_code=None,
-            content=types.Content(
-                role="model", parts=[types.Part(function_call=function_call)]
-            ),
+            content=types.Content(role="model", parts=[types.Part(function_call=function_call)]),
         )
 
         asyncio.run(convert_and_collect(converter, function_call_event))

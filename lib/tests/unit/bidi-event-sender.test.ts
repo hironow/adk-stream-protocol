@@ -6,7 +6,10 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EventSender } from "../../bidi/event_sender";
-import { createMockWebSocket, type MockWebSocketInstance } from "../helpers/websocket-mock";
+import {
+  createMockWebSocket,
+  type MockWebSocketInstance,
+} from "../helpers/websocket-mock";
 
 describe("EventSender", () => {
   let mockWebSocket: MockWebSocketInstance;
