@@ -4,6 +4,117 @@ This document describes the E2E testing strategy for both frontend and backend u
 
 ---
 
+## Directory Structure
+
+このプロジェクトには3つのレイヤーのテストが存在します：
+
+### Test Directory Overview
+
+```
+adk-stream-protocol/
+├── scenarios/                    # 🎯 Full E2E Tests (統合テスト)
+│   ├── features/                 # Playwright E2E specs
+│   │   ├── chunk-player-ui-verification.spec.ts
+│   │   ├── tool-approval.spec.ts
+│   │   ├── chunk-logger-*.spec.ts
+│   │   └── ...
+│   ├── helpers.ts                # E2Eテストヘルパー関数
+│   └── fixtures/                 # シナリオ固有のfixtureデータ
+│
+├── lib/                          # 📦 Frontend Library
+│   └── tests/
+│       ├── e2e/                  # フロントエンドE2E (lib + frontend)
+│       │   ├── chat-flow.e2e.test.ts
+│       │   ├── mode-switching.e2e.test.ts
+│       │   ├── tool-execution.e2e.test.ts
+│       │   └── README.md
+│       └── fixtures/             # lib E2Eテスト用fixtures
+│           ├── process_payment-*.json
+│           ├── get_location-*.json
+│           └── README.md
+│
+├── tests/                        # 🐍 Backend Tests
+│   ├── e2e/                      # バックエンドE2E (server + backend)
+│   │   └── test_server_chunk_player.py
+│   └── fixtures/                 # バックエンドE2E用fixtures
+│       ├── pattern1-frontend.jsonl
+│       ├── pattern1-backend.jsonl
+│       ├── pattern2-*.jsonl
+│       └── README.md
+│
+└── public/
+    └── fixtures/                 # ← symlink to tests/fixtures/
+```
+
+### Test Layers
+
+#### 1. `scenarios/` - Full E2E Tests (システム全体)
+
+**目的**: システム全体の統合テスト（フロントエンド + バックエンド + ブラウザ）
+
+**特徴**:
+- Playwrightを使用した実際のブラウザテスト
+- フロントエンドUIとバックエンドAPIの両方を含む
+- ユーザーシナリオ全体を検証
+- Chunk Player/Loggerを使ったLLMモック
+
+**主要テスト**:
+- UI検証 (`chunk-player-ui-verification.spec.ts`)
+- Tool承認フロー (`tool-approval.spec.ts`)
+- Chunk Logger記録 (`chunk-logger-*.spec.ts`)
+- モード切替 (`mode-testing.spec.ts`)
+
+#### 2. `lib/tests/e2e/` - Frontend E2E Tests (フロントエンド世界)
+
+**目的**: libとそれを利用するフロントエンドコンポーネントのテスト
+
+**特徴**:
+- フロントエンドロジックとUI統合
+- バックエンドAPIをモック
+- ブラウザ環境での動作検証
+- React Hooksとコンポーネントの統合
+
+**主要テスト**:
+- チャットフロー (`chat-flow.e2e.test.ts`)
+- モード切替 (`mode-switching.e2e.test.ts`)
+- ツール実行 (`tool-execution.e2e.test.ts`)
+- 音声制御 (`audio-control.e2e.test.ts`)
+
+**Fixtures**: `lib/tests/fixtures/` - Tool confirmationの期待値データ (JSON)
+
+#### 3. `tests/e2e/` - Backend E2E Tests (バックエンド世界)
+
+**目的**: serverとそれを利用するバックエンド処理のテスト
+
+**特徴**:
+- Python FastAPIサーバーのテスト
+- Chunk Playerによる決定論的テスト
+- LLM APIなしでのバックエンド検証
+- ストリーミング処理の検証
+
+**主要テスト**:
+- Chunk Player動作 (`test_server_chunk_player.py`)
+
+**Fixtures**: `tests/fixtures/` - Backend/Frontend chunks (JSONL)
+- Pattern 1-4のバックエンド/フロントエンドチャンク
+- 記録済みのLLMレスポンス
+
+### Fixture Access
+
+```
+Frontend access:
+  public/fixtures/  → (symlink) → tests/fixtures/
+  ↓
+  ChunkPlayerTransport loads from /fixtures/pattern*.jsonl
+
+Backend access:
+  tests/fixtures/pattern*-backend.jsonl
+  ↓
+  ChunkPlayer reads directly
+```
+
+---
+
 ## Overview
 
 This document describes the E2E testing strategy for the frontend using the Chunk Player pattern. This approach enables deterministic UI testing without requiring real LLM API calls.
@@ -27,7 +138,7 @@ This document describes the E2E testing strategy for the frontend using the Chun
 │     → Downloads frontend-chunks.jsonl                           │
 │                                                                   │
 │  4. Save to Fixture Directory                                   │
-│     → tests/fixtures/e2e-chunks/pattern*/frontend-chunks.jsonl │
+│     → tests/fixtures/pattern*-{frontend,backend}.jsonl         │
 └─────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────┐
@@ -141,15 +252,13 @@ Legend / 凡例:
 
 ### Fixture Files
 
-- **tests/fixtures/e2e-chunks/**
-    - `README.md` - Pattern overview and recording procedures for all patterns
-    - `pattern1-gemini-only/frontend-chunks.jsonl` - Fixture (to be recorded)
-    - `pattern2-adk-sse-only/frontend-chunks.jsonl` - Fixture (to be recorded)
-    - `pattern3-adk-bidi-only/frontend-chunks.jsonl` - Fixture (to be recorded)
-    - `pattern4-mode-switching/frontend-chunks.jsonl` - Fixture (to be recorded)
+- **tests/fixtures/**
+    - `README.md` - Pattern overview and recording procedures
+    - `pattern{1-4}-frontend.jsonl` - Frontend fixtures (to be recorded)
+    - `pattern{1-4}-backend.jsonl` - Backend fixtures (to be recorded)
 
-- **public/fixtures/e2e-chunks/**
-    - Symlinks to `tests/fixtures/e2e-chunks/pattern*/`
+- **public/fixtures/**
+    - Symlink to `tests/fixtures/`
     - Allows HTTP access via Next.js dev server
 
 ## Recording Fixtures (Manual Process)
@@ -184,13 +293,13 @@ Legend / 凡例:
 
    ```javascript
    localStorage.setItem('CHUNK_LOGGER_ENABLED', 'true');
-   localStorage.setItem('CHUNK_LOGGER_SESSION_ID', 'pattern1-gemini-only');
+   localStorage.setItem('CHUNK_LOGGER_SESSION_ID', 'pattern1');
    location.reload();
    ```
 
 2. **Execute Test Scenario**
 
-   Follow the detailed steps in `tests/fixtures/e2e-chunks/README.md` for each pattern:
+   Follow the detailed steps in `tests/fixtures/README.md` for each pattern:
    - Pattern 1: Gemini Direct only
    - Pattern 2: ADK SSE only
    - Pattern 3: ADK BIDI only
@@ -209,15 +318,15 @@ Legend / 凡例:
    window.__chunkLogger__.export();
    ```
 
-   This downloads a file like `pattern1-gemini-only.jsonl`.
+   This downloads a file like `pattern1-frontend.jsonl`.
 
 4. **Save Fixture**
 
    Move the downloaded file to the fixture directory:
 
    ```bash
-   mv ~/Downloads/pattern1-gemini-only.jsonl \
-      tests/fixtures/e2e-chunks/pattern1-gemini-only/frontend-chunks.jsonl
+   mv ~/Downloads/pattern1-frontend.jsonl \
+      tests/fixtures/pattern1-frontend.jsonl
    ```
 
 5. **Verify Fixture**
@@ -225,8 +334,8 @@ Legend / 凡例:
    Check the file exists and has content:
 
    ```bash
-   wc -l tests/fixtures/e2e-chunks/pattern1-gemini-only/frontend-chunks.jsonl
-   head -n 3 tests/fixtures/e2e-chunks/pattern1-gemini-only/frontend-chunks.jsonl
+   wc -l tests/fixtures/pattern1-frontend.jsonl
+   head -n 3 tests/fixtures/pattern1-frontend.jsonl
    ```
 
 ### Recording Checklist
@@ -306,13 +415,13 @@ Expected results:
 1. Check symlinks exist:
 
    ```bash
-   ls -la public/fixtures/e2e-chunks/
+   ls -la public/fixtures/
    ```
 
 2. Verify Next.js dev server is running:
 
    ```bash
-   curl http://localhost:3000/fixtures/e2e-chunks/pattern1-gemini-only/frontend-chunks.jsonl
+   curl http://localhost:3000/fixtures/pattern1-frontend.jsonl
    ```
 
 3. Check browser console for fetch errors
@@ -326,16 +435,16 @@ Expected results:
 1. Verify fixture files exist and have content:
 
    ```bash
-   ls -lh tests/fixtures/e2e-chunks/pattern*/frontend-chunks.jsonl
+   ls -lh tests/fixtures/pattern*.jsonl
    ```
 
 2. Check JSONL format is valid:
 
    ```bash
-   cat tests/fixtures/e2e-chunks/pattern1-gemini-only/frontend-chunks.jsonl | jq
+   cat tests/fixtures/pattern1-frontend.jsonl | jq
    ```
 
-3. Re-record fixture following `tests/fixtures/e2e-chunks/README.md` exactly
+3. Re-record fixture following `tests/fixtures/README.md` exactly
 
 ### Recording Issues
 
@@ -374,21 +483,19 @@ Expected results:
 1. Create pattern directory:
 
    ```bash
-   mkdir -p tests/fixtures/e2e-chunks/pattern5-new-scenario
+   touch tests/fixtures/pattern5-frontend.jsonl
+   touch tests/fixtures/pattern5-backend.jsonl
    ```
 
-2. Document recording steps in `tests/fixtures/e2e-chunks/README.md`
+2. Document recording steps in `tests/fixtures/README.md`
 
 3. Create symlink in public:
 
-   ```bash
-   cd public/fixtures/e2e-chunks
-   ln -sf ../../../tests/fixtures/e2e-chunks/pattern5-new-scenario .
-   ```
+   Symlink already exists (public/fixtures/ points to tests/fixtures/)
 
 4. Add test case in `e2e/chunk-player-ui-verification.spec.ts`
 
-5. Record fixture following `tests/fixtures/e2e-chunks/README.md`
+5. Record fixture following `tests/fixtures/README.md`
 
 6. Run test and iterate
 
@@ -399,10 +506,10 @@ When UI or backend behavior changes:
 1. Delete old fixture:
 
    ```bash
-   rm tests/fixtures/e2e-chunks/pattern1-gemini-only/frontend-chunks.jsonl
+   rm tests/fixtures/pattern1-frontend.jsonl
    ```
 
-2. Re-record using `tests/fixtures/e2e-chunks/README.md`
+2. Re-record using `tests/fixtures/README.md`
 
 3. Run tests to verify:
 
@@ -448,7 +555,7 @@ jobs:
 
 ### DO
 
-- ✅ Record fixtures following `tests/fixtures/e2e-chunks/README.md` exactly
+- ✅ Record fixtures following `tests/fixtures/README.md` exactly
 - ✅ Verify message history preservation in Pattern 4
 - ✅ Commit fixture files to git for CI
 - ✅ Re-record fixtures when UI/backend changes
@@ -465,7 +572,7 @@ jobs:
 
 ## Related Documentation
 
-- `tests/fixtures/e2e-chunks/README.md` - Fixture recording guide and pattern details
+- `tests/fixtures/README.md` - Fixture recording guide and pattern details
 - `lib/chunk-player-transport.ts` - Transport implementation
 - `e2e/chunk-player-ui-verification.spec.ts` - Test implementation
 - `CLAUDE.md` - Project-wide development guidelines
@@ -510,7 +617,7 @@ This document describes the E2E testing strategy for the backend server using th
 │     → chunk_logs/pattern1-backend/backend-sse-event.jsonl       │
 │                                                                   │
 │  5. Save to Fixture Directory                                   │
-│     → tests/fixtures/e2e-chunks/pattern*/backend-chunks.jsonl   │
+│     → tests/fixtures/pattern*-backend.jsonl                    │
 └─────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────┐
@@ -617,7 +724,7 @@ Legend / 凡例:
 
 ### Fixture Files
 
-- **tests/fixtures/e2e-chunks/pattern*/backend-chunks.jsonl**
+- **tests/fixtures/pattern*-backend.jsonl**
     - Pre-recorded backend chunks
     - Combined from all backend locations
     - Used by E2E tests
@@ -672,7 +779,7 @@ Legend / 凡例:
 
 3. **Execute Test Scenario**
 
-   Follow the recording steps in `tests/fixtures/e2e-chunks/README.md` for the pattern:
+   Follow the recording steps in `tests/fixtures/README.md` for the pattern:
    - Pattern 2: ADK SSE only
    - Pattern 3: ADK BIDI only
    - Pattern 4: Mode switching
@@ -695,25 +802,25 @@ Legend / 凡例:
    # Pattern 2 example
    cat chunk_logs/pattern2-backend/backend-adk-event.jsonl \
        chunk_logs/pattern2-backend/backend-sse-event.jsonl \
-       > tests/fixtures/e2e-chunks/pattern2-adk-sse-only/backend-chunks.jsonl
+       > tests/fixtures/pattern2-backend.jsonl
    ```
 
    **Alternative**: Use just one location if that's sufficient for testing:
 
    ```bash
    cp chunk_logs/pattern2-backend/backend-adk-event.jsonl \
-      tests/fixtures/e2e-chunks/pattern2-adk-sse-only/backend-chunks.jsonl
+      tests/fixtures/pattern2-backend.jsonl
    ```
 
 6. **Verify Fixture**
 
    ```bash
    # Check file exists and has content
-   wc -l tests/fixtures/e2e-chunks/pattern2-adk-sse-only/backend-chunks.jsonl
-   ls -lh tests/fixtures/e2e-chunks/pattern2-adk-sse-only/backend-chunks.jsonl
+   wc -l tests/fixtures/pattern2-backend.jsonl
+   ls -lh tests/fixtures/pattern2-backend.jsonl
 
    # Verify JSONL format
-   head -n 3 tests/fixtures/e2e-chunks/pattern2-adk-sse-only/backend-chunks.jsonl | jq
+   head -n 3 tests/fixtures/pattern2-backend.jsonl | jq
    ```
 
 7. **Clean Up**
@@ -825,17 +932,17 @@ async def websocket_endpoint(websocket: WebSocket):
 ├── server.py                          # To be modified for E2E
 ├── tests/
 │   ├── e2e/
-│   │   └── test_server_chunk_player.py  # To be created
+│   │   └── test_server_chunk_player.py
 │   └── fixtures/
-│       └── e2e-chunks/
-│           ├── pattern1-gemini-only/
-│           │   └── backend-chunks.jsonl    # Empty (no backend for Gemini Direct)
-│           ├── pattern2-adk-sse-only/
-│           │   └── backend-chunks.jsonl    # To be recorded
-│           ├── pattern3-adk-bidi-only/
-│           │   └── backend-chunks.jsonl    # To be recorded
-│           └── pattern4-mode-switching/
-│               └── backend-chunks.jsonl    # To be recorded
+│       ├── pattern1-frontend.jsonl
+│       ├── pattern1-backend.jsonl
+│       ├── pattern2-frontend.jsonl
+│       ├── pattern2-backend.jsonl
+│       ├── pattern3-frontend.jsonl
+│       ├── pattern3-backend.jsonl
+│       ├── pattern4-frontend.jsonl
+│       ├── pattern4-backend.jsonl
+│       └── README.md
 └── E2E_SERVER_GUIDE.md                # This file
 ```
 
@@ -898,7 +1005,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
    ```bash
    export E2E_CHUNK_PLAYER_MODE=true
-   export E2E_CHUNK_PLAYER_FIXTURE=tests/fixtures/e2e-chunks/pattern2-adk-sse-only/backend-chunks.jsonl
+   export E2E_CHUNK_PLAYER_FIXTURE=tests/fixtures/pattern2-backend.jsonl
    ```
 
 2. Check that integration code is implemented (see "Integration Points" section)
@@ -927,7 +1034,7 @@ async def websocket_endpoint(websocket: WebSocket):
        import os
        os.environ["E2E_CHUNK_PLAYER_MODE"] = "true"
        os.environ["E2E_CHUNK_PLAYER_FIXTURE"] = \
-           "tests/fixtures/e2e-chunks/pattern2-adk-sse-only/backend-chunks.jsonl"
+           "tests/fixtures/pattern2-backend.jsonl"
 
        # Act: Call backend endpoint
        # (requires integration in stream_protocol.py)
@@ -954,7 +1061,7 @@ When backend behavior changes:
 1. Delete old fixture:
 
    ```bash
-   rm tests/fixtures/e2e-chunks/pattern2-adk-sse-only/backend-chunks.jsonl
+   rm tests/fixtures/pattern2-backend.jsonl
    ```
 
 2. Re-record using recording steps
@@ -1012,7 +1119,7 @@ markers =
 ## Related Documentation
 
 - `E2E_FRONTEND_GUIDE.md` - Frontend E2E testing guide
-- `tests/fixtures/e2e-chunks/README.md` - Fixture recording guide
+- `tests/fixtures/README.md` - Fixture recording guide
 - `chunk_player.py` - Python chunk player implementation
 - `chunk_logger.py` - Python chunk logger implementation
 - `agents/recorder_handsoff.md` - Manual recording handoff

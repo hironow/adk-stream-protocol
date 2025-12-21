@@ -235,7 +235,7 @@ Comprehensive documentation is available in the `docs/` directory:
 ### Additional Resources
 
 - **[Experiments](experiments/README.md)** - Research notes, protocol investigations, multimodal support experiments
-- **[E2E Fixtures](tests/fixtures/e2e-chunks/README.md)** - E2E test chunks and recording guide
+- **[E2E Fixtures](tests/fixtures/README.md)** - E2E test chunks and recording guide
 
 ## Experiments & Research
 

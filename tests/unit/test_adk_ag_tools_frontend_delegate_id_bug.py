@@ -23,6 +23,7 @@ from google.adk.tools import ToolContext
 
 from adk_stream_protocol import change_bgm, get_location
 from adk_stream_protocol.result import Ok
+from tests.utils.mocks import create_mock_session, create_mock_tool_context
 
 
 @pytest.mark.asyncio
@@ -35,7 +36,7 @@ async def test_change_bgm_uses_wrong_id_when_calling_execute_on_frontend() -> No
     Then: execute_on_frontend() is called WITHOUT tool_call_id parameter (FIXED!)
     """
     # given - mock ToolContext with specific IDs
-    mock_session = Mock(spec=Session)
+    mock_session = create_mock_session()
     mock_session.state = {}
 
     # Create mock delegate that will track what ID it receives
@@ -48,9 +49,10 @@ async def test_change_bgm_uses_wrong_id_when_calling_execute_on_frontend() -> No
     # Create ToolContext with DIFFERENT invocation_id and function_call.id
     invocation_id = "e-3166e920-26d8-4452-9a7e-eb2851d2447f"  # ADK event ID
 
-    mock_tool_context = Mock(spec=ToolContext)
-    mock_tool_context.invocation_id = invocation_id
-    mock_tool_context.session = mock_session
+    mock_tool_context = create_mock_tool_context(
+        invocation_id=invocation_id,
+        session=mock_session,
+    )
 
     # when - call change_bgm()
     await change_bgm(track=1, tool_context=mock_tool_context)
@@ -82,7 +84,7 @@ async def test_get_location_uses_wrong_id_when_calling_execute_on_frontend() -> 
     This test verifies that ALL frontend delegate tools use the same fixed pattern.
     """
     # given
-    mock_session = Mock(spec=Session)
+    mock_session = create_mock_session()
     mock_session.state = {}
 
     mock_delegate = Mock()
@@ -93,9 +95,10 @@ async def test_get_location_uses_wrong_id_when_calling_execute_on_frontend() -> 
 
     invocation_id = "e-abc123-def456"
 
-    mock_tool_context = Mock(spec=ToolContext)
-    mock_tool_context.invocation_id = invocation_id
-    mock_tool_context.session = mock_session
+    mock_tool_context = create_mock_tool_context(
+        invocation_id=invocation_id,
+        session=mock_session,
+    )
 
     # when
     await get_location(tool_context=mock_tool_context)
@@ -130,7 +133,7 @@ async def test_frontend_delegate_tools_should_use_id_mapper() -> None:
     This test documents the expected behavior after fix.
     """
     # given
-    mock_session = Mock(spec=Session)
+    mock_session = create_mock_session()
     mock_session.state = {}
 
     function_call_id = "function-call-931550426395150784"
@@ -146,9 +149,10 @@ async def test_frontend_delegate_tools_should_use_id_mapper() -> None:
 
     invocation_id = "e-3166e920-26d8-4452-9a7e-eb2851d2447f"
 
-    mock_tool_context = Mock(spec=ToolContext)
-    mock_tool_context.invocation_id = invocation_id
-    mock_tool_context.session = mock_session
+    mock_tool_context = create_mock_tool_context(
+        invocation_id=invocation_id,
+        session=mock_session,
+    )
 
     # when
     await change_bgm(track=1, tool_context=mock_tool_context)

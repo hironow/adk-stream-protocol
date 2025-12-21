@@ -23,6 +23,7 @@ from adk_stream_protocol import (
     stream_adk_to_ai_sdk,
 )
 from tests.utils import parse_sse_event
+from tests.utils.mocks import create_custom_event
 
 
 async def convert_and_collect(converter: StreamProtocolConverter, event: Event) -> list[str]:
@@ -625,8 +626,7 @@ class TestMessageControlConversion:
         converter = StreamProtocolConverter()
 
         # Create simple event
-        mock_event = Mock(spec=Event)
-        mock_event.content = None
+        mock_event = create_custom_event(content=None)
 
         # Convert event
         events = asyncio.run(convert_and_collect(converter, mock_event))
@@ -743,12 +743,10 @@ class TestMessageControlConversion:
         converter = StreamProtocolConverter()
 
         # given: Mock ADK Event with error_code (and optional error_message)
-        mock_event = Mock(spec=Event)
-        mock_event.error_code = error_code
-        if error_message is not None:
-            mock_event.error_message = error_message
-        # Note: If error_message is None, attribute doesn't exist
-        # (getattr will return None, triggering "Unknown error" default)
+        mock_event = create_custom_event(
+            error_code=error_code,
+            error_message=error_message if error_message is not None else None,
+        )
 
         # when: Convert event
         events = asyncio.run(convert_and_collect(converter, mock_event))
@@ -816,26 +814,29 @@ class TestMessageControlConversion:
         converter = StreamProtocolConverter()
 
         # given: Mock ADK Event with turn_complete
-        mock_event = Mock(spec=Event)
-        mock_event.error_code = None
-        mock_event.content = types.Content(role="model", parts=[types.Part(text="Response")])
-
+        kwargs: dict[str, Any] = {
+            "error_code": None,
+            "content": types.Content(role="model", parts=[types.Part(text="Response")]),
+        }
+        
         if turn_complete is not None:
-            mock_event.turn_complete = turn_complete
+            kwargs["turn_complete"] = turn_complete
 
         if has_usage:
             usage = Mock()
             usage.prompt_token_count = 10
             usage.candidates_token_count = 20
             usage.total_token_count = 30
-            mock_event.usage_metadata = usage
+            kwargs["usage_metadata"] = usage
         else:
-            mock_event.usage_metadata = None
+            kwargs["usage_metadata"] = None
 
         if has_finish_reason:
-            mock_event.finish_reason = types.FinishReason.STOP
+            kwargs["finish_reason"] = types.FinishReason.STOP
         else:
-            mock_event.finish_reason = None
+            kwargs["finish_reason"] = None
+
+        mock_event = create_custom_event(**kwargs)  # type: ignore[arg-type]
 
         # when: Convert event
         events = asyncio.run(convert_and_collect(converter, mock_event))
@@ -1060,10 +1061,11 @@ class TestToolErrorHandling:
         function_call = types.FunctionCall(
             name="calculate", args={"expression": "invalid / syntax"}
         )
-        function_call_event = Mock(spec=Event)
-        function_call_event.error_code = None
-        function_call_event.content = types.Content(
-            role="model", parts=[types.Part(function_call=function_call)]
+        function_call_event = create_custom_event(
+            error_code=None,
+            content=types.Content(
+                role="model", parts=[types.Part(function_call=function_call)]
+            ),
         )
 
         # Process function call to register tool_call_id
@@ -1078,10 +1080,11 @@ class TestToolErrorHandling:
                 "success": False,
             },
         )
-        mock_event = Mock(spec=Event)
-        mock_event.error_code = None
-        mock_event.content = types.Content(
-            role="function", parts=[types.Part(function_response=function_response)]
+        mock_event = create_custom_event(
+            error_code=None,
+            content=types.Content(
+                role="function", parts=[types.Part(function_response=function_response)]
+            ),
         )
 
         # when: Convert event
@@ -1107,10 +1110,11 @@ class TestToolErrorHandling:
 
         # Register tool_call_id
         function_call = types.FunctionCall(name="get_weather", args={"city": "InvalidCity123"})
-        function_call_event = Mock(spec=Event)
-        function_call_event.error_code = None
-        function_call_event.content = types.Content(
-            role="model", parts=[types.Part(function_call=function_call)]
+        function_call_event = create_custom_event(
+            error_code=None,
+            content=types.Content(
+                role="model", parts=[types.Part(function_call=function_call)]
+            ),
         )
 
         asyncio.run(convert_and_collect(converter, function_call_event))
@@ -1120,10 +1124,11 @@ class TestToolErrorHandling:
             name="get_weather",
             response={"error": "City not found: InvalidCity123"},
         )
-        mock_event = Mock(spec=Event)
-        mock_event.error_code = None
-        mock_event.content = types.Content(
-            role="function", parts=[types.Part(function_response=function_response)]
+        mock_event = create_custom_event(
+            error_code=None,
+            content=types.Content(
+                role="function", parts=[types.Part(function_response=function_response)]
+            ),
         )
 
         # when: Convert event
@@ -1149,10 +1154,11 @@ class TestToolErrorHandling:
 
         # Register tool_call_id
         function_call = types.FunctionCall(name="calculate", args={"expression": "2 + 2"})
-        function_call_event = Mock(spec=Event)
-        function_call_event.error_code = None
-        function_call_event.content = types.Content(
-            role="model", parts=[types.Part(function_call=function_call)]
+        function_call_event = create_custom_event(
+            error_code=None,
+            content=types.Content(
+                role="model", parts=[types.Part(function_call=function_call)]
+            ),
         )
 
         asyncio.run(convert_and_collect(converter, function_call_event))
@@ -1162,10 +1168,11 @@ class TestToolErrorHandling:
             name="calculate",
             response={"expression": "2 + 2", "result": 4, "success": True},
         )
-        mock_event = Mock(spec=Event)
-        mock_event.error_code = None
-        mock_event.content = types.Content(
-            role="function", parts=[types.Part(function_response=function_response)]
+        mock_event = create_custom_event(
+            error_code=None,
+            content=types.Content(
+                role="function", parts=[types.Part(function_response=function_response)]
+            ),
         )
 
         # when: Convert event
@@ -1201,10 +1208,11 @@ class TestMetadataInFinishEvent:
         mock_grounding.grounding_chunks = [mock_chunk]
 
         # Create mock event with grounding metadata
-        mock_event = Mock(spec=Event)
-        mock_event.error_code = None
-        mock_event.grounding_metadata = mock_grounding
-        mock_event.content = types.Content(role="model", parts=[types.Part(text="Response")])
+        mock_event = create_custom_event(
+            error_code=None,
+            grounding_metadata=mock_grounding,
+            content=types.Content(role="model", parts=[types.Part(text="Response")]),
+        )
 
         # when: Stream events through converter
         events = []
@@ -1258,10 +1266,11 @@ class TestMetadataInFinishEvent:
         mock_citation.citation_sources = [mock_source]
 
         # Create mock event with citation metadata
-        mock_event = Mock(spec=Event)
-        mock_event.error_code = None
-        mock_event.citation_metadata = mock_citation
-        mock_event.content = types.Content(role="model", parts=[types.Part(text="Response")])
+        mock_event = create_custom_event(
+            error_code=None,
+            citation_metadata=mock_citation,
+            content=types.Content(role="model", parts=[types.Part(text="Response")]),
+        )
 
         # when: Stream events through converter
         events = []
@@ -1310,10 +1319,11 @@ class TestMetadataInFinishEvent:
         mock_cache.cache_misses = 2
 
         # Create mock event with cache metadata
-        mock_event = Mock(spec=Event)
-        mock_event.error_code = None
-        mock_event.cache_metadata = mock_cache
-        mock_event.content = types.Content(role="model", parts=[types.Part(text="Response")])
+        mock_event = create_custom_event(
+            error_code=None,
+            cache_metadata=mock_cache,
+            content=types.Content(role="model", parts=[types.Part(text="Response")]),
+        )
 
         # when: Stream events through converter
         events = []
@@ -1352,10 +1362,11 @@ class TestMetadataInFinishEvent:
         """
 
         # given: Mock event with model version
-        mock_event = Mock(spec=Event)
-        mock_event.error_code = None
-        mock_event.model_version = "gemini-2.0-flash-001"
-        mock_event.content = types.Content(role="model", parts=[types.Part(text="Response")])
+        mock_event = create_custom_event(
+            error_code=None,
+            model_version="gemini-2.0-flash-001",
+            content=types.Content(role="model", parts=[types.Part(text="Response")]),
+        )
 
         # when: Stream events through converter
         events = []

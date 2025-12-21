@@ -21,13 +21,12 @@ AI SDK v6 Protocol mapping:
 """
 
 from typing import Any
-from unittest.mock import Mock
 
 import pytest
-from google.adk.events import Event
 
 from adk_stream_protocol import StreamProtocolConverter
 from tests.utils import MockTranscription, parse_sse_event
+from tests.utils.mocks import create_custom_event
 
 
 class TestOutputTranscriptionRealResponse:
@@ -93,15 +92,14 @@ class TestOutputTranscriptionRealResponse:
         """
         # given: Real ADK Event with output_transcription
         converter = StreamProtocolConverter()
-        mock_event = Mock(spec=Event)
-        mock_event.content = None
-        mock_event.turn_complete = None
-        mock_event.usage_metadata = None
-        mock_event.finish_reason = None
-
-        # Create transcription object matching real ADK structure
-        mock_event.output_transcription = MockTranscription(
-            text=transcription_text, finished=transcription_finished
+        mock_event = create_custom_event(
+            content=None,
+            turn_complete=None,
+            usage_metadata=None,
+            finish_reason=None,
+            output_transcription=MockTranscription(
+                text=transcription_text, finished=transcription_finished
+            ),
         )
 
         # when: Convert event to AI SDK v6 format
@@ -157,12 +155,13 @@ class TestOutputTranscriptionRealResponse:
 
         # when: Process each chunk
         for text, finished in chunks:
-            mock_event = Mock(spec=Event)
-            mock_event.content = None
-            mock_event.turn_complete = None
-            mock_event.usage_metadata = None
-            mock_event.finish_reason = None
-            mock_event.output_transcription = MockTranscription(text=text, finished=finished)
+            mock_event = create_custom_event(
+                content=None,
+                turn_complete=None,
+                usage_metadata=None,
+                finish_reason=None,
+                output_transcription=MockTranscription(text=text, finished=finished),
+            )
 
             async for event in converter._convert_event(mock_event):
                 all_events.append(event)
@@ -222,21 +221,23 @@ class TestOutputTranscriptionRealResponse:
         # given: Multiple events with DIFFERENT mock event.id values
         converter = StreamProtocolConverter()
 
-        mock_event1 = Mock(spec=Event)
-        mock_event1.id = "event-alpha"  # Different ID
-        mock_event1.content = None
-        mock_event1.turn_complete = None
-        mock_event1.usage_metadata = None
-        mock_event1.finish_reason = None
-        mock_event1.output_transcription = MockTranscription("First part", finished=False)
+        mock_event1 = create_custom_event(
+            content=None,
+            turn_complete=None,
+            usage_metadata=None,
+            finish_reason=None,
+            output_transcription=MockTranscription("First part", finished=False),
+            id="event-alpha",  # Different ID
+        )
 
-        mock_event2 = Mock(spec=Event)
-        mock_event2.id = "event-beta"  # Different ID
-        mock_event2.content = None
-        mock_event2.turn_complete = None
-        mock_event2.usage_metadata = None
-        mock_event2.finish_reason = None
-        mock_event2.output_transcription = MockTranscription("Second part", finished=True)
+        mock_event2 = create_custom_event(
+            content=None,
+            turn_complete=None,
+            usage_metadata=None,
+            finish_reason=None,
+            output_transcription=MockTranscription("Second part", finished=True),
+            id="event-beta",  # Different ID
+        )
 
         # when: Convert events with DIFFERENT event.id values
         all_events = []
@@ -272,12 +273,13 @@ class TestOutputTranscriptionRealResponse:
         """
         # given: Event without output_transcription
         converter = StreamProtocolConverter()
-        mock_event = Mock(spec=Event)
-        mock_event.content = None
-        mock_event.turn_complete = None
-        mock_event.usage_metadata = None
-        mock_event.finish_reason = None
-        # No output_transcription attribute
+        mock_event = create_custom_event(
+            content=None,
+            turn_complete=None,
+            usage_metadata=None,
+            finish_reason=None,
+            # No output_transcription attribute
+        )
 
         # when: Convert event
         sse_events = []

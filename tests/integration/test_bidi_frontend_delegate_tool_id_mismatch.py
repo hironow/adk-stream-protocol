@@ -21,7 +21,7 @@ from google.adk.agents import LiveRequestQueue
 from google.adk.events import Event
 from google.adk.sessions import Session
 from google.genai import types
-
+from tests.utils.mocks import create_mock_live_request_queue, create_mock_session
 from adk_stream_protocol import BidiEventSender, FrontendToolDelegate
 
 
@@ -42,8 +42,8 @@ async def test_bidi_frontend_delegate_tool_should_use_consistent_id() -> None:
     # given
     mock_websocket = Mock()
     mock_websocket.send_text = AsyncMock()
-    mock_session = Mock(spec=Session)
-    mock_live_request_queue = Mock(spec=LiveRequestQueue)
+    mock_session = create_mock_session()
+    mock_live_request_queue = create_mock_live_request_queue()
 
     frontend_delegate = FrontendToolDelegate()
     confirmation_tools: list[str] = []  # change_bgm does NOT require confirmation
@@ -131,8 +131,8 @@ async def test_bidi_frontend_delegate_multiple_tools_id_consistency() -> None:
         sent_events.append(event)
 
     mock_websocket.send_text = AsyncMock(side_effect=capture_send_text)
-    mock_session = Mock(spec=Session)
-    mock_live_request_queue = Mock(spec=LiveRequestQueue)
+    mock_session = create_mock_session()
+    mock_live_request_queue = create_mock_live_request_queue()
 
     frontend_delegate = FrontendToolDelegate()
 
@@ -241,8 +241,8 @@ async def test_bidi_vs_sse_frontend_delegate_tool_id_behavior() -> None:
         sent_events.append(event)
 
     mock_websocket.send_text = AsyncMock(side_effect=capture_send_text)
-    mock_session = Mock(spec=Session)
-    mock_live_request_queue = Mock(spec=LiveRequestQueue)
+    mock_session = create_mock_session()
+    mock_live_request_queue = create_mock_live_request_queue()
 
     frontend_delegate = FrontendToolDelegate()
 

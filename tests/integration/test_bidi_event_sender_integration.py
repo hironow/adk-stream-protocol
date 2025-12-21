@@ -18,6 +18,11 @@ from google.adk.agents import LiveRequestQueue
 from google.adk.sessions import Session
 
 from adk_stream_protocol import ADKVercelIDMapper, BidiEventSender, FrontendToolDelegate
+from tests.utils.mocks import (
+    create_mock_live_request_queue,
+    create_mock_session,
+    create_mock_websocket,
+)
 
 
 # ============================================================
@@ -33,10 +38,9 @@ async def test_level2_real_frontend_delegate_id_mapping() -> None:
     Tests that tool-input-available events properly register function_call.id.
     """
     # given
-    mock_websocket = Mock()
-    mock_websocket.send_text = AsyncMock()
-    mock_session = Mock(spec=Session)
-    mock_live_request_queue = Mock(spec=LiveRequestQueue)
+    mock_websocket = create_mock_websocket()
+    mock_session = create_mock_session()
+    mock_live_request_queue = create_mock_live_request_queue()
 
     # Real FrontendToolDelegate with real ADKVercelIDMapper
     id_mapper = ADKVercelIDMapper()
@@ -68,10 +72,9 @@ async def test_level2_real_frontend_delegate_multiple_tools() -> None:
     Level 2: Test ID mapping for multiple tools through real FrontendToolDelegate.
     """
     # given
-    mock_websocket = Mock()
-    mock_websocket.send_text = AsyncMock()
-    mock_session = Mock(spec=Session)
-    mock_live_request_queue = Mock(spec=LiveRequestQueue)
+    mock_websocket = create_mock_websocket()
+    mock_session = create_mock_session()
+    mock_live_request_queue = create_mock_live_request_queue()
 
     # Real components
     id_mapper = ADKVercelIDMapper()
@@ -114,11 +117,11 @@ async def test_level3_websocket_disconnect_during_send() -> None:
     Level 3: Test WebSocket disconnect handling during event sending.
     """
     # given
-    mock_websocket = Mock()
+    mock_websocket = create_mock_websocket()
     # First call succeeds, second raises disconnect
     mock_websocket.send_text = AsyncMock(side_effect=[None, WebSocketDisconnect(), None])
-    mock_session = Mock(spec=Session)
-    mock_live_request_queue = Mock(spec=LiveRequestQueue)
+    mock_session = create_mock_session()
+    mock_live_request_queue = create_mock_live_request_queue()
 
     frontend_delegate = FrontendToolDelegate()
 
@@ -169,8 +172,8 @@ async def test_level4_complete_event_stream_with_confirmation_tools() -> None:
     # given
     mock_websocket = Mock()
     mock_websocket.send_text = AsyncMock()
-    mock_session = Mock(spec=Session)
-    mock_live_request_queue = Mock(spec=LiveRequestQueue)
+    mock_session = create_mock_session()
+    mock_live_request_queue = create_mock_live_request_queue()
 
     # Real components
     id_mapper = ADKVercelIDMapper()
@@ -221,8 +224,8 @@ async def test_level4_mixed_event_types() -> None:
     # given
     mock_websocket = Mock()
     mock_websocket.send_text = AsyncMock()
-    mock_session = Mock(spec=Session)
-    mock_live_request_queue = Mock(spec=LiveRequestQueue)
+    mock_session = create_mock_session()
+    mock_live_request_queue = create_mock_live_request_queue()
 
     frontend_delegate = FrontendToolDelegate()
 
@@ -278,8 +281,8 @@ async def test_level2_skips_id_mapping_with_none_frontend_delegate() -> None:
     # given
     mock_websocket = Mock()
     mock_websocket.send_text = AsyncMock()
-    mock_session = Mock(spec=Session)
-    mock_live_request_queue = Mock(spec=LiveRequestQueue)
+    mock_session = create_mock_session()
+    mock_live_request_queue = create_mock_live_request_queue()
 
     sender = BidiEventSender(
         websocket=mock_websocket,

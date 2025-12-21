@@ -23,6 +23,8 @@ from google.adk.runners import Runner
 from google.adk.sessions import Session
 from google.genai import types
 
+from tests.utils.mocks import create_mock_session
+
 from adk_stream_protocol import FrontendToolDelegate, SseEventStreamer
 
 
@@ -44,8 +46,8 @@ async def test_sse_confirmation_should_send_tool_input_events_for_original_tool(
     Without step 1-2, frontend cannot track the tool invocation.
     """
     # given
-    mock_session = Mock(spec=Session)
-    mock_runner = Mock(spec=Runner)
+    mock_session = create_mock_session()
+    mock_runner = create_mock_runner()
 
     frontend_delegate = FrontendToolDelegate()
     confirmation_tools = ["process_payment"]
@@ -112,8 +114,8 @@ async def test_sse_confirmation_event_sequence() -> None:
     Based on E2E scenario-5 logs, SSE mode shows similar issue as BIDI.
     """
     # given
-    mock_session = Mock(spec=Session)
-    mock_runner = Mock(spec=Runner)
+    mock_session = create_mock_session()
+    mock_runner = create_mock_runner()
 
     frontend_delegate = FrontendToolDelegate()
     confirmation_tools = ["process_payment"]

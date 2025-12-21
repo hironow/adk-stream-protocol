@@ -20,6 +20,7 @@ from google.genai import types
 
 from adk_stream_protocol import ADKVercelIDMapper, FrontendToolDelegate, ToolConfirmationInterceptor
 from adk_stream_protocol.result import Ok
+from tests.utils.mocks import create_mock_frontend_delegate
 from tests.utils.result_assertions import assert_error, assert_ok
 
 
@@ -217,8 +218,9 @@ async def test_execute_confirmation_denied() -> None:
 async def test_execute_confirmation_calls_delegate_with_correct_args() -> None:
     """execute_confirmation() should call delegate.execute_on_frontend with correct arguments."""
     # given
-    mock_delegate = Mock(spec=FrontendToolDelegate)
-    mock_delegate.execute_on_frontend = AsyncMock(return_value=Ok({"confirmed": True}))
+    mock_delegate = create_mock_frontend_delegate(
+        execute_result=Ok({"confirmed": True})
+    )
 
     interceptor = ToolConfirmationInterceptor(mock_delegate, ["process_payment"])
 

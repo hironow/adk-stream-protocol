@@ -16,10 +16,10 @@ from typing import Any
 from unittest.mock import Mock, patch
 
 import pytest
-from google.adk.tools.tool_context import ToolContext
 
 from adk_stream_protocol import change_bgm, get_location
 from server import frontend_delegate
+from tests.utils.mocks import create_mock_tool_context
 
 
 # ============================================================
@@ -62,15 +62,17 @@ async def test_global_delegate_shared_across_sessions() -> None:
     frontend_delegate._id_mapper.register("get_location", "session2_call2")
 
     # given: Multiple tool contexts from different sessions
-    mock_tool_context_1 = Mock(spec=ToolContext)
-    mock_tool_context_1.invocation_id = "session1_call1"
-    mock_tool_context_1.session = Mock()
-    mock_tool_context_1.session.state = {"frontend_delegate": frontend_delegate}
+    mock_tool_context_1 = create_mock_tool_context(
+        invocation_id="session1_call1",
+        session_state={"frontend_delegate": frontend_delegate},
+        session_id="session-1",
+    )
 
-    mock_tool_context_2 = Mock(spec=ToolContext)
-    mock_tool_context_2.invocation_id = "session2_call2"
-    mock_tool_context_2.session = Mock()
-    mock_tool_context_2.session.state = {"frontend_delegate": frontend_delegate}
+    mock_tool_context_2 = create_mock_tool_context(
+        invocation_id="session2_call2",
+        session_state={"frontend_delegate": frontend_delegate},
+        session_id="session-2",
+    )
 
     # when: Start two tool executions from different sessions
     async def execute_tool_1() -> dict[str, Any]:
@@ -118,15 +120,15 @@ async def test_concurrent_tool_execution_with_different_tools() -> None:
     delegate._id_mapper.register("get_location", "concurrent_location")
 
     # Create mock tool contexts
-    mock_context_bgm = Mock(spec=ToolContext)
-    mock_context_bgm.invocation_id = "concurrent_bgm"
-    mock_context_bgm.session = Mock()
-    mock_context_bgm.session.state = {"frontend_delegate": delegate}
+    mock_context_bgm = create_mock_tool_context(
+        invocation_id="concurrent_bgm",
+        session_state={"frontend_delegate": delegate},
+    )
 
-    mock_context_location = Mock(spec=ToolContext)
-    mock_context_location.invocation_id = "concurrent_location"
-    mock_context_location.session = Mock()
-    mock_context_location.session.state = {"frontend_delegate": delegate}
+    mock_context_location = create_mock_tool_context(
+        invocation_id="concurrent_location",
+        session_state={"frontend_delegate": delegate},
+    )
 
     # when: Start both tools concurrently
     async def execute_bgm() -> dict[str, Any]:
@@ -172,10 +174,10 @@ async def test_concurrent_same_tool_multiple_times() -> None:
     args_list = [{"track": 0}, {"track": 1}, {"track": 2}]  # Use unique tracks
     contexts = []
     for i in range(3):
-        mock_context = Mock(spec=ToolContext)
-        mock_context.invocation_id = f"bgm_call_{i}"
-        mock_context.session = Mock()
-        mock_context.session.state = {"frontend_delegate": delegate}
+        mock_context = create_mock_tool_context(
+            invocation_id=f"bgm_call_{i}",
+            session_state={"frontend_delegate": delegate},
+        )
         contexts.append(mock_context)
 
     # Start all 3 tasks
@@ -219,10 +221,10 @@ async def test_tool_timeout_when_future_never_resolved() -> None:
     # Register ID mapping
     delegate._id_mapper.register("change_bgm", "timeout_call")
 
-    mock_context = Mock(spec=ToolContext)
-    mock_context.invocation_id = "timeout_call"
-    mock_context.session = Mock()
-    mock_context.session.state = {"frontend_delegate": delegate}
+    mock_context = create_mock_tool_context(
+        invocation_id="timeout_call",
+        session_state={"frontend_delegate": delegate},
+    )
 
     # Start tool execution
     async def execute_with_timeout() -> dict[str, Any]:
@@ -251,10 +253,10 @@ async def test_tool_rejection_raises_runtime_error() -> None:
     # Register ID mapping
     delegate._id_mapper.register("get_location", "reject_call")
 
-    mock_context = Mock(spec=ToolContext)
-    mock_context.invocation_id = "reject_call"
-    mock_context.session = Mock()
-    mock_context.session.state = {"frontend_delegate": delegate}
+    mock_context = create_mock_tool_context(
+        invocation_id="reject_call",
+        session_state={"frontend_delegate": delegate},
+    )
 
     # Start tool execution
     async def execute_tool() -> dict[str, Any]:
@@ -292,10 +294,10 @@ async def test_spy_execute_on_frontend_called_exactly_once() -> None:
         wraps=delegate.execute_on_frontend,
     ) as spy:
         # Set up mock context
-        mock_context = Mock(spec=ToolContext)
-        mock_context.invocation_id = "spy_test_call"
-        mock_context.session = Mock()
-        mock_context.session.state = {"frontend_delegate": delegate}
+        mock_context = create_mock_tool_context(
+            invocation_id="spy_test_call",
+            session_state={"frontend_delegate": delegate},
+        )
 
         # Set up resolution
         async def resolve_after_delay() -> None:
@@ -331,10 +333,10 @@ async def test_spy_resolve_tool_result_called_exactly_once() -> None:
         "resolve_tool_result",
         wraps=delegate.resolve_tool_result,
     ) as spy:
-        mock_context = Mock(spec=ToolContext)
-        mock_context.invocation_id = "resolve_spy_call"
-        mock_context.session = Mock()
-        mock_context.session.state = {"frontend_delegate": delegate}
+        mock_context = create_mock_tool_context(
+            invocation_id="resolve_spy_call",
+            session_state={"frontend_delegate": delegate},
+        )
 
         # Start tool execution
         async def execute_tool() -> dict[str, Any]:
@@ -398,10 +400,10 @@ async def test_dead_code_backend_never_sends_tool_result_events() -> None:
     delegate._reject_tool_call = tracked_reject  # type: ignore
 
     try:
-        mock_context = Mock(spec=ToolContext)
-        mock_context.invocation_id = "backend_test"
-        mock_context.session = Mock()
-        mock_context.session.state = {"frontend_delegate": delegate}
+        mock_context = create_mock_tool_context(
+            invocation_id="backend_test",
+            session_state={"frontend_delegate": delegate},
+        )
 
         async def execute_tool() -> dict[str, Any]:
             return await change_bgm(track=1, tool_context=mock_context)
@@ -451,10 +453,10 @@ async def test_dead_code_websocket_tool_result_handler_not_triggered() -> None:
     delegate.resolve_tool_result = tracked_resolve  # type: ignore
 
     try:
-        mock_context = Mock(spec=ToolContext)
-        mock_context.invocation_id = "path_test"
-        mock_context.session = Mock()
-        mock_context.session.state = {"frontend_delegate": delegate}
+        mock_context = create_mock_tool_context(
+            invocation_id="path_test",
+            session_state={"frontend_delegate": delegate},
+        )
 
         async def execute_tool() -> dict[str, Any]:
             return await change_bgm(track=1, tool_context=mock_context)
@@ -488,10 +490,10 @@ async def test_await_blocks_until_future_resolved() -> None:
     # Register ID mapping
     delegate._id_mapper.register("change_bgm", "await_test")
 
-    mock_context = Mock(spec=ToolContext)
-    mock_context.invocation_id = "await_test"
-    mock_context.session = Mock()
-    mock_context.session.state = {"frontend_delegate": delegate}
+    mock_context = create_mock_tool_context(
+        invocation_id="await_test",
+        session_state={"frontend_delegate": delegate},
+    )
 
     # Track execution order
     execution_order = []
@@ -530,10 +532,10 @@ async def test_multiple_awaits_resolve_independently() -> None:
     # Create 3 concurrent tool calls
     contexts = []
     for i in range(3):
-        mock_context = Mock(spec=ToolContext)
-        mock_context.invocation_id = f"independent_await_{i}"
-        mock_context.session = Mock()
-        mock_context.session.state = {"frontend_delegate": delegate}
+        mock_context = create_mock_tool_context(
+            invocation_id=f"independent_await_{i}",
+            session_state={"frontend_delegate": delegate},
+        )
         contexts.append(mock_context)
 
     # Track completion order
@@ -593,10 +595,10 @@ async def test_stress_10_concurrent_tool_calls_random_resolution() -> None:
     num_calls = 10
     contexts = []
     for i in range(num_calls):
-        mock_context = Mock(spec=ToolContext)
-        mock_context.invocation_id = f"stress_call_{i}"
-        mock_context.session = Mock()
-        mock_context.session.state = {"frontend_delegate": delegate}
+        mock_context = create_mock_tool_context(
+            invocation_id=f"stress_call_{i}",
+            session_state={"frontend_delegate": delegate},
+        )
         contexts.append(mock_context)
 
     # Track completion order
@@ -656,10 +658,10 @@ async def test_stress_rapid_sequential_calls() -> None:
     results = []
 
     for i in range(num_calls):
-        mock_context = Mock(spec=ToolContext)
-        mock_context.invocation_id = f"rapid_call_{i}"
-        mock_context.session = Mock()
-        mock_context.session.state = {"frontend_delegate": delegate}
+        mock_context = create_mock_tool_context(
+            invocation_id=f"rapid_call_{i}",
+            session_state={"frontend_delegate": delegate},
+        )
 
         # Start tool call
         async def execute_tool(ctx: Mock, index: int) -> dict[str, Any]:
@@ -705,10 +707,10 @@ async def test_stress_mixed_success_and_failure() -> None:
     num_calls = 6
     contexts = []
     for i in range(num_calls):
-        mock_context = Mock(spec=ToolContext)
-        mock_context.invocation_id = f"mixed_call_{i}"
-        mock_context.session = Mock()
-        mock_context.session.state = {"frontend_delegate": delegate}
+        mock_context = create_mock_tool_context(
+            invocation_id=f"mixed_call_{i}",
+            session_state={"frontend_delegate": delegate},
+        )
         contexts.append(mock_context)
 
     async def execute_tool(ctx: Mock, index: int) -> dict[str, Any]:
@@ -771,10 +773,10 @@ async def test_stress_partial_timeout_with_some_success() -> None:
     # Create 4 concurrent calls
     contexts = []
     for i in range(4):
-        mock_context = Mock(spec=ToolContext)
-        mock_context.invocation_id = f"partial_timeout_{i}"
-        mock_context.session = Mock()
-        mock_context.session.state = {"frontend_delegate": delegate}
+        mock_context = create_mock_tool_context(
+            invocation_id=f"partial_timeout_{i}",
+            session_state={"frontend_delegate": delegate},
+        )
         contexts.append(mock_context)
 
     async def execute_with_timeout(ctx: Mock, index: int) -> dict[str, Any]:
@@ -824,10 +826,10 @@ async def test_stress_interleaved_calls_and_resolutions() -> None:
 
     # Helper to create and execute a tool call
     async def create_and_execute(index: int) -> None:
-        mock_context = Mock(spec=ToolContext)
-        mock_context.invocation_id = f"interleaved_{index}"
-        mock_context.session = Mock()
-        mock_context.session.state = {"frontend_delegate": delegate}
+        mock_context = create_mock_tool_context(
+            invocation_id=f"interleaved_{index}",
+            session_state={"frontend_delegate": delegate},
+        )
 
         result = await change_bgm(track=index % 3, tool_context=mock_context)
         completed_results.append((index, result))

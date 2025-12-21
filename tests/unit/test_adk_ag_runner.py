@@ -14,6 +14,7 @@ from google.adk.tools.function_tool import FunctionTool
 from google.adk.tools.long_running_tool import LongRunningFunctionTool
 
 from adk_stream_protocol import adk_ag_runner, get_tools_requiring_confirmation
+from tests.utils.mocks import create_mock_agent
 
 
 # ============================================================
@@ -127,7 +128,7 @@ def test_common_tools_includes_expected_tools() -> None:
 def test_get_tools_requiring_confirmation_with_empty_agent() -> None:
     """Should return empty list when agent has no tools."""
     # given
-    mock_agent = Mock(spec=Agent)
+    mock_agent = create_mock_agent()
     mock_agent.tools = []
 
     # when
@@ -144,7 +145,7 @@ def test_get_tools_requiring_confirmation_with_no_confirmation_tools() -> None:
     mock_tool.func = lambda: None
     mock_tool.func.__name__ = "normal_tool"
 
-    mock_agent = Mock(spec=Agent)
+    mock_agent = create_mock_agent()
     mock_agent.tools = [mock_tool]
 
     # when
@@ -163,7 +164,7 @@ def test_get_tools_requiring_confirmation_with_function_tool_requiring_confirmat
 
     function_tool = FunctionTool(my_payment_tool, require_confirmation=True)
 
-    mock_agent = Mock(spec=Agent)
+    mock_agent = create_mock_agent()
     mock_agent.tools = [function_tool]
 
     # when
@@ -193,7 +194,7 @@ def test_get_tools_requiring_confirmation_with_multiple_confirmation_tools() -> 
         FunctionTool(location_tool, require_confirmation=True),
     ]
 
-    mock_agent = Mock(spec=Agent)
+    mock_agent = create_mock_agent()
     mock_agent.tools = tools
 
     # when
@@ -225,7 +226,7 @@ def test_get_tools_requiring_confirmation_mixed_tool_types() -> None:
         plain_tool,  # Plain function, no confirmation
     ]
 
-    mock_agent = Mock(spec=Agent)
+    mock_agent = create_mock_agent()
     mock_agent.tools = tools
 
     # when
@@ -243,7 +244,7 @@ def test_get_tools_requiring_confirmation_fallback_to_str_if_no_func_name() -> N
     mock_tool._require_confirmation = True
     # Mock tool doesn't have func with __name__, should use str()
 
-    mock_agent = Mock(spec=Agent)
+    mock_agent = create_mock_agent()
     mock_agent.tools = [mock_tool]
 
     # when
@@ -342,7 +343,7 @@ def test_get_tools_requiring_confirmation_with_various_confirmation_flags(
     else:
         tool = test_tool  # Plain function
 
-    mock_agent = Mock(spec=Agent)
+    mock_agent = create_mock_agent()
     mock_agent.tools = [tool]
 
     # when
@@ -355,7 +356,7 @@ def test_get_tools_requiring_confirmation_with_various_confirmation_flags(
 def test_get_tools_requiring_confirmation_with_none_agent_tools() -> None:
     """Should handle agent with None tools attribute gracefully."""
     # given
-    mock_agent = Mock(spec=Agent)
+    mock_agent = create_mock_agent()
     mock_agent.tools = None
 
     # when/then - Should raise an error or handle None

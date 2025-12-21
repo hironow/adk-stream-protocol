@@ -18,6 +18,7 @@ from google.adk.tools.tool_context import ToolContext
 
 from adk_stream_protocol import FrontendToolDelegate, change_bgm, get_location
 from adk_stream_protocol.result import Ok
+from tests.utils.mocks import create_mock_frontend_delegate, create_mock_tool_context
 from tests.utils.result_assertions import assert_error, assert_ok
 
 
@@ -187,14 +188,15 @@ async def test_frontend_delegate_multiple_pending_calls() -> None:
 async def test_change_bgm_uses_delegate_in_bidi_mode() -> None:
     """change_bgm should use delegate when tool_context with delegate is provided."""
     # Create mock delegate
-    mock_delegate = Mock(spec=FrontendToolDelegate)
-    mock_delegate.execute_on_frontend = AsyncMock(return_value=Ok({"success": True, "track": 1}))
+    mock_delegate = create_mock_frontend_delegate(
+        execute_result=Ok({"success": True, "track": 1})
+    )
 
     # Create mock ToolContext with delegate
-    mock_tool_context = Mock(spec=ToolContext)
-    mock_tool_context.invocation_id = "call_789"
-    mock_tool_context.session = Mock()
-    mock_tool_context.session.state = {"frontend_delegate": mock_delegate}
+    mock_tool_context = create_mock_tool_context(
+        invocation_id="call_789",
+        session_state={"frontend_delegate": mock_delegate},
+    )
 
     # Call change_bgm with tool_context
     result = await change_bgm(track=1, tool_context=mock_tool_context)
@@ -225,9 +227,9 @@ async def test_change_bgm_without_delegate_returns_sse_response() -> None:
 async def test_change_bgm_with_tool_context_but_no_delegate() -> None:
     """change_bgm with tool_context but no delegate should return SSE mode response."""
     # Create mock ToolContext without delegate
-    mock_tool_context = Mock(spec=ToolContext)
-    mock_tool_context.session = Mock()
-    mock_tool_context.session.state = {}  # No delegate
+    mock_tool_context = create_mock_tool_context(
+        session_state={},  # No delegate
+    )
 
     # Call change_bgm
     result = await change_bgm(track=1, tool_context=mock_tool_context)
@@ -262,10 +264,10 @@ async def test_change_bgm_delegate_call_count_spy() -> None:
             )
 
         # Create mock ToolContext
-        mock_tool_context = Mock(spec=ToolContext)
-        mock_tool_context.invocation_id = "call_spy_test"
-        mock_tool_context.session = Mock()
-        mock_tool_context.session.state = {"frontend_delegate": delegate}
+        mock_tool_context = create_mock_tool_context(
+            invocation_id="call_spy_test",
+            session_state={"frontend_delegate": delegate},
+        )
 
         # Start resolution task
         resolve_task = asyncio.create_task(resolve_after_delay())
@@ -314,9 +316,8 @@ async def test_change_bgm_no_delegate_call_when_sse_mode() -> None:
 async def test_get_location_uses_delegate_in_bidi_mode() -> None:
     """get_location should use delegate when tool_context with delegate is provided."""
     # Create mock delegate
-    mock_delegate = Mock(spec=FrontendToolDelegate)
-    mock_delegate.execute_on_frontend = AsyncMock(
-        return_value=Ok(
+    mock_delegate = create_mock_frontend_delegate(
+        execute_result=Ok(
             {
                 "success": True,
                 "latitude": 35.6762,
@@ -327,10 +328,10 @@ async def test_get_location_uses_delegate_in_bidi_mode() -> None:
     )
 
     # Create mock ToolContext with delegate
-    mock_tool_context = Mock(spec=ToolContext)
-    mock_tool_context.invocation_id = "call_location_001"
-    mock_tool_context.session = Mock()
-    mock_tool_context.session.state = {"frontend_delegate": mock_delegate}
+    mock_tool_context = create_mock_tool_context(
+        invocation_id="call_location_001",
+        session_state={"frontend_delegate": mock_delegate},
+    )
 
     # Call get_location with tool_context
     result = await get_location(tool_context=mock_tool_context)
@@ -355,10 +356,10 @@ async def test_get_location_uses_delegate_in_bidi_mode() -> None:
 async def test_get_location_with_tool_context_but_no_delegate() -> None:
     """get_location with tool_context but no delegate should return error."""
     # Create mock ToolContext without delegate
-    mock_tool_context = Mock(spec=ToolContext)
-    mock_tool_context.session = Mock()
-    mock_tool_context.session.state = {}  # No delegate
-    mock_tool_context.invocation_id = "test-invocation-id"
+    mock_tool_context = create_mock_tool_context(
+        invocation_id="test-invocation-id",
+        session_state={},  # No delegate
+    )
 
     # Call get_location
     result = await get_location(tool_context=mock_tool_context)
@@ -399,10 +400,10 @@ async def test_get_location_delegate_call_count_spy() -> None:
             )
 
         # Create mock ToolContext
-        mock_tool_context = Mock(spec=ToolContext)
-        mock_tool_context.invocation_id = "call_location_spy"
-        mock_tool_context.session = Mock()
-        mock_tool_context.session.state = {"frontend_delegate": delegate}
+        mock_tool_context = create_mock_tool_context(
+            invocation_id="call_location_spy",
+            session_state={"frontend_delegate": delegate},
+        )
 
         # Start resolution task
         resolve_task = asyncio.create_task(resolve_after_delay())
@@ -434,10 +435,10 @@ async def test_get_location_delegate_call_count_spy() -> None:
 async def test_get_location_with_none_session_state() -> None:
     """Edge case: get_location should handle None session.state gracefully and return error."""
     # Create mock ToolContext with None state
-    mock_tool_context = Mock(spec=ToolContext)
-    mock_tool_context.session = Mock()
-    mock_tool_context.session.state = None  # Edge case
-    mock_tool_context.invocation_id = "test-invocation-none"
+    mock_tool_context = create_mock_tool_context(
+        invocation_id="test-invocation-none",
+        session_state=None,  # Edge case
+    )
 
     # Call get_location - should not crash
     result = await get_location(tool_context=mock_tool_context)
@@ -468,10 +469,10 @@ async def test_get_location_delegate_not_called_on_error() -> None:
             delegate._reject_tool_call("call_location_error", "User denied location access")
 
         # Create mock ToolContext
-        mock_tool_context = Mock(spec=ToolContext)
-        mock_tool_context.invocation_id = "call_location_error"
-        mock_tool_context.session = Mock()
-        mock_tool_context.session.state = {"frontend_delegate": delegate}
+        mock_tool_context = create_mock_tool_context(
+            invocation_id="call_location_error",
+            session_state={"frontend_delegate": delegate},
+        )
 
         # Start rejection task
         reject_task = asyncio.create_task(reject_after_delay())

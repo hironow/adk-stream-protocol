@@ -130,14 +130,18 @@ setup-e2e-fixtures:
     #!/usr/bin/env bash
     set -euo pipefail
     echo "Setting up E2E fixture symlinks..."
-    mkdir -p public/fixtures/e2e-chunks
-    cd public/fixtures/e2e-chunks
-    for pattern in pattern1-gemini-only pattern2-adk-sse-only pattern3-adk-bidi-only pattern4-mode-switching; do
-        if [ ! -L "$pattern" ]; then
-            echo "Creating symlink: $pattern"
-            ln -sf ../../../tests/fixtures/e2e-chunks/$pattern $pattern
-        else
-            echo "Symlink already exists: $pattern"
+    mkdir -p public/fixtures
+    cd public/fixtures
+    # Symlink all *.jsonl files from tests/fixtures/
+    for fixture in ../../tests/fixtures/*.jsonl; do
+        if [ -f "$fixture" ]; then
+            filename=$(basename "$fixture")
+            if [ ! -L "$filename" ]; then
+                echo "Creating symlink: $filename"
+                ln -sf "$fixture" "$filename"
+            else
+                echo "Symlink already exists: $filename"
+            fi
         fi
     done
     echo "E2E fixture symlinks ready."

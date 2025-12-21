@@ -34,6 +34,8 @@ from google.adk.runners import Runner
 from google.adk.sessions import Session
 from google.genai import types
 
+from tests.utils.mocks import create_mock_session
+
 from adk_stream_protocol import FrontendToolDelegate, SseEventStreamer
 
 
@@ -54,8 +56,8 @@ async def test_sse_confirmation_should_wait_for_result_before_done() -> None:
     Current bug: Step 3 fails - [DONE] sent immediately.
     """
     # given
-    mock_session = Mock(spec=Session)
-    mock_runner = Mock(spec=Runner)
+    mock_session = create_mock_session()
+    mock_runner = create_mock_runner()
 
     frontend_delegate = FrontendToolDelegate()
     confirmation_tools = ["process_payment"]
@@ -142,8 +144,8 @@ async def test_sse_confirmation_complete_flow_with_approval() -> None:
     Current bug: Flow stops at step 2 (premature [DONE]).
     """
     # given
-    mock_session = Mock(spec=Session)
-    mock_runner = Mock(spec=Runner)
+    mock_session = create_mock_session()
+    mock_runner = create_mock_runner()
 
     frontend_delegate = FrontendToolDelegate()
     confirmation_tools = ["process_payment"]
@@ -245,8 +247,8 @@ async def test_sse_confirmation_should_not_suppress_error_prematurely() -> None:
     AFTER receiving the FunctionResponse with confirmation result, not BEFORE.
     """
     # given
-    mock_session = Mock(spec=Session)
-    mock_runner = Mock(spec=Runner)
+    mock_session = create_mock_session()
+    mock_runner = create_mock_runner()
 
     frontend_delegate = FrontendToolDelegate()
     confirmation_tools = ["process_payment"]

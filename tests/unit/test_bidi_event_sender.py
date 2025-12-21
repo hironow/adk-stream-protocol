@@ -13,6 +13,13 @@ from google.adk.sessions import Session
 
 from adk_stream_protocol import BidiEventSender
 from adk_stream_protocol.result import Error, Ok
+from tests.utils.mocks import (
+    create_mock_live_events,
+    create_mock_live_request_queue,
+    create_mock_session,
+    create_mock_sse_stream,
+    create_mock_websocket,
+)
 
 
 # ============================================================
@@ -26,8 +33,8 @@ def test_bidi_event_sender_initialization() -> None:
     mock_websocket = Mock()
     mock_delegate = Mock()
     confirmation_tools = ["process_payment"]
-    mock_session = Mock(spec=Session)
-    mock_live_request_queue = Mock()
+    mock_session = create_mock_session()
+    mock_live_request_queue = create_mock_live_request_queue()
 
     # when
     sender = BidiEventSender(
@@ -55,12 +62,11 @@ def test_bidi_event_sender_initialization() -> None:
 async def test_send_events_wraps_events_with_confirmation_processing() -> None:
     """send_events() should wrap live_events with confirmation processing."""
     # given
-    mock_websocket = Mock()
-    mock_websocket.send_text = AsyncMock()
+    mock_websocket = create_mock_websocket()
     mock_delegate = Mock()
     confirmation_tools = ["process_payment", "delete_account"]
-    mock_session = Mock(spec=Session)
-    mock_live_request_queue = Mock()
+    mock_session = create_mock_session()
+    mock_live_request_queue = create_mock_live_request_queue()
 
     sender = BidiEventSender(
         websocket=mock_websocket,
@@ -70,17 +76,12 @@ async def test_send_events_wraps_events_with_confirmation_processing() -> None:
         live_request_queue=mock_live_request_queue,
     )
 
-    # Mock async generator for live_events
-    async def mock_live_events():
-        yield Mock()  # Single event
-
-    # Mock stream_adk_to_ai_sdk to return SSE events
-    async def mock_stream():
-        yield 'data: {"type":"text-delta","text":"Hello"}\n\n'
-
     # when
-    with patch("services.bidi_event_sender.stream_adk_to_ai_sdk", return_value=mock_stream()):
-        await sender.send_events(mock_live_events())
+    with patch(
+        "services.bidi_event_sender.stream_adk_to_ai_sdk",
+        return_value=create_mock_sse_stream('data: {"type":"text-delta","text":"Hello"}\n\n'),
+    ):
+        await sender.send_events(create_mock_live_events(Mock()))
 
         # then - events are successfully wrapped and processed
         mock_websocket.send_text.assert_called_once()
@@ -90,12 +91,11 @@ async def test_send_events_wraps_events_with_confirmation_processing() -> None:
 async def test_send_events_calls_stream_adk_to_ai_sdk_with_correct_params() -> None:
     """send_events() should call stream_adk_to_ai_sdk with correct parameters."""
     # given
-    mock_websocket = Mock()
-    mock_websocket.send_text = AsyncMock()
+    mock_websocket = create_mock_websocket()
     mock_delegate = Mock()
     confirmation_tools = ["process_payment"]
-    mock_session = Mock(spec=Session)
-    mock_live_request_queue = Mock()
+    mock_session = create_mock_session()
+    mock_live_request_queue = create_mock_live_request_queue()
 
     sender = BidiEventSender(
         websocket=mock_websocket,
@@ -131,11 +131,10 @@ async def test_send_events_calls_stream_adk_to_ai_sdk_with_correct_params() -> N
 async def test_send_events_sends_sse_events_to_websocket() -> None:
     """send_events() should send all SSE events to WebSocket."""
     # given
-    mock_websocket = Mock()
-    mock_websocket.send_text = AsyncMock()
+    mock_websocket = create_mock_websocket()
     mock_delegate = Mock()
-    mock_session = Mock(spec=Session)
-    mock_live_request_queue = Mock()
+    mock_session = create_mock_session()
+    mock_live_request_queue = create_mock_live_request_queue()
 
     sender = BidiEventSender(
         websocket=mock_websocket,
@@ -175,11 +174,11 @@ async def test_send_events_sends_sse_events_to_websocket() -> None:
 async def test_send_events_handles_websocket_disconnect_gracefully() -> None:
     """send_events() should handle WebSocketDisconnect without raising."""
     # given
-    mock_websocket = Mock()
+    mock_websocket = create_mock_websocket()
     mock_websocket.send_text = AsyncMock(side_effect=WebSocketDisconnect)
     mock_delegate = Mock()
-    mock_session = Mock(spec=Session)
-    mock_live_request_queue = Mock()
+    mock_session = create_mock_session()
+    mock_live_request_queue = create_mock_live_request_queue()
 
     sender = BidiEventSender(
         websocket=mock_websocket,
@@ -208,11 +207,10 @@ async def test_send_events_handles_websocket_disconnect_gracefully() -> None:
 async def test_send_events_handles_session_resumption_error_silently() -> None:
     """send_events() should handle 'Transparent session resumption' ValueError silently."""
     # given
-    mock_websocket = Mock()
-    mock_websocket.send_text = AsyncMock()
+    mock_websocket = create_mock_websocket()
     mock_delegate = Mock()
-    mock_session = Mock(spec=Session)
-    mock_live_request_queue = Mock()
+    mock_session = create_mock_session()
+    mock_live_request_queue = create_mock_live_request_queue()
 
     sender = BidiEventSender(
         websocket=mock_websocket,
@@ -245,11 +243,10 @@ async def test_send_events_handles_session_resumption_error_silently() -> None:
 async def test_send_events_raises_other_value_errors() -> None:
     """send_events() should raise ValueError if not session resumption error."""
     # given
-    mock_websocket = Mock()
-    mock_websocket.send_text = AsyncMock()
+    mock_websocket = create_mock_websocket()
     mock_delegate = Mock()
-    mock_session = Mock(spec=Session)
-    mock_live_request_queue = Mock()
+    mock_session = create_mock_session()
+    mock_live_request_queue = create_mock_live_request_queue()
 
     sender = BidiEventSender(
         websocket=mock_websocket,
@@ -282,11 +279,10 @@ async def test_send_events_raises_other_value_errors() -> None:
 async def test_send_events_raises_other_exceptions() -> None:
     """send_events() should raise other exceptions."""
     # given
-    mock_websocket = Mock()
-    mock_websocket.send_text = AsyncMock()
+    mock_websocket = create_mock_websocket()
     mock_delegate = Mock()
-    mock_session = Mock(spec=Session)
-    mock_live_request_queue = Mock()
+    mock_session = create_mock_session()
+    mock_live_request_queue = create_mock_live_request_queue()
 
     sender = BidiEventSender(
         websocket=mock_websocket,
@@ -324,12 +320,11 @@ async def test_send_events_raises_other_exceptions() -> None:
 async def test_send_sse_event_registers_tool_input_available_id_mapping() -> None:
     """_send_sse_event() should register function_call.id for tool-input-available."""
     # given
-    mock_websocket = Mock()
-    mock_websocket.send_text = AsyncMock()
+    mock_websocket = create_mock_websocket()
     mock_delegate = Mock()
     mock_delegate.set_function_call_id = Mock(return_value=Ok(None))
-    mock_session = Mock(spec=Session)
-    mock_live_request_queue = Mock()
+    mock_session = create_mock_session()
+    mock_live_request_queue = create_mock_live_request_queue()
 
     sender = BidiEventSender(
         websocket=mock_websocket,
@@ -355,11 +350,10 @@ async def test_send_sse_event_registers_tool_input_available_id_mapping() -> Non
 async def test_send_sse_event_handles_tool_approval_request() -> None:
     """_send_sse_event() should log tool-approval-request events."""
     # given
-    mock_websocket = Mock()
-    mock_websocket.send_text = AsyncMock()
+    mock_websocket = create_mock_websocket()
     mock_delegate = Mock()
-    mock_session = Mock(spec=Session)
-    mock_live_request_queue = Mock()
+    mock_session = create_mock_session()
+    mock_live_request_queue = create_mock_live_request_queue()
 
     sender = BidiEventSender(
         websocket=mock_websocket,
@@ -382,11 +376,10 @@ async def test_send_sse_event_handles_tool_approval_request() -> None:
 async def test_send_sse_event_handles_non_data_events() -> None:
     """_send_sse_event() should handle events without 'data:' prefix."""
     # given
-    mock_websocket = Mock()
-    mock_websocket.send_text = AsyncMock()
+    mock_websocket = create_mock_websocket()
     mock_delegate = Mock()
-    mock_session = Mock(spec=Session)
-    mock_live_request_queue = Mock()
+    mock_session = create_mock_session()
+    mock_live_request_queue = create_mock_live_request_queue()
 
     sender = BidiEventSender(
         websocket=mock_websocket,
@@ -409,11 +402,10 @@ async def test_send_sse_event_handles_non_data_events() -> None:
 async def test_send_sse_event_handles_json_parse_errors_gracefully() -> None:
     """_send_sse_event() should handle JSON parse errors without raising."""
     # given
-    mock_websocket = Mock()
-    mock_websocket.send_text = AsyncMock()
+    mock_websocket = create_mock_websocket()
     mock_delegate = Mock()
-    mock_session = Mock(spec=Session)
-    mock_live_request_queue = Mock()
+    mock_session = create_mock_session()
+    mock_live_request_queue = create_mock_live_request_queue()
 
     sender = BidiEventSender(
         websocket=mock_websocket,
@@ -436,12 +428,11 @@ async def test_send_sse_event_handles_json_parse_errors_gracefully() -> None:
 async def test_send_sse_event_skips_id_mapping_when_tool_name_missing() -> None:
     """_send_sse_event() should skip ID mapping if toolName is missing."""
     # given
-    mock_websocket = Mock()
-    mock_websocket.send_text = AsyncMock()
+    mock_websocket = create_mock_websocket()
     mock_delegate = Mock()
     mock_delegate.set_function_call_id = Mock(return_value=Ok(None))
-    mock_session = Mock(spec=Session)
-    mock_live_request_queue = Mock()
+    mock_session = create_mock_session()
+    mock_live_request_queue = create_mock_live_request_queue()
 
     sender = BidiEventSender(
         websocket=mock_websocket,
@@ -465,12 +456,11 @@ async def test_send_sse_event_skips_id_mapping_when_tool_name_missing() -> None:
 async def test_send_sse_event_skips_id_mapping_when_tool_call_id_missing() -> None:
     """_send_sse_event() should skip ID mapping if toolCallId is missing."""
     # given
-    mock_websocket = Mock()
-    mock_websocket.send_text = AsyncMock()
+    mock_websocket = create_mock_websocket()
     mock_delegate = Mock()
     mock_delegate.set_function_call_id = Mock(return_value=Ok(None))
-    mock_session = Mock(spec=Session)
-    mock_live_request_queue = Mock()
+    mock_session = create_mock_session()
+    mock_live_request_queue = create_mock_live_request_queue()
 
     sender = BidiEventSender(
         websocket=mock_websocket,
@@ -499,10 +489,10 @@ async def test_send_sse_event_skips_id_mapping_when_tool_call_id_missing() -> No
 async def test_send_sse_event_with_websocket_send_error_raises() -> None:
     """_send_sse_event() should propagate websocket.send_text() errors (non-disconnect)."""
     # given
-    mock_websocket = Mock()
+    mock_websocket = create_mock_websocket()
     mock_websocket.send_text = AsyncMock(side_effect=RuntimeError("WebSocket error"))
-    mock_session = Mock(spec=Session)
-    mock_live_request_queue = Mock()
+    mock_session = create_mock_session()
+    mock_live_request_queue = create_mock_live_request_queue()
 
     sender = BidiEventSender(
         websocket=mock_websocket,
@@ -523,12 +513,11 @@ async def test_send_sse_event_with_websocket_send_error_raises() -> None:
 async def test_send_sse_event_with_set_function_call_id_error_handles_gracefully() -> None:
     """_send_sse_event() should handle set_function_call_id() errors gracefully (log and continue)."""
     # given
-    mock_websocket = Mock()
-    mock_websocket.send_text = AsyncMock()
+    mock_websocket = create_mock_websocket()
     mock_delegate = Mock()
     mock_delegate.set_function_call_id = Mock(return_value=Error("ID mapping error"))
-    mock_session = Mock(spec=Session)
-    mock_live_request_queue = Mock()
+    mock_session = create_mock_session()
+    mock_live_request_queue = create_mock_live_request_queue()
 
     sender = BidiEventSender(
         websocket=mock_websocket,
@@ -555,8 +544,8 @@ async def test_send_events_with_stream_error_after_first_event() -> None:
     # given
     mock_websocket = Mock()
     mock_websocket.send_text = AsyncMock()
-    mock_session = Mock(spec=Session)
-    mock_live_request_queue = Mock()
+    mock_session = create_mock_session()
+    mock_live_request_queue = create_mock_live_request_queue()
 
     sender = BidiEventSender(
         websocket=mock_websocket,
@@ -595,8 +584,8 @@ async def test_send_sse_event_with_malformed_sse_format() -> None:
     # given
     mock_websocket = Mock()
     mock_websocket.send_text = AsyncMock()
-    mock_session = Mock(spec=Session)
-    mock_live_request_queue = Mock()
+    mock_session = create_mock_session()
+    mock_live_request_queue = create_mock_live_request_queue()
 
     sender = BidiEventSender(
         websocket=mock_websocket,
@@ -620,10 +609,9 @@ async def test_send_sse_event_with_malformed_sse_format() -> None:
 async def test_send_sse_event_with_none_frontend_delegate_handles_gracefully() -> None:
     """_send_sse_event() should skip ID mapping when frontend_delegate is None."""
     # given
-    mock_websocket = Mock()
-    mock_websocket.send_text = AsyncMock()
-    mock_session = Mock(spec=Session)
-    mock_live_request_queue = Mock()
+    mock_websocket = create_mock_websocket()
+    mock_session = create_mock_session()
+    mock_live_request_queue = create_mock_live_request_queue()
 
     sender = BidiEventSender(
         websocket=mock_websocket,
@@ -648,10 +636,9 @@ async def test_send_sse_event_with_none_frontend_delegate_handles_gracefully() -
 async def test_send_events_with_empty_live_events() -> None:
     """send_events() should handle empty live_events gracefully."""
     # given
-    mock_websocket = Mock()
-    mock_websocket.send_text = AsyncMock()
-    mock_session = Mock(spec=Session)
-    mock_live_request_queue = Mock()
+    mock_websocket = create_mock_websocket()
+    mock_session = create_mock_session()
+    mock_live_request_queue = create_mock_live_request_queue()
 
     sender = BidiEventSender(
         websocket=mock_websocket,
@@ -689,10 +676,9 @@ async def test_send_events_with_empty_live_events() -> None:
 async def test_send_sse_event_with_very_large_payload() -> None:
     """_send_sse_event() should handle very large payloads."""
     # given
-    mock_websocket = Mock()
-    mock_websocket.send_text = AsyncMock()
-    mock_session = Mock(spec=Session)
-    mock_live_request_queue = Mock()
+    mock_websocket = create_mock_websocket()
+    mock_session = create_mock_session()
+    mock_live_request_queue = create_mock_live_request_queue()
 
     sender = BidiEventSender(
         websocket=mock_websocket,
@@ -717,10 +703,9 @@ async def test_send_sse_event_with_very_large_payload() -> None:
 async def test_send_sse_event_with_invalid_json_in_data() -> None:
     """_send_sse_event() should handle invalid JSON gracefully (already covered)."""
     # given
-    mock_websocket = Mock()
-    mock_websocket.send_text = AsyncMock()
-    mock_session = Mock(spec=Session)
-    mock_live_request_queue = Mock()
+    mock_websocket = create_mock_websocket()
+    mock_session = create_mock_session()
+    mock_live_request_queue = create_mock_live_request_queue()
 
     sender = BidiEventSender(
         websocket=mock_websocket,

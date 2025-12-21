@@ -365,7 +365,7 @@ export async function disableChunkPlayerMode(page: Page) {
  * Get fixture path for chunk player tests
  */
 export function getChunkPlayerFixturePath(patternName: string): string {
-  return `/fixtures/e2e-chunks/${patternName}/frontend-chunks.jsonl`;
+  return `/fixtures/${patternName}-frontend.jsonl`;
 }
 
 /**
@@ -380,10 +380,10 @@ export function getChunkPlayerFixturePath(patternName: string): string {
  * Use this instead of manually calling enableChunkPlayerMode + reload.
  *
  * @param page - Playwright page object
- * @param patternName - Pattern name (e.g., "pattern1-gemini-only")
+ * @param patternName - Pattern name (e.g., "pattern1")
  *
  * @example
- * await setupChunkPlayerMode(page, "pattern1-gemini-only");
+ * await setupChunkPlayerMode(page, "pattern1");
  * // Now page is ready with chunk player mode enabled
  */
 export async function setupChunkPlayerMode(page: Page, patternName: string) {

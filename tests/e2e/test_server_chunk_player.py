@@ -10,6 +10,9 @@ Test Patterns:
 - Pattern 3: ADK BIDI - WebSocket with audio chunks
 - Pattern 4: Mode switching - Multiple modes in single session
 
+Fixture Files:
+- tests/fixtures/pattern{1-4}-{frontend,backend}.jsonl
+
 Per CLAUDE.md guidelines:
 - No mocks allowed in E2E tests
 - Uses real ChunkPlayer for chunk replay
@@ -28,7 +31,7 @@ from adk_stream_protocol import ChunkPlayer, ChunkPlayerManager
 @pytest.fixture
 def fixture_dir() -> Path:
     """Get E2E fixtures directory."""
-    return Path(__file__).parent.parent / "fixtures" / "e2e-chunks"
+    return Path(__file__).parent.parent / "fixtures"
 
 
 class TestEmptyFixtures:
@@ -42,7 +45,7 @@ class TestEmptyFixtures:
     def test_pattern1_empty_fixture_loads_without_error(self, fixture_dir: Path):
         """Pattern 1: Gemini Direct - Empty fixture should load (no backend processing)."""
         # Given: Empty backend fixture file (Gemini Direct has no backend processing)
-        fixture_path = fixture_dir / "pattern1-gemini-only" / "backend-chunks.jsonl"
+        fixture_path = fixture_dir / "pattern1-backend.jsonl"
 
         # When: Create player from empty file
         player = ChunkPlayer.from_file(fixture_path)
@@ -56,7 +59,7 @@ class TestEmptyFixtures:
     def test_pattern2_empty_fixture_loads_without_error(self, fixture_dir: Path):
         """Pattern 2: ADK SSE - Empty fixture should load (waiting for recording)."""
         # Given: Empty backend fixture file
-        fixture_path = fixture_dir / "pattern2-adk-sse-only" / "backend-chunks.jsonl"
+        fixture_path = fixture_dir / "pattern2-backend.jsonl"
 
         # When: Create player from empty file
         player = ChunkPlayer.from_file(fixture_path)
@@ -69,7 +72,7 @@ class TestEmptyFixtures:
     def test_pattern3_empty_fixture_loads_without_error(self, fixture_dir: Path):
         """Pattern 3: ADK BIDI - Empty fixture should load (waiting for recording)."""
         # Given: Empty backend fixture file
-        fixture_path = fixture_dir / "pattern3-adk-bidi-only" / "backend-chunks.jsonl"
+        fixture_path = fixture_dir / "pattern3-backend.jsonl"
 
         # When: Create player from empty file
         player = ChunkPlayer.from_file(fixture_path)
@@ -82,7 +85,7 @@ class TestEmptyFixtures:
     def test_pattern4_empty_fixture_loads_without_error(self, fixture_dir: Path):
         """Pattern 4: Mode switching - Empty fixture should load (waiting for recording)."""
         # Given: Empty backend fixture file
-        fixture_path = fixture_dir / "pattern4-mode-switching" / "backend-chunks.jsonl"
+        fixture_path = fixture_dir / "pattern4-backend.jsonl"
 
         # When: Create player from empty file
         player = ChunkPlayer.from_file(fixture_path)
@@ -125,7 +128,7 @@ class TestChunkPlayerManager:
     def test_manager_creates_player_when_enabled(self, fixture_dir: Path):
         """Manager should create player when E2E mode enabled with fixture."""
         # Given: E2E mode enabled with fixture path
-        fixture_path = fixture_dir / "pattern2-adk-sse-only" / "backend-chunks.jsonl"
+        fixture_path = fixture_dir / "pattern2-backend.jsonl"
         os.environ["E2E_CHUNK_PLAYER_MODE"] = "true"
         os.environ["E2E_CHUNK_PLAYER_FIXTURE"] = str(fixture_path)
 
@@ -162,7 +165,7 @@ class TestPattern2ADKSSEOnly:
     async def test_replays_chunks_in_fast_forward_mode(self, fixture_dir: Path):
         """Should replay all chunks without delays."""
         # Given: Recorded fixture with ADK SSE chunks
-        fixture_path = fixture_dir / "pattern2-adk-sse-only" / "backend-chunks.jsonl"
+        fixture_path = fixture_dir / "pattern2-backend.jsonl"
         player = ChunkPlayer.from_file(fixture_path)
 
         # When: Play chunks in fast-forward mode
@@ -180,7 +183,7 @@ class TestPattern2ADKSSEOnly:
     async def test_contains_tool_invocation_chunks(self, fixture_dir: Path):
         """Should contain tool invocation chunks (weather, calculator)."""
         # Given: Recorded fixture with tool invocations
-        fixture_path = fixture_dir / "pattern2-adk-sse-only" / "backend-chunks.jsonl"
+        fixture_path = fixture_dir / "pattern2-backend.jsonl"
         player = ChunkPlayer.from_file(fixture_path)
 
         # When: Collect all chunks
@@ -205,7 +208,7 @@ class TestPattern3ADKBIDIOnly:
     async def test_replays_chunks_in_fast_forward_mode(self, fixture_dir: Path):
         """Should replay all chunks without delays."""
         # Given: Recorded fixture with ADK BIDI chunks
-        fixture_path = fixture_dir / "pattern3-adk-bidi-only" / "backend-chunks.jsonl"
+        fixture_path = fixture_dir / "pattern3-backend.jsonl"
         player = ChunkPlayer.from_file(fixture_path)
 
         # When: Play chunks in fast-forward mode
@@ -223,7 +226,7 @@ class TestPattern3ADKBIDIOnly:
     async def test_contains_audio_chunks(self, fixture_dir: Path):
         """Should contain audio (PCM) chunks."""
         # Given: Recorded fixture with audio chunks
-        fixture_path = fixture_dir / "pattern3-adk-bidi-only" / "backend-chunks.jsonl"
+        fixture_path = fixture_dir / "pattern3-backend.jsonl"
         player = ChunkPlayer.from_file(fixture_path)
 
         # When: Collect all chunks
@@ -248,7 +251,7 @@ class TestPattern4ModeSwitching:
     async def test_replays_chunks_from_multiple_modes(self, fixture_dir: Path):
         """Should replay chunks from different modes."""
         # Given: Recorded fixture with mode switches
-        fixture_path = fixture_dir / "pattern4-mode-switching" / "backend-chunks.jsonl"
+        fixture_path = fixture_dir / "pattern4-backend.jsonl"
         player = ChunkPlayer.from_file(fixture_path)
 
         # When: Collect all chunks
@@ -265,7 +268,7 @@ class TestPattern4ModeSwitching:
     async def test_preserves_chunk_order_across_mode_switches(self, fixture_dir: Path):
         """Should maintain correct chunk order despite mode changes."""
         # Given: Recorded fixture with mode switches
-        fixture_path = fixture_dir / "pattern4-mode-switching" / "backend-chunks.jsonl"
+        fixture_path = fixture_dir / "pattern4-backend.jsonl"
         player = ChunkPlayer.from_file(fixture_path)
 
         # When: Collect all chunks

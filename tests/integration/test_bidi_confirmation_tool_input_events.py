@@ -23,6 +23,12 @@ import pytest
 from google.adk.agents import LiveRequestQueue
 from google.adk.events import Event
 from google.adk.sessions import Session
+
+from tests.utils.mocks import (
+    create_mock_live_request_queue,
+    create_mock_session,
+    create_mock_websocket,
+)
 from google.genai import types
 
 from adk_stream_protocol import BidiEventSender, FrontendToolDelegate
@@ -46,10 +52,9 @@ async def test_bidi_confirmation_should_send_tool_input_events_for_original_tool
     Without step 1-2, frontend shows "no tool invocation found" error.
     """
     # given
-    mock_websocket = Mock()
-    mock_websocket.send_text = AsyncMock()
-    mock_session = Mock(spec=Session)
-    mock_live_request_queue = Mock(spec=LiveRequestQueue)
+    mock_websocket = create_mock_websocket()
+    mock_session = create_mock_session()
+    mock_live_request_queue = create_mock_live_request_queue()
 
     frontend_delegate = FrontendToolDelegate()
     confirmation_tools = ["process_payment"]
@@ -123,15 +128,15 @@ async def test_bidi_confirmation_event_sequence() -> None:
     This test documents the expected event sequence from E2E logs.
     """
     # given
-    mock_websocket = Mock()
     sent_events: list[str] = []
 
     async def capture_send_text(event: str) -> None:
         sent_events.append(event)
 
+    mock_websocket = create_mock_websocket()
     mock_websocket.send_text = AsyncMock(side_effect=capture_send_text)
-    mock_session = Mock(spec=Session)
-    mock_live_request_queue = Mock(spec=LiveRequestQueue)
+    mock_session = create_mock_session()
+    mock_live_request_queue = create_mock_live_request_queue()
 
     frontend_delegate = FrontendToolDelegate()
     confirmation_tools = ["process_payment"]

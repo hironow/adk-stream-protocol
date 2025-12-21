@@ -55,7 +55,7 @@ test.describe("Chunk Player UI Verification", () => {
     page,
   }) => {
     // Given: Chunk player mode with empty fixture file
-    await setupChunkPlayerMode(page, "pattern1-gemini-only");
+    await setupChunkPlayerMode(page, "pattern1");
 
     // Then: No messages should be displayed initially
     const messages = await getMessages(page);
@@ -74,7 +74,7 @@ test.describe("Chunk Player UI Verification", () => {
     page,
   }) => {
     // Given: Chunk player mode with Pattern 1 fixture
-    await setupChunkPlayerMode(page, "pattern1-gemini-only");
+    await setupChunkPlayerMode(page, "pattern1");
 
     // When: User sends first message (triggers chunk replay)
     await sendTextMessage(page, "こんにちは");
@@ -110,7 +110,7 @@ test.describe("Chunk Player UI Verification", () => {
     page,
   }) => {
     // Given: Chunk player mode with Pattern 2 fixture
-    await setupChunkPlayerMode(page, "pattern2-adk-sse-only");
+    await setupChunkPlayerMode(page, "pattern2");
 
     // When: Replay chunks through all 4 steps
     await sendTextMessage(page, "こんにちは");
@@ -143,7 +143,7 @@ test.describe("Chunk Player UI Verification", () => {
     page,
   }) => {
     // Given: Chunk player mode with Pattern 3 fixture
-    await setupChunkPlayerMode(page, "pattern3-adk-bidi-only");
+    await setupChunkPlayerMode(page, "pattern3");
 
     // When: Replay chunks through all 4 steps
     await sendTextMessage(page, "こんにちは");
@@ -173,7 +173,7 @@ test.describe("Chunk Player UI Verification", () => {
     page,
   }) => {
     // Given: Chunk player mode with Pattern 4 fixture
-    await setupChunkPlayerMode(page, "pattern4-mode-switching");
+    await setupChunkPlayerMode(page, "pattern4");
 
     // Step 1: Gemini Direct - "こんにちは"
     await sendTextMessage(page, "こんにちは");
@@ -237,7 +237,7 @@ test.describe("Chunk Player UI Verification", () => {
     // (Switching modes should preserve message history)
 
     // Given: Chunk player mode with Pattern 4 fixture
-    await setupChunkPlayerMode(page, "pattern4-mode-switching");
+    await setupChunkPlayerMode(page, "pattern4");
 
     // When: Execute all 5 steps
     const steps = [
