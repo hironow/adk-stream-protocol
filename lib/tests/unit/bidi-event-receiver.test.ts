@@ -104,8 +104,6 @@ describe("EventReceiver", () => {
 
       // then: verify the event was enqueued correctly
       expect(mockController.enqueue).toHaveBeenCalledWith(event);
-
-      consoleLog.mockRestore();
     });
   });
 

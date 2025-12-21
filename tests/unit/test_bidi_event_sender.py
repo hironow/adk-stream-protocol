@@ -154,7 +154,9 @@ async def test_send_events_sends_sse_events_to_websocket() -> None:
     # when
     with (
         patch("adk_stream_protocol.bidi_event_sender.ToolConfirmationInterceptor"),
-        patch("adk_stream_protocol.bidi_event_sender.stream_adk_to_ai_sdk", return_value=mock_stream()),
+        patch(
+            "adk_stream_protocol.bidi_event_sender.stream_adk_to_ai_sdk", return_value=mock_stream()
+        ),
     ):
         await sender.send_events(mock_live_events())
 
@@ -196,7 +198,9 @@ async def test_send_events_handles_websocket_disconnect_gracefully() -> None:
     # when/then - should not raise
     with (
         patch("adk_stream_protocol.bidi_event_sender.ToolConfirmationInterceptor"),
-        patch("adk_stream_protocol.bidi_event_sender.stream_adk_to_ai_sdk", return_value=mock_stream()),
+        patch(
+            "adk_stream_protocol.bidi_event_sender.stream_adk_to_ai_sdk", return_value=mock_stream()
+        ),
     ):
         await sender.send_events(mock_live_events())
         # No exception should be raised
