@@ -8,13 +8,10 @@ import type { UIMessageChunk } from "@ai-sdk/ui-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EventReceiver } from "../../bidi/event_receiver";
 import { EventSender } from "../../bidi/event_sender";
+import { createMockWebSocket, type MockWebSocketInstance } from "../helpers/websocket-mock";
 
 describe("BIDI Event Flow Integration", () => {
-  let mockWebSocket: {
-    send: ReturnType<typeof vi.fn>;
-    readyState: number;
-    sentMessages: string[];
-  };
+  let mockWebSocket: MockWebSocketInstance & { sentMessages: string[] };
   let mockController: {
     enqueue: ReturnType<typeof vi.fn>;
     close: ReturnType<typeof vi.fn>;
@@ -25,12 +22,13 @@ describe("BIDI Event Flow Integration", () => {
 
   beforeEach(() => {
     // Create mock WebSocket that captures sent messages
+    const baseMock = createMockWebSocket();
     mockWebSocket = {
+      ...baseMock,
+      sentMessages: [],
       send: vi.fn((msg: string) => {
         mockWebSocket.sentMessages.push(msg);
       }),
-      readyState: WebSocket.OPEN,
-      sentMessages: [],
     };
 
     // Create mock controller

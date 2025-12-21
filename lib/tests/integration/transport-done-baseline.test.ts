@@ -59,7 +59,7 @@ interface BaselineFixture {
 
 // Load fixture helper
 function loadFixture(filename: string): BaselineFixture {
-  const fixturePath = join(__dirname, "fixtures", filename);
+  const fixturePath = join(__dirname, "..", "fixtures", filename);
   const content = readFileSync(fixturePath, "utf-8");
   return JSON.parse(content) as BaselineFixture;
 }

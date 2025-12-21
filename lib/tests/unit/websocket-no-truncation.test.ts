@@ -5,51 +5,14 @@
 import type { UIMessage } from "@ai-sdk/react-v6";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WebSocketChatTransport } from "../../websocket-chat-transport";
+import { setupWebSocketMock, type MockWebSocketInstance } from "../helpers/websocket-mock";
 
 describe("WebSocketChatTransport - Message Preservation", () => {
-  let mockWebSocket: any;
+  let mockWebSocket: MockWebSocketInstance;
   let transport: WebSocketChatTransport;
 
   beforeEach(() => {
-    // Mock WebSocket with vi.fn() for tracking calls
-    mockWebSocket = {
-      send: vi.fn(),
-      close: vi.fn(),
-      readyState: 1, // WebSocket.OPEN
-      onopen: null,
-      onmessage: null,
-      onerror: null,
-      onclose: null,
-    };
-
-    // Mock WebSocket constructor that returns our tracked instance
-    class MockWebSocket {
-      static OPEN = 1;
-      static CLOSED = 3;
-
-      send: any;
-      close: any;
-      readyState: number;
-      onopen: any;
-      onmessage: any;
-      onerror: any;
-      onclose: any;
-
-      constructor() {
-        // Return the same mockWebSocket object for tracking
-        this.send = mockWebSocket.send;
-        this.close = mockWebSocket.close;
-        this.readyState = mockWebSocket.readyState;
-        this.onopen = mockWebSocket.onopen;
-        this.onmessage = mockWebSocket.onmessage;
-        this.onerror = mockWebSocket.onerror;
-        this.onclose = mockWebSocket.onclose;
-
-        // Store reference to this instance for tests
-        mockWebSocket = this;
-      }
-    }
-    global.WebSocket = MockWebSocket as any;
+    mockWebSocket = setupWebSocketMock();
 
     transport = new WebSocketChatTransport({
       url: "ws://localhost:8000/live",

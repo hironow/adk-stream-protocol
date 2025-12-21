@@ -6,33 +6,14 @@
 
 import type { UIMessage } from "@ai-sdk/react-v6";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { setupWebSocketMock, type MockWebSocketInstance } from "../helpers/websocket-mock";
 
 describe("Mode Switching - 5x3 Matrix Tests", () => {
-  let mockWebSocket: any;
+  let mockWebSocket: MockWebSocketInstance;
   let mockFetch: any;
 
   beforeEach(() => {
-    // Mock WebSocket
-    mockWebSocket = {
-      send: vi.fn(),
-      close: vi.fn(),
-      readyState: 1,
-      onopen: null,
-      onmessage: null,
-      onerror: null,
-      onclose: null,
-    };
-
-    // Mock WebSocket as a constructor
-    global.WebSocket = class MockWebSocket {
-      send = mockWebSocket.send;
-      close = mockWebSocket.close;
-      readyState = mockWebSocket.readyState;
-      onopen = null;
-      onmessage = null;
-      onerror = null;
-      onclose = null;
-    } as any;
+    mockWebSocket = setupWebSocketMock();
 
     // Mock fetch
     mockFetch = vi.fn();

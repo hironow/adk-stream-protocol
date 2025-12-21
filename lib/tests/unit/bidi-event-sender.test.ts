@@ -6,21 +6,14 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EventSender } from "../../bidi/event_sender";
+import { createMockWebSocket, type MockWebSocketInstance } from "../helpers/websocket-mock";
 
 describe("EventSender", () => {
-  let mockWebSocket: {
-    send: ReturnType<typeof vi.fn>;
-    readyState: number;
-  };
+  let mockWebSocket: MockWebSocketInstance;
   let sender: EventSender;
 
   beforeEach(() => {
-    // Create mock WebSocket
-    mockWebSocket = {
-      send: vi.fn(),
-      readyState: WebSocket.OPEN,
-    };
-
+    mockWebSocket = createMockWebSocket();
     sender = new EventSender(mockWebSocket as unknown as WebSocket);
   });
 
