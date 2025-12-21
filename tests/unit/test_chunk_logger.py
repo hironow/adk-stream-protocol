@@ -62,36 +62,6 @@ class TestChunkLoggerEnvironment(unittest.TestCase):
         # Should be disabled by default
         assert logger._enabled is False
 
-    def test_server_loads_dotenv_before_imports(self):
-        """Test that server.py loads dotenv before importing modules."""
-        # This is more of an integration test
-        # We verify the import order by checking that chunk_logger
-        # gets the correct environment when imported through server
-
-        # Create a mock .env.local file
-        with patch("dotenv.load_dotenv") as mock_load_dotenv:
-            # Mock the load_dotenv to set our test environment
-            def set_test_env(filepath, **kwargs):
-                os.environ["CHUNK_LOGGER_ENABLED"] = "true"
-                os.environ["CHUNK_LOGGER_SESSION_ID"] = "test-session"
-                return True
-
-            mock_load_dotenv.side_effect = set_test_env
-
-            # Import server (which should call load_dotenv first)
-            # This will fail if imports are in wrong order
-            try:
-                # We can't actually import server.py in tests due to dependencies
-                # But we can verify the pattern
-                pass
-            except ImportError:
-                # Expected in test environment
-                pass
-
-            # Verify load_dotenv was called
-            if mock_load_dotenv.called:
-                assert mock_load_dotenv.call_args[0][0] == ".env.local"
-
     def test_chunk_logger_session_id_from_environment(self):
         """Test that ChunkLogger reads session ID from environment."""
         test_session_id = "test-session-2025"
@@ -144,7 +114,7 @@ class TestChunkLoggerEnvironment(unittest.TestCase):
 
         # Verify write was called (this validates that logging actually happened)
         mock_file.write.assert_called_once()
-        
+
         # Verify the written data contains our test chunk
         written_data = mock_file.write.call_args[0][0]
         assert "backend-sse-event" in written_data

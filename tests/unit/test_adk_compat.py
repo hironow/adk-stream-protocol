@@ -390,7 +390,6 @@ def test_clear_sessions():
     clear_sessions()
 
     assert len(_sessions) == 0
-    assert len(_sessions) == 0
 
 
 @pytest.mark.asyncio

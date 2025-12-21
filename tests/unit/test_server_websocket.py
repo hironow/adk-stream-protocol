@@ -41,68 +41,6 @@ def tool_result_event() -> dict[str, object]:
 
 
 # ============================================================
-# Event Parsing Tests
-# ============================================================
-
-
-def test_parse_ping_event(ping_event: dict[str, str]) -> None:
-    """Ping event should have correct structure."""
-    assert ping_event["type"] == "ping"
-    assert ping_event["version"] == "1.0"
-    assert "timestamp" in ping_event
-
-
-def test_parse_message_event(message_event: dict[str, object]) -> None:
-    """Message event should have data with messages array."""
-    assert message_event["type"] == "message"
-    assert message_event["version"] == "1.0"
-    assert "data" in message_event
-    data = message_event["data"]
-    assert isinstance(data, dict)
-    assert "messages" in data
-
-
-def test_parse_interrupt_event(interrupt_event: dict[str, str]) -> None:
-    """Interrupt event should have reason field."""
-    assert interrupt_event["type"] == "interrupt"
-    assert interrupt_event["version"] == "1.0"
-    assert interrupt_event["reason"] == "user_abort"
-
-
-def test_parse_audio_control_event(
-    audio_control_start_event: dict[str, str],
-) -> None:
-    """Audio control event should have action field."""
-    assert audio_control_start_event["type"] == "audio_control"
-    assert audio_control_start_event["version"] == "1.0"
-    assert audio_control_start_event["action"] == "start"
-
-
-def test_parse_audio_chunk_event(audio_chunk_event: dict[str, object]) -> None:
-    """Audio chunk event should have PCM data."""
-    assert audio_chunk_event["type"] == "audio_chunk"
-    assert audio_chunk_event["version"] == "1.0"
-    assert "data" in audio_chunk_event
-    data = audio_chunk_event["data"]
-    assert isinstance(data, dict)
-    assert "chunk" in data
-    assert data["sampleRate"] == 16000
-    assert data["channels"] == 1
-    assert data["bitDepth"] == 16
-
-
-def test_parse_tool_result_event(tool_result_event: dict[str, object]) -> None:
-    """Tool result event should have result data."""
-    assert tool_result_event["type"] == "tool_result"
-    assert tool_result_event["version"] == "1.0"
-    assert "data" in tool_result_event
-    data = tool_result_event["data"]
-    assert isinstance(data, dict)
-    assert data["toolCallId"] == "call_123"
-    assert data["status"] == "approved"
-
-
-# ============================================================
 # Event Handler Logic Tests
 # ============================================================
 

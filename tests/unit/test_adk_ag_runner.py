@@ -38,55 +38,30 @@ def test_bidi_agent_exists_and_has_model() -> None:
     assert adk_ag_runner.bidi_agent.model  # Should have a model
 
 
-def test_sse_agent_runner_initialized() -> None:
-    """SSE agent runner should be initialized with sse_agent."""
+def test_agent_runners_initialized() -> None:
+    """Both agent runners should be initialized with their respective agents."""
     # when/then
     assert adk_ag_runner.sse_agent_runner is not None
     assert adk_ag_runner.sse_agent_runner.agent == adk_ag_runner.sse_agent
-
-
-def test_bidi_agent_runner_initialized() -> None:
-    """BIDI agent runner should be initialized with bidi_agent."""
-    # when/then
     assert adk_ag_runner.bidi_agent_runner is not None
     assert adk_ag_runner.bidi_agent_runner.agent == adk_ag_runner.bidi_agent
 
 
-def test_agents_have_description() -> None:
-    """Both agents should have description set."""
+def test_agents_have_same_description_and_instruction() -> None:
+    """Both agents should have same description and instruction set."""
     # when/then
     assert adk_ag_runner.sse_agent.description
     assert adk_ag_runner.bidi_agent.description
-    assert (
-        adk_ag_runner.sse_agent.description == adk_ag_runner.bidi_agent.description
-    )  # Same description
-
-
-def test_agents_have_instruction() -> None:
-    """Both agents should have instruction set."""
-    # when/then
     assert adk_ag_runner.sse_agent.instruction
     assert adk_ag_runner.bidi_agent.instruction
-    assert (
-        adk_ag_runner.sse_agent.instruction == adk_ag_runner.bidi_agent.instruction
-    )  # Same instruction
+    # Should have same values
+    assert adk_ag_runner.sse_agent.description == adk_ag_runner.bidi_agent.description
+    assert adk_ag_runner.sse_agent.instruction == adk_ag_runner.bidi_agent.instruction
 
 
 # ============================================================
 # Tool Configuration Tests
 # ============================================================
-
-
-def test_sse_agent_has_tools() -> None:
-    """SSE agent should have tools configured."""
-    # when/then
-    assert len(adk_ag_runner.sse_agent.tools) > 0
-
-
-def test_bidi_agent_has_tools() -> None:
-    """BIDI agent should have tools configured."""
-    # when/then
-    assert len(adk_ag_runner.bidi_agent.tools) > 0
 
 
 def test_both_agents_have_same_tools() -> None:
@@ -260,28 +235,15 @@ def test_get_tools_requiring_confirmation_fallback_to_str_if_no_func_name() -> N
 # ============================================================
 
 
-def test_sse_confirmation_tools_extracted() -> None:
-    """SSE_CONFIRMATION_TOOLS should contain tools requiring confirmation."""
-    # when/then
-    assert isinstance(adk_ag_runner.SSE_CONFIRMATION_TOOLS, list)
-    # Should include process_payment and get_location
-    assert "process_payment" in adk_ag_runner.SSE_CONFIRMATION_TOOLS
-    assert "get_location" in adk_ag_runner.SSE_CONFIRMATION_TOOLS
-
-
-def test_bidi_confirmation_tools_extracted() -> None:
-    """BIDI_CONFIRMATION_TOOLS should contain tools requiring confirmation."""
-    # when/then
-    assert isinstance(adk_ag_runner.BIDI_CONFIRMATION_TOOLS, list)
-    # Should include process_payment and get_location
-    assert "process_payment" in adk_ag_runner.BIDI_CONFIRMATION_TOOLS
-    assert "get_location" in adk_ag_runner.BIDI_CONFIRMATION_TOOLS
-
-
 def test_both_agents_have_same_confirmation_tools() -> None:
     """Both SSE and BIDI agents should have same confirmation tools (use COMMON_TOOLS)."""
     # when/then
+    assert isinstance(adk_ag_runner.SSE_CONFIRMATION_TOOLS, list)
+    assert isinstance(adk_ag_runner.BIDI_CONFIRMATION_TOOLS, list)
     assert set(adk_ag_runner.SSE_CONFIRMATION_TOOLS) == set(adk_ag_runner.BIDI_CONFIRMATION_TOOLS)
+    # Should include process_payment and get_location
+    assert "process_payment" in adk_ag_runner.SSE_CONFIRMATION_TOOLS
+    assert "get_location" in adk_ag_runner.SSE_CONFIRMATION_TOOLS
 
 
 # ============================================================
@@ -289,30 +251,20 @@ def test_both_agents_have_same_confirmation_tools() -> None:
 # ============================================================
 
 
-def test_real_sse_agent_confirmation_tools_match_expected() -> None:
-    """Real SSE agent should have exactly the tools we expect to require confirmation."""
+def test_real_agents_confirmation_tools_match_expected() -> None:
+    """Real agents should have exactly the tools we expect to require confirmation."""
     # when
-    result = get_tools_requiring_confirmation(adk_ag_runner.sse_agent)
+    sse_result = get_tools_requiring_confirmation(adk_ag_runner.sse_agent)
+    bidi_result = get_tools_requiring_confirmation(adk_ag_runner.bidi_agent)
 
-    # then
-    assert "process_payment" in result
-    assert "get_location" in result
+    # then: Both agents should have same confirmation tools
+    assert set(sse_result) == set(bidi_result)
+    # Should include confirmation-required tools
+    assert "process_payment" in sse_result
+    assert "get_location" in sse_result
     # Should NOT include tools without confirmation
-    assert "get_weather" not in result
-    assert "change_bgm" not in result
-
-
-def test_real_bidi_agent_confirmation_tools_match_expected() -> None:
-    """Real BIDI agent should have exactly the tools we expect to require confirmation."""
-    # when
-    result = get_tools_requiring_confirmation(adk_ag_runner.bidi_agent)
-
-    # then
-    assert "process_payment" in result
-    assert "get_location" in result
-    # Should NOT include tools without confirmation
-    assert "get_weather" not in result
-    assert "change_bgm" not in result
+    assert "get_weather" not in sse_result
+    assert "change_bgm" not in sse_result
 
 
 # ============================================================
