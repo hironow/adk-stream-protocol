@@ -51,7 +51,7 @@
 - 複雑な引数での確認フローを検証
 - 現状: 上記と同じエラー
 
-### test_frontend_delegate.py (5 failures)
+### test_frontend_delegate.py (6 failures)
 
 **test_frontend_delegate_execute_and_resolve**
 - `execute_on_frontend()`がFutureを返し、`resolve_tool_result()`で解決されることを検証
@@ -77,7 +77,7 @@
 - エラー時にデリゲートが呼ばれないことを検証
 - 現状: 上記と同じエラー
 
-### test_frontend_tool_service.py (15 failures)
+### test_frontend_tool_service.py (14 failures)
 
 全テストが同じ原因で失敗:
 - `execute_on_frontend()` を使ったフロントエンドツール実行フロー
@@ -85,7 +85,7 @@
 - 現状: `Function call ID not found for tool: [tool_name]` エラー
   - ID mapper への登録後、`get_function_call_id()` が ID を見つけられない
 
-**主な失敗テスト:**
+**失敗テスト:**
 - test_execute_on_frontend_with_id_mapper_registration
 - test_execute_on_frontend_with_id_mapper
 - test_execute_on_frontend_with_original_context
