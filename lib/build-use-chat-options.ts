@@ -71,6 +71,7 @@ export interface UseChatOptionsWithTransport {
   transport?: WebSocketChatTransport;
 }
 
+// TODO: transport層を分離するならここか。そのtransport層をglobalでcontext apiでアクセスできるようにする
 export function buildUseChatOptions({
   mode,
   initialMessages,

@@ -131,27 +131,30 @@ export default function ChatPage() {
           </div>
 
           {/* P4-T9: Clear History Button */}
-          <button
-            type="button"
-            onClick={() => {
-              setMessages([]);
-            }}
-            style={{
-              marginTop: "0.75rem",
-              padding: "0.5rem 1rem",
-              borderRadius: "4px",
-              border: "1px solid #333",
-              background: "#751010ff",
-              color: "#fff",
-              fontSize: "0.875rem",
-              cursor: "pointer",
-              width: "100%",
-              textAlign: "center",
-              fontWeight: 500,
-            }}
-          >
-            Clear History
-          </button>
+          {messages.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                // TODO: not working?
+                setMessages([]);
+              }}
+              style={{
+                marginTop: "0.5rem",
+                padding: "0.5rem 1rem",
+                borderRadius: "4px",
+                border: "1px solid #333",
+                background: "#751010ff",
+                color: "#fff",
+                fontSize: "0.875rem",
+                cursor: "pointer",
+                width: "100%",
+                textAlign: "center",
+                fontWeight: 500,
+              }}
+            >
+              Clear History
+            </button>
+          )}
 
           {/* Download Chunk Logger Button */}
           {chunkLogger.isEnabled() && (
