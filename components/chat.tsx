@@ -60,6 +60,7 @@ export function Chat({
     addToolApprovalResponse,
   } = useChat({
     ...useChatOptions,
+    // TODO: mv to lib/build-use-chat-options.ts?
     // AI SDK v6 standard pattern: Auto-execute client-side tools
     async onToolCall({ toolCall }) {
       // Check if it's a dynamic tool first for proper type narrowing
