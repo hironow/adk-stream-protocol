@@ -370,8 +370,6 @@ export function MessageComponent({
                   key={`${message.id}-${index}-${part.type}-tool-call`}
                   toolInvocation={toolInvocation}
                   addToolApprovalResponse={addToolApprovalResponse}
-                  addToolOutput={addToolOutput}
-                  executeToolCallback={executeToolCallback}
                 />
               );
             }
@@ -401,8 +399,6 @@ export function MessageComponent({
                   key={part.toolCallId}
                   toolInvocation={toolInvocation}
                   addToolApprovalResponse={addToolApprovalResponse}
-                  addToolOutput={addToolOutput}
-                  executeToolCallback={executeToolCallback}
                 />
               );
             }
@@ -615,8 +611,6 @@ export function MessageComponent({
                   key={`toolInvocation-${toolInvocation.toolCallId}`}
                   toolInvocation={toolInvocation}
                   addToolApprovalResponse={addToolApprovalResponse}
-                  addToolOutput={addToolOutput}
-                  executeToolCallback={executeToolCallback}
                 />
               ))}
             </div>
