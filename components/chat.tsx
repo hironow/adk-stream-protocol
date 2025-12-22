@@ -9,7 +9,6 @@ import {
   type BackendMode,
   buildUseChatOptions,
 } from "@/lib/build-use-chat-options";
-import { useAudioRecorder } from "@/lib/use-audio-recorder";
 
 interface ChatProps {
   mode: BackendMode;
@@ -155,11 +154,6 @@ export function Chat({
   // Keep transport reference for imperative control
   const transportRef = useRef(transport);
 
-  // Audio recording with custom hook (BIDI mode only)
-  const { isRecording, startRecording, stopRecording } = useAudioRecorder({
-    mode,
-  });
-
   const isLoading = status === "submitted" || status === "streaming";
 
   // Tool execution helper - execute frontend-delegated tools
@@ -274,91 +268,6 @@ export function Chat({
     },
     [addToolOutput, audioContext],
   );
-
-  // Audio recording handlers
-  // Using useAudioRecorder hook for proper lifecycle management
-  const __handleStartRecording = useCallback(async () => {
-    console.log("[Chat] Starting audio recording...");
-
-    // Start recording with chunk callback
-    await startRecording((chunk) => {
-      // Convert Int16Array to base64
-      const uint8Array = new Uint8Array(chunk.data.buffer);
-      const base64 = btoa(String.fromCharCode(...uint8Array));
-
-      // Send PCM chunk to backend
-      transportRef.current?.__sendAudioChunk({
-        content: base64,
-        sampleRate: chunk.sampleRate, // 16kHz from AudioRecorder
-        channels: chunk.channels, // 1 (mono)
-        bitDepth: chunk.bitDepth, // 16-bit
-      });
-    });
-
-    // Notify transport that audio streaming has started
-    transportRef.current?.__startAudio();
-  }, [startRecording]);
-
-  const __handleStopRecording = useCallback(async () => {
-    console.log("[Chat] Stopping audio recording...");
-
-    // Stop recording (cleanup handled by hook)
-    await stopRecording();
-
-    // Notify transport that audio streaming has stopped
-    transportRef.current?.__stopAudio();
-  }, [stopRecording]);
-
-  // Push-to-Talk button handlers (BIDI mode only)
-  // Using mouse and touch events for press-and-hold recording
-  const __handleRecordingButtonDown = useCallback(
-    (e: React.MouseEvent | React.TouchEvent) => {
-      e.preventDefault();
-      if (mode === "adk-bidi" && !isRecording) {
-        console.log("[Chat] Recording button pressed - starting recording");
-        __handleStartRecording();
-      }
-    },
-    [mode, isRecording, __handleStartRecording],
-  );
-
-  const __handleRecordingButtonUp = useCallback(
-    (e: React.MouseEvent | React.TouchEvent) => {
-      e.preventDefault();
-      if (mode === "adk-bidi" && isRecording) {
-        console.log("[Chat] Recording button released - stopping recording");
-        __handleStopRecording();
-      }
-    },
-    [mode, isRecording, __handleStopRecording],
-  );
-
-  // Handle cases where the user moves cursor away while holding the button
-  useEffect(() => {
-    if (mode !== "adk-bidi" || !isRecording) return;
-
-    const handleGlobalMouseUp = () => {
-      if (isRecording) {
-        console.log("[Chat] Global mouse up - stopping recording");
-        __handleStopRecording();
-      }
-    };
-
-    const handleGlobalTouchEnd = () => {
-      if (isRecording) {
-        console.log("[Chat] Global touch end - stopping recording");
-        __handleStopRecording();
-      }
-    };
-
-    window.addEventListener("mouseup", handleGlobalMouseUp);
-    window.addEventListener("touchend", handleGlobalTouchEnd);
-
-    return () => {
-      window.removeEventListener("mouseup", handleGlobalMouseUp);
-      window.removeEventListener("touchend", handleGlobalTouchEnd);
-    };
-  }, [mode, isRecording, __handleStopRecording]);
 
   // ESC key interruption support
   useEffect(() => {
@@ -490,7 +399,11 @@ export function Chat({
       {/* BGM Switch Button (upper left) */}
       <button
         type="button"
-        onClick={() => audioContext.bgmChannel.switchTrack()}
+        onClick={() =>
+          console.log(
+            "[Chat] BGM button clicked, should be handled by tool calls",
+          )
+        }
         style={{
           position: "fixed",
           top: "1rem",
@@ -512,45 +425,6 @@ export function Chat({
         <span>🎵</span>
         <span>BGM {audioContext.bgmChannel.currentTrack + 1}</span>
       </button>
-
-      {/* Tool Approval Dialog */}
-
-      {/* Recording Indicator (BIDI mode only) */}
-      {mode === "adk-bidi" && isRecording && (
-        <div
-          style={{
-            position: "fixed",
-            top: "1rem",
-            right: "1rem",
-            padding: "0.75rem 1rem",
-            background: "#dc2626",
-            border: "1px solid #991b1b",
-            borderRadius: "6px",
-            fontSize: "0.875rem",
-            fontWeight: 600,
-            color: "#fff",
-            zIndex: 1000,
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            animation: "pulse 1.5s ease-in-out infinite",
-          }}
-        >
-          <span
-            style={{
-              width: "10px",
-              height: "10px",
-              borderRadius: "50%",
-              background: "#fff",
-              animation: "pulse 1s ease-in-out infinite",
-            }}
-          />
-          <span>🎤 Recording...</span>
-          <span style={{ fontSize: "0.75rem", opacity: 0.8 }}>
-            (Release CMD to send)
-          </span>
-        </div>
-      )}
 
       {/* Interrupt Indicator */}
       {interrupted && (
@@ -640,59 +514,6 @@ export function Chat({
           </div>
         )}
       </div>
-
-      {/* Push-to-Talk Recording Button (BIDI mode only) */}
-      {mode === "adk-bidi" && (
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            padding: "0.5rem",
-            borderTop: "1px solid #333",
-            background: "#0a0a0a",
-          }}
-        >
-          <button
-            type="button"
-            onMouseDown={__handleRecordingButtonDown}
-            onMouseUp={__handleRecordingButtonUp}
-            onTouchStart={__handleRecordingButtonDown}
-            onTouchEnd={__handleRecordingButtonUp}
-            style={{
-              padding: "0.75rem 1.5rem",
-              background: isRecording ? "#dc2626" : "#1a1a1a",
-              border: isRecording ? "1px solid #991b1b" : "1px solid #333",
-              borderRadius: "8px",
-              color: "#fff",
-              fontSize: "1rem",
-              fontWeight: 600,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              transition: "all 0.2s ease",
-              transform: isRecording ? "scale(1.05)" : "scale(1)",
-            }}
-          >
-            <span
-              style={{
-                width: "12px",
-                height: "12px",
-                borderRadius: "50%",
-                background: isRecording ? "#fff" : "#ef4444",
-                animation: isRecording
-                  ? "pulse 1.5s ease-in-out infinite"
-                  : "none",
-              }}
-            />
-            <span>
-              {isRecording
-                ? "Recording... (Release to send)"
-                : "Hold to Record"}
-            </span>
-          </button>
-        </div>
-      )}
 
       <form
         onSubmit={onSubmit}
