@@ -89,55 +89,6 @@ export function ToolInvocationComponent({
     }
   };
 
-  // Auto-execute frontend delegate tools (BIDI mode)
-  // This runs when a frontend delegate tool arrives (tool-input-available)
-  // useEffect(() => {
-  //   if (isFrontendDelegateTool && !executionAttempted) {
-  //     setExecutionAttempted(true);
-
-  //     console.log(
-  //       `[FrontendDelegate] Auto-executing ${toolName} (toolCallId=${toolInvocation.toolCallId})`,
-  //     );
-
-  //     executeToolCallback(
-  //       toolName,
-  //       toolInvocation.toolCallId,
-  //       toolInvocation.input || {},
-  //     )
-  //       .then(({ success, result }) => {
-  //         if (success && result) {
-  //           console.log(
-  //             `[FrontendDelegate] ✓ Executed ${toolName}, sending result via WebSocket`,
-  //             result,
-  //           );
-  //         } else {
-  //           console.warn(
-  //             `[FrontendDelegate] Tool ${toolName} not handled or failed`,
-  //           );
-  //         }
-  //       })
-  //       .catch((error) => {
-  //         console.error(
-  //           `[FrontendDelegate] ✗ Failed to execute ${toolName}:`,
-  //           error,
-  //         );
-
-  //         // Send error result via WebSocket
-  //         const errorResult = {
-  //           success: false,
-  //           error: error instanceof Error ? error.message : String(error),
-  //         };
-  //       });
-  //   }
-  // }, [
-  //   isFrontendDelegateTool,
-  //   executionAttempted,
-  //   toolName,
-  //   toolInvocation.toolCallId,
-  //   toolInvocation.input,
-  //   executeToolCallback,
-  // ]);
-
   // Tool call states: input-streaming, input-available, output-available, output-error, approval-requested, approval-responded
   const getStateColor = () => {
     switch (state) {
