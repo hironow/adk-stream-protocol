@@ -76,6 +76,7 @@ export class EventReceiver {
 
       // Handle ping/pong for latency monitoring (not SSE format)
       if (!data.startsWith("data: ")) {
+        console.warn("[Event Receiver] Non-SSE message received");
         this.handleNonSSEMessage(data);
         return;
       }

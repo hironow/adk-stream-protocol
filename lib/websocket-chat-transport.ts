@@ -62,7 +62,7 @@ interface AudioContextValue {
 }
 
 /**
- * Client-to-Server Event Protocol (P2-T2)
+ * Client-to-Server Event Protocol
  * =======================================
  * Structured event protocol for bidirectional communication.
  *
@@ -107,7 +107,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
   private pingInterval: NodeJS.Timeout | null = null; // Ping interval timer
   private lastPingTime: number | null = null; // Timestamp of last ping
 
-  // Controller lifecycle management (P4-T10)
+  // Controller lifecycle management
   // Tracks current ReadableStream controller to prevent orphaning on handler override
   private currentController: ReadableStreamDefaultController<UIMessageChunk> | null =
     null;
@@ -182,19 +182,6 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
     this.eventSender.sendToolResult(toolCallId, result);
   }
 
-  /**
-   * PUBLIC API: Send function_response to resume paused agent (LongRunningFunctionTool pattern)
-   * Use case: User approved a long-running tool → send function_response to resume ADK agent
-   *
-   * Based on AI SDK v6 message format discovered from ai_sdk_v6_compat.py:385-390:
-   * ```python
-   * function_response = types.FunctionResponse(
-   *     id=tool_call_id,
-   *     name="approval_test_tool",
-   *     response={"approved": true}
-   * )
-   * ```
-   */
   public __sendFunctionResponse(
     toolCallId: string,
     toolName: string,
@@ -203,26 +190,14 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
     this.eventSender.sendFunctionResponse(toolCallId, toolName, response);
   }
 
-  /**
-   * PUBLIC API: Start audio input (BIDI mode)
-   * Use case: CMD key pressed, start recording microphone
-   */
   public __startAudio(): void {
     this.eventSender.startAudio();
   }
 
-  /**
-   * PUBLIC API: Stop audio input (BIDI mode)
-   * Use case: CMD key released, stop recording microphone
-   */
   public __stopAudio(): void {
     this.eventSender.stopAudio();
   }
 
-  /**
-   * PUBLIC API: Send audio chunk to backend (BIDI mode)
-   * Used for streaming microphone input
-   */
   public __sendAudioChunk(chunk: {
     content: string;
     sampleRate: number;
@@ -232,13 +207,6 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
     this.eventSender.sendAudioChunk(chunk);
   }
 
-  // sendToolResult() removed - use AI SDK v6's standard addToolApprovalResponse flow
-  // Tool approval flow: addToolApprovalResponse() → sendAutomaticallyWhen → transport.sendMessages()
-  // See experiments/2025-12-13_lib_test_coverage_investigation.md:1640-1679 for details
-
-  /**
-   * Start ping/pong for latency monitoring
-   */
   private _startPing() {
     this._stopPing(); // Clear any existing interval
 
@@ -250,9 +218,6 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
     }, 2000); // Ping every 2 seconds
   }
 
-  /**
-   * Stop ping/pong monitoring
-   */
   private _stopPing() {
     if (this.pingInterval) {
       clearInterval(this.pingInterval);
@@ -261,9 +226,6 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
     this.lastPingTime = null;
   }
 
-  /**
-   * Handle pong response and calculate RTT
-   */
   private _handlePong(timestamp: number) {
     if (this.lastPingTime && timestamp === this.lastPingTime) {
       const rtt = Date.now() - this.lastPingTime;
@@ -289,12 +251,6 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
       messageCount: options.messages.length,
       lastMessage: options.messages[options.messages.length - 1],
     });
-
-    // DEBUG: Log last 3 messages to see tool output structure
-    console.log(
-      "[DEBUG] Last 3 messages:",
-      JSON.stringify(options.messages.slice(-3), null, 2),
-    );
 
     const { url, timeout } = this.config;
 
@@ -432,20 +388,6 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
     });
   }
 
-  /**
-   * Handle incoming WebSocket messages.
-   * Delegates to EventReceiver for SSE parsing and UIMessageChunk conversion.
-   *
-   * IMPORTANT: Protocol conversion happens in EventReceiver!
-   * Backend sends AI SDK v6 Data Stream Protocol in SSE format over WebSocket:
-   *   - Format: 'data: {"type":"text-delta","text":"..."}\n\n'
-   *   - Same format as HTTP SSE, but delivered via WebSocket
-   *
-   * Architecture: SSE format over WebSocket
-   *   - Backend: ADK events → SSE format (stream_protocol.py)
-   *   - Transport: SSE format over WebSocket (this layer)
-   *   - EventReceiver: SSE format → UIMessageChunk (lib/bidi/event_receiver.ts)
-   */
   private _handleWebSocketMessage(
     data: string,
     controller: ReadableStreamDefaultController<UIMessageChunk>,
@@ -453,11 +395,6 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
     // Delegate to EventReceiver
     this.eventReceiver.handleMessage(data, controller);
   }
-
-  //
-  // NOTE: Message handling methods (convertPcmToWav, handleCustomEventWithSkip, handleCustomEventWithoutSkip)
-  // have been refactored to lib/bidi/event_receiver.ts for better modularity and testability.
-  //
 
   /**
    * Reconnect to stream (not supported for WebSocket)
@@ -471,9 +408,6 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
     return null;
   }
 
-  /**
-   * Close WebSocket connection
-   */
   _close(): void {
     this.ws?.close();
     this.ws = null;
