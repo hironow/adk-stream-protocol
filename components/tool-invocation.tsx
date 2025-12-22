@@ -25,18 +25,6 @@ interface ToolInvocationProps {
     toolCallId: string,
     args: Record<string, unknown>,
   ) => Promise<{ success: boolean; result?: Record<string, unknown> }>;
-  // WebSocket transport for long-running tool approval and frontend delegate tools (BIDI mode)
-  websocketTransport?: {
-    sendFunctionResponse: (
-      toolCallId: string,
-      toolName: string,
-      response: Record<string, unknown>,
-    ) => void;
-    sendToolResult: (
-      toolCallId: string,
-      result: Record<string, unknown>,
-    ) => void;
-  };
 }
 
 export function ToolInvocationComponent({
@@ -44,7 +32,6 @@ export function ToolInvocationComponent({
   addToolApprovalResponse,
   addToolOutput,
   executeToolCallback,
-  websocketTransport,
 }: ToolInvocationProps) {
   // State management for long-running tool approval
   const [approvalSent, setApprovalSent] = useState(false);
@@ -91,9 +78,7 @@ export function ToolInvocationComponent({
   // The approval UI will automatically appear for any tool using this pattern.
   // Key distinction: Long-running tools DON'T have executeToolCallback
   const isLongRunningTool =
-    state === "input-available" &&
-    websocketTransport !== undefined &&
-    executeToolCallback === undefined; // Long-running tools don't execute on frontend
+    state === "input-available" && executeToolCallback === undefined; // Long-running tools don't execute on frontend
 
   // Detect frontend delegate tools (BIDI mode only)
   //
@@ -107,7 +92,6 @@ export function ToolInvocationComponent({
   // Key distinction: Frontend delegate tools HAVE executeToolCallback
   const isFrontendDelegateTool =
     state === "input-available" &&
-    websocketTransport !== undefined &&
     !isAdkConfirmation &&
     executeToolCallback !== undefined;
 
@@ -123,19 +107,6 @@ export function ToolInvocationComponent({
     try {
       console.info(
         `[LongRunningTool] User ${approved ? "approved" : "denied"} ${toolName}, sending function_response`,
-      );
-
-      // Send generic function_response via WebSocket
-      websocketTransport?.sendFunctionResponse(
-        toolInvocation.toolCallId,
-        toolName,
-        {
-          approved,
-          user_message: approved
-            ? `User approved ${toolName} execution`
-            : `User denied ${toolName} execution`,
-          timestamp: new Date().toISOString(),
-        },
       );
 
       setApprovalSent(true);
@@ -171,12 +142,6 @@ export function ToolInvocationComponent({
               `[FrontendDelegate] ✓ Executed ${toolName}, sending result via WebSocket`,
               result,
             );
-
-            // Send result via WebSocket (BIDI mode)
-            websocketTransport?.sendToolResult(
-              toolInvocation.toolCallId,
-              result,
-            );
           } else {
             console.warn(
               `[FrontendDelegate] Tool ${toolName} not handled or failed`,
@@ -194,10 +159,6 @@ export function ToolInvocationComponent({
             success: false,
             error: error instanceof Error ? error.message : String(error),
           };
-          websocketTransport?.sendToolResult(
-            toolInvocation.toolCallId,
-            errorResult,
-          );
         });
     }
   }, [
@@ -207,7 +168,6 @@ export function ToolInvocationComponent({
     toolInvocation.toolCallId,
     toolInvocation.input,
     executeToolCallback,
-    websocketTransport,
   ]);
 
   // Tool call states: input-streaming, input-available, output-available, output-error, approval-requested, approval-responded
@@ -325,32 +285,15 @@ export function ToolInvocationComponent({
                     `[ToolInvocationComponent] User approved ${originalToolCall.name}`,
                   );
                   console.info(
-                    `[ToolInvocationComponent] websocketTransport:`,
-                    websocketTransport,
-                  );
-                  console.info(
                     `[ToolInvocationComponent] toolInvocation:`,
                     toolInvocation,
                   );
 
-                  const result = handleConfirmationClick(
-                    toolInvocation,
-                    true,
-                    websocketTransport,
-                    addToolOutput,
-                  );
-
-                  console.info(
-                    `[ToolInvocationComponent] handleConfirmationClick result:`,
-                    result,
-                  );
-
-                  if (!result.success) {
-                    console.error(
-                      `[ToolInvocationComponent] Confirmation failed:`,
-                      result.error,
-                    );
-                  }
+                  // const result = handleConfirmationClick(
+                  //   toolInvocation,
+                  //   true,
+                  //   addToolOutput,
+                  // );
                 }}
                 style={{
                   padding: "0.5rem 1rem",
@@ -372,19 +315,12 @@ export function ToolInvocationComponent({
                     `[ToolInvocationComponent] User denied ${originalToolCall.name}`,
                   );
 
-                  const result = handleConfirmationClick(
-                    toolInvocation,
-                    false,
-                    websocketTransport,
-                    addToolOutput,
-                  );
-
-                  if (!result.success) {
-                    console.error(
-                      `[ToolInvocationComponent] Confirmation failed:`,
-                      result.error,
-                    );
-                  }
+                  // const result = handleConfirmationClick(
+                  //   toolInvocation,
+                  //   false,
+                  //   websocketTransport,
+                  //   addToolOutput,
+                  // );
                 }}
                 style={{
                   padding: "0.5rem 1rem",

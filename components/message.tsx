@@ -90,24 +90,6 @@ export function MessageComponent({
   const audioContext = useAudio();
   const extendedMessage = message as ExtendedUIMessage;
 
-  // Hide empty user messages that are created just for continuation after tool approval
-  // These messages have no content and are just used to trigger the next step
-  // if (isUser) {
-  //   const hasContent = message.content && message.content.length > 0;
-  //   const hasAttachments =
-  //     message.experimental_attachments &&
-  //     message.experimental_attachments.length > 0;
-  //   const hasToolInvocations =
-  //     message.toolInvocations && message.toolInvocations.length > 0;
-
-  //   if (!hasContent && !hasAttachments && !hasToolInvocations) {
-  //     console.debug(
-  //       "[MessageComponent] Hiding empty user message used for continuation",
-  //     );
-  //     return null; // Don't render empty user messages
-  //   }
-  // }
-
   // Check if this assistant message has audio (ADK BIDI mode)
   // Audio is detected by AudioContext chunk count, not message.parts
   // (PCM chunks go directly to AudioWorklet, bypassing message stream)
@@ -374,11 +356,6 @@ export function MessageComponent({
               return null;
             }
 
-            // Legacy audio content (data-audio custom event) - Skip if present
-            if (part.type === "data-audio" && part.data) {
-              return null;
-            }
-
             // Tool Invocation (any tool)
             // AI SDK useChat converts tool events to part.type = "tool-{toolName}"
             if (
@@ -395,7 +372,6 @@ export function MessageComponent({
                   addToolApprovalResponse={addToolApprovalResponse}
                   addToolOutput={addToolOutput}
                   executeToolCallback={executeToolCallback}
-                  websocketTransport={websocketTransport}
                 />
               );
             }
@@ -427,21 +403,8 @@ export function MessageComponent({
                   addToolApprovalResponse={addToolApprovalResponse}
                   addToolOutput={addToolOutput}
                   executeToolCallback={executeToolCallback}
-                  websocketTransport={websocketTransport}
                 />
               );
-            }
-
-            // Step markers (Gemini 3 Pro feature) - skip or show minimal indicator
-            // Note: step-start/step-end are not in current type definitions but may appear in runtime
-            if (
-              typeof part.type === "string" &&
-              // biome-ignore lint/suspicious/noExplicitAny: Dynamic part type
-              ((part as any).type === "step-start" ||
-                // biome-ignore lint/suspicious/noExplicitAny: Dynamic part type
-                (part as any).type === "step-end")
-            ) {
-              return null; // Don't display step markers
             }
 
             // Unknown part type - debug view
@@ -480,8 +443,6 @@ export function MessageComponent({
               </details>
             );
           })}
-
-          {/* AI SDK v6: All content is in parts array, no content property */}
         </div>
 
         {/* Usage Metadata (if available) */}
@@ -656,7 +617,6 @@ export function MessageComponent({
                   addToolApprovalResponse={addToolApprovalResponse}
                   addToolOutput={addToolOutput}
                   executeToolCallback={executeToolCallback}
-                  websocketTransport={websocketTransport}
                 />
               ))}
             </div>
