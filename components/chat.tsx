@@ -156,6 +156,7 @@ export function Chat({
 
   const isLoading = status === "submitted" || status === "streaming";
 
+  // TODO: separate tool use on client matcher!
   // Tool execution helper - execute frontend-delegated tools
   // This is called after approval is sent to execute the actual tool
   const executeToolCallback = useCallback(
@@ -498,11 +499,6 @@ export function Chat({
             key={m.id}
             message={m}
             addToolApprovalResponse={addToolApprovalResponse}
-            addToolOutput={addToolOutput}
-            executeToolCallback={executeToolCallback}
-            websocketTransport={
-              mode === "adk-bidi" ? transportRef.current : undefined
-            }
           />
         ))}
         {isLoading && (

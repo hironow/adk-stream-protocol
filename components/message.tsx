@@ -55,36 +55,11 @@ interface MessageComponentProps {
     approved: boolean;
     reason?: string;
   }) => void;
-  addToolOutput?: (response: {
-    tool: string;
-    toolCallId: string;
-    output: unknown;
-  }) => void;
-  executeToolCallback?: (
-    toolName: string,
-    toolCallId: string,
-    args: Record<string, unknown>,
-  ) => Promise<boolean>;
-  // POC Phase 3: WebSocket transport for function_response injection
-  websocketTransport?: {
-    sendFunctionResponse: (
-      toolCallId: string,
-      toolName: string,
-      response: Record<string, unknown>,
-    ) => void;
-    sendToolResult: (
-      toolCallId: string,
-      result: Record<string, unknown>,
-    ) => void;
-  };
 }
 
 export function MessageComponent({
   message,
   addToolApprovalResponse,
-  addToolOutput,
-  executeToolCallback,
-  websocketTransport,
 }: MessageComponentProps) {
   const isUser = message.role === "user";
   const audioContext = useAudio();

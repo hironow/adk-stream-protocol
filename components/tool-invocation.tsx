@@ -63,19 +63,6 @@ export function ToolInvocationComponent({
   // Key distinction: Long-running tools DON'T have executeToolCallback
   const isLongRunningTool = state === "input-available"; // Long-running tools don't execute on frontend
 
-  // Detect frontend delegate tools (BIDI mode only)
-  //
-  // Frontend delegate tools use delegate.execute_on_frontend() pattern:
-  // 1. Backend creates Future and awaits result
-  // 2. Frontend receives tool-input-available event
-  // 3. Frontend auto-executes tool locally (THIS LOGIC)
-  // 4. Frontend sends result back via WebSocket (sendToolResult)
-  // 5. Backend resolves Future and returns result
-  //
-  // Key distinction: Frontend delegate tools HAVE executeToolCallback
-  const isFrontendDelegateTool =
-    state === "input-available" && !isAdkConfirmation;
-
   // Generic handler for long-running tool approval/denial
   const handleLongRunningToolResponse = (approved: boolean) => {
     if (approvalSent) {
