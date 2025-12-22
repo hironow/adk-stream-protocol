@@ -126,8 +126,8 @@ describe("useChat Integration", () => {
       // Then: Transport reference should be available for imperative control
       expect(result.current.messages).toBeDefined();
       expect(transport).toBeDefined();
-      expect(transport.startAudio).toBeDefined();
-      expect(transport.stopAudio).toBeDefined();
+      expect(transport.__startAudio).toBeDefined();
+      expect(transport.__stopAudio).toBeDefined();
       // Note: sendToolResult() removed - use addToolApprovalResponse() instead
       // Actual behavior tested in websocket-chat-transport.test.ts
     });

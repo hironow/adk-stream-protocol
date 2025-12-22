@@ -277,7 +277,7 @@ export function Chat({
 
   // Audio recording handlers
   // Using useAudioRecorder hook for proper lifecycle management
-  const handleStartRecording = useCallback(async () => {
+  const __handleStartRecording = useCallback(async () => {
     console.log("[Chat] Starting audio recording...");
 
     // Start recording with chunk callback
@@ -287,7 +287,7 @@ export function Chat({
       const base64 = btoa(String.fromCharCode(...uint8Array));
 
       // Send PCM chunk to backend
-      transportRef.current?.sendAudioChunk({
+      transportRef.current?.__sendAudioChunk({
         content: base64,
         sampleRate: chunk.sampleRate, // 16kHz from AudioRecorder
         channels: chunk.channels, // 1 (mono)
@@ -296,41 +296,41 @@ export function Chat({
     });
 
     // Notify transport that audio streaming has started
-    transportRef.current?.startAudio();
+    transportRef.current?.__startAudio();
   }, [startRecording]);
 
-  const handleStopRecording = useCallback(async () => {
+  const __handleStopRecording = useCallback(async () => {
     console.log("[Chat] Stopping audio recording...");
 
     // Stop recording (cleanup handled by hook)
     await stopRecording();
 
     // Notify transport that audio streaming has stopped
-    transportRef.current?.stopAudio();
+    transportRef.current?.__stopAudio();
   }, [stopRecording]);
 
   // Push-to-Talk button handlers (BIDI mode only)
   // Using mouse and touch events for press-and-hold recording
-  const handleRecordingButtonDown = useCallback(
+  const __handleRecordingButtonDown = useCallback(
     (e: React.MouseEvent | React.TouchEvent) => {
       e.preventDefault();
       if (mode === "adk-bidi" && !isRecording) {
         console.log("[Chat] Recording button pressed - starting recording");
-        handleStartRecording();
+        __handleStartRecording();
       }
     },
-    [mode, isRecording, handleStartRecording],
+    [mode, isRecording, __handleStartRecording],
   );
 
-  const handleRecordingButtonUp = useCallback(
+  const __handleRecordingButtonUp = useCallback(
     (e: React.MouseEvent | React.TouchEvent) => {
       e.preventDefault();
       if (mode === "adk-bidi" && isRecording) {
         console.log("[Chat] Recording button released - stopping recording");
-        handleStopRecording();
+        __handleStopRecording();
       }
     },
-    [mode, isRecording, handleStopRecording],
+    [mode, isRecording, __handleStopRecording],
   );
 
   // Handle cases where the user moves cursor away while holding the button
@@ -340,14 +340,14 @@ export function Chat({
     const handleGlobalMouseUp = () => {
       if (isRecording) {
         console.log("[Chat] Global mouse up - stopping recording");
-        handleStopRecording();
+        __handleStopRecording();
       }
     };
 
     const handleGlobalTouchEnd = () => {
       if (isRecording) {
         console.log("[Chat] Global touch end - stopping recording");
-        handleStopRecording();
+        __handleStopRecording();
       }
     };
 
@@ -358,7 +358,7 @@ export function Chat({
       window.removeEventListener("mouseup", handleGlobalMouseUp);
       window.removeEventListener("touchend", handleGlobalTouchEnd);
     };
-  }, [mode, isRecording, handleStopRecording]);
+  }, [mode, isRecording, __handleStopRecording]);
 
   // ESC key interruption support
   useEffect(() => {
@@ -654,10 +654,10 @@ export function Chat({
         >
           <button
             type="button"
-            onMouseDown={handleRecordingButtonDown}
-            onMouseUp={handleRecordingButtonUp}
-            onTouchStart={handleRecordingButtonDown}
-            onTouchEnd={handleRecordingButtonUp}
+            onMouseDown={__handleRecordingButtonDown}
+            onMouseUp={__handleRecordingButtonUp}
+            onTouchStart={__handleRecordingButtonDown}
+            onTouchEnd={__handleRecordingButtonUp}
             style={{
               padding: "0.75rem 1.5rem",
               background: isRecording ? "#dc2626" : "#1a1a1a",

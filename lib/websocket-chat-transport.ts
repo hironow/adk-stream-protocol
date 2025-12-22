@@ -148,7 +148,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
             },
           }
         : undefined,
-      onPong: (timestamp: number) => this.handlePong(timestamp),
+      onPong: (timestamp: number) => this._handlePong(timestamp),
     });
 
     this.eventSender = new EventSender(this.ws);
@@ -175,7 +175,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
    * Use case: Frontend executed a client-side tool and sends result back to backend
    * to resolve the delegate Future
    */
-  public sendToolResult(
+  public __sendToolResult(
     toolCallId: string,
     result: Record<string, unknown>,
   ): void {
@@ -195,7 +195,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
    * )
    * ```
    */
-  public sendFunctionResponse(
+  public __sendFunctionResponse(
     toolCallId: string,
     toolName: string,
     response: Record<string, unknown>,
@@ -207,7 +207,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
    * PUBLIC API: Start audio input (BIDI mode)
    * Use case: CMD key pressed, start recording microphone
    */
-  public startAudio(): void {
+  public __startAudio(): void {
     this.eventSender.startAudio();
   }
 
@@ -215,7 +215,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
    * PUBLIC API: Stop audio input (BIDI mode)
    * Use case: CMD key released, stop recording microphone
    */
-  public stopAudio(): void {
+  public __stopAudio(): void {
     this.eventSender.stopAudio();
   }
 
@@ -223,7 +223,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
    * PUBLIC API: Send audio chunk to backend (BIDI mode)
    * Used for streaming microphone input
    */
-  public sendAudioChunk(chunk: {
+  public __sendAudioChunk(chunk: {
     content: string;
     sampleRate: number;
     channels: number;
@@ -239,8 +239,8 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
   /**
    * Start ping/pong for latency monitoring
    */
-  private startPing() {
-    this.stopPing(); // Clear any existing interval
+  private _startPing() {
+    this._stopPing(); // Clear any existing interval
 
     this.pingInterval = setInterval(() => {
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
@@ -253,7 +253,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
   /**
    * Stop ping/pong monitoring
    */
-  private stopPing() {
+  private _stopPing() {
     if (this.pingInterval) {
       clearInterval(this.pingInterval);
       this.pingInterval = null;
@@ -264,7 +264,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
   /**
    * Handle pong response and calculate RTT
    */
-  private handlePong(timestamp: number) {
+  private _handlePong(timestamp: number) {
     if (this.lastPingTime && timestamp === this.lastPingTime) {
       const rtt = Date.now() - this.lastPingTime;
       this.config.latencyCallback?.(rtt);
@@ -326,7 +326,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
 
               this.ws.onopen = () => {
                 clearTimeout(timeoutId);
-                this.startPing(); // Start latency monitoring
+                this._startPing(); // Start latency monitoring
 
                 // Update EventSender with new WebSocket instance
                 this.eventSender.setWebSocket(this.ws);
@@ -358,17 +358,17 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
               this.eventReceiver.reset();
 
               this.ws.onmessage = (event) => {
-                this.handleWebSocketMessage(event.data, controller);
+                this._handleWebSocketMessage(event.data, controller);
               };
 
               this.ws.onerror = (error) => {
                 console.error("[WS Transport] Error:", error);
-                this.stopPing(); // Stop ping on error
+                this._stopPing(); // Stop ping on error
                 controller.error(new Error("WebSocket error"));
               };
 
               this.ws.onclose = () => {
-                this.stopPing(); // Stop ping on close
+                this._stopPing(); // Stop ping on close
                 controller.close();
               };
             }
@@ -399,17 +399,17 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
             // Update message handler for new stream
             if (this.ws) {
               this.ws.onmessage = (event) => {
-                this.handleWebSocketMessage(event.data, controller);
+                this._handleWebSocketMessage(event.data, controller);
               };
 
               this.ws.onerror = (error) => {
                 console.error("[WS Transport] Error:", error);
-                this.stopPing(); // Stop ping on error
+                this._stopPing(); // Stop ping on error
                 controller.error(new Error("WebSocket error"));
               };
 
               this.ws.onclose = () => {
-                this.stopPing(); // Stop ping on close
+                this._stopPing(); // Stop ping on close
                 controller.close();
               };
             }
@@ -446,7 +446,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
    *   - Transport: SSE format over WebSocket (this layer)
    *   - EventReceiver: SSE format → UIMessageChunk (lib/bidi/event_receiver.ts)
    */
-  private handleWebSocketMessage(
+  private _handleWebSocketMessage(
     data: string,
     controller: ReadableStreamDefaultController<UIMessageChunk>,
   ): void {
@@ -474,7 +474,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
   /**
    * Close WebSocket connection
    */
-  close(): void {
+  _close(): void {
     this.ws?.close();
     this.ws = null;
   }

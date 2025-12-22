@@ -166,8 +166,8 @@ describe("Transport Integration", () => {
       });
 
       // Then: Should be able to call imperative methods
-      expect(() => transport.startAudio()).not.toThrow();
-      expect(() => transport.stopAudio()).not.toThrow();
+      expect(() => transport.__startAudio()).not.toThrow();
+      expect(() => transport.__stopAudio()).not.toThrow();
       // Note: sendToolResult() removed - use addToolApprovalResponse() instead
     });
 

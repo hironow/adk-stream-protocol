@@ -844,7 +844,7 @@ describe("WebSocketChatTransport", () => {
       expect(ws.readyState).toBe(MockWebSocket.OPEN);
 
       // When: Closing connection
-      transport.close();
+      transport._close();
 
       // Then: WebSocket should be closed
       expect(ws.readyState).toBe(MockWebSocket.CLOSED);
@@ -1531,7 +1531,7 @@ describe("WebSocketChatTransport", () => {
       // When: Call sendToolResult()
       const toolCallId = "call_test_123";
       const toolResult = { success: true, track: 1, message: "BGM changed" };
-      transport.sendToolResult(toolCallId, toolResult);
+      transport.__sendToolResult(toolCallId, toolResult);
 
       // Then: WebSocket should send tool_result event
       const toolResultEvents = ws.sentMessages.filter((msg) => {
@@ -1562,7 +1562,7 @@ describe("WebSocketChatTransport", () => {
       const consoleWarnSpy = vi
         .spyOn(console, "warn")
         .mockImplementation(() => {});
-      transport.sendToolResult("call_456", { result: "test" });
+      transport.__sendToolResult("call_456", { result: "test" });
 
       // Then: Should log warning but not crash
       expect(consoleWarnSpy).toHaveBeenCalledWith(
@@ -1583,7 +1583,7 @@ describe("WebSocketChatTransport", () => {
       ws.sentMessages = [];
 
       // When: Starting audio input
-      transport.startAudio();
+      transport.__startAudio();
 
       // Then: Should send audio_control event with start action
       const audioControlEvents = ws.sentMessages.filter((msg) => {
@@ -1609,7 +1609,7 @@ describe("WebSocketChatTransport", () => {
       ws.sentMessages = [];
 
       // When: Stopping audio input
-      transport.stopAudio();
+      transport.__stopAudio();
 
       // Then: Should send audio_control event with stop action
       const audioControlEvents = ws.sentMessages.filter((msg) => {
@@ -1642,7 +1642,7 @@ describe("WebSocketChatTransport", () => {
       };
 
       // When: Sending audio chunk
-      transport.sendAudioChunk(audioChunk);
+      transport.__sendAudioChunk(audioChunk);
 
       // Then: Should send audio_chunk event
       const audioChunkEvents = ws.sentMessages.filter((msg) => {
@@ -1673,21 +1673,21 @@ describe("WebSocketChatTransport", () => {
       ws.sentMessages = [];
 
       // When: Sending multiple audio chunks
-      transport.sendAudioChunk({
+      transport.__sendAudioChunk({
         content: btoa("chunk1"),
         sampleRate: 16000,
         channels: 1,
         bitDepth: 16,
       });
 
-      transport.sendAudioChunk({
+      transport.__sendAudioChunk({
         content: btoa("chunk2"),
         sampleRate: 16000,
         channels: 1,
         bitDepth: 16,
       });
 
-      transport.sendAudioChunk({
+      transport.__sendAudioChunk({
         content: btoa("chunk3"),
         sampleRate: 16000,
         channels: 1,
@@ -1712,14 +1712,14 @@ describe("WebSocketChatTransport", () => {
       ws.sentMessages = [];
 
       // When: Starting, sending chunks, then stopping
-      transport.startAudio();
-      transport.sendAudioChunk({
+      transport.__startAudio();
+      transport.__sendAudioChunk({
         content: btoa("audio-data"),
         sampleRate: 16000,
         channels: 1,
         bitDepth: 16,
       });
-      transport.stopAudio();
+      transport.__stopAudio();
 
       // Then: Should send start, chunk, stop events in order
       const events = ws.sentMessages.map((msg) => JSON.parse(msg));
@@ -1831,7 +1831,7 @@ describe("WebSocketChatTransport", () => {
       expect(transport.pingInterval).toBeDefined();
 
       // When: Closing connection
-      transport.close();
+      transport._close();
 
       // Then: Ping interval should be cleared
       expect(transport.pingInterval).toBeNull();
@@ -1848,7 +1848,7 @@ describe("WebSocketChatTransport", () => {
       expect(ws.readyState).toBe(MockWebSocket.OPEN);
 
       // When: Closing transport
-      transport.close();
+      transport._close();
 
       // Then: WebSocket should be closed
       expect(ws.readyState).toBe(MockWebSocket.CLOSED);
@@ -1863,7 +1863,7 @@ describe("WebSocketChatTransport", () => {
       expect(transport.ws).toBeDefined();
 
       // When: Closing
-      transport.close();
+      transport._close();
 
       // Then: ws should be null
       expect(transport.ws).toBeNull();
@@ -1876,7 +1876,7 @@ describe("WebSocketChatTransport", () => {
       });
 
       // When/Then: Closing should not throw
-      expect(() => transport.close()).not.toThrow();
+      expect(() => transport._close()).not.toThrow();
     });
   });
 
