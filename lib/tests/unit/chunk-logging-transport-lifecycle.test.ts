@@ -17,7 +17,7 @@
 
 import type { DefaultChatTransport, UIMessage, UIMessageChunk } from "ai";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ChunkLoggingTransport } from "../../chunk-logging-transport";
+import { ChunkLoggingTransport } from "../../chunk_logs/chunk-logging-transport";
 
 describe("ChunkLoggingTransport Stream Lifecycle Tests", () => {
   let mockDelegate: DefaultChatTransport<UIMessage>;

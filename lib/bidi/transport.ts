@@ -1,5 +1,5 @@
 /**
- * WebSocket Chat Transport for AI SDK v6
+ * BIDI WebSocket Chat Transport for AI SDK v6
  *
  * Implements custom ChatTransport to enable bidirectional streaming
  * between AI SDK useChat hook and ADK BIDI mode via WebSocket.
@@ -32,8 +32,8 @@ import type {
   UIMessageChunk,
 } from "ai";
 
-import { EventReceiver } from "./bidi/event_receiver";
-import { EventSender } from "./bidi/event_sender";
+import { EventReceiver } from "./event_receiver";
+import { EventSender } from "./event_sender";
 
 /**
  * AudioContext interface for PCM streaming

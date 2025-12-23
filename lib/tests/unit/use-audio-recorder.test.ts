@@ -10,7 +10,7 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AudioChunk } from "../../audio-recorder";
-import type { BackendMode } from "../../build-use-chat-options";
+import type { Mode } from "../../types";
 import { useAudioRecorder } from "../../use-audio-recorder";
 
 // Mock AudioRecorder class
@@ -129,7 +129,7 @@ describe("useAudioRecorder", () => {
   });
 
   describe("startRecording() - Non-BIDI mode", () => {
-    it.each<BackendMode>([
+    it.each<Mode>([
       "gemini",
       "adk-sse",
     ])("should not start recording in %s mode", async (mode) => {
@@ -414,14 +414,14 @@ describe("useAudioRecorder", () => {
       const { result, rerender } = renderHook(
         ({ mode }) => useAudioRecorder({ mode }),
         {
-          initialProps: { mode: "adk-bidi" as BackendMode },
+          initialProps: { mode: "adk-bidi" as Mode },
         },
       );
 
       const initialStart = result.current.startRecording;
 
       // Change mode (dependency)
-      rerender({ mode: "gemini" as BackendMode });
+      rerender({ mode: "gemini" as Mode });
 
       // Function reference should update (dependency changed)
       expect(result.current.startRecording).not.toBe(initialStart);

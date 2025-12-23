@@ -17,7 +17,7 @@
 import type { UIMessage } from "ai";
 import { describe, expect, it, vi } from "vitest";
 import {
-  type BackendMode,
+  type Mode,
   buildUseChatOptions,
 } from "../../build-use-chat-options";
 
@@ -33,7 +33,7 @@ describe("buildUseChatOptions", () => {
   describe("Gemini Direct Mode", () => {
     it("should create DefaultChatTransport for gemini mode", () => {
       // Given: Gemini Direct mode
-      const mode: BackendMode = "gemini";
+      const mode: Mode = "gemini";
 
       // When: Building options
       const result = buildUseChatOptions({
@@ -51,7 +51,7 @@ describe("buildUseChatOptions", () => {
 
     it("should generate correct chatId for gemini mode", () => {
       // Given: Gemini Direct mode
-      const mode: BackendMode = "gemini";
+      const mode: Mode = "gemini";
 
       // When: Building options
       const result = buildUseChatOptions({
@@ -66,7 +66,7 @@ describe("buildUseChatOptions", () => {
 
     it("should include initial messages", () => {
       // Given: Gemini Direct mode with messages
-      const mode: BackendMode = "gemini";
+      const mode: Mode = "gemini";
 
       // When: Building options
       const result = buildUseChatOptions({
@@ -80,7 +80,7 @@ describe("buildUseChatOptions", () => {
 
     it("should generate unique chatId when forceNewInstance is true", async () => {
       // Given: Gemini Direct mode with forceNewInstance
-      const mode: BackendMode = "gemini";
+      const mode: Mode = "gemini";
 
       // When: Building options twice with slight delay to ensure different timestamps
       const result1 = buildUseChatOptions({
@@ -104,7 +104,7 @@ describe("buildUseChatOptions", () => {
 
     it("should generate same chatId when forceNewInstance is false", () => {
       // Given: Gemini Direct mode without forceNewInstance
-      const mode: BackendMode = "gemini";
+      const mode: Mode = "gemini";
 
       // When: Building options twice
       const result1 = buildUseChatOptions({
@@ -127,7 +127,7 @@ describe("buildUseChatOptions", () => {
   describe("ADK SSE Mode", () => {
     it("should create DefaultChatTransport for adk-sse mode", () => {
       // Given: ADK SSE mode
-      const mode: BackendMode = "adk-sse";
+      const mode: Mode = "adk-sse";
 
       // When: Building options
       const result = buildUseChatOptions({
@@ -146,7 +146,7 @@ describe("buildUseChatOptions", () => {
 
     it("should generate correct chatId for adk-sse mode", () => {
       // Given: ADK SSE mode
-      const mode: BackendMode = "adk-sse";
+      const mode: Mode = "adk-sse";
 
       // When: Building options
       const result = buildUseChatOptions({
@@ -162,7 +162,7 @@ describe("buildUseChatOptions", () => {
 
     it("should use custom adkBackendUrl", () => {
       // Given: ADK SSE mode with custom backend URL
-      const mode: BackendMode = "adk-sse";
+      const mode: Mode = "adk-sse";
       const customUrl = "http://backend.example.com:3000";
 
       // When: Building options
@@ -180,7 +180,7 @@ describe("buildUseChatOptions", () => {
   describe("ADK BIDI Mode", () => {
     it("should create WebSocketChatTransport for adk-bidi mode", () => {
       // Given: ADK BIDI mode
-      const mode: BackendMode = "adk-bidi";
+      const mode: Mode = "adk-bidi";
 
       // When: Building options
       const result = buildUseChatOptions({
@@ -189,18 +189,19 @@ describe("buildUseChatOptions", () => {
         adkBackendUrl: "http://localhost:8000",
       });
 
-      // Then: Should use WebSocketChatTransport
+      // Then: Should wrap WebSocketChatTransport in ChunkLoggingTransport
       expect(result.useChatOptions.transport).toBeDefined();
       expect(result.useChatOptions.transport.constructor.name).toBe(
-        "WebSocketChatTransport",
+        "ChunkLoggingTransport",
       );
-      // Transport reference should be returned for imperative control
-      expect(result.transport).toBe(result.useChatOptions.transport);
+      // Transport reference should be returned for imperative control (unwrapped)
+      expect(result.transport).toBeDefined();
+      expect(result.transport?.constructor.name).toBe("WebSocketChatTransport");
     });
 
     it("should generate correct chatId for adk-bidi mode", () => {
       // Given: ADK BIDI mode
-      const mode: BackendMode = "adk-bidi";
+      const mode: Mode = "adk-bidi";
 
       // When: Building options
       const result = buildUseChatOptions({
@@ -218,7 +219,7 @@ describe("buildUseChatOptions", () => {
 
     it("should convert http to ws in WebSocket URL", () => {
       // Given: ADK BIDI mode with http URL
-      const mode: BackendMode = "adk-bidi";
+      const mode: Mode = "adk-bidi";
 
       // When: Building options
       const result = buildUseChatOptions({
@@ -233,7 +234,7 @@ describe("buildUseChatOptions", () => {
 
     it("should convert https to wss in WebSocket URL", () => {
       // Given: ADK BIDI mode with https URL
-      const mode: BackendMode = "adk-bidi";
+      const mode: Mode = "adk-bidi";
 
       // When: Building options
       const result = buildUseChatOptions({
@@ -248,7 +249,7 @@ describe("buildUseChatOptions", () => {
 
     it("should pass AudioContext to WebSocketChatTransport", () => {
       // Given: ADK BIDI mode with AudioContext
-      const mode: BackendMode = "adk-bidi";
+      const mode: Mode = "adk-bidi";
       const mockAudioContext = {
         voiceChannel: {
           isPlaying: false,
@@ -279,7 +280,7 @@ describe("buildUseChatOptions", () => {
   describe("Configuration Validation", () => {
     it("should not mix gemini mode with WebSocketChatTransport", () => {
       // Given: Gemini Direct mode
-      const mode: BackendMode = "gemini";
+      const mode: Mode = "gemini";
 
       // When: Building options
       const result = buildUseChatOptions({
@@ -296,7 +297,7 @@ describe("buildUseChatOptions", () => {
 
     it("should not mix adk-sse mode with WebSocketChatTransport", () => {
       // Given: ADK SSE mode
-      const mode: BackendMode = "adk-sse";
+      const mode: Mode = "adk-sse";
 
       // When: Building options
       const result = buildUseChatOptions({
@@ -314,7 +315,7 @@ describe("buildUseChatOptions", () => {
 
     it("should only use WebSocketChatTransport for adk-bidi mode", () => {
       // Given: All three backend modes
-      const modes: BackendMode[] = ["gemini", "adk-sse", "adk-bidi"];
+      const modes: Mode[] = ["gemini", "adk-sse", "adk-bidi"];
 
       // When: Building options for each mode
       const results = modes.map((mode) =>
@@ -325,7 +326,7 @@ describe("buildUseChatOptions", () => {
         }),
       );
 
-      // Then: Only adk-bidi should use WebSocketChatTransport
+      // Then: All modes use ChunkLoggingTransport wrapper
       expect(results[0].useChatOptions.transport.constructor.name).toBe(
         "ChunkLoggingTransport",
       ); // gemini (wrapped DefaultChatTransport)
@@ -333,13 +334,19 @@ describe("buildUseChatOptions", () => {
         "ChunkLoggingTransport",
       ); // adk-sse (wrapped DefaultChatTransport)
       expect(results[2].useChatOptions.transport.constructor.name).toBe(
-        "WebSocketChatTransport",
-      ); // adk-bidi
+        "ChunkLoggingTransport",
+      ); // adk-bidi (wrapped WebSocketChatTransport)
+
+      // Only adk-bidi returns unwrapped WebSocketChatTransport reference
+      expect(results[0].transport).toBeUndefined(); // gemini
+      expect(results[1].transport).toBeUndefined(); // adk-sse
+      expect(results[2].transport).toBeDefined(); // adk-bidi
+      expect(results[2].transport?.constructor.name).toBe("WebSocketChatTransport");
     });
 
     it("should generate different chatIds for different modes", () => {
       // Given: All three backend modes
-      const modes: BackendMode[] = ["gemini", "adk-sse", "adk-bidi"];
+      const modes: Mode[] = ["gemini", "adk-sse", "adk-bidi"];
 
       // When: Building options for each mode
       const results = modes.map((mode) =>
@@ -358,7 +365,7 @@ describe("buildUseChatOptions", () => {
 
     it("should generate different chatIds for different backend URLs", () => {
       // Given: Same mode with different URLs
-      const mode: BackendMode = "adk-sse";
+      const mode: Mode = "adk-sse";
       const url1 = "http://localhost:8000";
       const url2 = "http://localhost:9000";
 
@@ -386,7 +393,7 @@ describe("buildUseChatOptions", () => {
 
     it("should configure sendAutomaticallyWhen for ADK BIDI mode", () => {
       // Given: ADK BIDI mode (supports tool approval)
-      const mode: BackendMode = "adk-bidi";
+      const mode: Mode = "adk-bidi";
       const adkBackendUrl = "http://localhost:8000";
 
       // When: Building options
@@ -406,7 +413,7 @@ describe("buildUseChatOptions", () => {
 
     it("should configure sendAutomaticallyWhen for ADK SSE mode", () => {
       // Given: ADK SSE mode (supports tool approval)
-      const mode: BackendMode = "adk-sse";
+      const mode: Mode = "adk-sse";
       const adkBackendUrl = "http://localhost:8000";
 
       // When: Building options
@@ -425,7 +432,7 @@ describe("buildUseChatOptions", () => {
 
     it("should NOT configure sendAutomaticallyWhen for Gemini mode", () => {
       // Given: Gemini Direct mode (no tool approval support)
-      const mode: BackendMode = "gemini";
+      const mode: Mode = "gemini";
 
       // When: Building options
       const result = buildUseChatOptions({

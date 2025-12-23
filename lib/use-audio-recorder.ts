@@ -1,8 +1,15 @@
 /**
  * Audio Recorder Hook for React
  *
+ * 🔴 ADK BIDI Mode Only - Not compatible with SSE modes
+ *
  * Custom hook for managing AudioWorklet-based PCM recording with proper
  * lifecycle management and cleanup.
+ *
+ * Dependencies:
+ * - ADK BIDI Protocol (mode check: `mode !== "adk-bidi"`)
+ * - AudioRecorder (lib/audio-recorder.ts)
+ * - Web Audio API (AudioWorklet, MediaStream)
  *
  * Architecture:
  * - useRef for AudioRecorder instance (prevents recreation on re-render)
@@ -27,10 +34,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AudioChunk } from "@/lib/audio-recorder";
-import type { BackendMode } from "@/lib/build-use-chat-options";
+import type { Mode } from "@/lib/types";
 
 interface UseAudioRecorderOptions {
-  mode: BackendMode;
+  mode: Mode;
   onChunk?: (chunk: AudioChunk) => void;
 }
 

@@ -1,8 +1,19 @@
 /**
  * Chunk Logger for ADK AI Data Protocol (Browser)
  *
+ * ⚪ ADK-Independent - Works with all modes (adk-bidi, adk-sse, gemini)
+ *
  * Records chunks at various points in the data flow for debugging and testing.
  * Outputs JSONL format (1 line = 1 chunk) for easy parsing and replay.
+ *
+ * Dependencies:
+ * - AI SDK v6 (UIMessageChunk types)
+ * - Browser APIs (localStorage, console)
+ *
+ * Supported Modes:
+ * - adk-bidi: WebSocket chunk logging
+ * - adk-sse: HTTP SSE chunk logging
+ * - gemini: Gemini Direct chunk logging
  *
  * Usage:
  *     import { chunkLogger } from './chunk-logger';
@@ -27,34 +38,10 @@
 
 "use client";
 
-// Type definitions
-export type LogLocation =
-  | "backend-adk-event" // ADK raw event (input)
-  | "backend-sse-event" // SSE formatted event (output)
-  | "frontend-api-response" // Next.js API response (Gemini Direct)
-  | "frontend-sse-chunk" // SSE chunk (ADK SSE)
-  | "frontend-ws-chunk" // WebSocket chunk (ADK BIDI)
-  | "frontend-useChat-chunk"; // useChat chunk (all modes)
+import type { ChunkLogEntry, Direction, LogLocation, Mode } from "@/lib/types";
 
-export type Direction = "in" | "out";
-
-export type Mode = "gemini" | "adk-sse" | "adk-bidi";
-
-export interface ChunkLogEntry {
-  // Metadata
-  timestamp: number; // Unix timestamp (ms)
-  session_id: string; // Session identifier
-  mode: Mode; // Backend mode
-  location: LogLocation; // Recording point
-  direction: Direction; // Input/output
-  sequence_number: number; // Chunk order
-
-  // Chunk data
-  chunk: unknown; // Actual chunk data (type depends on location)
-
-  // Optional metadata
-  metadata?: Record<string, unknown>;
-}
+// Re-export types for backward compatibility
+export type { ChunkLogEntry, Direction, LogLocation, Mode };
 
 export interface LogChunkOptions {
   location: LogLocation;

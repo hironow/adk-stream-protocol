@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Chat } from "@/components/chat";
 import { AudioProvider } from "@/lib/audio-context";
 import type { BackendMode } from "@/lib/build-use-chat-options";
-import { chunkLogger } from "@/lib/chunk-logger";
+import { chunkLogger } from "@/lib/chunk_logs";
 
 export default function ChatPage() {
   const [mode, setMode] = useState<BackendMode>("gemini");

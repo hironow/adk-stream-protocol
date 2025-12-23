@@ -1,11 +1,18 @@
 /**
  * Audio Recorder using AudioWorklet for PCM recording
  *
- * Based on ADK BIDI demo implementation:
- * https://github.com/google/adk-samples/blob/main/python/agents/bidi-demo/app/static/js/audio-recorder.js
+ * 🔴 ADK BIDI Mode Only - Not compatible with SSE modes
+ *
+ * Dependencies:
+ * - ADK BIDI Protocol (requires 16kHz, 16-bit PCM format)
+ * - Web Audio API (AudioWorklet, MediaStream)
+ * - /public/pcm-recorder-processor.js (AudioWorklet processor)
  *
  * Records microphone input as 16-bit PCM audio at 16kHz sample rate.
  * Uses AudioWorklet for low-latency real-time audio processing.
+ *
+ * Based on ADK BIDI demo implementation:
+ * https://github.com/google/adk-samples/blob/main/python/agents/bidi-demo/app/static/js/audio-recorder.js
  */
 
 export interface AudioChunk {

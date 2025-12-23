@@ -7,7 +7,7 @@
 
 import type { UIMessage } from "ai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { WebSocketChatTransport } from "../../websocket-chat-transport";
+import { WebSocketChatTransport } from "../../bidi/transport";
 
 // Mock WebSocket
 class MockWebSocket {

@@ -1,8 +1,19 @@
 /**
  * Chunk Logging Transport Wrapper
  *
- * Wraps DefaultChatTransport to log all chunks passing through the stream.
- * Used for ADK SSE and Gemini Direct modes to record frontend chunk flow.
+ * ⚪ ADK-Independent - Works with all modes (adk-bidi, adk-sse, gemini)
+ *
+ * Wraps any ChatTransport to log all chunks passing through the stream.
+ * Used for debugging and testing across all backend modes.
+ *
+ * Dependencies:
+ * - AI SDK v6 (ChatTransport interface)
+ * - chunk-logger.ts (JSONL logging)
+ *
+ * Supported Modes:
+ * - adk-bidi: Wraps WebSocketChatTransport
+ * - adk-sse: Wraps DefaultChatTransport (SSE)
+ * - gemini: Wraps DefaultChatTransport (Gemini Direct)
  */
 
 import type {

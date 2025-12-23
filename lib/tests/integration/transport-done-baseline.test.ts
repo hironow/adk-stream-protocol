@@ -39,7 +39,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { UIMessageChunk } from "ai";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { WebSocketChatTransport } from "../../websocket-chat-transport";
+import { WebSocketChatTransport } from "../../bidi";
 
 // Fixture types
 interface BaselineFixture {

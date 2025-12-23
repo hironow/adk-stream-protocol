@@ -4,7 +4,7 @@
 
 import type { UIMessage } from "@ai-sdk/react-v6";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { WebSocketChatTransport } from "../../websocket-chat-transport";
+import { WebSocketChatTransport } from "../../bidi/transport";
 import {
   type MockWebSocketInstance,
   setupWebSocketMock,

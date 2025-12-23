@@ -14,11 +14,21 @@ interface ToolInvocationProps {
     approved: boolean;
     reason?: string;
   }) => void;
+  // addToolOutput: Used for both SSE and BIDI modes
+  // - SSE mode: Triggers HTTP request to backend
+  // - BIDI mode: Transport layer converts to WebSocket message
+  // Transport internals handle mode-specific behavior via sendAutomaticallyWhen
+  addToolOutput?: (response: {
+    tool: string;
+    toolCallId: string;
+    output: unknown;
+  }) => void;
 }
 
 export function ToolInvocationComponent({
   toolInvocation,
   addToolApprovalResponse,
+  addToolOutput,
 }: ToolInvocationProps) {
   // State management for long-running tool approval
   const [approvalSent, setApprovalSent] = useState(false);
@@ -203,16 +213,29 @@ export function ToolInvocationComponent({
                   console.info(
                     `[ToolInvocationComponent] User approved ${originalToolCall.name}`,
                   );
-                  console.info(
-                    `[ToolInvocationComponent] toolInvocation:`,
-                    toolInvocation,
-                  );
 
-                  // const result = handleConfirmationClick(
-                  //   toolInvocation,
-                  //   true,
-                  //   addToolOutput,
-                  // );
+                  // Send confirmation via addToolOutput (works for both SSE and BIDI modes)
+                  // - SSE mode: Triggers HTTP request with confirmation output
+                  // - BIDI mode: Transport layer converts to WebSocket function_response
+                  // sendAutomaticallyWhen handles automatic message sending for both modes
+                  if (addToolOutput) {
+                    console.info(
+                      `[ToolInvocationComponent] Sending confirmation via addToolOutput`,
+                      { toolCallId: toolInvocation.toolCallId },
+                    );
+                    addToolOutput({
+                      tool: "adk_request_confirmation",
+                      toolCallId: toolInvocation.toolCallId,
+                      output: {
+                        confirmed: true,
+                      },
+                    });
+                    return;
+                  }
+
+                  console.error(
+                    `[ToolInvocationComponent] addToolOutput not available`,
+                  );
                 }}
                 style={{
                   padding: "0.5rem 1rem",
@@ -234,12 +257,28 @@ export function ToolInvocationComponent({
                     `[ToolInvocationComponent] User denied ${originalToolCall.name}`,
                   );
 
-                  // const result = handleConfirmationClick(
-                  //   toolInvocation,
-                  //   false,
-                  //   websocketTransport,
-                  //   addToolOutput,
-                  // );
+                  // Send confirmation via addToolOutput (works for both SSE and BIDI modes)
+                  // - SSE mode: Triggers HTTP request with confirmation output
+                  // - BIDI mode: Transport layer converts to WebSocket function_response
+                  // sendAutomaticallyWhen handles automatic message sending for both modes
+                  if (addToolOutput) {
+                    console.info(
+                      `[ToolInvocationComponent] Sending confirmation via addToolOutput`,
+                      { toolCallId: toolInvocation.toolCallId },
+                    );
+                    addToolOutput({
+                      tool: "adk_request_confirmation",
+                      toolCallId: toolInvocation.toolCallId,
+                      output: {
+                        confirmed: false,
+                      },
+                    });
+                    return;
+                  }
+
+                  console.error(
+                    `[ToolInvocationComponent] addToolOutput not available`,
+                  );
                 }}
                 style={{
                   padding: "0.5rem 1rem",

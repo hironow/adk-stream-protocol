@@ -1,7 +1,16 @@
 /**
  * Chunk Player for ADK AI Data Protocol (Browser)
  *
+ * ⚪ ADK-Independent - Works with all modes (adk-bidi, adk-sse, gemini)
+ *
  * Replays recorded chunks from JSONL files for testing and debugging.
+ *
+ * Dependencies:
+ * - AI SDK v6 (UIMessageChunk types)
+ * - chunk-logger.ts (JSONL format)
+ *
+ * Supported Modes:
+ * - All modes: Replays any recorded chunk sequence
  *
  * Usage:
  *     import { ChunkPlayer } from './chunk-player';

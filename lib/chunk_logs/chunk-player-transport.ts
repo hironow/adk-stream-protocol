@@ -1,8 +1,17 @@
 /**
  * Chunk Player Transport
  *
+ * ⚪ ADK-Independent - Works with all modes (adk-bidi, adk-sse, gemini)
+ *
  * Mock transport that replays recorded chunks from JSONL files.
  * Used for E2E testing to verify UI behavior with deterministic data.
+ *
+ * Dependencies:
+ * - AI SDK v6 (ChatTransport interface)
+ * - chunk-player.ts (JSONL replay)
+ *
+ * Supported Modes:
+ * - All modes: Replays any recorded chunk sequence
  *
  * Usage:
  *     const transport = await ChunkPlayerTransport.fromFixture('/fixtures/test.jsonl');

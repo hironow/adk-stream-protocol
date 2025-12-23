@@ -12,6 +12,10 @@
  */
 
 import type { UIMessage } from "@ai-sdk/ui-utils";
+import {
+  TOOL_NAME_ADK_REQUEST_CONFIRMATION,
+  TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+} from "@/lib/constants";
 
 /**
  * WebSocket event types for BIDI protocol
@@ -194,9 +198,33 @@ export class EventSender {
    * This is the standard way to send user text/images/tool-results to the backend.
    * Used by AI SDK v6's useChat hook via transport.sendMessages().
    *
+   * Special handling for adk_request_confirmation:
+   * - Detects confirmation tool output in messages
+   * - Extracts originalFunctionCall from corresponding tool invocation
+   * - Sends as function_response instead of regular message
+   *
    * @param messages - Array of UIMessage from AI SDK v6
    */
   public sendMessages(messages: UIMessage[]): void {
+    // BIDI Confirmation Flow: Detect and transform adk_request_confirmation output
+    // This enables unified addToolOutput API for both SSE and BIDI modes
+    const confirmationResponse = this._extractConfirmationResponse(messages);
+
+    if (confirmationResponse) {
+      // Send as function_response for original tool
+      console.log(
+        `[Event Sender] Detected confirmation response, sending as function_response`,
+        confirmationResponse,
+      );
+      this.sendFunctionResponse(
+        confirmationResponse.originalToolCallId,
+        confirmationResponse.originalToolName,
+        confirmationResponse.response,
+      );
+      return;
+    }
+
+    // Standard message event
     const event: MessageEvent = {
       type: "message",
       version: "1.0",
@@ -211,6 +239,118 @@ export class EventSender {
     );
 
     this.sendEvent(event);
+  }
+
+  /**
+   * Extract confirmation response from messages
+   *
+   * Searches for adk_request_confirmation tool-result in the last user message
+   * and extracts originalFunctionCall from the corresponding assistant message.
+   *
+   * @param messages - Array of UIMessage
+   * @returns Confirmation response data or null if not found
+   */
+  private _extractConfirmationResponse(messages: UIMessage[]): {
+    originalToolCallId: string;
+    originalToolName: string;
+    response: Record<string, unknown>;
+  } | null {
+    try {
+      // Find last user message with tool-result
+      const lastUserMessage = [...messages]
+        .reverse()
+        .find((msg) => msg.role === "user");
+
+      if (!lastUserMessage) return null;
+
+      // Check if user message has tool-result content
+      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+      const content = (lastUserMessage as any).content;
+      if (!Array.isArray(content)) return null;
+
+      // Find adk_request_confirmation tool-result
+      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+      const confirmationResult = content.find((item: any) => {
+        return (
+          item.type === "tool-result" &&
+          item.toolName === TOOL_NAME_ADK_REQUEST_CONFIRMATION
+        );
+      });
+
+      if (!confirmationResult) return null;
+
+      console.log(
+        "[Event Sender] Found confirmation tool-result:",
+        confirmationResult,
+      );
+
+      // Find corresponding assistant message with confirmation tool invocation
+      const assistantMessage = [...messages]
+        .reverse()
+        .find((msg) => msg.role === "assistant");
+
+      if (!assistantMessage) {
+        console.warn(
+          "[Event Sender] No assistant message found for confirmation",
+        );
+        return null;
+      }
+
+      // Extract parts from assistant message
+      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+      const parts = (assistantMessage as any).parts || [];
+
+      // Find adk_request_confirmation tool invocation
+      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+      const confirmationPart = parts.find((part: any) => {
+        return part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION;
+      });
+
+      if (!confirmationPart || !confirmationPart.input) {
+        console.warn(
+          "[Event Sender] No confirmation part with input found in assistant message",
+        );
+        return null;
+      }
+
+      // Extract originalFunctionCall from confirmation input
+      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+      const originalFunctionCall = (confirmationPart.input as any)
+        .originalFunctionCall;
+
+      if (!originalFunctionCall) {
+        console.warn(
+          "[Event Sender] No originalFunctionCall in confirmation input",
+        );
+        return null;
+      }
+
+      console.log(
+        "[Event Sender] Extracted originalFunctionCall:",
+        originalFunctionCall,
+      );
+
+      // Convert confirmation result to function response format
+      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+      const confirmed = (confirmationResult.result as any)?.confirmed;
+
+      return {
+        originalToolCallId: originalFunctionCall.id,
+        originalToolName: originalFunctionCall.name,
+        response: {
+          approved: confirmed === true,
+          user_message: confirmed
+            ? `User approved ${originalFunctionCall.name} execution`
+            : `User denied ${originalFunctionCall.name} execution`,
+        },
+      };
+    } catch (error) {
+      console.error(
+        "[Event Sender] Error extracting confirmation response:",
+        error,
+      );
+      return null;
+    }
   }
 
   /**
