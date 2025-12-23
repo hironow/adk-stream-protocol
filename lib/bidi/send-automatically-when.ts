@@ -17,6 +17,7 @@ import {
   TOOL_STATE_OUTPUT_AVAILABLE,
   TOOL_STATE_OUTPUT_ERROR,
   TOOL_STATE_APPROVAL_RESPONDED,
+  TOOL_STATE_APPROVAL_REQUESTED,
 } from "@/lib/constants";
 
 /**
@@ -82,6 +83,23 @@ export function sendAutomaticallyWhen({
       "[BIDI sendAutomaticallyWhen] Found confirmation part:",
       JSON.stringify(confirmationPart, null, 2),
     );
+
+    // BIDI-specific: Check for pending confirmations (approval-requested)
+    // In BIDI mode, multiple confirmations can accumulate in the same message
+    // If there's a pending confirmation, wait for user response before sending
+    const hasPendingConfirmation = parts.some(
+      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+      (part: any) =>
+        part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
+        part.state === TOOL_STATE_APPROVAL_REQUESTED,
+    );
+
+    if (hasPendingConfirmation) {
+      console.log(
+        "[BIDI sendAutomaticallyWhen] Pending confirmation found (approval-requested), waiting for user response",
+      );
+      return false;
+    }
 
     // Check if this is the FIRST time confirmation completed (user just clicked)
     // vs. backend has responded with additional content
