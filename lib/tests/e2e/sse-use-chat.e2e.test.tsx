@@ -16,8 +16,14 @@
 import { useChat } from "@ai-sdk/react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { UIMessage } from "ai";
+import { isTextUIPart } from "ai";
 import { http, HttpResponse } from "msw";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import {
+  TOOL_STATE_APPROVAL_REQUESTED,
+  TOOL_STATE_APPROVAL_RESPONDED,
+  TOOL_STATE_INPUT_AVAILABLE,
+} from "../../constants";
 import {
   type Mode,
   type UseChatConfig,
@@ -35,7 +41,7 @@ import { createMswServer } from "../mocks/msw-server";
 function getMessageText(message: UIMessage | undefined): string {
   if (!message) return "";
   return message.parts
-    .filter((part): part is { type: "text"; text: string } => part.type === "text")
+    .filter((part): part is { type: "text"; text: string } => isTextUIPart(part))
     .map((part) => part.text)
     .join("");
 }
@@ -110,13 +116,46 @@ describe("SSE Mode with useChat - E2E Tests", () => {
         result.current.sendMessage({ text: "Search for AI SDK v6" });
       });
 
-      // Wait for confirmation to be received
+      // Wait for confirmation request to be received (state: approval-requested)
       await waitFor(
         () => {
           const lastMessage = result.current.messages.at(-1);
           expect(lastMessage?.role).toBe("assistant");
+          const confirmationPart = lastMessage?.parts?.find(
+            (p: any) => p.type === "tool-adk_request_confirmation",
+          );
+          expect(confirmationPart).toBeDefined();
+          expect(confirmationPart?.state).toBe(TOOL_STATE_APPROVAL_REQUESTED);
         },
         { timeout: 3000 },
+      );
+
+      // Simulate user clicking Approve
+      await act(async () => {
+        const lastMessage = result.current.messages.at(-1);
+        const confirmationPart = lastMessage?.parts?.find(
+          (p: any) => p.type === "tool-adk_request_confirmation",
+        );
+        result.current.addToolApprovalResponse({
+          id: confirmationPart?.toolCallId,
+          approved: true,
+        });
+      });
+
+      // Wait for state to update
+      await waitFor(
+        () => {
+          const lastMessage = result.current.messages.at(-1);
+          const confirmationPart = lastMessage?.parts?.find(
+            (p: any) => p.type === "tool-adk_request_confirmation",
+          );
+          console.log(
+            "[Test] After approval, confirmation part:",
+            JSON.stringify(confirmationPart, null, 2),
+          );
+          expect(confirmationPart?.state).not.toBe(TOOL_STATE_INPUT_AVAILABLE);
+        },
+        { timeout: 1000 },
       );
 
       // Then: Verify sendAutomaticallyWhen triggered automatic resubmission
@@ -157,12 +196,13 @@ describe("SSE Mode with useChat - E2E Tests", () => {
           }),
           expect.objectContaining({
             role: "assistant",
-            // Should include confirmation output
+            // Should include confirmation approval response
             parts: expect.arrayContaining([
               expect.objectContaining({
                 type: "tool-adk_request_confirmation",
-                output: expect.objectContaining({
-                  confirmed: true,
+                state: TOOL_STATE_APPROVAL_RESPONDED,
+                approval: expect.objectContaining({
+                  approved: true,
                 }),
               }),
             ]),
@@ -225,6 +265,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
       // Verify response received
       await waitFor(() => {
         const lastMessage = result.current.messages.at(-1);
+        expect(lastMessage?.role).toBe("assistant");
         expect(getMessageText(lastMessage)).toBe("Hello from Gemini!");
       });
     });
@@ -244,7 +285,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
           const hasConfirmation = (payload as any).messages?.some(
             (msg: any) =>
               msg.role === "assistant" &&
-              msg.content?.some(
+              msg.parts?.some(
                 (part: any) => part.type === "tool-adk_request_confirmation",
               ),
           );
@@ -297,12 +338,25 @@ describe("SSE Mode with useChat - E2E Tests", () => {
               expect.objectContaining({
                 type: "tool-adk_request_confirmation",
                 toolCallId: "call-456",
+                state: TOOL_STATE_APPROVAL_REQUESTED,
               }),
             ]),
           );
         },
         { timeout: 3000 },
       );
+
+      // Simulate user approval
+      await act(async () => {
+        const lastMessage = result.current.messages.at(-1);
+        const confirmationPart = lastMessage?.parts?.find(
+          (p: any) => p.type === "tool-adk_request_confirmation",
+        );
+        result.current.addToolApprovalResponse({
+          id: confirmationPart?.toolCallId,
+          approved: true,
+        });
+      });
 
       // Verify sendAutomaticallyWhen triggers automatic resubmission
       await waitFor(
@@ -376,6 +430,47 @@ describe("SSE Mode with useChat - E2E Tests", () => {
 
       await act(async () => {
         result.current.sendMessage({ text: "Execute multi-step process" });
+      });
+
+      // Wait for first confirmation (call-1)
+      await waitFor(
+        () => {
+          const lastMessage = result.current.messages.at(-1);
+          expect(lastMessage?.role).toBe("assistant");
+          const confirmationPart = lastMessage?.parts?.find(
+            (p: any) => p.toolCallId === "call-1",
+          );
+          expect(confirmationPart).toBeDefined();
+        },
+        { timeout: 3000 },
+      );
+
+      // Approve first confirmation
+      await act(async () => {
+        result.current.addToolApprovalResponse({
+          id: "call-1",
+          approved: true,
+        });
+      });
+
+      // Wait for second confirmation (call-2)
+      await waitFor(
+        () => {
+          const lastMessage = result.current.messages.at(-1);
+          const confirmationPart = lastMessage?.parts?.find(
+            (p: any) => p.toolCallId === "call-2",
+          );
+          expect(confirmationPart).toBeDefined();
+        },
+        { timeout: 3000 },
+      );
+
+      // Approve second confirmation
+      await act(async () => {
+        result.current.addToolApprovalResponse({
+          id: "call-2",
+          approved: true,
+        });
       });
 
       // Then: Verify all confirmations processed
@@ -507,9 +602,25 @@ describe("SSE Mode with useChat - E2E Tests", () => {
         () => {
           const lastMessage = result.current.messages.at(-1);
           expect(lastMessage?.role).toBe("assistant");
+          const confirmationPart = lastMessage?.parts?.find(
+            (p: any) => p.type === "tool-adk_request_confirmation",
+          );
+          expect(confirmationPart).toBeDefined();
         },
         { timeout: 3000 },
       );
+
+      // Approve confirmation (which will trigger error response)
+      await act(async () => {
+        const lastMessage = result.current.messages.at(-1);
+        const confirmationPart = lastMessage?.parts?.find(
+          (p: any) => p.type === "tool-adk_request_confirmation",
+        );
+        result.current.addToolApprovalResponse({
+          id: confirmationPart?.toolCallId,
+          approved: true,
+        });
+      });
 
       // Wait for error handling
       await waitFor(
@@ -521,6 +632,112 @@ describe("SSE Mode with useChat - E2E Tests", () => {
 
       // Verify error state
       expect(result.current.error).toBeDefined();
+    });
+
+    it("should handle tool approval denial correctly", async () => {
+      // Given: Backend returns confirmation request and handles denial
+      let denialReceived = false;
+      let finalResponseReceived = false;
+
+      server.use(
+        http.post("http://localhost:8000/stream", async ({ request }) => {
+          const payload = await request.json();
+
+          // Check if this is the denial response
+          const hasDenial = (payload as any).messages?.some(
+            (msg: any) =>
+              msg.role === "assistant" &&
+              msg.parts?.some(
+                (part: any) =>
+                  part.type === "tool-adk_request_confirmation" &&
+                  part.approval?.approved === false,
+              ),
+          );
+
+          if (!denialReceived) {
+            denialReceived = true;
+            // Return confirmation request
+            return createAdkConfirmationRequest({
+              toolCallId: "call-deny",
+              originalFunctionCall: {
+                id: "orig-deny",
+                name: "dangerous_operation",
+                args: { action: "delete_all" },
+              },
+            });
+          }
+
+          if (hasDenial && !finalResponseReceived) {
+            finalResponseReceived = true;
+            // Return response acknowledging the denial
+            return createTextResponse(
+              "Operation cancelled as per your request.",
+            );
+          }
+
+          return HttpResponse.text("Unexpected", { status: 500 }) as any;
+        }),
+      );
+
+      const { useChatOptions } = buildUseChatOptions({
+        mode: "adk-sse",
+        initialMessages: [],
+        adkBackendUrl: "http://localhost:8000",
+      });
+
+      // When: User sends message
+      const { result } = renderHook(() => useChat(useChatOptions));
+
+      await act(async () => {
+        result.current.sendMessage({ text: "Delete all data" });
+      });
+
+      // Then: Wait for confirmation to appear
+      await waitFor(
+        () => {
+          const lastMessage = result.current.messages.at(-1);
+          expect(lastMessage?.role).toBe("assistant");
+          const confirmationPart = lastMessage?.parts?.find(
+            (p: any) => p.type === "tool-adk_request_confirmation",
+          );
+          expect(confirmationPart).toBeDefined();
+          expect(confirmationPart?.state).toBe(TOOL_STATE_APPROVAL_REQUESTED);
+        },
+        { timeout: 3000 },
+      );
+
+      // Simulate user denying the approval
+      await act(async () => {
+        const lastMessage = result.current.messages.at(-1);
+        const confirmationPart = lastMessage?.parts?.find(
+          (p: any) => p.type === "tool-adk_request_confirmation",
+        );
+        result.current.addToolApprovalResponse({
+          id: confirmationPart?.toolCallId,
+          approved: false, // ← Denial
+          reason: "User rejected the dangerous operation",
+        });
+      });
+
+      // Verify sendAutomaticallyWhen triggers automatic resubmission on denial
+      await waitFor(
+        () => {
+          expect(denialReceived).toBe(true);
+          expect(finalResponseReceived).toBe(true);
+        },
+        { timeout: 3000 },
+      );
+
+      // Verify final response acknowledging the denial
+      await waitFor(
+        () => {
+          const lastMessage = result.current.messages.at(-1);
+          expect(getMessageText(lastMessage)).toContain(
+            "Operation cancelled as per your request",
+          );
+        },
+        { timeout: 3000 },
+      );
     });
   });
 });

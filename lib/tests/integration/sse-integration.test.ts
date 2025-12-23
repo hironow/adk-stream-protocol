@@ -12,6 +12,9 @@ import {
   TOOL_CHUNK_TYPE_INPUT_START,
   TOOL_CHUNK_TYPE_INPUT_AVAILABLE,
   TOOL_NAME_ADK_REQUEST_CONFIRMATION,
+  TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+  TOOL_STATE_OUTPUT_AVAILABLE,
+  TOOL_STATE_APPROVAL_RESPONDED,
 } from "../../constants";
 import { buildUseChatOptions } from "../../sse";
 import {
@@ -83,9 +86,12 @@ describe("lib/sse Integration Tests", () => {
           },
         ],
       });
-      expect(chunks).toHaveLength(2);
-      expect(chunks[0]).toMatchObject({ type: "text-delta", delta: "Hello" });
-      expect(chunks[1]).toMatchObject({ type: "text-delta", delta: " World" });
+      // AI SDK v6 sends: text-start, text-delta(s), text-end
+      expect(chunks.length).toBeGreaterThanOrEqual(2);
+      const textDeltas = chunks.filter((c) => c.type === "text-delta");
+      expect(textDeltas).toHaveLength(2);
+      expect(textDeltas[0]).toMatchObject({ type: "text-delta", delta: "Hello" });
+      expect(textDeltas[1]).toMatchObject({ type: "text-delta", delta: " World" });
     });
   });
 
@@ -165,8 +171,10 @@ describe("lib/sse Integration Tests", () => {
           },
         ],
       });
-      expect(chunks).toHaveLength(1);
-      expect(chunks[0]).toMatchObject({ type: "text-delta", delta: responseText });
+      // AI SDK v6 sends: text-start, text-delta(s), text-end
+      const textDeltas = chunks.filter((c) => c.type === "text-delta");
+      expect(textDeltas).toHaveLength(1);
+      expect(textDeltas[0]).toMatchObject({ type: "text-delta", delta: responseText });
     });
   });
 
@@ -243,7 +251,7 @@ describe("lib/sse Integration Tests", () => {
     });
 
     it("sendAutomaticallyWhen detects confirmation completion", async () => {
-      // given
+      // given - AI SDK v6 approval flow uses "approval-responded" state
       const messages: UIMessage[] = [
         {
           id: "1",
@@ -251,8 +259,8 @@ describe("lib/sse Integration Tests", () => {
           content: "",
           parts: [
             {
-              type: "tool-adk_request_confirmation",
-              state: "output-available",
+              type: TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+              state: TOOL_STATE_APPROVAL_RESPONDED,
               toolCallId: "call-1",
               input: {
                 originalFunctionCall: {
@@ -261,7 +269,52 @@ describe("lib/sse Integration Tests", () => {
                   args: {},
                 },
               },
-              output: { confirmed: true },
+              approval: {
+                id: "call-1",
+                approved: true,
+              },
+            },
+          ],
+        } as any,
+      ];
+
+      const { useChatOptions } = buildUseChatOptions({
+        mode: "adk-sse",
+        initialMessages: [],
+      });
+
+      // when
+      const shouldSend =
+        await useChatOptions.sendAutomaticallyWhen!({ messages });
+
+      // then
+      expect(shouldSend).toBe(true);
+    });
+
+    it("sendAutomaticallyWhen detects confirmation denial", async () => {
+      // given - AI SDK v6 denial flow uses "approval-responded" state with approved: false
+      const messages: UIMessage[] = [
+        {
+          id: "1",
+          role: "assistant",
+          content: "",
+          parts: [
+            {
+              type: TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+              state: TOOL_STATE_APPROVAL_RESPONDED,
+              toolCallId: "call-1",
+              input: {
+                originalFunctionCall: {
+                  id: "orig-1",
+                  name: "dangerous_operation",
+                  args: {},
+                },
+              },
+              approval: {
+                id: "call-1",
+                approved: false, // ← Key difference: approved is false
+                reason: "User rejected the operation",
+              },
             },
           ],
         } as any,

@@ -9,7 +9,18 @@ import { HttpResponse } from "msw";
 import {
   TOOL_CHUNK_TYPE_INPUT_START,
   TOOL_CHUNK_TYPE_INPUT_AVAILABLE,
+  TOOL_CHUNK_TYPE_APPROVAL_REQUEST,
+  TOOL_NAME_ADK_REQUEST_CONFIRMATION,
 } from "../../constants";
+
+/**
+ * SSE chunk type - text start
+ * AI SDK v6 format
+ */
+export interface TextStartChunk {
+  type: "text-start";
+  id: string;
+}
 
 /**
  * SSE chunk type - text delta
@@ -18,6 +29,15 @@ import {
 export interface TextDeltaChunk {
   type: "text-delta";
   delta: string;
+  id: string;
+}
+
+/**
+ * SSE chunk type - text end
+ * AI SDK v6 format
+ */
+export interface TextEndChunk {
+  type: "text-end";
   id: string;
 }
 
@@ -44,7 +64,9 @@ export interface ToolInputAvailableChunk {
  * Union type for all SSE chunk types (AI SDK v6)
  */
 export type SseChunk =
+  | TextStartChunk
   | TextDeltaChunk
+  | TextEndChunk
   | ToolInputStartChunk
   | ToolInputAvailableChunk;
 
@@ -74,9 +96,13 @@ export function createSseStreamResponse(chunks: SseChunk[]): HttpResponse<Readab
   const stream = new ReadableStream({
     start(controller) {
       for (const chunk of chunks) {
-        const data = `0:${JSON.stringify(chunk)}\n`;
+        // AI SDK v6 expects standard SSE format:
+        // data: <json>\n\n
+        const data = `data: ${JSON.stringify(chunk)}\n\n`;
         controller.enqueue(encoder.encode(data));
       }
+      // AI SDK v6 expects [DONE] marker to signal stream completion
+      controller.enqueue(encoder.encode("data: [DONE]\n\n"));
       controller.close();
     },
   });
@@ -96,6 +122,7 @@ export function createSseStreamResponse(chunks: SseChunk[]): HttpResponse<Readab
  * Uses AI SDK v6 tool chunk types:
  * 1. tool-input-start: Indicates the start of tool input
  * 2. tool-input-available: Provides the complete tool input
+ * 3. tool-approval-request: Requests user approval for the tool
  *
  * @param options - Confirmation request options
  * @param options.toolCallId - Optional tool call ID (defaults to "call-1")
@@ -120,6 +147,7 @@ export function createSseStreamResponse(chunks: SseChunk[]): HttpResponse<Readab
  */
 export function createAdkConfirmationRequest(options: {
   toolCallId?: string;
+  approvalId?: string;
   originalFunctionCall: {
     id: string;
     name: string;
@@ -127,18 +155,30 @@ export function createAdkConfirmationRequest(options: {
   };
 }): HttpResponse<ReadableStream<Uint8Array>> {
   const toolCallId = options.toolCallId ?? "call-1";
+  const approvalId = options.approvalId ?? toolCallId;
 
+  // AI SDK v6 approval flow:
+  // 1. Send tool-input-start + tool-input-available (creates tool call)
+  // 2. Send tool-approval-request (marks it as needing approval)
+  // 3. Frontend calls addToolApprovalResponse()
+  // 4. State changes to "approval-responded"
+  // 5. sendAutomaticallyWhen detects approval-responded and triggers send
   return createSseStreamResponse([
     {
       type: TOOL_CHUNK_TYPE_INPUT_START,
       toolCallId,
-      toolName: "adk_request_confirmation",
+      toolName: TOOL_NAME_ADK_REQUEST_CONFIRMATION,
     },
     {
       type: TOOL_CHUNK_TYPE_INPUT_AVAILABLE,
       toolCallId,
-      toolName: "adk_request_confirmation",
+      toolName: TOOL_NAME_ADK_REQUEST_CONFIRMATION,
       input: { originalFunctionCall: options.originalFunctionCall },
+    },
+    {
+      type: TOOL_CHUNK_TYPE_APPROVAL_REQUEST,
+      approvalId,
+      toolCallId,
     },
   ]);
 }
@@ -160,10 +200,20 @@ export function createAdkConfirmationRequest(options: {
  */
 export function createTextResponse(...textParts: string[]): HttpResponse<ReadableStream<Uint8Array>> {
   const textId = `text-${Date.now()}`;
-  const chunks: TextDeltaChunk[] = textParts.map((text) => ({
-    type: "text-delta",
-    delta: text,
-    id: textId,
-  }));
+
+  // AI SDK v6 expects: text-start, text-delta(s), text-end sequence
+  const chunks: SseChunk[] = [
+    // Start the text stream
+    { type: "text-start" as const, id: textId },
+    // Send each text part as a delta
+    ...textParts.map((text) => ({
+      type: "text-delta" as const,
+      delta: text,
+      id: textId,
+    })),
+    // End the text stream
+    { type: "text-end" as const, id: textId },
+  ];
+
   return createSseStreamResponse(chunks);
 }

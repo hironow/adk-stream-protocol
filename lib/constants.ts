@@ -64,6 +64,9 @@ export const SSE_MODES = [MODE_GEMINI, MODE_ADK_SSE] as const;
  * UIMessagePart Tool Types
  *
  * Used in the `parts` array of UIMessage objects.
+ *
+ * Note: For type guards, use AI SDK v6's isTextUIPart, isToolUIPart, etc. from "ai" package.
+ * These constants are for specific part type values that AI SDK v6 doesn't export as constants.
  */
 export const TOOL_PART_TYPE_CALL = "tool-call" as const;
 export const TOOL_PART_TYPE_APPROVAL_REQUEST = "tool-approval-request" as const;
@@ -130,4 +133,30 @@ export const ALL_TOOL_CHOICE_VALUES = [
   TOOL_CHOICE_AUTO,
   TOOL_CHOICE_NONE,
   TOOL_CHOICE_REQUIRED,
+] as const;
+
+/**
+ * Tool State Constants
+ *
+ * Used for tool invocation state in UIMessage parts.
+ */
+export const TOOL_STATE_INPUT_STREAMING = "input-streaming" as const;
+export const TOOL_STATE_INPUT_AVAILABLE = "input-available" as const;
+export const TOOL_STATE_APPROVAL_REQUESTED = "approval-requested" as const;
+export const TOOL_STATE_APPROVAL_RESPONDED = "approval-responded" as const;
+export const TOOL_STATE_OUTPUT_AVAILABLE = "output-available" as const;
+export const TOOL_STATE_OUTPUT_ERROR = "output-error" as const;
+export const TOOL_STATE_OUTPUT_DENIED = "output-denied" as const;
+
+/**
+ * All Tool State Values (for type guards and validation)
+ */
+export const ALL_TOOL_STATE_VALUES = [
+  TOOL_STATE_INPUT_STREAMING,
+  TOOL_STATE_INPUT_AVAILABLE,
+  TOOL_STATE_APPROVAL_REQUESTED,
+  TOOL_STATE_APPROVAL_RESPONDED,
+  TOOL_STATE_OUTPUT_AVAILABLE,
+  TOOL_STATE_OUTPUT_ERROR,
+  TOOL_STATE_OUTPUT_DENIED,
 ] as const;
