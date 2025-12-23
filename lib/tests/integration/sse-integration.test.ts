@@ -8,6 +8,11 @@
 import type { UIMessage, UIMessageChunk } from "ai";
 import { http } from "msw";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import {
+  TOOL_CHUNK_TYPE_INPUT_START,
+  TOOL_CHUNK_TYPE_INPUT_AVAILABLE,
+  TOOL_NAME_ADK_REQUEST_CONFIRMATION,
+} from "../../constants";
 import { buildUseChatOptions } from "../../sse";
 import {
   createAdkConfirmationRequest,
@@ -42,7 +47,11 @@ describe("lib/sse Integration Tests", () => {
       });
 
       const messages: UIMessage[] = [
-        { id: "1", role: "user", content: "Test message" },
+        {
+          id: "1",
+          role: "user",
+          parts: [{ type: "text", text: "Test message" }],
+        } as UIMessage,
       ];
 
       // when
@@ -65,11 +74,18 @@ describe("lib/sse Integration Tests", () => {
 
       // then
       expect(capturedPayload).toMatchObject({
-        messages: [{ role: "user", content: "Test message" }],
+        messages: [
+          {
+            role: "user",
+            parts: expect.arrayContaining([
+              expect.objectContaining({ type: "text", text: "Test message" }),
+            ]),
+          },
+        ],
       });
       expect(chunks).toHaveLength(2);
-      expect(chunks[0]).toEqual({ type: "text-delta", textDelta: "Hello" });
-      expect(chunks[1]).toEqual({ type: "text-delta", textDelta: " World" });
+      expect(chunks[0]).toMatchObject({ type: "text-delta", delta: "Hello" });
+      expect(chunks[1]).toMatchObject({ type: "text-delta", delta: " World" });
     });
   });
 
@@ -112,7 +128,11 @@ describe("lib/sse Integration Tests", () => {
       });
 
       const messages: UIMessage[] = [
-        { id: "1", role: "user", content: "Test ADK" },
+        {
+          id: "1",
+          role: "user",
+          parts: [{ type: "text", text: "Test ADK" }],
+        } as UIMessage,
       ];
 
       // when
@@ -136,10 +156,17 @@ describe("lib/sse Integration Tests", () => {
       // then
       expect(capturedEndpoint).toBe(expectedEndpoint);
       expect(capturedPayload).toMatchObject({
-        messages: [{ role: "user", content: "Test ADK" }],
+        messages: [
+          {
+            role: "user",
+            parts: expect.arrayContaining([
+              expect.objectContaining({ type: "text", text: "Test ADK" }),
+            ]),
+          },
+        ],
       });
       expect(chunks).toHaveLength(1);
-      expect(chunks[0]).toEqual({ type: "text-delta", textDelta: responseText });
+      expect(chunks[0]).toMatchObject({ type: "text-delta", delta: responseText });
     });
   });
 
@@ -149,9 +176,11 @@ describe("lib/sse Integration Tests", () => {
       server.use(
         http.post("http://localhost:8000/stream", async () => {
           return createAdkConfirmationRequest({
-            id: "orig-1",
-            name: "dangerous_operation",
-            args: { param: "value" },
+            originalFunctionCall: {
+              id: "orig-1",
+              name: "dangerous_operation",
+              args: { param: "value" },
+            },
           });
         }),
       );
@@ -162,7 +191,11 @@ describe("lib/sse Integration Tests", () => {
       });
 
       const messages: UIMessage[] = [
-        { id: "1", role: "user", content: "Do dangerous operation" },
+        {
+          id: "1",
+          role: "user",
+          parts: [{ type: "text", text: "Do dangerous operation" }],
+        } as UIMessage,
       ];
 
       // when
@@ -184,17 +217,29 @@ describe("lib/sse Integration Tests", () => {
       }
 
       // then - verify confirmation tool invocation was received
+      // AI SDK v6: tool chunks should include tool-input-start and tool-input-available
       const confirmationChunks = chunks.filter(
         (c) =>
-          c.type === "tool-invocation" &&
+          (c.type === TOOL_CHUNK_TYPE_INPUT_START ||
+            c.type === TOOL_CHUNK_TYPE_INPUT_AVAILABLE) &&
           "toolName" in c &&
-          c.toolName === "adk_request_confirmation",
+          c.toolName === TOOL_NAME_ADK_REQUEST_CONFIRMATION,
       );
-      expect(confirmationChunks).toHaveLength(2); // partial + call states
 
-      const callChunk = confirmationChunks.find((c) => c.state === "call");
-      expect(callChunk).toBeDefined();
-      expect(callChunk).toHaveProperty("toolCallId", "call-1");
+      expect(confirmationChunks).toHaveLength(2); // start + available
+
+      const startChunk = confirmationChunks.find(
+        (c) => c.type === TOOL_CHUNK_TYPE_INPUT_START,
+      );
+      expect(startChunk).toBeDefined();
+      expect(startChunk).toHaveProperty("toolCallId", "call-1");
+
+      const availableChunk = confirmationChunks.find(
+        (c) => c.type === TOOL_CHUNK_TYPE_INPUT_AVAILABLE,
+      );
+      expect(availableChunk).toBeDefined();
+      expect(availableChunk).toHaveProperty("toolCallId", "call-1");
+      expect(availableChunk).toHaveProperty("input");
     });
 
     it("sendAutomaticallyWhen detects confirmation completion", async () => {

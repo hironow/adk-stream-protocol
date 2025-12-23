@@ -4,7 +4,7 @@
  * Focus on SSE ↔ BIDI transitions
  */
 
-import type { UIMessage } from "@ai-sdk/react-v6";
+import type { UIMessage } from "ai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   type MockWebSocketInstance,

@@ -12,7 +12,7 @@
  * - Integrate with AudioContext for voice playback
  */
 
-import type { UIMessageChunk } from "@ai-sdk/ui-utils";
+import type { UIMessageChunk } from "ai";
 
 /**
  * Audio context interface for voice playback and recording

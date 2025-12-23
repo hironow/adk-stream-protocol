@@ -6,31 +6,47 @@
  */
 
 import { HttpResponse } from "msw";
+import {
+  TOOL_CHUNK_TYPE_INPUT_START,
+  TOOL_CHUNK_TYPE_INPUT_AVAILABLE,
+} from "../../constants";
 
 /**
  * SSE chunk type - text delta
+ * AI SDK v6 format
  */
 export interface TextDeltaChunk {
   type: "text-delta";
-  textDelta: string;
+  delta: string;
+  id: string;
 }
 
 /**
- * SSE chunk type - tool invocation
+ * SSE chunk type - tool input start (AI SDK v6)
  */
-export interface ToolInvocationChunk {
-  type: "tool-invocation";
-  state: "partial" | "call" | "output-available";
+export interface ToolInputStartChunk {
+  type: typeof TOOL_CHUNK_TYPE_INPUT_START;
   toolCallId: string;
-  toolName?: string;
-  input?: unknown;
-  output?: unknown;
+  toolName: string;
 }
 
 /**
- * Union type for all SSE chunk types
+ * SSE chunk type - tool input available (AI SDK v6)
  */
-export type SseChunk = TextDeltaChunk | ToolInvocationChunk;
+export interface ToolInputAvailableChunk {
+  type: typeof TOOL_CHUNK_TYPE_INPUT_AVAILABLE;
+  toolCallId: string;
+  toolName: string;
+  input: unknown;
+}
+
+/**
+ * Union type for all SSE chunk types (AI SDK v6)
+ */
+export type SseChunk =
+  | TextDeltaChunk
+  | ToolInputStartChunk
+  | ToolInputAvailableChunk;
 
 /**
  * Create SSE stream response for MSW handler
@@ -52,7 +68,7 @@ export type SseChunk = TextDeltaChunk | ToolInvocationChunk;
  * );
  * ```
  */
-export function createSseStreamResponse(chunks: SseChunk[]): HttpResponse {
+export function createSseStreamResponse(chunks: SseChunk[]): HttpResponse<ReadableStream<Uint8Array>> {
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
@@ -77,7 +93,13 @@ export function createSseStreamResponse(chunks: SseChunk[]): HttpResponse {
 /**
  * Create SSE stream with ADK confirmation request
  *
- * @param originalFunctionCall - Original function call details
+ * Uses AI SDK v6 tool chunk types:
+ * 1. tool-input-start: Indicates the start of tool input
+ * 2. tool-input-available: Provides the complete tool input
+ *
+ * @param options - Confirmation request options
+ * @param options.toolCallId - Optional tool call ID (defaults to "call-1")
+ * @param options.originalFunctionCall - Original function call details
  * @returns HttpResponse with confirmation request stream
  *
  * @example
@@ -85,31 +107,38 @@ export function createSseStreamResponse(chunks: SseChunk[]): HttpResponse {
  * server.use(
  *   http.post('/stream', () => {
  *     return createAdkConfirmationRequest({
- *       id: 'orig-1',
- *       name: 'dangerous_operation',
- *       args: { param: 'value' },
+ *       toolCallId: 'call-123',
+ *       originalFunctionCall: {
+ *         id: 'orig-1',
+ *         name: 'dangerous_operation',
+ *         args: { param: 'value' },
+ *       },
  *     });
  *   })
  * );
  * ```
  */
-export function createAdkConfirmationRequest(originalFunctionCall: {
-  id: string;
-  name: string;
-  args: Record<string, unknown>;
-}): HttpResponse {
+export function createAdkConfirmationRequest(options: {
+  toolCallId?: string;
+  originalFunctionCall: {
+    id: string;
+    name: string;
+    args: Record<string, unknown>;
+  };
+}): HttpResponse<ReadableStream<Uint8Array>> {
+  const toolCallId = options.toolCallId ?? "call-1";
+
   return createSseStreamResponse([
     {
-      type: "tool-invocation",
-      state: "partial",
-      toolCallId: "call-1",
+      type: TOOL_CHUNK_TYPE_INPUT_START,
+      toolCallId,
       toolName: "adk_request_confirmation",
-      input: { originalFunctionCall },
     },
     {
-      type: "tool-invocation",
-      state: "call",
-      toolCallId: "call-1",
+      type: TOOL_CHUNK_TYPE_INPUT_AVAILABLE,
+      toolCallId,
+      toolName: "adk_request_confirmation",
+      input: { originalFunctionCall: options.originalFunctionCall },
     },
   ]);
 }
@@ -129,10 +158,12 @@ export function createAdkConfirmationRequest(originalFunctionCall: {
  * );
  * ```
  */
-export function createTextResponse(...textParts: string[]): HttpResponse {
+export function createTextResponse(...textParts: string[]): HttpResponse<ReadableStream<Uint8Array>> {
+  const textId = `text-${Date.now()}`;
   const chunks: TextDeltaChunk[] = textParts.map((text) => ({
     type: "text-delta",
-    textDelta: text,
+    delta: text,
+    id: textId,
   }));
   return createSseStreamResponse(chunks);
 }

@@ -11,7 +11,7 @@
  * - Provide type-safe event construction
  */
 
-import type { UIMessage } from "@ai-sdk/ui-utils";
+import type { UIMessage } from "ai";
 import {
   TOOL_NAME_ADK_REQUEST_CONFIRMATION,
   TOOL_TYPE_ADK_REQUEST_CONFIRMATION,

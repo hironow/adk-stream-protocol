@@ -2,7 +2,7 @@
  * Tests for WebSocket message preservation (no truncation)
  */
 
-import type { UIMessage } from "@ai-sdk/react-v6";
+import type { UIMessage } from "ai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WebSocketChatTransport } from "../../bidi/transport";
 import {
