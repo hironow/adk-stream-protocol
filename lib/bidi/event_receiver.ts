@@ -118,7 +118,10 @@ export class EventReceiver {
       }
     } catch {
       // Not JSON, log for debugging
-      console.warn("[Event Receiver] Non-SSE, non-JSON message:", data.substring(0, 100));
+      console.warn(
+        "[Event Receiver] Non-SSE, non-JSON message:",
+        data.substring(0, 100),
+      );
     }
   }
 
@@ -143,7 +146,10 @@ export class EventReceiver {
       chunk = JSON.parse(jsonStr);
     } catch (err) {
       // Log malformed JSON but continue processing (don't close stream)
-      console.error("[Event Receiver] Malformed JSON in SSE message:", jsonStr.substring(0, 100));
+      console.error(
+        "[Event Receiver] Malformed JSON in SSE message:",
+        jsonStr.substring(0, 100),
+      );
       return; // Skip this message but keep stream open
     }
 
@@ -212,7 +218,9 @@ export class EventReceiver {
       controller.close();
     } catch (err) {
       if ((err as any).code === "ERR_INVALID_STATE") {
-        console.warn("[Event Receiver] Controller already closed in handleDoneMarker");
+        console.warn(
+          "[Event Receiver] Controller already closed in handleDoneMarker",
+        );
       } else {
         throw err;
       }

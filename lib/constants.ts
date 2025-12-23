@@ -93,8 +93,10 @@ export const TOOL_CHUNK_TYPE_INPUT_DELTA = "tool-input-delta" as const;
 export const TOOL_CHUNK_TYPE_INPUT_END = "tool-input-end" as const;
 export const TOOL_CHUNK_TYPE_INPUT_AVAILABLE = "tool-input-available" as const;
 export const TOOL_CHUNK_TYPE_INPUT_ERROR = "tool-input-error" as const;
-export const TOOL_CHUNK_TYPE_APPROVAL_REQUEST = "tool-approval-request" as const;
-export const TOOL_CHUNK_TYPE_OUTPUT_AVAILABLE = "tool-output-available" as const;
+export const TOOL_CHUNK_TYPE_APPROVAL_REQUEST =
+  "tool-approval-request" as const;
+export const TOOL_CHUNK_TYPE_OUTPUT_AVAILABLE =
+  "tool-output-available" as const;
 export const TOOL_CHUNK_TYPE_OUTPUT_DENIED = "tool-output-denied" as const;
 export const TOOL_CHUNK_TYPE_OUTPUT_ERROR = "tool-output-error" as const;
 

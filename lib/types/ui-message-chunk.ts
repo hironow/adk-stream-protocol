@@ -9,13 +9,13 @@
 export type { UIMessageChunk } from "ai";
 
 // Import constants for type definitions
-import {
-  TEXT_CHUNK_TYPE_START,
+import type {
   TEXT_CHUNK_TYPE_DELTA,
   TEXT_CHUNK_TYPE_END,
-  TOOL_CHUNK_TYPE_INPUT_START,
-  TOOL_CHUNK_TYPE_INPUT_AVAILABLE,
+  TEXT_CHUNK_TYPE_START,
   TOOL_CHUNK_TYPE_APPROVAL_REQUEST,
+  TOOL_CHUNK_TYPE_INPUT_AVAILABLE,
+  TOOL_CHUNK_TYPE_INPUT_START,
 } from "../constants";
 
 // SSE/BIDI specific chunk types (based on AI SDK v6 UIMessageChunk)

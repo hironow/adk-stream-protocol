@@ -21,15 +21,18 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import type { UIMessage } from "ai";
 import { isTextUIPart, isToolUIPart } from "ai";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { buildUseChatOptions } from "../../bidi";
 import {
   TOOL_NAME_ADK_REQUEST_CONFIRMATION,
-  TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
   TOOL_STATE_APPROVAL_REQUESTED,
   TOOL_STATE_APPROVAL_RESPONDED,
   TOOL_STATE_OUTPUT_AVAILABLE,
+  TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
 } from "../../constants";
-import { buildUseChatOptions } from "../../bidi";
-import { createBidiWebSocketLink, createCustomHandler } from "../helpers/bidi-ws-handlers";
+import {
+  createBidiWebSocketLink,
+  createCustomHandler,
+} from "../helpers/bidi-ws-handlers";
 import { createMswServer } from "../mocks/msw-server";
 
 /**
@@ -38,7 +41,9 @@ import { createMswServer } from "../mocks/msw-server";
 function getMessageText(message: UIMessage | undefined): string {
   if (!message) return "";
   return message.parts
-    .filter((part): part is { type: "text"; text: string } => isTextUIPart(part))
+    .filter((part): part is { type: "text"; text: string } =>
+      isTextUIPart(part),
+    )
     .map((part) => part.text)
     .join("");
 }
@@ -76,35 +81,35 @@ describe("Multi-Tool Execution E2E Tests", () => {
 
             const data = JSON.parse(event.data as string);
 
-              // Check if Tool1 was approved
-              const hasTool1Approval = data.messages?.some(
-                (msg: any) =>
-                  msg.role === "assistant" &&
-                  msg.parts?.some(
-                    (part: any) =>
-                      part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
-                      part.toolCallId === "call-tool1" &&
-                      part.state === TOOL_STATE_APPROVAL_RESPONDED,
-                  ),
-              );
+            // Check if Tool1 was approved
+            const hasTool1Approval = data.messages?.some(
+              (msg: any) =>
+                msg.role === "assistant" &&
+                msg.parts?.some(
+                  (part: any) =>
+                    part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
+                    part.toolCallId === "call-tool1" &&
+                    part.state === TOOL_STATE_APPROVAL_RESPONDED,
+                ),
+            );
 
-              // Check if Tool2 was approved
-              const hasTool2Approval = data.messages?.some(
-                (msg: any) =>
-                  msg.role === "assistant" &&
-                  msg.parts?.some(
-                    (part: any) =>
-                      part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
-                      part.toolCallId === "call-tool2" &&
-                      part.state === TOOL_STATE_APPROVAL_RESPONDED,
-                  ),
-              );
+            // Check if Tool2 was approved
+            const hasTool2Approval = data.messages?.some(
+              (msg: any) =>
+                msg.role === "assistant" &&
+                msg.parts?.some(
+                  (part: any) =>
+                    part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
+                    part.toolCallId === "call-tool2" &&
+                    part.state === TOOL_STATE_APPROVAL_RESPONDED,
+                ),
+            );
 
-              if (!tool1Sent) {
-                tool1Sent = true;
-                // First interaction: User asks for multiple actions
-                // Backend requests confirmation for Tool1
-                // Send tool-input-start
+            if (!tool1Sent) {
+              tool1Sent = true;
+              // First interaction: User asks for multiple actions
+              // Backend requests confirmation for Tool1
+              // Send tool-input-start
               client.send(
                 `data: ${JSON.stringify({
                   type: "tool-input-start",
@@ -139,9 +144,9 @@ describe("Multi-Tool Execution E2E Tests", () => {
               );
 
               client.send("data: [DONE]\n\n");
-              } else if (hasTool1Approval && !tool2Sent) {
-                tool2Sent = true;
-                // Second interaction: User approved Tool1
+            } else if (hasTool1Approval && !tool2Sent) {
+              tool2Sent = true;
+              // Second interaction: User approved Tool1
               // Request confirmation for Tool2 (no text parts yet)
               // Send tool-input-start
               client.send(
@@ -178,11 +183,13 @@ describe("Multi-Tool Execution E2E Tests", () => {
               );
 
               client.send("data: [DONE]\n\n");
-              } else if (hasTool2Approval) {
-                // Third interaction: User approved Tool2
+            } else if (hasTool2Approval) {
+              // Third interaction: User approved Tool2
               // Execute both tools and complete with results
               const textId3 = `text-${Date.now()}-3`;
-              client.send(`data: ${JSON.stringify({ type: "text-start", id: textId3 })}\n\n`);
+              client.send(
+                `data: ${JSON.stringify({ type: "text-start", id: textId3 })}\n\n`,
+              );
               client.send(
                 `data: ${JSON.stringify({
                   type: "text-delta",
@@ -197,7 +204,9 @@ describe("Multi-Tool Execution E2E Tests", () => {
                   id: textId3,
                 })}\n\n`,
               );
-              client.send(`data: ${JSON.stringify({ type: "text-end", id: textId3 })}\n\n`);
+              client.send(
+                `data: ${JSON.stringify({ type: "text-end", id: textId3 })}\n\n`,
+              );
 
               // Tool1 result
               client.send(
@@ -238,11 +247,14 @@ describe("Multi-Tool Execution E2E Tests", () => {
       // Wait for Tool1 confirmation request
       await waitFor(
         () => {
-          const lastMessage = result.current.messages[result.current.messages.length - 1];
+          const lastMessage =
+            result.current.messages[result.current.messages.length - 1];
           if (!lastMessage || lastMessage.role !== "assistant") return false;
 
           const confirmationPart = lastMessage.parts.find(
-            (part) => isToolUIPart(part) && part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+            (part) =>
+              isToolUIPart(part) &&
+              part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
           );
           return confirmationPart !== undefined;
         },
@@ -250,13 +262,15 @@ describe("Multi-Tool Execution E2E Tests", () => {
       );
 
       // Step 2: Approve Tool1
-      const assistantMessage1 = result.current.messages[result.current.messages.length - 1];
+      const assistantMessage1 =
+        result.current.messages[result.current.messages.length - 1];
       if (!assistantMessage1) {
         throw new Error("No assistant message found after waitFor");
       }
       const confirmationTool1 = assistantMessage1.parts.find(
         (part): part is any =>
-          isToolUIPart(part) && part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+          isToolUIPart(part) &&
+          part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
       );
       if (!confirmationTool1) {
         throw new Error("No confirmation tool found in assistant message");
@@ -272,9 +286,12 @@ describe("Multi-Tool Execution E2E Tests", () => {
       // Wait for the approval state to be updated
       await waitFor(
         () => {
-          const updatedMsg = result.current.messages[result.current.messages.length - 1];
+          const updatedMsg =
+            result.current.messages[result.current.messages.length - 1];
           const updatedPart = (updatedMsg as any).parts?.find(
-            (p: any) => p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION && p.toolCallId === "call-tool1",
+            (p: any) =>
+              p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
+              p.toolCallId === "call-tool1",
           );
           expect(updatedPart?.state).toBe(TOOL_STATE_APPROVAL_RESPONDED);
         },
@@ -302,7 +319,8 @@ describe("Multi-Tool Execution E2E Tests", () => {
       );
 
       // Step 3: Approve Tool2
-      const assistantMessage2 = result.current.messages[result.current.messages.length - 1];
+      const assistantMessage2 =
+        result.current.messages[result.current.messages.length - 1];
       if (!assistantMessage2) {
         throw new Error("No assistant message found for Tool2 after waitFor");
       }
@@ -326,9 +344,12 @@ describe("Multi-Tool Execution E2E Tests", () => {
       // Wait for the Tool2 approval state to be updated
       await waitFor(
         () => {
-          const updatedMsg = result.current.messages[result.current.messages.length - 1];
+          const updatedMsg =
+            result.current.messages[result.current.messages.length - 1];
           const updatedPart = (updatedMsg as any).parts?.find(
-            (p: any) => p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION && p.toolCallId === "call-tool2",
+            (p: any) =>
+              p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
+              p.toolCallId === "call-tool2",
           );
           expect(updatedPart?.state).toBe(TOOL_STATE_APPROVAL_RESPONDED);
         },
@@ -338,10 +359,13 @@ describe("Multi-Tool Execution E2E Tests", () => {
       // Wait for final completion
       await waitFor(
         () => {
-          const lastMessage = result.current.messages[result.current.messages.length - 1];
+          const lastMessage =
+            result.current.messages[result.current.messages.length - 1];
           return (
             lastMessage?.role === "assistant" &&
-            getMessageText(lastMessage).includes("Database updated successfully")
+            getMessageText(lastMessage).includes(
+              "Database updated successfully",
+            )
           );
         },
         { timeout: 5000 },
@@ -351,7 +375,8 @@ describe("Multi-Tool Execution E2E Tests", () => {
       expect(result.current.messages.length).toBeGreaterThanOrEqual(2); // User + Assistant
 
       // Verify final message contains results from both tools
-      const finalMessage = result.current.messages[result.current.messages.length - 1];
+      const finalMessage =
+        result.current.messages[result.current.messages.length - 1];
       const finalText = getMessageText(finalMessage);
       expect(finalText).toContain("Found 10 users");
       expect(finalText).toContain("Database updated successfully");
@@ -375,7 +400,7 @@ describe("Multi-Tool Execution E2E Tests", () => {
 
             const data = JSON.parse(event.data as string);
 
-              // Check if Tool1 was approved
+            // Check if Tool1 was approved
             const hasTool1Approval = data.messages?.some(
               (msg: any) =>
                 msg.role === "assistant" &&
@@ -479,7 +504,9 @@ describe("Multi-Tool Execution E2E Tests", () => {
             } else if (hasTool2Denial) {
               // Tool2 denied - acknowledge and complete with both results
               const textId = `text-${Date.now()}-3`;
-              client.send(`data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`);
+              client.send(
+                `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
+              );
               client.send(
                 `data: ${JSON.stringify({
                   type: "text-delta",
@@ -494,7 +521,9 @@ describe("Multi-Tool Execution E2E Tests", () => {
                   id: textId,
                 })}\n\n`,
               );
-              client.send(`data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`);
+              client.send(
+                `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
+              );
 
               // Tool1 result
               client.send(
@@ -520,13 +549,16 @@ describe("Multi-Tool Execution E2E Tests", () => {
       const { result } = renderHook(() => useChat(useChatOptions));
 
       await act(async () => {
-        result.current.sendMessage({ text: "Do safe and dangerous operations" });
+        result.current.sendMessage({
+          text: "Do safe and dangerous operations",
+        });
       });
 
       // Wait for Tool1 confirmation
       await waitFor(
         () => {
-          const lastMessage = result.current.messages[result.current.messages.length - 1];
+          const lastMessage =
+            result.current.messages[result.current.messages.length - 1];
           return (
             lastMessage?.role === "assistant" &&
             lastMessage.parts.some(
@@ -565,9 +597,12 @@ describe("Multi-Tool Execution E2E Tests", () => {
       // Wait for the approval state to be updated
       await waitFor(
         () => {
-          const updatedMsg = result.current.messages[result.current.messages.length - 1];
+          const updatedMsg =
+            result.current.messages[result.current.messages.length - 1];
           const updatedPart = (updatedMsg as any).parts?.find(
-            (p: any) => p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION && p.toolCallId === "call-tool1",
+            (p: any) =>
+              p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
+              p.toolCallId === "call-tool1",
           );
           expect(updatedPart?.state).toBe(TOOL_STATE_APPROVAL_RESPONDED);
         },
@@ -577,7 +612,8 @@ describe("Multi-Tool Execution E2E Tests", () => {
       // Wait for Tool2 confirmation
       await waitFor(
         () => {
-          const lastMessage = result.current.messages[result.current.messages.length - 1];
+          const lastMessage =
+            result.current.messages[result.current.messages.length - 1];
           return (
             lastMessage?.role === "assistant" &&
             lastMessage.parts.some(
@@ -616,9 +652,12 @@ describe("Multi-Tool Execution E2E Tests", () => {
       // Wait for the Tool2 denial state to be updated
       await waitFor(
         () => {
-          const updatedMsg = result.current.messages[result.current.messages.length - 1];
+          const updatedMsg =
+            result.current.messages[result.current.messages.length - 1];
           const updatedPart = (updatedMsg as any).parts?.find(
-            (p: any) => p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION && p.toolCallId === "call-tool2",
+            (p: any) =>
+              p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
+              p.toolCallId === "call-tool2",
           );
           expect(updatedPart?.state).toBe(TOOL_STATE_APPROVAL_RESPONDED);
         },
@@ -628,7 +667,8 @@ describe("Multi-Tool Execution E2E Tests", () => {
       // Wait for final response
       await waitFor(
         () => {
-          const lastMessage = result.current.messages[result.current.messages.length - 1];
+          const lastMessage =
+            result.current.messages[result.current.messages.length - 1];
           return (
             lastMessage?.role === "assistant" &&
             getMessageText(lastMessage).includes("Skipping dangerous operation")
@@ -638,7 +678,8 @@ describe("Multi-Tool Execution E2E Tests", () => {
       );
 
       // then
-      const finalMessage = result.current.messages[result.current.messages.length - 1];
+      const finalMessage =
+        result.current.messages[result.current.messages.length - 1];
       const finalText = getMessageText(finalMessage);
 
       // Verify Tool1 executed
@@ -653,7 +694,7 @@ describe("Multi-Tool Execution E2E Tests", () => {
     it("should preserve message history across multiple tool executions", async () => {
       // given
       const chat = createBidiWebSocketLink();
-      let messagesSent: any[] = [];
+      const messagesSent: any[] = [];
 
       server.use(
         createCustomHandler(chat, ({ server: _server, client }) => {
@@ -663,11 +704,15 @@ describe("Multi-Tool Execution E2E Tests", () => {
 
             // Simple response for this test
             const textId = `text-${Date.now()}`;
-            client.send(`data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`);
+            client.send(
+              `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
+            );
             client.send(
               `data: ${JSON.stringify({ type: "text-delta", delta: "OK", id: textId })}\n\n`,
             );
-            client.send(`data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`);
+            client.send(
+              `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
+            );
             client.send("data: [DONE]\n\n");
           });
         }),
@@ -686,14 +731,18 @@ describe("Multi-Tool Execution E2E Tests", () => {
         result.current.sendMessage({ text: "First message" });
       });
 
-      await waitFor(() => result.current.messages.length >= 2, { timeout: 5000 });
+      await waitFor(() => result.current.messages.length >= 2, {
+        timeout: 5000,
+      });
 
       // Send second message
       await act(async () => {
         result.current.sendMessage({ text: "Second message" });
       });
 
-      await waitFor(() => result.current.messages.length >= 4, { timeout: 5000 });
+      await waitFor(() => result.current.messages.length >= 4, {
+        timeout: 5000,
+      });
 
       // then
       // Verify second message included history from first message

@@ -316,7 +316,10 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
                   controller.error(new Error("WebSocket error"));
                 } catch (err) {
                   // Controller already closed (e.g., [DONE] was received) - ignore error
-                  console.debug("[WS Transport] Cannot error controller (already closed):", err);
+                  console.debug(
+                    "[WS Transport] Cannot error controller (already closed):",
+                    err,
+                  );
                 }
               };
 
@@ -326,7 +329,10 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
                   controller.close();
                 } catch (err) {
                   // Controller already closed - ignore error
-                  console.debug("[WS Transport] Controller already closed in onclose:", err);
+                  console.debug(
+                    "[WS Transport] Controller already closed in onclose:",
+                    err,
+                  );
                 }
               };
             }
@@ -367,7 +373,10 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
                   controller.error(new Error("WebSocket error"));
                 } catch (err) {
                   // Controller already closed (e.g., [DONE] was received) - ignore error
-                  console.debug("[WS Transport] Cannot error controller (already closed):", err);
+                  console.debug(
+                    "[WS Transport] Cannot error controller (already closed):",
+                    err,
+                  );
                 }
               };
 
@@ -377,7 +386,10 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
                   controller.close();
                 } catch (err) {
                   // Controller already closed - ignore error
-                  console.debug("[WS Transport] Controller already closed in onclose:", err);
+                  console.debug(
+                    "[WS Transport] Controller already closed in onclose:",
+                    err,
+                  );
                 }
               };
             }

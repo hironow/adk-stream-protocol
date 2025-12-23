@@ -8,9 +8,9 @@
 import { HttpResponse } from "msw";
 import type { SseChunk } from "@/lib/types";
 import {
-  TOOL_CHUNK_TYPE_INPUT_START,
-  TOOL_CHUNK_TYPE_INPUT_AVAILABLE,
   TOOL_CHUNK_TYPE_APPROVAL_REQUEST,
+  TOOL_CHUNK_TYPE_INPUT_AVAILABLE,
+  TOOL_CHUNK_TYPE_INPUT_START,
   TOOL_NAME_ADK_REQUEST_CONFIRMATION,
 } from "../../constants";
 
@@ -34,7 +34,9 @@ import {
  * );
  * ```
  */
-export function createSseStreamResponse(chunks: SseChunk[]): HttpResponse<ReadableStream<Uint8Array>> {
+export function createSseStreamResponse(
+  chunks: SseChunk[],
+): HttpResponse<ReadableStream<Uint8Array>> {
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
@@ -157,7 +159,9 @@ export function createAdkConfirmationRequest(options: {
  * );
  * ```
  */
-export function createTextResponse(...textParts: string[]): HttpResponse<ReadableStream<Uint8Array>> {
+export function createTextResponse(
+  ...textParts: string[]
+): HttpResponse<ReadableStream<Uint8Array>> {
   const textId = `text-${Date.now()}`;
 
   // AI SDK v6 expects: text-start, text-delta(s), text-end sequence

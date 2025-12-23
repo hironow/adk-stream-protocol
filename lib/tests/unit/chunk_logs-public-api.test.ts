@@ -12,9 +12,9 @@ import {
   ChunkLoggingTransport,
   ChunkPlayer,
   ChunkPlayerTransport,
+  chunkLogger,
   type Mode,
   type PlaybackMode,
-  chunkLogger,
 } from "../../chunk_logs";
 
 describe("lib/chunk_logs Public API", () => {
@@ -22,19 +22,22 @@ describe("lib/chunk_logs Public API", () => {
     it.each([
       {
         name: "parses valid JSONL with single entry",
-        jsonl: '{"timestamp":1000,"session_id":"s1","mode":"adk-sse","location":"test","direction":"in","sequence_number":1,"chunk":{"type":"text"},"metadata":null}',
+        jsonl:
+          '{"timestamp":1000,"session_id":"s1","mode":"adk-sse","location":"test","direction":"in","sequence_number":1,"chunk":{"type":"text"},"metadata":null}',
         expectedCount: 1,
         expectedChunk: { type: "text" },
       },
       {
         name: "parses multiple entries",
-        jsonl: '{"timestamp":1000,"session_id":"s1","mode":"adk-sse","location":"test","direction":"in","sequence_number":1,"chunk":{"type":"text"},"metadata":null}\n{"timestamp":1100,"session_id":"s1","mode":"adk-sse","location":"test","direction":"in","sequence_number":2,"chunk":{"type":"tool"},"metadata":null}',
+        jsonl:
+          '{"timestamp":1000,"session_id":"s1","mode":"adk-sse","location":"test","direction":"in","sequence_number":1,"chunk":{"type":"text"},"metadata":null}\n{"timestamp":1100,"session_id":"s1","mode":"adk-sse","location":"test","direction":"in","sequence_number":2,"chunk":{"type":"tool"},"metadata":null}',
         expectedCount: 2,
         expectedChunk: { type: "text" },
       },
       {
         name: "handles empty lines",
-        jsonl: '{"timestamp":1000,"session_id":"s1","mode":"adk-sse","location":"test","direction":"in","sequence_number":1,"chunk":{"type":"text"},"metadata":null}\n\n{"timestamp":1100,"session_id":"s1","mode":"adk-sse","location":"test","direction":"in","sequence_number":2,"chunk":{"type":"tool"},"metadata":null}',
+        jsonl:
+          '{"timestamp":1000,"session_id":"s1","mode":"adk-sse","location":"test","direction":"in","sequence_number":1,"chunk":{"type":"text"},"metadata":null}\n\n{"timestamp":1100,"session_id":"s1","mode":"adk-sse","location":"test","direction":"in","sequence_number":2,"chunk":{"type":"tool"},"metadata":null}',
         expectedCount: 2,
         expectedChunk: { type: "text" },
       },
@@ -133,28 +136,25 @@ describe("lib/chunk_logs Public API", () => {
         expectedFirst: null,
         expectedLast: null,
       },
-    ])(
-      "$name",
-      ({
-        jsonl,
-        expectedCount,
-        expectedDuration,
-        expectedFirst,
-        expectedLast,
-      }) => {
-        // given
-        const player = new ChunkPlayer(jsonl);
+    ])("$name", ({
+      jsonl,
+      expectedCount,
+      expectedDuration,
+      expectedFirst,
+      expectedLast,
+    }) => {
+      // given
+      const player = new ChunkPlayer(jsonl);
 
-        // when
-        const stats = player.getStats();
+      // when
+      const stats = player.getStats();
 
-        // then
-        expect(stats.count).toBe(expectedCount);
-        expect(stats.duration_ms).toBe(expectedDuration);
-        expect(stats.first_timestamp).toBe(expectedFirst);
-        expect(stats.last_timestamp).toBe(expectedLast);
-      },
-    );
+      // then
+      expect(stats.count).toBe(expectedCount);
+      expect(stats.duration_ms).toBe(expectedDuration);
+      expect(stats.first_timestamp).toBe(expectedFirst);
+      expect(stats.last_timestamp).toBe(expectedLast);
+    });
   });
 
   describe("ChunkLoggingTransport - Wrapper Behavior", () => {
@@ -223,7 +223,9 @@ describe("lib/chunk_logs Public API", () => {
 
     it("loads fixture and replays chunks", async () => {
       // given
-      const transport = ChunkPlayerTransport.fromFixture("/fixtures/test.jsonl");
+      const transport = ChunkPlayerTransport.fromFixture(
+        "/fixtures/test.jsonl",
+      );
       const messages: UIMessage[] = [];
       const options: ChatRequestOptions = {};
 
@@ -279,7 +281,10 @@ describe("lib/chunk_logs Public API", () => {
       const lastEntry = entries[entries.length - 1];
       expect(lastEntry.mode).toBe(mode);
       expect(lastEntry.location).toBe("frontend-test");
-      expect(lastEntry.chunk).toEqual({ type: "text-delta", textDelta: "test" });
+      expect(lastEntry.chunk).toEqual({
+        type: "text-delta",
+        textDelta: "test",
+      });
 
       // cleanup
       chunkLogger.clear();

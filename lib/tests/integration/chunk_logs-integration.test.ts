@@ -12,8 +12,8 @@ import {
   ChunkLoggingTransport,
   ChunkPlayer,
   ChunkPlayerTransport,
-  type Mode,
   chunkLogger,
+  type Mode,
 } from "../../chunk_logs";
 
 describe("lib/chunk_logs Integration Tests", () => {
@@ -80,7 +80,10 @@ describe("lib/chunk_logs Integration Tests", () => {
 
       const lastEntry = loggedEntries[loggedEntries.length - 1];
       expect(lastEntry.mode).toBe(mode);
-      expect(lastEntry.chunk).toEqual({ type: "text-delta", textDelta: "Test" });
+      expect(lastEntry.chunk).toEqual({
+        type: "text-delta",
+        textDelta: "Test",
+      });
     });
 
     it("forwards all chunks through the stream", async () => {
@@ -106,7 +109,10 @@ describe("lib/chunk_logs Integration Tests", () => {
         reconnectToStream: vi.fn(),
       };
 
-      const transport = new ChunkLoggingTransport(mockDelegate as any, "adk-sse");
+      const transport = new ChunkLoggingTransport(
+        mockDelegate as any,
+        "adk-sse",
+      );
 
       chunkLogger.clear();
 
@@ -153,9 +159,18 @@ describe("lib/chunk_logs Integration Tests", () => {
 
       // then
       expect(chunks).toHaveLength(3);
-      expect(chunks[0].chunk).toEqual({ type: "text-delta", textDelta: "First" });
-      expect(chunks[1].chunk).toEqual({ type: "text-delta", textDelta: "Second" });
-      expect(chunks[2].chunk).toEqual({ type: "text-delta", textDelta: "Third" });
+      expect(chunks[0].chunk).toEqual({
+        type: "text-delta",
+        textDelta: "First",
+      });
+      expect(chunks[1].chunk).toEqual({
+        type: "text-delta",
+        textDelta: "Second",
+      });
+      expect(chunks[2].chunk).toEqual({
+        type: "text-delta",
+        textDelta: "Third",
+      });
     });
 
     it("provides accurate statistics for JSONL fixture", () => {
@@ -191,7 +206,9 @@ describe("lib/chunk_logs Integration Tests", () => {
         text: async () => fixtureJsonl,
       });
 
-      const transport = ChunkPlayerTransport.fromFixture("/fixtures/test.jsonl");
+      const transport = ChunkPlayerTransport.fromFixture(
+        "/fixtures/test.jsonl",
+      );
 
       const messages: UIMessage[] = [];
       const options: ChatRequestOptions = {};
@@ -215,7 +232,9 @@ describe("lib/chunk_logs Integration Tests", () => {
 
     it("reconnectToStream returns null (not supported)", async () => {
       // given
-      const transport = ChunkPlayerTransport.fromFixture("/fixtures/test.jsonl");
+      const transport = ChunkPlayerTransport.fromFixture(
+        "/fixtures/test.jsonl",
+      );
 
       // when
       const result = await transport.reconnectToStream({ chatId: "test" });

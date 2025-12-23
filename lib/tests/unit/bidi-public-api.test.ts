@@ -8,13 +8,13 @@
 import type { UIMessage } from "ai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  buildUseChatOptions,
   type ChatTransport,
   type SendAutomaticallyWhenOptions,
+  sendAutomaticallyWhen,
   type TransportConfig,
   type UseChatConfig,
   type UseChatOptions,
-  buildUseChatOptions,
-  sendAutomaticallyWhen,
 } from "../../bidi";
 
 // Mock WebSocket
@@ -148,9 +148,7 @@ describe("lib/bidi Public API", () => {
     }>([
       {
         name: "returns false when last message is user message",
-        messages: [
-          { id: "1", role: "user", content: "Hello" },
-        ] as UIMessage[],
+        messages: [{ id: "1", role: "user", content: "Hello" }] as UIMessage[],
         expected: false,
       },
       {

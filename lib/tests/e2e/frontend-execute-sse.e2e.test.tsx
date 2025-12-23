@@ -17,12 +17,12 @@ import { useChat } from "@ai-sdk/react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { UIMessage } from "ai";
 import { isTextUIPart } from "ai";
-import { http, HttpResponse } from "msw";
+import { HttpResponse, http } from "msw";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import {
-  TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
   TOOL_STATE_APPROVAL_REQUESTED,
   TOOL_STATE_APPROVAL_RESPONDED,
+  TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
 } from "../../constants";
 import { buildUseChatOptions } from "../../sse";
 import {
@@ -37,7 +37,9 @@ import { createMswServer } from "../mocks/msw-server";
 function getMessageText(message: UIMessage | undefined): string {
   if (!message) return "";
   return message.parts
-    .filter((part): part is { type: "text"; text: string } => isTextUIPart(part))
+    .filter((part): part is { type: "text"; text: string } =>
+      isTextUIPart(part),
+    )
     .map((part) => part.text)
     .join("");
 }
@@ -104,7 +106,9 @@ describe("SSE Mode - Frontend Execute Pattern", () => {
             );
           }
 
-          return HttpResponse.text("Unexpected request", { status: 500 }) as any;
+          return HttpResponse.text("Unexpected request", {
+            status: 500,
+          }) as any;
         }),
       );
 
@@ -124,7 +128,8 @@ describe("SSE Mode - Frontend Execute Pattern", () => {
       // Wait for confirmation to arrive
       await waitFor(
         () => {
-          const lastMessage = result.current.messages[result.current.messages.length - 1];
+          const lastMessage =
+            result.current.messages[result.current.messages.length - 1];
           return (
             lastMessage?.role === "assistant" &&
             lastMessage.parts.some(
@@ -138,7 +143,8 @@ describe("SSE Mode - Frontend Execute Pattern", () => {
       );
 
       // User approves confirmation
-      const confirmationMessage = result.current.messages[result.current.messages.length - 1];
+      const confirmationMessage =
+        result.current.messages[result.current.messages.length - 1];
       const confirmationPart = confirmationMessage.parts.find(
         (part: any) => part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
       ) as any;
@@ -153,7 +159,8 @@ describe("SSE Mode - Frontend Execute Pattern", () => {
       // Wait for approval state to update
       await waitFor(
         () => {
-          const msg = result.current.messages[result.current.messages.length - 1];
+          const msg =
+            result.current.messages[result.current.messages.length - 1];
           const part = msg.parts.find(
             (p: any) => p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
           ) as any;
@@ -181,7 +188,8 @@ describe("SSE Mode - Frontend Execute Pattern", () => {
       // Wait for AI response
       await waitFor(
         () => {
-          const lastMessage = result.current.messages[result.current.messages.length - 1];
+          const lastMessage =
+            result.current.messages[result.current.messages.length - 1];
           const text = getMessageText(lastMessage);
           return text.includes("Tokyo, Japan");
         },
@@ -193,7 +201,8 @@ describe("SSE Mode - Frontend Execute Pattern", () => {
       expect(requestCount).toBe(3);
       expect(toolResultReceived).toBe(true);
 
-      const finalMessage = result.current.messages[result.current.messages.length - 1];
+      const finalMessage =
+        result.current.messages[result.current.messages.length - 1];
       const finalText = getMessageText(finalMessage);
       expect(finalText).toContain("Tokyo, Japan");
       expect(finalText).toContain("35.6762");
@@ -244,7 +253,8 @@ describe("SSE Mode - Frontend Execute Pattern", () => {
       // Wait for confirmation
       await waitFor(
         () => {
-          const msg = result.current.messages[result.current.messages.length - 1];
+          const msg =
+            result.current.messages[result.current.messages.length - 1];
           return msg?.parts?.some(
             (p: any) =>
               p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
@@ -270,7 +280,8 @@ describe("SSE Mode - Frontend Execute Pattern", () => {
       // Wait for approval state to update
       await waitFor(
         () => {
-          const msg = result.current.messages[result.current.messages.length - 1];
+          const msg =
+            result.current.messages[result.current.messages.length - 1];
           const confirmationPart = msg.parts.find(
             (p: any) => p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
           ) as any;
@@ -294,7 +305,8 @@ describe("SSE Mode - Frontend Execute Pattern", () => {
       // Wait for error response
       await waitFor(
         () => {
-          const lastMsg = result.current.messages[result.current.messages.length - 1];
+          const lastMsg =
+            result.current.messages[result.current.messages.length - 1];
           const text = getMessageText(lastMsg);
           return text.includes("Permission denied");
         },
@@ -331,7 +343,9 @@ describe("SSE Mode - Frontend Execute Pattern", () => {
 
           if (requestCount === 2) {
             // User denied, no tool execution
-            return createTextResponse("Understood. I won't access your microphone.");
+            return createTextResponse(
+              "Understood. I won't access your microphone.",
+            );
           }
 
           return HttpResponse.text("Unexpected", { status: 500 }) as any;
@@ -353,7 +367,8 @@ describe("SSE Mode - Frontend Execute Pattern", () => {
       // Wait for confirmation
       await waitFor(
         () => {
-          const msg = result.current.messages[result.current.messages.length - 1];
+          const msg =
+            result.current.messages[result.current.messages.length - 1];
           return msg?.parts?.some(
             (p: any) =>
               p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
@@ -379,7 +394,8 @@ describe("SSE Mode - Frontend Execute Pattern", () => {
       // Wait for denial response (NO addToolOutput call)
       await waitFor(
         () => {
-          const lastMsg = result.current.messages[result.current.messages.length - 1];
+          const lastMsg =
+            result.current.messages[result.current.messages.length - 1];
           const text = getMessageText(lastMsg);
           return text.includes("won't access");
         },

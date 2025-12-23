@@ -17,19 +17,15 @@ import { useChat } from "@ai-sdk/react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { UIMessage } from "ai";
 import { isTextUIPart } from "ai";
-import { http, HttpResponse } from "msw";
+import { HttpResponse, http } from "msw";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import {
-  TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
   TOOL_STATE_APPROVAL_REQUESTED,
   TOOL_STATE_APPROVAL_RESPONDED,
   TOOL_STATE_INPUT_AVAILABLE,
+  TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
 } from "../../constants";
-import {
-  type Mode,
-  type UseChatConfig,
-  buildUseChatOptions,
-} from "../../sse";
+import { buildUseChatOptions, type Mode, type UseChatConfig } from "../../sse";
 import {
   createAdkConfirmationRequest,
   createTextResponse,
@@ -42,7 +38,9 @@ import { createMswServer } from "../mocks/msw-server";
 function getMessageText(message: UIMessage | undefined): string {
   if (!message) return "";
   return message.parts
-    .filter((part): part is { type: "text"; text: string } => isTextUIPart(part))
+    .filter((part): part is { type: "text"; text: string } =>
+      isTextUIPart(part),
+    )
     .map((part) => part.text)
     .join("");
 }
@@ -84,7 +82,9 @@ describe("SSE Mode with useChat - E2E Tests", () => {
             return createTextResponse("Search", " completed!");
           }
 
-          return HttpResponse.text("Unexpected request", { status: 500 }) as any;
+          return HttpResponse.text("Unexpected request", {
+            status: 500,
+          }) as any;
         }),
       );
 
@@ -372,7 +372,9 @@ describe("SSE Mode with useChat - E2E Tests", () => {
       await waitFor(
         () => {
           const lastMessage = result.current.messages.at(-1);
-          expect(getMessageText(lastMessage)).toContain("Weather in Tokyo: Sunny");
+          expect(getMessageText(lastMessage)).toContain(
+            "Weather in Tokyo: Sunny",
+          );
         },
         { timeout: 3000 },
       );
@@ -487,9 +489,10 @@ describe("SSE Mode with useChat - E2E Tests", () => {
       const allMessages = result.current.messages;
       const confirmationParts = allMessages
         .flatMap((msg: any) => msg.parts || [])
-        .filter((p: any) =>
-          p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
-          p.state === TOOL_STATE_APPROVAL_RESPONDED
+        .filter(
+          (p: any) =>
+            p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
+            p.state === TOOL_STATE_APPROVAL_RESPONDED,
         );
       expect(confirmationParts.length).toBeGreaterThanOrEqual(2);
     });

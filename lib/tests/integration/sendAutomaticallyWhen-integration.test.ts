@@ -13,14 +13,14 @@
 import type { UIMessage } from "ai";
 import { describe, expect, it } from "vitest";
 import { sendAutomaticallyWhen as bidiSendAuto } from "../../bidi";
-import { sendAutomaticallyWhen as sseSendAuto } from "../../sse";
 import {
-  TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+  TOOL_STATE_APPROVAL_REQUESTED,
+  TOOL_STATE_APPROVAL_RESPONDED,
   TOOL_STATE_OUTPUT_AVAILABLE,
   TOOL_STATE_OUTPUT_ERROR,
-  TOOL_STATE_APPROVAL_RESPONDED,
-  TOOL_STATE_APPROVAL_REQUESTED,
+  TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
 } from "../../constants";
+import { sendAutomaticallyWhen as sseSendAuto } from "../../sse";
 
 describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
   describe("BIDI Mode - Infinite Loop Prevention", () => {
@@ -62,7 +62,9 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
       ];
 
       // when
-      const shouldSend = bidiSendAuto({ messages: messagesAfterBackendResponse });
+      const shouldSend = bidiSendAuto({
+        messages: messagesAfterBackendResponse,
+      });
 
       // then
       expect(shouldSend).toBe(false); // MUST be false to prevent infinite loop
@@ -203,7 +205,9 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
       ];
 
       // when
-      const shouldSend = sseSendAuto({ messages: messagesAfterBackendResponse });
+      const shouldSend = sseSendAuto({
+        messages: messagesAfterBackendResponse,
+      });
 
       // then
       expect(shouldSend).toBe(false); // MUST prevent infinite loop

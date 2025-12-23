@@ -58,11 +58,15 @@ describe("BIDI Flat Structure Integration Tests", () => {
 
             // Send minimal response to complete the stream
             const textId = `text-${Date.now()}`;
-            client.send(`data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`);
+            client.send(
+              `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
+            );
             client.send(
               `data: ${JSON.stringify({ type: "text-delta", delta: "OK", id: textId })}\n\n`,
             );
-            client.send(`data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`);
+            client.send(
+              `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
+            );
             client.send("data: [DONE]\n\n");
           });
         }),
@@ -121,11 +125,15 @@ describe("BIDI Flat Structure Integration Tests", () => {
 
             // Send response
             const textId = `text-${Date.now()}`;
-            client.send(`data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`);
+            client.send(
+              `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
+            );
             client.send(
               `data: ${JSON.stringify({ type: "text-delta", delta: "Response", id: textId })}\n\n`,
             );
-            client.send(`data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`);
+            client.send(
+              `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
+            );
             client.send("data: [DONE]\n\n");
           });
         }),
@@ -136,7 +144,11 @@ describe("BIDI Flat Structure Integration Tests", () => {
       });
 
       const messages: UIMessage[] = [
-        { id: "msg-100", role: "user", parts: [{ type: "text", text: "Test" }] },
+        {
+          id: "msg-100",
+          role: "user",
+          parts: [{ type: "text", text: "Test" }],
+        },
       ] as UIMessage[];
 
       // when
@@ -181,11 +193,15 @@ describe("BIDI Flat Structure Integration Tests", () => {
 
             // Send response
             const textId = `text-${Date.now()}`;
-            client.send(`data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`);
+            client.send(
+              `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
+            );
             client.send(
               `data: ${JSON.stringify({ type: "text-delta", delta: "Multi-turn", id: textId })}\n\n`,
             );
-            client.send(`data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`);
+            client.send(
+              `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
+            );
             client.send("data: [DONE]\n\n");
           });
         }),
@@ -198,8 +214,16 @@ describe("BIDI Flat Structure Integration Tests", () => {
       // Multiple messages (conversation history)
       const messages: UIMessage[] = [
         { id: "msg-1", role: "user", parts: [{ type: "text", text: "First" }] },
-        { id: "msg-2", role: "assistant", parts: [{ type: "text", text: "Response 1" }] },
-        { id: "msg-3", role: "user", parts: [{ type: "text", text: "Second" }] },
+        {
+          id: "msg-2",
+          role: "assistant",
+          parts: [{ type: "text", text: "Response 1" }],
+        },
+        {
+          id: "msg-3",
+          role: "user",
+          parts: [{ type: "text", text: "Second" }],
+        },
       ] as UIMessage[];
 
       // when
@@ -254,11 +278,15 @@ describe("BIDI Flat Structure Integration Tests", () => {
 
             // Send response
             const textId = `text-${Date.now()}`;
-            client.send(`data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`);
+            client.send(
+              `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
+            );
             client.send(
               `data: ${JSON.stringify({ type: "text-delta", delta: "OK", id: textId })}\n\n`,
             );
-            client.send(`data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`);
+            client.send(
+              `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
+            );
             client.send("data: [DONE]\n\n");
           });
         }),
@@ -314,11 +342,15 @@ describe("BIDI Flat Structure Integration Tests", () => {
 
             // Send response
             const textId = `text-${Date.now()}`;
-            client.send(`data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`);
+            client.send(
+              `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
+            );
             client.send(
               `data: ${JSON.stringify({ type: "text-delta", delta: "OK", id: textId })}\n\n`,
             );
-            client.send(`data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`);
+            client.send(
+              `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
+            );
             client.send("data: [DONE]\n\n");
           });
         }),

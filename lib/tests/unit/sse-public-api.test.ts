@@ -8,15 +8,15 @@
 import type { UIMessage } from "ai";
 import { describe, expect, it } from "vitest";
 import {
+  buildUseChatOptions,
   type ChatTransport,
+  createTransport,
   type Mode,
   type SendAutomaticallyWhenOptions,
+  sendAutomaticallyWhen,
   type TransportConfig,
   type UseChatConfig,
   type UseChatOptions,
-  buildUseChatOptions,
-  createTransport,
-  sendAutomaticallyWhen,
 } from "../../sse";
 
 describe("lib/sse Public API", () => {
@@ -98,9 +98,7 @@ describe("lib/sse Public API", () => {
     }>([
       {
         name: "returns false when last message is user message",
-        messages: [
-          { id: "1", role: "user", content: "Hello" },
-        ] as UIMessage[],
+        messages: [{ id: "1", role: "user", content: "Hello" }] as UIMessage[],
         expected: false,
       },
       {

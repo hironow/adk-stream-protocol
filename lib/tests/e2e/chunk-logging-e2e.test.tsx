@@ -25,8 +25,8 @@ import { buildUseChatOptions } from "../../bidi";
 import { chunkLogger } from "../../chunk_logs";
 import {
   createBidiWebSocketLink,
-  createTextResponseHandler,
   createCustomHandler,
+  createTextResponseHandler,
 } from "../helpers/bidi-ws-handlers";
 import { createMswServer } from "../mocks/msw-server";
 
@@ -36,7 +36,9 @@ import { createMswServer } from "../mocks/msw-server";
 function getMessageText(message: UIMessage | undefined): string {
   if (!message) return "";
   return message.parts
-    .filter((part): part is { type: "text"; text: string } => isTextUIPart(part))
+    .filter((part): part is { type: "text"; text: string } =>
+      isTextUIPart(part),
+    )
     .map((part) => part.text)
     .join("");
 }
@@ -86,8 +88,12 @@ describe("ChunkLogging E2E Tests", () => {
       // Wait for response to complete
       await waitFor(
         () => {
-          const lastMessage = result.current.messages[result.current.messages.length - 1];
-          return lastMessage?.role === "assistant" && getMessageText(lastMessage) === "Hello World";
+          const lastMessage =
+            result.current.messages[result.current.messages.length - 1];
+          return (
+            lastMessage?.role === "assistant" &&
+            getMessageText(lastMessage) === "Hello World"
+          );
         },
         { timeout: 5000 },
       );
@@ -99,7 +105,9 @@ describe("ChunkLogging E2E Tests", () => {
       expect(loggedEntries.length).toBeGreaterThan(0);
 
       // Verify all entries have correct mode
-      const allBidiMode = loggedEntries.every((entry) => entry.mode === "adk-bidi");
+      const allBidiMode = loggedEntries.every(
+        (entry) => entry.mode === "adk-bidi",
+      );
       expect(allBidiMode).toBe(true);
 
       // Verify we logged text deltas
@@ -110,7 +118,9 @@ describe("ChunkLogging E2E Tests", () => {
       expect(textDeltaChunks.length).toBeGreaterThan(0);
 
       // Verify logged chunks include our text
-      const loggedText = textDeltaChunks.map((entry) => (entry.chunk as any).delta).join("");
+      const loggedText = textDeltaChunks
+        .map((entry) => (entry.chunk as any).delta)
+        .join("");
       expect(loggedText).toBe("Hello World");
 
       // Cleanup
@@ -139,9 +149,11 @@ describe("ChunkLogging E2E Tests", () => {
 
       await waitFor(
         () => {
-          const lastMessage = result.current.messages[result.current.messages.length - 1];
+          const lastMessage =
+            result.current.messages[result.current.messages.length - 1];
           return (
-            lastMessage?.role === "assistant" && getMessageText(lastMessage) === "FirstSecondThird"
+            lastMessage?.role === "assistant" &&
+            getMessageText(lastMessage) === "FirstSecondThird"
           );
         },
         { timeout: 5000 },
@@ -192,8 +204,12 @@ describe("ChunkLogging E2E Tests", () => {
 
       await waitFor(
         () => {
-          const lastMessage = result.current.messages[result.current.messages.length - 1];
-          return lastMessage?.role === "assistant" && getMessageText(lastMessage) === "Test";
+          const lastMessage =
+            result.current.messages[result.current.messages.length - 1];
+          return (
+            lastMessage?.role === "assistant" &&
+            getMessageText(lastMessage) === "Test"
+          );
         },
         { timeout: 5000 },
       );
@@ -206,7 +222,9 @@ describe("ChunkLogging E2E Tests", () => {
       expect(allHaveLocation).toBe(true);
 
       // Verify direction metadata (should be "in" for incoming chunks)
-      const allHaveDirection = loggedEntries.every((entry) => entry.direction === "in");
+      const allHaveDirection = loggedEntries.every(
+        (entry) => entry.direction === "in",
+      );
       expect(allHaveDirection).toBe(true);
 
       transport._close();
@@ -223,7 +241,9 @@ describe("ChunkLogging E2E Tests", () => {
             messageCount++;
             const textId = `text-${Date.now()}-${messageCount}`;
 
-            client.send(`data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`);
+            client.send(
+              `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
+            );
             client.send(
               `data: ${JSON.stringify({
                 type: "text-delta",
@@ -231,7 +251,9 @@ describe("ChunkLogging E2E Tests", () => {
                 id: textId,
               })}\n\n`,
             );
-            client.send(`data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`);
+            client.send(
+              `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
+            );
             client.send("data: [DONE]\n\n");
           });
         }),
@@ -255,8 +277,12 @@ describe("ChunkLogging E2E Tests", () => {
 
       await waitFor(
         () => {
-          const lastMessage = result.current.messages[result.current.messages.length - 1];
-          return lastMessage?.role === "assistant" && getMessageText(lastMessage) === "Response1";
+          const lastMessage =
+            result.current.messages[result.current.messages.length - 1];
+          return (
+            lastMessage?.role === "assistant" &&
+            getMessageText(lastMessage) === "Response1"
+          );
         },
         { timeout: 5000 },
       );
@@ -270,8 +296,12 @@ describe("ChunkLogging E2E Tests", () => {
 
       await waitFor(
         () => {
-          const lastMessage = result.current.messages[result.current.messages.length - 1];
-          return lastMessage?.role === "assistant" && getMessageText(lastMessage) === "Response2";
+          const lastMessage =
+            result.current.messages[result.current.messages.length - 1];
+          return (
+            lastMessage?.role === "assistant" &&
+            getMessageText(lastMessage) === "Response2"
+          );
         },
         { timeout: 5000 },
       );
@@ -315,8 +345,12 @@ describe("ChunkLogging E2E Tests", () => {
 
       await waitFor(
         () => {
-          const lastMessage = result.current.messages[result.current.messages.length - 1];
-          return lastMessage?.role === "assistant" && getMessageText(lastMessage) === "ExportTest";
+          const lastMessage =
+            result.current.messages[result.current.messages.length - 1];
+          return (
+            lastMessage?.role === "assistant" &&
+            getMessageText(lastMessage) === "ExportTest"
+          );
         },
         { timeout: 5000 },
       );

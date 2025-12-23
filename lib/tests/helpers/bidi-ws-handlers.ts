@@ -52,7 +52,10 @@ export function createTextResponseHandler(
   ...textParts: string[]
 ) {
   return chat.addEventListener("connection", ({ server, client }) => {
-    console.log("[MSW WebSocket] Connection established, sending text deltas:", textParts);
+    console.log(
+      "[MSW WebSocket] Connection established, sending text deltas:",
+      textParts,
+    );
 
     // Establish mock server connection
     server.connect();
@@ -71,7 +74,7 @@ export function createTextResponseHandler(
       };
       const startMessage = `data: ${JSON.stringify(startChunk)}\n\n`;
       console.log("[MSW WebSocket] Sending text-start:", startMessage);
-      client.send(startMessage);  // Use client.send() to send TO client
+      client.send(startMessage); // Use client.send() to send TO client
 
       // Send text-delta chunks
       for (const text of textParts) {
@@ -82,7 +85,7 @@ export function createTextResponseHandler(
         };
         const sseMessage = `data: ${JSON.stringify(chunk)}\n\n`;
         console.log("[MSW WebSocket] Sending text-delta:", sseMessage);
-        client.send(sseMessage);  // Use client.send() to send TO client
+        client.send(sseMessage); // Use client.send() to send TO client
       }
 
       // Send text-end chunk
@@ -92,12 +95,12 @@ export function createTextResponseHandler(
       };
       const endMessage = `data: ${JSON.stringify(endChunk)}\n\n`;
       console.log("[MSW WebSocket] Sending text-end:", endMessage);
-      client.send(endMessage);  // Use client.send() to send TO client
+      client.send(endMessage); // Use client.send() to send TO client
 
       // Send [DONE] marker
       const doneMessage = "data: [DONE]\n\n";
       console.log("[MSW WebSocket] Sending DONE");
-      client.send(doneMessage);  // Use client.send() to send TO client
+      client.send(doneMessage); // Use client.send() to send TO client
     });
   });
 }
@@ -136,7 +139,10 @@ export function createConfirmationRequestHandler(
 
     // Listen for client messages
     client.addEventListener("message", (event) => {
-      console.log("[MSW WebSocket] Received client message for confirmation:", event.data);
+      console.log(
+        "[MSW WebSocket] Received client message for confirmation:",
+        event.data,
+      );
 
       // Send tool-input-start chunk
       const startChunk = {
@@ -146,7 +152,7 @@ export function createConfirmationRequestHandler(
       };
       const startMessage = `data: ${JSON.stringify(startChunk)}\n\n`;
       console.log("[MSW WebSocket] Sending tool-input-start:", startMessage);
-      client.send(startMessage);  // Use client.send() to send TO client
+      client.send(startMessage); // Use client.send() to send TO client
 
       // Send tool-input-available chunk
       const availableChunk = {
@@ -156,8 +162,11 @@ export function createConfirmationRequestHandler(
         input: { originalFunctionCall },
       };
       const availableMessage = `data: ${JSON.stringify(availableChunk)}\n\n`;
-      console.log("[MSW WebSocket] Sending tool-input-available:", availableMessage);
-      client.send(availableMessage);  // Use client.send() to send TO client
+      console.log(
+        "[MSW WebSocket] Sending tool-input-available:",
+        availableMessage,
+      );
+      client.send(availableMessage); // Use client.send() to send TO client
 
       // Send tool-approval-request chunk
       const approvalChunk = {
@@ -166,12 +175,15 @@ export function createConfirmationRequestHandler(
         toolCallId: "call-1",
       };
       const approvalMessage = `data: ${JSON.stringify(approvalChunk)}\n\n`;
-      console.log("[MSW WebSocket] Sending tool-approval-request:", approvalMessage);
-      client.send(approvalMessage);  // Use client.send() to send TO client
+      console.log(
+        "[MSW WebSocket] Sending tool-approval-request:",
+        approvalMessage,
+      );
+      client.send(approvalMessage); // Use client.send() to send TO client
 
       // Send [DONE] marker
       console.log("[MSW WebSocket] Sending DONE");
-      client.send("data: [DONE]\n\n");  // Use client.send() to send TO client
+      client.send("data: [DONE]\n\n"); // Use client.send() to send TO client
     });
   });
 }
@@ -213,8 +225,8 @@ export function createEchoHandler(
               delta: responsePrefix + lastMessage.content,
               id: `text-${Date.now()}`,
             };
-            client.send(`data: ${JSON.stringify(chunk)}\n\n`);  // Use client.send() to send TO client
-            client.send("data: [DONE]\n\n");  // Use client.send() to send TO client
+            client.send(`data: ${JSON.stringify(chunk)}\n\n`); // Use client.send() to send TO client
+            client.send("data: [DONE]\n\n"); // Use client.send() to send TO client
           }
         }
       } catch {
@@ -246,10 +258,7 @@ export function createEchoHandler(
  */
 export function createCustomHandler(
   chat: ReturnType<typeof ws.link>,
-  handler: (connection: {
-    client: WebSocket;
-    server: WebSocket;
-  }) => void,
+  handler: (connection: { client: WebSocket; server: WebSocket }) => void,
 ) {
   return chat.addEventListener("connection", ({ server, client }) => {
     // Establish mock server connection

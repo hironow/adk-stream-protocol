@@ -13,11 +13,11 @@
 import type { UIMessage } from "@ai-sdk/react";
 import { isTextUIPart, isToolUIPart } from "ai";
 import {
-  TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+  TOOL_STATE_APPROVAL_REQUESTED,
+  TOOL_STATE_APPROVAL_RESPONDED,
   TOOL_STATE_OUTPUT_AVAILABLE,
   TOOL_STATE_OUTPUT_ERROR,
-  TOOL_STATE_APPROVAL_RESPONDED,
-  TOOL_STATE_APPROVAL_REQUESTED,
+  TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
 } from "@/lib/constants";
 
 /**
@@ -30,21 +30,92 @@ export interface SendAutomaticallyWhenOptions {
 /**
  * SSE Mode: Automatically send when adk_request_confirmation completes OR tool output added
  *
- * ADK Tool Confirmation Flow (SSE):
- * 1. User clicks Approve/Deny → addToolApprovalResponse updates confirmation state
- * 2. This function detects confirmation completion → returns true
- *    - Approval: state changes to "approval-responded", approval.approved = true
- *    - Denial: state changes to "approval-responded", approval.approved = false
- * 3. useChat automatically calls transport.sendMessages()
- * 4. DefaultChatTransport sends HTTP request to backend
- * 5. Backend receives approval/denial and responds
+ * See: ADR 0005 (Frontend Execute Pattern and [DONE] Sending Timing)
  *
- * Frontend Execute Flow (SSE):
- * 1. Frontend executes tool (e.g., browser API) → addToolOutput adds tool-result
- * 2. This function detects new tool-result in assistant message → returns true
- * 3. useChat automatically calls transport.sendMessages()
- * 4. DefaultChatTransport sends HTTP request with tool-result to backend
- * 5. Backend receives result and continues
+ * ┌─────────────────────────────────────────────────────────────────────────────┐
+ * │ PATTERN 1: Server Execute (Backend executes tools)                         │
+ * └─────────────────────────────────────────────────────────────────────────────┘
+ *
+ *   Request 1                  Request 2                   Request 3
+ *   ─────────                  ─────────                   ─────────
+ *        │                            │                           │
+ *        │ (1) Initial message        │                           │
+ *        ├───────────────────────────>│                           │
+ *        │                            │                           │
+ *        │                            │ Approval request          │
+ *        │<───────────────────────────┤ + [DONE]                  │
+ *        │                            │                           │
+ *        │ (2) addToolApprovalResponse│                           │
+ *        │    (this function → true)  │                           │
+ *        │    triggers sendMessages() │                           │
+ *        ├───────────────────────────────────────────────────────>│
+ *        │                            │                           │
+ *        │                            │                           │ Backend
+ *        │                            │                           │ executes
+ *        │                            │                           │ + Result
+ *        │<───────────────────────────────────────────────────────┤ + [DONE]
+ *        │                            │                           │
+ *
+ * ┌─────────────────────────────────────────────────────────────────────────────┐
+ * │ PATTERN 2: Frontend Execute (Frontend executes tools)                      │
+ * └─────────────────────────────────────────────────────────────────────────────┘
+ *
+ *   Request 1                  Request 2                   Request 3
+ *   ─────────                  ─────────                   ─────────
+ *        │                            │                           │
+ *        │ (1) Initial message        │                           │
+ *        ├───────────────────────────>│                           │
+ *        │                            │                           │
+ *        │                            │ Approval request          │
+ *        │<───────────────────────────┤ + [DONE]                  │
+ *        │                            │                           │
+ *        │ (2) addToolApprovalResponse│                           │
+ *        │    (this function → true)  │                           │
+ *        │    triggers sendMessages() │                           │
+ *        ├───────────────────────────────────────────────────────>│
+ *        │                            │                           │
+ *        │                            │                           │ (3) 204
+ *        │<───────────────────────────────────────────────────────┤ No Content
+ *        │                            │         ★ CRITICAL        │ (no [DONE])
+ *        │                            │                           │
+ *        │ (4) Frontend executes      │                           │
+ *        │     addToolOutput()        │                           │
+ *        │     (this function → true) │                           │
+ *        │     triggers sendMessages()│                           │
+ *        ├───────────────────────────>│                           │
+ *        │                            │                           │
+ *        │                            │ Result + [DONE]           │
+ *        │<───────────────────────────┤                           │
+ *        │                            │                           │
+ *
+ * Legend / 凡例:
+ * - Request: HTTPリクエスト
+ * - [DONE]: SSEストリーム終了シグナル
+ * - 204 No Content: レスポンスなし（次のリクエストを待つ）
+ *
+ * ┌─────────────────────────────────────────────────────────────────────────────┐
+ * │ Decision Logic: When to return true                                        │
+ * └─────────────────────────────────────────────────────────────────────────────┘
+ *
+ *   Check 1: Has text part?
+ *       YES → return false (backend already responded)
+ *       NO → Continue
+ *
+ *   Check 2: Has tool output from addToolOutput()?
+ *       YES → return true (Frontend Execute: send tool result)
+ *       NO → Continue
+ *
+ *   Check 3: Has approval-responded confirmation?
+ *       NO → return false (no approval yet)
+ *       YES → Continue
+ *
+ *   Check 4: Has pending approval-requested?
+ *       YES → return false (wait for user to approve all)
+ *       NO → Continue
+ *
+ *   Check 5: Any other tool completed (output-available/output-error)?
+ *       YES → return false (backend already responded)
+ *       NO → return true (Server Execute: send approval)
  *
  * @param options - Object containing messages array
  * @returns true if automatic send should be triggered, false otherwise
@@ -136,8 +207,7 @@ export function sendAutomaticallyWhen({
     const otherTools = parts.filter(
       // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
       (part: any) =>
-        isToolUIPart(part) &&
-        part.type !== TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+        isToolUIPart(part) && part.type !== TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
     );
 
     // Check if any other tool has completed (backend responded)

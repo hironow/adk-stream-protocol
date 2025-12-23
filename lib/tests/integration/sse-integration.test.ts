@@ -9,12 +9,12 @@ import type { UIMessage, UIMessageChunk } from "ai";
 import { http } from "msw";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import {
-  TOOL_CHUNK_TYPE_INPUT_START,
   TOOL_CHUNK_TYPE_INPUT_AVAILABLE,
+  TOOL_CHUNK_TYPE_INPUT_START,
   TOOL_NAME_ADK_REQUEST_CONFIRMATION,
-  TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
-  TOOL_STATE_OUTPUT_AVAILABLE,
   TOOL_STATE_APPROVAL_RESPONDED,
+  TOOL_STATE_OUTPUT_AVAILABLE,
+  TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
 } from "../../constants";
 import { buildUseChatOptions } from "../../sse";
 import {
@@ -90,8 +90,14 @@ describe("lib/sse Integration Tests", () => {
       expect(chunks.length).toBeGreaterThanOrEqual(2);
       const textDeltas = chunks.filter((c) => c.type === "text-delta");
       expect(textDeltas).toHaveLength(2);
-      expect(textDeltas[0]).toMatchObject({ type: "text-delta", delta: "Hello" });
-      expect(textDeltas[1]).toMatchObject({ type: "text-delta", delta: " World" });
+      expect(textDeltas[0]).toMatchObject({
+        type: "text-delta",
+        delta: "Hello",
+      });
+      expect(textDeltas[1]).toMatchObject({
+        type: "text-delta",
+        delta: " World",
+      });
     });
   });
 
@@ -174,7 +180,10 @@ describe("lib/sse Integration Tests", () => {
       // AI SDK v6 sends: text-start, text-delta(s), text-end
       const textDeltas = chunks.filter((c) => c.type === "text-delta");
       expect(textDeltas).toHaveLength(1);
-      expect(textDeltas[0]).toMatchObject({ type: "text-delta", delta: responseText });
+      expect(textDeltas[0]).toMatchObject({
+        type: "text-delta",
+        delta: responseText,
+      });
     });
   });
 
@@ -284,8 +293,9 @@ describe("lib/sse Integration Tests", () => {
       });
 
       // when
-      const shouldSend =
-        await useChatOptions.sendAutomaticallyWhen!({ messages });
+      const shouldSend = await useChatOptions.sendAutomaticallyWhen!({
+        messages,
+      });
 
       // then
       expect(shouldSend).toBe(true);
@@ -326,8 +336,9 @@ describe("lib/sse Integration Tests", () => {
       });
 
       // when
-      const shouldSend =
-        await useChatOptions.sendAutomaticallyWhen!({ messages });
+      const shouldSend = await useChatOptions.sendAutomaticallyWhen!({
+        messages,
+      });
 
       // then
       expect(shouldSend).toBe(true);

@@ -14,12 +14,23 @@
 
 import type { UIMessage } from "ai";
 import { setupServer } from "msw/node";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { buildBidiUseChatOptions } from "../../bidi/use-chat-options";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from "vitest";
 import { WebSocketChatTransport } from "../../bidi/transport";
+import { buildBidiUseChatOptions } from "../../bidi/use-chat-options";
 import { ChunkLoggingTransport, chunkLogger } from "../../chunk_logs";
 import { buildSseUseChatOptions } from "../../sse/use-chat-options";
-import { createBidiWebSocketLink, createTextResponseHandler } from "../helpers/bidi-ws-handlers";
+import {
+  createBidiWebSocketLink,
+  createTextResponseHandler,
+} from "../helpers/bidi-ws-handlers";
 
 const server = setupServer();
 
@@ -46,7 +57,10 @@ describe("ChunkLoggingTransport Integration Tests", () => {
       const wsTransport = new WebSocketChatTransport({
         url: "ws://localhost:8000/live",
       });
-      const loggingTransport = new ChunkLoggingTransport(wsTransport, "adk-bidi");
+      const loggingTransport = new ChunkLoggingTransport(
+        wsTransport,
+        "adk-bidi",
+      );
 
       const messages: UIMessage[] = [
         { id: "1", role: "user", parts: [{ type: "text", text: "Test" }] },
@@ -137,7 +151,10 @@ describe("ChunkLoggingTransport Integration Tests", () => {
       const wsTransport = new WebSocketChatTransport({
         url: "ws://localhost:8000/live",
       });
-      const loggingTransport = new ChunkLoggingTransport(wsTransport, "adk-bidi");
+      const loggingTransport = new ChunkLoggingTransport(
+        wsTransport,
+        "adk-bidi",
+      );
 
       chunkLogger.clear();
 
@@ -263,7 +280,10 @@ describe("ChunkLoggingTransport Integration Tests", () => {
       const wsTransport = new WebSocketChatTransport({
         url: "ws://localhost:8000/live",
       });
-      const loggingTransport = new ChunkLoggingTransport(wsTransport, "adk-bidi");
+      const loggingTransport = new ChunkLoggingTransport(
+        wsTransport,
+        "adk-bidi",
+      );
 
       // when
       const messages: UIMessage[] = [

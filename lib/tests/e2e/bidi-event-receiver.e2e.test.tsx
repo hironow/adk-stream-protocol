@@ -12,9 +12,9 @@
  * @vitest-environment jsdom
  */
 
-import { renderHook, waitFor } from "@testing-library/react";
-import { useChat } from "@ai-sdk/react";
 import type { UIMessage } from "@ai-sdk/react";
+import { useChat } from "@ai-sdk/react";
+import { renderHook, waitFor } from "@testing-library/react";
 import { setupServer } from "msw/node";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { buildUseChatOptions } from "@/lib/build-use-chat-options";
@@ -143,11 +143,15 @@ describe("BIDI EventReceiver - E2E Tests", () => {
           client.addEventListener("message", () => {
             // Send simple text response
             const textId = `text-${Date.now()}`;
-            client.send(`data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`);
+            client.send(
+              `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
+            );
             client.send(
               `data: ${JSON.stringify({ type: "text-delta", delta: "Hello", id: textId })}\n\n`,
             );
-            client.send(`data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`);
+            client.send(
+              `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
+            );
 
             // Send [DONE] after delay to ensure all messages are processed
             setTimeout(() => {
@@ -222,11 +226,15 @@ describe("BIDI EventReceiver - E2E Tests", () => {
 
             // Also send normal text response
             const textId = `text-${Date.now()}`;
-            client.send(`data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`);
+            client.send(
+              `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
+            );
             client.send(
               `data: ${JSON.stringify({ type: "text-delta", delta: "Pong!", id: textId })}\n\n`,
             );
-            client.send(`data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`);
+            client.send(
+              `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
+            );
 
             // Send [DONE] after delay to ensure all messages are processed
             setTimeout(() => {
@@ -278,11 +286,15 @@ describe("BIDI EventReceiver - E2E Tests", () => {
 
             // But still send valid response after
             const textId = `text-${Date.now()}`;
-            client.send(`data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`);
+            client.send(
+              `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
+            );
             client.send(
               `data: ${JSON.stringify({ type: "text-delta", delta: "Recovered", id: textId })}\n\n`,
             );
-            client.send(`data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`);
+            client.send(
+              `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
+            );
 
             // Send [DONE] after delay to ensure all messages are processed
             setTimeout(() => {
@@ -308,7 +320,9 @@ describe("BIDI EventReceiver - E2E Tests", () => {
       await waitFor(
         () => {
           const lastMessage = result.current.messages.at(-1);
-          const textPart = (lastMessage as any)?.parts?.find((p: any) => p.type === "text");
+          const textPart = (lastMessage as any)?.parts?.find(
+            (p: any) => p.type === "text",
+          );
           expect(textPart?.text).toContain("Recovered");
         },
         { timeout: 3000 },
@@ -333,11 +347,15 @@ describe("BIDI EventReceiver - E2E Tests", () => {
 
             // Then send valid SSE
             const textId = `text-${Date.now()}`;
-            client.send(`data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`);
+            client.send(
+              `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
+            );
             client.send(
               `data: ${JSON.stringify({ type: "text-delta", delta: "Valid", id: textId })}\n\n`,
             );
-            client.send(`data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`);
+            client.send(
+              `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
+            );
 
             // Send [DONE] after delay to ensure all messages are processed
             setTimeout(() => {
@@ -363,7 +381,9 @@ describe("BIDI EventReceiver - E2E Tests", () => {
       await waitFor(
         () => {
           const lastMessage = result.current.messages.at(-1);
-          const textPart = (lastMessage as any)?.parts?.find((p: any) => p.type === "text");
+          const textPart = (lastMessage as any)?.parts?.find(
+            (p: any) => p.type === "text",
+          );
           expect(textPart?.text).toContain("Valid");
         },
         { timeout: 3000 },
@@ -373,7 +393,9 @@ describe("BIDI EventReceiver - E2E Tests", () => {
       console.warn = originalWarn;
 
       // Verify warning was logged
-      const hasWarning = consoleLogs.some((log) => log.includes("Non-SSE message"));
+      const hasWarning = consoleLogs.some((log) =>
+        log.includes("Non-SSE message"),
+      );
       expect(hasWarning).toBe(true);
     });
   });
@@ -387,11 +409,15 @@ describe("BIDI EventReceiver - E2E Tests", () => {
         createCustomHandler(chat, ({ server, client }) => {
           client.addEventListener("message", () => {
             const textId = `text-${Date.now()}`;
-            client.send(`data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`);
+            client.send(
+              `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
+            );
             client.send(
               `data: ${JSON.stringify({ type: "text-delta", delta: "Response", id: textId })}\n\n`,
             );
-            client.send(`data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`);
+            client.send(
+              `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
+            );
 
             // Send [DONE] after delay to ensure all messages are processed
             setTimeout(() => {

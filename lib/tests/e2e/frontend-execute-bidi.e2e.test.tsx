@@ -18,13 +18,13 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import type { UIMessage } from "ai";
 import { isTextUIPart } from "ai";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { buildUseChatOptions } from "../../bidi";
 import {
-  TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
   TOOL_NAME_ADK_REQUEST_CONFIRMATION,
   TOOL_STATE_APPROVAL_REQUESTED,
   TOOL_STATE_APPROVAL_RESPONDED,
+  TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
 } from "../../constants";
-import { buildUseChatOptions } from "../../bidi";
 import {
   createBidiWebSocketLink,
   createCustomHandler,
@@ -37,7 +37,9 @@ import { createMswServer } from "../mocks/msw-server";
 function getMessageText(message: UIMessage | undefined): string {
   if (!message) return "";
   return message.parts
-    .filter((part): part is { type: "text"; text: string } => isTextUIPart(part))
+    .filter((part): part is { type: "text"; text: string } =>
+      isTextUIPart(part),
+    )
     .map((part) => part.text)
     .join("");
 }
@@ -94,15 +96,20 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
 
               // Backend continues with AI response
               const textId = `text-${Date.now()}`;
-              client.send(`data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`);
+              client.send(
+                `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
+              );
               client.send(
                 `data: ${JSON.stringify({
                   type: "text-delta",
-                  delta: "Your location is Tokyo, Japan (35.6762°N, 139.6503°E).",
+                  delta:
+                    "Your location is Tokyo, Japan (35.6762°N, 139.6503°E).",
                   id: textId,
                 })}\n\n`,
               );
-              client.send(`data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`);
+              client.send(
+                `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
+              );
               client.send("data: [DONE]\n\n");
             } else if (hasApprovalResponse) {
               // User approved, wait for tool-result (don't send anything yet)
@@ -181,7 +188,8 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
       // Wait for confirmation to arrive
       await waitFor(
         () => {
-          const lastMessage = result.current.messages[result.current.messages.length - 1];
+          const lastMessage =
+            result.current.messages[result.current.messages.length - 1];
           return (
             lastMessage?.role === "assistant" &&
             lastMessage.parts.some(
@@ -195,7 +203,8 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
       );
 
       // User approves confirmation
-      const confirmationMessage = result.current.messages[result.current.messages.length - 1];
+      const confirmationMessage =
+        result.current.messages[result.current.messages.length - 1];
       const confirmationPart = confirmationMessage.parts.find(
         (part: any) => part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
       ) as any;
@@ -210,7 +219,8 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
       // Wait for approval state to update
       await waitFor(
         () => {
-          const msg = result.current.messages[result.current.messages.length - 1];
+          const msg =
+            result.current.messages[result.current.messages.length - 1];
           const part = msg.parts.find(
             (p: any) => p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
           ) as any;
@@ -238,7 +248,8 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
       // Wait for AI response
       await waitFor(
         () => {
-          const lastMessage = result.current.messages[result.current.messages.length - 1];
+          const lastMessage =
+            result.current.messages[result.current.messages.length - 1];
           const text = getMessageText(lastMessage);
           return text.includes("Tokyo, Japan");
         },
@@ -248,7 +259,8 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
       // Then: Verify flow
       expect(toolResultReceived).toBe(true);
 
-      const finalMessage = result.current.messages[result.current.messages.length - 1];
+      const finalMessage =
+        result.current.messages[result.current.messages.length - 1];
       const finalText = getMessageText(finalMessage);
       expect(finalText).toContain("Tokyo, Japan");
       expect(finalText).toContain("35.6762");
@@ -273,97 +285,101 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
 
             // Check if this is approval response
             const hasApprovalResponse = data.messages?.some(
-                (msg: any) =>
-                  msg.role === "assistant" &&
-                  msg.parts?.some(
-                    (part: any) =>
-                      part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
-                      part.state === TOOL_STATE_APPROVAL_RESPONDED,
-                  ),
+              (msg: any) =>
+                msg.role === "assistant" &&
+                msg.parts?.some(
+                  (part: any) =>
+                    part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
+                    part.state === TOOL_STATE_APPROVAL_RESPONDED,
+                ),
+            );
+
+            const hasToolOutput = data.messages?.some(
+              (msg: any) =>
+                msg.role === "assistant" &&
+                msg.parts?.some(
+                  (part: any) =>
+                    part.toolCallId === "orig-camera" &&
+                    part.state === "output-available",
+                ),
+            );
+
+            if (hasToolOutput) {
+              // Frontend sent tool-result
+              toolResultReceived = true;
+
+              // Error response
+              const textId = `text-${Date.now()}`;
+              client.send(
+                `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
+              );
+              client.send(
+                `data: ${JSON.stringify({
+                  type: "text-delta",
+                  delta: "Unable to access camera. Permission denied.",
+                  id: textId,
+                })}\n\n`,
+              );
+              client.send(
+                `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
+              );
+              client.send("data: [DONE]\n\n");
+            } else if (hasApprovalResponse) {
+              // Wait for tool-result
+              return;
+            } else {
+              // Send original tool chunks first
+              client.send(
+                `data: ${JSON.stringify({
+                  type: "tool-input-start",
+                  toolCallId: "orig-camera",
+                  toolName: "take_photo",
+                })}\n\n`,
               );
 
-              const hasToolOutput = data.messages?.some(
-                (msg: any) =>
-                  msg.role === "assistant" &&
-                  msg.parts?.some(
-                    (part: any) =>
-                      part.toolCallId === "orig-camera" &&
-                      part.state === "output-available",
-                  ),
+              client.send(
+                `data: ${JSON.stringify({
+                  type: "tool-input-available",
+                  toolCallId: "orig-camera",
+                  toolName: "take_photo",
+                  input: {},
+                })}\n\n`,
               );
 
-              if (hasToolOutput) {
-                // Frontend sent tool-result
-                toolResultReceived = true;
+              // Then send confirmation
+              client.send(
+                `data: ${JSON.stringify({
+                  type: "tool-input-start",
+                  toolCallId: "call-camera",
+                  toolName: TOOL_NAME_ADK_REQUEST_CONFIRMATION,
+                })}\n\n`,
+              );
 
-                // Error response
-                const textId = `text-${Date.now()}`;
-                client.send(`data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`);
-                client.send(
-                  `data: ${JSON.stringify({
-                    type: "text-delta",
-                    delta: "Unable to access camera. Permission denied.",
-                    id: textId,
-                  })}\n\n`,
-                );
-                client.send(`data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`);
-                client.send("data: [DONE]\n\n");
-              } else if (hasApprovalResponse) {
-                // Wait for tool-result
-                return;
-              } else {
-                // Send original tool chunks first
-                client.send(
-                  `data: ${JSON.stringify({
-                    type: "tool-input-start",
-                    toolCallId: "orig-camera",
-                    toolName: "take_photo",
-                  })}\n\n`,
-                );
-
-                client.send(
-                  `data: ${JSON.stringify({
-                    type: "tool-input-available",
-                    toolCallId: "orig-camera",
-                    toolName: "take_photo",
-                    input: {},
-                  })}\n\n`,
-                );
-
-                // Then send confirmation
-                client.send(
-                  `data: ${JSON.stringify({
-                    type: "tool-input-start",
-                    toolCallId: "call-camera",
-                    toolName: TOOL_NAME_ADK_REQUEST_CONFIRMATION,
-                  })}\n\n`,
-                );
-
-                client.send(
-                  `data: ${JSON.stringify({
-                    type: "tool-input-available",
-                    toolCallId: "call-camera",
-                    toolName: TOOL_NAME_ADK_REQUEST_CONFIRMATION,
-                    input: {
-                      originalFunctionCall: {
-                        id: "orig-camera",
-                        name: "take_photo",
-                        args: {},
-                      },
+              client.send(
+                `data: ${JSON.stringify({
+                  type: "tool-input-available",
+                  toolCallId: "call-camera",
+                  toolName: TOOL_NAME_ADK_REQUEST_CONFIRMATION,
+                  input: {
+                    originalFunctionCall: {
+                      id: "orig-camera",
+                      name: "take_photo",
+                      args: {},
                     },
-                  })}\n\n`,
-                );
+                  },
+                })}\n\n`,
+              );
 
-                client.send(
-                  `data: ${JSON.stringify({
-                    type: "tool-approval-request",
-                    approvalId: "call-camera",
-                    toolCallId: "call-camera",
-                  })}\n\n`,
-                );
+              client.send(
+                `data: ${JSON.stringify({
+                  type: "tool-approval-request",
+                  approvalId: "call-camera",
+                  toolCallId: "call-camera",
+                })}\n\n`,
+              );
 
-                client.send("data: [DONE]\n\n");
-              }
+              client.send("data: [DONE]\n\n");
+            }
           });
         }),
       );
@@ -383,7 +399,8 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
       // Wait for confirmation
       await waitFor(
         () => {
-          const msg = result.current.messages[result.current.messages.length - 1];
+          const msg =
+            result.current.messages[result.current.messages.length - 1];
           return msg?.parts?.some(
             (p: any) =>
               p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
@@ -409,7 +426,8 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
       // Wait for approval state to update
       await waitFor(
         () => {
-          const msg = result.current.messages[result.current.messages.length - 1];
+          const msg =
+            result.current.messages[result.current.messages.length - 1];
           const confirmationPart = msg.parts.find(
             (p: any) => p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
           ) as any;
@@ -433,7 +451,8 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
       // Wait for error response
       await waitFor(
         () => {
-          const lastMsg = result.current.messages[result.current.messages.length - 1];
+          const lastMsg =
+            result.current.messages[result.current.messages.length - 1];
           const text = getMessageText(lastMsg);
           return text.includes("Permission denied");
         },
@@ -467,64 +486,68 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
             const data = JSON.parse(event.data as string);
 
             const hasDenial = data.messages?.some(
-                (msg: any) =>
-                  msg.role === "assistant" &&
-                  msg.parts?.some(
-                    (part: any) =>
-                      part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
-                      part.state === TOOL_STATE_APPROVAL_RESPONDED &&
-                      part.approval?.approved === false,
-                  ),
+              (msg: any) =>
+                msg.role === "assistant" &&
+                msg.parts?.some(
+                  (part: any) =>
+                    part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
+                    part.state === TOOL_STATE_APPROVAL_RESPONDED &&
+                    part.approval?.approved === false,
+                ),
+            );
+
+            if (!hasDenial) {
+              // Send confirmation
+              client.send(
+                `data: ${JSON.stringify({
+                  type: "tool-input-start",
+                  toolCallId: "call-mic",
+                  toolName: TOOL_NAME_ADK_REQUEST_CONFIRMATION,
+                })}\n\n`,
               );
 
-              if (!hasDenial) {
-                // Send confirmation
-                client.send(
-                  `data: ${JSON.stringify({
-                    type: "tool-input-start",
-                    toolCallId: "call-mic",
-                    toolName: TOOL_NAME_ADK_REQUEST_CONFIRMATION,
-                  })}\n\n`,
-                );
-
-                client.send(
-                  `data: ${JSON.stringify({
-                    type: "tool-input-available",
-                    toolCallId: "call-mic",
-                    toolName: TOOL_NAME_ADK_REQUEST_CONFIRMATION,
-                    input: {
-                      originalFunctionCall: {
-                        id: "orig-mic",
-                        name: "record_audio",
-                        args: { duration: 5 },
-                      },
+              client.send(
+                `data: ${JSON.stringify({
+                  type: "tool-input-available",
+                  toolCallId: "call-mic",
+                  toolName: TOOL_NAME_ADK_REQUEST_CONFIRMATION,
+                  input: {
+                    originalFunctionCall: {
+                      id: "orig-mic",
+                      name: "record_audio",
+                      args: { duration: 5 },
                     },
-                  })}\n\n`,
-                );
+                  },
+                })}\n\n`,
+              );
 
-                client.send(
-                  `data: ${JSON.stringify({
-                    type: "tool-approval-request",
-                    approvalId: "call-mic",
-                    toolCallId: "call-mic",
-                  })}\n\n`,
-                );
+              client.send(
+                `data: ${JSON.stringify({
+                  type: "tool-approval-request",
+                  approvalId: "call-mic",
+                  toolCallId: "call-mic",
+                })}\n\n`,
+              );
 
-                client.send("data: [DONE]\n\n");
-              } else {
-                // User denied
-                const textId = `text-${Date.now()}`;
-                client.send(`data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`);
-                client.send(
-                  `data: ${JSON.stringify({
-                    type: "text-delta",
-                    delta: "Understood. I won't access your microphone.",
-                    id: textId,
-                  })}\n\n`,
-                );
-                client.send(`data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`);
-                client.send("data: [DONE]\n\n");
-              }
+              client.send("data: [DONE]\n\n");
+            } else {
+              // User denied
+              const textId = `text-${Date.now()}`;
+              client.send(
+                `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
+              );
+              client.send(
+                `data: ${JSON.stringify({
+                  type: "text-delta",
+                  delta: "Understood. I won't access your microphone.",
+                  id: textId,
+                })}\n\n`,
+              );
+              client.send(
+                `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
+              );
+              client.send("data: [DONE]\n\n");
+            }
           });
         }),
       );
@@ -544,7 +567,8 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
       // Wait for confirmation
       await waitFor(
         () => {
-          const msg = result.current.messages[result.current.messages.length - 1];
+          const msg =
+            result.current.messages[result.current.messages.length - 1];
           return msg?.parts?.some(
             (p: any) =>
               p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
@@ -570,7 +594,8 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
       // Wait for denial response (NO addToolOutput call)
       await waitFor(
         () => {
-          const lastMsg = result.current.messages[result.current.messages.length - 1];
+          const lastMsg =
+            result.current.messages[result.current.messages.length - 1];
           const text = getMessageText(lastMsg);
           return text.includes("won't access");
         },
@@ -578,7 +603,9 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
       );
 
       expect(
-        getMessageText(result.current.messages[result.current.messages.length - 1]),
+        getMessageText(
+          result.current.messages[result.current.messages.length - 1],
+        ),
       ).toContain("won't access your microphone");
 
       transport._close();

@@ -25,19 +25,19 @@ export type MessageEvent = {
   // Metadata
   type: "message";
   version: "1.0";
-  timestamp?: number;                        // Optional client timestamp (milliseconds since epoch)
+  timestamp?: number; // Optional client timestamp (milliseconds since epoch)
   // Payload (same as SSE format)
-  id: string;                                // chatId (same as SSE)
-  messages: UIMessage[];                     // messages array (same as SSE)
+  id: string; // chatId (same as SSE)
+  messages: UIMessage[]; // messages array (same as SSE)
   trigger: "submit-message" | "regenerate-message"; // trigger (same as SSE)
-  messageId: string | undefined;             // messageId (same as SSE)
+  messageId: string | undefined; // messageId (same as SSE)
 };
 
 export type ToolResultEvent = {
   // Metadata
   type: "tool_result";
   version: "1.0";
-  timestamp?: number;                        // Optional client timestamp (milliseconds since epoch)
+  timestamp?: number; // Optional client timestamp (milliseconds since epoch)
   // Payload
   toolCallId: string;
   result: Record<string, unknown>;
@@ -47,7 +47,7 @@ export type AudioControlEvent = {
   // Metadata
   type: "audio_control";
   version: "1.0";
-  timestamp?: number;                        // Optional client timestamp (milliseconds since epoch)
+  timestamp?: number; // Optional client timestamp (milliseconds since epoch)
   // Payload
   action: "start" | "stop";
 };
@@ -56,9 +56,9 @@ export type AudioChunkEvent = {
   // Metadata
   type: "audio_chunk";
   version: "1.0";
-  timestamp?: number;                        // Optional client timestamp (milliseconds since epoch)
+  timestamp?: number; // Optional client timestamp (milliseconds since epoch)
   // Payload
-  chunk: string;                             // base64-encoded PCM data
+  chunk: string; // base64-encoded PCM data
   sampleRate?: number;
   channels?: number;
   bitDepth?: number;
@@ -68,7 +68,7 @@ export type InterruptEvent = {
   // Metadata
   type: "interrupt";
   version: "1.0";
-  timestamp?: number;                        // Optional client timestamp (milliseconds since epoch)
+  timestamp?: number; // Optional client timestamp (milliseconds since epoch)
   // Payload
   reason?: string;
 };

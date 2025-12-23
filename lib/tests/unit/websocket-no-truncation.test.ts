@@ -53,11 +53,15 @@ describe("WebSocketChatTransport - Message Preservation", () => {
 
           // Send simple response
           const textId = `text-${Date.now()}`;
-          client.send(`data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`);
+          client.send(
+            `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
+          );
           client.send(
             `data: ${JSON.stringify({ type: "text-delta", delta: "OK", id: textId })}\n\n`,
           );
-          client.send(`data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`);
+          client.send(
+            `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
+          );
           client.send("data: [DONE]\n\n");
         });
       }),
@@ -121,11 +125,15 @@ describe("WebSocketChatTransport - Message Preservation", () => {
 
           // Send simple response
           const textId = `text-${Date.now()}`;
-          client.send(`data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`);
+          client.send(
+            `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
+          );
           client.send(
             `data: ${JSON.stringify({ type: "text-delta", delta: "OK", id: textId })}\n\n`,
           );
-          client.send(`data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`);
+          client.send(
+            `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
+          );
           client.send("data: [DONE]\n\n");
         });
       }),
@@ -193,11 +201,15 @@ describe("WebSocketChatTransport - Message Preservation", () => {
 
           // Send simple response
           const textId = `text-${Date.now()}`;
-          client.send(`data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`);
+          client.send(
+            `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
+          );
           client.send(
             `data: ${JSON.stringify({ type: "text-delta", delta: "OK", id: textId })}\n\n`,
           );
-          client.send(`data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`);
+          client.send(
+            `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
+          );
           client.send("data: [DONE]\n\n");
         });
       }),
@@ -279,11 +291,15 @@ describe("WebSocketChatTransport - Message Preservation", () => {
 
           // Send simple response
           const textId = `text-${Date.now()}`;
-          client.send(`data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`);
+          client.send(
+            `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
+          );
           client.send(
             `data: ${JSON.stringify({ type: "text-delta", delta: "OK", id: textId })}\n\n`,
           );
-          client.send(`data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`);
+          client.send(
+            `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
+          );
           client.send("data: [DONE]\n\n");
         });
       }),
@@ -339,11 +355,15 @@ describe("WebSocketChatTransport - Message Preservation", () => {
 
           // Send simple response
           const textId = `text-${Date.now()}`;
-          client.send(`data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`);
+          client.send(
+            `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
+          );
           client.send(
             `data: ${JSON.stringify({ type: "text-delta", delta: "OK", id: textId })}\n\n`,
           );
-          client.send(`data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`);
+          client.send(
+            `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
+          );
           client.send("data: [DONE]\n\n");
         });
       }),
@@ -395,11 +415,15 @@ describe("WebSocketChatTransport - Message Preservation", () => {
 
           // Send simple response
           const textId = `text-${Date.now()}`;
-          client.send(`data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`);
+          client.send(
+            `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
+          );
           client.send(
             `data: ${JSON.stringify({ type: "text-delta", delta: "OK", id: textId })}\n\n`,
           );
-          client.send(`data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`);
+          client.send(
+            `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
+          );
           client.send("data: [DONE]\n\n");
         });
       }),
