@@ -105,7 +105,14 @@ class BidiEventReceiver:
         5. Handle FunctionResponse specially (append to session history)
         6. Send regular text via send_content()
         """
-        message_data = event.get("data", {})
+        # Flat structure: payload fields at same level as metadata
+        # Create message_data dict for process_chat_message_for_bidi compatibility
+        message_data = {
+            "messages": event.get("messages", []),
+            "id": event.get("id"),
+            "trigger": event.get("trigger"),
+            "messageId": event.get("messageId"),
+        }
 
         # Track whether any queue operation was performed
         queue_operation_performed = False
@@ -256,8 +263,8 @@ class BidiEventReceiver:
         - Encoded: base64
         - Sent to ADK via LiveRequestQueue
         """
-        chunk_data = event.get("data", {})
-        chunk_base64 = chunk_data.get("chunk")
+        # Flat structure: payload fields at same level as metadata
+        chunk_base64 = event.get("chunk")
 
         if chunk_base64:
             # Decode base64 PCM audio data
@@ -281,9 +288,9 @@ class BidiEventReceiver:
         Resolves pending FrontendToolDelegate.execute_on_frontend() calls.
         This event is sent by frontend after executing tools like get_location, change_bgm.
         """
-        tool_result_data = event.get("data", {})
-        tool_call_id = tool_result_data.get("toolCallId")
-        result = tool_result_data.get("result")
+        # Flat structure: payload fields at same level as metadata
+        tool_call_id = event.get("toolCallId")
+        result = event.get("result")
 
         if tool_call_id and result:
             self._delegate.resolve_tool_result(tool_call_id, result)

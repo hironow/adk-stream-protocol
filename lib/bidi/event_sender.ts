@@ -14,53 +14,62 @@
 import type { UIMessage } from "ai";
 
 /**
- * WebSocket event types for BIDI protocol
+ * WebSocket event types for BIDI protocol (Flat structure - no 'data' wrapper)
+ *
+ * Design: Flat structure for consistency with SSE mode and simpler backend parsing.
+ * - Metadata fields: type, version, timestamp (protocol-level)
+ * - Payload fields: event-specific data (application-level)
  */
+
 export type MessageEvent = {
+  // Metadata
   type: "message";
   version: "1.0";
   timestamp?: number;                        // Optional client timestamp (milliseconds since epoch)
-  data: {
-    id: string;                              // chatId (same as SSE)
-    messages: UIMessage[];                   // messages array (same as SSE)
-    trigger: "submit-message" | "regenerate-message"; // trigger (same as SSE)
-    messageId: string | undefined;           // messageId (same as SSE)
-  };
+  // Payload (same as SSE format)
+  id: string;                                // chatId (same as SSE)
+  messages: UIMessage[];                     // messages array (same as SSE)
+  trigger: "submit-message" | "regenerate-message"; // trigger (same as SSE)
+  messageId: string | undefined;             // messageId (same as SSE)
 };
 
 export type ToolResultEvent = {
+  // Metadata
   type: "tool_result";
   version: "1.0";
   timestamp?: number;                        // Optional client timestamp (milliseconds since epoch)
-  data: {
-    toolCallId: string;
-    result: Record<string, unknown>;
-  };
+  // Payload
+  toolCallId: string;
+  result: Record<string, unknown>;
 };
 
 export type AudioControlEvent = {
+  // Metadata
   type: "audio_control";
   version: "1.0";
   timestamp?: number;                        // Optional client timestamp (milliseconds since epoch)
+  // Payload
   action: "start" | "stop";
 };
 
 export type AudioChunkEvent = {
+  // Metadata
   type: "audio_chunk";
   version: "1.0";
   timestamp?: number;                        // Optional client timestamp (milliseconds since epoch)
-  data: {
-    chunk: string; // base64-encoded PCM data
-    sampleRate?: number;
-    channels?: number;
-    bitDepth?: number;
-  };
+  // Payload
+  chunk: string;                             // base64-encoded PCM data
+  sampleRate?: number;
+  channels?: number;
+  bitDepth?: number;
 };
 
 export type InterruptEvent = {
+  // Metadata
   type: "interrupt";
   version: "1.0";
   timestamp?: number;                        // Optional client timestamp (milliseconds since epoch)
+  // Payload
   reason?: string;
 };
 
@@ -138,10 +147,8 @@ export class EventSender {
       type: "tool_result",
       version: "1.0",
       timestamp: Date.now(),
-      data: {
-        toolCallId,
-        result,
-      },
+      toolCallId,
+      result,
     };
 
     console.log(
@@ -172,18 +179,16 @@ export class EventSender {
     trigger: "submit-message" | "regenerate-message";
     messageId: string | undefined;
   }): void {
-    // Standard message event (matches AI SDK v6 HttpChatTransport format exactly)
-    // TODO: RPCみたいにtype, version, dataでラップするのは正しいのか？
+    // Standard message event (matches AI SDK v6 HttpChatTransport format with metadata)
+    // Flat structure: metadata (type, version, timestamp) + payload (id, messages, trigger, messageId)
     const event: MessageEvent = {
       type: "message",
       version: "1.0",
       timestamp: Date.now(),
-      data: {
-        id: options.chatId,
-        messages: options.messages,
-        trigger: options.trigger,
-        messageId: options.messageId,
-      },
+      id: options.chatId,
+      messages: options.messages,
+      trigger: options.trigger,
+      messageId: options.messageId,
     };
 
     console.log(
@@ -237,12 +242,10 @@ export class EventSender {
       type: "audio_chunk",
       version: "1.0",
       timestamp: Date.now(),
-      data: {
-        chunk: chunk.content,
-        sampleRate: chunk.sampleRate,
-        channels: chunk.channels,
-        bitDepth: chunk.bitDepth,
-      },
+      chunk: chunk.content,
+      sampleRate: chunk.sampleRate,
+      channels: chunk.channels,
+      bitDepth: chunk.bitDepth,
     };
 
     this.sendEvent(event);

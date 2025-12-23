@@ -57,7 +57,7 @@ async def test_handle_event_routes_to_message_handler() -> None:
         bidi_agent_runner=Mock(),
     )
 
-    event = {"type": "message", "data": {}}
+    event = {"type": "message", "version": "1.0", "messages": []}
 
     # when
     with patch.object(handler, "_handle_message_event", new=AsyncMock()) as mock_handler:
@@ -120,7 +120,7 @@ async def test_handle_event_routes_to_audio_chunk_handler() -> None:
         bidi_agent_runner=Mock(),
     )
 
-    event = {"type": "audio_chunk", "data": {"chunk": "base64data"}}
+    event = {"type": "audio_chunk", "version": "1.0", "chunk": "base64data"}
 
     # when
     with patch.object(handler, "_handle_audio_chunk_event", new=AsyncMock()) as mock_handler:
@@ -141,7 +141,7 @@ async def test_handle_event_routes_to_tool_result_handler() -> None:
         bidi_agent_runner=Mock(),
     )
 
-    event = {"type": "tool_result", "data": {"toolCallId": "call_123", "result": {}}}
+    event = {"type": "tool_result", "version": "1.0", "toolCallId": "call_123", "result": {}}
 
     # when
     with patch.object(handler, "_handle_tool_result_event", new=AsyncMock()) as mock_handler:
@@ -214,7 +214,8 @@ async def test_handle_message_event_syncs_history(mock_process, mock_sync) -> No
 
     event = {
         "type": "message",
-        "data": {"messages": [{"role": "user", "content": [{"type": "text", "text": "Hello"}]}]},
+        "version": "1.0",
+        "messages": [{"role": "user", "content": [{"type": "text", "text": "Hello"}]}],
     }
 
     # when
@@ -246,7 +247,7 @@ async def test_handle_message_event_sends_image_blobs(mock_process) -> None:
     blob2 = types.Blob(mime_type="image/jpeg", data=b"imagedata2")
     mock_process.return_value = ([blob1, blob2], None)
 
-    event = {"type": "message", "data": {}}
+    event = {"type": "message", "version": "1.0", "messages": []}
 
     # when
     await handler._handle_message_event(event)
@@ -274,7 +275,7 @@ async def test_handle_message_event_sends_regular_text(mock_process) -> None:
     text_content = types.Content(parts=[types.Part(text="Hello, world!")])
     mock_process.return_value = ([], text_content)
 
-    event = {"type": "message", "data": {}}
+    event = {"type": "message", "version": "1.0", "messages": []}
 
     # when
     await handler._handle_message_event(event)
@@ -312,7 +313,7 @@ async def test_handle_message_event_handles_function_response(mock_process) -> N
     text_content = types.Content(parts=[types.Part(function_response=function_response)])
     mock_process.return_value = ([], text_content)
 
-    event = {"type": "message", "data": {}}
+    event = {"type": "message", "version": "1.0", "messages": []}
 
     # when
     await handler._handle_message_event(event)
@@ -435,7 +436,7 @@ async def test_handle_audio_chunk_event_decodes_and_sends() -> None:
     audio_data = b"raw_audio_pcm_data"
     chunk_base64 = base64.b64encode(audio_data).decode("utf-8")
 
-    event = {"type": "audio_chunk", "data": {"chunk": chunk_base64}}
+    event = {"type": "audio_chunk", "version": "1.0", "chunk": chunk_base64}
 
     # when
     await handler._handle_audio_chunk_event(event)
@@ -460,7 +461,7 @@ async def test_handle_audio_chunk_event_missing_chunk() -> None:
         bidi_agent_runner=Mock(),
     )
 
-    event = {"type": "audio_chunk", "data": {}}  # No chunk
+    event = {"type": "audio_chunk", "version": "1.0"}  # No chunk
 
     # when/then - Should not raise error
     await handler._handle_audio_chunk_event(event)
@@ -486,10 +487,9 @@ async def test_handle_tool_result_event_resolves_result() -> None:
 
     event = {
         "type": "tool_result",
-        "data": {
-            "toolCallId": "call_999",
-            "result": {"success": True, "data": "result_data"},
-        },
+        "version": "1.0",
+        "toolCallId": "call_999",
+        "result": {"success": True, "data": "result_data"},
     }
 
     # when
@@ -515,7 +515,8 @@ async def test_handle_tool_result_event_missing_tool_call_id() -> None:
 
     event = {
         "type": "tool_result",
-        "data": {"result": {"success": True}},  # No toolCallId
+        "version": "1.0",
+        "result": {"success": True},  # No toolCallId
     }
 
     # when/then - Should not raise error
@@ -537,7 +538,8 @@ async def test_handle_tool_result_event_missing_result() -> None:
 
     event = {
         "type": "tool_result",
-        "data": {"toolCallId": "call_111"},  # No result
+        "version": "1.0",
+        "toolCallId": "call_111",  # No result
     }
 
     # when/then - Should not raise error
@@ -596,10 +598,9 @@ async def test_event_sequence_tool_result_resolves_delegate() -> None:
     # when
     tool_result_event = {
         "type": "tool_result",
-        "data": {
-            "toolCallId": "location_call_123",
-            "result": {"latitude": 35.6762, "longitude": 139.6503},
-        },
+        "version": "1.0",
+        "toolCallId": "location_call_123",
+        "result": {"latitude": 35.6762, "longitude": 139.6503},
     }
     await handler.handle_event(tool_result_event)
 
@@ -657,7 +658,7 @@ async def test_handle_message_event_with_process_chat_error_raises() -> None:
         bidi_agent_runner=Mock(),
     )
 
-    event = {"type": "message", "data": {"messages": []}}
+    event = {"type": "message", "version": "1.0", "messages": []}
 
     # when/then
     with patch(
@@ -683,7 +684,8 @@ async def test_handle_message_event_with_sync_history_error_raises() -> None:
 
     event = {
         "type": "message",
-        "data": {"messages": [{"role": "user", "content": "test"}]},
+        "version": "1.0",
+        "messages": [{"role": "user", "content": "test"}],
     }
 
     # when/then
@@ -709,7 +711,7 @@ async def test_handle_message_event_with_send_content_error_raises() -> None:
         bidi_agent_runner=Mock(),
     )
 
-    event = {"type": "message", "data": {"messages": []}}
+    event = {"type": "message", "version": "1.0", "messages": []}
 
     # Create real ADK Part with text (not FunctionResponse)
     text_part = types.Part(text="test message")
@@ -738,7 +740,7 @@ async def test_handle_message_event_with_send_realtime_error_raises() -> None:
         bidi_agent_runner=Mock(),
     )
 
-    event = {"type": "message", "data": {"messages": []}}
+    event = {"type": "message", "version": "1.0", "messages": []}
 
     # when/then
     with patch(
@@ -821,7 +823,7 @@ async def test_handle_audio_chunk_with_send_realtime_error_raises() -> None:
 
     audio_data = b"audio_chunk_data"
     chunk_base64 = base64.b64encode(audio_data).decode("utf-8")
-    event = {"type": "audio_chunk", "data": {"chunk": chunk_base64}}
+    event = {"type": "audio_chunk", "version": "1.0", "chunk": chunk_base64}
 
     # when/then
     with pytest.raises(RuntimeError, match="Send realtime failed"):
@@ -844,7 +846,9 @@ async def test_handle_tool_result_with_resolve_error_raises() -> None:
 
     event = {
         "type": "tool_result",
-        "data": {"toolCallId": "call-123", "result": {"data": "value"}},
+        "version": "1.0",
+        "toolCallId": "call-123",
+        "result": {"data": "value"},
     }
 
     # when/then
@@ -864,7 +868,7 @@ async def test_handle_message_event_with_invalid_messages_format() -> None:
     )
 
     # Invalid message: not a dict
-    event = {"type": "message", "data": {"messages": ["not_a_dict"]}}
+    event = {"type": "message", "version": "1.0", "messages": ["not_a_dict"]}
 
     # when/then - should raise error when converting to ChatMessage
     with pytest.raises(TypeError):

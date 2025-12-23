@@ -193,18 +193,19 @@ describe("WebSocketChatTransport", () => {
       expect(messageEvents.length).toBeGreaterThan(0);
       const sentMessage = JSON.parse(messageEvents[0]);
 
+      // Flat structure: metadata + payload at same level
       expect(sentMessage).toMatchObject({
         type: "message",
         version: "1.0",
-        data: {
-          messages: [
-            { id: "msg-1", role: "user", content: "Hello" },
-            { id: "msg-2", role: "assistant", content: "Hi!" },
-            { id: "msg-3", role: "user", content: "How are you?" },
-          ],
-        },
+        messages: [
+          { id: "msg-1", role: "user", content: "Hello" },
+          { id: "msg-2", role: "assistant", content: "Hi!" },
+          { id: "msg-3", role: "user", content: "How are you?" },
+        ],
       });
       expect(sentMessage.timestamp).toBeTypeOf("number");
+      expect(sentMessage.id).toBe("chat-1");
+      expect(sentMessage.trigger).toBe("submit-message");
 
       // Clean up
       await streamPromise;
@@ -1541,13 +1542,12 @@ describe("WebSocketChatTransport", () => {
 
       expect(toolResultEvents.length).toBe(1);
       const event = JSON.parse(toolResultEvents[0]);
+      // Flat structure: metadata + payload at same level
       expect(event).toMatchObject({
         type: "tool_result",
         version: "1.0",
-        data: {
-          toolCallId,
-          result: toolResult,
-        },
+        toolCallId,
+        result: toolResult,
       });
       expect(event.timestamp).toBeDefined();
     });
@@ -1652,15 +1652,14 @@ describe("WebSocketChatTransport", () => {
 
       expect(audioChunkEvents.length).toBe(1);
       const event = JSON.parse(audioChunkEvents[0]);
+      // Flat structure: metadata + payload at same level
       expect(event).toMatchObject({
         type: "audio_chunk",
         version: "1.0",
-        data: {
-          chunk: audioChunk.content,
-          sampleRate: 16000,
-          channels: 1,
-          bitDepth: 16,
-        },
+        chunk: audioChunk.content,
+        sampleRate: 16000,
+        channels: 1,
+        bitDepth: 16,
       });
     });
 

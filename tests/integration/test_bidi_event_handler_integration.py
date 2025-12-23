@@ -74,7 +74,7 @@ async def test_level2_message_event_with_real_frontend_delegate() -> None:
         "adk_stream_protocol.bidi_event_receiver.process_chat_message_for_bidi",
         return_value=([], text_content),
     ):
-        event = {"type": "message", "data": {"messages": []}}
+        event = {"type": "message", "version": "1.0", "messages": []}
 
         # when
         await handler._handle_message_event(event)
@@ -114,10 +114,9 @@ async def test_level2_tool_result_event_with_real_frontend_delegate() -> None:
 
     event = {
         "type": "tool_result",
-        "data": {
-            "toolCallId": "call-789",
-            "result": {"latitude": 35.6762, "longitude": 139.6503},
-        },
+        "version": "1.0",
+        "toolCallId": "call-789",
+        "result": {"latitude": 35.6762, "longitude": 139.6503},
     }
 
     # when
@@ -173,7 +172,7 @@ async def test_level2_confirmation_flow_with_real_delegate() -> None:
         "adk_stream_protocol.bidi_event_receiver.process_chat_message_for_bidi",
         return_value=([], text_content),
     ):
-        event = {"type": "message", "data": {"messages": []}}
+        event = {"type": "message", "version": "1.0", "messages": []}
 
         # when
         await handler._handle_message_event(event)
@@ -251,7 +250,7 @@ async def test_level3_audio_chunk_with_real_blob_creation() -> None:
     audio_data = b"raw_pcm_audio_16bit_16khz_mono"
     chunk_base64 = base64.b64encode(audio_data).decode("utf-8")
 
-    event = {"type": "audio_chunk", "data": {"chunk": chunk_base64}}
+    event = {"type": "audio_chunk", "version": "1.0", "chunk": chunk_base64}
 
     # when
     await handler._handle_audio_chunk_event(event)
@@ -309,7 +308,7 @@ async def test_level4_complete_message_flow() -> None:
         "adk_stream_protocol.bidi_event_receiver.process_chat_message_for_bidi",
         return_value=([], text_content),
     ):
-        event = {"type": "message", "data": {"messages": []}}
+        event = {"type": "message", "version": "1.0", "messages": []}
 
         # when
         await handler._handle_message_event(event)
@@ -363,10 +362,9 @@ async def test_level4_sequential_events() -> None:
 
     event_2 = {
         "type": "tool_result",
-        "data": {
-            "toolCallId": "loc-call-123",
-            "result": {"city": "Tokyo", "country": "Japan"},
-        },
+        "version": "1.0",
+        "toolCallId": "loc-call-123",
+        "result": {"city": "Tokyo", "country": "Japan"},
     }
     await handler._handle_tool_result_event(event_2)
 
@@ -420,7 +418,9 @@ async def test_level2_missing_tool_result_with_real_delegate() -> None:
 
     event = {
         "type": "tool_result",
-        "data": {"toolCallId": "non-existent-call", "result": {"data": "value"}},
+        "version": "1.0",
+        "toolCallId": "non-existent-call",
+        "result": {"data": "value"},
     }
 
     # when
@@ -451,7 +451,7 @@ async def test_level3_malformed_audio_chunk() -> None:
     )
 
     # Malformed base64
-    event = {"type": "audio_chunk", "data": {"chunk": "!!!invalid_base64!!!"}}
+    event = {"type": "audio_chunk", "version": "1.0", "chunk": "!!!invalid_base64!!!"}
 
     # when/then
     with pytest.raises(binascii.Error):  # base64 decode error

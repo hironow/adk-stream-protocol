@@ -85,14 +85,15 @@ describe("WebSocketChatTransport - Message Preservation", () => {
 
     // Then: Verify that ALL messages were sent
     expect(receivedData).not.toBeNull();
-    expect(receivedData.data.messages).toHaveLength(100);
-    expect(receivedData.data.messages[0].id).toBe("msg-0");
-    expect(receivedData.data.messages[99].id).toBe("msg-99");
+    // Flat structure: messages at top level
+    expect(receivedData.messages).toHaveLength(100);
+    expect(receivedData.messages[0].id).toBe("msg-0");
+    expect(receivedData.messages[99].id).toBe("msg-99");
 
     // Verify SSE-compatible format (chatId, trigger, messageId)
-    expect(receivedData.data.id).toBe("test-chat");
-    expect(receivedData.data.trigger).toBe("submit-message");
-    expect(receivedData.data.messageId).toBe("new-msg");
+    expect(receivedData.id).toBe("test-chat");
+    expect(receivedData.trigger).toBe("submit-message");
+    expect(receivedData.messageId).toBe("new-msg");
 
     transport._close();
   });
@@ -151,7 +152,7 @@ describe("WebSocketChatTransport - Message Preservation", () => {
 
     // Verify all messages were sent despite large size
     expect(receivedData).not.toBeNull();
-    expect(receivedData.data.messages).toHaveLength(60);
+    expect(receivedData.messages).toHaveLength(60);
 
     transport._close();
   });
@@ -223,9 +224,9 @@ describe("WebSocketChatTransport - Message Preservation", () => {
 
     // Should preserve entire conversation history
     expect(receivedData).not.toBeNull();
-    expect(receivedData.data.messages).toHaveLength(73);
-    expect(receivedData.data.messages[0].parts[0].text).toBe("Start context");
-    expect(receivedData.data.messages[72].parts[0].text).toBe(
+    expect(receivedData.messages).toHaveLength(73);
+    expect(receivedData.messages[0].parts[0].text).toBe("Start context");
+    expect(receivedData.messages[72].parts[0].text).toBe(
       "Recent message needing full context",
     );
 
@@ -309,9 +310,9 @@ describe("WebSocketChatTransport - Message Preservation", () => {
 
     // Should send all messages including complex ones
     expect(receivedData).not.toBeNull();
-    expect(receivedData.data.messages).toHaveLength(62);
-    expect(receivedData.data.messages[0].parts[1].type).toBe("image");
-    expect(receivedData.data.messages[1].parts[1].type).toBe("tool-call");
+    expect(receivedData.messages).toHaveLength(62);
+    expect(receivedData.messages[0].parts[1].type).toBe("image");
+    expect(receivedData.messages[1].parts[1].type).toBe("tool-call");
 
     transport._close();
   });
@@ -369,7 +370,7 @@ describe("WebSocketChatTransport - Message Preservation", () => {
 
     // Verify small messages were sent
     expect(receivedData).not.toBeNull();
-    expect(receivedData.data.messages).toBeDefined();
+    expect(receivedData.messages).toBeDefined();
 
     // Reset for next test
     receivedData = null;
@@ -420,7 +421,7 @@ describe("WebSocketChatTransport - Message Preservation", () => {
 
     // Verify medium messages were sent despite size
     expect(receivedData).not.toBeNull();
-    expect(receivedData.data.messages).toBeDefined();
+    expect(receivedData.messages).toBeDefined();
 
     transport._close();
   });
