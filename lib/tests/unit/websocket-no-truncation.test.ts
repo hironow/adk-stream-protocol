@@ -1,34 +1,37 @@
 /**
  * Tests for WebSocket message preservation (no truncation)
+ * Uses MSW for WebSocket mocking
  */
 
 import type { UIMessage } from "ai";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { setupServer } from "msw/node";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { WebSocketChatTransport } from "../../bidi/transport";
 import {
-  type MockWebSocketInstance,
-  setupWebSocketMock,
-} from "../helpers/websocket-mock";
+  createBidiWebSocketLink,
+  createCustomHandler,
+} from "../helpers/bidi-ws-handlers";
+
+/**
+ * MSW server for WebSocket mocking
+ */
+const server = setupServer();
+
+beforeAll(() => {
+  server.listen({ onUnhandledRequest: "error" });
+});
+
+afterEach(() => {
+  server.resetHandlers();
+});
+
+afterAll(() => {
+  server.close();
+});
 
 describe("WebSocketChatTransport - Message Preservation", () => {
-  let mockWebSocket: MockWebSocketInstance;
-  let transport: WebSocketChatTransport;
-
-  beforeEach(() => {
-    mockWebSocket = setupWebSocketMock();
-
-    transport = new WebSocketChatTransport({
-      url: "ws://localhost:8000/live",
-    });
-  });
-
-  afterEach(() => {
-    vi.clearAllMocks();
-    vi.restoreAllMocks();
-  });
-
   it("should send ALL messages without truncation", async () => {
-    // Create a large number of messages (more than old limit of 50)
+    // Given: Create a large number of messages (more than old limit of 50)
     const messages: UIMessage[] = Array.from(
       { length: 100 },
       (_, i) =>
@@ -39,8 +42,33 @@ describe("WebSocketChatTransport - Message Preservation", () => {
         }) as UIMessage,
     );
 
-    // Send messages using the transport
-    transport.sendMessages({
+    let receivedData: any = null;
+
+    // Set up MSW handler to capture sent message
+    const chat = createBidiWebSocketLink();
+    server.use(
+      createCustomHandler(chat, ({ client }) => {
+        client.addEventListener("message", (event) => {
+          receivedData = JSON.parse(event.data as string);
+
+          // Send simple response
+          const textId = `text-${Date.now()}`;
+          client.send(`data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`);
+          client.send(
+            `data: ${JSON.stringify({ type: "text-delta", delta: "OK", id: textId })}\n\n`,
+          );
+          client.send(`data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`);
+          client.send("data: [DONE]\n\n");
+        });
+      }),
+    );
+
+    const transport = new WebSocketChatTransport({
+      url: "ws://localhost:8000/live",
+    });
+
+    // When: Send messages using the transport
+    const stream = await transport.sendMessages({
       trigger: "submit-message",
       chatId: "test-chat",
       messages,
@@ -48,21 +76,25 @@ describe("WebSocketChatTransport - Message Preservation", () => {
       abortSignal: new AbortController().signal,
     });
 
-    // Wait for WebSocket to be ready
-    if (mockWebSocket.onopen) {
-      mockWebSocket.onopen();
+    // Consume the stream to completion
+    const reader = stream.getReader();
+    while (true) {
+      const { done } = await reader.read();
+      if (done) break;
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    // Then: Verify that ALL messages were sent
+    expect(receivedData).not.toBeNull();
+    expect(receivedData.data.messages).toHaveLength(100);
+    expect(receivedData.data.messages[0].id).toBe("msg-0");
+    expect(receivedData.data.messages[99].id).toBe("msg-99");
 
-    // Verify that ALL messages were sent
-    expect(mockWebSocket.send).toHaveBeenCalled();
-    const sentData = JSON.parse(mockWebSocket.send.mock.calls[0][0]);
+    // Verify SSE-compatible format (chatId, trigger, messageId)
+    expect(receivedData.data.id).toBe("test-chat");
+    expect(receivedData.data.trigger).toBe("submit-message");
+    expect(receivedData.data.messageId).toBe("new-msg");
 
-    // Should send all 100 messages, not truncate to 50
-    expect(sentData.data.messages).toHaveLength(100);
-    expect(sentData.data.messages[0].id).toBe("msg-0");
-    expect(sentData.data.messages[99].id).toBe("msg-99");
+    transport._close();
   });
 
   it("should warn for large payloads but still send them", async () => {
@@ -78,8 +110,31 @@ describe("WebSocketChatTransport - Message Preservation", () => {
         }) as UIMessage,
     );
 
-    // Start the transport
-    transport.sendMessages({
+    let receivedData: any = null;
+
+    const chat = createBidiWebSocketLink();
+    server.use(
+      createCustomHandler(chat, ({ client }) => {
+        client.addEventListener("message", (event) => {
+          receivedData = JSON.parse(event.data as string);
+
+          // Send simple response
+          const textId = `text-${Date.now()}`;
+          client.send(`data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`);
+          client.send(
+            `data: ${JSON.stringify({ type: "text-delta", delta: "OK", id: textId })}\n\n`,
+          );
+          client.send(`data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`);
+          client.send("data: [DONE]\n\n");
+        });
+      }),
+    );
+
+    const transport = new WebSocketChatTransport({
+      url: "ws://localhost:8000/live",
+    });
+
+    const stream = await transport.sendMessages({
       trigger: "submit-message",
       chatId: "test-chat",
       messages,
@@ -87,16 +142,18 @@ describe("WebSocketChatTransport - Message Preservation", () => {
       abortSignal: new AbortController().signal,
     });
 
-    // Wait for WebSocket to be ready
-    if (mockWebSocket.onopen) {
-      mockWebSocket.onopen();
+    // Consume the stream to completion
+    const reader = stream.getReader();
+    while (true) {
+      const { done } = await reader.read();
+      if (done) break;
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 10));
-
     // Verify all messages were sent despite large size
-    const sentData = JSON.parse(mockWebSocket.send.mock.calls[0][0]);
-    expect(sentData.data.messages).toHaveLength(60);
+    expect(receivedData).not.toBeNull();
+    expect(receivedData.data.messages).toHaveLength(60);
+
+    transport._close();
   });
 
   it("should preserve full conversation context for ADK BIDI", async () => {
@@ -125,7 +182,31 @@ describe("WebSocketChatTransport - Message Preservation", () => {
       },
     ] as UIMessage[];
 
-    transport.sendMessages({
+    let receivedData: any = null;
+
+    const chat = createBidiWebSocketLink();
+    server.use(
+      createCustomHandler(chat, ({ client }) => {
+        client.addEventListener("message", (event) => {
+          receivedData = JSON.parse(event.data as string);
+
+          // Send simple response
+          const textId = `text-${Date.now()}`;
+          client.send(`data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`);
+          client.send(
+            `data: ${JSON.stringify({ type: "text-delta", delta: "OK", id: textId })}\n\n`,
+          );
+          client.send(`data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`);
+          client.send("data: [DONE]\n\n");
+        });
+      }),
+    );
+
+    const transport = new WebSocketChatTransport({
+      url: "ws://localhost:8000/live",
+    });
+
+    const stream = await transport.sendMessages({
       trigger: "submit-message",
       chatId: "bidi-chat",
       messages: conversation,
@@ -133,20 +214,22 @@ describe("WebSocketChatTransport - Message Preservation", () => {
       abortSignal: new AbortController().signal,
     });
 
-    if (mockWebSocket.onopen) {
-      mockWebSocket.onopen();
+    // Consume the stream to completion
+    const reader = stream.getReader();
+    while (true) {
+      const { done } = await reader.read();
+      if (done) break;
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 10));
-
-    const sentData = JSON.parse(mockWebSocket.send.mock.calls[0][0]);
-
     // Should preserve entire conversation history
-    expect(sentData.data.messages).toHaveLength(73);
-    expect(sentData.data.messages[0].parts[0].text).toBe("Start context");
-    expect(sentData.data.messages[72].parts[0].text).toBe(
+    expect(receivedData).not.toBeNull();
+    expect(receivedData.data.messages).toHaveLength(73);
+    expect(receivedData.data.messages[0].parts[0].text).toBe("Start context");
+    expect(receivedData.data.messages[72].parts[0].text).toBe(
       "Recent message needing full context",
     );
+
+    transport._close();
   });
 
   it("should handle messages with complex parts (images, tools)", async () => {
@@ -185,7 +268,31 @@ describe("WebSocketChatTransport - Message Preservation", () => {
       })),
     ] as UIMessage[];
 
-    transport.sendMessages({
+    let receivedData: any = null;
+
+    const chat = createBidiWebSocketLink();
+    server.use(
+      createCustomHandler(chat, ({ client }) => {
+        client.addEventListener("message", (event) => {
+          receivedData = JSON.parse(event.data as string);
+
+          // Send simple response
+          const textId = `text-${Date.now()}`;
+          client.send(`data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`);
+          client.send(
+            `data: ${JSON.stringify({ type: "text-delta", delta: "OK", id: textId })}\n\n`,
+          );
+          client.send(`data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`);
+          client.send("data: [DONE]\n\n");
+        });
+      }),
+    );
+
+    const transport = new WebSocketChatTransport({
+      url: "ws://localhost:8000/live",
+    });
+
+    const stream = await transport.sendMessages({
       trigger: "submit-message",
       chatId: "test-chat",
       messages: complexMessages,
@@ -193,18 +300,20 @@ describe("WebSocketChatTransport - Message Preservation", () => {
       abortSignal: new AbortController().signal,
     });
 
-    if (mockWebSocket.onopen) {
-      mockWebSocket.onopen();
+    // Consume the stream to completion
+    const reader = stream.getReader();
+    while (true) {
+      const { done } = await reader.read();
+      if (done) break;
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 10));
-
-    const sentData = JSON.parse(mockWebSocket.send.mock.calls[0][0]);
-
     // Should send all messages including complex ones
-    expect(sentData.data.messages).toHaveLength(62);
-    expect(sentData.data.messages[0].parts[1].type).toBe("image");
-    expect(sentData.data.messages[1].parts[1].type).toBe("tool-call");
+    expect(receivedData).not.toBeNull();
+    expect(receivedData.data.messages).toHaveLength(62);
+    expect(receivedData.data.messages[0].parts[1].type).toBe("image");
+    expect(receivedData.data.messages[1].parts[1].type).toBe("tool-call");
+
+    transport._close();
   });
 
   it("should only warn at appropriate size thresholds", async () => {
@@ -219,7 +328,31 @@ describe("WebSocketChatTransport - Message Preservation", () => {
       },
     ] as UIMessage[];
 
-    transport.sendMessages({
+    let receivedData: any = null;
+
+    const chat = createBidiWebSocketLink();
+    server.use(
+      createCustomHandler(chat, ({ client }) => {
+        client.addEventListener("message", (event) => {
+          receivedData = JSON.parse(event.data as string);
+
+          // Send simple response
+          const textId = `text-${Date.now()}`;
+          client.send(`data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`);
+          client.send(
+            `data: ${JSON.stringify({ type: "text-delta", delta: "OK", id: textId })}\n\n`,
+          );
+          client.send(`data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`);
+          client.send("data: [DONE]\n\n");
+        });
+      }),
+    );
+
+    const transport = new WebSocketChatTransport({
+      url: "ws://localhost:8000/live",
+    });
+
+    const stream1 = await transport.sendMessages({
       trigger: "submit-message",
       chatId: "test-chat",
       messages: smallMessages,
@@ -227,19 +360,20 @@ describe("WebSocketChatTransport - Message Preservation", () => {
       abortSignal: new AbortController().signal,
     });
 
-    if (mockWebSocket.onopen) {
-      mockWebSocket.onopen();
+    // Consume the stream to completion
+    let reader = stream1.getReader();
+    while (true) {
+      const { done } = await reader.read();
+      if (done) break;
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 10));
-
     // Verify small messages were sent
-    expect(mockWebSocket.send).toHaveBeenCalled();
-    const smallSentData = JSON.parse(mockWebSocket.send.mock.calls[0][0]);
-    expect(smallSentData.data.messages).toBeDefined();
+    expect(receivedData).not.toBeNull();
+    expect(receivedData.data.messages).toBeDefined();
 
     // Reset for next test
-    mockWebSocket.send.mockClear();
+    receivedData = null;
+    server.resetHandlers();
 
     // Medium payload (>500KB) - should still send successfully
     const mediumText = "x".repeat(100000); // 100KB per message
@@ -253,7 +387,24 @@ describe("WebSocketChatTransport - Message Preservation", () => {
         }) as UIMessage,
     );
 
-    transport.sendMessages({
+    server.use(
+      createCustomHandler(chat, ({ client }) => {
+        client.addEventListener("message", (event) => {
+          receivedData = JSON.parse(event.data as string);
+
+          // Send simple response
+          const textId = `text-${Date.now()}`;
+          client.send(`data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`);
+          client.send(
+            `data: ${JSON.stringify({ type: "text-delta", delta: "OK", id: textId })}\n\n`,
+          );
+          client.send(`data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`);
+          client.send("data: [DONE]\n\n");
+        });
+      }),
+    );
+
+    const stream2 = await transport.sendMessages({
       trigger: "submit-message",
       chatId: "test-chat",
       messages: mediumMessages,
@@ -261,11 +412,16 @@ describe("WebSocketChatTransport - Message Preservation", () => {
       abortSignal: new AbortController().signal,
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    reader = stream2.getReader();
+    while (true) {
+      const { done } = await reader.read();
+      if (done) break;
+    }
 
     // Verify medium messages were sent despite size
-    expect(mockWebSocket.send).toHaveBeenCalled();
-    const sentData = JSON.parse(mockWebSocket.send.mock.calls[0][0]);
-    expect(sentData.data.messages).toBeDefined();
+    expect(receivedData).not.toBeNull();
+    expect(receivedData.data.messages).toBeDefined();
+
+    transport._close();
   });
 });

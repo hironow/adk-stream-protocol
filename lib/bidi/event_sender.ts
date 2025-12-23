@@ -19,14 +19,19 @@ import type { UIMessage } from "ai";
 export type MessageEvent = {
   type: "message";
   version: "1.0";
+  timestamp?: number;                        // Optional client timestamp (milliseconds since epoch)
   data: {
-    messages: UIMessage[];
+    id: string;                              // chatId (same as SSE)
+    messages: UIMessage[];                   // messages array (same as SSE)
+    trigger: "submit-message" | "regenerate-message"; // trigger (same as SSE)
+    messageId: string | undefined;           // messageId (same as SSE)
   };
 };
 
 export type ToolResultEvent = {
   type: "tool_result";
   version: "1.0";
+  timestamp?: number;                        // Optional client timestamp (milliseconds since epoch)
   data: {
     toolCallId: string;
     result: Record<string, unknown>;
@@ -36,12 +41,14 @@ export type ToolResultEvent = {
 export type AudioControlEvent = {
   type: "audio_control";
   version: "1.0";
+  timestamp?: number;                        // Optional client timestamp (milliseconds since epoch)
   action: "start" | "stop";
 };
 
 export type AudioChunkEvent = {
   type: "audio_chunk";
   version: "1.0";
+  timestamp?: number;                        // Optional client timestamp (milliseconds since epoch)
   data: {
     chunk: string; // base64-encoded PCM data
     sampleRate?: number;
@@ -53,6 +60,7 @@ export type AudioChunkEvent = {
 export type InterruptEvent = {
   type: "interrupt";
   version: "1.0";
+  timestamp?: number;                        // Optional client timestamp (milliseconds since epoch)
   reason?: string;
 };
 
@@ -129,6 +137,7 @@ export class EventSender {
     const event: ToolResultEvent = {
       type: "tool_result",
       version: "1.0",
+      timestamp: Date.now(),
       data: {
         toolCallId,
         result,
@@ -149,26 +158,37 @@ export class EventSender {
    * This is the standard way to send user text/images/tool-results to the backend.
    * Used by AI SDK v6's useChat hook via transport.sendMessages().
    *
-   * Matches AI SDK v6 default behavior:
-   * - Sends messages array as-is (no transformation)
+   * Matches AI SDK v6 HttpChatTransport behavior:
+   * - Sends same payload format as SSE mode
+   * - Includes chatId, messages, trigger, messageId
    * - Confirmation approvals remain in assistant message parts
-   * - Backend receives same format as SSE mode
+   * - Backend receives identical format to SSE mode
    *
-   * @param messages - Array of UIMessage from AI SDK v6
+   * @param options - Message sending options (same as SSE)
    */
-  public sendMessages(messages: UIMessage[]): void {
-    // Standard message event (matches AI SDK v6 HttpChatTransport behavior)
+  public sendMessages(options: {
+    chatId: string;
+    messages: UIMessage[];
+    trigger: "submit-message" | "regenerate-message";
+    messageId: string | undefined;
+  }): void {
+    // Standard message event (matches AI SDK v6 HttpChatTransport format exactly)
+    // TODO: RPCみたいにtype, version, dataでラップするのは正しいのか？
     const event: MessageEvent = {
       type: "message",
       version: "1.0",
+      timestamp: Date.now(),
       data: {
-        messages,
+        id: options.chatId,
+        messages: options.messages,
+        trigger: options.trigger,
+        messageId: options.messageId,
       },
     };
 
     console.log(
-      `[Event Sender] Sending ${messages.length} message(s)`,
-      messages[messages.length - 1],
+      `[Event Sender] Sending ${options.messages.length} message(s) (chatId=${options.chatId}, trigger=${options.trigger})`,
+      options.messages[options.messages.length - 1],
     );
 
     this.sendEvent(event);
@@ -181,6 +201,7 @@ export class EventSender {
     const event: AudioControlEvent = {
       type: "audio_control",
       version: "1.0",
+      timestamp: Date.now(),
       action: "start",
     };
 
@@ -194,6 +215,7 @@ export class EventSender {
     const event: AudioControlEvent = {
       type: "audio_control",
       version: "1.0",
+      timestamp: Date.now(),
       action: "stop",
     };
 
@@ -214,6 +236,7 @@ export class EventSender {
     const event: AudioChunkEvent = {
       type: "audio_chunk",
       version: "1.0",
+      timestamp: Date.now(),
       data: {
         chunk: chunk.content,
         sampleRate: chunk.sampleRate,
@@ -234,6 +257,7 @@ export class EventSender {
     const event: InterruptEvent = {
       type: "interrupt",
       version: "1.0",
+      timestamp: Date.now(),
       reason,
     };
 

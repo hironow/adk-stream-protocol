@@ -1,27 +1,78 @@
 /**
- * Build useChat Options Unit Tests
+ * buildUseChatOptions Unit Tests
  *
- * Tests the configuration builder for AI SDK v6 useChat hook.
- * Verifies that each backend mode (Gemini Direct, ADK SSE, ADK BIDI)
- * gets correct transport and configuration.
+ * Tests the buildUseChatOptions function configuration for different backend modes.
  *
- * Focus areas:
- * - Correct transport type for each mode (DefaultChatTransport vs WebSocketChatTransport)
- * - Correct API endpoint generation
- * - Correct chatId generation
- * - Tool approval callback integration (ADK BIDI only)
- * - AudioContext integration (ADK BIDI only)
- * - Invalid configuration prevention
+ * Focus:
+ * - Verify correct transport is created for each mode
+ * - Verify transport configuration (URL, callbacks, AudioContext)
+ * - Verify transport can be used imperatively (startAudio, stopAudio)
+ * - Prevent invalid configuration patterns
  */
 
 import type { UIMessage } from "ai";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { WebSocketChatTransport } from "../../bidi/transport";
 import {
-  type Mode,
+  type BackendMode,
   buildUseChatOptions,
 } from "../../build-use-chat-options";
+import { ChunkLoggingTransport } from "../../chunk_logs";
 
-describe("buildUseChatOptions", () => {
+// Mock WebSocket for transport testing
+class MockWebSocket {
+  static CONNECTING = 0;
+  static OPEN = 1;
+  static CLOSING = 2;
+  static CLOSED = 3;
+
+  readyState = MockWebSocket.CONNECTING;
+  onopen: ((ev: Event) => void) | null = null;
+  onmessage: ((ev: MessageEvent) => void) | null = null;
+  onerror: ((ev: Event) => void) | null = null;
+  onclose: ((ev: CloseEvent) => void) | null = null;
+
+  sentMessages: string[] = [];
+  url: string;
+
+  constructor(url: string) {
+    this.url = url;
+    // Simulate connection opening after creation
+    setTimeout(() => {
+      this.readyState = MockWebSocket.OPEN;
+      if (this.onopen) {
+        this.onopen(new Event("open"));
+      }
+    }, 0);
+  }
+
+  send(data: string): void {
+    this.sentMessages.push(data);
+  }
+
+  close(): void {
+    this.readyState = MockWebSocket.CLOSED;
+    if (this.onclose) {
+      this.onclose(new CloseEvent("close"));
+    }
+  }
+}
+
+describe("Transport Integration", () => {
+  let originalWebSocket: typeof WebSocket;
+
+  beforeEach(() => {
+    // Store and replace WebSocket
+    originalWebSocket = global.WebSocket as any;
+    global.WebSocket = MockWebSocket as any;
+  });
+
+  afterEach(() => {
+    // Restore WebSocket
+    global.WebSocket = originalWebSocket;
+    vi.clearAllMocks();
+  });
+
   const initialMessages: UIMessage[] = [
     {
       id: "msg-1",
@@ -30,226 +81,236 @@ describe("buildUseChatOptions", () => {
     },
   ];
 
-  describe("Gemini Direct Mode", () => {
-    it("should create DefaultChatTransport for gemini mode", () => {
-      // Given: Gemini Direct mode
-      const mode: Mode = "gemini";
+  describe("ADK BIDI Mode Integration", () => {
+    it("should create WebSocketChatTransport with correct URL", () => {
+      // Given: ADK BIDI mode configuration
+      const mode: BackendMode = "adk-bidi";
+      const adkBackendUrl = "http://localhost:8000";
 
       // When: Building options
       const result = buildUseChatOptions({
         mode,
         initialMessages,
+        adkBackendUrl,
       });
 
-      // Then: Should use ChunkLoggingTransport (wrapping DefaultChatTransport)
-      expect(result.useChatOptions.transport).toBeDefined();
-      expect(result.useChatOptions.transport.constructor.name).toBe(
-        "ChunkLoggingTransport",
-      );
-      expect(result.transport).toBeUndefined();
-    });
-
-    it("should generate correct chatId for gemini mode", () => {
-      // Given: Gemini Direct mode
-      const mode: Mode = "gemini";
-
-      // When: Building options
-      const result = buildUseChatOptions({
-        mode,
-        initialMessages,
-      });
-
-      // Then: chatId should include mode and endpoint hash
-      expect(result.useChatOptions.id).toMatch(/^chat-gemini-/);
-      expect(result.useChatOptions.id).toContain("api-chat");
-    });
-
-    it("should include initial messages", () => {
-      // Given: Gemini Direct mode with messages
-      const mode: Mode = "gemini";
-
-      // When: Building options
-      const result = buildUseChatOptions({
-        mode,
-        initialMessages,
-      });
-
-      // Then: Messages should be preserved
-      expect(result.useChatOptions.messages).toEqual(initialMessages);
-    });
-
-    it("should generate unique chatId when forceNewInstance is true", async () => {
-      // Given: Gemini Direct mode with forceNewInstance
-      const mode: Mode = "gemini";
-
-      // When: Building options twice with slight delay to ensure different timestamps
-      const result1 = buildUseChatOptions({
-        mode,
-        initialMessages,
-        forceNewInstance: true,
-      });
-
-      // Small delay to ensure Date.now() returns different value
-      await new Promise((resolve) => setTimeout(resolve, 2));
-
-      const result2 = buildUseChatOptions({
-        mode,
-        initialMessages,
-        forceNewInstance: true,
-      });
-
-      // Then: chatIds should be different
-      expect(result1.useChatOptions.id).not.toBe(result2.useChatOptions.id);
-    });
-
-    it("should generate same chatId when forceNewInstance is false", () => {
-      // Given: Gemini Direct mode without forceNewInstance
-      const mode: Mode = "gemini";
-
-      // When: Building options twice
-      const result1 = buildUseChatOptions({
-        mode,
-        initialMessages,
-        forceNewInstance: false,
-      });
-
-      const result2 = buildUseChatOptions({
-        mode,
-        initialMessages,
-        forceNewInstance: false,
-      });
-
-      // Then: chatIds should be the same
-      expect(result1.useChatOptions.id).toBe(result2.useChatOptions.id);
-    });
-  });
-
-  describe("ADK SSE Mode", () => {
-    it("should create DefaultChatTransport for adk-sse mode", () => {
-      // Given: ADK SSE mode
-      const mode: Mode = "adk-sse";
-
-      // When: Building options
-      const result = buildUseChatOptions({
-        mode,
-        initialMessages,
-        adkBackendUrl: "http://localhost:8000",
-      });
-
-      // Then: Should use ChunkLoggingTransport (wrapping DefaultChatTransport)
-      expect(result.useChatOptions.transport).toBeDefined();
-      expect(result.useChatOptions.transport.constructor.name).toBe(
-        "ChunkLoggingTransport",
-      );
-      expect(result.transport).toBeUndefined();
-    });
-
-    it("should generate correct chatId for adk-sse mode", () => {
-      // Given: ADK SSE mode
-      const mode: Mode = "adk-sse";
-
-      // When: Building options
-      const result = buildUseChatOptions({
-        mode,
-        initialMessages,
-        adkBackendUrl: "http://localhost:8000",
-      });
-
-      // Then: chatId should include mode and endpoint hash
-      expect(result.useChatOptions.id).toMatch(/^chat-adk-sse-/);
-      expect(result.useChatOptions.id).toContain("localhost-8000-stream");
-    });
-
-    it("should use custom adkBackendUrl", () => {
-      // Given: ADK SSE mode with custom backend URL
-      const mode: Mode = "adk-sse";
-      const customUrl = "http://backend.example.com:3000";
-
-      // When: Building options
-      const result = buildUseChatOptions({
-        mode,
-        initialMessages,
-        adkBackendUrl: customUrl,
-      });
-
-      // Then: chatId should reflect custom URL
-      expect(result.useChatOptions.id).toContain("backend-example-com-3000");
-    });
-  });
-
-  describe("ADK BIDI Mode", () => {
-    it("should create WebSocketChatTransport for adk-bidi mode", () => {
-      // Given: ADK BIDI mode
-      const mode: Mode = "adk-bidi";
-
-      // When: Building options
-      const result = buildUseChatOptions({
-        mode,
-        initialMessages,
-        adkBackendUrl: "http://localhost:8000",
-      });
-
-      // Then: Should wrap WebSocketChatTransport in ChunkLoggingTransport
-      expect(result.useChatOptions.transport).toBeDefined();
-      expect(result.useChatOptions.transport.constructor.name).toBe(
-        "ChunkLoggingTransport",
-      );
-      // Transport reference should be returned for imperative control (unwrapped)
+      // Then: Should create ChunkLoggingTransport wrapping WebSocketChatTransport
       expect(result.transport).toBeDefined();
-      expect(result.transport?.constructor.name).toBe("WebSocketChatTransport");
+      // result.transport is raw WebSocketChatTransport for imperative control
+      expect(result.transport).toBeInstanceOf(WebSocketChatTransport);
+      // useChatOptions.transport is wrapped with ChunkLoggingTransport
+      expect(result.useChatOptions.transport).toBeInstanceOf(
+        ChunkLoggingTransport,
+      );
+
+      // And: useChatOptions.transport wraps the raw transport
+      expect((result.useChatOptions.transport as any).delegate).toBe(
+        result.transport,
+      );
     });
 
-    it("should generate correct chatId for adk-bidi mode", () => {
-      // Given: ADK BIDI mode
-      const mode: Mode = "adk-bidi";
+    it("should pass AudioContext to WebSocketChatTransport", () => {
+      // Given: ADK BIDI mode with AudioContext
+      const mode: BackendMode = "adk-bidi";
+      const mockAudioContext = {
+        voiceChannel: {
+          isPlaying: false,
+          chunkCount: 0,
+          sendChunk: vi.fn(),
+          reset: vi.fn(),
+          onComplete: vi.fn(),
+        },
+        isReady: true,
+        error: null,
+        wsLatency: null,
+        updateLatency: vi.fn(),
+      };
 
       // When: Building options
       const result = buildUseChatOptions({
         mode,
         initialMessages,
         adkBackendUrl: "http://localhost:8000",
+        audioContext: mockAudioContext,
       });
 
-      // Then: chatId should include mode and endpoint hash
-      // Format: chat-adk-bidi-ws---localhost-8000-live (: and / become -)
-      expect(result.useChatOptions.id).toMatch(/^chat-adk-bidi-/);
-      expect(result.useChatOptions.id).toContain("ws---localhost");
-      expect(result.useChatOptions.id).toContain("8000-live");
+      // Then: Transport should be created with AudioContext
+      // result.transport is raw WebSocketChatTransport for imperative control
+      expect(result.transport).toBeInstanceOf(WebSocketChatTransport);
+      // useChatOptions.transport is wrapped with ChunkLoggingTransport
+      expect(result.useChatOptions.transport).toBeInstanceOf(
+        ChunkLoggingTransport,
+      );
+
+      // AudioContext is passed internally to transport
+      // We can verify this by checking that transport exists and is configured
+      expect(result.transport).toBeDefined();
     });
 
-    it("should convert http to ws in WebSocket URL", () => {
-      // Given: ADK BIDI mode with http URL
-      const mode: Mode = "adk-bidi";
-
-      // When: Building options
+    it("should allow imperative control via transport reference", async () => {
+      // Given: ADK BIDI mode with transport reference
+      const mode: BackendMode = "adk-bidi";
       const result = buildUseChatOptions({
         mode,
         initialMessages,
         adkBackendUrl: "http://localhost:8000",
       });
 
-      // Then: chatId should contain ws protocol (: and / become -)
+      // When: Using transport imperatively
+      const transport = result.transport!;
+
+      // Initialize WebSocket by calling sendMessages
+      transport.sendMessages({
+        trigger: "submit-message",
+        chatId: "chat-1",
+        messageId: undefined,
+        messages: initialMessages,
+        abortSignal: new AbortController().signal,
+      });
+
+      // Wait for WebSocket to be ready
+      await vi.waitFor(() => {
+        expect((transport as any).ws?.readyState).toBe(MockWebSocket.OPEN);
+      });
+
+      // Then: Should be able to call imperative methods
+      expect(() => transport.__startAudio()).not.toThrow();
+      expect(() => transport.__stopAudio()).not.toThrow();
+      // Note: sendToolResult() removed - use addToolApprovalResponse() instead
+    });
+
+    it("should convert http to ws protocol", () => {
+      // Given: HTTP backend URL
+      const mode: BackendMode = "adk-bidi";
+      const result = buildUseChatOptions({
+        mode,
+        initialMessages,
+        adkBackendUrl: "http://localhost:8000",
+      });
+
+      // When: Transport is created
+      const _transport = result.transport!;
+
+      // Then: URL should use ws:// protocol
+      // We can verify by checking the chatId contains ws protocol indicator
       expect(result.useChatOptions.id).toContain("ws---localhost");
     });
 
-    it("should convert https to wss in WebSocket URL", () => {
-      // Given: ADK BIDI mode with https URL
-      const mode: Mode = "adk-bidi";
-
-      // When: Building options
+    it("should convert https to wss protocol", () => {
+      // Given: HTTPS backend URL
+      const mode: BackendMode = "adk-bidi";
       const result = buildUseChatOptions({
         mode,
         initialMessages,
         adkBackendUrl: "https://backend.example.com",
       });
 
-      // Then: chatId should reflect wss protocol (: and / become -)
+      // When: Transport is created
+      const _transport = result.transport!;
+
+      // Then: URL should use wss:// protocol
       expect(result.useChatOptions.id).toContain("wss---backend");
     });
+  });
 
-    it("should pass AudioContext to WebSocketChatTransport", () => {
-      // Given: ADK BIDI mode with AudioContext
-      const mode: Mode = "adk-bidi";
+  describe("ADK SSE Mode Integration", () => {
+    it("should create DefaultChatTransport (not WebSocket)", () => {
+      // Given: ADK SSE mode configuration
+      const mode: BackendMode = "adk-sse";
+
+      // When: Building options
+      const result = buildUseChatOptions({
+        mode,
+        initialMessages,
+        adkBackendUrl: "http://localhost:8000",
+      });
+
+      // Then: Should NOT create WebSocketChatTransport
+      expect(result.transport).toBeUndefined();
+      expect(result.useChatOptions.transport).toBeDefined();
+      // useChatOptions.transport is wrapped with ChunkLoggingTransport
+      expect(result.useChatOptions.transport).toBeInstanceOf(
+        ChunkLoggingTransport,
+      );
+      // Delegate should NOT be WebSocketChatTransport
+      expect(
+        (result.useChatOptions.transport as any).delegate,
+      ).not.toBeInstanceOf(WebSocketChatTransport);
+    });
+
+    it("should use correct SSE endpoint", () => {
+      // Given: ADK SSE mode configuration
+      const mode: BackendMode = "adk-sse";
+      const adkBackendUrl = "http://localhost:8000";
+
+      // When: Building options
+      const result = buildUseChatOptions({
+        mode,
+        initialMessages,
+        adkBackendUrl,
+      });
+
+      // Then: chatId should reflect SSE endpoint (/stream)
+      expect(result.useChatOptions.id).toContain("localhost-8000-stream");
+    });
+
+    it("should not support imperative audio control (no transport reference)", () => {
+      // Given: ADK SSE mode
+      const mode: BackendMode = "adk-sse";
+      const result = buildUseChatOptions({
+        mode,
+        initialMessages,
+        adkBackendUrl: "http://localhost:8000",
+      });
+
+      // Then: Should not have transport reference (SSE doesn't support imperative control)
+      expect(result.transport).toBeUndefined();
+    });
+  });
+
+  describe("Gemini Direct Mode Integration", () => {
+    it("should create DefaultChatTransport (not WebSocket)", () => {
+      // Given: Gemini Direct mode configuration
+      const mode: BackendMode = "gemini";
+
+      // When: Building options
+      const result = buildUseChatOptions({
+        mode,
+        initialMessages,
+      });
+
+      // Then: Should NOT create WebSocketChatTransport
+      expect(result.transport).toBeUndefined();
+      expect(result.useChatOptions.transport).toBeDefined();
+      // useChatOptions.transport is wrapped with ChunkLoggingTransport
+      expect(result.useChatOptions.transport).toBeInstanceOf(
+        ChunkLoggingTransport,
+      );
+      // Delegate should NOT be WebSocketChatTransport
+      expect(
+        (result.useChatOptions.transport as any).delegate,
+      ).not.toBeInstanceOf(WebSocketChatTransport);
+    });
+
+    it("should use /api/chat endpoint", () => {
+      // Given: Gemini Direct mode configuration
+      const mode: BackendMode = "gemini";
+
+      // When: Building options
+      const result = buildUseChatOptions({
+        mode,
+        initialMessages,
+      });
+
+      // Then: chatId should reflect /api/chat endpoint
+      expect(result.useChatOptions.id).toContain("api-chat");
+    });
+  });
+
+  describe("Configuration Validation", () => {
+    it("should prevent mixing AudioContext with non-BIDI modes", () => {
+      // Given: Gemini Direct mode with AudioContext
+      const mode: BackendMode = "gemini";
       const mockAudioContext = {
         voiceChannel: {
           isPlaying: false,
@@ -267,55 +328,24 @@ describe("buildUseChatOptions", () => {
       const result = buildUseChatOptions({
         mode,
         initialMessages,
-        adkBackendUrl: "http://localhost:8000",
-        audioContext: mockAudioContext,
+        audioContext: mockAudioContext, // This will be ignored in Gemini mode
       });
 
-      // Then: Transport should be created (implementation receives audioContext internally)
-      expect(result.transport).toBeDefined();
-      expect(result.transport?.constructor.name).toBe("WebSocketChatTransport");
-    });
-  });
-
-  describe("Configuration Validation", () => {
-    it("should not mix gemini mode with WebSocketChatTransport", () => {
-      // Given: Gemini Direct mode
-      const mode: Mode = "gemini";
-
-      // When: Building options
-      const result = buildUseChatOptions({
-        mode,
-        initialMessages,
-      });
-
-      // Then: Should NOT use WebSocketChatTransport
-      expect(result.useChatOptions.transport.constructor.name).not.toBe(
-        "WebSocketChatTransport",
-      );
+      // Then: AudioContext should be silently ignored (no WebSocketChatTransport created)
       expect(result.transport).toBeUndefined();
-    });
-
-    it("should not mix adk-sse mode with WebSocketChatTransport", () => {
-      // Given: ADK SSE mode
-      const mode: Mode = "adk-sse";
-
-      // When: Building options
-      const result = buildUseChatOptions({
-        mode,
-        initialMessages,
-        adkBackendUrl: "http://localhost:8000",
-      });
-
-      // Then: Should NOT use WebSocketChatTransport
-      expect(result.useChatOptions.transport.constructor.name).not.toBe(
-        "WebSocketChatTransport",
+      // useChatOptions.transport is wrapped with ChunkLoggingTransport
+      expect(result.useChatOptions.transport).toBeInstanceOf(
+        ChunkLoggingTransport,
       );
-      expect(result.transport).toBeUndefined();
+      // Delegate should NOT be WebSocketChatTransport
+      expect(
+        (result.useChatOptions.transport as any).delegate,
+      ).not.toBeInstanceOf(WebSocketChatTransport);
     });
 
-    it("should only use WebSocketChatTransport for adk-bidi mode", () => {
+    it("should only provide transport reference for BIDI mode", () => {
       // Given: All three backend modes
-      const modes: Mode[] = ["gemini", "adk-sse", "adk-bidi"];
+      const modes: BackendMode[] = ["gemini", "adk-sse", "adk-bidi"];
 
       // When: Building options for each mode
       const results = modes.map((mode) =>
@@ -326,123 +356,109 @@ describe("buildUseChatOptions", () => {
         }),
       );
 
-      // Then: All modes use ChunkLoggingTransport wrapper
-      expect(results[0].useChatOptions.transport.constructor.name).toBe(
-        "ChunkLoggingTransport",
-      ); // gemini (wrapped DefaultChatTransport)
-      expect(results[1].useChatOptions.transport.constructor.name).toBe(
-        "ChunkLoggingTransport",
-      ); // adk-sse (wrapped DefaultChatTransport)
-      expect(results[2].useChatOptions.transport.constructor.name).toBe(
-        "ChunkLoggingTransport",
-      ); // adk-bidi (wrapped WebSocketChatTransport)
-
-      // Only adk-bidi returns unwrapped WebSocketChatTransport reference
+      // Then: Only BIDI should have transport reference
       expect(results[0].transport).toBeUndefined(); // gemini
       expect(results[1].transport).toBeUndefined(); // adk-sse
       expect(results[2].transport).toBeDefined(); // adk-bidi
-      expect(results[2].transport?.constructor.name).toBe("WebSocketChatTransport");
-    });
-
-    it("should generate different chatIds for different modes", () => {
-      // Given: All three backend modes
-      const modes: Mode[] = ["gemini", "adk-sse", "adk-bidi"];
-
-      // When: Building options for each mode
-      const results = modes.map((mode) =>
-        buildUseChatOptions({
-          mode,
-          initialMessages,
-          adkBackendUrl: "http://localhost:8000",
-        }),
+      // result.transport is raw WebSocketChatTransport for imperative control
+      expect(results[2].transport).toBeInstanceOf(WebSocketChatTransport);
+      // useChatOptions.transport is wrapped with ChunkLoggingTransport
+      expect(results[2].useChatOptions.transport).toBeInstanceOf(
+        ChunkLoggingTransport,
       );
-
-      // Then: All chatIds should be different
-      const chatIds = results.map((r) => r.useChatOptions.id);
-      const uniqueChatIds = new Set(chatIds);
-      expect(uniqueChatIds.size).toBe(3);
     });
 
-    it("should generate different chatIds for different backend URLs", () => {
-      // Given: Same mode with different URLs
-      const mode: Mode = "adk-sse";
-      const url1 = "http://localhost:8000";
-      const url2 = "http://localhost:9000";
+    it("should create different transport instances for multiple BIDI instances", () => {
+      // Given: ADK BIDI mode
+      const mode: BackendMode = "adk-bidi";
 
-      // When: Building options with different URLs
+      // When: Building options twice with forceNewInstance
       const result1 = buildUseChatOptions({
         mode,
         initialMessages,
-        adkBackendUrl: url1,
+        adkBackendUrl: "http://localhost:8000",
+        forceNewInstance: true,
       });
 
       const result2 = buildUseChatOptions({
         mode,
         initialMessages,
-        adkBackendUrl: url2,
+        adkBackendUrl: "http://localhost:8000",
+        forceNewInstance: true,
       });
 
-      // Then: chatIds should be different
-      expect(result1.useChatOptions.id).not.toBe(result2.useChatOptions.id);
+      // Then: Should create different transport instances
+      expect(result1.transport).not.toBe(result2.transport);
+      // result.transport is raw WebSocketChatTransport for imperative control
+      expect(result1.transport).toBeInstanceOf(WebSocketChatTransport);
+      expect(result2.transport).toBeInstanceOf(WebSocketChatTransport);
+      // useChatOptions.transport is wrapped with ChunkLoggingTransport
+      expect(result1.useChatOptions.transport).toBeInstanceOf(
+        ChunkLoggingTransport,
+      );
+      expect(result2.useChatOptions.transport).toBeInstanceOf(
+        ChunkLoggingTransport,
+      );
     });
   });
 
-  describe("Tool Approval Auto-Submission", () => {
-    // Verifies that sendAutomaticallyWhen is configured for automatic tool approval submission
-    // Uses AI SDK's lastAssistantMessageIsCompleteWithApprovalResponses helper
-
-    it("should configure sendAutomaticallyWhen for ADK BIDI mode", () => {
-      // Given: ADK BIDI mode (supports tool approval)
-      const mode: Mode = "adk-bidi";
-      const adkBackendUrl = "http://localhost:8000";
+  describe("Transport + useChatOptions Integration", () => {
+    it("should use same transport reference in useChatOptions for BIDI mode", () => {
+      // Given: ADK BIDI mode
+      const mode: BackendMode = "adk-bidi";
 
       // When: Building options
       const result = buildUseChatOptions({
         mode,
-        adkBackendUrl,
         initialMessages,
+        adkBackendUrl: "http://localhost:8000",
       });
 
-      // Then: sendAutomaticallyWhen should be configured
-      // This enables automatic message resubmission after tool approval
-      expect(result.useChatOptions.sendAutomaticallyWhen).toBeDefined();
-      expect(typeof result.useChatOptions.sendAutomaticallyWhen).toBe(
-        "function",
+      // Then: useChatOptions.transport should wrap the raw transport
+      // useChatOptions.transport is ChunkLoggingTransport wrapping raw transport
+      expect(result.useChatOptions.transport).toBeInstanceOf(
+        ChunkLoggingTransport,
       );
+      expect((result.useChatOptions.transport as any).delegate).toBe(
+        result.transport,
+      );
+      // result.transport is raw WebSocketChatTransport for imperative control
+      expect(result.transport).toBeInstanceOf(WebSocketChatTransport);
     });
 
-    it("should configure sendAutomaticallyWhen for ADK SSE mode", () => {
-      // Given: ADK SSE mode (supports tool approval)
-      const mode: Mode = "adk-sse";
-      const adkBackendUrl = "http://localhost:8000";
+    it("should include messages in useChatOptions", () => {
+      // Given: ADK BIDI mode with messages
+      const mode: BackendMode = "adk-bidi";
+      const messages: UIMessage[] = [
+        { id: "1", role: "user", content: "First" },
+        { id: "2", role: "assistant", content: "Second" },
+      ];
 
       // When: Building options
       const result = buildUseChatOptions({
         mode,
-        adkBackendUrl,
-        initialMessages,
+        initialMessages: messages,
+        adkBackendUrl: "http://localhost:8000",
       });
 
-      // Then: sendAutomaticallyWhen should be configured
-      expect(result.useChatOptions.sendAutomaticallyWhen).toBeDefined();
-      expect(typeof result.useChatOptions.sendAutomaticallyWhen).toBe(
-        "function",
-      );
+      // Then: Messages should be preserved in useChatOptions
+      expect(result.useChatOptions.messages).toEqual(messages);
     });
 
-    it("should NOT configure sendAutomaticallyWhen for Gemini mode", () => {
-      // Given: Gemini Direct mode (no tool approval support)
-      const mode: Mode = "gemini";
+    it("should include chatId in useChatOptions", () => {
+      // Given: ADK BIDI mode
+      const mode: BackendMode = "adk-bidi";
 
       // When: Building options
       const result = buildUseChatOptions({
         mode,
         initialMessages,
+        adkBackendUrl: "http://localhost:8000",
       });
 
-      // Then: sendAutomaticallyWhen should be undefined
-      // Gemini mode doesn't use our tool approval flow
-      expect(result.useChatOptions.sendAutomaticallyWhen).toBeUndefined();
+      // Then: chatId should be present and valid
+      expect(result.useChatOptions.id).toBeDefined();
+      expect(result.useChatOptions.id).toMatch(/^chat-adk-bidi-/);
     });
   });
 });

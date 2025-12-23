@@ -322,7 +322,12 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
 
               this.ws.onclose = () => {
                 this._stopPing(); // Stop ping on close
-                controller.close();
+                try {
+                  controller.close();
+                } catch (err) {
+                  // Controller already closed - ignore error
+                  console.debug("[WS Transport] Controller already closed in onclose:", err);
+                }
               };
             }
           } else {
@@ -368,15 +373,24 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
 
               this.ws.onclose = () => {
                 this._stopPing(); // Stop ping on close
-                controller.close();
+                try {
+                  controller.close();
+                } catch (err) {
+                  // Controller already closed - ignore error
+                  console.debug("[WS Transport] Controller already closed in onclose:", err);
+                }
               };
             }
           }
 
-          // Send messages to backend using structured event format (P2-T2)
-          // Note: We send ALL messages without truncation to preserve context for ADK BIDI
-          // Size warnings are still logged but messages are not truncated
-          this.eventSender.sendMessages(options.messages);
+          // Send messages to backend using structured event format
+          // Format matches AI SDK v6 HttpChatTransport (SSE mode) exactly
+          this.eventSender.sendMessages({
+            chatId: options.chatId,
+            messages: options.messages,
+            trigger: options.trigger,
+            messageId: options.messageId,
+          });
         } catch (error) {
           console.error("[WS Transport] Error in start:", error);
           controller.error(error);
