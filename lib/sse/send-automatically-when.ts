@@ -46,17 +46,11 @@ export function sendAutomaticallyWhen({
 }: SendAutomaticallyWhenOptions): boolean {
   try {
     const lastMessage = messages[messages.length - 1];
-    console.log(
-      `[SSE sendAutomaticallyWhen] Checking lastMessage role: ${lastMessage?.role}`,
-    );
     if (lastMessage?.role !== "assistant") return false;
 
     // AI SDK v6 stores tool invocations in the `parts` array
     // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
     const parts = (lastMessage as any).parts || [];
-    console.log(
-      `[SSE sendAutomaticallyWhen] Found ${parts.length} parts in lastMessage`,
-    );
 
     // Check if adk_request_confirmation has been approved OR denied
     // AI SDK v6 approval flow:
@@ -72,16 +66,8 @@ export function sendAutomaticallyWhen({
     );
 
     if (!confirmationPart) {
-      console.log(
-        "[SSE sendAutomaticallyWhen] No confirmation approval/denial, not sending",
-      );
       return false;
     }
-
-    console.log(
-      "[SSE sendAutomaticallyWhen] Found confirmation part:",
-      JSON.stringify(confirmationPart, null, 2),
-    );
 
     // Check if this is the FIRST time confirmation completed (user just clicked)
     // vs. backend has responded with additional content
@@ -104,9 +90,6 @@ export function sendAutomaticallyWhen({
     );
 
     if (hasTextPart) {
-      console.log(
-        "[SSE sendAutomaticallyWhen] Text part found, backend has responded, not sending",
-      );
       return false;
     }
 
@@ -118,20 +101,10 @@ export function sendAutomaticallyWhen({
         part.type !== TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
     );
 
-    console.log(
-      `[SSE sendAutomaticallyWhen] Found ${otherTools.length} other tool(s) besides confirmation`,
-    );
-
     // Check if any other tool has completed (backend responded)
     for (const toolPart of otherTools) {
       // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
       const toolState = (toolPart as any).state;
-      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
-      const toolType = (toolPart as any).type;
-
-      console.log(
-        `[SSE sendAutomaticallyWhen] Tool ${toolType} state: ${toolState}`,
-      );
 
       // Check for both completed states AND error state
       // This detects when backend has ALREADY responded (prevents infinite loop)
@@ -139,9 +112,6 @@ export function sendAutomaticallyWhen({
         toolState === TOOL_STATE_OUTPUT_AVAILABLE ||
         toolState === TOOL_STATE_OUTPUT_ERROR
       ) {
-        console.log(
-          `[SSE sendAutomaticallyWhen] Tool ${toolType} completed (state: ${toolState}), backend has responded, not sending`,
-        );
         return false;
       }
 
@@ -149,17 +119,11 @@ export function sendAutomaticallyWhen({
       // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
       const hasError = (toolPart as any).error;
       if (hasError) {
-        console.log(
-          `[SSE sendAutomaticallyWhen] Tool ${toolType} has error, not sending`,
-        );
         return false;
       }
     }
 
     // First time confirmation completed - send to backend via HTTP
-    console.log(
-      "[SSE sendAutomaticallyWhen] First confirmation completion detected, triggering send",
-    );
     return true;
   } catch (error) {
     // Prevent infinite request loops by returning false on error
