@@ -14,6 +14,13 @@ import type { UIMessage } from "ai";
 import { describe, expect, it } from "vitest";
 import { sendAutomaticallyWhen as bidiSendAuto } from "../../bidi";
 import { sendAutomaticallyWhen as sseSendAuto } from "../../sse";
+import {
+  TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+  TOOL_STATE_OUTPUT_AVAILABLE,
+  TOOL_STATE_OUTPUT_ERROR,
+  TOOL_STATE_APPROVAL_RESPONDED,
+  TOOL_STATE_APPROVAL_REQUESTED,
+} from "../../constants";
 
 describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
   describe("BIDI Mode - Infinite Loop Prevention", () => {
@@ -64,6 +71,7 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
     it("CRITICAL: returns true only on FIRST confirmation completion", () => {
       // Scenario: User just confirmed, backend hasn't responded yet
       // Expected: sendAutomaticallyWhen returns TRUE (trigger auto-send once)
+      // AI SDK v6 format: state="approval-responded", approval.approved=true
 
       const messagesFirstConfirmation: UIMessage[] = [
         {
@@ -72,8 +80,8 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
           content: "",
           parts: [
             {
-              type: "tool-adk_request_confirmation",
-              state: "output-available",
+              type: TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+              state: TOOL_STATE_APPROVAL_RESPONDED,
               toolCallId: "call-1",
               input: {
                 originalFunctionCall: {
@@ -82,7 +90,10 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
                   args: {},
                 },
               },
-              output: { confirmed: true },
+              approval: {
+                id: "call-1",
+                approved: true,
+              },
             },
             // No other tool results yet - backend hasn't responded
           ],
@@ -199,6 +210,7 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
     });
 
     it("CRITICAL: returns true only on FIRST confirmation completion", () => {
+      // AI SDK v6 format: state="approval-responded", approval.approved=true
       const messagesFirstConfirmation: UIMessage[] = [
         {
           id: "1",
@@ -206,8 +218,8 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
           content: "",
           parts: [
             {
-              type: "tool-adk_request_confirmation",
-              state: "output-available",
+              type: TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+              state: TOOL_STATE_APPROVAL_RESPONDED,
               toolCallId: "call-1",
               input: {
                 originalFunctionCall: {
@@ -216,8 +228,12 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
                   args: {},
                 },
               },
-              output: { confirmed: true },
+              approval: {
+                id: "call-1",
+                approved: true,
+              },
             },
+            // No other tool results yet - backend hasn't responded
           ],
         } as any,
       ];
@@ -289,8 +305,8 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
           content: "",
           parts: [
             {
-              type: "tool-adk_request_confirmation",
-              state: "output-available",
+              type: TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+              state: TOOL_STATE_APPROVAL_RESPONDED,
               toolCallId: "call-1",
               input: {
                 originalFunctionCall: {
@@ -299,11 +315,14 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
                   args: {},
                 },
               },
-              output: { confirmed: true },
+              approval: {
+                id: "call-1",
+                approved: true,
+              },
             },
             {
               type: "tool-search",
-              state: "output-available",
+              state: TOOL_STATE_OUTPUT_AVAILABLE,
               toolCallId: "orig-1",
               output: { results: ["news1"] },
             },
@@ -327,8 +346,8 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
           content: "",
           parts: [
             {
-              type: "tool-adk_request_confirmation",
-              state: "output-available",
+              type: TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+              state: TOOL_STATE_APPROVAL_RESPONDED,
               toolCallId: "call-2",
               input: {
                 originalFunctionCall: {
@@ -337,7 +356,10 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
                   args: {},
                 },
               },
-              output: { confirmed: true },
+              approval: {
+                id: "call-2",
+                approved: true,
+              },
             },
             // No backend response yet
           ],
@@ -360,8 +382,8 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
           content: "",
           parts: [
             {
-              type: "tool-adk_request_confirmation",
-              state: "output-available",
+              type: TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+              state: TOOL_STATE_APPROVAL_RESPONDED,
               toolCallId: "call-2",
               input: {
                 originalFunctionCall: {
@@ -370,11 +392,14 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
                   args: {},
                 },
               },
-              output: { confirmed: true },
+              approval: {
+                id: "call-2",
+                approved: true,
+              },
             },
             {
               type: "tool-delete_file",
-              state: "output-available",
+              state: TOOL_STATE_OUTPUT_AVAILABLE,
               toolCallId: "orig-2",
               output: { deleted: true },
             },

@@ -24,7 +24,7 @@ import { useChat } from "@ai-sdk/react";
 import { act, renderHook } from "@testing-library/react";
 import type { UIMessage } from "ai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { WebSocketChatTransport } from "../../bidi";
+import { WebSocketChatTransport } from "../../bidi/transport";
 import { buildUseChatOptions } from "../../build-use-chat-options";
 
 // Mock WebSocket for transport testing
