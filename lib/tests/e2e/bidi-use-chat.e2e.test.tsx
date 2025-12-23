@@ -241,7 +241,7 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
               const data = JSON.parse(event.data as string);
 
               // Check message content to determine response (like SSE does)
-              const hasFirstApproval = data.data?.messages?.some(
+              const hasFirstApproval = data.messages?.some(
                 (msg: any) =>
                   msg.role === "assistant" &&
                   msg.parts?.some(
@@ -252,7 +252,7 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
                   ),
               );
 
-              const hasSecondApproval = data.data?.messages?.some(
+              const hasSecondApproval = data.messages?.some(
                 (msg: any) =>
                   msg.role === "assistant" &&
                   msg.parts?.some(
@@ -603,7 +603,7 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
 
               // Check if this is the denial response
               // Same logic as SSE: check for approval.approved === false
-              const hasDenial = data.data?.messages?.some(
+              const hasDenial = data.messages?.some(
                 (msg: any) =>
                   msg.role === "assistant" &&
                   msg.parts?.some(
