@@ -35,11 +35,11 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
         {
           id: "1",
           role: "assistant",
-          content: "",
+          content: "Here are the search results",
           parts: [
             {
               type: "tool-adk_request_confirmation",
-              state: "output-available",
+              state: TOOL_STATE_APPROVAL_RESPONDED,
               toolCallId: "call-1",
               input: {
                 originalFunctionCall: {
@@ -48,7 +48,10 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
                   args: { query: "test" },
                 },
               },
-              output: { confirmed: true },
+              approval: {
+                id: "call-1",
+                approved: true,
+              },
             },
             {
               // Backend has responded with actual tool result
@@ -56,6 +59,11 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
               state: "output-available",
               toolCallId: "orig-1",
               output: { results: ["data1", "data2"] },
+            },
+            {
+              // Backend has sent text response
+              type: "text",
+              text: "Here are the search results",
             },
           ],
         } as any,
@@ -178,11 +186,11 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
         {
           id: "1",
           role: "assistant",
-          content: "",
+          content: "File deleted successfully",
           parts: [
             {
               type: "tool-adk_request_confirmation",
-              state: "output-available",
+              state: TOOL_STATE_APPROVAL_RESPONDED,
               toolCallId: "call-1",
               input: {
                 originalFunctionCall: {
@@ -191,7 +199,10 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
                   args: { path: "/important.txt" },
                 },
               },
-              output: { confirmed: true },
+              approval: {
+                id: "call-1",
+                approved: true,
+              },
             },
             {
               // Backend has responded
@@ -199,6 +210,11 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
               state: "output-available",
               toolCallId: "orig-1",
               output: { deleted: true },
+            },
+            {
+              // Backend has sent text response
+              type: "text",
+              text: "File deleted successfully",
             },
           ],
         } as any,
@@ -306,7 +322,7 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
         {
           id: "msg-2",
           role: "assistant",
-          content: "",
+          content: "Here's the latest AI news",
           parts: [
             {
               type: TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
@@ -329,6 +345,10 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
               state: TOOL_STATE_OUTPUT_AVAILABLE,
               toolCallId: "orig-1",
               output: { results: ["news1"] },
+            },
+            {
+              type: "text",
+              text: "Here's the latest AI news",
             },
           ],
         } as any,
@@ -383,7 +403,7 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
         {
           id: "msg-4",
           role: "assistant",
-          content: "",
+          content: "File deleted successfully",
           parts: [
             {
               type: TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
@@ -406,6 +426,10 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
               state: TOOL_STATE_OUTPUT_AVAILABLE,
               toolCallId: "orig-2",
               output: { deleted: true },
+            },
+            {
+              type: "text",
+              text: "File deleted successfully",
             },
           ],
         } as any,

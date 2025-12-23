@@ -178,7 +178,7 @@ describe("lib/bidi Public API", () => {
             parts: [
               {
                 type: "tool-adk_request_confirmation",
-                state: "output-available",
+                state: "approval-responded",
                 toolCallId: "call-1",
                 input: {
                   originalFunctionCall: {
@@ -187,7 +187,10 @@ describe("lib/bidi Public API", () => {
                     args: {},
                   },
                 },
-                output: { confirmed: true },
+                approval: {
+                  id: "call-1",
+                  approved: true,
+                },
               },
             ],
           },
@@ -200,11 +203,11 @@ describe("lib/bidi Public API", () => {
           {
             id: "1",
             role: "assistant",
-            content: "",
+            content: "Here are the search results",
             parts: [
               {
                 type: "tool-adk_request_confirmation",
-                state: "output-available",
+                state: "approval-responded",
                 toolCallId: "call-1",
                 input: {
                   originalFunctionCall: {
@@ -213,13 +216,20 @@ describe("lib/bidi Public API", () => {
                     args: {},
                   },
                 },
-                output: { confirmed: true },
+                approval: {
+                  id: "call-1",
+                  approved: true,
+                },
               },
               {
                 type: "tool-search",
                 state: "output-available",
                 toolCallId: "orig-1",
                 output: { result: "data" },
+              },
+              {
+                type: "text",
+                text: "Here are the search results",
               },
             ],
           },

@@ -415,7 +415,8 @@ describe("WebSocketChatTransport", () => {
 
       expect(messageEvents.length).toBeGreaterThan(0);
       const sentMessage = JSON.parse(messageEvents[0]);
-      expect(sentMessage.data.messages).toEqual(messages);
+      expect(sentMessage.messages).toEqual(messages);
+      expect(sentMessage.trigger).toBe("regenerate-message");
 
       await streamPromise;
     });
@@ -1566,7 +1567,11 @@ describe("WebSocketChatTransport", () => {
 
       // Then: Should log warning but not crash
       expect(consoleWarnSpy).toHaveBeenCalledWith(
-        "[WS Transport] Cannot send event, WebSocket not open",
+        "[Event Sender] WebSocket not connected, event not sent:",
+        expect.objectContaining({
+          type: "tool_result",
+          toolCallId: "call_456",
+        }),
       );
 
       consoleWarnSpy.mockRestore();

@@ -96,28 +96,39 @@ export interface SendAutomaticallyWhenOptions {
  * - stream STAYS OPEN: ストリームが開いたまま
  *
  * ┌─────────────────────────────────────────────────────────────────────────────┐
- * │ Decision Logic: When to return true                                        │
+ * │ Decision Logic: When to return true (CRITICAL ORDER)                       │
  * └─────────────────────────────────────────────────────────────────────────────┘
  *
- *   Check 1: Has text part?
- *       YES → return false (backend already responded)
+ *   Check 1: Has text part in assistant message?
+ *       YES → return false (backend already sent AI response)
  *       NO → Continue
+ *       WHY: Text indicates backend completed full response cycle
  *
- *   Check 2: Has tool output from addToolOutput()?
- *       YES → return true (Frontend Execute: send tool result)
- *       NO → Continue
- *
- *   Check 3: Has approval-responded confirmation?
- *       NO → return false (no approval yet)
+ *   Check 2: Has approval-responded confirmation?
+ *       NO → return false (user hasn't approved yet or wrong state)
  *       YES → Continue
+ *       WHY: Must validate approval before checking execution patterns
  *
- *   Check 4: Has pending approval-requested?
- *       YES → return false (wait for user to approve all)
+ *   Check 3: Has pending approval-requested confirmations?
+ *       YES → return false (wait for user to approve all tools)
  *       NO → Continue
+ *       WHY: Don't send until all confirmations are resolved
  *
- *   Check 5: Any other tool completed (output-available/output-error)?
- *       YES → return false (backend already responded)
- *       NO → return true (Server Execute: send approval)
+ *   Check 4: Any other tool in ERROR state?
+ *       YES → return false (backend already responded with error)
+ *       NO → Continue
+ *       WHY: Error state means backend finished processing
+ *       NOTE: output-available NOT checked here (handled in Check 5)
+ *
+ *   Check 5: Has tool output from addToolOutput()? (Frontend Execute)
+ *       YES → return true (frontend executed tool, send result to backend)
+ *       NO → Continue
+ *       WHY: Tool in output-available + no error = frontend just called addToolOutput()
+ *       CRITICAL: Must check AFTER error check to distinguish:
+ *         - Frontend Execute: tool output-available, no errors
+ *         - Backend responded: text part present (caught in Check 1)
+ *
+ *   Default: return true (Server Execute: send approval to backend)
  *
  * @param options - Object containing messages array
  * @returns true if automatic send should be triggered, false otherwise
@@ -146,26 +157,8 @@ export function sendAutomaticallyWhen({
       return false;
     }
 
-    // Check for Frontend Execute pattern: tool output added via addToolOutput()
-    // addToolOutput() updates existing tool part to state="output-available"
-    const hasToolOutputFromAddToolOutput = parts.some(
-      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
-      (part: any) =>
-        isToolUIPart(part) &&
-        part.state === TOOL_STATE_OUTPUT_AVAILABLE &&
-        part.output !== undefined,
-    );
-
-    if (hasToolOutputFromAddToolOutput) {
-      return true;
-    }
-
-    // Check if adk_request_confirmation has been approved OR denied (Server Execute pattern)
-    // AI SDK v6 approval flow:
-    // - State: "approval-responded" (for both approval and denial)
-    // - Approval: part.approval.approved = true
-    // - Denial: part.approval.approved = false
-    // Both cases should trigger automatic send to backend
+    // CRITICAL: Check confirmation part BEFORE Frontend Execute pattern
+    // Frontend Execute requires approval-responded confirmation to be valid
     const confirmationPart = parts.find(
       // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
       (part: any) =>
@@ -174,6 +167,8 @@ export function sendAutomaticallyWhen({
     );
 
     if (!confirmationPart) {
+      // No approval-responded confirmation found
+      // This catches edge cases like confirmation in output-available state
       return false;
     }
 
@@ -191,8 +186,10 @@ export function sendAutomaticallyWhen({
       return false;
     }
 
-    // Check if this is the FIRST time confirmation completed (user just clicked)
-    // vs. backend has responded with additional content
+    // CRITICAL: Check if other tools have completed BEFORE Frontend Execute check
+    // This distinguishes:
+    // - Backend already responded: Other tools in output-available/error → return false
+    // - Frontend Execute: No other completed tools, user called addToolOutput() → return true
     //
     // When user clicks Approve/Deny:
     // - Confirmation tool in approval-responded state
@@ -203,7 +200,7 @@ export function sendAutomaticallyWhen({
     // - Original tool (if exists) has completed (output-available or output-error)
     // - Message may have new AI response text
     //
-    // Note: Text part check is done earlier (line 66-75)
+    // Note: Text part check is done earlier (line 138-146)
 
     // Find ANY other tool in the same message (not confirmation)
     const otherTools = parts.filter(
@@ -212,26 +209,39 @@ export function sendAutomaticallyWhen({
         isToolUIPart(part) && part.type !== TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
     );
 
-    // Check if any other tool has completed (backend responded)
+    // Check if any other tool has ERRORED (backend responded with error)
+    // Note: output-available state is handled by Frontend Execute check below
     for (const toolPart of otherTools) {
       // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
       const toolState = (toolPart as any).state;
 
-      // Check for both completed states AND error state
-      // This detects when backend has ALREADY responded (prevents infinite loop)
-      if (
-        toolState === TOOL_STATE_OUTPUT_AVAILABLE ||
-        toolState === TOOL_STATE_OUTPUT_ERROR
-      ) {
+      // Only check for error states - output-available could be from addToolOutput
+      if (toolState === TOOL_STATE_OUTPUT_ERROR) {
         return false;
       }
 
-      // Check if tool has error (additional safety)
+      // Check if tool has error field (additional safety)
       // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
       const hasError = (toolPart as any).error;
       if (hasError) {
         return false;
       }
+    }
+
+    // Check for Frontend Execute pattern: tool output added via addToolOutput()
+    // addToolOutput() updates existing tool part to state="output-available"
+    // This check is AFTER "other tools completed" check to prevent false positives
+    const hasToolOutputFromAddToolOutput = parts.some(
+      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+      (part: any) =>
+        isToolUIPart(part) &&
+        part.type !== TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
+        part.state === TOOL_STATE_OUTPUT_AVAILABLE &&
+        part.output !== undefined,
+    );
+
+    if (hasToolOutputFromAddToolOutput) {
+      return true;
     }
 
     // First time confirmation completed - send to backend via WebSocket

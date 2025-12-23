@@ -128,7 +128,7 @@ describe("lib/sse Public API", () => {
             parts: [
               {
                 type: "tool-adk_request_confirmation",
-                state: "output-available",
+                state: "approval-responded",
                 toolCallId: "call-1",
                 input: {
                   originalFunctionCall: {
@@ -137,7 +137,10 @@ describe("lib/sse Public API", () => {
                     args: {},
                   },
                 },
-                output: { confirmed: true },
+                approval: {
+                  id: "call-1",
+                  approved: true,
+                },
               },
             ],
           },
@@ -150,11 +153,11 @@ describe("lib/sse Public API", () => {
           {
             id: "1",
             role: "assistant",
-            content: "",
+            content: "Here are the search results",
             parts: [
               {
                 type: "tool-adk_request_confirmation",
-                state: "output-available",
+                state: "approval-responded",
                 toolCallId: "call-1",
                 input: {
                   originalFunctionCall: {
@@ -163,13 +166,20 @@ describe("lib/sse Public API", () => {
                     args: {},
                   },
                 },
-                output: { confirmed: true },
+                approval: {
+                  id: "call-1",
+                  approved: true,
+                },
               },
               {
                 type: "tool-search",
                 state: "output-available",
                 toolCallId: "orig-1",
                 output: { result: "data" },
+              },
+              {
+                type: "text",
+                text: "Here are the search results",
               },
             ],
           },
@@ -186,9 +196,19 @@ describe("lib/sse Public API", () => {
             parts: [
               {
                 type: "tool-adk_request_confirmation",
-                state: "output-available",
+                state: "approval-responded",
                 toolCallId: "call-1",
-                output: { confirmed: true },
+                input: {
+                  originalFunctionCall: {
+                    id: "orig-1",
+                    name: "search",
+                    args: {},
+                  },
+                },
+                approval: {
+                  id: "call-1",
+                  approved: true,
+                },
               },
               {
                 type: "tool-search",

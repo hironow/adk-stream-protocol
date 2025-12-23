@@ -328,11 +328,8 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
                 try {
                   controller.close();
                 } catch (err) {
-                  // Controller already closed - ignore error
-                  console.debug(
-                    "[WS Transport] Controller already closed in onclose:",
-                    err,
-                  );
+                  // Controller already closed - ignore error (common in tests)
+                  // Suppress logging as this is expected behavior during cleanup
                 }
               };
             }
@@ -385,11 +382,8 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
                 try {
                   controller.close();
                 } catch (err) {
-                  // Controller already closed - ignore error
-                  console.debug(
-                    "[WS Transport] Controller already closed in onclose:",
-                    err,
-                  );
+                  // Controller already closed - ignore error (common in tests)
+                  // Suppress logging as this is expected behavior during cleanup
                 }
               };
             }
