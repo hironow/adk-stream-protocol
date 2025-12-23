@@ -106,44 +106,6 @@ describe("AudioContext - Tab Visibility Handling", () => {
     server.close();
   });
 
-  // SKIPPED: Test has mock timing issues - functionality is covered by other passing tests
-  it.skip("should fade out BGM when tab becomes hidden", async () => {
-    const { result: _result } = renderHook(() => useAudio(), {
-      wrapper: AudioProvider,
-    });
-
-    // Wait for initialization
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    });
-
-    // Simulate tab becoming hidden
-    Object.defineProperty(document, "hidden", {
-      value: true,
-      writable: true,
-    });
-
-    // Trigger visibility change event
-    const event = new Event("visibilitychange");
-    document.dispatchEvent(event);
-
-    // Wait for effect to complete
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 10));
-    });
-
-    // Check that BGM gain was faded out (check any of the gain nodes created)
-    const allCreateGainCalls = mockAudioContext.createGain.mock.results;
-    const gainNodesCalled = allCreateGainCalls.some((result) => {
-      const node = result.value;
-      return node.gain.setTargetAtTime.mock.calls.some(
-        (call) => call[0] === 0 && call[2] === 0.1,
-      );
-    });
-
-    expect(gainNodesCalled).toBe(true);
-  });
-
   it("should restore BGM when tab becomes visible", async () => {
     const { result: _result } = renderHook(() => useAudio(), {
       wrapper: AudioProvider,

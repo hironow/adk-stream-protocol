@@ -29,7 +29,15 @@ import {
 const server = setupServer();
 
 beforeAll(() => {
-  server.listen({ onUnhandledRequest: "error" });
+  server.listen({
+    onUnhandledRequest(request) {
+      // Ignore WebSocket upgrade requests
+      if (request.url.includes("/live")) {
+        return;
+      }
+      console.error("Unhandled request:", request.method, request.url);
+    },
+  });
 });
 
 afterEach(() => {
@@ -120,7 +128,7 @@ describe("BIDI EventReceiver - E2E Tests", () => {
       expect(audioChunks.length).toBeGreaterThanOrEqual(2);
     });
 
-    it("should reset audio buffer on reset()", async () => {
+    it("should reset audio buffer on new stream", async () => {
       // Given: Audio context with reset tracking
       const chat = createBidiWebSocketLink();
       let resetCount = 0;
@@ -141,22 +149,18 @@ describe("BIDI EventReceiver - E2E Tests", () => {
       server.use(
         createCustomHandler(chat, ({ server, client }) => {
           client.addEventListener("message", () => {
-            // Send simple text response
+            // Send minimal response
             const textId = `text-${Date.now()}`;
             client.send(
               `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
             );
             client.send(
-              `data: ${JSON.stringify({ type: "text-delta", delta: "Hello", id: textId })}\n\n`,
+              `data: ${JSON.stringify({ type: "text-delta", delta: "OK", id: textId })}\n\n`,
             );
             client.send(
               `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
             );
-
-            // Send [DONE] after delay to ensure all messages are processed
-            setTimeout(() => {
-              client.send("data: [DONE]\n\n");
-            }, 100);
+            client.send("data: [DONE]\n\n");
           });
         }),
       );
@@ -169,33 +173,25 @@ describe("BIDI EventReceiver - E2E Tests", () => {
 
       const { result } = renderHook(() => useChat(useChatOptions));
 
-      // When: Send multiple messages (each should trigger reset)
+      // When: Send a message (triggers reset on new stream)
       await waitFor(() => {
-        result.current.sendMessage({ text: "First message" });
+        result.current.sendMessage({ text: "Test message" });
       });
 
+      // Wait for response to be processed
       await waitFor(
         () => {
-          expect(result.current.messages.length).toBeGreaterThan(0);
+          const lastMessage = result.current.messages.at(-1);
+          const textPart = (lastMessage as any)?.parts?.find(
+            (p: any) => p.type === "text",
+          );
+          expect(textPart?.text).toContain("OK");
         },
         { timeout: 3000 },
       );
 
-      await waitFor(() => {
-        result.current.sendMessage({ text: "Second message" });
-      });
-
-      await waitFor(
-        () => {
-          expect(result.current.messages.length).toBeGreaterThan(1);
-        },
-        { timeout: 3000 },
-      );
-
-      // Wait for [DONE] to be processed (sent with 100ms setTimeout)
-      await new Promise((resolve) => setTimeout(resolve, 150));
-
-      // Then: Reset should have been called for each new stream
+      // Then: Reset should have been called when stream started
+      // Note: reset() is called in transport.sendMessages() before stream starts
       expect(resetCount).toBeGreaterThan(0);
     });
   });

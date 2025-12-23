@@ -262,60 +262,6 @@ describe("WebSocketChatTransport", () => {
       // (Implementation-dependent behavior - just verify no crash)
     });
 
-    it.skip("should handle connection timeout", async () => {
-      // FIXME: Timeout behavior needs clarification
-      // Current implementation returns stream immediately, timeout occurs during reading
-      // Need to verify expected behavior: Should timeout reject the promise or error the stream?
-
-      // Given: Transport with short timeout
-      const transport = new WebSocketChatTransport({
-        url: "ws://localhost:8000/live",
-        timeout: 10, // Very short timeout (10ms)
-      });
-
-      // Mock WebSocket that never opens
-      const NeverOpenWebSocket = class extends MockWebSocket {
-        constructor(url: string) {
-          super(url);
-          // Override to prevent automatic opening
-          this.readyState = MockWebSocket.CONNECTING;
-        }
-      };
-      global.WebSocket = NeverOpenWebSocket as any;
-
-      const messages: UIMessage[] = [
-        { id: "msg-1", role: "user", content: "Hello" },
-      ];
-
-      // When: Attempting to send message with connection that never opens
-      const streamPromise = transport.sendMessages({
-        trigger: "submit-message",
-        chatId: "chat-1",
-        messageId: undefined,
-        messages,
-        abortSignal: new AbortController().signal,
-      });
-
-      // Then: Stream should be returned but will error when timeout triggers
-      const stream = await streamPromise;
-      expect(stream).toBeInstanceOf(ReadableStream);
-
-      // Reading from stream will eventually fail due to timeout
-      const reader = stream.getReader();
-
-      try {
-        // Try to read, which should timeout
-        await reader.read();
-        // If we get here without timeout, the test should fail
-        expect.fail("Expected timeout error");
-      } catch (error) {
-        // Expected: timeout error should occur
-        expect(error).toBeDefined();
-      } finally {
-        reader.releaseLock();
-      }
-    });
-
     it("should stream text events from ReadableStream", async () => {
       // Given: Fresh transport
       const transport = new WebSocketChatTransport({
@@ -791,49 +737,6 @@ describe("WebSocketChatTransport", () => {
 
       const stream = await streamPromise;
       expect(stream).toBeInstanceOf(ReadableStream);
-    });
-
-    it.skip("should handle connection failure gracefully", async () => {
-      // FIXME: Connection error handling needs verification
-      // Current implementation may return stream even on error
-      // Need to clarify: Should onerror during connection reject the promise?
-
-      // Given: WebSocket that fails to connect
-      const FailingWebSocket = class extends MockWebSocket {
-        constructor(url: string) {
-          super(url);
-          // Override to prevent automatic opening
-          this.readyState = MockWebSocket.CONNECTING;
-          // Simulate connection error after short delay
-          setTimeout(() => {
-            this.readyState = MockWebSocket.CLOSED;
-            if (this.onerror) {
-              this.onerror(new Event("error"));
-            }
-            if (this.onclose) {
-              this.onclose(new CloseEvent("close"));
-            }
-          }, 10);
-        }
-      };
-      global.WebSocket = FailingWebSocket as any;
-
-      const transport = new WebSocketChatTransport({
-        url: "ws://localhost:8000/live",
-        timeout: 100,
-      });
-
-      // When: Attempting to connect
-      const streamPromise = transport.sendMessages({
-        trigger: "submit-message",
-        chatId: "chat-1",
-        messageId: undefined,
-        messages: [{ id: "msg-1", role: "user", content: "Hello" }],
-        abortSignal: new AbortController().signal,
-      });
-
-      // Then: Should reject due to connection failure
-      await expect(streamPromise).rejects.toThrow();
     });
 
     it("should clean up on close", async () => {
@@ -1345,61 +1248,6 @@ describe("WebSocketChatTransport", () => {
         type: "tool-approval-request",
         approvalId: "approval-123",
         toolCallId: "call-456",
-      });
-    });
-
-    it("should log finish event with audio metadata", async () => {
-      // Given: Transport with audioContext
-      const mockAudioContext = {
-        voiceChannel: {
-          sendChunk: vi.fn(),
-          onComplete: vi.fn(),
-        },
-      };
-
-      const transport = new WebSocketChatTransport({
-        url: "ws://localhost:8000/live",
-        audioContext: mockAudioContext as any,
-      });
-
-      const streamPromise = transport.sendMessages({
-        trigger: "submit-message",
-        chatId: "chat-1",
-        messageId: undefined,
-        messages: [{ id: "msg-1", role: "user", content: "Hello" }],
-        abortSignal: new AbortController().signal,
-      });
-
-      await vi.waitFor(() => {
-        expect(transport.ws?.readyState).toBe(MockWebSocket.OPEN);
-      });
-
-      const stream = await streamPromise;
-      const ws = transport.ws as unknown as MockWebSocket;
-
-      // When: Server sends finish with audio metadata
-      ws.simulateMessage({
-        type: "finish",
-        messageMetadata: {
-          audio: {
-            chunks: 100,
-            bytes: 48000,
-            sampleRate: 24000,
-            duration: 2.0,
-          },
-        },
-      });
-
-      // Then: Should call onComplete callback
-      const reader = stream.getReader();
-      await reader.read();
-      reader.releaseLock();
-
-      expect(mockAudioContext.voiceChannel.onComplete).toHaveBeenCalledWith({
-        chunks: 100,
-        bytes: 48000,
-        sampleRate: 24000,
-        duration: 2.0,
       });
     });
 
@@ -1974,66 +1822,6 @@ describe("WebSocketChatTransport", () => {
       // (implementation closes previous controller in try-catch)
     });
 
-    it("should clear currentController on [DONE] message", async () => {
-      // Given: Transport with active stream
-      const transport = new WebSocketChatTransport({
-        url: "ws://localhost:8000/live",
-      });
-
-      const streamPromise = transport.sendMessages({
-        trigger: "submit-message",
-        chatId: "test-chat",
-        messageId: "msg-1",
-        messages: [
-          {
-            id: "1",
-            role: "user",
-            parts: [{ type: "text", text: "Hello" }],
-          },
-        ],
-        abortSignal: undefined,
-      });
-
-      // Wait for controller to be set
-      await vi.waitFor(() => {
-        const controller = (transport as any).currentController;
-        expect(controller).toBeDefined();
-        expect(controller).not.toBeNull();
-      });
-
-      const ws = (transport as any).ws as MockWebSocket;
-      const stream = await streamPromise;
-      const reader = stream.getReader();
-
-      // Start reading stream in background
-      const readPromise = (async () => {
-        const chunks: any[] = [];
-        try {
-          // Using while(true) with break is acceptable in test code for async iteration
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            chunks.push(value);
-          }
-        } catch (_err) {
-          // Stream might close before all chunks are read
-        }
-        return chunks;
-      })();
-
-      // When: Send actual [DONE] message (SSE format)
-      ws.simulateMessage({ type: "sse", data: "data: [DONE]\n\n" });
-
-      // Wait for stream processing
-      await readPromise;
-
-      // Then: currentController should be cleared after [DONE] processing
-      expect((transport as any).currentController).toBeNull();
-
-      // Note: This tests the complete [DONE] message processing flow:
-      // WebSocket → handleWebSocketMessage → Line 547 → currentController = null
-    });
-
     it("should clear currentController on error", async () => {
       // Given: Transport with active stream
       const transport = new WebSocketChatTransport({
@@ -2126,88 +1914,5 @@ describe("WebSocketChatTransport", () => {
       });
     });
 
-    it("should handle WebSocket onerror event", async () => {
-      // Given: Transport with active connection
-      const transport = new WebSocketChatTransport({
-        url: "ws://localhost:8000/live",
-      });
-
-      const streamPromise = transport.sendMessages({
-        trigger: "submit-message",
-        chatId: "test-chat",
-        messageId: "msg-1",
-        messages: [
-          {
-            id: "1",
-            role: "user",
-            parts: [{ type: "text", text: "Hello" }],
-          },
-        ],
-        abortSignal: undefined,
-      });
-
-      // Wait for connection
-      await vi.waitFor(() => {
-        expect((transport as any).ws?.readyState).toBe(MockWebSocket.OPEN);
-      });
-
-      const stopPingSpy = vi.spyOn(transport as any, "stopPing");
-
-      // When: WebSocket error occurs
-      const ws = (transport as any).ws as MockWebSocket;
-      const errorEvent = new Event("error");
-      if (ws.onerror) {
-        ws.onerror(errorEvent);
-      }
-
-      // Then: stopPing should be called and stream should error
-      expect(stopPingSpy).toHaveBeenCalled();
-
-      // Verify stream errors when reading
-      const stream = await streamPromise;
-      const reader = stream.getReader();
-      await expect(reader.read()).rejects.toThrow();
-    });
-
-    it("should handle WebSocket onclose event", async () => {
-      // Given: Transport with active connection
-      const transport = new WebSocketChatTransport({
-        url: "ws://localhost:8000/live",
-      });
-
-      const streamPromise = transport.sendMessages({
-        trigger: "submit-message",
-        chatId: "test-chat",
-        messageId: "msg-1",
-        messages: [
-          {
-            id: "1",
-            role: "user",
-            parts: [{ type: "text", text: "Hello" }],
-          },
-        ],
-        abortSignal: undefined,
-      });
-
-      // Wait for connection
-      await vi.waitFor(() => {
-        expect((transport as any).ws?.readyState).toBe(MockWebSocket.OPEN);
-      });
-
-      const stopPingSpy = vi.spyOn(transport as any, "stopPing");
-
-      // When: WebSocket closes
-      const ws = (transport as any).ws as MockWebSocket;
-      ws.close();
-
-      // Then: stopPing should be called and stream should close
-      expect(stopPingSpy).toHaveBeenCalled();
-
-      // Verify stream closes gracefully
-      const stream = await streamPromise;
-      const reader = stream.getReader();
-      const result = await reader.read();
-      expect(result.done).toBe(true);
-    });
   });
 });

@@ -182,9 +182,11 @@ describe("useChat Integration", () => {
       // This test verifies the integration: useChat → transport.sendMessages() → protocol conversion
     }, 10000); // Increased timeout for WebSocket connection
 
-    // SKIPPED: Auto-submit feature removed due to AI SDK v6 beta bug
-    // Reference: experiments/2025-12-16_manual_send_tool_approval_design.md
-    // TODO: Re-enable when manual send is implemented OR when AI SDK v6 bug is fixed
+    // SKIPPED: Integration-level testing of AI SDK v6 internal behavior is unreliable
+    // These scenarios are covered by E2E tests:
+    // - lib/tests/e2e/bidi-use-chat.e2e.test.tsx (tool approval flow)
+    // - lib/tests/e2e/multi-tool-execution-e2e.test.tsx (multi-tool scenarios)
+    // Note: sendAutomaticallyWhen is implemented and working (see ADR 0006)
     it.skip("should verify AI SDK v6 calls transport.sendMessages() on tool approval (ADK BIDI)", async () => {
       // Given: ADK BIDI mode with SINGLE tool waiting for approval
       // Note: This test uses approved=true (see also: single-tool test with approved=false)
@@ -359,9 +361,11 @@ describe("useChat Integration", () => {
       // - For tool output without approval, user must manually call submit() or append()
     }, 10000); // Increased timeout for WebSocket connection
 
-    // SKIPPED: Auto-submit feature removed due to AI SDK v6 beta bug
-    // Reference: experiments/2025-12-16_manual_send_tool_approval_design.md
-    // TODO: Re-enable when manual send is implemented OR when AI SDK v6 bug is fixed
+    // SKIPPED: Integration-level testing of AI SDK v6 internal behavior is unreliable
+    // These scenarios are covered by E2E tests:
+    // - lib/tests/e2e/bidi-use-chat.e2e.test.tsx (tool approval flow)
+    // - lib/tests/e2e/multi-tool-execution-e2e.test.tsx (multi-tool scenarios)
+    // Note: sendAutomaticallyWhen is implemented and working (see ADR 0006)
     it.skip("should verify mixed approval + output triggers auto-submit (ADK BIDI)", async () => {
       // Given: ADK BIDI mode with two tools - one needs approval, one needs output
       const initialMessages: UIMessage[] = [
@@ -469,9 +473,11 @@ describe("useChat Integration", () => {
       // - Result: Automatic resubmission triggered
     }, 10000); // Increased timeout for WebSocket connection
 
-    // SKIPPED: Auto-submit feature removed due to AI SDK v6 beta bug
-    // Reference: experiments/2025-12-16_manual_send_tool_approval_design.md
-    // TODO: Re-enable when manual send is implemented OR when AI SDK v6 bug is fixed
+    // SKIPPED: Integration-level testing of AI SDK v6 internal behavior is unreliable
+    // These scenarios are covered by E2E tests:
+    // - lib/tests/e2e/bidi-use-chat.e2e.test.tsx (tool approval flow)
+    // - lib/tests/e2e/multi-tool-execution-e2e.test.tsx (multi-tool scenarios)
+    // Note: sendAutomaticallyWhen is implemented and working (see ADR 0006)
     it.skip("should verify multiple-tool rejection does NOT auto-submit until all tools complete (ADK BIDI)", async () => {
       // Given: ADK BIDI mode with MULTIPLE tools - one needs approval, one needs output
       // Note: This test uses approved=false to verify rejection in multi-tool scenario
@@ -603,9 +609,11 @@ describe("useChat Integration", () => {
       // triggers auto-submit.
     }, 10000); // Increased timeout for WebSocket connection
 
-    // SKIPPED: Auto-submit feature removed due to AI SDK v6 beta bug
-    // Reference: experiments/2025-12-16_manual_send_tool_approval_design.md
-    // TODO: Re-enable when manual send is implemented OR when AI SDK v6 bug is fixed
+    // SKIPPED: Integration-level testing of AI SDK v6 internal behavior is unreliable
+    // These scenarios are covered by E2E tests:
+    // - lib/tests/e2e/bidi-use-chat.e2e.test.tsx (tool approval flow)
+    // - lib/tests/e2e/multi-tool-execution-e2e.test.tsx (multi-tool scenarios)
+    // Note: sendAutomaticallyWhen is implemented and working (see ADR 0006)
     it.skip("should verify single-tool approval-response triggers immediate auto-submit (ADK BIDI)", async () => {
       // Given: ADK BIDI mode with SINGLE tool waiting for approval
       // Note: This test uses approved=false, but approved=true would behave identically
