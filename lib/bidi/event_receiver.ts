@@ -138,7 +138,14 @@ export class EventReceiver {
     }
 
     // Parse JSON and convert to UIMessageChunk
-    const chunk = JSON.parse(jsonStr);
+    let chunk;
+    try {
+      chunk = JSON.parse(jsonStr);
+    } catch (err) {
+      // Log malformed JSON but continue processing (don't close stream)
+      console.error("[Event Receiver] Malformed JSON in SSE message:", jsonStr.substring(0, 100));
+      return; // Skip this message but keep stream open
+    }
 
     // Debug logging for specific event types
     if (chunk.type === "tool-approval-request") {
@@ -162,7 +169,18 @@ export class EventReceiver {
     }
 
     // Standard enqueue: Forward to AI SDK useChat hook
-    controller.enqueue(chunk as UIMessageChunk);
+    try {
+      controller.enqueue(chunk as UIMessageChunk);
+    } catch (err) {
+      // Handle controller already closed (can happen in tests or when [DONE] races with other messages)
+      if ((err as any).code === "ERR_INVALID_STATE") {
+        console.warn(
+          `[Event Receiver] Controller already closed, skipping chunk: ${chunk.type}`,
+        );
+        return;
+      }
+      throw err;
+    }
 
     // Custom event handling (after standard enqueue)
     this.handleCustomEventWithoutSkip(chunk);
@@ -189,7 +207,16 @@ export class EventReceiver {
       this.config.audioContext.voiceChannel.reset();
     }
 
-    controller.close();
+    // Close controller (may already be closed in some edge cases)
+    try {
+      controller.close();
+    } catch (err) {
+      if ((err as any).code === "ERR_INVALID_STATE") {
+        console.warn("[Event Receiver] Controller already closed in handleDoneMarker");
+      } else {
+        throw err;
+      }
+    }
     // this.currentController = null;
 
     // Reset audio state for next turn
