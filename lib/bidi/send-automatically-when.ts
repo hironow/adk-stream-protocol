@@ -11,7 +11,13 @@
  */
 
 import type { UIMessage } from "@ai-sdk/react";
-import { TOOL_TYPE_ADK_REQUEST_CONFIRMATION } from "@/lib/constants";
+import { isTextUIPart, isToolUIPart } from "ai";
+import {
+  TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+  TOOL_STATE_OUTPUT_AVAILABLE,
+  TOOL_STATE_OUTPUT_ERROR,
+  TOOL_STATE_APPROVAL_RESPONDED,
+} from "@/lib/constants";
 
 /**
  * Options for sendAutomaticallyWhen function
@@ -24,11 +30,13 @@ export interface SendAutomaticallyWhenOptions {
  * BIDI Mode: Automatically send when adk_request_confirmation completes
  *
  * ADK Tool Confirmation Flow (BIDI):
- * 1. User clicks Approve/Deny → addToolOutput adds confirmation to messages
+ * 1. User clicks Approve/Deny → addToolApprovalResponse updates confirmation state
  * 2. This function detects confirmation completion → returns true
+ *    - Approval: state changes to "approval-responded", approval.approved = true
+ *    - Denial: state changes to "approval-responded", approval.approved = false
  * 3. useChat automatically calls transport.sendMessages()
- * 4. EventSender.sendMessages() converts to function_response
- * 5. WebSocket sends to backend immediately
+ * 4. WebSocketChatTransport sends WebSocket message to backend
+ * 5. Backend receives approval/denial and responds
  *
  * @param options - Object containing messages array
  * @returns true if automatic send should be triggered, false otherwise
@@ -50,17 +58,22 @@ export function sendAutomaticallyWhen({
       `[BIDI sendAutomaticallyWhen] Found ${parts.length} parts in lastMessage`,
     );
 
-    // Check if adk_request_confirmation has output
+    // Check if adk_request_confirmation has been approved OR denied
+    // AI SDK v6 approval flow:
+    // - State: "approval-responded" (for both approval and denial)
+    // - Approval: part.approval.approved = true
+    // - Denial: part.approval.approved = false
+    // Both cases should trigger automatic send to backend
     const confirmationPart = parts.find(
       // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
       (part: any) =>
         part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
-        part.state === "output-available",
+        part.state === TOOL_STATE_APPROVAL_RESPONDED,
     );
 
     if (!confirmationPart) {
       console.log(
-        "[BIDI sendAutomaticallyWhen] No confirmation completion, not sending",
+        "[BIDI sendAutomaticallyWhen] No confirmation approval/denial, not sending",
       );
       return false;
     }
@@ -74,19 +87,34 @@ export function sendAutomaticallyWhen({
     // vs. backend has responded with additional content
     //
     // When user clicks Approve/Deny:
-    // - Confirmation tool in output-available state
+    // - Confirmation tool in approval-responded state
     // - Original tool (if exists) is still waiting (input-available or executing)
     //
     // After backend responds:
-    // - Confirmation still in output-available
-    // - Original tool (if exists) has completed (output-available or Failed)
+    // - Confirmation still in approval-responded
+    // - Original tool (if exists) has completed (output-available or output-error)
     // - Message may have new AI response text
+
+    // Check if backend has ALREADY responded by looking for:
+    // 1. Text parts (AI response)
+    // 2. Other tools that have completed
+    const hasTextPart = parts.some(
+      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+      (part: any) => isTextUIPart(part),
+    );
+
+    if (hasTextPart) {
+      console.log(
+        "[BIDI sendAutomaticallyWhen] Text part found, backend has responded, not sending",
+      );
+      return false;
+    }
 
     // Find ANY other tool in the same message (not confirmation)
     const otherTools = parts.filter(
       // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
       (part: any) =>
-        part.type?.startsWith("tool-") &&
+        isToolUIPart(part) &&
         part.type !== TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
     );
 
@@ -107,7 +135,10 @@ export function sendAutomaticallyWhen({
 
       // Check for both completed states AND error state
       // This detects when backend has ALREADY responded (prevents infinite loop)
-      if (toolState === "output-available" || toolState === "output-error") {
+      if (
+        toolState === TOOL_STATE_OUTPUT_AVAILABLE ||
+        toolState === TOOL_STATE_OUTPUT_ERROR
+      ) {
         console.log(
           `[BIDI sendAutomaticallyWhen] Tool ${toolType} completed (state: ${toolState}), backend has responded, not sending`,
         );

@@ -15,7 +15,7 @@
  * - Two separate HTTP requests (user input → backend, confirmation → backend)
  * - No persistent connection (stateless HTTP)
  * - No real-time bidirectional streaming
- * - ADK's confirmation flow handled via addToolOutput mechanism
+ * - ADK's confirmation flow handled via addToolApprovalResponse mechanism
  *
  * Benefits:
  * - Simple implementation (uses AI SDK defaults)

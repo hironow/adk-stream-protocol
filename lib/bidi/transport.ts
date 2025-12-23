@@ -182,14 +182,6 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
     this.eventSender.sendToolResult(toolCallId, result);
   }
 
-  public __sendFunctionResponse(
-    toolCallId: string,
-    toolName: string,
-    response: Record<string, unknown>,
-  ): void {
-    this.eventSender.sendFunctionResponse(toolCallId, toolName, response);
-  }
-
   public __startAudio(): void {
     this.eventSender.startAudio();
   }
@@ -320,7 +312,12 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
               this.ws.onerror = (error) => {
                 console.error("[WS Transport] Error:", error);
                 this._stopPing(); // Stop ping on error
-                controller.error(new Error("WebSocket error"));
+                try {
+                  controller.error(new Error("WebSocket error"));
+                } catch (err) {
+                  // Controller already closed (e.g., [DONE] was received) - ignore error
+                  console.debug("[WS Transport] Cannot error controller (already closed):", err);
+                }
               };
 
               this.ws.onclose = () => {
@@ -361,7 +358,12 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
               this.ws.onerror = (error) => {
                 console.error("[WS Transport] Error:", error);
                 this._stopPing(); // Stop ping on error
-                controller.error(new Error("WebSocket error"));
+                try {
+                  controller.error(new Error("WebSocket error"));
+                } catch (err) {
+                  // Controller already closed (e.g., [DONE] was received) - ignore error
+                  console.debug("[WS Transport] Cannot error controller (already closed):", err);
+                }
               };
 
               this.ws.onclose = () => {

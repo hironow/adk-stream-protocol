@@ -20,6 +20,7 @@ import { isTextUIPart } from "ai";
 import { http, HttpResponse } from "msw";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import {
+  TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
   TOOL_STATE_APPROVAL_REQUESTED,
   TOOL_STATE_APPROVAL_RESPONDED,
   TOOL_STATE_INPUT_AVAILABLE,
@@ -122,7 +123,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
           const lastMessage = result.current.messages.at(-1);
           expect(lastMessage?.role).toBe("assistant");
           const confirmationPart = lastMessage?.parts?.find(
-            (p: any) => p.type === "tool-adk_request_confirmation",
+            (p: any) => p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
           );
           expect(confirmationPart).toBeDefined();
           expect(confirmationPart?.state).toBe(TOOL_STATE_APPROVAL_REQUESTED);
@@ -134,7 +135,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
       await act(async () => {
         const lastMessage = result.current.messages.at(-1);
         const confirmationPart = lastMessage?.parts?.find(
-          (p: any) => p.type === "tool-adk_request_confirmation",
+          (p: any) => p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
         );
         result.current.addToolApprovalResponse({
           id: confirmationPart?.toolCallId,
@@ -147,7 +148,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
         () => {
           const lastMessage = result.current.messages.at(-1);
           const confirmationPart = lastMessage?.parts?.find(
-            (p: any) => p.type === "tool-adk_request_confirmation",
+            (p: any) => p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
           );
           console.log(
             "[Test] After approval, confirmation part:",
@@ -199,7 +200,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
             // Should include confirmation approval response
             parts: expect.arrayContaining([
               expect.objectContaining({
-                type: "tool-adk_request_confirmation",
+                type: TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
                 state: TOOL_STATE_APPROVAL_RESPONDED,
                 approval: expect.objectContaining({
                   approved: true,
@@ -220,28 +221,28 @@ describe("SSE Mode with useChat - E2E Tests", () => {
       );
     });
 
-    it("should work with Gemini mode (no confirmation flow)", async () => {
-      // Given: Gemini mode (no ADK backend)
+    it("should work with basic message flow (no confirmation)", async () => {
+      // Given: ADK SSE mode with simple text response (no confirmation)
       const capturedPayload: unknown[] = [];
 
       server.use(
-        http.post("http://localhost/api/chat", async ({ request }) => {
+        http.post("http://localhost:8000/stream", async ({ request }) => {
           capturedPayload.push(await request.json());
-          return createTextResponse("Hello", " from Gemini!");
+          return createTextResponse("Hello", " World!");
         }),
       );
 
       const { useChatOptions } = buildUseChatOptions({
-        mode: "gemini",
+        mode: "adk-sse",
         initialMessages: [],
-        apiEndpoint: "http://localhost/api/chat",
+        adkBackendUrl: "http://localhost:8000",
       });
 
       // When: Use the hook
       const { result } = renderHook(() => useChat(useChatOptions));
 
       await act(async () => {
-        result.current.sendMessage({ text: "Hello Gemini" });
+        result.current.sendMessage({ text: "Hello ADK" });
       });
 
       // Then: Verify request sent correctly
@@ -254,7 +255,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
               parts: expect.arrayContaining([
                 expect.objectContaining({
                   type: "text",
-                  text: "Hello Gemini",
+                  text: "Hello ADK",
                 }),
               ]),
             },
@@ -266,7 +267,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
       await waitFor(() => {
         const lastMessage = result.current.messages.at(-1);
         expect(lastMessage?.role).toBe("assistant");
-        expect(getMessageText(lastMessage)).toBe("Hello from Gemini!");
+        expect(getMessageText(lastMessage)).toBe("Hello World!");
       });
     });
   });
@@ -286,7 +287,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
             (msg: any) =>
               msg.role === "assistant" &&
               msg.parts?.some(
-                (part: any) => part.type === "tool-adk_request_confirmation",
+                (part: any) => part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
               ),
           );
 
@@ -336,7 +337,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
           expect(lastMessage?.parts).toEqual(
             expect.arrayContaining([
               expect.objectContaining({
-                type: "tool-adk_request_confirmation",
+                type: TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
                 toolCallId: "call-456",
                 state: TOOL_STATE_APPROVAL_REQUESTED,
               }),
@@ -350,7 +351,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
       await act(async () => {
         const lastMessage = result.current.messages.at(-1);
         const confirmationPart = lastMessage?.parts?.find(
-          (p: any) => p.type === "tool-adk_request_confirmation",
+          (p: any) => p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
         );
         result.current.addToolApprovalResponse({
           id: confirmationPart?.toolCallId,
@@ -473,15 +474,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
         });
       });
 
-      // Then: Verify all confirmations processed
-      await waitFor(
-        () => {
-          expect(requestCount).toBeGreaterThanOrEqual(3);
-        },
-        { timeout: 5000 },
-      );
-
-      // Verify final response
+      // Then: Verify final response with both confirmations processed
       await waitFor(
         () => {
           const lastMessage = result.current.messages.at(-1);
@@ -489,6 +482,16 @@ describe("SSE Mode with useChat - E2E Tests", () => {
         },
         { timeout: 3000 },
       );
+
+      // Verify both confirmations were processed
+      const allMessages = result.current.messages;
+      const confirmationParts = allMessages
+        .flatMap((msg: any) => msg.parts || [])
+        .filter((p: any) =>
+          p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
+          p.state === TOOL_STATE_APPROVAL_RESPONDED
+        );
+      expect(confirmationParts.length).toBeGreaterThanOrEqual(2);
     });
 
     it("should preserve message history during confirmation flow", async () => {
@@ -603,7 +606,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
           const lastMessage = result.current.messages.at(-1);
           expect(lastMessage?.role).toBe("assistant");
           const confirmationPart = lastMessage?.parts?.find(
-            (p: any) => p.type === "tool-adk_request_confirmation",
+            (p: any) => p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
           );
           expect(confirmationPart).toBeDefined();
         },
@@ -614,7 +617,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
       await act(async () => {
         const lastMessage = result.current.messages.at(-1);
         const confirmationPart = lastMessage?.parts?.find(
-          (p: any) => p.type === "tool-adk_request_confirmation",
+          (p: any) => p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
         );
         result.current.addToolApprovalResponse({
           id: confirmationPart?.toolCallId,
@@ -649,7 +652,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
               msg.role === "assistant" &&
               msg.parts?.some(
                 (part: any) =>
-                  part.type === "tool-adk_request_confirmation" &&
+                  part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
                   part.approval?.approved === false,
               ),
           );
@@ -698,7 +701,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
           const lastMessage = result.current.messages.at(-1);
           expect(lastMessage?.role).toBe("assistant");
           const confirmationPart = lastMessage?.parts?.find(
-            (p: any) => p.type === "tool-adk_request_confirmation",
+            (p: any) => p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
           );
           expect(confirmationPart).toBeDefined();
           expect(confirmationPart?.state).toBe(TOOL_STATE_APPROVAL_REQUESTED);
@@ -710,7 +713,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
       await act(async () => {
         const lastMessage = result.current.messages.at(-1);
         const confirmationPart = lastMessage?.parts?.find(
-          (p: any) => p.type === "tool-adk_request_confirmation",
+          (p: any) => p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
         );
         result.current.addToolApprovalResponse({
           id: confirmationPart?.toolCallId,

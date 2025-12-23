@@ -1,11 +1,12 @@
 /**
  * MSW Server Setup for Integration Tests
  *
- * Provides a configured MSW server instance for HTTP request mocking.
- * Use this in integration tests to intercept HTTP/SSE requests.
+ * Provides a configured MSW server instance for HTTP and WebSocket request mocking.
+ * Use this in integration tests to intercept HTTP/SSE and WebSocket requests.
  */
 
 import { setupServer } from "msw/node";
+import { ws } from "msw";
 
 /**
  * Create MSW server for integration tests

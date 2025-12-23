@@ -202,7 +202,7 @@ describe("lib/bidi Integration Tests", () => {
           parts: [
             {
               type: "tool-adk_request_confirmation",
-              state: "output-available",
+              state: "approval-responded",
               toolCallId: "call-1",
               input: {
                 originalFunctionCall: {
@@ -211,7 +211,7 @@ describe("lib/bidi Integration Tests", () => {
                   args: {},
                 },
               },
-              output: { confirmed: true },
+              approval: { approved: true },
             },
           ],
         } as any,
@@ -258,7 +258,7 @@ describe("lib/bidi Integration Tests", () => {
           parts: [
             {
               type: "tool-adk_request_confirmation",
-              state: "output-available",
+              state: "approval-responded",
               toolCallId: "call-1",
               input: {
                 originalFunctionCall: {
@@ -267,7 +267,7 @@ describe("lib/bidi Integration Tests", () => {
                   args: {},
                 },
               },
-              output: { confirmed: true },
+              approval: { approved: true },
             },
           ],
         } as any,

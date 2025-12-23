@@ -5,6 +5,8 @@
  * Provides consistent message formatting for mock WebSocket responses.
  */
 
+import { TOOL_NAME_ADK_REQUEST_CONFIRMATION } from "../../constants";
+
 /**
  * ADK BIDI message event (user/assistant content)
  */
@@ -134,7 +136,7 @@ export function createBidiConfirmationRequest(originalFunctionCall: {
   name: string;
   args: Record<string, unknown>;
 }): BidiToolUseEvent {
-  return createBidiToolUseEvent("call-1", "adk_request_confirmation", {
+  return createBidiToolUseEvent("call-1", TOOL_NAME_ADK_REQUEST_CONFIRMATION, {
     originalFunctionCall,
   });
 }

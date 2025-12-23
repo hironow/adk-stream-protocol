@@ -117,7 +117,8 @@ export class EventReceiver {
         this.config.onPong?.(message.timestamp);
       }
     } catch {
-      // Not JSON, ignore
+      // Not JSON, log for debugging
+      console.warn("[Event Receiver] Non-SSE, non-JSON message:", data.substring(0, 100));
     }
   }
 
