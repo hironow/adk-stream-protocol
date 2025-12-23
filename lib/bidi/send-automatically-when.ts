@@ -28,7 +28,7 @@ export interface SendAutomaticallyWhenOptions {
 }
 
 /**
- * BIDI Mode: Automatically send when adk_request_confirmation completes
+ * BIDI Mode: Automatically send when adk_request_confirmation completes OR tool output added
  *
  * ADK Tool Confirmation Flow (BIDI):
  * 1. User clicks Approve/Deny → addToolApprovalResponse updates confirmation state
@@ -39,6 +39,13 @@ export interface SendAutomaticallyWhenOptions {
  * 4. WebSocketChatTransport sends WebSocket message to backend
  * 5. Backend receives approval/denial and responds
  *
+ * Frontend Execute Flow (BIDI):
+ * 1. Frontend executes tool (e.g., browser API) → addToolOutput adds tool-result
+ * 2. This function detects new tool-result in user message → returns true
+ * 3. useChat automatically calls transport.sendMessages()
+ * 4. WebSocketChatTransport sends WebSocket message with tool-result to backend
+ * 5. Backend receives result and continues
+ *
  * @param options - Object containing messages array
  * @returns true if automatic send should be triggered, false otherwise
  */
@@ -47,13 +54,40 @@ export function sendAutomaticallyWhen({
 }: SendAutomaticallyWhenOptions): boolean {
   try {
     const lastMessage = messages[messages.length - 1];
+    if (!lastMessage) return false;
+
     if (lastMessage?.role !== "assistant") return false;
 
     // AI SDK v6 stores tool invocations in the `parts` array
     // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
     const parts = (lastMessage as any).parts || [];
 
-    // Check if adk_request_confirmation has been approved OR denied
+    // Early check: If backend has responded with text, don't send again
+    // This prevents infinite loops where tool output triggers sends after backend responds
+    const hasTextPart = parts.some(
+      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+      (part: any) => isTextUIPart(part),
+    );
+
+    if (hasTextPart) {
+      return false;
+    }
+
+    // Check for Frontend Execute pattern: tool output added via addToolOutput()
+    // addToolOutput() updates existing tool part to state="output-available"
+    const hasToolOutputFromAddToolOutput = parts.some(
+      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+      (part: any) =>
+        isToolUIPart(part) &&
+        part.state === TOOL_STATE_OUTPUT_AVAILABLE &&
+        part.output !== undefined,
+    );
+
+    if (hasToolOutputFromAddToolOutput) {
+      return true;
+    }
+
+    // Check if adk_request_confirmation has been approved OR denied (Server Execute pattern)
     // AI SDK v6 approval flow:
     // - State: "approval-responded" (for both approval and denial)
     // - Approval: part.approval.approved = true
@@ -95,18 +129,8 @@ export function sendAutomaticallyWhen({
     // - Confirmation still in approval-responded
     // - Original tool (if exists) has completed (output-available or output-error)
     // - Message may have new AI response text
-
-    // Check if backend has ALREADY responded by looking for:
-    // 1. Text parts (AI response)
-    // 2. Other tools that have completed
-    const hasTextPart = parts.some(
-      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
-      (part: any) => isTextUIPart(part),
-    );
-
-    if (hasTextPart) {
-      return false;
-    }
+    //
+    // Note: Text part check is done earlier (line 66-75)
 
     // Find ANY other tool in the same message (not confirmation)
     const otherTools = parts.filter(

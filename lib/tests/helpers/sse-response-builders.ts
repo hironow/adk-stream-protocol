@@ -6,69 +6,13 @@
  */
 
 import { HttpResponse } from "msw";
+import type { SseChunk } from "@/lib/types";
 import {
   TOOL_CHUNK_TYPE_INPUT_START,
   TOOL_CHUNK_TYPE_INPUT_AVAILABLE,
   TOOL_CHUNK_TYPE_APPROVAL_REQUEST,
   TOOL_NAME_ADK_REQUEST_CONFIRMATION,
 } from "../../constants";
-
-/**
- * SSE chunk type - text start
- * AI SDK v6 format
- */
-export interface TextStartChunk {
-  type: "text-start";
-  id: string;
-}
-
-/**
- * SSE chunk type - text delta
- * AI SDK v6 format
- */
-export interface TextDeltaChunk {
-  type: "text-delta";
-  delta: string;
-  id: string;
-}
-
-/**
- * SSE chunk type - text end
- * AI SDK v6 format
- */
-export interface TextEndChunk {
-  type: "text-end";
-  id: string;
-}
-
-/**
- * SSE chunk type - tool input start (AI SDK v6)
- */
-export interface ToolInputStartChunk {
-  type: typeof TOOL_CHUNK_TYPE_INPUT_START;
-  toolCallId: string;
-  toolName: string;
-}
-
-/**
- * SSE chunk type - tool input available (AI SDK v6)
- */
-export interface ToolInputAvailableChunk {
-  type: typeof TOOL_CHUNK_TYPE_INPUT_AVAILABLE;
-  toolCallId: string;
-  toolName: string;
-  input: unknown;
-}
-
-/**
- * Union type for all SSE chunk types (AI SDK v6)
- */
-export type SseChunk =
-  | TextStartChunk
-  | TextDeltaChunk
-  | TextEndChunk
-  | ToolInputStartChunk
-  | ToolInputAvailableChunk;
 
 /**
  * Create SSE stream response for MSW handler
@@ -157,13 +101,28 @@ export function createAdkConfirmationRequest(options: {
   const toolCallId = options.toolCallId ?? "call-1";
   const approvalId = options.approvalId ?? toolCallId;
 
-  // AI SDK v6 approval flow:
-  // 1. Send tool-input-start + tool-input-available (creates tool call)
-  // 2. Send tool-approval-request (marks it as needing approval)
-  // 3. Frontend calls addToolApprovalResponse()
-  // 4. State changes to "approval-responded"
-  // 5. sendAutomaticallyWhen detects approval-responded and triggers send
+  // AI SDK v6 approval flow for Frontend Execute pattern:
+  // 1. Send original tool chunks (tool-input-start + tool-input-available)
+  //    This creates the original tool part that frontend will update via addToolOutput()
+  // 2. Send confirmation tool chunks (tool-input-start + tool-input-available)
+  // 3. Send tool-approval-request for confirmation tool
+  // 4. Frontend calls addToolApprovalResponse() on confirmation tool
+  // 5. Frontend executes original tool and calls addToolOutput()
+  // 6. sendAutomaticallyWhen detects output-available and triggers send
   return createSseStreamResponse([
+    // Original tool chunks (will be updated by addToolOutput)
+    {
+      type: TOOL_CHUNK_TYPE_INPUT_START,
+      toolCallId: options.originalFunctionCall.id,
+      toolName: options.originalFunctionCall.name,
+    },
+    {
+      type: TOOL_CHUNK_TYPE_INPUT_AVAILABLE,
+      toolCallId: options.originalFunctionCall.id,
+      toolName: options.originalFunctionCall.name,
+      input: options.originalFunctionCall.args,
+    },
+    // Confirmation tool chunks
     {
       type: TOOL_CHUNK_TYPE_INPUT_START,
       toolCallId,
@@ -180,7 +139,7 @@ export function createAdkConfirmationRequest(options: {
       approvalId,
       toolCallId,
     },
-  ]);
+  ] as SseChunk[]);
 }
 
 /**

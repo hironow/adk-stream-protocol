@@ -75,6 +75,15 @@ export const TOOL_PART_TYPE_RESULT = "tool-result" as const;
 export const TOOL_PART_TYPE_OUTPUT_DENIED = "tool-output-denied" as const;
 
 /**
+ * UIMessageChunk Text Types
+ *
+ * Used in text streaming chunks.
+ */
+export const TEXT_CHUNK_TYPE_START = "text-start" as const;
+export const TEXT_CHUNK_TYPE_DELTA = "text-delta" as const;
+export const TEXT_CHUNK_TYPE_END = "text-end" as const;
+
+/**
  * UIMessageChunk Tool Types
  *
  * Used in streaming chunks during tool execution.

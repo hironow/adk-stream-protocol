@@ -3,6 +3,32 @@
 **Date:** 2025-12-23
 **Status:** Accepted
 
+## Scope and Limitations
+
+**This ADR applies to:**
+- **Server-side tool execution** where backend executes tools and requests user approval
+- Sequential multi-tool execution requiring multiple confirmation steps
+- Both SSE and BIDI modes using `addToolApprovalResponse()`
+
+**This ADR does NOT apply to:**
+- **Frontend-side tool execution** where frontend executes browser APIs and sends results via `addToolOutput()`
+- Single-tool execution scenarios
+- Tools that don't require user confirmation
+
+**Key Distinction:**
+
+```typescript
+// SERVER EXECUTE (this ADR applies)
+// Backend requests approval → User approves → Backend executes tool
+addToolApprovalResponse({ id: "call-tool1", approved: true });
+
+// FRONTEND EXECUTE (this ADR does NOT apply)
+// Frontend executes browser API → Sends result to backend
+addToolOutput({ toolCallId: "tool-123", output: result });
+```
+
+For frontend-execute pattern, see **ADR 0002** (Tool Approval Architecture) and **ADR 0003** (SSE vs BIDI Confirmation Protocol).
+
 ## Context
 
 During E2E test development for sequential multi-tool execution with confirmations, we discovered critical constraints on when backend can send text responses. The issue manifested as tests expecting text like "Database updated successfully" but only receiving "Found 10 users."

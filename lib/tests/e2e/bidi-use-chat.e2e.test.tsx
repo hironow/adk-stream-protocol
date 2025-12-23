@@ -237,8 +237,12 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
       server.use(
         createCustomHandler(chat, ({ server, client }) => {
           client.addEventListener("message", (event) => {
-            try {
-              const data = JSON.parse(event.data as string);
+            // Early return for non-JSON messages (e.g., WebSocket handshake)
+            if (typeof event.data !== "string" || !event.data.startsWith("{")) {
+              return;
+            }
+
+            const data = JSON.parse(event.data as string);
 
               // Check message content to determine response (like SSE does)
               const hasFirstApproval = data.messages?.some(
@@ -334,9 +338,6 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
                 client.send(`data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`);
                 client.send("data: [DONE]\n\n");
               }
-            } catch (e) {
-              // Ignore parse errors
-            }
           });
         }),
       );
@@ -598,8 +599,12 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
       server.use(
         createCustomHandler(chat, ({ server, client }) => {
           client.addEventListener("message", (event) => {
-            try {
-              const data = JSON.parse(event.data as string);
+            // Early return for non-JSON messages (e.g., WebSocket handshake)
+            if (typeof event.data !== "string" || !event.data.startsWith("{")) {
+              return;
+            }
+
+            const data = JSON.parse(event.data as string);
 
               // Check if this is the denial response
               // Same logic as SSE: check for approval.approved === false
@@ -676,9 +681,6 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
                 // Send [DONE] marker
                 client.send("data: [DONE]\n\n");
               }
-            } catch (error) {
-              // Ignore parse errors for non-JSON messages
-            }
           });
         }),
       );

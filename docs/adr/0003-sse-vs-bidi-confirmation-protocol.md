@@ -207,11 +207,50 @@ const message: UIMessage = {
 - Current logs: `chunk_logs/scenario-11/frontend/process-payment-bidi-1-normal-flow-approve-once.jsonl`
 - Investigation: `agents/bidi-tool-execution-investigation.md`
 
+## Multi-Tool Sequential Execution
+
+When executing **multiple tools sequentially** with separate confirmation steps, additional constraints apply beyond the single-tool protocols described above.
+
+### SSE Mode: Multiple HTTP Requests
+
+```
+Request 1: Initial user message
+→ Response 1: Tool1 confirmation (no text)
+
+Request 2: Tool1 approval
+→ Response 2: Tool2 confirmation (no text)
+
+Request 3: Tool2 approval
+→ Response 3: ALL text + tool results
+```
+
+### BIDI Mode: Single WebSocket with Multiple Confirmations
+
+```
+Message 1: Initial user message
+→ Response 1: Tool1 confirmation (no text)
+
+Message 2: Tool1 approval
+→ Response 2: Tool2 confirmation (no text)
+
+Message 3: Tool2 approval
+→ Response 3: ALL text + tool results
+```
+
+**Critical Constraint**: Backend MUST NOT send text in intermediate responses (after Tool1 approval). All text must be deferred until the final response after all confirmations complete.
+
+**Rationale**: The `sendAutomaticallyWhen` function uses text part presence to detect "backend already responded," which would block automatic sending of subsequent approvals.
+
+**For detailed explanation**, see **ADR 0004: Multi-Tool Sequential Execution Response Timing**.
+
 ## Related ADRs
 
 - **ADR 0002**: Tool Approval Architecture with Backend Delegation
     - Established backend delegation pattern
     - This ADR refines the protocol details for SSE vs BIDI modes
+- **ADR 0004**: Multi-Tool Sequential Execution Response Timing
+    - Documents response timing constraints for multi-tool scenarios
+    - Applies to both SSE and BIDI modes
 
 ## Future Considerations
 

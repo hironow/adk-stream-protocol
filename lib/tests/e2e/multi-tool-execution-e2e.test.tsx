@@ -69,8 +69,12 @@ describe("Multi-Tool Execution E2E Tests", () => {
       server.use(
         createCustomHandler(chat, ({ server: _server, client }) => {
           client.addEventListener("message", (event) => {
-            try {
-              const data = JSON.parse(event.data as string);
+            // Early return for non-JSON messages (e.g., WebSocket handshake)
+            if (typeof event.data !== "string" || !event.data.startsWith("{")) {
+              return;
+            }
+
+            const data = JSON.parse(event.data as string);
 
               // Check if Tool1 was approved
               const hasTool1Approval = data.messages?.some(
@@ -213,9 +217,6 @@ describe("Multi-Tool Execution E2E Tests", () => {
                 })}\n\n`,
               );
               client.send("data: [DONE]\n\n");
-            }
-            } catch {
-              // Ignore non-JSON messages from WebSocket handshake
             }
           });
         }),
@@ -367,8 +368,12 @@ describe("Multi-Tool Execution E2E Tests", () => {
       server.use(
         createCustomHandler(chat, ({ server: _server, client }) => {
           client.addEventListener("message", (event) => {
-            try {
-              const data = JSON.parse(event.data as string);
+            // Early return for non-JSON messages (e.g., WebSocket handshake)
+            if (typeof event.data !== "string" || !event.data.startsWith("{")) {
+              return;
+            }
+
+            const data = JSON.parse(event.data as string);
 
               // Check if Tool1 was approved
             const hasTool1Approval = data.messages?.some(
@@ -501,9 +506,6 @@ describe("Multi-Tool Execution E2E Tests", () => {
               );
 
               client.send("data: [DONE]\n\n");
-            }
-            } catch {
-              // Ignore non-JSON messages from WebSocket handshake
             }
           });
         }),
