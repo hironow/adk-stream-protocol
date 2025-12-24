@@ -237,6 +237,7 @@ delete-gen:
     rm -rf .pytest_cache
     rm -rf .ruff_cache
     rm -rf __pycache__
+    rm -rf test_chunks
     find . -type d -name "*.egg-info" -exec rm -rf {} +
     find . -type d -name "__pycache__" -exec rm -rf {} +
     @echo "Generated files cleaned."
@@ -263,6 +264,7 @@ delete-logs:
     @echo "Cleaning up log files..."
     rm -rf logs
     rm -rf chunk_logs
+    rm -rf test_chunks
     @echo "Log files cleaned."
 
 # Kill expected ports for a harder clean
