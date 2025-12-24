@@ -13,7 +13,7 @@ Based on server.py global frontend_delegate pattern.
 
 import asyncio
 from typing import Any
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -477,4 +477,3 @@ async def test_await_blocks_until_future_resolved() -> None:
 
     # Verify execution order: tool_start → resolve → tool_end
     assert execution_order == ["tool_start", "resolve_start", "resolve_end", "tool_end"]
-

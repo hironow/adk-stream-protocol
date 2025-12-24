@@ -147,7 +147,9 @@ class TestChunkPlayerManager:
 # Once manual recording is complete, remove @pytest.mark.skip decorators.
 
 
-@pytest.mark.skip(reason="Waiting for fixture recording - fixture files are empty (0 bytes). See docs/E2E_GUIDE.md")
+@pytest.mark.skip(
+    reason="Waiting for fixture recording - fixture files are empty (0 bytes). See docs/E2E_GUIDE.md"
+)
 class TestPattern2ADKSSEOnly:
     """
     Tests for Pattern 2: ADK SSE Only.
@@ -190,7 +192,9 @@ class TestPattern2ADKSSEOnly:
         assert len(tool_chunks) > 0
 
 
-@pytest.mark.skip(reason="Waiting for fixture recording - fixture files are empty (0 bytes). See docs/E2E_GUIDE.md")
+@pytest.mark.skip(
+    reason="Waiting for fixture recording - fixture files are empty (0 bytes). See docs/E2E_GUIDE.md"
+)
 class TestPattern3ADKBIDIOnly:
     """
     Tests for Pattern 3: ADK BIDI Only.
@@ -233,7 +237,9 @@ class TestPattern3ADKBIDIOnly:
         assert len(chunks) > 0
 
 
-@pytest.mark.skip(reason="Waiting for fixture recording - fixture files are empty (0 bytes). See docs/E2E_GUIDE.md")
+@pytest.mark.skip(
+    reason="Waiting for fixture recording - fixture files are empty (0 bytes). See docs/E2E_GUIDE.md"
+)
 class TestPattern4ModeSwitching:
     """
     Tests for Pattern 4: Mode Switching.

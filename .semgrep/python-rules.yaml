@@ -84,6 +84,7 @@ rules:
       exclude:
         - "**/examples/**"
         - "**/tests/**"
+        - "**/adk_stream_protocol/frontend_tool_service.py"  # Exception: Converting asyncio exceptions to Result type
 
   - id: enforce-loguru-and-aiohttp
     message: "標準logging, requests, httpx は禁止。loguru と aiohttp を使用してください。"

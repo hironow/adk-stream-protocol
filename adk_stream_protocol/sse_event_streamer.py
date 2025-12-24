@@ -323,7 +323,9 @@ class SseEventStreamer:
         )
 
         # STEP 3: Wait for user decision using Result pattern
-        match await _execute_confirmation_sse(interceptor, confirmation_id, fc_id, fc_name, fc_args):
+        match await _execute_confirmation_sse(
+            interceptor, confirmation_id, fc_id, fc_name, fc_args
+        ):
             case Ok(confirmation_result):
                 confirmed = confirmation_result.get("confirmed", False)
                 logger.info(f"[SSE Confirmation] User decision: confirmed={confirmed}")

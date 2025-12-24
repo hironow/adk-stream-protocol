@@ -348,6 +348,7 @@ afterEach(() => {
 **Implementation:** lib/tests/shared-mocks/websocket.ts
 
 **Features:**
+
 - Simulates WebSocket connection lifecycle
 - `simulateMessage()` helper for SSE format messages
 - Tracks sent messages for verification
@@ -365,6 +366,7 @@ vi.mock('@/lib/audio-context', () => ({
 **Implementation:** lib/tests/shared-mocks/audio-context.ts
 
 **Features:**
+
 - Mocks audio input/output device management
 - Provides voice and BGM channel mocks
 - Tracks device ID changes

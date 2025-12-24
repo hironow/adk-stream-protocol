@@ -122,7 +122,9 @@ class FrontendToolDelegate:
             )
             # Clean up pending call
             self._pending_calls.pop(function_call_id, None)
-            return Error(f"Timeout waiting for frontend tool result (tool={tool_name}, id={function_call_id})")
+            return Error(
+                f"Timeout waiting for frontend tool result (tool={tool_name}, id={function_call_id})"
+            )
         except RuntimeError as e:
             logger.error(
                 f"[FrontendDelegate] Tool execution failed: "
