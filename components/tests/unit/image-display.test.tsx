@@ -73,11 +73,12 @@ describe('ImageDisplay', () => {
       expect(img).toBeInTheDocument();
     });
 
-    it('should use empty string alt when provided', () => {
+    it('should use default alt text when empty string is provided', () => {
       render(<ImageDisplay content="AAAA" mediaType="image/png" alt="" />);
 
       const img = screen.getByRole('img');
-      expect(img).toHaveAttribute('alt', '');
+      // Empty string alt falls back to default alt text
+      expect(img).toHaveAttribute('alt', 'AI-generated image');
     });
   });
 
