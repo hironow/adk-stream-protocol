@@ -163,8 +163,9 @@ describe('ImageUpload', () => {
   });
 
   describe('Image Removal', () => {
-    // Skipped: Test is flaky due to FileReader async timing
-    it.skip('should call onImageRemove when remove button is clicked', async () => {
+    // Note: File reading implementation details are tested in lib/tests/unit/file-reader-utils.test.ts
+    // Component tests focus on UI/UX behavior (remove button interaction)
+    it('should call onImageRemove when remove button is clicked', async () => {
       render(
         <ImageUpload
           onImageSelect={mockOnImageSelect}
@@ -195,8 +196,8 @@ describe('ImageUpload', () => {
         expect(mockOnImageSelect).toHaveBeenCalled();
       });
 
-      // Then, click remove button
-      const removeButton = await screen.findByRole('button', { name: /remove/i });
+      // Then, click remove button (button with ✕ character)
+      const removeButton = await screen.findByRole('button', { name: '✕' });
       fireEvent.click(removeButton);
 
       expect(mockOnImageRemove).toHaveBeenCalled();
