@@ -1,29 +1,29 @@
 /**
  * useChat Options Builder - Mode Dispatcher
  *
- * 🟡 Multi-Mode Support - Routes to appropriate mode-specific builder
+ * Central entry point for building AI SDK v6 useChat options across different backend modes.
+ * This module routes configuration requests to mode-specific builders based on the selected
+ * communication protocol.
  *
- * Routes useChat hook configuration to mode-specific builders:
- * - BIDI mode: lib/bidi/use-chat-options.ts (🔴 ADK BIDI)
- * - SSE modes: lib/sse/use-chat-options.ts
- *   - adk-sse: 🟡 ADK tool confirmation
- *   - gemini: ⚪ No ADK dependency
+ * Supported Modes:
+ * - adk-bidi: Bidirectional WebSocket transport with ADK protocol (lib/bidi/use-chat-options.ts)
+ * - adk-sse: Server-Sent Events with ADK tool confirmation (lib/sse/use-chat-options.ts)
+ * - gemini: Direct Gemini API via SSE, no ADK dependency (lib/sse/use-chat-options.ts)
  *
  * Dependencies:
- * - AI SDK v6 (ChatTransport, UIMessage)
- * - lib/bidi (ADK BIDI protocol)
- * - lib/sse (SSE modes)
- * - lib/chunk-player-transport (E2E testing)
+ * - AI SDK v6: ChatTransport interface, UIMessage types
+ * - lib/bidi: WebSocket-based bidirectional transport
+ * - lib/sse: SSE-based transports (both ADK and Gemini)
+ * - lib/chunk_logs: ChunkPlayerTransport for deterministic E2E testing
  *
- * This file handles:
- * - E2E test mode (ChunkPlayerTransport)
- * - Mode routing
- * - Type definitions
+ * Key Responsibilities:
+ * - Route configuration to appropriate mode-specific builder
+ * - Handle E2E test mode with ChunkPlayerTransport
+ * - Provide unified type definitions for all modes
  *
- * KNOWN ISSUE: AI SDK v6 useChat hook does not respect `api` prop
- * - Investigation: experiments/2025-12-11_e2e_test_timeout_investigation.md:440-513
- * - Symptom: All HTTP requests go to the first endpoint regardless of `api` value
- * - Solution: Mode-specific builders use prepareSendMessagesRequest to override endpoint
+ * Note: AI SDK v6 useChat hook does not respect the `api` prop for endpoint configuration.
+ * Mode-specific builders work around this by using prepareSendMessagesRequest to override
+ * the endpoint. See experiments/2025-12-11_e2e_test_timeout_investigation.md:440-513.
  */
 
 import type { UIMessage } from "@ai-sdk/react";
@@ -41,9 +41,19 @@ import type { AudioContextValue, Mode } from "@/lib/types";
 // Re-export Mode for convenience
 export type { Mode };
 
+// Type alias for backward compatibility
+export type BackendMode = Mode;
+
 /**
  * Return type for buildUseChatOptions
- * Includes useChat options and optional transport reference for imperative control
+ *
+ * Contains both the useChat options object and an optional transport reference
+ * for imperative control (e.g., closing connections, accessing internal state).
+ *
+ * @property useChatOptions - Configuration object to pass to AI SDK's useChat hook
+ * @property transport - Optional reference to the underlying transport (BIDI mode only)
+ *                       - Present for adk-bidi mode to allow connection management
+ *                       - Undefined for SSE modes and test mode (no imperative control needed)
  */
 export interface UseChatOptionsWithTransport {
   useChatOptions: {
@@ -58,22 +68,27 @@ export interface UseChatOptionsWithTransport {
 }
 
 /**
- * Build useChat options based on backend mode
+ * Build AI SDK v6 useChat options based on backend communication mode
  *
- * Routes to mode-specific builders:
- * - adk-bidi: BIDI WebSocket transport (lib/bidi/use-chat-options.ts)
- * - adk-sse: ADK SSE transport (lib/sse/use-chat-options.ts)
- * - gemini: Gemini SSE transport (lib/sse/use-chat-options.ts)
+ * Central dispatcher that routes configuration to the appropriate mode-specific builder.
+ * Supports E2E test mode detection via localStorage for deterministic testing.
  *
- * Special modes:
- * - E2E test mode: ChunkPlayerTransport (deterministic testing)
+ * Mode Routing:
+ * - adk-bidi → lib/bidi/use-chat-options.ts (WebSocket bidirectional transport)
+ * - adk-sse → lib/sse/use-chat-options.ts (SSE with ADK tool confirmation)
+ * - gemini → lib/sse/use-chat-options.ts (Direct Gemini API, no ADK)
  *
- * @param mode - Backend mode
- * @param initialMessages - Initial chat messages
- * @param adkBackendUrl - ADK backend URL (default: http://localhost:8000)
- * @param forceNewInstance - Force new chat instance (for testing)
- * @param audioContext - Optional AudioContext for BIDI PCM streaming
- * @returns useChat options with optional transport reference
+ * E2E Test Mode:
+ * When localStorage.E2E_CHUNK_PLAYER_MODE === "true", uses ChunkPlayerTransport
+ * with fixture from localStorage.E2E_CHUNK_PLAYER_FIXTURE for deterministic replay.
+ *
+ * @param config - Configuration object
+ * @param config.mode - Backend communication mode (adk-bidi | adk-sse | gemini)
+ * @param config.initialMessages - Initial conversation history to display
+ * @param config.adkBackendUrl - ADK backend URL (default: process.env.NEXT_PUBLIC_ADK_BACKEND_URL || http://localhost:8000)
+ * @param config.forceNewInstance - Force new chat instance instead of reusing (for testing isolation)
+ * @param config.audioContext - Optional AudioContext for PCM audio streaming (adk-bidi mode only)
+ * @returns useChat configuration object with optional transport reference for imperative control
  */
 export function buildUseChatOptions({
   mode,
@@ -91,7 +106,8 @@ export function buildUseChatOptions({
   forceNewInstance?: boolean;
   audioContext?: AudioContextValue;
 }): UseChatOptionsWithTransport {
-  // E2E Test Mode: Use ChunkPlayerTransport for deterministic testing
+  // E2E Test Mode Detection: Check localStorage for ChunkPlayerTransport mode
+  // This allows E2E tests to replay pre-recorded responses deterministically
   if (typeof window !== "undefined") {
     const isChunkPlayerMode =
       window.localStorage.getItem("E2E_CHUNK_PLAYER_MODE") === "true";
@@ -102,7 +118,8 @@ export function buildUseChatOptions({
       );
 
       if (fixturePath) {
-        // Create chunk player transport (lazy loading - fixture loaded on first sendMessages)
+        // Create ChunkPlayerTransport with lazy fixture loading
+        // Fixture is loaded on first sendMessages() call for better performance
         const transport = ChunkPlayerTransport.fromFixture(fixturePath);
         const chatId = `chunk-player-${mode}`;
         return {
@@ -111,7 +128,7 @@ export function buildUseChatOptions({
             id: chatId,
             transport,
           },
-          transport: undefined,
+          transport: undefined, // No imperative control needed for test mode
         };
       }
     }
@@ -143,7 +160,8 @@ export function buildUseChatOptions({
       });
 
     default: {
-      // TypeScript will catch this at compile time if we add a new mode
+      // Exhaustiveness check: TypeScript ensures all Mode variants are handled
+      // This line will cause a compile error if a new mode is added but not handled
       const exhaustiveCheck: never = mode;
       throw new Error(`Unhandled backend mode: ${exhaustiveCheck}`);
     }

@@ -36,25 +36,36 @@ import { EventReceiver } from "./event_receiver";
 import { EventSender } from "./event_sender";
 
 /**
- * AudioContext interface for PCM streaming
- * (imported from lib/audio-context.tsx in buildUseChatOptions)
+ * AudioContext Interface for Real-Time PCM Streaming
+ *
+ * This interface is defined here for type checking purposes only. The actual
+ * implementation is provided by lib/types/common.ts and passed through
+ * buildUseChatOptions() configuration.
+ *
+ * Purpose:
+ * - Enable real-time PCM audio playback for AI-generated voice responses
+ * - Route audio chunks from backend to Web Audio API AudioWorklet
+ * - Support voice mode in BIDI communication
+ *
+ * Note: The extended version here includes onComplete callback for audio metadata,
+ * which is optional and not present in the base AudioContextValue type.
  */
 interface AudioContextValue {
   voiceChannel: {
     isPlaying: boolean;
     chunkCount: number;
     sendChunk: (chunk: {
-      content: string;
-      sampleRate: number;
-      channels: number;
-      bitDepth: number;
+      content: string; // Base64-encoded PCM data
+      sampleRate: number; // Sample rate in Hz (e.g., 24000)
+      channels: number; // Number of audio channels (1 = mono, 2 = stereo)
+      bitDepth: number; // Bits per sample (e.g., 16)
     }) => void;
     reset: () => void;
     onComplete?: (metadata: {
-      chunks: number;
-      bytes: number;
-      sampleRate: number;
-      duration: number;
+      chunks: number; // Total number of audio chunks processed
+      bytes: number; // Total bytes of audio data
+      sampleRate: number; // Sample rate used
+      duration: number; // Total audio duration in seconds
     }) => void;
   };
   isReady: boolean;
@@ -74,27 +85,57 @@ interface AudioContextValue {
  */
 
 /**
- * WebSocket transport configuration
+ * WebSocket Transport Configuration
+ *
+ * Configuration options for WebSocketChatTransport initialization.
+ *
+ * @property url - WebSocket URL (e.g., ws://localhost:8000/live or wss://example.com/live)
+ *                 HTTP/HTTPS URLs will be automatically converted to WS/WSS
+ * @property timeout - WebSocket connection timeout in milliseconds (default: 30000ms)
+ *                     Connection attempt will fail if not established within this time
+ * @property audioContext - Optional AudioContext for real-time PCM audio streaming
+ *                          Only used in voice mode to route audio chunks to Web Audio API
+ * @property latencyCallback - Optional callback invoked with latency measurements (ms)
+ *                             Useful for monitoring connection quality in real-time
  */
 export interface WebSocketChatTransportConfig {
-  /** WebSocket URL (e.g., ws://localhost:8000/live) */
   url: string;
-
-  /** WebSocket connection timeout (ms) */
   timeout?: number;
-
-  /** Optional AudioContext for PCM streaming (BIDI mode only) */
   audioContext?: AudioContextValue;
-
-  /** Optional callback for latency updates (ms) */
   latencyCallback?: (latency: number) => void;
 }
 
 /**
- * WebSocket Chat Transport
+ * WebSocket Chat Transport - Bidirectional AI SDK v6 Transport
  *
- * Enables bidirectional streaming with ADK backend via WebSocket.
- * Compatible with AI SDK v6 useChat hook.
+ * Implements AI SDK v6 ChatTransport interface using WebSocket for bidirectional
+ * real-time communication with ADK backend. This transport enables:
+ *
+ * Core Features:
+ * - Full-duplex bidirectional streaming (send/receive simultaneously)
+ * - Real-time PCM audio streaming for voice interactions
+ * - Tool confirmation workflow with user approval
+ * - Persistent connection (no HTTP request/response overhead)
+ *
+ * Architecture:
+ * - Uses EventSender for outgoing messages (converts to ADK protocol events)
+ * - Uses EventReceiver for incoming messages (converts from SSE format to UIMessageChunk)
+ * - Maintains single WebSocket connection throughout session
+ * - Automatically handles connection lifecycle (open, close, error, reconnect)
+ *
+ * Protocol:
+ * Backend sends AI SDK v6 Data Stream Protocol in SSE format over WebSocket.
+ * This allows 100% code reuse from SSE mode while gaining WebSocket benefits.
+ *
+ * Thread Safety:
+ * Not thread-safe. All methods must be called from the same thread (React UI thread).
+ *
+ * See Also:
+ * - lib/sse/transport.ts: HTTP SSE version (simpler, one-way streaming)
+ * - EventSender: Outgoing message handling
+ * - EventReceiver: Incoming message handling
+ *
+ * @implements {ChatTransport<UIMessage>} AI SDK v6 ChatTransport interface
  */
 export class WebSocketChatTransport implements ChatTransport<UIMessage> {
   private config: WebSocketChatTransportConfig;

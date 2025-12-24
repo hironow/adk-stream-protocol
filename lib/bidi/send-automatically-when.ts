@@ -1,13 +1,30 @@
 /**
- * BIDI Mode - sendAutomaticallyWhen
+ * BIDI Mode - sendAutomaticallyWhen (WebSocket Auto-Send Logic)
  *
- * Determines when to automatically send messages in BIDI mode.
- * Specifically handles ADK Tool Confirmation Flow.
+ * Determines when to automatically send messages in BIDI mode (WebSocket) after
+ * user interactions like tool approval or tool execution. This function is passed
+ * to AI SDK v6's useChat hook as the `sendAutomaticallyWhen` option.
  *
- * BIDI-specific behavior:
- * - WebSocket connection is persistent
- * - EventSender.sendMessages() converts confirmation to function_response
- * - No HTTP request overhead
+ * Key Responsibilities:
+ * - Detect when user approves tool confirmation (Server Execute pattern)
+ * - Detect when frontend executes tool and provides output (Frontend Execute pattern)
+ * - Prevent duplicate sends after backend has already responded
+ * - Prevent infinite loops by validating message state carefully
+ *
+ * BIDI-Specific Optimizations:
+ * - WebSocket connection is persistent (no connection overhead)
+ * - EventSender.sendMessages() efficiently converts confirmation to function_response
+ * - Lower latency compared to SSE (no HTTP request/response cycle)
+ * - Can handle multiple pending confirmations in single message
+ *
+ * Integration with AI SDK v6:
+ * This function is called by useChat after each message state update to determine
+ * if a new sendMessages() call should be triggered automatically. Return true to
+ * trigger automatic send, false to wait for explicit user action.
+ *
+ * See Also:
+ * - ADR 0005: Frontend Execute Pattern and [DONE] Sending Timing
+ * - lib/sse/send-automatically-when.ts: SSE version (simpler logic due to HTTP)
  */
 
 import type { UIMessage } from "@ai-sdk/react";
@@ -21,14 +38,25 @@ import {
 } from "@/lib/constants";
 
 /**
- * Options for sendAutomaticallyWhen function
+ * Options for sendAutomaticallyWhen Function
+ *
+ * @property messages - Current messages array from useChat hook
+ *                      Used to analyze last assistant message for auto-send triggers
  */
 export interface SendAutomaticallyWhenOptions {
   messages: UIMessage[];
 }
 
 /**
- * BIDI Mode: Automatically send when adk_request_confirmation completes OR tool output added
+ * BIDI Mode: Automatically Send When Tool Confirmation Completes OR Tool Output Added
+ *
+ * This function implements the core auto-send logic for BIDI mode's tool confirmation
+ * workflow. It analyzes the last assistant message to determine if AI SDK should
+ * automatically trigger a new sendMessages() call.
+ *
+ * Two Main Patterns Supported:
+ * 1. Server Execute: Backend executes tools, frontend only provides approval
+ * 2. Frontend Execute: Frontend executes tools (browser APIs), sends results to backend
  *
  * See: ADR 0005 (Frontend Execute Pattern and [DONE] Sending Timing)
  *
@@ -130,8 +158,44 @@ export interface SendAutomaticallyWhenOptions {
  *
  *   Default: return true (Server Execute: send approval to backend)
  *
- * @param options - Object containing messages array
- * @returns true if automatic send should be triggered, false otherwise
+ * Critical Implementation Notes:
+ * - Check order is CRITICAL to prevent false positives and infinite loops
+ * - Text part check must come FIRST to detect backend responses
+ * - Approval-responded validation must come BEFORE Frontend Execute check
+ * - Error state check must come BEFORE output-available check
+ *
+ * @param options - Configuration object
+ * @param options.messages - Current messages array from useChat hook
+ * @returns {boolean} Auto-send trigger decision
+ *          - true: Trigger sendMessages() automatically (tool confirmation approved OR tool output added)
+ *          - false: Wait for explicit user action (no auto-send)
+ *
+ * @throws Never throws - catches all errors and returns false to prevent infinite loops
+ *
+ * @example Server Execute Pattern
+ * ```typescript
+ * // User approves tool confirmation
+ * addToolApprovalResponse({ id: 'call-1', approved: true });
+ * // → sendAutomaticallyWhen returns true
+ * // → AI SDK automatically calls sendMessages()
+ * // → Backend executes tool and returns result
+ * ```
+ *
+ * @example Frontend Execute Pattern
+ * ```typescript
+ * // User approves tool confirmation
+ * addToolApprovalResponse({ id: 'call-1', approved: true });
+ * // → sendAutomaticallyWhen returns true
+ * // → AI SDK automatically calls sendMessages()
+ * // → Backend acknowledges approval (no [DONE] signal)
+ *
+ * // Frontend executes tool
+ * const result = await navigator.geolocation.getCurrentPosition();
+ * addToolOutput({ toolCallId: 'orig-1', output: JSON.stringify(result) });
+ * // → sendAutomaticallyWhen returns true
+ * // → AI SDK automatically calls sendMessages()
+ * // → Backend receives tool output and returns AI response
+ * ```
  */
 export function sendAutomaticallyWhen({
   messages,

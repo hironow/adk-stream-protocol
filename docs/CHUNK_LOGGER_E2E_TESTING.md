@@ -489,6 +489,6 @@ expect(processPaymentCall?.foundInFrontend).toBe(true);
 
 ## 参考リンク
 
-- [ADK Tool Confirmation Flow](./adk-tool-confirmation.md)
+- [ADK Tool Confirmation Flow](./ADK_NATIVE_TOOL_CONFIRMATION_FLOW.md)
 - [E2E Test Guidelines](../CLAUDE.md#e2e-guidelines)
 - [Chunk Logger Implementation](../agents/insights.md#chunk-logger)

@@ -1,8 +1,23 @@
 /**
  * SSE Mode useChat Options Builder
  *
- * Constructs useChat hook options for SSE-based modes (Gemini, ADK SSE).
- * Handles HTTP streaming transport creation and endpoint configuration.
+ * Constructs AI SDK v6 useChat hook configuration for SSE-based communication modes.
+ * Supports both Gemini (direct API) and ADK SSE (with tool confirmation) modes.
+ * This module handles HTTP streaming transport creation, endpoint configuration,
+ * and mode-specific setup.
+ *
+ * Key Responsibilities:
+ * - Create SseChatTransport for HTTP SSE streaming
+ * - Configure API endpoint based on mode (Gemini or ADK SSE)
+ * - Wrap transport with ChunkLoggingTransport for debugging/replay
+ * - Configure sendAutomaticallyWhen for ADK SSE mode (tool confirmation)
+ * - Generate unique chat IDs to ensure proper useChat instance management
+ *
+ * Dependencies:
+ * - AI SDK v6: useChat hook, UIMessage types
+ * - SseChatTransport: HTTP SSE streaming transport
+ * - ChunkLoggingTransport: Transparent logging wrapper
+ * - sendAutomaticallyWhen: Tool confirmation trigger (ADK SSE mode only)
  */
 
 import type { UIMessage } from "@ai-sdk/react";
@@ -11,32 +26,47 @@ import { sendAutomaticallyWhen } from "./send-automatically-when";
 import { createSseTransport } from "./transport";
 
 /**
- * SSE mode type
+ * SSE Mode Type
+ *
+ * Defines the two supported SSE communication modes.
+ *
+ * @property gemini - Direct Gemini API via Next.js API route (no ADK backend)
+ * @property adk-sse - ADK protocol over HTTP SSE with tool confirmation support
  */
 export type SseMode = "gemini" | "adk-sse";
 
 /**
- * SSE mode configuration
+ * SSE Mode Configuration
+ *
+ * Configuration object for building SSE mode useChat options.
+ *
+ * @property mode - SSE communication mode (gemini or adk-sse)
+ * @property initialMessages - Initial conversation history to display in the chat UI
+ * @property apiEndpoint - Optional API endpoint override for custom backend URLs
+ * @property adkBackendUrl - ADK backend URL (adk-sse mode only, default: http://localhost:8000)
+ * @property forceNewInstance - Force creation of new chat instance instead of reusing
+ *                              existing one (useful for test isolation)
  */
 export interface SseUseChatConfig {
-  /** SSE mode (gemini or adk-sse) */
   mode: SseMode;
-
-  /** Initial messages for the chat */
   initialMessages: UIMessage[];
-
-  /** API endpoint override (optional) */
   apiEndpoint?: string;
-
-  /** ADK backend URL (for adk-sse mode, defaults to http://localhost:8000) */
   adkBackendUrl?: string;
-
-  /** Force new chat instance (for testing) */
   forceNewInstance?: boolean;
 }
 
 /**
- * SSE mode useChat options
+ * SSE Mode useChat Options
+ *
+ * Return type from buildSseUseChatOptions containing useChat configuration.
+ *
+ * @property useChatOptions - Configuration object to pass to AI SDK's useChat hook
+ * @property useChatOptions.transport - ChunkLoggingTransport wrapping SseChatTransport
+ * @property useChatOptions.messages - Initial messages for the conversation
+ * @property useChatOptions.id - Unique chat instance ID (based on mode and endpoint)
+ * @property useChatOptions.sendAutomaticallyWhen - Auto-send trigger (ADK SSE mode only, undefined for gemini)
+ * @property transport - Always undefined for SSE modes (no imperative control needed)
+ *                       SSE uses standard HTTP requests, no persistent connection to manage
  */
 export interface SseUseChatOptions {
   useChatOptions: {
@@ -47,7 +77,6 @@ export interface SseUseChatOptions {
       messages: UIMessage[];
     }) => boolean | PromiseLike<boolean>;
   };
-  /** No transport reference for SSE mode (uses DefaultChatTransport internally) */
   transport: undefined;
 }
 

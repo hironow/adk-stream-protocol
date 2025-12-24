@@ -59,60 +59,57 @@ describe("SSE Mode - Frontend Execute Pattern", () => {
       let toolResultReceived = false;
 
       server.use(
-        http.post(
-          "http://localhost:8000/stream",
-          async ({ request: _request }) => {
-            requestCount++;
-            const payload = (await request.json()) as any;
+        http.post("http://localhost:8000/stream", async ({ request }) => {
+          requestCount++;
+          const payload = (await request.json()) as any;
 
-            // Request 1: Initial message → Return confirmation
-            if (requestCount === 1) {
-              return createAdkConfirmationRequest({
-                toolCallId: "call-location",
-                originalFunctionCall: {
-                  id: "orig-location",
-                  name: "get_location",
-                  args: {},
-                },
-              });
+          // Request 1: Initial message → Return confirmation
+          if (requestCount === 1) {
+            return createAdkConfirmationRequest({
+              toolCallId: "call-location",
+              originalFunctionCall: {
+                id: "orig-location",
+                name: "get_location",
+                args: {},
+              },
+            });
+          }
+
+          // Request 2: Approval response (approval-responded state)
+          if (requestCount === 2) {
+            // This request contains the approval-responded state
+            // Just acknowledge and wait for tool output in next request
+            return new HttpResponse(null, { status: 204 });
+          }
+
+          // Request 3: Should contain tool output from frontend
+          if (requestCount === 3) {
+            // Verify frontend sent tool output via addToolOutput()
+            const messages = payload.messages as UIMessage[];
+            const lastMessage = messages[messages.length - 1];
+
+            // Check for tool part with output-available state (from addToolOutput)
+            const hasToolOutput = lastMessage?.parts?.some(
+              (part: any) =>
+                part.toolCallId === "orig-location" &&
+                part.state === "output-available" &&
+                part.output !== undefined,
+            );
+
+            if (hasToolOutput) {
+              toolResultReceived = true;
             }
 
-            // Request 2: Approval response (approval-responded state)
-            if (requestCount === 2) {
-              // This request contains the approval-responded state
-              // Just acknowledge and wait for tool output in next request
-              return new HttpResponse(null, { status: 204 });
-            }
+            // Backend continues with AI response
+            return createTextResponse(
+              "Your location is Tokyo, Japan (35.6762°N, 139.6503°E).",
+            );
+          }
 
-            // Request 3: Should contain tool output from frontend
-            if (requestCount === 3) {
-              // Verify frontend sent tool output via addToolOutput()
-              const messages = payload.messages as UIMessage[];
-              const lastMessage = messages[messages.length - 1];
-
-              // Check for tool part with output-available state (from addToolOutput)
-              const hasToolOutput = lastMessage?.parts?.some(
-                (part: any) =>
-                  part.toolCallId === "orig-location" &&
-                  part.state === "output-available" &&
-                  part.output !== undefined,
-              );
-
-              if (hasToolOutput) {
-                toolResultReceived = true;
-              }
-
-              // Backend continues with AI response
-              return createTextResponse(
-                "Your location is Tokyo, Japan (35.6762°N, 139.6503°E).",
-              );
-            }
-
-            return HttpResponse.text("Unexpected request", {
-              status: 500,
-            }) as any;
-          },
-        ),
+          return HttpResponse.text("Unexpected request", {
+            status: 500,
+          }) as any;
+        }),
       );
 
       const { useChatOptions } = buildUseChatOptions({

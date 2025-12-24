@@ -1,6 +1,6 @@
 # Architecture Documentation
 
-**Last Updated:** 2025-12-14
+**Last Updated:** 2025-12-24
 
 This document describes the key architectural patterns and technical implementations in the ADK AI Data Protocol project.
 
@@ -1097,8 +1097,15 @@ Complete test matrix coverage for all conditional logic branches.
 - **Experiment Notes:** `experiments/2025-12-11_adk_bidi_multimodal_support.md`
 - **Tool Approval Tests:** `tests/unit/test_tool_approval.py`, `tests/integration/test_backend_tool_approval.py`
 - **WebSocket Event Tests:** `tests/unit/test_websocket_events.py`
+- **Architecture Decision Records:**
+    - [ADR-0001](adr/0001-per-connection-state-management.md) - Per-Connection State Management
+    - [ADR-0002](adr/0002-tool-approval-architecture.md) - Tool Approval Architecture
+    - [ADR-0003](adr/0003-sse-vs-bidi-confirmation-protocol.md) - SSE vs BIDI Confirmation Protocol
+    - [ADR-0004](adr/0004-multi-tool-response-timing.md) - Multi-Tool Response Timing
+    - [ADR-0005](adr/0005-frontend-execute-pattern-and-done-timing.md) - Frontend Execute Pattern and [DONE] Timing
+    - [ADR-0006](adr/0006-send-automatically-when-decision-logic-order.md) - sendAutomaticallyWhen Decision Logic Order
 
 ---
 
-**Last Updated:** 2025-12-14
+**Last Updated:** 2025-12-24
 **Status:** Phase 1-3 Complete, Phase 4 (Video) Future Work
