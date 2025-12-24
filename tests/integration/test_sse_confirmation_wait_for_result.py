@@ -35,7 +35,10 @@ from adk_stream_protocol import FrontendToolDelegate, SseEventStreamer
 from tests.utils.mocks import create_mock_runner, create_mock_session
 
 
-@pytest.mark.skip(reason="TDD RED test - SSE confirmation wait-for-result feature not yet implemented")
+@pytest.mark.skip(
+    reason="E2E flow with user approval - covered by lib/tests/e2e/frontend-execute-sse.e2e.test.tsx. "
+    "Backend unit tests focus on event sequence, not complete user interaction flow."
+)
 @pytest.mark.asyncio
 async def test_sse_confirmation_should_wait_for_result_before_done() -> None:
     """
@@ -125,7 +128,10 @@ async def test_sse_confirmation_should_wait_for_result_before_done() -> None:
     )
 
 
-@pytest.mark.skip(reason="TDD RED test - SSE confirmation complete flow feature not yet implemented")
+@pytest.mark.skip(
+    reason="E2E flow with user approval - covered by lib/tests/e2e/frontend-execute-sse.e2e.test.tsx. "
+    "Backend unit tests focus on event sequence, not complete user interaction flow."
+)
 @pytest.mark.asyncio
 async def test_sse_confirmation_complete_flow_with_approval() -> None:
     """
@@ -230,7 +236,6 @@ async def test_sse_confirmation_complete_flow_with_approval() -> None:
     )
 
 
-@pytest.mark.skip(reason="TDD RED test - SSE confirmation error suppression feature not yet implemented")
 @pytest.mark.asyncio
 async def test_sse_confirmation_should_not_suppress_error_prematurely() -> None:
     """

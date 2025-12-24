@@ -20,15 +20,15 @@ import { useChat } from "@ai-sdk/react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { UIMessage } from "ai";
 import { isTextUIPart } from "ai";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { buildUseChatOptions } from "../../bidi";
 import { chunkLogger } from "../../chunk_logs";
 import {
   createBidiWebSocketLink,
   createCustomHandler,
   createTextResponseHandler,
-} from "../helpers/bidi-ws-handlers";
-import { createMswServer } from "../mocks/msw-server";
+  setupMswServer,
+} from "../helpers";
 
 /**
  * Helper function to extract text content from UIMessage parts
@@ -43,20 +43,12 @@ function getMessageText(message: UIMessage | undefined): string {
     .join("");
 }
 
-// Create MSW server for WebSocket interception
-const server = createMswServer();
+// Create MSW server for WebSocket interception with standard lifecycle
+const server = setupMswServer({ onUnhandledRequest: "warn" });
 
-beforeAll(() => {
-  server.listen({ onUnhandledRequest: "warn" });
-});
-
+// Additional cleanup: Clear chunk logger after each test
 afterEach(() => {
-  server.resetHandlers();
   chunkLogger.clear();
-});
-
-afterAll(() => {
-  server.close();
 });
 
 describe("ChunkLogging E2E Tests", () => {

@@ -22,27 +22,6 @@ from tests.utils.result_assertions import assert_ok
 class TestADKVercelIDMapperIntegration:
     """Integration tests for ID mapper with related components."""
 
-    @pytest.fixture
-    def id_mapper(self) -> ADKVercelIDMapper:
-        """Create fresh ID mapper instance."""
-        return ADKVercelIDMapper()
-
-    @pytest.fixture
-    def frontend_delegate(self, id_mapper: ADKVercelIDMapper) -> FrontendToolDelegate:
-        """Create FrontendToolDelegate with ID mapper."""
-        return FrontendToolDelegate(id_mapper=id_mapper)
-
-    @pytest.fixture
-    def confirmation_interceptor(
-        self,
-        frontend_delegate: FrontendToolDelegate,
-    ) -> ToolConfirmationInterceptor:
-        """Create ToolConfirmationInterceptor with delegate."""
-        return ToolConfirmationInterceptor(
-            delegate=frontend_delegate,
-            confirmation_tools=["process_payment", "delete_account"],
-        )
-
     def test_normal_tool_registration_and_resolution(
         self,
         id_mapper: ADKVercelIDMapper,

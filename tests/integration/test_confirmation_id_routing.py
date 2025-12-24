@@ -22,27 +22,6 @@ from tests.utils.result_assertions import assert_ok
 class TestConfirmationIDRouting:
     """Test that confirmation tool results don't get mixed with original tool results."""
 
-    @pytest.fixture
-    def id_mapper(self) -> ADKVercelIDMapper:
-        """Create fresh ID mapper instance."""
-        return ADKVercelIDMapper()
-
-    @pytest.fixture
-    def frontend_delegate(self, id_mapper: ADKVercelIDMapper) -> FrontendToolDelegate:
-        """Create FrontendToolDelegate with ID mapper."""
-        return FrontendToolDelegate(id_mapper=id_mapper)
-
-    @pytest.fixture
-    def confirmation_interceptor(
-        self,
-        frontend_delegate: FrontendToolDelegate,
-    ) -> ToolConfirmationInterceptor:
-        """Create ToolConfirmationInterceptor with get_location as approval-required."""
-        return ToolConfirmationInterceptor(
-            delegate=frontend_delegate,
-            confirmation_tools=["get_location"],
-        )
-
     @pytest.mark.asyncio
     async def test_confirmation_future_should_not_receive_original_tool_result(
         self,

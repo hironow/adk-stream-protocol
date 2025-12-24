@@ -18,7 +18,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import type { UIMessage } from "ai";
 import { isTextUIPart } from "ai";
 import { HttpResponse, http } from "msw";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   TOOL_STATE_APPROVAL_REQUESTED,
   TOOL_STATE_APPROVAL_RESPONDED,
@@ -29,8 +29,8 @@ import { buildUseChatOptions, type Mode, type UseChatConfig } from "../../sse";
 import {
   createAdkConfirmationRequest,
   createTextResponse,
-} from "../helpers/sse-response-builders";
-import { createMswServer } from "../mocks/msw-server";
+  setupMswServer,
+} from "../helpers";
 
 /**
  * Helper function to extract text content from UIMessage parts
@@ -45,12 +45,8 @@ function getMessageText(message: UIMessage | undefined): string {
     .join("");
 }
 
-// Create MSW server for HTTP interception
-const server = createMswServer();
-
-beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
-afterEach(() => server.resetHandlers());
-afterAll(() => server.close());
+// Create MSW server for HTTP interception with standard lifecycle
+const server = setupMswServer();
 
 describe("SSE Mode with useChat - E2E Tests", () => {
   describe("Test 1: Full SSE Configuration with sendAutomaticallyWhen", () => {

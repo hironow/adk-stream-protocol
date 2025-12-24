@@ -23,7 +23,6 @@ from adk_stream_protocol import FrontendToolDelegate, SseEventStreamer
 from tests.utils.mocks import create_mock_runner, create_mock_session
 
 
-@pytest.mark.skip(reason="TDD RED test - SSE confirmation tool-input event feature not yet implemented")
 @pytest.mark.asyncio
 async def test_sse_confirmation_should_send_tool_input_events_for_original_tool() -> None:
     """
@@ -102,7 +101,6 @@ async def test_sse_confirmation_should_send_tool_input_events_for_original_tool(
     )
 
 
-@pytest.mark.skip(reason="TDD RED test - confirmation event sequence feature not yet implemented in SSE mode")
 @pytest.mark.asyncio
 async def test_sse_confirmation_event_sequence() -> None:
     """

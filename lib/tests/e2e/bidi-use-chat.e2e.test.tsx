@@ -17,7 +17,7 @@ import { useChat } from "@ai-sdk/react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { UIMessage } from "ai";
 import { isTextUIPart } from "ai";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { buildUseChatOptions } from "../../bidi";
 import {
   TOOL_NAME_ADK_REQUEST_CONFIRMATION,
@@ -30,8 +30,8 @@ import {
   createConfirmationRequestHandler,
   createCustomHandler,
   createTextResponseHandler,
-} from "../helpers/bidi-ws-handlers";
-import { createMswServer } from "../mocks/msw-server";
+  setupMswServer,
+} from "../helpers";
 
 /**
  * Helper function to extract text content from UIMessage parts
@@ -46,22 +46,16 @@ function getMessageText(message: UIMessage | undefined): string {
     .join("");
 }
 
-// Create MSW server for WebSocket interception
-const server = createMswServer();
-
-beforeAll(() =>
-  server.listen({
-    onUnhandledRequest(request) {
-      // Ignore WebSocket upgrade requests
-      if (request.url.includes("/live")) {
-        return;
-      }
-      console.error("Unhandled request:", request.method, request.url);
-    },
-  }),
-);
-afterEach(() => server.resetHandlers());
-afterAll(() => server.close());
+// Create MSW server for WebSocket interception with custom unhandled request handler
+const server = setupMswServer({
+  onUnhandledRequest(request) {
+    // Ignore WebSocket upgrade requests
+    if (request.url.includes("/live")) {
+      return;
+    }
+    console.error("Unhandled request:", request.method, request.url);
+  },
+});
 
 describe("BIDI Mode with useChat - E2E Tests", () => {
   describe("Test 1: Full BIDI Configuration with sendAutomaticallyWhen", () => {

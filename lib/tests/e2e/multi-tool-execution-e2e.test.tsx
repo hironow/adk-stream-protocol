@@ -20,7 +20,7 @@ import { useChat } from "@ai-sdk/react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { UIMessage } from "ai";
 import { isTextUIPart, isToolUIPart } from "ai";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { buildUseChatOptions } from "../../bidi";
 import {
   TOOL_NAME_ADK_REQUEST_CONFIRMATION,
@@ -30,8 +30,8 @@ import {
 import {
   createBidiWebSocketLink,
   createCustomHandler,
-} from "../helpers/bidi-ws-handlers";
-import { createMswServer } from "../mocks/msw-server";
+  setupMswServer,
+} from "../helpers";
 
 /**
  * Helper function to extract text content from UIMessage parts
@@ -46,20 +46,8 @@ function getMessageText(message: UIMessage | undefined): string {
     .join("");
 }
 
-// Create MSW server for WebSocket interception
-const server = createMswServer();
-
-beforeAll(() => {
-  server.listen({ onUnhandledRequest: "warn" });
-});
-
-afterEach(() => {
-  server.resetHandlers();
-});
-
-afterAll(() => {
-  server.close();
-});
+// Create MSW server for WebSocket interception with standard lifecycle
+const server = setupMswServer({ onUnhandledRequest: "warn" });
 
 describe("Multi-Tool Execution E2E Tests", () => {
   describe("Sequential Tool Execution with Confirmations", () => {

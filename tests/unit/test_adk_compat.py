@@ -19,22 +19,6 @@ from adk_stream_protocol.adk_compat import (
 
 
 @pytest.fixture
-def mock_session():
-    """Create a mock ADK session"""
-    session = MagicMock()
-    session.state = {}
-    session.events = []
-    return session
-
-
-@pytest.fixture
-def mock_session_service():
-    """Create a mock ADK session service"""
-    service = AsyncMock()
-    return service
-
-
-@pytest.fixture
 def sample_messages():
     """Create sample ChatMessage objects for testing"""
     # Create mock messages instead of real ChatMessage objects to avoid attribute issues

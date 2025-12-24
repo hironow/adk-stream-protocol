@@ -7,7 +7,7 @@
 
 import type { UIMessage, UIMessageChunk } from "ai";
 import { http } from "msw";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   TOOL_CHUNK_TYPE_INPUT_AVAILABLE,
   TOOL_CHUNK_TYPE_INPUT_START,
@@ -19,15 +19,11 @@ import { buildUseChatOptions } from "../../sse";
 import {
   createAdkConfirmationRequest,
   createTextResponse,
-} from "../helpers/sse-response-builders";
-import { createMswServer } from "../mocks/msw-server";
+  setupMswServer,
+} from "../helpers";
 
-// Create MSW server
-const server = createMswServer();
-
-beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
-afterEach(() => server.resetHandlers());
-afterAll(() => server.close());
+// Create MSW server with standard lifecycle
+const server = setupMswServer();
 
 describe("lib/sse Integration Tests", () => {
   describe("Gemini Mode - HTTP SSE Communication", () => {

@@ -5,8 +5,12 @@ unit, integration, and E2E tests.
 """
 
 import base64
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
+
+from adk_stream_protocol import ADKVercelIDMapper, FrontendToolDelegate, ToolConfirmationInterceptor
 
 
 # ============================================================
@@ -101,3 +105,57 @@ def tool_result_event() -> dict[str, object]:
             "result": {"success": True, "data": "processed"},
         },
     }
+
+
+# ============================================================
+# Mock Object Fixtures (Common across all test types)
+# ============================================================
+
+
+@pytest.fixture
+def id_mapper() -> ADKVercelIDMapper:
+    """Create fresh ID mapper instance for tests."""
+    return ADKVercelIDMapper()
+
+
+@pytest.fixture
+def frontend_delegate(id_mapper: ADKVercelIDMapper) -> FrontendToolDelegate:
+    """Create FrontendToolDelegate with ID mapper."""
+    return FrontendToolDelegate(id_mapper=id_mapper)
+
+
+@pytest.fixture
+def confirmation_interceptor(
+    frontend_delegate: FrontendToolDelegate,
+) -> ToolConfirmationInterceptor:
+    """Create ToolConfirmationInterceptor with default confirmation tools."""
+    return ToolConfirmationInterceptor(
+        delegate=frontend_delegate,
+        confirmation_tools=["get_location", "process_payment"],
+    )
+
+
+@pytest.fixture
+def mock_session() -> Mock:
+    """Create a mock ADK session."""
+    session = MagicMock()
+    session.state = {}
+    session.events = []
+    return session
+
+
+@pytest.fixture
+def mock_session_service() -> Mock:
+    """Create a mock ADK session service."""
+    return AsyncMock()
+
+
+# ============================================================
+# Path Fixtures
+# ============================================================
+
+
+@pytest.fixture
+def fixture_dir() -> Path:
+    """Get E2E fixtures directory (backend JSONL files)."""
+    return Path(__file__).parent.parent / "fixtures" / "backend"

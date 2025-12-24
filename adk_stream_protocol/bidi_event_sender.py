@@ -20,6 +20,7 @@ from types import SimpleNamespace
 from typing import Any
 
 from fastapi import WebSocket
+from fastapi.websockets import WebSocketDisconnect
 from google.adk.agents import LiveRequestQueue
 from google.adk.events import Event as ADKEvent
 from google.adk.runners import Runner
@@ -155,9 +156,12 @@ class BidiEventSender:
             live_events: AsyncIterable of ADK events from run_live()
 
         Raises:
-            WebSocketDisconnect: Client disconnected during streaming
             ValueError: ADK connection errors (session resumption, etc.)
             Exception: Other errors during sending
+
+        Note:
+            WebSocketDisconnect is caught and handled gracefully - the method
+            returns normally without raising when client disconnects.
         """
         event_count = 0
         logger.info("[BIDI] Starting to stream ADK events to WebSocket")
@@ -169,15 +173,23 @@ class BidiEventSender:
                 async for processed_event in self._handle_confirmation_if_needed(event):
                     yield processed_event
 
-        async for sse_event in stream_adk_to_ai_sdk(
-            events_with_confirmation(),
-            mode="adk-bidi",  # Chunk logger: distinguish from adk-sse mode
-        ):
-            event_count += 1
+        try:
+            async for sse_event in stream_adk_to_ai_sdk(
+                events_with_confirmation(),
+                mode="adk-bidi",  # Chunk logger: distinguish from adk-sse mode
+            ):
+                event_count += 1
 
-            await self._send_sse_event(sse_event)
+                await self._send_sse_event(sse_event)
 
-        logger.info(f"[BIDI] Sent {event_count} events to client")
+            logger.info(f"[BIDI] Sent {event_count} events to client")
+        except WebSocketDisconnect:
+            logger.warning(
+                f"[BIDI] WebSocket disconnected during send - stopping stream gracefully "
+                f"(sent {event_count} events before disconnect)"
+            )
+            # Gracefully stop - do not re-raise
+            return
         # no except any other exceptions. Let them propagate to caller for handling.
 
     async def _send_sse_event(self, sse_event: str) -> None:

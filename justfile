@@ -8,6 +8,7 @@ help:
 
 # Define specific commands
 MARKDOWNLINT := "bun x markdownlint-cli2"
+PDOC := "uv run pdoc"
 
 
 # Install all dependencies (both Python and Node.js)
@@ -21,6 +22,11 @@ install:
 server:
     @echo "Starting backend server at http://localhost:8000"
     uv run uvicorn server:app --reload --host 0.0.0.0 --port 8000
+
+[group("development")]
+pdoc:
+    @echo "Starting pdoc documentation server at http://localhost:8888"
+    {{PDOC}} --port 8888 ./adk_stream_protocol
 
 # Run Next.js frontend development server
 [group("development")]
@@ -124,7 +130,7 @@ test-frontend-e2e:
 [group("testing")]
 test-frontend-all: test-frontend-lib test-frontend-app test-frontend-components test-frontend-e2e
 
-# Setup E2E fixture symlinks (public/ -> tests/fixtures/)
+# Setup E2E fixture symlinks (public/fixtures/ -> fixtures/public/)
 [group("setup")]
 setup-e2e-fixtures:
     #!/usr/bin/env bash
@@ -132,8 +138,8 @@ setup-e2e-fixtures:
     echo "Setting up E2E fixture symlinks..."
     mkdir -p public/fixtures
     cd public/fixtures
-    # Symlink all *.jsonl files from tests/fixtures/
-    for fixture in ../../tests/fixtures/*.jsonl; do
+    # Symlink all *.jsonl files from fixtures/public/
+    for fixture in ../../fixtures/public/*.jsonl; do
         if [ -f "$fixture" ]; then
             filename=$(basename "$fixture")
             if [ ! -L "$filename" ]; then

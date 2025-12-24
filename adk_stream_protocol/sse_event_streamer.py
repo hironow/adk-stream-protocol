@@ -23,6 +23,7 @@ from google.adk.sessions import Session
 from loguru import logger
 
 from . import adk_ag_tools
+from .adk_compat import extract_function_call_from_event, is_function_call_requiring_confirmation
 from .confirmation_interceptor import ToolConfirmationInterceptor
 from .frontend_tool_service import FrontendToolDelegate
 from .result import Error, Ok, Result
@@ -226,25 +227,143 @@ class SseEventStreamer:
 
     async def _handle_confirmation_if_needed(self, event: Any):
         """
-        Handle SSE confirmation flow - pass through to ADK's native handling.
+        Handle SSE confirmation flow for tools requiring user approval.
 
-        SSE Mode Design:
-        - ADK natively handles confirmation for tools with require_confirmation=True
-        - ADK generates both process_payment AND adk_request_confirmation FunctionCalls
-        - Stream ends after confirmation UI
-        - Frontend sends NEW request with confirmation result
-        - Server processes confirmation in new request
-
-        This is different from BIDI mode which manually intercepts and handles confirmation.
+        This implements the same confirmation pattern as BIDI mode,
+        but adapted for SSE's request-response model.
 
         Args:
             event: ADK event (Event object or dict)
 
         Yields:
-            Original event (pass-through, no interception in SSE mode)
+            Processed events (original tool events, confirmation events, tool execution results)
         """
-        logger.debug("[SSE Confirmation] Passing event through (ADK native handling)")
-        yield event
+        # Check if this event requires confirmation
+        if not is_function_call_requiring_confirmation(event, self._confirmation_tools):
+            logger.debug("[SSE Confirmation] Event doesn't require confirmation - passing through")
+            yield event
+            return
+
+        # Extract function_call details
+        function_call = extract_function_call_from_event(event)
+        if not function_call:
+            logger.warning("[SSE Confirmation] Could not extract function_call from event")
+            yield event
+            return
+
+        # Extract function call data
+        if isinstance(function_call, dict):
+            fc_id = function_call.get("id", "unknown")
+            fc_name = function_call.get("name", "unknown")
+            fc_args = function_call.get("args", {})
+        else:
+            fc_id = function_call.id if hasattr(function_call, "id") else "unknown"
+            fc_name = function_call.name if hasattr(function_call, "name") else "unknown"
+            fc_args = function_call.args if hasattr(function_call, "args") else {}
+
+        logger.info("[SSE Confirmation] ========== START CONFIRMATION FLOW ==========")
+        logger.info(f"[SSE Confirmation] Tool: {fc_name} (id={fc_id}, args={fc_args})")
+
+        # Generate confirmation UI events as SSE format strings
+        confirmation_id = f"confirmation-{fc_id}"
+
+        # Create interceptor for this confirmation
+        interceptor = ToolConfirmationInterceptor(
+            delegate=self._delegate,
+            confirmation_tools=self._confirmation_tools,
+        )
+
+        # Register confirmation ID in ID mapper
+        interceptor._delegate._id_mapper.register("adk_request_confirmation", confirmation_id)
+
+        # STEP 1: Send original tool-input events FIRST (so frontend knows about the original tool)
+        # This fixes the bug where frontend only received confirmation events but not the original tool events
+        yield format_sse_event(
+            {
+                "type": "tool-input-start",
+                "toolCallId": fc_id,
+                "toolName": fc_name,
+            }
+        )
+
+        yield format_sse_event(
+            {
+                "type": "tool-input-available",
+                "toolCallId": fc_id,
+                "toolName": fc_name,
+                "input": fc_args,
+            }
+        )
+
+        # STEP 2: Send confirmation UI events
+        yield format_sse_event(
+            {
+                "type": "tool-input-start",
+                "toolCallId": confirmation_id,
+                "toolName": "adk_request_confirmation",
+            }
+        )
+
+        yield format_sse_event(
+            {
+                "type": "tool-input-available",
+                "toolCallId": confirmation_id,
+                "toolName": "adk_request_confirmation",
+                "input": {
+                    "originalFunctionCall": {
+                        "id": fc_id,
+                        "name": fc_name,
+                        "args": fc_args,
+                    },
+                    "toolConfirmation": {
+                        "confirmed": False,
+                    },
+                },
+            }
+        )
+
+        # STEP 3: Wait for user decision using Result pattern
+        match await _execute_confirmation_sse(interceptor, confirmation_id, fc_id, fc_name, fc_args):
+            case Ok(confirmation_result):
+                confirmed = confirmation_result.get("confirmed", False)
+                logger.info(f"[SSE Confirmation] User decision: confirmed={confirmed}")
+
+                # Yield confirmation result
+                yield format_sse_event(
+                    {
+                        "type": "tool-output-available",
+                        "toolCallId": confirmation_id,
+                        "output": confirmation_result,
+                    }
+                )
+
+                # STEP 4: Execute tool if approved
+                if confirmed:
+                    logger.info("[SSE Confirmation] ========== USER APPROVED ==========")
+                    # Execute tool and yield result events
+                    async for tool_event in self._execute_tool(fc_id, fc_name, fc_args):
+                        yield tool_event
+                else:
+                    # User denied - yield error
+                    logger.info(f"[SSE Confirmation] User denied tool: {fc_name}")
+                    yield format_sse_event(
+                        {
+                            "type": "tool-output-error",
+                            "toolCallId": fc_id,
+                            "error": f"Tool execution denied by user: {fc_name}",
+                        }
+                    )
+
+            case Error(error_msg):
+                logger.error(f"[SSE Confirmation] {error_msg}")
+                # Yield error
+                yield format_sse_event(
+                    {
+                        "type": "tool-output-error",
+                        "toolCallId": fc_id,
+                        "error": error_msg,
+                    }
+                )
 
     async def _execute_tool(self, fc_id: str, fc_name: str, fc_args: dict[str, Any]):
         """
