@@ -12,18 +12,21 @@
  * @vitest-environment jsdom
  */
 
-import { render, screen, waitFor } from '@testing-library/react';
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import type { UIMessage } from 'ai';
-import { Chat } from '@/components/chat';
-import { buildUseChatOptions } from '@/lib/build-use-chat-options';
-import { MockWebSocket, createMockAudioContext } from '@/lib/tests/shared-mocks';
+import { render, screen, waitFor } from "@testing-library/react";
+import type { UIMessage } from "ai";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { Chat } from "@/components/chat";
+import { buildUseChatOptions } from "@/lib/build-use-chat-options";
+import {
+  createMockAudioContext,
+  MockWebSocket,
+} from "@/lib/tests/shared-mocks";
 
-vi.mock('@/lib/audio-context', () => ({
+vi.mock("@/lib/audio-context", () => ({
   useAudio: () => createMockAudioContext(),
 }));
 
-describe('Chat Component Integration', () => {
+describe("Chat Component Integration", () => {
   let originalWebSocket: typeof WebSocket;
   let originalFetch: typeof fetch;
 
@@ -31,13 +34,13 @@ describe('Chat Component Integration', () => {
     originalWebSocket = global.WebSocket as typeof WebSocket;
     originalFetch = global.fetch;
     global.WebSocket = MockWebSocket as any;
-    
+
     // Mock fetch for Gemini Direct and ADK SSE modes
     global.fetch = vi.fn(() =>
       Promise.resolve({
         ok: true,
         body: null,
-      } as Response)
+      } as Response),
     );
   });
 
@@ -47,32 +50,32 @@ describe('Chat Component Integration', () => {
     vi.clearAllMocks();
   });
 
-  describe('Mode Integration', () => {
-    it('should initialize with gemini mode', () => {
+  describe("Mode Integration", () => {
+    it("should initialize with gemini mode", () => {
       // Given: Gemini mode configuration
-      const mode = 'gemini';
+      const mode = "gemini";
 
       // When: Render Chat component
       render(<Chat mode={mode} />);
 
       // Then: Component should render without errors
-      expect(screen.getByTestId('chat-form')).toBeInTheDocument();
+      expect(screen.getByTestId("chat-form")).toBeInTheDocument();
     });
 
-    it('should initialize with adk-sse mode', () => {
+    it("should initialize with adk-sse mode", () => {
       // Given: ADK SSE mode configuration
-      const mode = 'adk-sse';
+      const mode = "adk-sse";
 
       // When: Render Chat component
       render(<Chat mode={mode} />);
 
       // Then: Component should render without errors
-      expect(screen.getByTestId('chat-form')).toBeInTheDocument();
+      expect(screen.getByTestId("chat-form")).toBeInTheDocument();
     });
 
-    it('should initialize with adk-bidi mode', async () => {
+    it("should initialize with adk-bidi mode", async () => {
       // Given: ADK BIDI mode configuration
-      const mode = 'adk-bidi';
+      const mode = "adk-bidi";
 
       // When: Render Chat component
       render(<Chat mode={mode} />);
@@ -80,13 +83,13 @@ describe('Chat Component Integration', () => {
       // Then: Component should render without errors
       // Then: WebSocket should be created for BIDI mode
       await waitFor(() => {
-        expect(screen.getByTestId('chat-form')).toBeInTheDocument();
+        expect(screen.getByTestId("chat-form")).toBeInTheDocument();
       });
     });
 
-    it('should use buildUseChatOptions for mode configuration', () => {
+    it("should use buildUseChatOptions for mode configuration", () => {
       // Given: ADK BIDI mode
-      const mode = 'adk-bidi';
+      const mode = "adk-bidi";
 
       // When: Call buildUseChatOptions directly
       const { useChatOptions } = buildUseChatOptions({
@@ -102,19 +105,19 @@ describe('Chat Component Integration', () => {
     });
   });
 
-  describe('Message History', () => {
-    it('should accept initialMessages prop', () => {
+  describe("Message History", () => {
+    it("should accept initialMessages prop", () => {
       // Given: Initial messages from parent
       const initialMessages: UIMessage[] = [
         {
-          id: 'msg-1',
-          role: 'user',
-          parts: [{ type: 'text', text: 'Hello' }],
+          id: "msg-1",
+          role: "user",
+          parts: [{ type: "text", text: "Hello" }],
         },
         {
-          id: 'msg-2',
-          role: 'assistant',
-          parts: [{ type: 'text', text: 'Hi there!' }],
+          id: "msg-2",
+          role: "assistant",
+          parts: [{ type: "text", text: "Hi there!" }],
         },
       ];
 
@@ -122,10 +125,10 @@ describe('Chat Component Integration', () => {
       render(<Chat mode="gemini" initialMessages={initialMessages} />);
 
       // Then: Component should render with messages
-      expect(screen.getByTestId('chat-form')).toBeInTheDocument();
+      expect(screen.getByTestId("chat-form")).toBeInTheDocument();
     });
 
-    it('should call onMessagesChange when messages update', () => {
+    it("should call onMessagesChange when messages update", () => {
       // Given: Message change callback
       const onMessagesChange = vi.fn();
       const initialMessages: UIMessage[] = [];
@@ -136,29 +139,29 @@ describe('Chat Component Integration', () => {
           mode="gemini"
           initialMessages={initialMessages}
           onMessagesChange={onMessagesChange}
-        />
+        />,
       );
 
       // Then: Component should render
-      expect(screen.getByTestId('chat-form')).toBeInTheDocument();
+      expect(screen.getByTestId("chat-form")).toBeInTheDocument();
 
       // Note: Testing actual message updates requires user interaction
       // which will be covered in E2E tests
     });
 
-    it('should preserve message IDs when mode changes', () => {
+    it("should preserve message IDs when mode changes", () => {
       // Given: Messages with specific IDs
       const messagesWithIds: UIMessage[] = [
         {
-          id: 'user-123',
-          role: 'user',
-          parts: [{ type: 'text', text: 'Test message' }],
+          id: "user-123",
+          role: "user",
+          parts: [{ type: "text", text: "Test message" }],
         },
       ];
 
       // When: Render with messages
       const { rerender } = render(
-        <Chat mode="gemini" initialMessages={messagesWithIds} />
+        <Chat mode="gemini" initialMessages={messagesWithIds} />,
       );
 
       // When: Switch mode (simulated by rerender)
@@ -166,15 +169,15 @@ describe('Chat Component Integration', () => {
 
       // Then: Component should render without errors
       // Message ID preservation is handled by parent component
-      expect(screen.getByTestId('chat-form')).toBeInTheDocument();
+      expect(screen.getByTestId("chat-form")).toBeInTheDocument();
     });
   });
 
-  describe('sendAutomaticallyWhen Integration', () => {
-    it('should configure sendAutomaticallyWhen for Server Execute pattern', () => {
+  describe("sendAutomaticallyWhen Integration", () => {
+    it("should configure sendAutomaticallyWhen for Server Execute pattern", () => {
       // Given: ADK SSE mode with tool approval
       const { useChatOptions } = buildUseChatOptions({
-        mode: 'adk-sse',
+        mode: "adk-sse",
         initialMessages: [],
       });
 
@@ -184,26 +187,26 @@ describe('Chat Component Integration', () => {
       // When: Provide messages after tool approval
       const messagesAfterApproval: UIMessage[] = [
         {
-          id: 'msg-1',
-          role: 'user',
-          parts: [{ type: 'text', text: 'Search for AI news' }],
+          id: "msg-1",
+          role: "user",
+          parts: [{ type: "text", text: "Search for AI news" }],
         },
         {
-          id: 'msg-2',
-          role: 'assistant',
+          id: "msg-2",
+          role: "assistant",
           parts: [
             {
-              type: 'tool-adk_request_confirmation' as any,
-              state: 'approval-responded' as any,
-              toolCallId: 'call-1',
+              type: "tool-adk_request_confirmation" as any,
+              state: "approval-responded" as any,
+              toolCallId: "call-1",
               input: {
                 originalFunctionCall: {
-                  id: 'orig-1',
-                  name: 'web_search',
-                  args: { query: 'AI news' },
+                  id: "orig-1",
+                  name: "web_search",
+                  args: { query: "AI news" },
                 },
               },
-              approval: { id: 'call-1', approved: true },
+              approval: { id: "call-1", approved: true },
             },
           ],
         },
@@ -216,10 +219,10 @@ describe('Chat Component Integration', () => {
       expect(shouldAutoSend).toBe(true);
     });
 
-    it('should configure sendAutomaticallyWhen for Frontend Execute pattern', () => {
+    it("should configure sendAutomaticallyWhen for Frontend Execute pattern", () => {
       // Given: ADK BIDI mode with Frontend Execute
       const { useChatOptions } = buildUseChatOptions({
-        mode: 'adk-bidi',
+        mode: "adk-bidi",
         initialMessages: [],
       });
 
@@ -229,34 +232,34 @@ describe('Chat Component Integration', () => {
       // When: Provide messages with Frontend Execute pattern (confirmation + tool output)
       const messagesAfterFrontendExecute: UIMessage[] = [
         {
-          id: 'msg-1',
-          role: 'user',
-          parts: [{ type: 'text', text: 'Change BGM to lofi' }],
+          id: "msg-1",
+          role: "user",
+          parts: [{ type: "text", text: "Change BGM to lofi" }],
         },
         {
-          id: 'msg-2',
-          role: 'assistant',
+          id: "msg-2",
+          role: "assistant",
           parts: [
             // Confirmation tool (approval-responded state)
             {
-              type: 'tool-adk_request_confirmation' as any,
-              toolCallId: 'call-1',
-              state: 'approval-responded' as any,
+              type: "tool-adk_request_confirmation" as any,
+              toolCallId: "call-1",
+              state: "approval-responded" as any,
               input: {
                 originalFunctionCall: {
-                  id: 'orig-1',
-                  name: 'change_bgm',
-                  args: { track_name: 'lofi' },
+                  id: "orig-1",
+                  name: "change_bgm",
+                  args: { track_name: "lofi" },
                 },
               },
-              approval: { id: 'call-1', approved: true },
+              approval: { id: "call-1", approved: true },
             },
             // Tool output (output-available state from addToolOutput)
             {
-              type: 'tool-change_bgm' as any,
-              toolCallId: 'orig-1',
-              state: 'output-available' as any,
-              output: { status: 'success', track: 'lofi' },
+              type: "tool-change_bgm" as any,
+              toolCallId: "orig-1",
+              state: "output-available" as any,
+              output: { status: "success", track: "lofi" },
             },
           ],
         },
@@ -269,32 +272,32 @@ describe('Chat Component Integration', () => {
       expect(shouldAutoSend).toBe(true);
     });
 
-    it('should not auto-send when approval is pending', () => {
+    it("should not auto-send when approval is pending", () => {
       // Given: ADK SSE mode
       const { useChatOptions } = buildUseChatOptions({
-        mode: 'adk-sse',
+        mode: "adk-sse",
         initialMessages: [],
       });
 
       // When: Tool approval is requested but not yet responded
       const messagesWithPendingApproval: UIMessage[] = [
         {
-          id: 'msg-1',
-          role: 'user',
-          parts: [{ type: 'text', text: 'Delete files' }],
+          id: "msg-1",
+          role: "user",
+          parts: [{ type: "text", text: "Delete files" }],
         },
         {
-          id: 'msg-2',
-          role: 'assistant',
+          id: "msg-2",
+          role: "assistant",
           parts: [
             {
-              type: 'tool-adk_request_confirmation' as any,
-              state: 'approval-requested' as any,
-              toolCallId: 'call-1',
+              type: "tool-adk_request_confirmation" as any,
+              state: "approval-requested" as any,
+              toolCallId: "call-1",
               input: {
                 originalFunctionCall: {
-                  id: 'orig-1',
-                  name: 'delete_files',
+                  id: "orig-1",
+                  name: "delete_files",
                   args: {},
                 },
               },

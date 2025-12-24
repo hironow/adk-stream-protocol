@@ -8,7 +8,7 @@
 "use client";
 
 import { useState } from "react";
-import { processImageFile, type ImageData } from "@/lib/file-reader-utils";
+import { type ImageData, processImageFile } from "@/lib/file-reader-utils";
 
 interface ImageUploadProps {
   /** Callback when image is selected and converted to base64 */
@@ -30,7 +30,7 @@ export function ImageUpload({
   const [error, setError] = useState<string | null>(null);
 
   const handleFileSelect = async (
-    event: React.ChangeEvent<HTMLInputElement>
+    event: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const file = event.target.files?.[0];
     if (!file) return;

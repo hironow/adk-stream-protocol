@@ -514,7 +514,10 @@ export function Chat({
           </div>
         )}
 
-      <main id="main-content" style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
+      <main
+        id="main-content"
+        style={{ flex: 1, overflowY: "auto", padding: "1rem" }}
+      >
         {messages.length === 0 && (
           <div
             style={{ textAlign: "center", color: "#999", marginTop: "2rem" }}
@@ -608,7 +611,19 @@ export function Chat({
             />
           </label>
           <label htmlFor="chat-input" style={{ flex: 1 }}>
-            <span style={{ position: "absolute", width: "1px", height: "1px", padding: 0, margin: "-1px", overflow: "hidden", clip: "rect(0,0,0,0)", whiteSpace: "nowrap", border: 0 }}>
+            <span
+              style={{
+                position: "absolute",
+                width: "1px",
+                height: "1px",
+                padding: 0,
+                margin: "-1px",
+                overflow: "hidden",
+                clip: "rect(0,0,0,0)",
+                whiteSpace: "nowrap",
+                border: 0,
+              }}
+            >
               Chat message input
             </span>
             <input

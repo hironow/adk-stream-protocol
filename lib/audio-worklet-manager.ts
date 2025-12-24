@@ -45,7 +45,7 @@ export class AudioWorkletManager {
       // Create AudioWorklet node
       this.audioWorkletNode = new AudioWorkletNode(
         this.audioContext,
-        this.options.processorName
+        this.options.processorName,
       );
 
       // Connect to audio destination (speakers)
@@ -54,7 +54,7 @@ export class AudioWorkletManager {
       this.isInitialized = true;
     } catch (err) {
       throw new Error(
-        `Failed to initialize AudioWorklet: ${err instanceof Error ? err.message : String(err)}`
+        `Failed to initialize AudioWorklet: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
   }

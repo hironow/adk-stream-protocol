@@ -36,7 +36,7 @@ export class FileReaderError extends Error {
  */
 export function validateImageFile(
   file: File,
-  options: ImageValidationOptions = {}
+  options: ImageValidationOptions = {},
 ): void {
   const {
     supportedFormats = ["image/png", "image/jpeg", "image/webp"],
@@ -53,9 +53,7 @@ export function validateImageFile(
     const formats = supportedFormats
       .map((f) => f.replace("image/", "").toUpperCase())
       .join(", ");
-    throw new ImageValidationError(
-      `Unsupported format. Supported: ${formats}`
-    );
+    throw new ImageValidationError(`Unsupported format. Supported: ${formats}`);
   }
 
   // Validate file size
@@ -99,8 +97,8 @@ export function readImageFile(file: File): Promise<ImageData> {
       } catch (err) {
         reject(
           new FileReaderError(
-            `Failed to process file: ${err instanceof Error ? err.message : String(err)}`
-          )
+            `Failed to process file: ${err instanceof Error ? err.message : String(err)}`,
+          ),
         );
       }
     };
@@ -118,7 +116,7 @@ export function readImageFile(file: File): Promise<ImageData> {
  */
 export async function processImageFile(
   file: File,
-  validationOptions?: ImageValidationOptions
+  validationOptions?: ImageValidationOptions,
 ): Promise<ImageData> {
   // Validate first
   validateImageFile(file, validationOptions);

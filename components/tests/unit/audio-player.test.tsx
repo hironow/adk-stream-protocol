@@ -13,15 +13,15 @@
  * @vitest-environment jsdom
  */
 
-import { render, screen, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { AudioPlayer } from '@/components/audio-player';
+import { render, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { AudioPlayer } from "@/components/audio-player";
 
 // Mock Web Audio API
 class MockAudioContext {
   sampleRate = 24000;
   destination = {};
-  state = 'running';
+  state = "running";
 
   audioWorklet = {
     addModule: vi.fn().mockResolvedValue(undefined),
@@ -38,7 +38,7 @@ class MockAudioWorkletNode {
   };
 }
 
-describe('AudioPlayer', () => {
+describe("AudioPlayer", () => {
   let mockAudioContext: MockAudioContext;
   let mockAudioWorkletNode: MockAudioWorkletNode;
 
@@ -48,32 +48,36 @@ describe('AudioPlayer', () => {
     mockAudioWorkletNode = new MockAudioWorkletNode();
 
     // Setup global mocks using class constructors
-    global.AudioContext = vi.fn(function(this: any, options?: any) {
+    global.AudioContext = vi.fn(function (this: any, _options?: any) {
       return mockAudioContext;
     }) as any;
-    global.AudioWorkletNode = vi.fn(function(this: any, context: any, name: string) {
+    global.AudioWorkletNode = vi.fn(function (
+      this: any,
+      _context: any,
+      _name: string,
+    ) {
       return mockAudioWorkletNode;
     }) as any;
 
     // Clear console to avoid noise
-    vi.spyOn(console, 'log').mockImplementation(() => {});
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  describe('Component Rendering', () => {
-    it('should render without errors', () => {
+  describe("Component Rendering", () => {
+    it("should render without errors", () => {
       const { container } = render(<AudioPlayer chunks={[]} />);
       expect(container).toBeInTheDocument();
     });
 
-    it('should render with audio player UI elements', async () => {
+    it("should render with audio player UI elements", async () => {
       const chunks = [
         {
-          content: 'AAAA',
+          content: "AAAA",
           sampleRate: 24000,
           channels: 1,
           bitDepth: 16,
@@ -85,14 +89,14 @@ describe('AudioPlayer', () => {
       // Wait for AudioWorklet initialization
       await waitFor(() => {
         expect(mockAudioContext.audioWorklet.addModule).toHaveBeenCalledWith(
-          '/pcm-player-processor.js'
+          "/pcm-player-processor.js",
         );
       });
     });
   });
 
-  describe('Audio Initialization', () => {
-    it('should initialize AudioContext with correct sample rate', async () => {
+  describe("Audio Initialization", () => {
+    it("should initialize AudioContext with correct sample rate", async () => {
       render(<AudioPlayer chunks={[]} />);
 
       await waitFor(() => {
@@ -100,45 +104,45 @@ describe('AudioPlayer', () => {
       });
     });
 
-    it('should load AudioWorklet processor module', async () => {
+    it("should load AudioWorklet processor module", async () => {
       render(<AudioPlayer chunks={[]} />);
 
       await waitFor(() => {
         expect(mockAudioContext.audioWorklet.addModule).toHaveBeenCalledWith(
-          '/pcm-player-processor.js'
+          "/pcm-player-processor.js",
         );
       });
     });
 
-    it('should create AudioWorkletNode and connect to destination', async () => {
+    it("should create AudioWorkletNode and connect to destination", async () => {
       render(<AudioPlayer chunks={[]} />);
 
       await waitFor(() => {
         expect(global.AudioWorkletNode).toHaveBeenCalledWith(
           mockAudioContext,
-          'pcm-player-processor'
+          "pcm-player-processor",
         );
         expect(mockAudioWorkletNode.connect).toHaveBeenCalledWith(
-          mockAudioContext.destination
+          mockAudioContext.destination,
         );
       });
     });
   });
 
-  describe('Chunk Processing', () => {
+  describe("Chunk Processing", () => {
     // Note: Chunk processing implementation details are tested in lib/tests/unit/audio-worklet-manager.test.ts
     // Component tests focus on UI/UX behavior
 
-    it('should handle multiple chunks', async () => {
+    it("should handle multiple chunks", async () => {
       const chunks = [
         {
-          content: 'AAAA',
+          content: "AAAA",
           sampleRate: 24000,
           channels: 1,
           bitDepth: 16,
         },
         {
-          content: 'BBBB',
+          content: "BBBB",
           sampleRate: 24000,
           channels: 1,
           bitDepth: 16,
@@ -152,17 +156,17 @@ describe('AudioPlayer', () => {
       });
     });
 
-    it('should handle empty chunks array', () => {
+    it("should handle empty chunks array", () => {
       const { container } = render(<AudioPlayer chunks={[]} />);
       expect(container).toBeInTheDocument();
     });
   });
 
-  describe('Error Handling', () => {
+  describe("Error Handling", () => {
     // Note: Error handling implementation details are tested in lib/tests/unit/audio-worklet-manager.test.ts
     // Component tests focus on UI error display
 
-    it('should not crash when AudioContext is not available', async () => {
+    it("should not crash when AudioContext is not available", async () => {
       // Remove AudioContext from global
       (global as any).AudioContext = undefined;
 
@@ -177,8 +181,8 @@ describe('AudioPlayer', () => {
     });
   });
 
-  describe('Cleanup', () => {
-    it('should disconnect AudioWorkletNode on unmount', async () => {
+  describe("Cleanup", () => {
+    it("should disconnect AudioWorkletNode on unmount", async () => {
       const { unmount } = render(<AudioPlayer chunks={[]} />);
 
       await waitFor(() => {
@@ -190,7 +194,7 @@ describe('AudioPlayer', () => {
       expect(mockAudioWorkletNode.disconnect).toHaveBeenCalled();
     });
 
-    it('should close AudioContext on unmount', async () => {
+    it("should close AudioContext on unmount", async () => {
       const { unmount } = render(<AudioPlayer chunks={[]} />);
 
       await waitFor(() => {

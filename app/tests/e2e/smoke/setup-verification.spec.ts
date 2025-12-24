@@ -1,5 +1,5 @@
-import { test, expect } from '@playwright/test';
-import { ChatPage } from '../../helpers/page-objects';
+import { expect, test } from "@playwright/test";
+import { ChatPage } from "../../helpers/page-objects";
 
 /**
  * Setup Verification Test
@@ -10,10 +10,10 @@ import { ChatPage } from '../../helpers/page-objects';
  * - Test helpers (page objects) work
  * - Basic navigation works
  */
-test.describe('Setup Verification', () => {
-  test('should load the chat page successfully', async ({ page }) => {
+test.describe("Setup Verification", () => {
+  test("should load the chat page successfully", async ({ page }) => {
     // Given: Navigate to the chat page
-    await page.goto('/');
+    await page.goto("/");
 
     // Then: Page should load without errors
     await expect(page).toHaveTitle(/AI SDK v6/i);
@@ -23,7 +23,7 @@ test.describe('Setup Verification', () => {
     await expect(chatInput).toBeVisible({ timeout: 10000 });
   });
 
-  test('should use ChatPage page object successfully', async ({ page }) => {
+  test("should use ChatPage page object successfully", async ({ page }) => {
     // Given: Create ChatPage instance
     const chatPage = new ChatPage(page);
 
@@ -31,17 +31,19 @@ test.describe('Setup Verification', () => {
     await chatPage.goto();
 
     // Then: Page should load
-    await expect(page).toHaveURL('/');
+    await expect(page).toHaveURL("/");
   });
 
-  test.skip('should have test-id attributes on key elements', async ({ page }) => {
+  test.skip("should have test-id attributes on key elements", async ({
+    page,
+  }) => {
     // Given: Navigate to chat page
-    await page.goto('/');
+    await page.goto("/");
 
     // Then: Key elements should have data-testid attributes
     // Note: This test is skipped until we add data-testid attributes to components
-    await expect(page.getByTestId('mode-selector')).toBeVisible();
-    await expect(page.getByTestId('chat-input')).toBeVisible();
-    await expect(page.getByTestId('send-button')).toBeVisible();
+    await expect(page.getByTestId("mode-selector")).toBeVisible();
+    await expect(page.getByTestId("chat-input")).toBeVisible();
+    await expect(page.getByTestId("send-button")).toBeVisible();
   });
 });

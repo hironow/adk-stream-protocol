@@ -1,4 +1,4 @@
-import { defineConfig, devices } from '@playwright/test';
+import { defineConfig, devices } from "@playwright/test";
 
 /**
  * Playwright configuration for E2E tests
@@ -29,24 +29,24 @@ export default defineConfig({
 
   // Reporter configuration
   reporter: [
-    ['html', { outputFolder: 'playwright-report' }],
-    ['junit', { outputFile: 'test-results/junit.xml' }],
-    ['list'],
+    ["html", { outputFolder: "playwright-report" }],
+    ["junit", { outputFile: "test-results/junit.xml" }],
+    ["list"],
   ],
 
   // Shared settings for all tests
   use: {
     // Base URL for tests
-    baseURL: 'http://localhost:3000',
+    baseURL: "http://localhost:3000",
 
     // Collect trace on first retry only (for debugging)
-    trace: 'on-first-retry',
+    trace: "on-first-retry",
 
     // Screenshots on failure
-    screenshot: 'only-on-failure',
+    screenshot: "only-on-failure",
 
     // Video on first retry
-    video: 'retain-on-failure',
+    video: "retain-on-failure",
   },
 
   // Test timeout
@@ -61,30 +61,30 @@ export default defineConfig({
   projects: [
     // Project 1: scenarios/ - Event-to-event integration tests
     {
-      name: 'scenarios',
-      testDir: './scenarios',
-      use: { ...devices['Desktop Chrome'] },
+      name: "scenarios",
+      testDir: "./scenarios",
+      use: { ...devices["Desktop Chrome"] },
     },
 
     // Project 2: app/tests/e2e/smoke - Tier 1: Fast smoke tests
     {
-      name: 'app-e2e-smoke',
-      testDir: './app/tests/e2e/smoke',
-      use: { ...devices['Desktop Chrome'] },
+      name: "app-e2e-smoke",
+      testDir: "./app/tests/e2e/smoke",
+      use: { ...devices["Desktop Chrome"] },
     },
 
     // Project 3: app/tests/e2e/core - Tier 2: Core functionality
     {
-      name: 'app-e2e-core',
-      testDir: './app/tests/e2e/core',
-      use: { ...devices['Desktop Chrome'] },
+      name: "app-e2e-core",
+      testDir: "./app/tests/e2e/core",
+      use: { ...devices["Desktop Chrome"] },
     },
 
     // Project 4: app/tests/e2e/advanced - Tier 3: Advanced tests
     {
-      name: 'app-e2e-advanced',
-      testDir: './app/tests/e2e/advanced',
-      use: { ...devices['Desktop Chrome'] },
+      name: "app-e2e-advanced",
+      testDir: "./app/tests/e2e/advanced",
+      use: { ...devices["Desktop Chrome"] },
     },
 
     // Uncomment for cross-browser testing
@@ -101,12 +101,12 @@ export default defineConfig({
 
   // Run local dev server before starting tests
   webServer: {
-    command: 'pnpm dev',
+    command: "pnpm dev",
     port: 3000,
     reuseExistingServer: !process.env.CI,
     timeout: 120000, // 2 minutes to start server
-    stdout: 'pipe',
-    stderr: 'pipe',
+    stdout: "pipe",
+    stderr: "pipe",
   },
 
   // Global setup/teardown

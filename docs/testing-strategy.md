@@ -46,21 +46,25 @@ project/
 ### 1. lib/tests/unit/ - ビジネスロジック単体テスト
 
 **責任**:
+
 - 純粋なビジネスロジックのテスト
 - 関数レベルの詳細な検証
 - エッジケース、エラーハンドリング
 
 **テスト対象例**:
+
 - `sendAutomaticallyWhen` ロジック
 - `WebSocketChatTransport` クラス
 - AudioContext, AudioRecorder
 - ChunkLogger, ChunkPlayer
 
 **モック戦略**:
+
 - 最小限のモック (必要な外部依存のみ)
 - WebSocket, AudioContext などは共通モックを使用
 
 **命名規則**:
+
 ```typescript
 describe('sendAutomaticallyWhen', () => {
   it('should return true after confirmation approval', () => {
@@ -81,11 +85,13 @@ describe('sendAutomaticallyWhen', () => {
 ### 2. lib/tests/integration/ - モード間統合テスト
 
 **責任**:
+
 - 異なるモード・機能間の統合検証
 - 複雑なシナリオのテスト
 - クリティカルなロジック (無限ループ防止など) の検証
 
 **テスト対象例**:
+
 - `sendAutomaticallyWhen` の複雑なシナリオ
 - BIDI flat structure
 - SSE integration
@@ -93,10 +99,12 @@ describe('sendAutomaticallyWhen', () => {
 - ChunkLogging transport
 
 **モック戦略**:
+
 - 一部のみモック (WebSocketは実際のインスタンス使用)
 - MSWは使わない (integration層では不要)
 
 **命名規則**:
+
 ```typescript
 describe('sendAutomaticallyWhen - Infinite Loop Prevention', () => {
   it('CRITICAL: returns false after backend responds to prevent infinite loop', () => {
@@ -110,12 +118,14 @@ describe('sendAutomaticallyWhen - Infinite Loop Prevention', () => {
 ### 3. lib/tests/e2e/ - エンドツーエンドテスト
 
 **責任**:
+
 - 完全なユーザーフローのテスト
 - 実際の React hooks (useChat) を使用
 - 実際の transport 実装を使用
 - バックエンド通信は MSW でモック
 
 **テスト対象例**:
+
 - BIDI mode: useChat + WebSocket + confirmation フロー
 - SSE mode: useChat + fetch + confirmation フロー
 - Frontend Execute パターン
@@ -123,12 +133,14 @@ describe('sendAutomaticallyWhen - Infinite Loop Prevention', () => {
 - Audio control, error handling
 
 **モック戦略**:
+
 - MSW (WebSocket/HTTP interception)
 - **実際の React hooks (useChat)**
 - **実際の transport 実装**
 - **実際のメッセージフロー**
 
 **クリーンアップ重要事項**:
+
 ```typescript
 // ❌ BAD: Manual cleanup in test
 it('should work', async () => {
@@ -164,21 +176,25 @@ it('should work', async () => {
 ### 4. components/tests/unit/ - React コンポーネント単体テスト
 
 **責任**:
+
 - React コンポーネントの props/state/callback 検証
 - UI レンダリングのテスト
 - props → UI の関係を検証
 
 **テスト対象例**:
+
 - Chat: initialMessages, onMessagesChange
 - Message: 各種 part types の表示
 - ToolInvocation: approval UI とコールバック
 - AudioPlayer, ImageDisplay, ImageUpload
 
 **モック戦略**:
+
 - WebSocket (MockWebSocket - 共通モック)
 - 最小限の外部依存
 
 **命名規則**:
+
 ```typescript
 describe('Chat Component - Message History Preservation', () => {
   it('should pass initialMessages to buildUseChatOptions', () => {
@@ -199,22 +215,26 @@ describe('Chat Component - Message History Preservation', () => {
 ### 5. app/tests/integration/ - UI統合テスト
 
 **責任**:
+
 - UI コンポーネント (Chat, Message, ToolInvocation) と lib の統合
 - buildUseChatOptions との統合検証
 - UI レンダリングとコールバックの検証
 
 **テスト対象例**:
+
 - Chat + buildUseChatOptions の統合
 - sendAutomaticallyWhen のUI統合
 - Message parts の表示
 - ToolInvocation の approval フロー
 
 **モック戦略**:
+
 - WebSocket (MockWebSocket - 共通モック)
 - AudioContext (createMockAudioContext - 共通モック)
 - fetch (vi.fn)
 
 **命名規則**:
+
 ```typescript
 describe('Chat Component Integration', () => {
   describe('Mode Integration', () => {
@@ -241,12 +261,14 @@ describe('Chat Component Integration', () => {
 **場所**: `lib/tests/shared-mocks/`
 
 **ルール**:
+
 1. **常に共通モックを使用する** - 重複定義禁止
 2. **import パスを統一する** - `@/lib/tests/shared-mocks` から import
 
 **利用可能な共通モック**:
 
 #### MockWebSocket
+
 ```typescript
 import { MockWebSocket } from '@/lib/tests/shared-mocks';
 
@@ -260,6 +282,7 @@ afterEach(() => {
 ```
 
 #### createMockAudioContext
+
 ```typescript
 import { createMockAudioContext } from '@/lib/tests/shared-mocks';
 
@@ -471,12 +494,14 @@ afterEach(() => {
 このドキュメントは、テスト戦略の変更に応じて更新してください。
 
 **更新タイミング**:
+
 - 新しいテスト層を追加したとき
 - モック戦略を変更したとき
 - ベストプラクティスを発見したとき
 - アンチパターンを発見したとき
 
 **更新方法**:
+
 1. このファイルを編集
 2. 変更履歴をコミットメッセージに記載
 3. チームにレビュー依頼

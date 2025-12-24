@@ -1,4 +1,4 @@
-import type { Page, Locator } from '@playwright/test';
+import type { Locator, Page } from "@playwright/test";
 
 /**
  * Wait strategies for reliable E2E testing
@@ -14,10 +14,10 @@ import type { Page, Locator } from '@playwright/test';
  */
 export async function waitForToolApprovalUI(
   page: Page,
-  index: number = 0
+  index: number = 0,
 ): Promise<Locator> {
   const approvalUI = page.getByTestId(`tool-approval-ui-${index}`);
-  await approvalUI.waitFor({ state: 'visible' });
+  await approvalUI.waitFor({ state: "visible" });
   return approvalUI;
 }
 
@@ -28,10 +28,10 @@ export async function waitForToolApprovalUI(
  */
 export async function waitForToolResult(
   page: Page,
-  index: number
+  index: number,
 ): Promise<Locator> {
   const toolResult = page.getByTestId(`tool-result-${index}`);
-  await toolResult.waitFor({ state: 'visible' });
+  await toolResult.waitFor({ state: "visible" });
   return toolResult;
 }
 
@@ -43,11 +43,11 @@ export async function waitForToolResult(
  */
 export async function waitForMessage(
   page: Page,
-  role: 'user' | 'assistant',
-  index: number
+  role: "user" | "assistant",
+  index: number,
 ): Promise<Locator> {
   const message = page.getByTestId(`message-${role}-${index}`);
-  await message.waitFor({ state: 'visible' });
+  await message.waitFor({ state: "visible" });
   return message;
 }
 
@@ -56,13 +56,13 @@ export async function waitForMessage(
  * @param page - Playwright page object
  */
 export async function waitForStreamingComplete(page: Page): Promise<void> {
-  const streamingIndicator = page.getByTestId('streaming-indicator');
-  
+  const streamingIndicator = page.getByTestId("streaming-indicator");
+
   // Wait for indicator to appear (streaming started)
-  await streamingIndicator.waitFor({ state: 'visible', timeout: 5000 });
-  
+  await streamingIndicator.waitFor({ state: "visible", timeout: 5000 });
+
   // Wait for indicator to disappear (streaming complete)
-  await streamingIndicator.waitFor({ state: 'hidden', timeout: 30000 });
+  await streamingIndicator.waitFor({ state: "hidden", timeout: 30000 });
 }
 
 /**
@@ -70,8 +70,8 @@ export async function waitForStreamingComplete(page: Page): Promise<void> {
  * @param page - Playwright page object
  */
 export async function waitForAutoSend(page: Page): Promise<void> {
-  const autoSendIndicator = page.getByTestId('auto-send-indicator');
-  await autoSendIndicator.waitFor({ state: 'visible', timeout: 5000 });
+  const autoSendIndicator = page.getByTestId("auto-send-indicator");
+  await autoSendIndicator.waitFor({ state: "visible", timeout: 5000 });
 }
 
 /**
@@ -81,17 +81,19 @@ export async function waitForAutoSend(page: Page): Promise<void> {
  */
 export async function waitForConnectionStatus(
   page: Page,
-  status: 'Connected' | 'Disconnected'
+  status: "Connected" | "Disconnected",
 ): Promise<void> {
-  const statusElement = page.getByTestId('connection-status');
-  await statusElement.waitFor({ state: 'visible' });
+  const statusElement = page.getByTestId("connection-status");
+  await statusElement.waitFor({ state: "visible" });
   await page.waitForFunction(
     (expectedStatus) => {
-      const element = document.querySelector('[data-testid="connection-status"]');
+      const element = document.querySelector(
+        '[data-testid="connection-status"]',
+      );
       return element?.textContent?.includes(expectedStatus);
     },
     status,
-    { timeout: 10000 }
+    { timeout: 10000 },
   );
 }
 
@@ -102,16 +104,16 @@ export async function waitForConnectionStatus(
  */
 export async function waitForAudioPlayerState(
   page: Page,
-  state: 'playing' | 'paused'
+  state: "playing" | "paused",
 ): Promise<void> {
-  const audioPlayer = page.getByTestId('audio-player');
+  const _audioPlayer = page.getByTestId("audio-player");
   await page.waitForFunction(
     (expectedState) => {
       const player = document.querySelector('[data-testid="audio-player"]');
       return player?.classList.contains(expectedState);
     },
     state,
-    { timeout: 5000 }
+    { timeout: 5000 },
   );
 }
 
@@ -122,7 +124,7 @@ export async function waitForAudioPlayerState(
  */
 export async function waitForNetworkIdle(
   page: Page,
-  timeout: number = 5000
+  timeout: number = 5000,
 ): Promise<void> {
-  await page.waitForLoadState('networkidle', { timeout });
+  await page.waitForLoadState("networkidle", { timeout });
 }

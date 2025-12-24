@@ -5,7 +5,7 @@
  * Uses mocks to avoid browser-specific AudioContext dependencies.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   AudioWorkletManager,
   type PCMChunk,
@@ -35,11 +35,6 @@ class MockAudioWorkletNode {
   port = {
     postMessage: vi.fn(),
   };
-
-  constructor(
-    _context: AudioContext,
-    _processorName: string
-  ) {}
 }
 
 describe("AudioWorkletManager", () => {
@@ -51,18 +46,18 @@ describe("AudioWorkletManager", () => {
     mockAudioContext = new MockAudioContext();
     mockAudioWorkletNode = new MockAudioWorkletNode(
       mockAudioContext as unknown as AudioContext,
-      "test-processor"
+      "test-processor",
     );
 
     // Mock global constructors using function syntax for proper 'this' binding
-    global.AudioContext = vi.fn(function (this: any, options?: any) {
+    global.AudioContext = vi.fn(function (this: any, _options?: any) {
       return mockAudioContext;
     }) as any;
 
     global.AudioWorkletNode = vi.fn(function (
       this: any,
-      context: any,
-      name: string
+      _context: any,
+      _name: string,
     ) {
       return mockAudioWorkletNode;
     }) as any;
@@ -95,7 +90,7 @@ describe("AudioWorkletManager", () => {
       await manager.initialize();
 
       expect(mockAudioContext.audioWorklet.addModule).toHaveBeenCalledWith(
-        "/pcm-player.js"
+        "/pcm-player.js",
       );
     });
 
@@ -110,10 +105,10 @@ describe("AudioWorkletManager", () => {
 
       expect(global.AudioWorkletNode).toHaveBeenCalledWith(
         mockAudioContext,
-        "test-processor"
+        "test-processor",
       );
       expect(mockAudioWorkletNode.connect).toHaveBeenCalledWith(
-        mockAudioContext.destination
+        mockAudioContext.destination,
       );
     });
 
@@ -129,7 +124,7 @@ describe("AudioWorkletManager", () => {
       });
 
       await expect(manager.initialize()).rejects.toThrow(
-        "Failed to initialize AudioWorklet"
+        "Failed to initialize AudioWorklet",
       );
     });
 
@@ -171,7 +166,7 @@ describe("AudioWorkletManager", () => {
 
       expect(mockAudioWorkletNode.port.postMessage).toHaveBeenCalledWith(
         expect.any(ArrayBuffer),
-        [expect.any(ArrayBuffer)]
+        [expect.any(ArrayBuffer)],
       );
     });
 
@@ -246,7 +241,7 @@ describe("AudioWorkletManager", () => {
       ];
 
       await expect(manager.processChunks(chunks)).rejects.toThrow(
-        "AudioWorklet not initialized"
+        "AudioWorklet not initialized",
       );
     });
   });

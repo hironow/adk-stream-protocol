@@ -5,8 +5,8 @@
 
 import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AudioProvider } from "@/lib/audio-context";
 import { Chat } from "@/components/chat";
+import { AudioProvider } from "@/lib/audio-context";
 
 // Mock the useChat hook
 vi.mock("@ai-sdk/react-v6", () => ({

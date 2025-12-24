@@ -55,7 +55,7 @@ export function AudioPlayer({ chunks }: AudioPlayerProps) {
         console.error("[AudioPlayer] Failed to initialize AudioWorklet:", err);
         if (mounted) {
           setError(
-            `Failed to initialize audio: ${err instanceof Error ? err.message : String(err)}`
+            `Failed to initialize audio: ${err instanceof Error ? err.message : String(err)}`,
           );
         }
       }
@@ -104,12 +104,12 @@ export function AudioPlayer({ chunks }: AudioPlayerProps) {
         processedChunksCountRef.current = chunks.length;
 
         console.log(
-          `[AudioPlayer] Sent ${newChunks.length} new chunks to AudioWorklet (total: ${chunks.length})`
+          `[AudioPlayer] Sent ${newChunks.length} new chunks to AudioWorklet (total: ${chunks.length})`,
         );
       } catch (err) {
         console.error("[AudioPlayer] Error processing chunks:", err);
         setError(
-          `Error processing audio: ${err instanceof Error ? err.message : String(err)}`
+          `Error processing audio: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
     };

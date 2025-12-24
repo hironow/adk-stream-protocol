@@ -5,13 +5,13 @@
  * Uses mocks to avoid browser-specific FileReader dependencies.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  validateImageFile,
-  readImageFile,
-  processImageFile,
-  ImageValidationError,
   FileReaderError,
+  ImageValidationError,
+  processImageFile,
+  readImageFile,
+  validateImageFile,
 } from "@/lib/file-reader-utils";
 
 describe("validateImageFile", () => {
@@ -27,7 +27,7 @@ describe("validateImageFile", () => {
 
       expect(() => validateImageFile(file)).toThrow(ImageValidationError);
       expect(() => validateImageFile(file)).toThrow(
-        "Please select an image file"
+        "Please select an image file",
       );
     });
 
@@ -54,7 +54,7 @@ describe("validateImageFile", () => {
       const file = new File(["content"], "test.gif", { type: "image/gif" });
 
       expect(() =>
-        validateImageFile(file, { supportedFormats: ["image/gif"] })
+        validateImageFile(file, { supportedFormats: ["image/gif"] }),
       ).not.toThrow();
     });
   });
@@ -81,7 +81,7 @@ describe("validateImageFile", () => {
       const file = new File([content], "test.png", { type: "image/png" });
 
       expect(() =>
-        validateImageFile(file, { maxSizeBytes: 3 * 1024 * 1024 })
+        validateImageFile(file, { maxSizeBytes: 3 * 1024 * 1024 }),
       ).not.toThrow();
     });
 
@@ -90,7 +90,7 @@ describe("validateImageFile", () => {
       const file = new File([content], "test.png", { type: "image/png" });
 
       expect(() =>
-        validateImageFile(file, { maxSizeBytes: 1 * 1024 * 1024 })
+        validateImageFile(file, { maxSizeBytes: 1 * 1024 * 1024 }),
       ).toThrow(ImageValidationError);
     });
   });
@@ -173,7 +173,7 @@ describe("readImageFile", () => {
 
     await expect(readImageFile(file)).rejects.toThrow(FileReaderError);
     await expect(readImageFile(file)).rejects.toThrow(
-      "Invalid data URL format"
+      "Invalid data URL format",
     );
   });
 });
@@ -208,9 +208,7 @@ describe("processImageFile", () => {
     const file = new File(["test"], "test.txt", { type: "text/plain" });
 
     // Validation should fail before FileReader is called
-    await expect(processImageFile(file)).rejects.toThrow(
-      ImageValidationError
-    );
+    await expect(processImageFile(file)).rejects.toThrow(ImageValidationError);
   });
 
   it("should handle FileReader error after validation", async () => {

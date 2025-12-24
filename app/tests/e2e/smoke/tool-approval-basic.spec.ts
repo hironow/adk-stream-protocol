@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from "@playwright/test";
 
 /**
  * Tool Approval Basic - Smoke Tests
@@ -11,56 +11,65 @@ import { test, expect } from '@playwright/test';
  * - Tool approval UI rendering
  * - Tool execution after approval
  */
-test.describe('Tool Approval Basic (Smoke)', () => {
+test.describe("Tool Approval Basic (Smoke)", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await page.goto("/");
   });
 
-  test('should display approval UI when tool requires confirmation', async ({ page }) => {
+  test("should display approval UI when tool requires confirmation", async ({
+    page,
+  }) => {
     // Given: ADK SSE mode (Server Execute pattern)
-    const adkSseButton = page.getByRole('button', { name: /ADK SSE/i });
+    const adkSseButton = page.getByRole("button", { name: /ADK SSE/i });
     await adkSseButton.click();
 
     // When: Send a message that triggers a tool requiring confirmation
     const chatInput = page.locator('input[placeholder="Type your message..."]');
-    await chatInput.fill('Search for AI news');
-    await chatInput.press('Enter');
+    await chatInput.fill("Search for AI news");
+    await chatInput.press("Enter");
 
     // Wait for user message to appear
-    await expect(page.locator('text=Search for AI news')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("text=Search for AI news")).toBeVisible({
+      timeout: 10000,
+    });
 
     // Then: Wait for potential approval UI
     // Note: Actual approval UI depends on backend configuration
     await page.waitForTimeout(5000);
 
     // Verify the page is still functional
-    const bodyText = await page.textContent('body');
+    const bodyText = await page.textContent("body");
     expect(bodyText).toBeTruthy();
-    expect(bodyText).toContain('Search for AI news');
+    expect(bodyText).toContain("Search for AI news");
   });
 
-  test('should allow approving a tool invocation', async ({ page }) => {
+  test("should allow approving a tool invocation", async ({ page }) => {
     // Given: ADK SSE mode with tool approval
-    const adkSseButton = page.getByRole('button', { name: /ADK SSE/i });
+    const adkSseButton = page.getByRole("button", { name: /ADK SSE/i });
     await adkSseButton.click();
 
     // When: Send message that requires tool approval
     const chatInput = page.locator('input[placeholder="Type your message..."]');
-    await chatInput.fill('Get the current time in Tokyo');
-    await chatInput.press('Enter');
+    await chatInput.fill("Get the current time in Tokyo");
+    await chatInput.press("Enter");
 
     // Wait for message to appear
-    await expect(page.locator('text=current time')).toBeVisible();
+    await expect(page.locator("text=current time")).toBeVisible();
 
     // Wait for tool approval or automatic execution
     await page.waitForTimeout(5000);
 
     // Then: Look for approve button or tool result
-    const hasApproveButton = await page.locator('button:has-text("Approve"), button:has-text("approve")').count() > 0;
+    const hasApproveButton =
+      (await page
+        .locator('button:has-text("Approve"), button:has-text("approve")')
+        .count()) > 0;
 
     if (hasApproveButton) {
       // Click approve button
-      const approveButton = page.locator('button:has-text("Approve"), button:has-text("approve")').first();
+      const approveButton = page
+        .locator('button:has-text("Approve"), button:has-text("approve")')
+        .first();
       await approveButton.click();
 
       // Wait for tool execution
@@ -68,32 +77,37 @@ test.describe('Tool Approval Basic (Smoke)', () => {
     }
 
     // Verify page is functional after approval
-    const bodyText = await page.textContent('body');
+    const bodyText = await page.textContent("body");
     expect(bodyText).toBeTruthy();
   });
 
-  test('should allow denying a tool invocation', async ({ page }) => {
+  test("should allow denying a tool invocation", async ({ page }) => {
     // Given: ADK SSE mode
-    const adkSseButton = page.getByRole('button', { name: /ADK SSE/i });
+    const adkSseButton = page.getByRole("button", { name: /ADK SSE/i });
     await adkSseButton.click();
 
     // When: Send message that may require approval
     const chatInput = page.locator('input[placeholder="Type your message..."]');
-    await chatInput.fill('Delete all my files');
-    await chatInput.press('Enter');
+    await chatInput.fill("Delete all my files");
+    await chatInput.press("Enter");
 
     // Wait for message
-    await expect(page.locator('text=Delete')).toBeVisible();
+    await expect(page.locator("text=Delete")).toBeVisible();
 
     // Wait for potential approval UI
     await page.waitForTimeout(5000);
 
     // Then: Look for deny button
-    const hasDenyButton = await page.locator('button:has-text("Deny"), button:has-text("deny")').count() > 0;
+    const hasDenyButton =
+      (await page
+        .locator('button:has-text("Deny"), button:has-text("deny")')
+        .count()) > 0;
 
     if (hasDenyButton) {
       // Click deny button
-      const denyButton = page.locator('button:has-text("Deny"), button:has-text("deny")').first();
+      const denyButton = page
+        .locator('button:has-text("Deny"), button:has-text("deny")')
+        .first();
       await denyButton.click();
 
       // Wait for UI update
@@ -101,53 +115,60 @@ test.describe('Tool Approval Basic (Smoke)', () => {
     }
 
     // Verify page is still functional after denial
-    const bodyText = await page.textContent('body');
+    const bodyText = await page.textContent("body");
     expect(bodyText).toBeTruthy();
   });
 
-  test('should execute tools automatically in BIDI mode', async ({ page }) => {
+  test("should execute tools automatically in BIDI mode", async ({ page }) => {
     // Given: ADK BIDI mode (Frontend Execute pattern - no approval needed)
-    const adkBidiButton = page.getByRole('button', { name: /ADK BIDI/i });
+    const adkBidiButton = page.getByRole("button", { name: /ADK BIDI/i });
     await adkBidiButton.click();
 
     // When: Send message that triggers frontend tool
     const chatInput = page.locator('input[placeholder="Type your message..."]');
-    await chatInput.fill('Change the background music');
-    await chatInput.press('Enter');
+    await chatInput.fill("Change the background music");
+    await chatInput.press("Enter");
 
     // Wait for message
-    await expect(page.locator('text=background music')).toBeVisible();
+    await expect(page.locator("text=background music")).toBeVisible();
 
     // Then: Tool should execute automatically without approval UI
     await page.waitForTimeout(3000);
 
     // Should NOT have approve/deny buttons in BIDI mode
-    const hasApproveButton = await page.locator('button:has-text("Approve"), button:has-text("approve")').count() > 0;
+    const hasApproveButton =
+      (await page
+        .locator('button:has-text("Approve"), button:has-text("approve")')
+        .count()) > 0;
     expect(hasApproveButton).toBe(false);
 
     // Verify page is functional
-    const bodyText = await page.textContent('body');
+    const bodyText = await page.textContent("body");
     expect(bodyText).toBeTruthy();
   });
 
-  test('should handle multiple tool approvals in sequence', async ({ page }) => {
+  test("should handle multiple tool approvals in sequence", async ({
+    page,
+  }) => {
     // Given: ADK SSE mode
-    const adkSseButton = page.getByRole('button', { name: /ADK SSE/i });
+    const adkSseButton = page.getByRole("button", { name: /ADK SSE/i });
     await adkSseButton.click();
 
     // When: Send message that might trigger multiple tools
     const chatInput = page.locator('input[placeholder="Type your message..."]');
-    await chatInput.fill('Search for AI news and get the current time');
-    await chatInput.press('Enter');
+    await chatInput.fill("Search for AI news and get the current time");
+    await chatInput.press("Enter");
 
     // Wait for message
-    await expect(page.locator('text=Search for AI news')).toBeVisible();
+    await expect(page.locator("text=Search for AI news")).toBeVisible();
 
     // Wait for tool invocations
     await page.waitForTimeout(8000);
 
     // Then: Approve any visible tools
-    const approveButtons = await page.locator('button:has-text("Approve"), button:has-text("approve")').all();
+    const approveButtons = await page
+      .locator('button:has-text("Approve"), button:has-text("approve")')
+      .all();
 
     for (const button of approveButtons) {
       if (await button.isVisible()) {
@@ -157,38 +178,50 @@ test.describe('Tool Approval Basic (Smoke)', () => {
     }
 
     // Verify page is still functional
-    const bodyText = await page.textContent('body');
+    const bodyText = await page.textContent("body");
     expect(bodyText).toBeTruthy();
   });
 
-  test('should preserve chat history after approval workflow', async ({ page }) => {
+  test("should preserve chat history after approval workflow", async ({
+    page,
+  }) => {
     // Given: ADK SSE mode with a message sent
-    const adkSseButton = page.getByRole('button', { name: /ADK SSE/i });
+    const adkSseButton = page.getByRole("button", { name: /ADK SSE/i });
     await adkSseButton.click();
 
     const chatInput = page.locator('input[placeholder="Type your message..."]');
-    await chatInput.fill('First message without tools');
-    await chatInput.press('Enter');
+    await chatInput.fill("First message without tools");
+    await chatInput.press("Enter");
 
-    await expect(page.locator('text=First message without tools')).toBeVisible();
+    await expect(
+      page.locator("text=First message without tools"),
+    ).toBeVisible();
     await page.waitForTimeout(2000);
 
     // When: Send message with tool approval
-    await chatInput.fill('Get current time');
-    await chatInput.press('Enter');
+    await chatInput.fill("Get current time");
+    await chatInput.press("Enter");
 
-    await expect(page.locator('text=Get current time')).toBeVisible();
+    await expect(page.locator("text=Get current time")).toBeVisible();
     await page.waitForTimeout(5000);
 
     // Approve if needed
-    const hasApproveButton = await page.locator('button:has-text("Approve"), button:has-text("approve")').count() > 0;
+    const hasApproveButton =
+      (await page
+        .locator('button:has-text("Approve"), button:has-text("approve")')
+        .count()) > 0;
     if (hasApproveButton) {
-      await page.locator('button:has-text("Approve"), button:has-text("approve")').first().click();
+      await page
+        .locator('button:has-text("Approve"), button:has-text("approve")')
+        .first()
+        .click();
       await page.waitForTimeout(3000);
     }
 
     // Then: Both messages should still be visible
-    await expect(page.locator('text=First message without tools')).toBeVisible();
-    await expect(page.locator('text=Get current time')).toBeVisible();
+    await expect(
+      page.locator("text=First message without tools"),
+    ).toBeVisible();
+    await expect(page.locator("text=Get current time")).toBeVisible();
   });
 });

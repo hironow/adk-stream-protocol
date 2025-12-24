@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from "@playwright/test";
 
 /**
  * Visual Regression - Advanced Tests
@@ -13,211 +13,231 @@ import { test, expect } from '@playwright/test';
  * - Message display formatting
  * - Tool UI rendering
  */
-test.describe('Visual Regression (Advanced)', () => {
+test.describe("Visual Regression (Advanced)", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await page.goto("/");
     // Wait for page to be fully loaded
     await page.waitForTimeout(2000);
   });
 
-  test('should maintain consistent initial page layout', async ({ page }) => {
+  test("should maintain consistent initial page layout", async ({ page }) => {
     // Given: Initial page load
     const chatInput = page.locator('input[placeholder="Type your message..."]');
     await expect(chatInput).toBeVisible();
 
     // When: Take screenshot of initial state
     // Then: Visual should match baseline
-    await expect(page).toHaveScreenshot('initial-page-layout.png', {
+    await expect(page).toHaveScreenshot("initial-page-layout.png", {
       fullPage: true,
       maxDiffPixels: 100, // Allow small differences
     });
   });
 
-  test('should maintain consistent mode switcher appearance', async ({ page }) => {
+  test("should maintain consistent mode switcher appearance", async ({
+    page,
+  }) => {
     // Given: Mode switcher is visible
-    const geminiButton = page.getByRole('button', { name: /Gemini Direct/i });
-    const adkSseButton = page.getByRole('button', { name: /ADK SSE/i });
-    const adkBidiButton = page.getByRole('button', { name: /ADK BIDI/i });
+    const geminiButton = page.getByRole("button", { name: /Gemini Direct/i });
+    const adkSseButton = page.getByRole("button", { name: /ADK SSE/i });
+    const adkBidiButton = page.getByRole("button", { name: /ADK BIDI/i });
 
     await expect(geminiButton).toBeVisible();
     await expect(adkSseButton).toBeVisible();
     await expect(adkBidiButton).toBeVisible();
 
     // When: Take screenshot of mode switcher area
-    const modeSwitcher = page.locator('div').filter({ has: geminiButton }).first();
+    const modeSwitcher = page
+      .locator("div")
+      .filter({ has: geminiButton })
+      .first();
 
     // Then: Visual should match baseline
-    await expect(modeSwitcher).toHaveScreenshot('mode-switcher.png', {
+    await expect(modeSwitcher).toHaveScreenshot("mode-switcher.png", {
       maxDiffPixels: 50,
     });
   });
 
-  test('should maintain consistent chat input styling', async ({ page }) => {
+  test("should maintain consistent chat input styling", async ({ page }) => {
     // Given: Chat input and send button
     const chatInput = page.locator('input[placeholder="Type your message..."]');
-    const sendButton = page.getByRole('button', { name: /Send/i });
+    const _sendButton = page.getByRole("button", { name: /Send/i });
 
     await expect(chatInput).toBeVisible();
 
     // When: Take screenshot of input area
-    const inputArea = page.locator('form').first();
+    const inputArea = page.locator("form").first();
 
     // Then: Visual should match baseline
-    await expect(inputArea).toHaveScreenshot('chat-input-area.png', {
+    await expect(inputArea).toHaveScreenshot("chat-input-area.png", {
       maxDiffPixels: 50,
     });
   });
 
-  test('should maintain consistent message display', async ({ page }) => {
+  test("should maintain consistent message display", async ({ page }) => {
     // Given: Send a message
     const chatInput = page.locator('input[placeholder="Type your message..."]');
-    await chatInput.fill('Test message for visual regression');
-    await chatInput.press('Enter');
+    await chatInput.fill("Test message for visual regression");
+    await chatInput.press("Enter");
 
-    await expect(page.locator('text=Test message for visual regression')).toBeVisible();
+    await expect(
+      page.locator("text=Test message for visual regression"),
+    ).toBeVisible();
     await page.waitForTimeout(3000);
 
     // When: Take screenshot of message area
     // Then: Message display should be consistent
-    await expect(page).toHaveScreenshot('message-display.png', {
+    await expect(page).toHaveScreenshot("message-display.png", {
       fullPage: true,
       maxDiffPixels: 200, // Allow for dynamic content
     });
   });
 
-  test('should maintain consistent mode selection visual state', async ({ page }) => {
+  test("should maintain consistent mode selection visual state", async ({
+    page,
+  }) => {
     // Given: Select ADK SSE mode
-    const adkSseButton = page.getByRole('button', { name: /ADK SSE/i });
+    const adkSseButton = page.getByRole("button", { name: /ADK SSE/i });
     await adkSseButton.click();
     await page.waitForTimeout(500);
 
     // When: Take screenshot of selected state
-    const modeSwitcher = page.locator('div').filter({ has: adkSseButton }).first();
+    const modeSwitcher = page
+      .locator("div")
+      .filter({ has: adkSseButton })
+      .first();
 
     // Then: Selected state should be visually consistent
-    await expect(modeSwitcher).toHaveScreenshot('mode-sse-selected.png', {
+    await expect(modeSwitcher).toHaveScreenshot("mode-sse-selected.png", {
       maxDiffPixels: 50,
     });
   });
 
-  test('should maintain consistent BIDI mode UI', async ({ page }) => {
+  test("should maintain consistent BIDI mode UI", async ({ page }) => {
     // Given: Switch to BIDI mode
-    const adkBidiButton = page.getByRole('button', { name: /ADK BIDI/i });
+    const adkBidiButton = page.getByRole("button", { name: /ADK BIDI/i });
     await adkBidiButton.click();
     await page.waitForTimeout(1000);
 
     // When: Take screenshot of BIDI mode
     // Then: BIDI-specific UI should be consistent
-    await expect(page).toHaveScreenshot('bidi-mode-ui.png', {
+    await expect(page).toHaveScreenshot("bidi-mode-ui.png", {
       fullPage: true,
       maxDiffPixels: 150,
     });
   });
 
-  test('should maintain consistent empty state', async ({ page }) => {
+  test("should maintain consistent empty state", async ({ page }) => {
     // Given: Fresh page with no messages
     const chatInput = page.locator('input[placeholder="Type your message..."]');
     await expect(chatInput).toBeVisible();
 
     // When: Take screenshot of empty state
     // Then: Empty state should be visually consistent
-    await expect(page).toHaveScreenshot('empty-state.png', {
+    await expect(page).toHaveScreenshot("empty-state.png", {
       fullPage: true,
       maxDiffPixels: 100,
     });
   });
 
-  test('should maintain consistent file upload button', async ({ page }) => {
+  test("should maintain consistent file upload button", async ({ page }) => {
     // Given: File upload button is visible
     const uploadLabel = page.locator('label:has-text("Attach Image")').first();
 
     if (await uploadLabel.isVisible()) {
       // When: Take screenshot of upload button
       // Then: Visual should be consistent
-      await expect(uploadLabel).toHaveScreenshot('file-upload-button.png', {
+      await expect(uploadLabel).toHaveScreenshot("file-upload-button.png", {
         maxDiffPixels: 30,
       });
     }
   });
 
-  test('should maintain consistent button states', async ({ page }) => {
+  test("should maintain consistent button states", async ({ page }) => {
     const chatInput = page.locator('input[placeholder="Type your message..."]');
-    const sendButton = page.getByRole('button', { name: /Send/i });
+    const sendButton = page.getByRole("button", { name: /Send/i });
 
     // Empty input state
     await chatInput.clear();
     await page.waitForTimeout(300);
-    await expect(sendButton).toHaveScreenshot('send-button-empty.png', {
+    await expect(sendButton).toHaveScreenshot("send-button-empty.png", {
       maxDiffPixels: 20,
     });
 
     // With text state
-    await chatInput.fill('Test');
+    await chatInput.fill("Test");
     await page.waitForTimeout(300);
-    await expect(sendButton).toHaveScreenshot('send-button-filled.png', {
+    await expect(sendButton).toHaveScreenshot("send-button-filled.png", {
       maxDiffPixels: 20,
     });
   });
 
-  test.skip('should maintain consistent streaming animation', async ({ page }) => {
+  test.skip("should maintain consistent streaming animation", async ({
+    page,
+  }) => {
     // This test is challenging due to animation timing
     // Skipped for now, but could be implemented with video comparison
 
-    const geminiButton = page.getByRole('button', { name: /Gemini Direct/i });
+    const geminiButton = page.getByRole("button", { name: /Gemini Direct/i });
     await geminiButton.click();
 
     const chatInput = page.locator('input[placeholder="Type your message..."]');
-    await chatInput.fill('Tell me a story');
-    await chatInput.press('Enter');
+    await chatInput.fill("Tell me a story");
+    await chatInput.press("Enter");
 
-    await expect(page.locator('text=Tell me a story')).toBeVisible();
+    await expect(page.locator("text=Tell me a story")).toBeVisible();
     await page.waitForTimeout(2000);
 
     // Screenshot during streaming
-    await expect(page).toHaveScreenshot('streaming-state.png', {
+    await expect(page).toHaveScreenshot("streaming-state.png", {
       fullPage: true,
       maxDiffPixels: 500,
     });
   });
 
-  test('should maintain consistent error message styling', async ({ page }) => {
+  test("should maintain consistent error message styling", async ({ page }) => {
     // Note: This test may not trigger actual errors
     // It's here for completeness and future error injection
 
     const chatInput = page.locator('input[placeholder="Type your message..."]');
-    await chatInput.fill('Test error scenario');
-    await chatInput.press('Enter');
+    await chatInput.fill("Test error scenario");
+    await chatInput.press("Enter");
 
     await page.waitForTimeout(5000);
 
     // Check for error elements
-    const errorElements = await page.locator('[class*="error"], [data-testid*="error"]').count();
+    const errorElements = await page
+      .locator('[class*="error"], [data-testid*="error"]')
+      .count();
 
     if (errorElements > 0) {
-      const errorElement = page.locator('[class*="error"], [data-testid*="error"]').first();
-      await expect(errorElement).toHaveScreenshot('error-message.png', {
+      const errorElement = page
+        .locator('[class*="error"], [data-testid*="error"]')
+        .first();
+      await expect(errorElement).toHaveScreenshot("error-message.png", {
         maxDiffPixels: 50,
       });
     }
   });
 
-  test('should maintain consistent spacing and typography', async ({ page }) => {
+  test("should maintain consistent spacing and typography", async ({
+    page,
+  }) => {
     // Given: Multiple messages
     const chatInput = page.locator('input[placeholder="Type your message..."]');
 
-    await chatInput.fill('First message');
-    await chatInput.press('Enter');
-    await expect(page.locator('text=First message')).toBeVisible();
+    await chatInput.fill("First message");
+    await chatInput.press("Enter");
+    await expect(page.locator("text=First message")).toBeVisible();
     await page.waitForTimeout(2000);
 
-    await chatInput.fill('Second message');
-    await chatInput.press('Enter');
-    await expect(page.locator('text=Second message')).toBeVisible();
+    await chatInput.fill("Second message");
+    await chatInput.press("Enter");
+    await expect(page.locator("text=Second message")).toBeVisible();
     await page.waitForTimeout(2000);
 
     // When: Take full page screenshot
     // Then: Spacing and typography should be consistent
-    await expect(page).toHaveScreenshot('typography-spacing.png', {
+    await expect(page).toHaveScreenshot("typography-spacing.png", {
       fullPage: true,
       maxDiffPixels: 200,
     });

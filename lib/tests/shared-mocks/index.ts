@@ -10,5 +10,5 @@
  * ```
  */
 
-export { MockWebSocket } from './websocket';
-export { createMockAudioContext, setupAudioContextMock } from './audio-context';
+export { createMockAudioContext, setupAudioContextMock } from "./audio-context";
+export { MockWebSocket } from "./websocket";

@@ -15,15 +15,15 @@
  * ```
  */
 
-import { vi } from 'vitest';
+import { vi } from "vitest";
 
 /**
  * Mock AudioContext with all required properties
  */
 export function createMockAudioContext() {
   return {
-    inputDeviceId: 'default',
-    outputDeviceId: 'default',
+    inputDeviceId: "default",
+    outputDeviceId: "default",
     bgmChannel: {
       currentTrack: null,
       isPlaying: false,
@@ -46,7 +46,7 @@ export function createMockAudioContext() {
  * Use this helper in beforeEach/beforeAll hooks
  */
 export function setupAudioContextMock() {
-  vi.mock('@/lib/audio-context', () => ({
+  vi.mock("@/lib/audio-context", () => ({
     useAudio: () => createMockAudioContext(),
   }));
 }

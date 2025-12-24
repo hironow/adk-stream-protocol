@@ -12,24 +12,24 @@
  * @vitest-environment jsdom
  */
 
-import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
-import { ToolInvocationComponent } from '@/components/tool-invocation';
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { ToolInvocationComponent } from "@/components/tool-invocation";
 
-describe('Tool Invocation Component Integration', () => {
-  describe('ADK RequestConfirmation Pattern', () => {
-    it('should render approval UI for adk_request_confirmation tool', () => {
+describe("Tool Invocation Component Integration", () => {
+  describe("ADK RequestConfirmation Pattern", () => {
+    it("should render approval UI for adk_request_confirmation tool", () => {
       // Given: adk_request_confirmation tool invocation
       const toolInvocation = {
-        type: 'tool-adk_request_confirmation',
-        toolName: 'adk_request_confirmation',
-        toolCallId: 'call-1',
-        state: 'approval-requested',
+        type: "tool-adk_request_confirmation",
+        toolName: "adk_request_confirmation",
+        toolCallId: "call-1",
+        state: "approval-requested",
         input: {
           originalFunctionCall: {
-            id: 'orig-1',
-            name: 'web_search',
-            args: { query: 'latest AI news' },
+            id: "orig-1",
+            name: "web_search",
+            args: { query: "latest AI news" },
           },
         },
       };
@@ -41,28 +41,30 @@ describe('Tool Invocation Component Integration', () => {
         <ToolInvocationComponent
           toolInvocation={toolInvocation}
           addToolApprovalResponse={addToolApprovalResponse}
-        />
+        />,
       );
 
       // Then: Tool name should be displayed (original tool, not adk_request_confirmation)
-      expect(screen.getByTestId('tool-name-primary')).toHaveTextContent('web_search');
+      expect(screen.getByTestId("tool-name-primary")).toHaveTextContent(
+        "web_search",
+      );
 
       // Then: Tool args should be displayed
       expect(screen.getByText(/latest AI news/i)).toBeTruthy();
     });
 
-    it('should call addToolApprovalResponse with approved=true when Approve clicked', () => {
+    it("should call addToolApprovalResponse with approved=true when Approve clicked", () => {
       // Given: Tool requiring approval
       const toolInvocation = {
-        type: 'tool-adk_request_confirmation',
-        toolName: 'adk_request_confirmation',
-        toolCallId: 'call-1',
-        state: 'approval-requested',
+        type: "tool-adk_request_confirmation",
+        toolName: "adk_request_confirmation",
+        toolCallId: "call-1",
+        state: "approval-requested",
         input: {
           originalFunctionCall: {
-            id: 'orig-1',
-            name: 'change_bgm',
-            args: { track_name: 'lofi' },
+            id: "orig-1",
+            name: "change_bgm",
+            args: { track_name: "lofi" },
           },
         },
       };
@@ -74,34 +76,34 @@ describe('Tool Invocation Component Integration', () => {
         <ToolInvocationComponent
           toolInvocation={toolInvocation}
           addToolOutput={addToolOutput}
-        />
+        />,
       );
 
       // When: Click Approve button
-      const approveButton = screen.getByTestId('tool-approve-button');
+      const approveButton = screen.getByTestId("tool-approve-button");
       fireEvent.click(approveButton);
 
       // Then: Callback should be called with confirmation output
       expect(addToolOutput).toHaveBeenCalledWith({
-        tool: 'adk_request_confirmation',
-        toolCallId: 'call-1',
+        tool: "adk_request_confirmation",
+        toolCallId: "call-1",
         output: {
           confirmed: true,
         },
       });
     });
 
-    it('should call addToolApprovalResponse with approved=false when Deny clicked', () => {
+    it("should call addToolApprovalResponse with approved=false when Deny clicked", () => {
       // Given: Tool requiring approval
       const toolInvocation = {
-        type: 'tool-adk_request_confirmation',
-        toolName: 'adk_request_confirmation',
-        toolCallId: 'call-1',
-        state: 'approval-requested',
+        type: "tool-adk_request_confirmation",
+        toolName: "adk_request_confirmation",
+        toolCallId: "call-1",
+        state: "approval-requested",
         input: {
           originalFunctionCall: {
-            id: 'orig-1',
-            name: 'delete_files',
+            id: "orig-1",
+            name: "delete_files",
             args: {},
           },
         },
@@ -114,35 +116,35 @@ describe('Tool Invocation Component Integration', () => {
         <ToolInvocationComponent
           toolInvocation={toolInvocation}
           addToolOutput={addToolOutput}
-        />
+        />,
       );
 
       // When: Click Deny button
-      const denyButton = screen.getByTestId('tool-deny-button');
+      const denyButton = screen.getByTestId("tool-deny-button");
       fireEvent.click(denyButton);
 
       // Then: Callback should be called with confirmation output
       expect(addToolOutput).toHaveBeenCalledWith({
-        tool: 'adk_request_confirmation',
-        toolCallId: 'call-1',
+        tool: "adk_request_confirmation",
+        toolCallId: "call-1",
         output: {
           confirmed: false,
         },
       });
     });
 
-    it('should display original tool information in approval UI', () => {
+    it("should display original tool information in approval UI", () => {
       // Given: adk_request_confirmation with nested originalFunctionCall
       const toolInvocation = {
-        type: 'tool-adk_request_confirmation',
-        toolName: 'adk_request_confirmation',
-        toolCallId: 'call-1',
-        state: 'approval-requested',
+        type: "tool-adk_request_confirmation",
+        toolName: "adk_request_confirmation",
+        toolCallId: "call-1",
+        state: "approval-requested",
         input: {
           originalFunctionCall: {
-            id: 'orig-1',
-            name: 'get_location',
-            args: { precision: 'high' },
+            id: "orig-1",
+            name: "get_location",
+            args: { precision: "high" },
           },
         },
       };
@@ -152,30 +154,32 @@ describe('Tool Invocation Component Integration', () => {
         <ToolInvocationComponent
           toolInvocation={toolInvocation}
           addToolApprovalResponse={vi.fn()}
-        />
+        />,
       );
 
       // Then: Original tool name displayed (not adk_request_confirmation)
-      expect(screen.getByTestId('tool-name-primary')).toHaveTextContent('get_location');
+      expect(screen.getByTestId("tool-name-primary")).toHaveTextContent(
+        "get_location",
+      );
 
       // Then: Tool arguments displayed
       expect(screen.getByText(/high/i)).toBeTruthy();
     });
   });
 
-  describe('Tool State Rendering', () => {
-    it('should show approval-requested state UI', () => {
+  describe("Tool State Rendering", () => {
+    it("should show approval-requested state UI", () => {
       // Given: Tool in approval-requested state
       const toolInvocation = {
-        type: 'tool-adk_request_confirmation',
-        toolName: 'adk_request_confirmation',
-        toolCallId: 'call-1',
-        state: 'approval-requested',
+        type: "tool-adk_request_confirmation",
+        toolName: "adk_request_confirmation",
+        toolCallId: "call-1",
+        state: "approval-requested",
         input: {
           originalFunctionCall: {
-            id: 'orig-1',
-            name: 'web_search',
-            args: { query: 'test' },
+            id: "orig-1",
+            name: "web_search",
+            args: { query: "test" },
           },
         },
       };
@@ -185,30 +189,30 @@ describe('Tool Invocation Component Integration', () => {
         <ToolInvocationComponent
           toolInvocation={toolInvocation}
           addToolApprovalResponse={vi.fn()}
-        />
+        />,
       );
 
       // Then: Approve and Deny buttons should be visible
-      expect(screen.getByTestId('tool-approve-button')).toBeInTheDocument();
-      expect(screen.getByTestId('tool-deny-button')).toBeInTheDocument();
+      expect(screen.getByTestId("tool-approve-button")).toBeInTheDocument();
+      expect(screen.getByTestId("tool-deny-button")).toBeInTheDocument();
     });
 
-    it('should show approval-responded state with approved', () => {
+    it("should show approval-responded state with approved", () => {
       // Given: Tool in approval-responded state (approved)
       const toolInvocation = {
-        type: 'tool-adk_request_confirmation',
-        toolName: 'adk_request_confirmation',
-        toolCallId: 'call-1',
-        state: 'approval-responded',
+        type: "tool-adk_request_confirmation",
+        toolName: "adk_request_confirmation",
+        toolCallId: "call-1",
+        state: "approval-responded",
         input: {
           originalFunctionCall: {
-            id: 'orig-1',
-            name: 'change_bgm',
-            args: { track_name: 'jazz' },
+            id: "orig-1",
+            name: "change_bgm",
+            args: { track_name: "jazz" },
           },
         },
         approval: {
-          id: 'call-1',
+          id: "call-1",
           approved: true,
         },
       };
@@ -218,30 +222,32 @@ describe('Tool Invocation Component Integration', () => {
         <ToolInvocationComponent
           toolInvocation={toolInvocation}
           addToolApprovalResponse={vi.fn()}
-        />
+        />,
       );
 
       // Then: Approval status should be indicated
       // Note: Specific UI depends on component implementation
-      expect(screen.getByTestId('tool-name-primary')).toHaveTextContent('change_bgm');
+      expect(screen.getByTestId("tool-name-primary")).toHaveTextContent(
+        "change_bgm",
+      );
     });
 
-    it('should show approval-responded state with denied', () => {
+    it("should show approval-responded state with denied", () => {
       // Given: Tool in approval-responded state (denied)
       const toolInvocation = {
-        type: 'tool-adk_request_confirmation',
-        toolName: 'adk_request_confirmation',
-        toolCallId: 'call-1',
-        state: 'approval-responded',
+        type: "tool-adk_request_confirmation",
+        toolName: "adk_request_confirmation",
+        toolCallId: "call-1",
+        state: "approval-responded",
         input: {
           originalFunctionCall: {
-            id: 'orig-1',
-            name: 'delete_files',
+            id: "orig-1",
+            name: "delete_files",
             args: {},
           },
         },
         approval: {
-          id: 'call-1',
+          id: "call-1",
           approved: false,
         },
       };
@@ -251,21 +257,23 @@ describe('Tool Invocation Component Integration', () => {
         <ToolInvocationComponent
           toolInvocation={toolInvocation}
           addToolApprovalResponse={vi.fn()}
-        />
+        />,
       );
 
       // Then: Denial status should be indicated
-      expect(screen.getByTestId('tool-name-primary')).toHaveTextContent('delete_files');
+      expect(screen.getByTestId("tool-name-primary")).toHaveTextContent(
+        "delete_files",
+      );
     });
 
-    it('should handle long-running tool state (input-available)', () => {
+    it("should handle long-running tool state (input-available)", () => {
       // Given: Long-running tool in input-available state
       const toolInvocation = {
-        type: 'tool-analyze_dataset',
-        toolName: 'analyze_dataset',
-        toolCallId: 'call-1',
-        state: 'input-available',
-        args: { dataset_id: '12345' },
+        type: "tool-analyze_dataset",
+        toolName: "analyze_dataset",
+        toolCallId: "call-1",
+        state: "input-available",
+        args: { dataset_id: "12345" },
       };
 
       const addToolOutput = vi.fn();
@@ -275,27 +283,29 @@ describe('Tool Invocation Component Integration', () => {
         <ToolInvocationComponent
           toolInvocation={toolInvocation}
           addToolOutput={addToolOutput}
-        />
+        />,
       );
 
       // Then: Tool name should be displayed
-      expect(screen.getByTestId('tool-name-primary')).toHaveTextContent('analyze_dataset');
+      expect(screen.getByTestId("tool-name-primary")).toHaveTextContent(
+        "analyze_dataset",
+      );
 
       // Then: Approval UI should appear for long-running tools
-      expect(screen.getByTestId('tool-approve-button')).toBeInTheDocument();
+      expect(screen.getByTestId("tool-approve-button")).toBeInTheDocument();
     });
 
-    it('should handle tool output-available state', () => {
+    it("should handle tool output-available state", () => {
       // Given: Tool with output available
       const toolInvocation = {
-        type: 'tool-get_weather',
-        toolName: 'get_weather',
-        toolCallId: 'call-1',
-        state: 'output-available',
-        args: { location: 'Tokyo' },
+        type: "tool-get_weather",
+        toolName: "get_weather",
+        toolCallId: "call-1",
+        state: "output-available",
+        args: { location: "Tokyo" },
         result: {
           temperature: 20,
-          condition: 'sunny',
+          condition: "sunny",
         },
       };
 
@@ -303,23 +313,25 @@ describe('Tool Invocation Component Integration', () => {
       render(<ToolInvocationComponent toolInvocation={toolInvocation} />);
 
       // Then: Tool result should be displayed (debug view for output-available state)
-      expect(screen.getByTestId('tool-name-debug')).toHaveTextContent('get_weather');
+      expect(screen.getByTestId("tool-name-debug")).toHaveTextContent(
+        "get_weather",
+      );
       // Note: Result display format depends on component implementation
     });
   });
 
-  describe('Error Handling', () => {
-    it('should handle missing addToolApprovalResponse gracefully', () => {
+  describe("Error Handling", () => {
+    it("should handle missing addToolApprovalResponse gracefully", () => {
       // Given: Tool requiring approval but no callback provided
       const toolInvocation = {
-        type: 'tool-adk_request_confirmation',
-        toolName: 'adk_request_confirmation',
-        toolCallId: 'call-1',
-        state: 'approval-requested',
+        type: "tool-adk_request_confirmation",
+        toolName: "adk_request_confirmation",
+        toolCallId: "call-1",
+        state: "approval-requested",
         input: {
           originalFunctionCall: {
-            id: 'orig-1',
-            name: 'test_tool',
+            id: "orig-1",
+            name: "test_tool",
             args: {},
           },
         },
@@ -329,15 +341,17 @@ describe('Tool Invocation Component Integration', () => {
       render(<ToolInvocationComponent toolInvocation={toolInvocation} />);
 
       // Then: Component should render without errors (debug view)
-      expect(screen.getByTestId('tool-name-primary')).toHaveTextContent('test_tool');
+      expect(screen.getByTestId("tool-name-primary")).toHaveTextContent(
+        "test_tool",
+      );
     });
 
-    it('should handle malformed tool invocation data', () => {
+    it("should handle malformed tool invocation data", () => {
       // Given: Tool invocation with missing data
       const toolInvocation = {
-        type: 'tool-unknown',
-        toolCallId: 'call-1',
-        state: 'input-available',
+        type: "tool-unknown",
+        toolCallId: "call-1",
+        state: "input-available",
         // Missing toolName and args
       };
 

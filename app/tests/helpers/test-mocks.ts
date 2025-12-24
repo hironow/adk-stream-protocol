@@ -9,7 +9,7 @@
 
 // Re-export from shared-mocks to maintain backward compatibility
 export {
-  MockWebSocket,
   createMockAudioContext,
+  MockWebSocket,
   setupAudioContextMock,
-} from '@/lib/tests/shared-mocks';
+} from "@/lib/tests/shared-mocks";

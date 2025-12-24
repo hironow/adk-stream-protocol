@@ -12,29 +12,29 @@
  * @vitest-environment jsdom
  */
 
-import { render, screen } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
-import type { UIMessage } from 'ai';
-import { MessageComponent } from '@/components/message';
+import { render, screen } from "@testing-library/react";
+import type { UIMessage } from "ai";
+import { describe, expect, it, vi } from "vitest";
+import { MessageComponent } from "@/components/message";
 
 // Mock AudioContext
-import { createMockAudioContext } from '@/lib/tests/shared-mocks';
+import { createMockAudioContext } from "@/lib/tests/shared-mocks";
 
-vi.mock('@/lib/audio-context', () => ({
+vi.mock("@/lib/audio-context", () => ({
   useAudio: () => createMockAudioContext(),
 }));
 
-describe('Message Component Integration', () => {
-  describe('Message Type Rendering', () => {
-    it('should render text message parts', () => {
+describe("Message Component Integration", () => {
+  describe("Message Type Rendering", () => {
+    it("should render text message parts", () => {
       // Given: Message with text part
       const message: UIMessage = {
-        id: 'msg-1',
-        role: 'user',
+        id: "msg-1",
+        role: "user",
         parts: [
           {
-            type: 'text',
-            text: 'Hello, world!',
+            type: "text",
+            text: "Hello, world!",
           },
         ],
       };
@@ -46,15 +46,15 @@ describe('Message Component Integration', () => {
       expect(screen.getByText(/Hello, world!/i)).toBeTruthy();
     });
 
-    it('should render assistant text message', () => {
+    it("should render assistant text message", () => {
       // Given: Assistant message with text
       const message: UIMessage = {
-        id: 'msg-1',
-        role: 'assistant',
+        id: "msg-1",
+        role: "assistant",
         parts: [
           {
-            type: 'text',
-            text: 'Hi there! How can I help you?',
+            type: "text",
+            text: "Hi there! How can I help you?",
           },
         ],
       };
@@ -66,20 +66,20 @@ describe('Message Component Integration', () => {
       expect(screen.getByText(/Hi there/i)).toBeTruthy();
     });
 
-    it('should render image message parts', () => {
+    it("should render image message parts", () => {
       // Given: Message with image part
       const message: UIMessage = {
-        id: 'msg-1',
-        role: 'user',
+        id: "msg-1",
+        role: "user",
         parts: [
           {
-            type: 'data-image',
+            type: "data-image",
             data: {
               content:
-                'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
-              mediaType: 'image/png',
+                "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+              mediaType: "image/png",
             },
-            alt: 'Test image',
+            alt: "Test image",
           } as any,
         ],
       };
@@ -88,22 +88,22 @@ describe('Message Component Integration', () => {
       render(<MessageComponent message={message} />);
 
       // Then: Image should be displayed
-      const image = document.querySelector('img');
+      const image = document.querySelector("img");
       expect(image).toBeTruthy();
-      expect(image?.alt).toBe('Test image');
+      expect(image?.alt).toBe("Test image");
     });
 
-    it('should render tool invocation parts', () => {
+    it("should render tool invocation parts", () => {
       // Given: Message with tool part (AI SDK v6 format: type="tool-{toolName}")
       const message: UIMessage = {
-        id: 'msg-1',
-        role: 'assistant',
+        id: "msg-1",
+        role: "assistant",
         parts: [
           {
-            type: 'tool-get_weather' as any,
-            toolCallId: 'call-1',
-            args: { location: 'Tokyo' },
-            state: 'input-available',
+            type: "tool-get_weather" as any,
+            toolCallId: "call-1",
+            args: { location: "Tokyo" },
+            state: "input-available",
           },
         ],
       };
@@ -112,25 +112,27 @@ describe('Message Component Integration', () => {
       render(<MessageComponent message={message} />);
 
       // Then: Tool invocation should be displayed
-      expect(screen.getByTestId('tool-name-primary')).toHaveTextContent('get_weather');
+      expect(screen.getByTestId("tool-name-primary")).toHaveTextContent(
+        "get_weather",
+      );
     });
 
-    it('should render mixed message parts in order', () => {
+    it("should render mixed message parts in order", () => {
       // Given: Message with multiple parts [text, tool]
       const message: UIMessage = {
-        id: 'msg-1',
-        role: 'assistant',
+        id: "msg-1",
+        role: "assistant",
         parts: [
           {
-            type: 'text',
-            text: 'Let me check the weather for you.',
+            type: "text",
+            text: "Let me check the weather for you.",
           },
           {
-            type: 'tool-get_weather' as any,
-            toolCallId: 'call-1',
-            args: { location: 'Tokyo' },
-            state: 'output-available',
-            result: { temperature: 20, condition: 'sunny' },
+            type: "tool-get_weather" as any,
+            toolCallId: "call-1",
+            args: { location: "Tokyo" },
+            state: "output-available",
+            result: { temperature: 20, condition: "sunny" },
           },
         ],
       };
@@ -141,27 +143,29 @@ describe('Message Component Integration', () => {
       // Then: All parts should be visible
       expect(screen.getByText(/Let me check the weather/i)).toBeTruthy();
       // Note: output-available state shows debug view
-      expect(screen.getByTestId('tool-name-debug')).toHaveTextContent('get_weather');
+      expect(screen.getByTestId("tool-name-debug")).toHaveTextContent(
+        "get_weather",
+      );
     });
 
-    it('should render multiple tool invocations', () => {
+    it("should render multiple tool invocations", () => {
       // Given: Message with 2 tool invocations
       const message: UIMessage = {
-        id: 'msg-1',
-        role: 'assistant',
+        id: "msg-1",
+        role: "assistant",
         parts: [
           {
-            type: 'tool-get_weather' as any,
-            toolCallId: 'call-1',
-            args: { location: 'Tokyo' },
-            state: 'output-available',
+            type: "tool-get_weather" as any,
+            toolCallId: "call-1",
+            args: { location: "Tokyo" },
+            state: "output-available",
             result: { temp: 20 },
           },
           {
-            type: 'tool-web_search' as any,
-            toolCallId: 'call-2',
-            args: { query: 'AI news' },
-            state: 'output-available',
+            type: "tool-web_search" as any,
+            toolCallId: "call-2",
+            args: { query: "AI news" },
+            state: "output-available",
             result: { results: [] },
           },
         ],
@@ -171,20 +175,20 @@ describe('Message Component Integration', () => {
       render(<MessageComponent message={message} />);
 
       // Then: Both tools should be displayed (output-available = debug view)
-      const toolNames = screen.getAllByTestId('tool-name-debug');
+      const toolNames = screen.getAllByTestId("tool-name-debug");
       expect(toolNames).toHaveLength(2);
-      expect(toolNames[0]).toHaveTextContent('get_weather');
-      expect(toolNames[1]).toHaveTextContent('web_search');
+      expect(toolNames[0]).toHaveTextContent("get_weather");
+      expect(toolNames[1]).toHaveTextContent("web_search");
     });
   });
 
-  describe('Message Metadata', () => {
-    it('should handle message with usage metadata', () => {
+  describe("Message Metadata", () => {
+    it("should handle message with usage metadata", () => {
       // Given: Message with usage metadata
       const message = {
-        id: 'msg-1',
-        role: 'assistant',
-        parts: [{ type: 'text', text: 'Response' }],
+        id: "msg-1",
+        role: "assistant",
+        parts: [{ type: "text", text: "Response" }],
         metadata: {
           usage: {
             promptTokens: 10,
@@ -201,17 +205,17 @@ describe('Message Component Integration', () => {
       expect(screen.getByText(/Response/i)).toBeTruthy();
     });
 
-    it('should handle message with citations', () => {
+    it("should handle message with citations", () => {
       // Given: Message with citation metadata
       const message = {
-        id: 'msg-1',
-        role: 'assistant',
-        parts: [{ type: 'text', text: 'Information from sources' }],
+        id: "msg-1",
+        role: "assistant",
+        parts: [{ type: "text", text: "Information from sources" }],
         metadata: {
           citations: [
             {
-              text: 'Source text',
-              uri: 'https://example.com',
+              text: "Source text",
+              uri: "https://example.com",
               startIndex: 0,
               endIndex: 10,
             },
@@ -227,16 +231,16 @@ describe('Message Component Integration', () => {
     });
   });
 
-  describe('Empty and Edge Cases', () => {
-    it('should handle empty text message', () => {
+  describe("Empty and Edge Cases", () => {
+    it("should handle empty text message", () => {
       // Given: Message with empty text
       const message: UIMessage = {
-        id: 'msg-1',
-        role: 'user',
+        id: "msg-1",
+        role: "user",
         parts: [
           {
-            type: 'text',
-            text: '',
+            type: "text",
+            text: "",
           },
         ],
       };
@@ -249,11 +253,11 @@ describe('Message Component Integration', () => {
       expect(document.body).toBeTruthy();
     });
 
-    it('should handle message with no parts', () => {
+    it("should handle message with no parts", () => {
       // Given: Message with empty parts array
       const message: UIMessage = {
-        id: 'msg-1',
-        role: 'assistant',
+        id: "msg-1",
+        role: "assistant",
         parts: [],
       };
 
@@ -264,15 +268,15 @@ describe('Message Component Integration', () => {
       expect(document.body).toBeTruthy();
     });
 
-    it('should handle streaming message (partial text)', () => {
+    it("should handle streaming message (partial text)", () => {
       // Given: Message being streamed (partial text)
       const message: UIMessage = {
-        id: 'msg-1',
-        role: 'assistant',
+        id: "msg-1",
+        role: "assistant",
         parts: [
           {
-            type: 'text',
-            text: 'This is a partial',
+            type: "text",
+            text: "This is a partial",
           },
         ],
       };
@@ -285,22 +289,22 @@ describe('Message Component Integration', () => {
     });
   });
 
-  describe('Tool Approval Integration', () => {
-    it('should pass addToolApprovalResponse to tool invocations', () => {
+  describe("Tool Approval Integration", () => {
+    it("should pass addToolApprovalResponse to tool invocations", () => {
       // Given: Message with tool requiring approval
       const message: UIMessage = {
-        id: 'msg-1',
-        role: 'assistant',
+        id: "msg-1",
+        role: "assistant",
         parts: [
           {
-            type: 'tool-adk_request_confirmation' as any,
-            toolCallId: 'call-1',
-            state: 'approval-requested',
+            type: "tool-adk_request_confirmation" as any,
+            toolCallId: "call-1",
+            state: "approval-requested",
             input: {
               originalFunctionCall: {
-                id: 'orig-1',
-                name: 'change_bgm',
-                args: { track_name: 'lofi' },
+                id: "orig-1",
+                name: "change_bgm",
+                args: { track_name: "lofi" },
               },
             },
           },
@@ -314,7 +318,7 @@ describe('Message Component Integration', () => {
         <MessageComponent
           message={message}
           addToolApprovalResponse={addToolApprovalResponse}
-        />
+        />,
       );
 
       // Then: Tool invocation should be rendered with callback
@@ -323,35 +327,35 @@ describe('Message Component Integration', () => {
     });
   });
 
-  describe('Role-based Rendering', () => {
-    it('should render user messages differently from assistant messages', () => {
+  describe("Role-based Rendering", () => {
+    it("should render user messages differently from assistant messages", () => {
       // Given: User message
       const userMessage: UIMessage = {
-        id: 'user-1',
-        role: 'user',
-        parts: [{ type: 'text', text: 'User question' }],
+        id: "user-1",
+        role: "user",
+        parts: [{ type: "text", text: "User question" }],
       };
 
       // When: Render user message
       const { container: userContainer } = render(
-        <MessageComponent message={userMessage} />
+        <MessageComponent message={userMessage} />,
       );
 
       // Given: Assistant message
       const assistantMessage: UIMessage = {
-        id: 'assistant-1',
-        role: 'assistant',
-        parts: [{ type: 'text', text: 'Assistant response' }],
+        id: "assistant-1",
+        role: "assistant",
+        parts: [{ type: "text", text: "Assistant response" }],
       };
 
       // When: Render assistant message
       const { container: assistantContainer } = render(
-        <MessageComponent message={assistantMessage} />
+        <MessageComponent message={assistantMessage} />,
       );
 
       // Then: Both should render successfully
-      expect(userContainer.textContent).toContain('User question');
-      expect(assistantContainer.textContent).toContain('Assistant response');
+      expect(userContainer.textContent).toContain("User question");
+      expect(assistantContainer.textContent).toContain("Assistant response");
     });
   });
 });

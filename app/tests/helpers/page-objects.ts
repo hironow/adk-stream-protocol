@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Page } from "@playwright/test";
 
 /**
  * Page Object for Chat page
@@ -21,20 +21,20 @@ export class ChatPage {
    * Navigate to the chat page (root)
    */
   async goto() {
-    await this.page.goto('/');
+    await this.page.goto("/");
   }
 
   /**
    * Select a streaming mode
    * @param mode - The mode to select ('gemini', 'adk-sse', or 'adk-bidi')
    */
-  async selectMode(mode: 'gemini' | 'adk-sse' | 'adk-bidi') {
+  async selectMode(mode: "gemini" | "adk-sse" | "adk-bidi") {
     const modeNames = {
-      'gemini': /Gemini Direct/i,
-      'adk-sse': /ADK SSE/i,
-      'adk-bidi': /ADK BIDI/i,
+      gemini: /Gemini Direct/i,
+      "adk-sse": /ADK SSE/i,
+      "adk-bidi": /ADK BIDI/i,
     };
-    await this.page.getByRole('button', { name: modeNames[mode] }).click();
+    await this.page.getByRole("button", { name: modeNames[mode] }).click();
   }
 
   /**
@@ -42,16 +42,18 @@ export class ChatPage {
    * @param text - The message text to send
    */
   async sendMessage(text: string) {
-    const chatInput = this.page.locator('input[placeholder="Type your message..."]');
+    const chatInput = this.page.locator(
+      'input[placeholder="Type your message..."]',
+    );
     await chatInput.fill(text);
-    await chatInput.press('Enter');
+    await chatInput.press("Enter");
   }
 
   /**
    * Wait for assistant response to appear
    */
   async waitForAssistantResponse() {
-    await this.page.getByTestId('message-assistant').first().waitFor();
+    await this.page.getByTestId("message-assistant").first().waitFor();
   }
 
   /**
@@ -74,8 +76,8 @@ export class ChatPage {
    * Get the current mode from the mode selector
    */
   async getCurrentMode(): Promise<string> {
-    const modeSelector = this.page.getByTestId('mode-selector');
-    return (await modeSelector.inputValue()) || '';
+    const modeSelector = this.page.getByTestId("mode-selector");
+    return (await modeSelector.inputValue()) || "";
   }
 
   /**
@@ -90,7 +92,7 @@ export class ChatPage {
    * @param filePath - Path to the image file to upload
    */
   async uploadImage(filePath: string) {
-    const fileInput = this.page.getByTestId('image-upload-input');
+    const fileInput = this.page.getByTestId("image-upload-input");
     await fileInput.setInputFiles(filePath);
   }
 
@@ -98,34 +100,34 @@ export class ChatPage {
    * Start voice recording (push-to-talk)
    */
   async startRecording() {
-    await this.page.keyboard.down('Meta'); // CMD key
+    await this.page.keyboard.down("Meta"); // CMD key
   }
 
   /**
    * Stop voice recording
    */
   async stopRecording() {
-    await this.page.keyboard.up('Meta'); // CMD key
+    await this.page.keyboard.up("Meta"); // CMD key
   }
 
   /**
    * Click play on BGM controls
    */
   async playBGM() {
-    await this.page.getByTestId('bgm-play-button').click();
+    await this.page.getByTestId("bgm-play-button").click();
   }
 
   /**
    * Click pause on BGM controls
    */
   async pauseBGM() {
-    await this.page.getByTestId('bgm-pause-button').click();
+    await this.page.getByTestId("bgm-pause-button").click();
   }
 
   /**
    * Get the current BGM track name
    */
   async getCurrentBGMTrack(): Promise<string> {
-    return (await this.page.getByTestId('bgm-track-name').textContent()) || '';
+    return (await this.page.getByTestId("bgm-track-name").textContent()) || "";
   }
 }

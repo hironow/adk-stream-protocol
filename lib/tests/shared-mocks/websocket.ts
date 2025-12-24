@@ -37,7 +37,7 @@ export class MockWebSocket {
     setTimeout(() => {
       this.readyState = MockWebSocket.OPEN;
       if (this.onopen) {
-        this.onopen(new Event('open'));
+        this.onopen(new Event("open"));
       }
     }, 0);
   }
@@ -49,7 +49,7 @@ export class MockWebSocket {
   close(): void {
     this.readyState = MockWebSocket.CLOSED;
     if (this.onclose) {
-      this.onclose(new CloseEvent('close'));
+      this.onclose(new CloseEvent("close"));
     }
   }
 
@@ -61,9 +61,9 @@ export class MockWebSocket {
     if (this.onmessage) {
       const sseMessage = `data: ${JSON.stringify(data)}`;
       this.onmessage(
-        new MessageEvent('message', {
+        new MessageEvent("message", {
           data: sseMessage,
-        })
+        }),
       );
     }
   }
