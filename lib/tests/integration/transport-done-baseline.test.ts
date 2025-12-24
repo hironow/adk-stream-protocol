@@ -2,7 +2,7 @@
  * Integration Tests: Transport Tool-Level Baseline Verification
  *
  * Tests complete tool execution using baseline fixtures captured from E2E tests.
- * See docs/glossary.md for terminology definitions.
+ * See docs/GLOSSARY.md for terminology definitions.
  *
  * Terminology:
  * - Turn: User input → AI response ([DONE]) cycle

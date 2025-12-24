@@ -606,7 +606,7 @@ test("BIDI: Deny payment with LongRunningFunctionTool", async ({ page }) => {
 - [ADK Resume Agents Docs](https://google.github.io/adk-docs/runtime/resume/)
 - [GitHub Issue #1851](https://github.com/google/adk-python/issues/1851)
 - [Session 5 Investigation](agents/handsoff.md)
-- [Current BIDI Bug Report](BUG-ADK-BIDI-TOOL-CONFIRMATION.md)
+- [SSE vs BIDI Confirmation Protocol](../docs/adr/0003-sse-vs-bidi-confirmation-protocol.md)
 
 ---
 

@@ -36,7 +36,7 @@ BIDI mode (`run_live()`) has two significant issues that limit production use:
    - Status: Under investigation
    - Workaround: Use SSE mode for full tool support
 
-**See:** [docs/BUG-ADK-BIDI-TOOL-CONFIRMATION.md](docs/BUG-ADK-BIDI-TOOL-CONFIRMATION.md) for detailed analysis
+**See:** [docs/ADK_NATIVE_TOOL_CONFIRMATION_FLOW.md](docs/ADK_NATIVE_TOOL_CONFIRMATION_FLOW.md) for SSE mode confirmation flow details
 
 **Recent Fixes**
 
@@ -225,12 +225,17 @@ Comprehensive documentation is available in the `docs/` directory:
 ### Technical Notes
 
 - **[React Memoization](docs/REACT_MEMOIZATION.md)** - React performance optimization patterns
-- **[Bug Report: ADK BIDI Tool Confirmation](docs/BUG-ADK-BIDI-TOOL-CONFIRMATION.md)** - Known BIDI mode issues analysis
+- **[Glossary](docs/GLOSSARY.md)** - Key terms and concepts
+- **[Chunk Logger E2E Testing](docs/CHUNK_LOGGER_E2E_TESTING.md)** - Debug logging in E2E tests
 
 ### Architecture Decision Records
 
 - **[ADR 0001: Per-Connection State Management](docs/adr/0001-per-connection-state-management.md)**
 - **[ADR 0002: Tool Approval Architecture](docs/adr/0002-tool-approval-architecture.md)**
+- **[ADR 0003: SSE vs BIDI Confirmation Protocol](docs/adr/0003-sse-vs-bidi-confirmation-protocol.md)**
+- **[ADR 0004: Multi-Tool Response Timing](docs/adr/0004-multi-tool-response-timing.md)**
+- **[ADR 0005: Frontend Execute Pattern and [DONE] Timing](docs/adr/0005-frontend-execute-pattern-and-done-timing.md)**
+- **[ADR 0006: sendAutomaticallyWhen Decision Logic Order](docs/adr/0006-send-automatically-when-decision-logic-order.md)**
 
 ### Additional Resources
 
