@@ -6,12 +6,14 @@
 ## Context
 
 During implementation of Frontend Execute pattern (ADR 0005), we discovered that the **order of checks** in `sendAutomaticallyWhen()` is critical for correctly distinguishing between:
+
 1. **Backend already responded** (should NOT auto-send)
 2. **Frontend Execute** (user called `addToolOutput()`, should auto-send)
 
 ### The Problem
 
 Both scenarios have similar message state:
+
 - Confirmation tool: `state = "approval-responded"`
 - Original tool: `state = "output-available"`
 
@@ -79,10 +81,12 @@ Default: return true (Server Execute: send approval)
 **Critical decision**: Check for **ERROR only**, NOT `output-available`.
 
 **Rationale**:
+
 - `output-error` → Backend definitely responded (return false)
 - `output-available` → Could be Frontend Execute (check in Check 5)
 
 **Why this works**:
+
 ```typescript
 Scenario: Backend responded with error
   - Confirmation: approval-responded
@@ -98,6 +102,7 @@ Scenario: Frontend Execute success
 #### Check 5: Frontend Execute Detection
 
 **Why after error check**: By this point, we know:
+
 - Text part is absent (not backend response)
 - Approval is valid
 - No errors occurred
@@ -223,10 +228,12 @@ expect(sendAutomaticallyWhen({ messages })).toBe(false); // ✅
 ## Implementation
 
 **Files**:
+
 - `lib/bidi/send-automatically-when.ts`
 - `lib/sse/send-automatically-when.ts`
 
 **Tests**:
+
 - `lib/tests/integration/sendAutomaticallyWhen-integration.test.ts`
 - `lib/tests/integration/sendAutomaticallyWhen-false-cases.test.ts`
 - `lib/tests/e2e/frontend-execute-bidi.e2e.test.tsx`

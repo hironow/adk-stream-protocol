@@ -1913,6 +1913,5 @@ describe("WebSocketChatTransport", () => {
         expect((transport as any).currentController).toBeDefined();
       });
     });
-
   });
 });

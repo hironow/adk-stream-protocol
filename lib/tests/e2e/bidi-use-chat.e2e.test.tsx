@@ -245,7 +245,7 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
       let secondConfirmationSent = false;
 
       server.use(
-        createCustomHandler(chat, ({ server, client }) => {
+        createCustomHandler(chat, ({ server: _server, client }) => {
           client.addEventListener("message", (event) => {
             // Early return for non-JSON messages (e.g., WebSocket handshake)
             if (typeof event.data !== "string" || !event.data.startsWith("{")) {
@@ -530,7 +530,7 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
 
       server.use(
         createCustomHandler(chat, ({ server, client }) => {
-          client.addEventListener("message", (event) => {
+          client.addEventListener("message", (_event) => {
             requestCount++;
 
             if (requestCount === 1) {
@@ -633,7 +633,7 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
       let finalResponseReceived = false;
 
       server.use(
-        createCustomHandler(chat, ({ server, client }) => {
+        createCustomHandler(chat, ({ server: _server, client }) => {
           client.addEventListener("message", (event) => {
             // Early return for non-JSON messages (e.g., WebSocket handshake)
             if (typeof event.data !== "string" || !event.data.startsWith("{")) {

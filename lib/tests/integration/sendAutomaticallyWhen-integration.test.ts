@@ -14,10 +14,8 @@ import type { UIMessage } from "ai";
 import { describe, expect, it } from "vitest";
 import { sendAutomaticallyWhen as bidiSendAuto } from "../../bidi";
 import {
-  TOOL_STATE_APPROVAL_REQUESTED,
   TOOL_STATE_APPROVAL_RESPONDED,
   TOOL_STATE_OUTPUT_AVAILABLE,
-  TOOL_STATE_OUTPUT_ERROR,
   TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
 } from "../../constants";
 import { sendAutomaticallyWhen as sseSendAuto } from "../../sse";

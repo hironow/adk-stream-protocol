@@ -6,12 +6,14 @@
 ## Scope
 
 **This ADR documents:**
+
 - Frontend Execute pattern where frontend executes tools (e.g., browser APIs) and sends results via `addToolOutput()`
 - WebSocket `[DONE]` sending timing for both Server Execute and Frontend Execute patterns
 - Critical React state timing requirements for Frontend Execute
 - Test validation requirements
 
 **Related ADRs:**
+
 - **ADR 0002**: Tool Approval Architecture - General approval architecture
 - **ADR 0003**: SSE vs BIDI Confirmation Protocol - Approval message protocols
 - **ADR 0004**: Multi-Tool Response Timing - Server Execute timing constraints
@@ -32,11 +34,13 @@ During E2E test development for Frontend Execute pattern, we discovered critical
 ### Pattern 1: Server Execute (Backend Executes Tools)
 
 **Flow**:
+
 ```
 User approves tool → Backend executes → Backend sends result + [DONE]
 ```
 
 **[DONE] Timing**:
+
 ```
 1. Initial user message
    Backend → tool-input-start, tool-input-available, tool-approval-request, [DONE]
@@ -50,11 +54,13 @@ User approves tool → Backend executes → Backend sends result + [DONE]
 ### Pattern 2: Frontend Execute (Frontend Executes Tools)
 
 **Flow**:
+
 ```
 User approves tool → Frontend executes → addToolOutput() → Backend receives result → Backend sends response + [DONE]
 ```
 
 **[DONE] Timing**:
+
 ```
 1. Initial user message
    Backend → tool-input-start, tool-input-available, tool-approval-request, [DONE]
@@ -72,6 +78,7 @@ User approves tool → Frontend executes → addToolOutput() → Backend receive
 ### Why Backend Must NOT Send [DONE] After Approval
 
 **The Problem**:
+
 ```
 If backend sends [DONE] after approval:
 
@@ -86,6 +93,7 @@ If backend sends [DONE] after approval:
 ```
 
 **The Solution**:
+
 ```
 Backend does NOT send [DONE] after approval:
 
@@ -143,6 +151,7 @@ await act(async () => {
 **Evidence**:
 
 Success test (`lib/tests/e2e/frontend-execute-bidi.e2e.test.tsx:210-219`):
+
 ```typescript
 // Wait for approval state to update
 await waitFor(
@@ -167,6 +176,7 @@ Failure test AFTER fix: Added `waitFor` → Test passed ✅
 #### frontend-execute-bidi.e2e.test.tsx (BIDI Mode)
 
 **Test: Success Flow**
+
 ```typescript
 1. Initial message
    Handler sends: tool-input-start, tool-input-available, tool-approval-request
@@ -183,6 +193,7 @@ Failure test AFTER fix: Added `waitFor` → Test passed ✅
 **Verified**: ✅ `toolResultReceived = true` (handler received tool output)
 
 **Test: Failure Flow**
+
 ```typescript
 Same flow as success, but:
 - addToolOutput() sends error result
@@ -194,6 +205,7 @@ Same flow as success, but:
 #### frontend-execute-sse.e2e.test.tsx (SSE Mode)
 
 **Test: Success Flow**
+
 ```typescript
 1. Request 1: Initial message
    Response: tool-input-start, tool-input-available, tool-approval-request, [DONE]
@@ -209,6 +221,7 @@ Same flow as success, but:
 **Verified**: ✅ `toolResultReceived = true`
 
 **Test: Failure Flow**
+
 ```typescript
 Same flow, sends error result instead of success
 ```
@@ -220,6 +233,7 @@ Same flow, sends error result instead of success
 #### sse-use-chat.e2e.test.tsx (SSE Mode)
 
 **Multi-Tool Sequential Execution**:
+
 ```typescript
 Request 1: Initial message
   Response: tool1 confirmation, [DONE]
@@ -236,6 +250,7 @@ Request 3: Tool2 approval
 #### bidi-use-chat.e2e.test.tsx (BIDI Mode)
 
 **Multi-Tool Sequential Execution**:
+
 ```typescript
 Message 1: Initial message
   Stream: tool1 confirmation, [DONE]
@@ -286,6 +301,7 @@ stream lifecycle
 ### Backend Requirements
 
 **Frontend Execute Pattern**:
+
 ```python
 def handle_approval_response(approval):
     # Update approval state
@@ -297,6 +313,7 @@ def handle_approval_response(approval):
 ```
 
 **After receiving tool output from addToolOutput()**:
+
 ```python
 def handle_tool_output(tool_output):
     # Process tool output
@@ -311,6 +328,7 @@ def handle_tool_output(tool_output):
 ### Frontend Requirements
 
 **Always use this pattern**:
+
 ```typescript
 // 1. Approve
 await act(async () => {
@@ -333,6 +351,7 @@ await act(async () => {
 ```
 
 **NEVER skip the waitFor**:
+
 ```typescript
 // ❌ WRONG - Will cause flaky tests
 await act(async () => {
@@ -353,6 +372,7 @@ All Frontend Execute tests MUST verify:
 3. **Timing correct**: Use `waitFor` between approval and `addToolOutput()`
 
 Example assertion pattern:
+
 ```typescript
 // Verify backend received tool output
 expect(toolResultReceived).toBe(true);
@@ -378,11 +398,11 @@ expect(finalText).toContain("Success message");
 ## Related ADRs
 
 - **ADR 0003**: SSE vs BIDI Confirmation Protocol
-  - Established approval message protocols
-  - This ADR adds Frontend Execute pattern and `[DONE]` timing
+    - Established approval message protocols
+    - This ADR adds Frontend Execute pattern and `[DONE]` timing
 - **ADR 0004**: Multi-Tool Response Timing
-  - Documents Server Execute timing constraints
-  - This ADR complements with Frontend Execute timing
+    - Documents Server Execute timing constraints
+    - This ADR complements with Frontend Execute timing
 
 ## Future Considerations
 

@@ -54,7 +54,7 @@ describe("BIDI EventReceiver - E2E Tests", () => {
       // Given: MSW handler sends audio chunks
       const chat = createBidiWebSocketLink();
       const audioChunks: string[] = [];
-      let audioResetCalled = false;
+      let _audioResetCalled = false;
 
       const mockAudioContext = {
         voiceChannel: {
@@ -64,7 +64,7 @@ describe("BIDI EventReceiver - E2E Tests", () => {
             audioChunks.push(chunk.content);
           },
           reset: () => {
-            audioResetCalled = true;
+            _audioResetCalled = true;
           },
         },
         isReady: true,
@@ -72,7 +72,7 @@ describe("BIDI EventReceiver - E2E Tests", () => {
       };
 
       server.use(
-        createCustomHandler(chat, ({ server, client }) => {
+        createCustomHandler(chat, ({ server: _server, client }) => {
           client.addEventListener("message", () => {
             // Send PCM audio chunks using data-pcm format (BIDI protocol)
             const pcmData1 = Buffer.from([0, 1, 2, 3]).toString("base64");
@@ -147,7 +147,7 @@ describe("BIDI EventReceiver - E2E Tests", () => {
       };
 
       server.use(
-        createCustomHandler(chat, ({ server, client }) => {
+        createCustomHandler(chat, ({ server: _server, client }) => {
           client.addEventListener("message", () => {
             // Send minimal response
             const textId = `text-${Date.now()}`;
@@ -207,7 +207,7 @@ describe("BIDI EventReceiver - E2E Tests", () => {
       };
 
       server.use(
-        createCustomHandler(chat, ({ server, client }) => {
+        createCustomHandler(chat, ({ server: _server, client }) => {
           client.addEventListener("message", (event) => {
             const data = JSON.parse(event.data as string);
 
@@ -275,7 +275,7 @@ describe("BIDI EventReceiver - E2E Tests", () => {
       const chat = createBidiWebSocketLink();
 
       server.use(
-        createCustomHandler(chat, ({ server, client }) => {
+        createCustomHandler(chat, ({ server: _server, client }) => {
           client.addEventListener("message", () => {
             // Send malformed SSE (invalid JSON)
             client.send("data: {invalid json}\n\n");
@@ -336,7 +336,7 @@ describe("BIDI EventReceiver - E2E Tests", () => {
       };
 
       server.use(
-        createCustomHandler(chat, ({ server, client }) => {
+        createCustomHandler(chat, ({ server: _server, client }) => {
           client.addEventListener("message", () => {
             // Send non-SSE message (should trigger warning)
             client.send("Not an SSE message");
@@ -402,7 +402,7 @@ describe("BIDI EventReceiver - E2E Tests", () => {
       const chat = createBidiWebSocketLink();
 
       server.use(
-        createCustomHandler(chat, ({ server, client }) => {
+        createCustomHandler(chat, ({ server: _server, client }) => {
           client.addEventListener("message", () => {
             const textId = `text-${Date.now()}`;
             client.send(

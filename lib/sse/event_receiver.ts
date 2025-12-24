@@ -23,12 +23,4 @@
  * Currently, SSE mode uses AI SDK's DefaultChatTransport exclusively,
  * which handles all server-sent event parsing and conversion.
  */
-export class EventReceiver {
-  /**
-   * SSE mode does not require custom receiver implementation.
-   * All events are handled by AI SDK's DefaultChatTransport.
-   */
-  constructor() {
-    // Reserved for future SSE-specific receiver logic
-  }
-}
+export class EventReceiver {}

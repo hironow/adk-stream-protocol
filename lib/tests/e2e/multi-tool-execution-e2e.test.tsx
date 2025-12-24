@@ -24,9 +24,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { buildUseChatOptions } from "../../bidi";
 import {
   TOOL_NAME_ADK_REQUEST_CONFIRMATION,
-  TOOL_STATE_APPROVAL_REQUESTED,
   TOOL_STATE_APPROVAL_RESPONDED,
-  TOOL_STATE_OUTPUT_AVAILABLE,
   TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
 } from "../../constants";
 import {

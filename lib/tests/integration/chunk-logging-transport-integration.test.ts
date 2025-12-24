@@ -14,15 +14,7 @@
 
 import type { UIMessage } from "ai";
 import { setupServer } from "msw/node";
-import {
-  afterAll,
-  afterEach,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-} from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { WebSocketChatTransport } from "../../bidi/transport";
 import { buildBidiUseChatOptions } from "../../bidi/use-chat-options";
 import { ChunkLoggingTransport, chunkLogger } from "../../chunk_logs";

@@ -36,6 +36,7 @@ export function createFunctionCallMessage(
         type: "tool-call",
         toolName,
         args,
+        // biome-ignore lint/suspicious/noExplicitAny: Test fixture - partial UIMessage construction
       } as any,
     ],
   };
@@ -57,6 +58,7 @@ export function createToolResultMessage(
         type: "tool-result",
         toolCallId,
         result,
+        // biome-ignore lint/suspicious/noExplicitAny: Test fixture - partial UIMessage construction
       } as any,
     ],
   };

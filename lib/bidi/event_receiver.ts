@@ -25,6 +25,16 @@ export interface AudioContext {
 }
 
 /**
+ * PCM audio chunk structure from ADK BIDI protocol
+ */
+interface PCMAudioChunk {
+  type: "data-pcm";
+  data: {
+    content: string; // base64-encoded PCM data
+  };
+}
+
+/**
  * Configuration for EventReceiver
  */
 export interface EventReceiverConfig {
@@ -141,10 +151,10 @@ export class EventReceiver {
     }
 
     // Parse JSON and convert to UIMessageChunk
-    let chunk;
+    let chunk: unknown;
     try {
       chunk = JSON.parse(jsonStr);
-    } catch (err) {
+    } catch (_err) {
       // Log malformed JSON but continue processing (don't close stream)
       console.error(
         "[Event Receiver] Malformed JSON in SSE message:",
@@ -179,7 +189,11 @@ export class EventReceiver {
       controller.enqueue(chunk as UIMessageChunk);
     } catch (err) {
       // Handle controller already closed (can happen in tests or when [DONE] races with other messages)
-      if ((err as any).code === "ERR_INVALID_STATE") {
+      if (
+        err instanceof Error &&
+        "code" in err &&
+        err.code === "ERR_INVALID_STATE"
+      ) {
         console.warn(
           `[Event Receiver] Controller already closed, skipping chunk: ${chunk.type}`,
         );
@@ -217,7 +231,11 @@ export class EventReceiver {
     try {
       controller.close();
     } catch (err) {
-      if ((err as any).code === "ERR_INVALID_STATE") {
+      if (
+        err instanceof Error &&
+        "code" in err &&
+        err.code === "ERR_INVALID_STATE"
+      ) {
         console.warn(
           "[Event Receiver] Controller already closed in handleDoneMarker",
         );
@@ -265,7 +283,7 @@ export class EventReceiver {
   /**
    * Handle PCM audio chunks for real-time playback
    */
-  private handlePCMAudioChunk(chunk: any): void {
+  private handlePCMAudioChunk(chunk: PCMAudioChunk): void {
     try {
       // TODO: handle chunk data PCM format changes
       if (!chunk.data) {
@@ -325,7 +343,7 @@ export class EventReceiver {
       typeof chunk.messageMetadata === "object" &&
       chunk.messageMetadata !== null
     ) {
-      const metadata = chunk.messageMetadata as any;
+      const metadata = chunk.messageMetadata as Record<string, unknown>;
 
       // Log audio stream completion
       if (metadata.audio) {

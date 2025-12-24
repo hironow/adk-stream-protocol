@@ -160,7 +160,7 @@ export function Chat({
   // TODO: separate tool use on client matcher!
   // Tool execution helper - execute frontend-delegated tools
   // This is called after approval is sent to execute the actual tool
-  const executeToolCallback = useCallback(
+  const _executeToolCallback = useCallback(
     async (
       toolName: string,
       toolCallId: string,

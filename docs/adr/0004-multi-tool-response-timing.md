@@ -6,11 +6,13 @@
 ## Scope and Limitations
 
 **This ADR applies to:**
+
 - **Server-side tool execution** where backend executes tools and requests user approval
 - Sequential multi-tool execution requiring multiple confirmation steps
 - Both SSE and BIDI modes using `addToolApprovalResponse()`
 
 **This ADR does NOT apply to:**
+
 - **Frontend-side tool execution** where frontend executes browser APIs and sends results via `addToolOutput()`
 - Single-tool execution scenarios
 - Tools that don't require user confirmation
@@ -285,6 +287,7 @@ else if (hasSecondApproval) {
 ### Multi-Tool Execution Test (`lib/tests/e2e/multi-tool-execution-e2e.test.tsx`)
 
 Before fix (BROKEN):
+
 ```typescript
 // After Tool1 approval
 client.send(text-delta: "Found 10 users. ");  // ❌ Text in intermediate response
@@ -296,6 +299,7 @@ client.send("[DONE]");
 ```
 
 After fix (WORKING):
+
 ```typescript
 // After Tool1 approval
 client.send(tool2 confirmation request);  // ✓ No text
@@ -403,8 +407,8 @@ expect(finalMessage).toContain("result from tool2");
 ## Related ADRs
 
 - **ADR 0003**: SSE vs BIDI Confirmation Protocol Differences
-  - Established different confirmation handling for SSE vs BIDI
-  - This ADR adds constraints on response timing for multi-tool scenarios
+    - Established different confirmation handling for SSE vs BIDI
+    - This ADR adds constraints on response timing for multi-tool scenarios
 
 ## Future Considerations
 

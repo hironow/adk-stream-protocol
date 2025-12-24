@@ -281,6 +281,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
 
                 // DEBUG: Expose WebSocket for e2e testing (Phase 4 timeout test)
                 if (typeof window !== "undefined") {
+                  // biome-ignore lint/suspicious/noExplicitAny: Intentional for E2E testing hook
                   (window as any).__websocket = this.ws;
                   console.log(
                     "[WS Transport] WebSocket instance exposed for testing",
@@ -327,7 +328,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
                 this._stopPing(); // Stop ping on close
                 try {
                   controller.close();
-                } catch (err) {
+                } catch (_err) {
                   // Controller already closed - ignore error (common in tests)
                   // Suppress logging as this is expected behavior during cleanup
                 }
@@ -381,7 +382,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
                 this._stopPing(); // Stop ping on close
                 try {
                   controller.close();
-                } catch (err) {
+                } catch (_err) {
                   // Controller already closed - ignore error (common in tests)
                   // Suppress logging as this is expected behavior during cleanup
                 }

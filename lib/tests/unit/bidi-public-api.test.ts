@@ -277,7 +277,7 @@ describe("lib/bidi Public API", () => {
         config: { url: "ws://example.com:9000/ws" },
         expectedUrl: "ws://example.com:9000/ws",
       },
-    ])("$name", ({ config, expectedUrl }) => {
+    ])("$name", ({ config, expectedUrl: _expectedUrl }) => {
       // when
       const result = buildUseChatOptions({
         initialMessages: [],

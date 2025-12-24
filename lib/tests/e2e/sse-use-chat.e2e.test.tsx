@@ -387,7 +387,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
       server.use(
         http.post("http://localhost:8000/stream", async ({ request }) => {
           requestCount++;
-          const payload = await request.json();
+          const _payload = await request.json();
 
           // First request: Initial message
           if (requestCount === 1) {

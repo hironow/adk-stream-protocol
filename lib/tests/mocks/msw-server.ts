@@ -5,7 +5,6 @@
  * Use this in integration tests to intercept HTTP/SSE and WebSocket requests.
  */
 
-import { ws } from "msw";
 import { setupServer } from "msw/node";
 
 /**

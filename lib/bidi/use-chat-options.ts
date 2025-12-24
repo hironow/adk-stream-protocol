@@ -88,6 +88,7 @@ export function buildBidiUseChatOptions({
 
   // Expose transport to window for E2E testing (only in development/test)
   if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
+    // biome-ignore lint/suspicious/noExplicitAny: Intentional for E2E testing hook
     (window as any).webSocketTransport = websocketTransport;
   }
 
