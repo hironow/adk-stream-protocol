@@ -168,7 +168,7 @@ export function ToolInvocationComponent({
         <span style={{ fontWeight: 600, color: getStateColor() }}>
           {toolName} ({toolInvocation.type})
         </span>
-        <span style={{ fontSize: "0.875rem", color: "#888" }}>
+        <span style={{ fontSize: "0.875rem", color: "#999" }}>
           {getStateLabel()}
         </span>
       </div>
@@ -503,7 +503,7 @@ export function ToolInvocationComponent({
             <div
               style={{
                 fontSize: "0.75rem",
-                color: "#888",
+                color: "#999",
                 marginBottom: "0.25rem",
                 textTransform: "uppercase",
                 letterSpacing: "0.05em",
@@ -537,7 +537,7 @@ export function ToolInvocationComponent({
           <div
             style={{
               fontSize: "0.75rem",
-              color: "#888",
+              color: "#999",
               marginBottom: "0.25rem",
               textTransform: "uppercase",
               letterSpacing: "0.05em",

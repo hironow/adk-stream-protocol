@@ -12,7 +12,7 @@ import {
 
 interface ChatProps {
   mode: BackendMode;
-  // P4-T9: Message history preservation
+  // Message history preservation
   initialMessages?: UIMessage[];
   onMessagesChange?: (messages: UIMessage[]) => void;
 }
@@ -145,7 +145,7 @@ export function Chat({
     }
   }, [messages, status]);
 
-  // P4-T9: Notify parent of messages change for history preservation
+  // Notify parent of messages change for history preservation
   useEffect(() => {
     if (onMessagesChange) {
       onMessagesChange(messages);
@@ -357,7 +357,32 @@ export function Chat({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
-      {/* Audio Activation Button (center overlay) */}
+      {/* Skip to main content link - visually hidden but focusable */}
+      <a
+        href="#main-content"
+        style={{
+          position: "absolute",
+          left: "-9999px",
+          top: 0,
+          zIndex: 9999,
+        }}
+        onFocus={(e) => {
+          e.currentTarget.style.left = "0.5rem";
+          e.currentTarget.style.top = "0.5rem";
+          e.currentTarget.style.padding = "0.5rem";
+          e.currentTarget.style.background = "#0070f3";
+          e.currentTarget.style.color = "#fff";
+          e.currentTarget.style.borderRadius = "4px";
+        }}
+        onBlur={(e) => {
+          e.currentTarget.style.left = "-9999px";
+          e.currentTarget.style.top = "0";
+          e.currentTarget.style.padding = "0";
+          e.currentTarget.style.background = "transparent";
+        }}
+      >
+        Skip to main content
+      </a>
       {audioContext.needsUserActivation && (
         <div
           style={{
@@ -378,6 +403,7 @@ export function Chat({
             onClick={async () => {
               await audioContext.activate();
             }}
+            aria-label="Enable audio features for voice and background music"
             style={{
               padding: "1rem 2rem",
               background: "#0070f3",
@@ -392,7 +418,7 @@ export function Chat({
               gap: "0.5rem",
             }}
           >
-            <span>🔊</span>
+            <span aria-hidden="true">🔊</span>
             <span>Enable Audio</span>
           </button>
         </div>
@@ -406,6 +432,7 @@ export function Chat({
             "[Chat] BGM button clicked, should be handled by tool calls",
           )
         }
+        aria-label={`Background music track ${audioContext.bgmChannel.currentTrack + 1}`}
         style={{
           position: "fixed",
           top: "1rem",
@@ -424,7 +451,7 @@ export function Chat({
           gap: "0.5rem",
         }}
       >
-        <span>🎵</span>
+        <span aria-hidden="true">🎵</span>
         <span>BGM {audioContext.bgmChannel.currentTrack + 1}</span>
       </button>
 
@@ -487,10 +514,10 @@ export function Chat({
           </div>
         )}
 
-      <div style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
+      <main id="main-content" style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
         {messages.length === 0 && (
           <div
-            style={{ textAlign: "center", color: "#666", marginTop: "2rem" }}
+            style={{ textAlign: "center", color: "#999", marginTop: "2rem" }}
           >
             Start a conversation...
           </div>
@@ -503,17 +530,18 @@ export function Chat({
           />
         ))}
         {isLoading && (
-          <div style={{ padding: "1rem", color: "#666" }}>Thinking...</div>
+          <div style={{ padding: "1rem", color: "#999" }}>Thinking...</div>
         )}
         {error && (
           <div style={{ padding: "1rem", color: "#ef4444" }}>
             Error: {error.message}
           </div>
         )}
-      </div>
+      </main>
 
       <form
         onSubmit={onSubmit}
+        aria-label="Chat message input form"
         style={{
           flexShrink: 0,
           padding: "1rem",
@@ -538,6 +566,7 @@ export function Chat({
                 setSelectedFile(null);
                 setPreviewUrl(null);
               }}
+              aria-label="Remove attached image"
               style={{
                 position: "absolute",
                 top: "4px",
@@ -557,6 +586,7 @@ export function Chat({
         )}
         <div style={{ display: "flex", gap: "0.5rem" }}>
           <label
+            htmlFor="image-upload"
             style={{
               padding: "0.5rem 1rem",
               background: "#1a1a1a",
@@ -568,30 +598,40 @@ export function Chat({
           >
             📎 Attach Image
             <input
+              id="image-upload"
               type="file"
               accept="image/*"
               onChange={handleFileChange}
               style={{ display: "none" }}
+              aria-label="Upload an image file"
             />
           </label>
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Type your message..."
-            disabled={isLoading}
-            style={{
-              flex: 1,
-              padding: "0.5rem",
-              background: "#1a1a1a",
-              border: "1px solid #333",
-              borderRadius: "8px",
-              color: "white",
-              fontSize: "1rem",
-            }}
-          />
+          <label htmlFor="chat-input" style={{ flex: 1 }}>
+            <span style={{ position: "absolute", width: "1px", height: "1px", padding: 0, margin: "-1px", overflow: "hidden", clip: "rect(0,0,0,0)", whiteSpace: "nowrap", border: 0 }}>
+              Chat message input
+            </span>
+            <input
+              id="chat-input"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Type your message..."
+              disabled={isLoading}
+              aria-label="Type your chat message"
+              style={{
+                width: "100%",
+                padding: "0.5rem",
+                background: "#1a1a1a",
+                border: "1px solid #333",
+                borderRadius: "8px",
+                color: "white",
+                fontSize: "1rem",
+              }}
+            />
+          </label>
           <button
             type="submit"
             disabled={isLoading}
+            aria-label={isLoading ? "Sending message..." : "Send message"}
             style={{
               padding: "0.5rem 1rem",
               background: isLoading ? "#333" : "#0070f3",

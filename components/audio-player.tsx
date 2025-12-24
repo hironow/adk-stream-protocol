@@ -196,7 +196,7 @@ export function AudioPlayer({ chunks }: AudioPlayerProps) {
         <span style={{ fontWeight: 600 }}>
           {isPlaying ? "🔊 Playing Audio" : "🔇 Audio Ready"}
         </span>
-        <span style={{ fontSize: "0.875rem", color: "#888" }}>
+        <span style={{ fontSize: "0.875rem", color: "#999" }}>
           ({chunks.length} chunks)
         </span>
       </div>

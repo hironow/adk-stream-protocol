@@ -102,7 +102,12 @@
       "Bash(pnpm exec playwright test:*)",
       "Bash(jq:*)",
       "Bash(head:*)",
-      "WebFetch(domain:mswjs.io)"
+      "WebFetch(domain:mswjs.io)",
+      "Bash(ln:*)",
+      "Bash(pnpm test:e2e:app:smoke:*)",
+      "Bash(pnpm test:e2e:app:core:*)",
+      "Bash(pnpm test:e2e:app:advanced:*)",
+      "Bash(pnpm test:e2e:app:*)"
     ],
     "deny": [
       "Read(.env.keys)",

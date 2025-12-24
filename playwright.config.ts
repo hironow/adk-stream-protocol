@@ -1,33 +1,22 @@
-import { defineConfig, devices } from "@playwright/test";
-import dotenv from "dotenv";
-
-// Load .env.local for environment variables (e.g., SessionId)
-dotenv.config({ path: ".env.local" });
+import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Playwright E2E Test Configuration
+ * Playwright configuration for E2E tests
  *
- * Tests located in: scenarios/
+ * Test Suites:
+ * 1. scenarios/ - Event-to-event backend+frontend integration (EXISTING)
+ * 2. app/tests/e2e/ - UI-focused user interaction tests (NEW)
  *
- * Requirements:
- * - Real backend servers must be running (ADK Python + Next.js)
- * - No mocks allowed (per CLAUDE.md e2e-guidelines)
- * - Tests verify Gemini Direct and ADK SSE mode equivalence
- * - Tests verify history sharing between modes
+ * Test execution tiers (app/tests/e2e/ only):
+ * - Tier 1 (Smoke): Fast critical path tests (<5 min)
+ * - Tier 2 (Core): Comprehensive functionality tests (<20 min)
+ * - Tier 3 (Advanced): Edge cases, visual regression, accessibility (<30 min)
+ *
+ * See: agents/app_plan.md for full testing strategy
  */
-
 export default defineConfig({
-  // Test directory
-  testDir: "./scenarios",
-
-  // Maximum time one test can run for (3 minutes to accommodate LLM response times)
-  timeout: 180 * 1000,
-
-  // Run tests in files in parallel
-  fullyParallel: false,
-
-  // Run tests sequentially (one worker) to avoid shared backend/frontend conflicts
-  workers: 1,
+  // Run tests in parallel
+  fullyParallel: true,
 
   // Fail the build on CI if you accidentally left test.only in the source code
   forbidOnly: !!process.env.CI,
@@ -35,52 +24,92 @@ export default defineConfig({
   // Retry on CI only
   retries: process.env.CI ? 2 : 0,
 
-  // Reporter to use
-  reporter: [["html"], ["list"]],
+  // Limit workers on CI for stability
+  workers: process.env.CI ? 2 : undefined,
 
-  // Shared settings for all the projects below
+  // Reporter configuration
+  reporter: [
+    ['html', { outputFolder: 'playwright-report' }],
+    ['junit', { outputFile: 'test-results/junit.xml' }],
+    ['list'],
+  ],
+
+  // Shared settings for all tests
   use: {
-    // Base URL to use in actions like `await page.goto('/')`
-    baseURL: "http://localhost:3000",
+    // Base URL for tests
+    baseURL: 'http://localhost:3000',
 
-    // Collect trace when retrying the failed test
-    trace: "on-first-retry",
+    // Collect trace on first retry only (for debugging)
+    trace: 'on-first-retry',
 
-    // Screenshot on failure
-    screenshot: "only-on-failure",
+    // Screenshots on failure
+    screenshot: 'only-on-failure',
+
+    // Video on first retry
+    video: 'retain-on-failure',
   },
 
-  // Configure projects for major browsers
+  // Test timeout
+  timeout: 30000, // 30s per test
+
+  // Expect timeout
+  expect: {
+    timeout: 10000, // 10s per assertion
+  },
+
+  // Configure projects for different test suites
   projects: [
+    // Project 1: scenarios/ - Event-to-event integration tests
     {
-      name: "chromium",
-      use: {
-        ...devices["Desktop Chrome"],
-        // Grant geolocation permission for get_location tool tests
-        permissions: ["geolocation"],
-        // Set mock geolocation to Tokyo
-        geolocation: { longitude: 139.6503, latitude: 35.6762 },
-      },
+      name: 'scenarios',
+      testDir: './scenarios',
+      use: { ...devices['Desktop Chrome'] },
     },
+
+    // Project 2: app/tests/e2e/smoke - Tier 1: Fast smoke tests
+    {
+      name: 'app-e2e-smoke',
+      testDir: './app/tests/e2e/smoke',
+      use: { ...devices['Desktop Chrome'] },
+    },
+
+    // Project 3: app/tests/e2e/core - Tier 2: Core functionality
+    {
+      name: 'app-e2e-core',
+      testDir: './app/tests/e2e/core',
+      use: { ...devices['Desktop Chrome'] },
+    },
+
+    // Project 4: app/tests/e2e/advanced - Tier 3: Advanced tests
+    {
+      name: 'app-e2e-advanced',
+      testDir: './app/tests/e2e/advanced',
+      use: { ...devices['Desktop Chrome'] },
+    },
+
+    // Uncomment for cross-browser testing
+    // {
+    //   name: 'firefox',
+    //   use: { ...devices['Desktop Firefox'] },
+    // },
+
+    // {
+    //   name: 'webkit',
+    //   use: { ...devices['Desktop Safari'] },
+    // },
   ],
 
-  // Run your local dev server before starting the tests
-  webServer: [
-    {
-      // Next.js dev server
-      command: "pnpm dev",
-      url: "http://localhost:3000",
-      reuseExistingServer: !process.env.CI,
-      stdout: "pipe",
-      stderr: "pipe",
-    },
-    {
-      // ADK Python backend server
-      command: "uv run uvicorn server:app --reload",
-      url: "http://localhost:8000/health",
-      reuseExistingServer: !process.env.CI,
-      stdout: "pipe",
-      stderr: "pipe",
-    },
-  ],
+  // Run local dev server before starting tests
+  webServer: {
+    command: 'pnpm dev',
+    port: 3000,
+    reuseExistingServer: !process.env.CI,
+    timeout: 120000, // 2 minutes to start server
+    stdout: 'pipe',
+    stderr: 'pipe',
+  },
+
+  // Global setup/teardown
+  // globalSetup: require.resolve('./app/tests/helpers/global-setup.ts'),
+  // globalTeardown: require.resolve('./app/tests/helpers/global-teardown.ts'),
 });

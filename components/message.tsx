@@ -111,7 +111,7 @@ export function MessageComponent({
             <span
               style={{
                 fontSize: "0.75rem",
-                color: "#888",
+                color: "#999",
                 fontWeight: "normal",
               }}
             >
@@ -159,7 +159,7 @@ export function MessageComponent({
                     ? "🔊 Playing Audio"
                     : "🔇 Audio Ready"}
                 </span>
-                <span style={{ fontSize: "0.875rem", color: "#888" }}>
+                <span style={{ fontSize: "0.875rem", color: "#999" }}>
                   ({audioContext.voiceChannel.chunkCount} chunks)
                 </span>
               </div>
@@ -179,7 +179,7 @@ export function MessageComponent({
           {/* Handle regular message parts (assistant responses) */}
           {message.parts?.map((part, index) => {
             // Text content
-            // [P3-T1] Live API Transcriptions display here as text-delta events
+            // Live API Transcriptions display here as text-delta events
             // - Input transcription: User audio → text (BIDI mode, ADK Live API)
             // - Output transcription: AI audio → text (native-audio models)
             // Backend converts transcription events to text-start/text-delta/text-end
