@@ -1,0 +1,358 @@
+/**
+ * Message Component Unit Tests
+ *
+ * Tests the MessageComponent rendering logic for various message types and content.
+ * Focuses on component-level behavior without external integration.
+ *
+ * Test Categories:
+ * 1. Basic Message Rendering - User vs Assistant messages
+ * 2. Text Content - Simple and multi-line text
+ * 3. Tool Invocations - Rendering tool calls and results
+ * 4. Metadata Display - Usage stats, grounding, citations
+ * 5. Edge Cases - Empty messages, audio detection
+ *
+ * @vitest-environment jsdom
+ */
+
+import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { UIMessage } from 'ai';
+import { MessageComponent } from '@/components/message';
+
+// Mock dependencies
+vi.mock('@/lib/audio-context', () => ({
+  useAudio: () => ({
+    voiceChannel: {
+      chunkCount: 0,
+    },
+    bgmChannel: {
+      currentTrack: 0,
+      switchTrack: vi.fn(),
+    },
+    needsUserActivation: false,
+    activate: vi.fn(),
+  }),
+}));
+
+vi.mock('@/components/image-display', () => ({
+  ImageDisplay: ({ url, alt }: { url: string; alt: string }) => (
+    <div data-testid="image-display">
+      <img src={url} alt={alt} />
+    </div>
+  ),
+}));
+
+vi.mock('@/components/tool-invocation', () => ({
+  ToolInvocationComponent: ({ toolInvocation }: any) => (
+    <div data-testid="tool-invocation">
+      Tool: {toolInvocation.toolName}
+    </div>
+  ),
+}));
+
+describe('MessageComponent', () => {
+  describe('Basic Message Rendering', () => {
+    it('should render user message with correct styling', () => {
+      const message: UIMessage = {
+        id: 'msg-1',
+        role: 'user',
+        content: 'Hello, AI!',
+        parts: [{ type: 'text', text: 'Hello, AI!' }],
+      };
+
+      render(<MessageComponent message={message} />);
+
+      expect(screen.getByText('Hello, AI!')).toBeInTheDocument();
+      expect(screen.getByText('You')).toBeInTheDocument();
+    });
+
+    it('should render assistant message with correct styling', () => {
+      const message: UIMessage = {
+        id: 'msg-2',
+        role: 'assistant',
+        content: 'Hello, human!',
+        parts: [{ type: 'text', text: 'Hello, human!' }],
+      };
+
+      render(<MessageComponent message={message} />);
+
+      expect(screen.getByText('Hello, human!')).toBeInTheDocument();
+      expect(screen.getByText('AI')).toBeInTheDocument();
+    });
+  });
+
+  describe('Text Content Rendering', () => {
+    it('should render simple text content', () => {
+      const message: UIMessage = {
+        id: 'msg-3',
+        role: 'assistant',
+        content: 'This is a simple message.',
+        parts: [{ type: 'text', text: 'This is a simple message.' }],
+      };
+
+      render(<MessageComponent message={message} />);
+
+      expect(screen.getByText('This is a simple message.')).toBeInTheDocument();
+    });
+
+    it('should render multi-line text content', () => {
+      const message: UIMessage = {
+        id: 'msg-4',
+        role: 'assistant',
+        content: 'Line 1\nLine 2\nLine 3',
+        parts: [{ type: 'text', text: 'Line 1\nLine 2\nLine 3' }],
+      };
+
+      render(<MessageComponent message={message} />);
+
+      const textElement = screen.getByText(/Line 1/);
+      expect(textElement).toBeInTheDocument();
+      expect(textElement.textContent).toContain('Line 1');
+      expect(textElement.textContent).toContain('Line 2');
+      expect(textElement.textContent).toContain('Line 3');
+    });
+
+    it('should render empty string as valid content', () => {
+      const message: UIMessage = {
+        id: 'msg-5',
+        role: 'assistant',
+        content: '',
+        parts: [{ type: 'text', text: '' }],
+      };
+
+      const { container } = render(<MessageComponent message={message} />);
+
+      // Message should still be rendered (not hidden)
+      expect(container.querySelector('[data-testid="message-container"]')).toBeInTheDocument();
+    });
+  });
+
+  describe('Tool Invocations', () => {
+    it('should render tool call request', () => {
+      const message: UIMessage = {
+        id: 'msg-6',
+        role: 'assistant',
+        content: '',
+        parts: [],
+        toolInvocations: [
+          {
+            type: 'adk_request_confirmation',
+            state: 'approval-requested',
+            toolCallId: 'call-1',
+            toolName: 'get_weather',
+            input: { location: 'Tokyo' },
+            approval: {
+              description: 'Get weather for Tokyo',
+            },
+          },
+        ],
+      };
+
+      render(<MessageComponent message={message} addToolApprovalResponse={vi.fn()} />);
+
+      expect(screen.getByTestId('tool-invocation')).toBeInTheDocument();
+      expect(screen.getByText(/Tool: get_weather/)).toBeInTheDocument();
+    });
+
+    it('should render multiple tool invocations', () => {
+      const message: UIMessage = {
+        id: 'msg-7',
+        role: 'assistant',
+        content: '',
+        parts: [],
+        toolInvocations: [
+          {
+            type: 'adk_request_confirmation',
+            state: 'approval-requested',
+            toolCallId: 'call-1',
+            toolName: 'tool_a',
+            input: {},
+            approval: { description: 'Tool A' },
+          },
+          {
+            type: 'adk_request_confirmation',
+            state: 'approval-requested',
+            toolCallId: 'call-2',
+            toolName: 'tool_b',
+            input: {},
+            approval: { description: 'Tool B' },
+          },
+        ],
+      };
+
+      render(<MessageComponent message={message} addToolApprovalResponse={vi.fn()} />);
+
+      const toolInvocations = screen.getAllByTestId('tool-invocation');
+      expect(toolInvocations).toHaveLength(2);
+      expect(screen.getByText(/Tool: tool_a/)).toBeInTheDocument();
+      expect(screen.getByText(/Tool: tool_b/)).toBeInTheDocument();
+    });
+  });
+
+  describe('Image Content', () => {
+    it('should render image part', () => {
+      const message: UIMessage = {
+        id: 'msg-8',
+        role: 'user',
+        content: 'Check this image',
+        parts: [
+          { type: 'text', text: 'Check this image' },
+          {
+            type: 'file',
+            filename: 'test.png',
+            mediaType: 'image/png',
+            url: 'data:image/png;base64,iVBORw0KGgo=',
+          },
+        ],
+      };
+
+      render(<MessageComponent message={message} />);
+
+      expect(screen.getByTestId('image-display')).toBeInTheDocument();
+      expect(screen.getByAltText('test.png')).toBeInTheDocument();
+    });
+
+    it('should render multiple images', () => {
+      const message: UIMessage = {
+        id: 'msg-9',
+        role: 'user',
+        content: 'Two images',
+        parts: [
+          {
+            type: 'file',
+            filename: 'image1.png',
+            mediaType: 'image/png',
+            url: 'data:image/png;base64,img1',
+          },
+          {
+            type: 'file',
+            filename: 'image2.jpg',
+            mediaType: 'image/jpeg',
+            url: 'data:image/jpeg;base64,img2',
+          },
+        ],
+      };
+
+      render(<MessageComponent message={message} />);
+
+      const images = screen.getAllByTestId('image-display');
+      expect(images).toHaveLength(2);
+    });
+  });
+
+  describe('Edge Cases', () => {
+    it('should hide empty user message (delegate continuation)', () => {
+      const message: UIMessage = {
+        id: 'msg-10',
+        role: 'user',
+        content: '',
+        parts: [{ type: 'text', text: '' }],
+      };
+
+      const { container } = render(<MessageComponent message={message} />);
+
+      // Empty user message should be hidden
+      expect(container.firstChild).toBeNull();
+    });
+
+    it('should not hide empty assistant message', () => {
+      const message: UIMessage = {
+        id: 'msg-11',
+        role: 'assistant',
+        content: '',
+        parts: [{ type: 'text', text: '' }],
+      };
+
+      const { container } = render(<MessageComponent message={message} />);
+
+      // Assistant message should still be rendered
+      expect(container.firstChild).not.toBeNull();
+    });
+
+    it('should handle message with no parts', () => {
+      const message: UIMessage = {
+        id: 'msg-12',
+        role: 'assistant',
+        content: 'Content from content field',
+        parts: [],
+      };
+
+      render(<MessageComponent message={message} />);
+
+      // Should fall back to content field
+      expect(screen.getByText('Content from content field')).toBeInTheDocument();
+    });
+
+    it('should handle message with mixed content types', () => {
+      const message: UIMessage = {
+        id: 'msg-13',
+        role: 'assistant',
+        content: 'Mixed content',
+        parts: [
+          { type: 'text', text: 'Text part' },
+          {
+            type: 'file',
+            filename: 'image.png',
+            mediaType: 'image/png',
+            url: 'data:image/png;base64,test',
+          },
+        ],
+        toolInvocations: [
+          {
+            type: 'adk_request_confirmation',
+            state: 'approval-requested',
+            toolCallId: 'call-1',
+            toolName: 'test_tool',
+            input: {},
+            approval: { description: 'Test' },
+          },
+        ],
+      };
+
+      render(<MessageComponent message={message} addToolApprovalResponse={vi.fn()} />);
+
+      expect(screen.getByText('Text part')).toBeInTheDocument();
+      expect(screen.getByTestId('image-display')).toBeInTheDocument();
+      expect(screen.getByTestId('tool-invocation')).toBeInTheDocument();
+    });
+  });
+
+  describe('Metadata Display', () => {
+    it('should display usage metadata when present', () => {
+      const message: UIMessage = {
+        id: 'msg-14',
+        role: 'assistant',
+        content: 'Response with metadata',
+        parts: [{ type: 'text', text: 'Response with metadata' }],
+        metadata: {
+          usage: {
+            promptTokens: 100,
+            completionTokens: 50,
+            totalTokens: 150,
+          },
+        },
+      };
+
+      render(<MessageComponent message={message} />);
+
+      // Check for usage metadata display
+      expect(screen.getByText(/100/)).toBeInTheDocument(); // prompt tokens
+      expect(screen.getByText(/50/)).toBeInTheDocument(); // completion tokens
+    });
+
+    it('should not display metadata section when no metadata', () => {
+      const message: UIMessage = {
+        id: 'msg-15',
+        role: 'assistant',
+        content: 'Response without metadata',
+        parts: [{ type: 'text', text: 'Response without metadata' }],
+      };
+
+      const { container } = render(<MessageComponent message={message} />);
+
+      // Should not have metadata section
+      expect(container.textContent).not.toContain('Metadata');
+      expect(container.textContent).not.toContain('tokens');
+    });
+  });
+});

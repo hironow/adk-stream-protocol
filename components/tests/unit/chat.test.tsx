@@ -14,7 +14,7 @@ import { useChat } from "@ai-sdk/react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { UIMessage } from "ai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { buildUseChatOptions } from "../lib/build-use-chat-options";
+import { buildUseChatOptions } from "@/lib/build-use-chat-options";
 
 // Mock WebSocket for BIDI mode tests
 class MockWebSocket {

@@ -5,8 +5,8 @@
 
 import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AudioProvider } from "../lib/audio-context";
-import { Chat } from "./chat";
+import { AudioProvider } from "@/lib/audio-context";
+import { Chat } from "@/components/chat";
 
 // Mock the useChat hook
 vi.mock("@ai-sdk/react-v6", () => ({
@@ -28,7 +28,7 @@ vi.mock("@ai-sdk/react-v6", () => ({
 }));
 
 // Mock build-use-chat-options
-vi.mock("../lib/build-use-chat-options", () => ({
+vi.mock("@/lib/build-use-chat-options", () => ({
   buildUseChatOptions: vi.fn(() => ({
     useChatOptions: {
       id: "test-chat",
