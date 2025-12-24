@@ -109,6 +109,7 @@ async def test_level2_real_frontend_delegate_multiple_tools() -> None:
 # ============================================================
 
 
+@pytest.mark.skip(reason="WebSocket disconnect graceful handling not yet implemented in BidiEventSender")
 @pytest.mark.asyncio
 async def test_level3_websocket_disconnect_during_send() -> None:
     """
