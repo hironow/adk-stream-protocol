@@ -126,6 +126,6 @@ export class ChatPage {
    * Get the current BGM track name
    */
   async getCurrentBGMTrack(): Promise<string> {
-    return this.page.getByTestId('bgm-track-name').textContent() || '';
+    return (await this.page.getByTestId('bgm-track-name').textContent()) || '';
   }
 }
