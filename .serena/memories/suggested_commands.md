@@ -1,71 +1,161 @@
 # Suggested Commands
 
-## Installation & Setup
+## Task Runner (just)
+All primary commands are defined in `justfile`. Run `just` or `just --list` to see all available commands.
+
+## Development Workflow
+
+### Initial Setup
 ```bash
-just install        # Install all dependencies (Python + Node.js)
-cp .env.example .env.local  # Setup environment
+# Install Python dependencies
+uv sync
+
+# Install Node.js dependencies
+pnpm install
+
+# Setup E2E fixture symlinks
+just setup-e2e-fixtures
 ```
 
-## Development
+### Testing
 ```bash
-just dev           # Run both backend (8000) and frontend (3000)
-just server        # Backend only (FastAPI on :8000)
-pnpm dev          # Frontend only (Next.js on :3000)
+# Run all tests (Python + TypeScript)
+just test
+
+# Python tests only
+just test-python                    # All Python tests
+uv run pytest tests/                # Direct pytest
+uv run pytest tests/unit/           # Unit tests only
+uv run pytest tests/integration/    # Integration tests only
+uv run pytest tests/e2e/            # E2E tests only
+
+# TypeScript tests only
+just test-typescript                # All TypeScript tests
+pnpm test:lib                       # Frontend library tests
+pnpm test:components                # Component tests
+pnpm test:app                       # App tests
+pnpm exec vitest run lib/tests/ --max-concurrency=1  # With single concurrency
 ```
 
-## Code Quality
+### Code Quality
 ```bash
-just lint          # Lint all code (Python + TypeScript)
-just format        # Format all code
-just typecheck     # Type check Python code
-just check         # Run all checks
+# Format all code
+just format                         # Python (ruff) + TypeScript (biome)
+uv run ruff format .                # Python only
+pnpm run format                     # TypeScript only
+
+# Lint all code
+just lint                           # Python (ruff) + TypeScript (biome)
+uv run ruff check .                 # Python only
+uv run ruff check --fix .           # Python with auto-fix
+pnpm run lint                       # TypeScript only
+
+# Type checking
+just check                          # All checks (format, lint, typecheck, markdown)
+uv run mypy .                       # Python type checking
+pnpm exec tsc --noEmit              # TypeScript type checking
+
+# Security analysis
+just semgrep                        # Run Semgrep security rules
 ```
 
-## Testing
+### Cleanup
 ```bash
-just test-python   # Python unit tests
-pnpm exec vitest   # TypeScript tests
-just test-e2e-clean  # E2E tests with clean servers
-just test-e2e-ui  # E2E tests with UI
-just check-coverage  # Check field mapping coverage
+# Clean all generated files and caches
+just delete-all
+
+# Clean specific items
+rm -rf .next                        # Next.js build cache
+rm -rf .mypy_cache                  # mypy cache
+rm -rf .pytest_cache                # pytest cache
+rm -rf .ruff_cache                  # ruff cache
+rm -rf logs chunk_logs              # Log files
 ```
 
-## Python-specific
+### Running the Application
 ```bash
-uv sync           # Install Python dependencies
-uv run pytest tests/unit/ -v  # Run Python tests
-uv run ruff check --fix .  # Lint Python
-uv run ruff format .  # Format Python
-uv run mypy .     # Type check Python
+# Backend server (FastAPI)
+uv run uvicorn server:app --reload --port 8000
+
+# Frontend development (Next.js)
+pnpm dev                            # Runs on http://localhost:3000
+
+# Full stack
+# Terminal 1: uv run uvicorn server:app --reload --port 8000
+# Terminal 2: pnpm dev
 ```
 
-## TypeScript-specific
+## Git Workflow
 ```bash
-pnpm install      # Install Node dependencies
-pnpm run lint     # Lint TypeScript (Biome)
-pnpm run format   # Format TypeScript (Biome)
-pnpm run build    # Build Next.js app
-```
-
-## Utility Commands (Darwin/macOS)
-```bash
-just kill         # Stop all servers on ports 3000-3002, 8000-8002
-just clean-port   # Clean ports 3000 and 8000
-lsof -ti:8000    # Find process on port 8000
-```
-
-## Git Commands (Standard)
-```bash
+# Check status
 git status
+
+# Stage changes
 git add .
-git commit -m "message"
-git push origin branch-name
-git pull
+
+# Commit (ensure all tests pass first!)
+git commit -m "type(scope): message"
+
+# Push
+git push origin <branch-name>
 ```
 
-## Environment Variables
-Key variables in .env.local:
-- GOOGLE_GENERATIVE_AI_API_KEY (for Gemini Direct)
-- GOOGLE_API_KEY (for ADK modes)
-- BACKEND_MODE (gemini, adk-sse, adk-bidi)
-- ADK_BACKEND_URL (http://localhost:8000)
+## Debugging Commands
+```bash
+# View Python logs
+tail -f logs/app.log
+
+# Check chunk logs (E2E testing)
+ls -lh chunk_logs/
+cat chunk_logs/<session-id>/backend/*.jsonl
+cat chunk_logs/<session-id>/frontend/*.jsonl
+
+# Check test fixtures
+ls -lh fixtures/backend/
+ls -lh fixtures/frontend/
+```
+
+## System-Specific (macOS/Darwin)
+```bash
+# Find files
+find . -name "*.py" -type f
+
+# Search in files
+grep -r "pattern" --include="*.py" .
+
+# List directory tree
+tree -L 2 -I 'node_modules|.next|__pycache__|.pytest_cache'
+
+# Check port usage
+lsof -i :8000                       # Check if port 8000 is in use
+lsof -i :3000                       # Check if port 3000 is in use
+
+# Kill process by port
+kill -9 $(lsof -t -i:8000)
+```
+
+## Package Management
+```bash
+# Python (uv)
+uv add <package>                    # Add dependency
+uv add --dev <package>              # Add dev dependency
+uv sync                             # Install all dependencies
+uv run <command>                    # Run command in uv environment
+
+# Node.js (pnpm)
+pnpm add <package>                  # Add dependency
+pnpm add -D <package>               # Add dev dependency
+pnpm install                        # Install all dependencies
+pnpm run <script>                   # Run package.json script
+```
+
+## Documentation
+```bash
+# Lint markdown files
+just check                          # Includes markdownlint
+pnpm exec markdownlint-cli2 "docs/**/*.md" "README.md"
+
+# View documentation
+open docs/ARCHITECTURE.md           # macOS
+cat docs/ARCHITECTURE.md            # Terminal
+```

@@ -107,7 +107,8 @@
       "Bash(pnpm test:e2e:app:smoke:*)",
       "Bash(pnpm test:e2e:app:core:*)",
       "Bash(pnpm test:e2e:app:advanced:*)",
-      "Bash(pnpm test:e2e:app:*)"
+      "Bash(pnpm test:e2e:app:*)",
+      "mcp__serena__list_memories"
     ],
     "deny": [
       "Read(.env.keys)",

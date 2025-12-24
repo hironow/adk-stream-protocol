@@ -39,6 +39,8 @@ fixtures/
     └── ...
 ```
 
+---
+
 ## Backend Fixtures (`backend/`)
 
 ### Purpose
@@ -86,10 +88,45 @@ async for entry in player.play(mode="fast-forward"):
     print(entry.chunk)
 ```
 
+### Recording Procedure (Backend)
+
+#### 1. Enable Chunk Logger
+```bash
+export CHUNK_LOGGER_ENABLED=true
+export CHUNK_LOGGER_OUTPUT_DIR=./fixtures/backend
+export CHUNK_LOGGER_SESSION_ID=pattern1  # pattern{1-4}
+```
+
+#### 2. Execute Test Scenario
+各パターンの手順に従って操作を実行します。
+
+#### 3. Verify Recording
+```bash
+# ファイルサイズを確認
+ls -lh fixtures/backend/pattern*.jsonl
+
+# 内容を確認（最初の3行）
+head -n 3 fixtures/backend/pattern1-frontend.jsonl
+```
+
+#### 4. Rename Output
+Chunk Loggerは `{session_id}-{frontend|backend}-chunks.jsonl` で出力するため、リネームが必要：
+```bash
+mv fixtures/backend/pattern1-frontend-chunks.jsonl fixtures/backend/pattern1-frontend.jsonl
+mv fixtures/backend/pattern1-backend-chunks.jsonl fixtures/backend/pattern1-backend.jsonl
+```
+
+---
+
 ## Frontend Fixtures (`frontend/`)
 
 ### Purpose
 Frontend統合テスト用のbaseline fixtures です。実際のAPI通信の代わりに、期待されるchunk sequenceを検証します。
+
+**配置理由**:
+- 統合テストから共通利用
+- 将来的なE2Eテストからも共通利用
+- テストデータの一元管理
 
 ### File Format: JSON
 ```json
@@ -109,15 +146,40 @@ Frontend統合テスト用のbaseline fixtures です。実際のAPI通信の代
 }
 ```
 
-### Baseline Types
+### Naming Convention
 
-#### Tool-Level Baselines
-- **Single-turn tools**: `change_bgm`, `get_weather`
-- **Multi-turn tools**: `get_location` (with approval), `process_payment` (with approval/denial)
+```
+{function-name}-{status}-{mode}-baseline.json
+```
 
-#### Transport Modes
-- **SSE mode**: `*-sse-baseline.json` - Per-turn connection
-- **BIDI mode**: `*-bidi-baseline.json` - Persistent WebSocket
+- `function-name`: テスト対象の機能名 (get_weather, process_payment など)
+- `status`: 実行結果の状態 (approved, denied, error-handling など)
+- `mode`: 通信モード (bidi, sse)
+- `baseline`: ベースラインデータであることを示す接尾辞
+
+### File Catalog
+
+#### get_weather (天気取得 - シンプルなツール実行)
+- `get_weather-bidi-baseline.json` - BIDI モードでの通常実行
+- `get_weather-sse-baseline.json` - SSE モードでの通常実行
+
+#### get_location (位置情報取得 - 承認フロー)
+- `get_location-approved-bidi-baseline.json` - BIDI モードで承認
+- `get_location-approved-sse-baseline.json` - SSE モードで承認
+- `get_location-denied-bidi-baseline.json` - BIDI モードで拒否
+- `get_location-denied-sse-baseline.json` - SSE モードで拒否
+
+#### process_payment (決済処理 - 承認フロー + エラーハンドリング)
+- `process_payment-approved-bidi-baseline.json` - BIDI モードで承認
+- `process_payment-approved-sse-baseline.json` - SSE モードで承認
+- `process_payment-denied-bidi-baseline.json` - BIDI モードで拒否
+- `process_payment-denied-sse-baseline.json` - SSE モードで拒否
+- `process_payment-error-handling-green.json` - エラーハンドリング成功ケース
+- `process_payment-failing-bidi-red.json` - BIDI モード失敗ケース (TDD RED phase)
+
+#### change_bgm (BGM変更 - Frontend Tool Execution)
+- `change_bgm-bidi-baseline.json` - BIDI モードでのBGM変更
+- `change_bgm-sse-baseline.json` - SSE モードでのBGM変更
 
 ### Usage (Frontend)
 
@@ -132,7 +194,36 @@ function loadFixture(filename: string): BaselineFixture {
 }
 
 const fixture = loadFixture("get_location-approved-sse-baseline.json");
+
+// テストでbaselineと実際の結果を比較
+expect(actualChunks).toEqual(fixture.output.expectedChunks);
 ```
+
+### Updating Baselines (Frontend)
+
+新しい機能を追加した場合:
+
+1. **テストを実行して正しい出力を確認**
+   ```bash
+   pnpm exec vitest run lib/tests/integration/transport-done-baseline.test.ts -t "specific test"
+   ```
+
+2. **出力をJSONファイルとして保存**
+   - テスト実行ログから期待される出力を抽出
+   - `rawEvents`, `expectedChunks`, `expectedDoneCount`を含むJSON構造を作成
+
+3. **命名規則に従ってファイル名を設定**
+   - 例: `new_feature-approved-bidi-baseline.json`
+
+4. **このREADMEを更新**
+   - File Catalogに新しいファイルを追加
+
+**注意事項**:
+- ベースラインファイルは **期待される正しい動作** を表します
+- テストが失敗した場合、実装が間違っているかベースラインが古い可能性があります
+- ベースライン更新時は必ず変更内容をレビューしてください
+
+---
 
 ## Public Fixtures (`public/`)
 
@@ -162,39 +253,7 @@ for fixture in ../../fixtures/public/*.jsonl; do
 done
 ```
 
-## Recording Procedure
-
-### Backend Fixtures
-
-#### 1. Enable Chunk Logger
-```bash
-export CHUNK_LOGGER_ENABLED=true
-export CHUNK_LOGGER_OUTPUT_DIR=./fixtures/backend
-export CHUNK_LOGGER_SESSION_ID=pattern1  # pattern{1-4}
-```
-
-#### 2. Execute Test Scenario
-各パターンの手順に従って操作を実行します。
-
-#### 3. Verify Recording
-```bash
-# ファイルサイズを確認
-ls -lh fixtures/backend/pattern*.jsonl
-
-# 内容を確認（最初の3行）
-head -n 3 fixtures/backend/pattern1-frontend.jsonl
-```
-
-#### 4. Rename Output
-Chunk Loggerは `{session_id}-{frontend|backend}-chunks.jsonl` で出力するため、リネームが必要：
-```bash
-mv fixtures/backend/pattern1-frontend-chunks.jsonl fixtures/backend/pattern1-frontend.jsonl
-mv fixtures/backend/pattern1-backend-chunks.jsonl fixtures/backend/pattern1-backend.jsonl
-```
-
-### Frontend Fixtures
-
-Frontend baseline fixturesは、E2Eテストの実行ログから手動で作成します。詳細は `lib/tests/integration/transport-done-baseline.test.ts` を参照してください。
+---
 
 ## Test Usage Patterns
 
@@ -230,6 +289,8 @@ it("should execute tool correctly", async () => {
   // Test implementation...
 });
 ```
+
+---
 
 ## Troubleshooting
 
@@ -270,9 +331,12 @@ ls -la public/fixtures/
 # All files should point to: ../fixtures/public/*.jsonl
 ```
 
+---
+
 ## Related Documentation
 
 - **Backend Tests**: `tests/e2e/test_server_chunk_player.py`
 - **Frontend Tests**: `lib/tests/integration/transport-done-baseline.test.ts`
 - **Chunk Player**: `adk_stream_protocol/chunk_player.py`
+- **Chunk Logger**: `adk_stream_protocol/chunk_logger.py`
 - **Setup Command**: `justfile` の `setup-e2e-fixtures`
