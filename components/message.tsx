@@ -312,12 +312,14 @@ export function MessageComponent({
                 content: string;
                 mediaType: string;
               };
+              // biome-ignore lint/suspicious/noExplicitAny: Part structure varies
+              const altText = (part as any).alt || "Image from assistant";
               return (
                 <ImageDisplay
                   key={`${message.id}-${index}-${part.type}-data-image`}
                   content={imageData.content}
                   mediaType={imageData.mediaType}
-                  alt="Image from assistant"
+                  alt={altText}
                 />
               );
             }

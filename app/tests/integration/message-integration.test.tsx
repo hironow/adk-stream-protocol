@@ -74,9 +74,13 @@ describe('Message Component Integration', () => {
         parts: [
           {
             type: 'data-image',
-            data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+            data: {
+              content:
+                'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+              mediaType: 'image/png',
+            },
             alt: 'Test image',
-          },
+          } as any,
         ],
       };
 
@@ -90,15 +94,14 @@ describe('Message Component Integration', () => {
     });
 
     it('should render tool invocation parts', () => {
-      // Given: Message with tool-call part
+      // Given: Message with tool part (AI SDK v6 format: type="tool-{toolName}")
       const message: UIMessage = {
         id: 'msg-1',
         role: 'assistant',
         parts: [
           {
-            type: 'tool-call' as any,
+            type: 'tool-get_weather' as any,
             toolCallId: 'call-1',
-            toolName: 'get_weather',
             args: { location: 'Tokyo' },
             state: 'input-available',
           },
@@ -109,11 +112,11 @@ describe('Message Component Integration', () => {
       render(<MessageComponent message={message} />);
 
       // Then: Tool invocation should be displayed
-      expect(screen.getByText(/get_weather/i)).toBeTruthy();
+      expect(screen.getByTestId('tool-name-primary')).toHaveTextContent('get_weather');
     });
 
     it('should render mixed message parts in order', () => {
-      // Given: Message with multiple parts [text, tool-call]
+      // Given: Message with multiple parts [text, tool]
       const message: UIMessage = {
         id: 'msg-1',
         role: 'assistant',
@@ -123,9 +126,8 @@ describe('Message Component Integration', () => {
             text: 'Let me check the weather for you.',
           },
           {
-            type: 'tool-call' as any,
+            type: 'tool-get_weather' as any,
             toolCallId: 'call-1',
-            toolName: 'get_weather',
             args: { location: 'Tokyo' },
             state: 'output-available',
             result: { temperature: 20, condition: 'sunny' },
@@ -138,7 +140,8 @@ describe('Message Component Integration', () => {
 
       // Then: All parts should be visible
       expect(screen.getByText(/Let me check the weather/i)).toBeTruthy();
-      expect(screen.getByText(/get_weather/i)).toBeTruthy();
+      // Note: output-available state shows debug view
+      expect(screen.getByTestId('tool-name-debug')).toHaveTextContent('get_weather');
     });
 
     it('should render multiple tool invocations', () => {
@@ -148,17 +151,15 @@ describe('Message Component Integration', () => {
         role: 'assistant',
         parts: [
           {
-            type: 'tool-call' as any,
+            type: 'tool-get_weather' as any,
             toolCallId: 'call-1',
-            toolName: 'get_weather',
             args: { location: 'Tokyo' },
             state: 'output-available',
             result: { temp: 20 },
           },
           {
-            type: 'tool-call' as any,
+            type: 'tool-web_search' as any,
             toolCallId: 'call-2',
-            toolName: 'web_search',
             args: { query: 'AI news' },
             state: 'output-available',
             result: { results: [] },
@@ -169,9 +170,11 @@ describe('Message Component Integration', () => {
       // When: Render component
       render(<MessageComponent message={message} />);
 
-      // Then: Both tools should be displayed
-      expect(screen.getByText(/get_weather/i)).toBeTruthy();
-      expect(screen.getByText(/web_search/i)).toBeTruthy();
+      // Then: Both tools should be displayed (output-available = debug view)
+      const toolNames = screen.getAllByTestId('tool-name-debug');
+      expect(toolNames).toHaveLength(2);
+      expect(toolNames[0]).toHaveTextContent('get_weather');
+      expect(toolNames[1]).toHaveTextContent('web_search');
     });
   });
 

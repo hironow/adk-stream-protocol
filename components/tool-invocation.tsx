@@ -165,7 +165,7 @@ export function ToolInvocationComponent({
             background: getStateColor(),
           }}
         />
-        <span style={{ fontWeight: 600, color: getStateColor() }}>
+        <span style={{ fontWeight: 600, color: getStateColor() }} data-testid="tool-name-debug">
           {toolName} ({toolInvocation.type})
         </span>
         <span style={{ fontSize: "0.875rem", color: "#999" }}>
@@ -186,7 +186,7 @@ export function ToolInvocationComponent({
                 marginBottom: "0.5rem",
               }}
             >
-              The tool <strong>{originalToolCall.name}</strong> requires your
+              The tool <strong data-testid="tool-name-primary">{originalToolCall.name}</strong> requires your
               approval:
             </div>
             <div
@@ -209,6 +209,7 @@ export function ToolInvocationComponent({
             >
               <button
                 type="button"
+                data-testid="tool-approve-button"
                 onClick={() => {
                   console.info(
                     `[ToolInvocationComponent] User approved ${originalToolCall.name}`,
@@ -252,6 +253,7 @@ export function ToolInvocationComponent({
               </button>
               <button
                 type="button"
+                data-testid="tool-deny-button"
                 onClick={() => {
                   console.info(
                     `[ToolInvocationComponent] User denied ${originalToolCall.name}`,
@@ -399,7 +401,7 @@ export function ToolInvocationComponent({
               marginBottom: "0.5rem",
             }}
           >
-            <strong>{toolName}</strong> requires your approval:
+            <strong data-testid="tool-name-primary">{toolName}</strong> requires your approval:
           </div>
           {/* Show tool inputs */}
           {toolInvocation.input && (
@@ -440,6 +442,7 @@ export function ToolInvocationComponent({
           >
             <button
               type="button"
+              data-testid="tool-approve-button"
               onClick={() => handleLongRunningToolResponse(true)}
               disabled={approvalSent}
               style={{
@@ -458,6 +461,7 @@ export function ToolInvocationComponent({
             </button>
             <button
               type="button"
+              data-testid="tool-deny-button"
               onClick={() => handleLongRunningToolResponse(false)}
               disabled={approvalSent}
               style={{

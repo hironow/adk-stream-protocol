@@ -540,6 +540,7 @@ export function Chat({
       </main>
 
       <form
+        data-testid="chat-form"
         onSubmit={onSubmit}
         aria-label="Chat message input form"
         style={{

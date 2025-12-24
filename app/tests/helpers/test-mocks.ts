@@ -13,9 +13,11 @@ export function createMockAudioContext() {
   return {
     inputDeviceId: 'default',
     outputDeviceId: 'default',
-    bgmTrack: null,
-    isPlaying: false,
-    volume: 0.5,
+    bgmChannel: {
+      currentTrack: null,
+      isPlaying: false,
+      volume: 0.5,
+    },
     voiceChannel: {
       chunkCount: 0,
       lastCompletion: null,

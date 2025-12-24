@@ -97,8 +97,7 @@ describe('Chat Component Integration', () => {
       render(<Chat mode={mode} />);
 
       // Then: Component should render without errors
-      // Note: Actual UI verification requires data-testid attributes
-      expect(document.querySelector('form')).toBeTruthy();
+      expect(screen.getByTestId('chat-form')).toBeInTheDocument();
     });
 
     it('should initialize with adk-sse mode', () => {
@@ -109,7 +108,7 @@ describe('Chat Component Integration', () => {
       render(<Chat mode={mode} />);
 
       // Then: Component should render without errors
-      expect(document.querySelector('form')).toBeTruthy();
+      expect(screen.getByTestId('chat-form')).toBeInTheDocument();
     });
 
     it('should initialize with adk-bidi mode', async () => {
@@ -122,14 +121,14 @@ describe('Chat Component Integration', () => {
       // Then: Component should render without errors
       // Then: WebSocket should be created for BIDI mode
       await waitFor(() => {
-        expect(document.querySelector('form')).toBeTruthy();
+        expect(screen.getByTestId('chat-form')).toBeInTheDocument();
       });
     });
 
     it('should use buildUseChatOptions for mode configuration', () => {
       // Given: ADK BIDI mode
       const mode = 'adk-bidi';
-      
+
       // When: Call buildUseChatOptions directly
       const { useChatOptions } = buildUseChatOptions({
         mode,
@@ -138,7 +137,9 @@ describe('Chat Component Integration', () => {
 
       // Then: Options should be configured for BIDI mode
       expect(useChatOptions).toBeDefined();
-      expect(useChatOptions.api).toBe('/api/chat');
+      expect(useChatOptions.transport).toBeDefined();
+      expect(useChatOptions.id).toBeDefined();
+      // Note: AI SDK v6 doesn't use .api property - endpoint is set via prepareSendMessagesRequest
     });
   });
 
@@ -162,8 +163,7 @@ describe('Chat Component Integration', () => {
       render(<Chat mode="gemini" initialMessages={initialMessages} />);
 
       // Then: Component should render with messages
-      // Note: Actual message verification requires proper message rendering
-      expect(document.querySelector('form')).toBeTruthy();
+      expect(screen.getByTestId('chat-form')).toBeInTheDocument();
     });
 
     it('should call onMessagesChange when messages update', () => {
@@ -181,8 +181,8 @@ describe('Chat Component Integration', () => {
       );
 
       // Then: Component should render
-      expect(document.querySelector('form')).toBeTruthy();
-      
+      expect(screen.getByTestId('chat-form')).toBeInTheDocument();
+
       // Note: Testing actual message updates requires user interaction
       // which will be covered in E2E tests
     });
@@ -207,7 +207,7 @@ describe('Chat Component Integration', () => {
 
       // Then: Component should render without errors
       // Message ID preservation is handled by parent component
-      expect(document.querySelector('form')).toBeTruthy();
+      expect(screen.getByTestId('chat-form')).toBeInTheDocument();
     });
   });
 
@@ -267,7 +267,7 @@ describe('Chat Component Integration', () => {
       // Then: sendAutomaticallyWhen should be defined
       expect(useChatOptions.sendAutomaticallyWhen).toBeDefined();
 
-      // When: Provide messages with output-available state
+      // When: Provide messages with Frontend Execute pattern (confirmation + tool output)
       const messagesAfterFrontendExecute: UIMessage[] = [
         {
           id: 'msg-1',
@@ -278,13 +278,26 @@ describe('Chat Component Integration', () => {
           id: 'msg-2',
           role: 'assistant',
           parts: [
+            // Confirmation tool (approval-responded state)
             {
-              type: 'tool-call' as any,
+              type: 'tool-adk_request_confirmation' as any,
               toolCallId: 'call-1',
-              toolName: 'change_bgm',
-              args: { track_name: 'lofi' },
+              state: 'approval-responded' as any,
+              input: {
+                originalFunctionCall: {
+                  id: 'orig-1',
+                  name: 'change_bgm',
+                  args: { track_name: 'lofi' },
+                },
+              },
+              approval: { id: 'call-1', approved: true },
+            },
+            // Tool output (output-available state from addToolOutput)
+            {
+              type: 'tool-change_bgm' as any,
+              toolCallId: 'orig-1',
               state: 'output-available' as any,
-              result: { status: 'success', track: 'lofi' },
+              output: { status: 'success', track: 'lofi' },
             },
           ],
         },
