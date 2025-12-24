@@ -88,9 +88,9 @@ class FrontendToolDelegate:
 
         if resolved_id:
             function_call_id = resolved_id
-
-        # failed to resolve ID
-        return Error(f"Function call ID not found for tool: {tool_name}")
+        else:
+            # failed to resolve ID
+            return Error(f"Function call ID not found for tool: {tool_name}")
 
         # Register Future with function_call.id
         future: asyncio.Future[dict[str, Any]] = asyncio.Future()
@@ -108,12 +108,29 @@ class FrontendToolDelegate:
         # - Circular dependency causes deadlock
         # Reason: Timeout and exception handling - converting to Result type for API contract
 
-        result = await asyncio.wait_for(future, timeout=10.0)
-        logger.info(
-            f"[FrontendDelegate] Received result for tool={tool_name} "
-            f"(function_call.id={function_call_id}): {result}"
-        )
-        return Ok(result)
+        try:
+            result = await asyncio.wait_for(future, timeout=10.0)
+            logger.info(
+                f"[FrontendDelegate] Received result for tool={tool_name} "
+                f"(function_call.id={function_call_id}): {result}"
+            )
+            return Ok(result)
+        except TimeoutError:
+            logger.error(
+                f"[FrontendDelegate] Timeout waiting for tool result: "
+                f"tool={tool_name}, function_call.id={function_call_id}"
+            )
+            # Clean up pending call
+            self._pending_calls.pop(function_call_id, None)
+            return Error(f"Timeout waiting for frontend tool result (tool={tool_name}, id={function_call_id})")
+        except RuntimeError as e:
+            logger.error(
+                f"[FrontendDelegate] Tool execution failed: "
+                f"tool={tool_name}, function_call.id={function_call_id}, error={e}"
+            )
+            # Clean up pending call
+            self._pending_calls.pop(function_call_id, None)
+            return Error(f"RuntimeError: {e}")
 
     def resolve_tool_result(self, tool_call_id: str, result: dict[str, Any]) -> None:
         """

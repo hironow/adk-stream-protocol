@@ -111,23 +111,19 @@ async def test_execute_on_frontend_with_original_context() -> None:
 
 @pytest.mark.asyncio
 async def test_execute_on_frontend_uses_fallback_when_no_mapping() -> None:
-    """execute_on_frontend() should use fallback ID when not in ID mapper (test mode)."""
+    """execute_on_frontend() should return error when ID not in mapper."""
     # given
     delegate = FrontendToolDelegate()
 
-    # when - No ID mapping, will use fallback
-    async def execute_and_timeout() -> None:
-        # We expect this to timeout since we never resolve the fallback ID
-        result_or_error = await delegate.execute_on_frontend(
-            tool_name="unknown_tool",
-            args={},
-        )
-        # Should timeout and return Error
-        error_msg = assert_error(result_or_error)
-        assert "timeout" in error_msg.lower()
+    # when - No ID mapping registered
+    result_or_error = await delegate.execute_on_frontend(
+        tool_name="unknown_tool",
+        args={},
+    )
 
-    # Run with timeout (should complete in ~5 seconds)
-    await asyncio.wait_for(execute_and_timeout(), timeout=6.0)
+    # then - Should immediately return error (no fallback)
+    error_msg = assert_error(result_or_error)
+    assert "not found" in error_msg.lower()
 
 
 # ============================================================
@@ -137,20 +133,19 @@ async def test_execute_on_frontend_uses_fallback_when_no_mapping() -> None:
 
 @pytest.mark.asyncio
 async def test_execute_on_frontend_timeout_detection() -> None:
-    """execute_on_frontend() should timeout after 5 seconds if no response."""
+    """execute_on_frontend() should timeout after 10 seconds if no response."""
     # given
     delegate = FrontendToolDelegate()
+    delegate._id_mapper.register("test_tool", "test_call_id")
 
-    # when
+    # when - Never resolve, should timeout after 10 seconds
     result_or_error = await delegate.execute_on_frontend(
         tool_name="test_tool",
         args={},
-        # Never resolve - should timeout after 5 seconds
     )
 
     # then
     error_msg = assert_error(result_or_error)
-    assert "Frontend tool execution timeout for test_tool" in error_msg
     assert "timeout" in error_msg.lower()
 
     # Verify all Futures were cleaned up after timeout
@@ -163,10 +158,14 @@ async def test_execute_on_frontend_timeout_with_pending_calls_logged() -> None:
     # given
     delegate = FrontendToolDelegate()
 
+    # Register ID mappings for two pending calls
+    delegate._id_mapper.register("pending_tool", "pending_call_1")
+    delegate._id_mapper.register("pending_tool_2", "pending_call_2")
+
     # Create multiple pending calls that will timeout
-    async def start_pending_call() -> bool:
+    async def start_pending_call(tool_name: str) -> bool:
         result_or_error = await delegate.execute_on_frontend(
-            tool_name="pending_tool",
+            tool_name=tool_name,
             args={},
         )
         match result_or_error:
@@ -175,13 +174,13 @@ async def test_execute_on_frontend_timeout_with_pending_calls_logged() -> None:
             case Error(_):
                 return True  # Expected timeout error
 
-    task1 = asyncio.create_task(start_pending_call())
-    task2 = asyncio.create_task(start_pending_call())
+    task1 = asyncio.create_task(start_pending_call("pending_tool"))
+    task2 = asyncio.create_task(start_pending_call("pending_tool_2"))
 
     # Give tasks time to register
     await asyncio.sleep(0.01)
 
-    # Verify both are pending (with fallback IDs)
+    # Verify both are pending
     assert len(delegate._pending_calls) == 2
 
     # when - Wait for both to timeout (this will take ~5 seconds)
