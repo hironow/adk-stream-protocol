@@ -47,8 +47,22 @@ function getMessageText(message: UIMessage | undefined): string {
 // Create MSW server for WebSocket interception
 const server = createMswServer();
 
+// Track transport instances for cleanup
+let currentTransport: any = null;
+
 beforeAll(() => server.listen({ onUnhandledRequest: "warn" }));
-afterEach(() => server.resetHandlers());
+afterEach(() => {
+  // Ensure WebSocket cleanup even if test fails
+  if (currentTransport) {
+    try {
+      currentTransport._close();
+    } catch (error) {
+      console.error("Error closing transport:", error);
+    }
+    currentTransport = null;
+  }
+  server.resetHandlers();
+});
 afterAll(() => server.close());
 
 describe("BIDI Mode - Frontend Execute Pattern", () => {
@@ -60,6 +74,15 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
 
       server.use(
         createCustomHandler(chat, ({ server: _server, client }) => {
+          // Add error handling for WebSocket
+          client.addEventListener("error", (error) => {
+            console.error("WebSocket error in test:", error);
+          });
+
+          client.addEventListener("close", (event) => {
+            console.log("WebSocket closed:", event);
+          });
+
           client.addEventListener("message", (event) => {
             // Early return for non-JSON messages (e.g., WebSocket handshake)
             if (typeof event.data !== "string" || !event.data.startsWith("{")) {
@@ -178,6 +201,9 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
         forceNewInstance: true,
       });
 
+      // Register transport for cleanup
+      currentTransport = transport;
+
       // When: User sends message
       const { result } = renderHook(() => useChat(useChatOptions));
 
@@ -265,7 +291,7 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
       expect(finalText).toContain("Tokyo, Japan");
       expect(finalText).toContain("35.6762");
 
-      transport._close();
+      // Transport cleanup handled by afterEach
     });
 
     it("should handle frontend execution failure", async () => {
@@ -275,6 +301,15 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
 
       server.use(
         createCustomHandler(chat, ({ server: _server, client }) => {
+          // Add error handling for WebSocket
+          client.addEventListener("error", (error) => {
+            console.error("WebSocket error in test:", error);
+          });
+
+          client.addEventListener("close", (event) => {
+            console.log("WebSocket closed:", event);
+          });
+
           client.addEventListener("message", (event) => {
             // Early return for non-JSON messages (e.g., WebSocket handshake)
             if (typeof event.data !== "string" || !event.data.startsWith("{")) {
@@ -390,6 +425,9 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
         forceNewInstance: true,
       });
 
+      // Register transport for cleanup
+      currentTransport = transport;
+
       const { result } = renderHook(() => useChat(useChatOptions));
 
       await act(async () => {
@@ -466,7 +504,7 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
       expect(finalText).toContain("Permission denied");
       expect(toolResultReceived).toBe(true);
 
-      transport._close();
+      // Transport cleanup handled by afterEach
     });
   });
 
@@ -477,6 +515,15 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
 
       server.use(
         createCustomHandler(chat, ({ server: _server, client }) => {
+          // Add error handling for WebSocket
+          client.addEventListener("error", (error) => {
+            console.error("WebSocket error in test:", error);
+          });
+
+          client.addEventListener("close", (event) => {
+            console.log("WebSocket closed:", event);
+          });
+
           client.addEventListener("message", (event) => {
             // Early return for non-JSON messages (e.g., WebSocket handshake)
             if (typeof event.data !== "string" || !event.data.startsWith("{")) {
@@ -558,6 +605,9 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
         forceNewInstance: true,
       });
 
+      // Register transport for cleanup
+      currentTransport = transport;
+
       const { result } = renderHook(() => useChat(useChatOptions));
 
       await act(async () => {
@@ -608,7 +658,7 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
         ),
       ).toContain("won't access your microphone");
 
-      transport._close();
+      // Transport cleanup handled by afterEach
     });
   });
 });

@@ -17,48 +17,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { UIMessage } from 'ai';
 import { Chat } from '@/components/chat';
 import { buildUseChatOptions } from '@/lib/build-use-chat-options';
-
-// Mock WebSocket for BIDI mode tests
-class MockWebSocket {
-  static CONNECTING = 0;
-  static OPEN = 1;
-  static CLOSING = 2;
-  static CLOSED = 3;
-
-  readyState = MockWebSocket.CONNECTING;
-  onopen: ((ev: Event) => void) | null = null;
-  onmessage: ((ev: MessageEvent) => void) | null = null;
-  onerror: ((ev: Event) => void) | null = null;
-  onclose: ((ev: CloseEvent) => void) | null = null;
-
-  sentMessages: string[] = [];
-  url: string;
-
-  constructor(url: string) {
-    this.url = url;
-    // Simulate connection opening
-    setTimeout(() => {
-      this.readyState = MockWebSocket.OPEN;
-      if (this.onopen) {
-        this.onopen(new Event('open'));
-      }
-    }, 0);
-  }
-
-  send(data: string): void {
-    this.sentMessages.push(data);
-  }
-
-  close(): void {
-    this.readyState = MockWebSocket.CLOSED;
-    if (this.onclose) {
-      this.onclose(new CloseEvent('close'));
-    }
-  }
-}
-
-// Mock AudioContext
-import { createMockAudioContext } from '../helpers/test-mocks';
+import { MockWebSocket, createMockAudioContext } from '@/lib/tests/shared-mocks';
 
 vi.mock('@/lib/audio-context', () => ({
   useAudio: () => createMockAudioContext(),

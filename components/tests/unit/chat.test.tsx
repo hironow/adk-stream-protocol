@@ -15,56 +15,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import type { UIMessage } from "ai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildUseChatOptions } from "@/lib/build-use-chat-options";
-
-// Mock WebSocket for BIDI mode tests
-class MockWebSocket {
-  static CONNECTING = 0;
-  static OPEN = 1;
-  static CLOSING = 2;
-  static CLOSED = 3;
-
-  readyState = MockWebSocket.CONNECTING;
-  onopen: ((ev: Event) => void) | null = null;
-  onmessage: ((ev: MessageEvent) => void) | null = null;
-  onerror: ((ev: Event) => void) | null = null;
-  onclose: ((ev: CloseEvent) => void) | null = null;
-
-  sentMessages: string[] = [];
-  url: string;
-
-  constructor(url: string) {
-    this.url = url;
-    // Simulate connection opening
-    setTimeout(() => {
-      this.readyState = MockWebSocket.OPEN;
-      if (this.onopen) {
-        this.onopen(new Event("open"));
-      }
-    }, 0);
-  }
-
-  send(data: string): void {
-    this.sentMessages.push(data);
-  }
-
-  close(): void {
-    this.readyState = MockWebSocket.CLOSED;
-    if (this.onclose) {
-      this.onclose(new CloseEvent("close"));
-    }
-  }
-
-  simulateMessage(data: Record<string, unknown>): void {
-    if (this.onmessage) {
-      const sseMessage = `data: ${JSON.stringify(data)}`;
-      this.onmessage(
-        new MessageEvent("message", {
-          data: sseMessage,
-        }),
-      );
-    }
-  }
-}
+import { MockWebSocket } from "@/lib/tests/shared-mocks";
 
 describe("Chat Component - Message History Preservation (P4-T9)", () => {
   let originalWebSocket: typeof WebSocket;

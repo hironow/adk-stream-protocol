@@ -18,7 +18,7 @@ import type { UIMessage } from 'ai';
 import { MessageComponent } from '@/components/message';
 
 // Mock AudioContext
-import { createMockAudioContext } from '../helpers/test-mocks';
+import { createMockAudioContext } from '@/lib/tests/shared-mocks';
 
 vi.mock('@/lib/audio-context', () => ({
   useAudio: () => createMockAudioContext(),
