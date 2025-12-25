@@ -159,3 +159,9 @@ def mock_session_service() -> Mock:
 def fixture_dir() -> Path:
     """Get E2E fixtures directory (backend JSONL files)."""
     return Path(__file__).parent.parent / "fixtures" / "backend"
+
+
+@pytest.fixture
+def frontend_fixture_dir() -> Path:
+    """Get frontend fixtures directory (JSON baseline files)."""
+    return Path(__file__).parent.parent / "fixtures" / "frontend"

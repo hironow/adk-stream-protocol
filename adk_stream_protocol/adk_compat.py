@@ -15,6 +15,12 @@ from loguru import logger
 # Session storage (shared across all ADK modes)
 _sessions: dict[str, Any] = {}
 
+# Synced message count tracking (persists across HTTP requests)
+# Key: session_id, Value: number of messages synced
+# NOTE: session.state dict does NOT persist across HTTP requests in ADK,
+# so we maintain this separately to prevent duplicate history syncing
+_synced_message_counts: dict[str, int] = {}
+
 
 async def get_or_create_session(
     user_id: str,
@@ -132,8 +138,8 @@ async def sync_conversation_history_to_session(
     messages_to_sync = messages[:-1] if len(messages) > 1 else []
 
     # Edge case: Check if we need to sync (avoid duplicates)
-    # We track synced message count in session state to prevent duplicates
-    synced_count = session.state.get("synced_message_count", 0)
+    # We track synced message count in persistent dict (not session.state, which resets)
+    synced_count = _synced_message_counts.get(session.id, 0)
 
     # Calculate how many new messages need syncing
     new_messages_to_sync = (
@@ -166,9 +172,12 @@ async def sync_conversation_history_to_session(
 
             logger.info(f"[{current_mode}] Synced message {event_index}: role={msg_content.role}")
 
-        # Update the synced count in session state
-        session.state["synced_message_count"] = len(messages_to_sync)
-        logger.info(f"[{current_mode}] Updated synced_message_count to {len(messages_to_sync)}")
+        # Update the synced count in persistent dict (persists across HTTP requests)
+        _synced_message_counts[session.id] = len(messages_to_sync)
+        logger.info(
+            f"[{current_mode}] Updated synced_message_count to {len(messages_to_sync)} "
+            f"for session {session.id}"
+        )
 
         return len(new_messages_to_sync)
 
@@ -177,11 +186,12 @@ async def sync_conversation_history_to_session(
 
 def clear_sessions() -> None:
     """
-    Clear all sessions. Useful for testing or cleanup.
+    Clear all sessions and synced message counts. Useful for testing or cleanup.
     """
-    global _sessions
+    global _sessions, _synced_message_counts
     _sessions.clear()
-    logger.info("Cleared all ADK sessions")
+    _synced_message_counts.clear()
+    logger.info("Cleared all ADK sessions and synced message counts")
 
 
 def is_function_call_requiring_confirmation(  # noqa: PLR0911 - Multiple returns needed for dict/ADK object format handling

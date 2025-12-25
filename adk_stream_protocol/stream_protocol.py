@@ -938,7 +938,10 @@ async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912
                 model_version_list.append(event.model_version)
 
     except Exception as e:
+        import traceback
+
         logger.error(f"[stream_adk_to_ai_sdk] Exception: {e!s}")
+        logger.error(f"[stream_adk_to_ai_sdk] Traceback:\n{traceback.format_exc()}")
         error_list.append(e)
     finally:
         # Send final events with all collected metadata

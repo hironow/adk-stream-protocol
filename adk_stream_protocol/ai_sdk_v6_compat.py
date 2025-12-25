@@ -371,6 +371,49 @@ class ChatMessage(BaseModel):
 
     def _process_tool_use_part(self, part: ToolUsePart, adk_parts: list[types.Part]) -> None:
         """Process a ToolUsePart and add to adk_parts if applicable."""
+        # IMPORTANT: Do NOT convert assistant's tool calls (CALL/APPROVAL_REQUESTED) to FunctionCalls
+        # ADK automatically records tool calls from LLM responses in the session.
+        # Re-injecting them during history sync corrupts ADK's internal context (ctx.agent becomes None).
+        # Only process user's approval/denial responses (APPROVAL_RESPONDED state).
+
+        if part.state == ToolCallState.CALL or part.state == ToolCallState.APPROVAL_REQUESTED:
+            # Skip assistant's tool calls - ADK already has them from the original run
+            logger.debug(
+                f"[AI SDK v6] Skipping assistant tool call during history sync "
+                f"(id={part.tool_call_id}, name={part.tool_name}, state={part.state})"
+            )
+            return
+
+        # Handle APPROVAL_RESPONDED state (user's approval/denial response)
+        if part.state == ToolCallState.APPROVAL_RESPONDED:
+            if part.tool_name != "adk_request_confirmation":
+                logger.warning(
+                    f"[AI SDK v6] Unexpected approval-responded for non-confirmation tool: {part.tool_name}"
+                )
+                return
+
+            # Extract approval decision
+            if part.approval is None:
+                logger.warning(
+                    f"[AI SDK v6] Missing approval metadata in approval-responded state"
+                )
+                return
+
+            confirmed = part.approval.approved
+            logger.info(
+                f"[ADK Confirmation] Converting approval response to ADK FunctionResponse "
+                f"(id={part.tool_call_id}, approved={confirmed})"
+            )
+
+            # Create ADK FunctionResponse for adk_request_confirmation with approval decision
+            function_response = types.FunctionResponse(
+                id=part.tool_call_id,
+                name="adk_request_confirmation",
+                response={"confirmed": confirmed},
+            )
+            adk_parts.append(types.Part(function_response=function_response))
+            return
+
         # Only process OUTPUT_AVAILABLE state (tool results from frontend)
         if part.state != ToolCallState.OUTPUT_AVAILABLE:
             logger.debug(

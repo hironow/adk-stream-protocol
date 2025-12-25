@@ -729,7 +729,7 @@ addToolOutput({
 
 ## Behavior Comparison Matrix
 
-**IMPORTANT:** The `approved` value (true/false) in `approval-responded` state does NOT affect auto-submit behavior. Only the **state** and **all tools complete** conditions matter.
+**IMPORTANT:** The `approved` value (true/false) in `approval-responded` state does NOT affect auto-submit behavior. Only the **state** and **all tools complete** conditions matter. See [ADR-0007](adr/0007-approval-value-independence-in-auto-submit.md) for detailed rationale.
 
 ### Scenario 1: Single Tool with Approval Response
 

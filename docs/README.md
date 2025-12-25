@@ -42,9 +42,10 @@ Immutable history of significant architectural decisions:
 - **[ADR-0004](adr/0004-multi-tool-response-timing.md)** - Multi-Tool Response Timing
 - **[ADR-0005](adr/0005-frontend-execute-pattern-and-done-timing.md)** - Frontend Execute Pattern and [DONE] Timing
 - **[ADR-0006](adr/0006-send-automatically-when-decision-logic-order.md)** - sendAutomaticallyWhen Decision Logic Order
+- **[ADR-0007](adr/0007-approval-value-independence-in-auto-submit.md)** - Approval Value Independence in Auto-Submit Timing
 
 ---
 
 **Documentation Guidelines**: This documentation describes the CURRENT implementation only. For historical context, see ADRs. For experimental work, see `experiments/README.md`.
 
-**Last Documentation Review**: 2025-12-24
+**Last Documentation Review**: 2025-12-25

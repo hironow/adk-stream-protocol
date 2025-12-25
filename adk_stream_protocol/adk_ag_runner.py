@@ -10,6 +10,7 @@ This module contains:
 import os
 
 from google.adk.agents import Agent
+from google.adk.apps import App, ResumabilityConfig
 from google.adk.models.google_llm import Gemini
 from google.adk.runners import InMemoryRunner
 from google.adk.tools.function_tool import FunctionTool
@@ -131,9 +132,29 @@ bidi_agent = Agent(
     # Note: ADK Agent doesn't support seed and temperature parameters
 )
 
-# Initialize InMemoryRunners for each agent
-sse_agent_runner = InMemoryRunner(agent=sse_agent, app_name="agents")
-bidi_agent_runner = InMemoryRunner(agent=bidi_agent, app_name="agents")
+# Initialize Apps with ResumabilityConfig for tool confirmation support
+# ResumabilityConfig(is_resumable=True) enables invocation_id-based pause/resume
+# This is required for SSE multi-turn tool confirmation flow
+
+sse_app = App(
+    name="adk_assistant_app_sse",
+    root_agent=sse_agent,
+    resumability_config=ResumabilityConfig(
+        is_resumable=True,
+    ),
+)
+
+bidi_app = App(
+    name="adk_assistant_app_bidi",
+    root_agent=bidi_agent,
+    resumability_config=ResumabilityConfig(
+        is_resumable=True,
+    ),
+)
+
+# Initialize InMemoryRunners with resumable Apps
+sse_agent_runner = InMemoryRunner(app=sse_app)
+bidi_agent_runner = InMemoryRunner(app=bidi_app)
 
 
 # ========== Tool Confirmation Configuration ==========

@@ -12,6 +12,7 @@ import os
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any
 
 from dotenv import load_dotenv
 
@@ -218,7 +219,8 @@ async def chat(request: ChatRequest):
     # 2. Session management
     # Get user ID (single user mode for demo environment without database)
     user_id = _get_user()
-    app_name = "agents"
+    # App-based runner requires app_name to match the App's name
+    app_name = "adk_assistant_app_sse"
     session = await get_or_create_session(user_id, sse_agent_runner, app_name)
     logger.info(f"[/chat] Session ID: {session.id}")
 
@@ -264,12 +266,16 @@ def _create_error_sse_response(error_message: str) -> StreamingResponse:
     )
 
 
-def _process_latest_message(last_message: ChatMessage) -> types.Content | None:
+def _process_latest_message(last_message: ChatMessage, session: Any) -> types.Content | None:
     """
     Process the latest message and convert to ADK Content.
 
     Handle assistant messages with tool confirmations.
     Returns None if message should be skipped.
+
+    Args:
+        last_message: Message to process
+        session: ADK session (for accessing pending_confirmations in Turn 2)
     """
     # When user approves adk_request_confirmation, AI SDK sends assistant message back
     # with tool output (not a new user message). We need to send the confirmation
@@ -294,15 +300,18 @@ def _process_latest_message(last_message: ChatMessage) -> types.Content | None:
             logger.warning("[/stream] Last message is assistant but has no confirmation")
             return None
     else:
-        # Normal user message processing
-        last_user_message_text = last_message._get_text_content()
-        if not last_user_message_text:
-            logger.warning("[/stream] Last message has no text content")
-            return None
+        # User message processing
+        # Create ADK message content (includes text, images, function responses, etc.)
+        message_content = last_message.to_adk_content()
 
-        logger.info(f"[/stream] Processing: {last_user_message_text[:50]}...")
-        # Create ADK message content (includes images and other parts)
-        return last_message.to_adk_content()
+        # Log processing type
+        last_user_message_text = last_message._get_text_content()
+        if last_user_message_text:
+            logger.info(f"[/stream] Processing text: {last_user_message_text[:50]}...")
+        else:
+            logger.info("[/stream] Processing non-text message (function response, etc.)")
+
+        return message_content
 
 
 @app.post("/stream")
@@ -322,16 +331,36 @@ async def stream(request: ChatRequest):
     - Request: UIMessage[] (full message history)
     - Response: SSE stream (text-start, text-delta, text-end, finish)
     """
-    logger.info(f"[/stream] Received request with {len(request.messages)} messages")
+    logger.info(f"[/stream] ===== API REQUEST RECEIVED =====")
+    logger.info(f"[/stream] Total messages: {len(request.messages)}")
 
-    # Debug logging for message parts
+    # Debug logging for all incoming messages with detailed parts
     for i, msg in enumerate(request.messages):
-        logger.info(f"[/stream] Processing Message {i}: role={msg.role}")
+        logger.info(f"[/stream] --- Message {i} ---")
+        logger.info(f"[/stream] role: {msg.role}")
+
         msg_context = msg.to_adk_content()
-        logger.info(
-            f"[/stream] Message {i}: role={msg_context.role}, "
-            f"parts={len(msg_context.parts) if msg_context.parts else 0}"
-        )
+        logger.info(f"[/stream] parts count: {len(msg_context.parts) if msg_context.parts else 0}")
+
+        if msg_context.parts:
+            for j, part in enumerate(msg_context.parts):
+                if part.text:
+                    logger.info(f"[/stream] part[{j}]: text='{part.text[:50]}...'")
+                elif part.function_response:
+                    logger.info(
+                        f"[/stream] part[{j}]: FunctionResponse("
+                        f"id={part.function_response.id}, "
+                        f"name={part.function_response.name}, "
+                        f"response={part.function_response.response})"
+                    )
+                elif part.function_call:
+                    logger.info(
+                        f"[/stream] part[{j}]: FunctionCall("
+                        f"id={part.function_call.id}, "
+                        f"name={part.function_call.name}, "
+                        f"args={part.function_call.args})"
+                    )
+    logger.info(f"[/stream] ===================================")
 
     # Validate input messages
     if not request.messages:
@@ -342,37 +371,87 @@ async def stream(request: ChatRequest):
         # 2. Session management
         # Get user ID (single user mode for demo environment without database)
         user_id = _get_user()
-        session = await get_or_create_session(user_id, sse_agent_runner, "agents")
+        # App-based runner requires app_name to match the App's name
+        session = await get_or_create_session(user_id, sse_agent_runner, "adk_assistant_app_sse")
         logger.info(f"[/stream] Session ID: {session.id}")
+
+        # DEBUG: Check session state persistence
+        try:
+            events = await sse_agent_runner.session_service.get_events(
+                session=session,
+                after_event_index=0
+            )
+            event_count = len(list(events))
+            logger.info(f"[/stream] Session has {event_count} events in history")
+        except Exception as e:
+            logger.warning(f"[/stream] Could not get session events: {e}")
 
         # Use global frontend tool delegate (shared across SSE and BIDI modes)
         session.state["frontend_delegate"] = frontend_delegate
         logger.info("[/stream] Global FrontendToolDelegate stored in session.state")
 
-        # Sync conversation history (BUG-006 FIX)
-        # When switching modes (e.g., Gemini Direct -> ADK SSE), sync history
-        await sync_conversation_history_to_session(
-            session=session,
-            session_service=sse_agent_runner.session_service,
-            messages=request.messages,
-            current_mode="SSE",
-        )
-
         # Process the latest message
-        message_content = _process_latest_message(request.messages[-1])
+        message_content = _process_latest_message(request.messages[-1], session)
         if message_content is None:
             return
+
+        logger.info(f"[/stream] ===== ADK INPUT (new_message) =====")
+        logger.info(f"[/stream] role: {message_content.role}")
+        logger.info(f"[/stream] parts count: {len(message_content.parts) if message_content.parts else 0}")
+        if message_content.parts:
+            for i, part in enumerate(message_content.parts):
+                if part.text:
+                    logger.info(f"[/stream] part[{i}]: text='{part.text[:50]}...'")
+                elif part.function_response:
+                    logger.info(
+                        f"[/stream] part[{i}]: FunctionResponse("
+                        f"id={part.function_response.id}, "
+                        f"name={part.function_response.name}, "
+                        f"response={part.function_response.response})"
+                    )
+                elif part.function_call:
+                    logger.info(
+                        f"[/stream] part[{i}]: FunctionCall("
+                        f"id={part.function_call.id}, "
+                        f"name={part.function_call.name}, "
+                        f"args={part.function_call.args})"
+                    )
+        logger.info(f"[/stream] =======================================")
+
+        # ID変換: confirmation-adk-xxx → adk-xxx (for adk_request_confirmation approval responses)
+        # This converts frontend confirmation IDs back to original ADK tool call IDs
+        if message_content.parts:
+            for part in message_content.parts:
+                if (hasattr(part, "function_response")
+                    and part.function_response is not None
+                    and part.function_response.name == "adk_request_confirmation"
+                    and part.function_response.id.startswith("confirmation-")):
+
+                    original_id = part.function_response.id.replace("confirmation-", "", 1)
+                    logger.info(
+                        f"[/stream] ID変換: {part.function_response.id} → {original_id}"
+                    )
+                    part.function_response.id = original_id
 
         logger.info(
             f"[/stream] Agent model: {sse_agent.model}, "
             f"tools: {[tool.__name__ if callable(tool) else str(tool) for tool in sse_agent.tools]}"
         )
 
+        # Get last invocation_id for continuation (if this is Turn 2)
+        last_invocation_id = session.state.get("last_invocation_id")
+        if last_invocation_id:
+            logger.info(f"[/stream] Continuing from invocation_id: {last_invocation_id}")
+        else:
+            logger.info("[/stream] Starting new invocation (Turn 1)")
+
         # Run ADK agent with streaming
+        # Use invocation_id for multi-turn continuation
         event_stream = sse_agent_runner.run_async(
             user_id=user_id,
             session_id=session.id,
             new_message=message_content,
+            invocation_id=last_invocation_id,
         )
 
         streamer = SseEventStreamer(
@@ -385,6 +464,14 @@ async def stream(request: ChatRequest):
         # Stream events to client (handles conversion, confirmation, ID mapping)
         async for sse_event in streamer.stream_events(event_stream):
             yield sse_event
+
+        # After streaming, save invocation_id from SseEventStreamer for Turn 2 continuation
+        current_invocation_id = getattr(streamer, '_current_invocation_id', None)
+        if current_invocation_id:
+            session.state["last_invocation_id"] = current_invocation_id
+            logger.info(f"[/stream] Saved invocation_id for continuation: {current_invocation_id}")
+        else:
+            logger.warning("[/stream] No invocation_id captured")
 
         logger.info("[/stream] Completed streaming events")
 
