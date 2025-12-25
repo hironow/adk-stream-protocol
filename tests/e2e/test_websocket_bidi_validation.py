@@ -162,7 +162,7 @@ class TestWebSocketBIDIStructure:
                     "messageId": None,
                 })
 
-                # Receive events
+                # Receive events and respond to frontend tool calls
                 actual_chunks = []
                 while True:
                     data = websocket.receive_text()
@@ -172,6 +172,22 @@ class TestWebSocketBIDIStructure:
                         break
 
                     actual_chunks.append(chunk)
+
+                    # Handle frontend tool confirmation for change_bgm
+                    if isinstance(chunk, dict) and chunk.get("type") == "tool-input-available":
+                        tool_name = chunk.get("toolName")
+                        tool_call_id = chunk.get("toolCallId")
+                        if tool_name == "change_bgm":
+                            # Send tool_result event (simulating frontend approval)
+                            websocket.send_json({
+                                "type": "tool_result",
+                                "toolCallId": tool_call_id,
+                                "result": {
+                                    "success": True,
+                                    "track": 1,
+                                    "message": "BGM change to track 1 initiated (frontend handles execution)",
+                                },
+                            })
 
         # Then: All expected event types should be present
         expected_event_types = [chunk.get("type") for chunk in expected_chunks]

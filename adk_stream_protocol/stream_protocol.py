@@ -754,9 +754,8 @@ class StreamProtocolConverter:
             # Build finish event
             finish_event: dict[str, Any] = {"type": "finish"}
 
-            # Add finish reason if available
-            if finish_reason:
-                finish_event["finishReason"] = _map_adk_finish_reason_to_ai_sdk(finish_reason)
+            # Add finish reason (always, defaults to "stop" if None)
+            finish_event["finishReason"] = _map_adk_finish_reason_to_ai_sdk(finish_reason)
 
             # Build messageMetadata with usage and audio stats
             metadata: dict[str, Any] = {}
