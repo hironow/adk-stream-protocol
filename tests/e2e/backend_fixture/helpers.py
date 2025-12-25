@@ -486,12 +486,19 @@ def compare_raw_events(
     # Detect if we're testing a dynamic content tool
     use_structure_validation = False
     if dynamic_content_tools:
-        # Check if any of the events contain these tool names
+        # Check if any of the events contain these tool names OR are tool output/text events
         for event in actual + expected:
+            # tool-output-available and text-delta always have dynamic content
+            if '"type": "tool-output-available"' in event or '"type": "text-delta"' in event:
+                use_structure_validation = True
+                break
+            # Also check for tool names in tool-input events
             for tool_name in dynamic_content_tools:
                 if tool_name in event:
                     use_structure_validation = True
                     break
+            if use_structure_validation:
+                break
 
     if normalize:
         actual_normalized = [normalize_event(e) for e in actual]

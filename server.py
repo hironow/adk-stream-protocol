@@ -438,12 +438,31 @@ async def stream(request: ChatRequest):
             f"tools: {[tool.__name__ if callable(tool) else str(tool) for tool in sse_agent.tools]}"
         )
 
-        # Get last invocation_id for continuation (if this is Turn 2)
-        last_invocation_id = session.state.get("last_invocation_id")
-        if last_invocation_id:
-            logger.info(f"[/stream] Continuing from invocation_id: {last_invocation_id}")
+        # Detect if this is Turn 2 (confirmation response) by checking for adk_request_confirmation FunctionResponse
+        is_confirmation_response = False
+        if message_content.parts:
+            for part in message_content.parts:
+                if (hasattr(part, "function_response")
+                    and part.function_response is not None
+                    and part.function_response.name == "adk_request_confirmation"):
+                    is_confirmation_response = True
+                    break
+
+        # Get last invocation_id for continuation (ONLY if this is Turn 2)
+        last_invocation_id = None
+        if is_confirmation_response:
+            last_invocation_id = session.state.get("last_invocation_id")
+            if last_invocation_id:
+                logger.info(f"[/stream] Turn 2: Continuing from invocation_id: {last_invocation_id}")
+            else:
+                logger.warning("[/stream] Turn 2 detected but no invocation_id found!")
         else:
-            logger.info("[/stream] Starting new invocation (Turn 1)")
+            # Turn 1: Clear any old invocation_id and start fresh
+            if "last_invocation_id" in session.state:
+                del session.state["last_invocation_id"]
+                logger.info("[/stream] Turn 1: Cleared old invocation_id, starting new invocation")
+            else:
+                logger.info("[/stream] Turn 1: Starting new invocation")
 
         # Run ADK agent with streaming
         # Use invocation_id for multi-turn continuation

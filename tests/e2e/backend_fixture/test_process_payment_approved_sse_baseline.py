@@ -152,14 +152,15 @@ async def test_process_payment_approved_sse_baseline(frontend_fixture_dir: Path)
         f"actual={actual_done_count_turn2}, expected=1"
     )
 
-    # And: Should contain tool-output-available for process_payment
+    # And: Should contain tool-output-available event (tool execution result)
+    # Note: tool-output-available events don't include toolName, only toolCallId
     tool_output_events = [
         event
         for event in turn2_events
-        if "tool-output-available" in event and "process_payment" in event
+        if "tool-output-available" in event
     ]
     assert len(tool_output_events) > 0, (
-        "Turn 2 should have tool-output-available for process_payment"
+        "Turn 2 should have tool-output-available event (tool execution result)"
     )
 
     print("\n✅ Full invocation (Turn 1 + Turn 2) passed!")
