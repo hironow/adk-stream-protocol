@@ -29,7 +29,6 @@ from .helpers import (
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="BIDI WebSocket client not yet implemented")
 async def test_get_weather_bidi_baseline(frontend_fixture_dir: Path):
     """Should generate correct rawEvents for get_weather BIDI baseline."""
     # Given: Frontend baseline fixture (BIDI mode)
@@ -48,10 +47,12 @@ async def test_get_weather_bidi_baseline(frontend_fixture_dir: Path):
     )
 
     # Then: rawEvents should match expected (with normalization)
+    # get_weather returns dynamic content (weather data), so use structure validation
     is_match, diff_msg = compare_raw_events(
         actual=actual_events,
         expected=expected_events,
         normalize=True,
+        dynamic_content_tools=["get_weather"],
     )
     assert is_match, f"rawEvents mismatch:\n{diff_msg}"
 

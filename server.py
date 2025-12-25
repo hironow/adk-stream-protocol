@@ -648,10 +648,8 @@ async def live_chat(websocket: WebSocket):  # noqa: PLR0915
         bidi_event_sender = BidiEventSender(
             websocket=websocket,
             frontend_delegate=frontend_delegate,
-            confirmation_tools=BIDI_CONFIRMATION_TOOLS,
             session=session,
-            live_request_queue=live_request_queue,  # Pass queue for continuation trigger
-            bidi_agent_runner=bidi_agent_runner,
+            agent_model=bidi_agent.model,  # Pass agent model for modelVersion fallback
         )
         logger.info("[BIDI] BidiEventSender created (downstream: ADK → WebSocket)")
 

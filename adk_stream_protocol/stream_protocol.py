@@ -175,14 +175,17 @@ class StreamProtocolConverter:
     def __init__(
         self,
         message_id: str | None = None,
+        agent_model: str | None = None,
     ):
         """
         Initialize converter.
 
         Args:
             message_id: Optional message ID. Generated if not provided.
+            agent_model: Optional agent model name for modelVersion fallback.
         """
         self.message_id = message_id or str(uuid.uuid4())
+        self.agent_model = agent_model
         self.part_id_counter = 0
         self.tool_call_id_counter = 0
         self.has_started = False
@@ -436,14 +439,27 @@ class StreamProtocolConverter:
             # Extract metadata from event if present
             usage_metadata = None
             finish_reason = None
+            model_version = None
+
             if hasattr(event, "usage_metadata") and event.usage_metadata:
                 usage_metadata = event.usage_metadata
             if hasattr(event, "finish_reason") and event.finish_reason:
                 finish_reason = event.finish_reason
 
+            # Extract model_version from event or use agent_model fallback
+            if hasattr(event, "model_version") and event.model_version:
+                model_version = event.model_version
+                logger.debug(f"[BIDI TURN_COMPLETE] Using event.model_version: {model_version}")
+            elif self.agent_model:
+                model_version = self.agent_model
+                logger.debug(f"[BIDI TURN_COMPLETE] Using agent_model fallback: {model_version}")
+
             # Send finish event
             async for final_event in self.finalize(
-                usage_metadata=usage_metadata, error=None, finish_reason=finish_reason
+                usage_metadata=usage_metadata,
+                error=None,
+                finish_reason=finish_reason,
+                model_version=model_version,
             ):
                 yield final_event
 
@@ -857,6 +873,7 @@ async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912
     event_stream: AsyncGenerator[Event | SseFormattedEvent],
     message_id: str | None = None,
     mode: Mode = "adk-sse",  # "adk-sse" or "adk-bidi" for chunk logger
+    agent_model: str | None = None,  # Agent model name as fallback when event.model_version is None
 ) -> AsyncGenerator[SseFormattedEvent]:
     """
     Convert ADK event stream to AI SDK v6 Data Stream Protocol.
@@ -881,7 +898,7 @@ async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912
     Yields:
         SSE-formatted event strings
     """
-    converter = StreamProtocolConverter(message_id)
+    converter = StreamProtocolConverter(message_id, agent_model=agent_model)
     error_list: list[Exception] = []
     usage_metadata_list = []
     finish_reason_list = []
@@ -926,6 +943,11 @@ async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912
             # Extract metadata from Event for finalization
             if hasattr(event, "usage_metadata") and event.usage_metadata:
                 usage_metadata_list.append(event.usage_metadata)
+                # DEBUG: Log usage_metadata contents
+                logger.debug(f"[USAGE_METADATA] Found usage_metadata: {event.usage_metadata!r}")
+            if hasattr(event, "custom_metadata") and event.custom_metadata:
+                # DEBUG: Log custom_metadata contents
+                logger.debug(f"[CUSTOM_METADATA] Found custom_metadata: {event.custom_metadata!r}")
             if hasattr(event, "finish_reason") and event.finish_reason:
                 finish_reason_list.append(event.finish_reason)
             if hasattr(event, "grounding_metadata") and event.grounding_metadata:
@@ -934,8 +956,14 @@ async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912
                 citation_metadata_list.append(event.citation_metadata)
             if hasattr(event, "cache_metadata") and event.cache_metadata:
                 cache_metadata_list.append(event.cache_metadata)
+            # Extract model_version from event or use agent_model fallback
             if hasattr(event, "model_version") and event.model_version:
                 model_version_list.append(event.model_version)
+                logger.debug(f"[MODEL_VERSION] Using event.model_version: {event.model_version}")
+            elif agent_model and not model_version_list:
+                # Use agent_model as fallback only once (if list is empty)
+                model_version_list.append(agent_model)
+                logger.debug(f"[MODEL_VERSION] Using agent_model fallback: {agent_model}")
 
     except Exception as e:
         import traceback
@@ -955,6 +983,13 @@ async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912
         citation_metadata = citation_metadata_list[-1] if len(citation_metadata_list) > 0 else None
         cache_metadata = cache_metadata_list[-1] if len(cache_metadata_list) > 0 else None
         model_version = model_version_list[-1] if len(model_version_list) > 0 else None
+
+        # DEBUG: Log final model_version
+        logger.debug(
+            f"[MODEL_VERSION] Final values - "
+            f"list={model_version_list!r}, "
+            f"selected={model_version!r}"
+        )
 
         if error:
             logger.error(f"[FINALIZE] Sending error: {error!s}")

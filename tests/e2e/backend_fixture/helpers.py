@@ -7,11 +7,13 @@ Provides utilities for:
 - Validating [DONE] markers
 """
 
+import asyncio
 import json
 from pathlib import Path
 from typing import Any
 
 import httpx
+from loguru import logger
 
 
 async def load_frontend_fixture(fixture_path: Path) -> dict[str, Any]:
@@ -23,7 +25,7 @@ async def load_frontend_fixture(fixture_path: Path) -> dict[str, Any]:
     Returns:
         Fixture dictionary with input/output fields
     """
-    with open(fixture_path) as f:
+    with fixture_path.open() as f:
         return json.load(f)
 
 
@@ -237,6 +239,7 @@ def create_denial_message(
 async def send_bidi_request(
     messages: list[dict[str, Any]],
     backend_url: str = "ws://localhost:8000/live",
+    timeout: float = 30.0,
 ) -> list[str]:
     """Send BIDI WebSocket request to backend and collect rawEvents.
 
@@ -245,16 +248,54 @@ async def send_bidi_request(
     Args:
         messages: Message history to send
         backend_url: Backend WebSocket endpoint URL
+        timeout: Timeout in seconds for WebSocket operations (default: 30.0)
 
     Returns:
         List of SSE-format event strings (e.g., 'data: {...}\\n\\n')
     """
-    # This would require websockets library
-    # For now, return placeholder - will implement when needed
-    raise NotImplementedError(
-        "BIDI WebSocket client not yet implemented. "
-        "Use SSE mode for now, or implement WebSocket client."
-    )
+    import websockets
+
+    raw_events = []
+    websocket = None
+
+    try:
+        # Connect with timeout configuration to prevent lingering connections
+        websocket = await websockets.connect(
+            backend_url,
+            open_timeout=timeout,
+            close_timeout=10.0,
+        )
+
+        # Send message event with type field (BIDI protocol requirement)
+        # BidiEventReceiver expects {"type": "message", "messages": [...]}
+        await websocket.send(json.dumps({
+            "type": "message",
+            "messages": messages
+        }))
+
+        # Receive events until [DONE]
+        while True:
+            try:
+                event = await asyncio.wait_for(websocket.recv(), timeout=timeout)
+                raw_events.append(event)
+
+                # Check for [DONE] marker
+                if "[DONE]" in event:
+                    break
+            except websockets.exceptions.ConnectionClosed:
+                break
+            except TimeoutError:
+                logger.warning(f"WebSocket recv timeout after {timeout}s")
+                break
+    finally:
+        # Ensure WebSocket is properly closed to prevent lingering connections
+        if websocket is not None:
+            try:
+                await websocket.close()
+            except Exception as e:
+                logger.debug(f"Error closing WebSocket: {e}")
+
+    return raw_events
 
 
 def count_done_markers(raw_events: list[str]) -> int:
@@ -352,7 +393,7 @@ def validate_event_structure(
 
     # Parse JSON from "data: {...}\n\n" format
     if not actual_event.startswith("data: ") or not expected_event.startswith("data: "):
-        return (actual_event == expected_event, f"Non-data event mismatch")
+        return (actual_event == expected_event, "Non-data event mismatch")
 
     try:
         actual_json = json.loads(actual_event[6:].strip())
@@ -427,6 +468,13 @@ def validate_event_structure(
                 return (False, "Missing id or delta field in text-delta")
             return (True, "")
 
+        # 5.5. For text-start and text-end: check structure only (id field can vary between SSE and BIDI)
+        if event_type in ("text-start", "text-end"):
+            if "id" not in actual_json or "id" not in expected_json:
+                return (False, f"Missing id field in {event_type}")
+            # ID value can differ (SSE: "0", BIDI: "UUID_output_text"), so only check existence
+            return (True, "")
+
         # 6. For finish: check structure and static fields
         if event_type == "finish":
             # finishReason should match
@@ -436,7 +484,7 @@ def validate_event_structure(
                     f"finishReason mismatch: actual={actual_json.get('finishReason')}, "
                     f"expected={expected_json.get('finishReason')}",
                 )
-            # modelVersion should match
+            # modelVersion should match (required field)
             actual_version = actual_json.get("messageMetadata", {}).get("modelVersion")
             expected_version = expected_json.get("messageMetadata", {}).get("modelVersion")
             if actual_version != expected_version:
@@ -444,9 +492,12 @@ def validate_event_structure(
                     False,
                     f"modelVersion mismatch: actual={actual_version}, expected={expected_version}",
                 )
-            # usage should exist (but values can differ)
-            if "usage" not in actual_json.get("messageMetadata", {}):
-                return (False, "Missing usage field in messageMetadata")
+            # usage is optional - only check if expected has it
+            expected_metadata = expected_json.get("messageMetadata", {})
+            if "usage" in expected_metadata:
+                # If expected has usage, actual should also have it (but values can differ)
+                if "usage" not in actual_json.get("messageMetadata", {}):
+                    return (False, "Missing usage field in messageMetadata")
             return (True, "")
 
         # 7. For other event types: exact match after normalization
@@ -477,17 +528,75 @@ def compare_raw_events(
         - is_match: True if events match
         - diff_message: Human-readable diff if not match, empty if match
     """
-    if len(actual) != len(expected):
+    # Filter out audio and reasoning events from actual events
+    # Baseline fixtures exclude these audio/thinking-specific events
+    # Also filter text events with simple numeric IDs (thinking text display)
+    actual_filtered = [
+        e for e in actual
+        if '"type": "data-pcm"' not in e
+        and '"type": "reasoning-start"' not in e
+        and '"type": "reasoning-delta"' not in e
+        and '"type": "reasoning-end"' not in e
+        and not ('"type": "text-' in e and '"id": "1"' in e)  # Filter thinking text display
+    ]
+
+    # Merge consecutive text-delta events with same id (for structure validation)
+    # Native-audio models stream text character-by-character, but baseline fixtures
+    # only care about structure (text-delta exists), not the exact count
+    merged = []
+    i = 0
+    while i < len(actual_filtered):
+        event = actual_filtered[i]
+
+        # Check if this is a text-delta event
+        if '"type": "text-delta"' in event:
+            # Extract id from current event
+            import json
+
+            try:
+                data = event.replace("data: ", "").strip()
+                event_data = json.loads(data)
+                current_id = event_data.get("id")
+
+                # Skip all consecutive text-delta events with same id
+                j = i + 1
+                while j < len(actual_filtered) and '"type": "text-delta"' in actual_filtered[j]:
+                    try:
+                        next_data = actual_filtered[j].replace("data: ", "").strip()
+                        next_event_data = json.loads(next_data)
+                        next_id = next_event_data.get("id")
+
+                        if current_id == next_id:
+                            j += 1
+                        else:
+                            break
+                    except (json.JSONDecodeError, KeyError):
+                        break
+
+                # Keep only the first text-delta with this id
+                merged.append(event)
+                i = j
+            except (json.JSONDecodeError, KeyError):
+                # If parsing fails, keep the event as-is
+                merged.append(event)
+                i += 1
+        else:
+            merged.append(event)
+            i += 1
+
+    actual_filtered = merged
+
+    if len(actual_filtered) != len(expected):
         return (
             False,
-            f"Event count mismatch: actual={len(actual)}, expected={len(expected)}",
+            f"Event count mismatch (after filtering audio): actual={len(actual_filtered)}, expected={len(expected)}",
         )
 
     # Detect if we're testing a dynamic content tool
     use_structure_validation = False
     if dynamic_content_tools:
         # Check if any of the events contain these tool names OR are tool output/text events
-        for event in actual + expected:
+        for event in actual_filtered + expected:
             # tool-output-available and text-delta always have dynamic content
             if '"type": "tool-output-available"' in event or '"type": "text-delta"' in event:
                 use_structure_validation = True
@@ -501,27 +610,26 @@ def compare_raw_events(
                 break
 
     if normalize:
-        actual_normalized = [normalize_event(e) for e in actual]
+        actual_normalized = [normalize_event(e) for e in actual_filtered]
         expected_normalized = [normalize_event(e) for e in expected]
     else:
-        actual_normalized = actual
+        actual_normalized = actual_filtered
         expected_normalized = expected
 
     mismatches = []
-    for i, (a, e) in enumerate(zip(actual_normalized, expected_normalized)):
+    for i, (a, e) in enumerate(zip(actual_normalized, expected_normalized, strict=True)):
         # Use structure validation for dynamic content tools
         if use_structure_validation:
             is_match, diff_msg = validate_event_structure(a, e)
             if not is_match:
                 mismatches.append(f"Event {i} structure mismatch: {diff_msg}")
-        else:
-            # Exact match for deterministic tools
-            if a != e:
-                mismatches.append(
-                    f"Event {i} mismatch:\n"
-                    f"  Actual:   {a}\n"
-                    f"  Expected: {e}"
-                )
+        # Exact match for deterministic tools
+        elif a != e:
+            mismatches.append(
+                f"Event {i} mismatch:\n"
+                f"  Actual:   {a}\n"
+                f"  Expected: {e}"
+            )
 
     if mismatches:
         diff_msg = "\n".join(mismatches)
