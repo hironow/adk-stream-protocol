@@ -9,7 +9,7 @@ Responsibilities:
 - Convert to AI SDK v6 Data Stream Protocol (SSE format)
 - Send events to WebSocket
 - Register function_call.id mappings for frontend tools
-- Handle confirmation flow via ToolConfirmationInterceptor
+- Handle confirmation flow
 
 Counterpart: BidiEventReceiver handles upstream (WebSocket → ADK) direction.
 """
@@ -93,7 +93,7 @@ class BidiEventSender:
         # Initialize invocation_id capture
         self._current_invocation_id = None
 
-        # Capture invocation_id and pass events through to ADK's native flow
+        # Capture invocation_id only
         async def events_with_invocation_capture():
             async for event in live_events:
                 # Capture invocation_id from first event
@@ -144,13 +144,18 @@ class BidiEventSender:
         if sse_event.startswith("data:"):
             # Skip DONE event
             if "DONE" == sse_event.strip()[5:].strip():
-                await self._ws.send_text(sse_event)
+                try:
+                    await self._ws.send_text(sse_event)
+                    logger.debug("[BIDI-SEND] Sent [DONE] event")
+                except Exception as e:
+                    logger.error(f"[BIDI-SEND] Failed to send [DONE] event: {e!s}")
+                    raise
                 return
 
             match _parse_sse_event_data(sse_event):
                 case Ok(event_data):
                     event_type = event_data.get("type", "unknown")
-                    # logger.info(f"[BIDI-SEND] Sending event type: {event_type}")
+                    logger.debug(f"[BIDI-SEND] Preparing to send event type: {event_type}")
 
                     # Register function_call.id mapping for frontend delegate tools
                     if event_type == "tool-input-available":
@@ -167,21 +172,34 @@ class BidiEventSender:
                                     # ID mapping is optional - log and continue if it fails
                                     logger.debug(f"[BIDI-SEND] {error_msg}")
 
-        # Send to WebSocket
-        await self._ws.send_text(sse_event)
+        # Send to WebSocket with error handling
+        try:
+            logger.debug("[BIDI-SEND] Calling ws.send_text() for event: %s...", sse_event[:100])
+            await self._ws.send_text(sse_event)
+            logger.debug("[BIDI-SEND] ✓ Successfully sent event")
+        except Exception as e:
+            logger.error("[BIDI-SEND] ✗ Failed to send event: %s", e)
+            logger.error("[BIDI-SEND] Event that failed: %s", sse_event[:200])
+            raise
 
     async def _handle_confirmation_if_needed(self, sse_event: str) -> bool:
         """
-        Two-phase confirmation handling:
-        1. On tool-input-start: Record confirmation-required tools
-        2. On tool-input-available: Inject adk_request_confirmation events BEFORE the tool event
+        Phase 5: Detect LongRunningFunctionTool pending responses and inject confirmation flow.
 
-        BIDI mode limitation: ADK does not auto-generate adk_request_confirmation
-        FunctionCalls for tools with require_confirmation=True (marked as TODO in ADK).
-        We manually inject these events to match SSE mode behavior.
+        LongRunningFunctionTool returns {"status": "pending", ...} which ADK converts to
+        tool-output-available event. We detect this and inject adk_request_confirmation
+        to match SSE mode UX.
+
+        Flow:
+        1. On tool-input-start: Record tool_name for confirmation-required tools
+        2. On tool-output-available with pending: Inject confirmation events
+        3. Extract tool call metadata from pending response
+        4. Send original tool-output-available
+        5. Inject tool-input-start/available for adk_request_confirmation
+        6. Save pending call info for later execution
 
         Args:
-            sse_event: SSE-formatted string like 'data: {"type":"tool-input-start",...}\n\n'
+            sse_event: SSE-formatted string like 'data: {"type":"tool-output-available",...}\n\n'
 
         Returns:
             True if the event should be sent immediately, False if it was deferred and sent later
@@ -198,10 +216,10 @@ class BidiEventSender:
         match _parse_sse_event_data(sse_event):
             case Ok(event_data):
                 event_type = event_data.get("type")
-                tool_name = event_data.get("toolName")
                 tool_call_id = event_data.get("toolCallId")
+                tool_name = event_data.get("toolName")
 
-                # Phase 1: Record tool-input-start for confirmation-required tools
+                # Phase 5 Step 1: Record tool-input-start for confirmation-required tools
                 if (
                     event_type == "tool-input-start"
                     and tool_name in self._confirmation_tools
@@ -209,83 +227,114 @@ class BidiEventSender:
                 ):
                     self._pending_confirmation[tool_call_id] = tool_name
                     logger.info(
-                        f"[BIDI] Recorded pending confirmation for {tool_name} (ID: {tool_call_id})"
+                        f"[BIDI Phase 5] Recorded pending confirmation for {tool_name} (ID: {tool_call_id})"
                     )
                     return True  # Send this event normally
 
-                # Phase 2: Send original tool-input-available FIRST, then inject confirmation events
-                elif (
-                    event_type == "tool-input-available"
-                    and tool_call_id
-                    and tool_call_id in self._pending_confirmation
-                ):
-                    tool_name = self._pending_confirmation.pop(tool_call_id)
-                    tool_input = event_data.get("input")
+                # Phase 5 Step 2: Detect tool-output-available with pending status
+                elif event_type == "tool-output-available":
+                    output = event_data.get("output")
 
-                    # First, send the original tool-input-available event
-                    await self._ws.send_text(sse_event)
-                    logger.info(f"[BIDI] Sent original tool-input-available for {tool_name}")
+                    # Check if output contains pending status
+                    if (
+                        isinstance(output, dict)
+                        and output.get("status") == "pending"
+                        and tool_call_id
+                        and tool_call_id in self._pending_confirmation
+                    ):
+                        # Get tool_name from pending_confirmation dict
+                        tool_name = self._pending_confirmation.pop(tool_call_id)
 
-                    logger.info(f"[BIDI] Injecting adk_request_confirmation events for {tool_name}")
+                        logger.info(
+                            f"[BIDI Phase 5] Detected pending response for {tool_name} (ID: {tool_call_id})"
+                        )
 
-                    # Generate unique ID for confirmation tool call
-                    confirmation_id = f"adk-{uuid.uuid4()}"
+                        # CRITICAL: Send tool-output-available (pending) to ADK
+                        # This allows ADK to recognize the pending status and pause the turn
+                        # Without this, ADK will send turn_complete and the turn cannot be resumed
+                        logger.info("[BIDI Phase 5] Sending tool-output-available (pending) first")
+                        await self._send_sse_event(sse_event)
 
-                    # Create originalFunctionCall payload
-                    original_function_call = {
-                        "id": tool_call_id,
-                        "name": tool_name,
-                        "args": tool_input,
-                    }
+                        # Extract args from pending response (remove status/message fields)
+                        tool_args = {k: v for k, v in output.items() if k not in {"status", "message"}}
 
-                    # Inject tool-input-start for adk_request_confirmation
-                    start_event = {
-                        "type": "tool-input-start",
-                        "toolCallId": confirmation_id,
-                        "toolName": "adk_request_confirmation",
-                    }
-                    start_sse = f"data: {json.dumps(start_event)}\n\n"
-                    await self._ws.send_text(start_sse)
-                    logger.info("[BIDI] Sent tool-input-start for adk_request_confirmation")
+                        # Save pending call info for later execution
+                        if "pending_long_running_calls" not in self._session.state:
+                            self._session.state["pending_long_running_calls"] = {}
 
-                    # Inject tool-input-available for adk_request_confirmation
-                    available_event = {
-                        "type": "tool-input-available",
-                        "toolCallId": confirmation_id,
-                        "toolName": "adk_request_confirmation",
-                        "input": {
-                            "originalFunctionCall": original_function_call,
-                            "toolConfirmation": {
-                                "hint": f"Please approve or reject the tool call {tool_name}() by responding with a FunctionResponse with an expected ToolConfirmation payload.",
-                                "confirmed": False,
+                        self._session.state["pending_long_running_calls"][tool_call_id] = {
+                            "name": tool_name,
+                            "args": tool_args,
+                        }
+                        logger.info(
+                            f"[BIDI Phase 5] Saved pending call: id={tool_call_id}, "
+                            f"name={tool_name}, args={tool_args}"
+                        )
+
+                        # Generate unique ID for confirmation tool call
+                        confirmation_id = f"adk-{uuid.uuid4()}"
+
+                        # Create originalFunctionCall payload
+                        original_function_call = {
+                            "id": tool_call_id,
+                            "name": tool_name,
+                            "args": tool_args,
+                        }
+
+                        logger.info(f"[BIDI Phase 5] Injecting adk_request_confirmation events for {tool_name}")
+
+                        # Inject tool-input-start for adk_request_confirmation
+                        start_event = {
+                            "type": "tool-input-start",
+                            "toolCallId": confirmation_id,
+                            "toolName": "adk_request_confirmation",
+                        }
+                        start_sse = f"data: {json.dumps(start_event)}\n\n"
+                        try:
+                            logger.debug("[BIDI Phase 5] Calling ws.send_text() for tool-input-start")
+                            await self._ws.send_text(start_sse)
+                            logger.info("[BIDI Phase 5] ✓ Sent tool-input-start for adk_request_confirmation")
+                        except Exception as e:
+                            logger.error(f"[BIDI Phase 5] ✗ Failed to send tool-input-start: {e!s}")
+                            raise
+
+                        # Inject tool-input-available for adk_request_confirmation
+                        available_event = {
+                            "type": "tool-input-available",
+                            "toolCallId": confirmation_id,
+                            "toolName": "adk_request_confirmation",
+                            "input": {
+                                "originalFunctionCall": original_function_call,
+                                "toolConfirmation": {
+                                    "hint": f"Please approve or reject the tool call {tool_name}() by responding with a FunctionResponse with an expected ToolConfirmation payload.",
+                                    "confirmed": False,
+                                },
                             },
-                        },
-                    }
-                    available_sse = f"data: {json.dumps(available_event)}\n\n"
-                    await self._ws.send_text(available_sse)
-                    logger.info("[BIDI] Sent tool-input-available for adk_request_confirmation")
+                        }
+                        available_sse = f"data: {json.dumps(available_event)}\n\n"
+                        try:
+                            logger.debug("[BIDI Phase 5] Calling ws.send_text() for tool-input-available")
+                            await self._ws.send_text(available_sse)
+                            logger.info("[BIDI Phase 5] ✓ Sent tool-input-available for adk_request_confirmation")
+                        except Exception as e:
+                            logger.error(f"[BIDI Phase 5] ✗ Failed to send tool-input-available: {e!s}")
+                            raise
 
-                    # Save confirmation_id → original_tool_call_id mapping in session.state
-                    # BidiEventReceiver will use this to resolve the original tool_call_id
-                    # when it receives confirmation approval
-                    # KEY: Use confirmation_id as key because approval comes with confirmation_id
-                    self._session.state["confirmation_id_mapping"][confirmation_id] = tool_call_id
-                    logger.info(
-                        f"[BIDI] Saved confirmation mapping: {confirmation_id} → {tool_call_id} for tool {tool_name}"
-                    )
+                        # Save confirmation_id → original_tool_call_id mapping in session.state
+                        # BidiEventReceiver will use this to resolve the original tool_call_id
+                        # when it receives confirmation approval
+                        self._session.state["confirmation_id_mapping"][confirmation_id] = tool_call_id
+                        logger.info(
+                            f"[BIDI Phase 5] Saved confirmation mapping: {confirmation_id} → {tool_call_id} for tool {tool_name}"
+                        )
 
-                    # Save current_function_call_id for tool function to access
-                    # Tool function will use this to request confirmation with correct ID
-                    self._session.state["current_function_call_id"] = tool_call_id
-                    logger.info(
-                        f"[BIDI] Saved current_function_call_id: {tool_call_id} for tool {tool_name}"
-                    )
+                        # Return False to prevent duplicate sending of original event
+                        return False
 
-                    # Return False to prevent duplicate sending of original event
-                    return False
             case _:
                 # Parse failed, send event normally
                 pass
 
         # Default: send event normally
         return True
+

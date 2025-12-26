@@ -48,11 +48,13 @@ async def test_get_weather_bidi_baseline(frontend_fixture_dir: Path):
 
     # Then: rawEvents should match expected (with normalization)
     # get_weather returns dynamic content (weather data), so use structure validation
+    # Note: include_text_events=False to ignore non-deterministic thought process text-* events
     is_match, diff_msg = compare_raw_events(
         actual=actual_events,
         expected=expected_events,
         normalize=True,
         dynamic_content_tools=["get_weather"],
+        include_text_events=False,  # Ignore text-* events (thought process is non-deterministic)
     )
     assert is_match, f"rawEvents mismatch:\n{diff_msg}"
 

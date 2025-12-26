@@ -658,11 +658,14 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
             ),
         )
 
-    # Initialize ToolConfirmationDelegate for BIDI mode
     # Tool functions (process_payment, get_location) use this to await user confirmation
     confirmation_delegate = ToolConfirmationDelegate()
     session.state["confirmation_delegate"] = confirmation_delegate
     logger.info("[BIDI] ToolConfirmationDelegate initialized")
+
+    # Set mode flag for tool functions to detect SSE vs BIDI mode
+    session.state["mode"] = "bidi"
+    logger.info("[BIDI] Set session.state['mode'] = 'bidi'")
 
     # Initialize confirmation_id_mapping for BidiEventSender/Receiver
     # Maps confirmation_id → original_tool_call_id for approval resolution

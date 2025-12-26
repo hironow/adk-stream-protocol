@@ -51,6 +51,7 @@
       "Bash(git add:*)",
       "Bash(grep:*)",
       "Bash(just:*)",
+      "Bash(jq:*)",
       "Bash(git log:*)",
       "WebFetch(domain:code.claude.com)",
       "mcp__deepwiki__ask_question",
@@ -108,7 +109,11 @@
       "Bash(pnpm test:e2e:app:core:*)",
       "Bash(pnpm test:e2e:app:advanced:*)",
       "Bash(pnpm test:e2e:app:*)",
-      "mcp__serena__list_memories"
+      "mcp__serena__list_memories",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(uv run uvicorn:*)",
+      "Bash(tail:*)",
+      "Bash(lsof:*)"
     ],
     "deny": [
       "Read(.env.keys)",

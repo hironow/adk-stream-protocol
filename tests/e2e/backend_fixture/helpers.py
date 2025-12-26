@@ -659,19 +659,24 @@ def compare_raw_events(  # noqa: C901, PLR0912, PLR0915
         - is_match: True if events match
         - diff_message: Human-readable diff if not match, empty if match
     """
-    # Filter out audio and reasoning events from actual events
+    # Filter out audio and reasoning events from both actual and expected events
     # Baseline fixtures exclude these audio/thinking-specific events
     # Optionally filter text-* events based on include_text_events flag
     # Note: BIDI mode fixtures don't include text-* events, but SSE mode fixtures do
-    actual_filtered = [
-        e
-        for e in actual
-        if '"type": "data-pcm"' not in e
-        and '"type": "reasoning-start"' not in e
-        and '"type": "reasoning-delta"' not in e
-        and '"type": "reasoning-end"' not in e
-        and (include_text_events or '"type": "text-' not in e)  # Conditionally filter text-* events
-    ]
+    def filter_events(events: list[str]) -> list[str]:
+        """Filter out audio, reasoning, and optionally text events."""
+        return [
+            e
+            for e in events
+            if '"type": "data-pcm"' not in e
+            and '"type": "reasoning-start"' not in e
+            and '"type": "reasoning-delta"' not in e
+            and '"type": "reasoning-end"' not in e
+            and (include_text_events or '"type": "text-' not in e)  # Conditionally filter text-* events
+        ]
+
+    actual_filtered = filter_events(actual)
+    expected_filtered = filter_events(expected)
 
     # Merge consecutive text-delta events with same id (for structure validation)
     # Native-audio models stream text character-by-character, but baseline fixtures
@@ -724,21 +729,21 @@ def compare_raw_events(  # noqa: C901, PLR0912, PLR0915
     for i, event in enumerate(actual_filtered):
         print(f"{i}: {event.strip()}")
 
-    print(f"\n=== EXPECTED EVENTS (count={len(expected)}) ===")
-    for i, event in enumerate(expected):
+    print(f"\n=== EXPECTED EVENTS (filtered, count={len(expected_filtered)}) ===")
+    for i, event in enumerate(expected_filtered):
         print(f"{i}: {event.strip()}")
 
-    if len(actual_filtered) != len(expected):
+    if len(actual_filtered) != len(expected_filtered):
         return (
             False,
-            f"Event count mismatch (after filtering audio): actual={len(actual_filtered)}, expected={len(expected)}",
+            f"Event count mismatch (after filtering audio/reasoning/text): actual={len(actual_filtered)}, expected={len(expected_filtered)}",
         )
 
     # Detect if we're testing a dynamic content tool
     use_structure_validation = False
     if dynamic_content_tools:
         # Check if any of the events contain these tool names OR are tool output/text events
-        for event in actual_filtered + expected:
+        for event in actual_filtered + expected_filtered:
             # tool-output-available and text-delta always have dynamic content
             if '"type": "tool-output-available"' in event or '"type": "text-delta"' in event:
                 use_structure_validation = True
@@ -753,10 +758,10 @@ def compare_raw_events(  # noqa: C901, PLR0912, PLR0915
 
     if normalize:
         actual_normalized = [normalize_event(e) for e in actual_filtered]
-        expected_normalized = [normalize_event(e) for e in expected]
+        expected_normalized = [normalize_event(e) for e in expected_filtered]
     else:
         actual_normalized = actual_filtered
-        expected_normalized = expected
+        expected_normalized = expected_filtered
 
     mismatches = []
     for i, (a, e) in enumerate(zip(actual_normalized, expected_normalized, strict=True)):

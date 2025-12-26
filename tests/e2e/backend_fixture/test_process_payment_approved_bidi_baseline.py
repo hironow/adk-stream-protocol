@@ -80,6 +80,7 @@ async def test_process_payment_approved_bidi_baseline(frontend_fixture_dir: Path
             expected=expected_turn1_events,
             normalize=True,
             dynamic_content_tools=["process_payment", "adk_request_confirmation"],
+            include_text_events=False,  # Ignore text-* events (thought process is non-deterministic)
         )
         assert is_match, f"Turn 1 rawEvents structure mismatch:\n{diff_msg}"
 
@@ -97,10 +98,19 @@ async def test_process_payment_approved_bidi_baseline(frontend_fixture_dir: Path
         assert original_id is not None, "Should have original tool call ID (process_payment)"
         assert confirmation_id is not None, "Should have confirmation tool call ID"
 
-        # Explicitly construct approval message (same as SSE mode)
+        # Construct approval message
+        # NOTE: In BIDI mode, we only send the approval message, not the full history
+        # The WebSocket session maintains the conversation context from Turn 1
         approval_msg = create_approval_message(confirmation_id, original_id)
 
+        # DEBUG: Print approval message structure
+        print(f"\n=== APPROVAL MESSAGE STRUCTURE ===")
+        print(f"confirmation_id: {confirmation_id}")
+        print(f"original_id: {original_id}")
+        print(f"Approval message: {json.dumps(approval_msg, indent=2)}")
+
         # Send Turn 2 approval message (in the same WebSocket session)
+        # BIDI mode: session context is preserved, so we only send the new message
         await websocket.send(json.dumps({"type": "message", "messages": [approval_msg]}))
 
         # Receive Turn 2 events until [DONE]
@@ -126,6 +136,7 @@ async def test_process_payment_approved_bidi_baseline(frontend_fixture_dir: Path
             expected=expected_turn2_events,
             normalize=True,
             dynamic_content_tools=["process_payment"],  # Tool output has dynamic content
+            include_text_events=False,  # Ignore text-* events (thought process is non-deterministic)
         )
         assert is_match, f"Turn 2 rawEvents structure mismatch:\n{diff_msg}"
 

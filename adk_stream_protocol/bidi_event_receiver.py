@@ -25,6 +25,7 @@ from loguru import logger
 
 from .adk_compat import Event as AdkEvent
 from .adk_compat import sync_conversation_history_to_session
+from .adk_ag_tools import _execute_get_location, _execute_process_payment
 from .ai_sdk_v6_compat import ChatMessage, process_chat_message_for_bidi
 from .frontend_tool_service import FrontendToolDelegate
 
@@ -247,22 +248,28 @@ class BidiEventReceiver:
         self, confirmation_id: str, response_data: dict[str, Any]
     ) -> None:
         """
-        Handle confirmation approval: Send FunctionResponse to ADK for native re-execution.
+        Handle confirmation approval: Execute tool logic and send FunctionResponse (Phase 5).
+
+        Phase 5 uses LongRunningFunctionTool pattern:
+        1. Tool returned pending status without execution
+        2. User approves/rejects via frontend
+        3. Server executes actual tool logic
+        4. Server sends FunctionResponse with execution result to ADK
 
         When frontend sends approval for adk_request_confirmation:
         1. Get confirmation_id from FunctionResponse.id (passed as parameter)
         2. Look up original tool_call_id in confirmation_id_mapping
         3. Extract approval status from response_data
-        4. Create types.FunctionResponse with REQUEST_CONFIRMATION_FUNCTION_CALL_NAME
-        5. Send FunctionResponse to ADK via LiveRequestQueue
-        6. ADK's _RequestConfirmationLlmRequestProcessor will re-execute the tool
+        4. Get pending call details from pending_long_running_calls
+        5. Execute tool logic (if approved) or create error response (if rejected)
+        6. Send FunctionResponse via LiveRequestQueue.send_content()
 
         Args:
             confirmation_id: The ID of the confirmation FunctionResponse (lookup key)
             response_data: FunctionResponse.response dict containing {"confirmed": bool}
         """
         logger.info("=" * 80)
-        logger.info("[BIDI-APPROVAL] ===== APPROVAL MESSAGE ARRIVED AT WEBSOCKET SERVER =====")
+        logger.info("[BIDI-APPROVAL] ===== APPROVAL MESSAGE ARRIVED (Phase 5) =====")
         logger.info(
             f"[BIDI-APPROVAL] confirmation_id={confirmation_id}, response_data={response_data}"
         )
@@ -299,72 +306,78 @@ class BidiEventReceiver:
         approved = response_data.get("confirmed", False)
         logger.info(f"[BIDI-APPROVAL] Approval status: {approved}")
 
-        # ===== SEND FUNCTIONRESPONSE TO ADK =====
-        # Per ADK documentation: Send types.FunctionResponse to trigger tool re-execution
-        # ADK's _RequestConfirmationLlmRequestProcessor will:
-        # 1. Extract ToolConfirmation from FunctionResponse
-        # 2. Store it in tool_confirmation_dict
-        # 3. Re-execute the tool function with tool_context.tool_confirmation set
+        # ===== GET PENDING LONG-RUNNING CALL DETAILS =====
+        pending_calls = self._session.state.get("pending_long_running_calls", {})
+        if tool_call_id not in pending_calls:
+            logger.error(
+                f"[BIDI-APPROVAL] tool_call_id {tool_call_id} not found in pending_long_running_calls. "
+                f"Available keys: {list(pending_calls.keys())}"
+            )
+            return
 
+        pending_call = pending_calls[tool_call_id]
+        tool_name = pending_call["name"]
+        tool_args = pending_call["args"]
+
+        logger.info("=" * 80)
+        logger.info("[BIDI-APPROVAL] ===== EXECUTING TOOL LOGIC (Phase 5) =====")
+        logger.info(f"[BIDI-APPROVAL] tool_name={tool_name}, args={tool_args}, approved={approved}")
+        logger.info("=" * 80)
+
+        # Execute tool logic or create error response
+        if approved:
+            # Execute actual tool logic
+            if tool_name == "process_payment":
+                result = _execute_process_payment(**tool_args)
+            elif tool_name == "get_location":
+                result = await _execute_get_location(self._session.id)
+            else:
+                logger.error(f"[BIDI-APPROVAL] Unknown tool name: {tool_name}")
+                result = {"success": False, "error": f"Unknown tool: {tool_name}"}
+        else:
+            # User rejected - create error response
+            logger.info(f"[BIDI-APPROVAL] User rejected {tool_name}")
+            if tool_name == "process_payment":
+                result = {
+                    "success": False,
+                    "error": "Payment rejected by user",
+                    "transaction_id": None,
+                }
+            elif tool_name == "get_location":
+                result = {"success": False, "error": "Location access rejected by user"}
+            else:
+                result = {"success": False, "error": f"{tool_name} rejected by user"}
+
+        logger.info(f"[BIDI-APPROVAL] Execution result: {result}")
+
+        # ===== SEND FUNCTIONRESPONSE TO ADK =====
         logger.info("=" * 80)
         logger.info("[BIDI-APPROVAL] ===== SENDING FUNCTIONRESPONSE TO ADK =====")
-        logger.info(f"[BIDI-APPROVAL] Creating FunctionResponse for tool_call_id={tool_call_id}")
-        logger.info(f"[BIDI-APPROVAL] Confirmation status: confirmed={approved}")
+        logger.info(f"[BIDI-APPROVAL] id={tool_call_id}, name={tool_name}")
         logger.info("=" * 80)
 
-        # Import REQUEST_CONFIRMATION_FUNCTION_CALL_NAME constant from ADK
-        # This constant is 'adk_request_confirmation' - the special function name for confirmation flow
-        from google.adk.flows.llm_flows.functions import REQUEST_CONFIRMATION_FUNCTION_CALL_NAME
-
-        # Create FunctionResponse with ADK's expected format
-        function_response = types.FunctionResponse(
-            id=tool_call_id,  # Original tool call ID that requested confirmation
-            name=REQUEST_CONFIRMATION_FUNCTION_CALL_NAME,  # ADK's special confirmation function name
-            response={"confirmed": approved},  # ToolConfirmation payload
-        )
-
-        # Create Content with FunctionResponse part
-        content = types.Content(
+        # Create FunctionResponse with same id and name as original FunctionCall
+        function_response = types.Content(
             role="user",
-            parts=[types.Part(function_response=function_response)],
+            parts=[
+                types.Part(
+                    function_response=types.FunctionResponse(
+                        id=tool_call_id, name=tool_name, response=result
+                    )
+                )
+            ],
         )
-
-        logger.info("[BIDI-APPROVAL] Created types.Content with FunctionResponse part")
-        logger.info(f"[BIDI-APPROVAL] FunctionResponse.id={function_response.id}")
-        logger.info(f"[BIDI-APPROVAL] FunctionResponse.name={function_response.name}")
-        logger.info(f"[BIDI-APPROVAL] FunctionResponse.response={function_response.response}")
 
         # Send to ADK via LiveRequestQueue
-        # ADK will process this and re-execute the tool function
-        logger.info("=" * 80)
-        logger.info(
-            "[BIDI-APPROVAL] ===== SENDING TO ADK VIA LiveRequestQueue.send_content() ====="
-        )
-        logger.info("=" * 80)
+        self._live_request_queue.send_content(function_response)
 
-        self._live_request_queue.send_content(content)
+        logger.info("[BIDI-APPROVAL] ✓ FunctionResponse sent to ADK")
+        logger.info("[BIDI-APPROVAL] ADK will continue execution with this result")
 
-        logger.info("=" * 80)
-        logger.info("[BIDI-APPROVAL] ===== SENT TO ADK - WAITING FOR ADK TO RE-EXECUTE TOOL =====")
-        logger.info("[BIDI-APPROVAL] ADK should now:")
-        logger.info(
-            "[BIDI-APPROVAL]   1. Process FunctionResponse via _RequestConfirmationLlmRequestProcessor"
-        )
-        logger.info(
-            "[BIDI-APPROVAL]   2. Extract ToolConfirmation and store in tool_confirmation_dict"
-        )
-        logger.info(
-            "[BIDI-APPROVAL]   3. Re-execute tool function with tool_context.tool_confirmation set"
-        )
-        logger.info(
-            "[BIDI-APPROVAL]   4. Tool function will check tool_context.tool_confirmation.confirmed"
-        )
-        logger.info("[BIDI-APPROVAL]   5. Tool function will execute and return actual result")
-        logger.info("=" * 80)
-
-        # Clean up mapping
+        # Clean up mappings
         del confirmation_id_mapping[confirmation_id]
-        logger.info(f"[BIDI-APPROVAL] Removed {confirmation_id} from confirmation_id_mapping")
+        del pending_calls[tool_call_id]
+        logger.info(f"[BIDI-APPROVAL] Cleaned up mappings for {tool_call_id}")
 
     async def _handle_interrupt_event(self, event: dict[str, Any]) -> None:
         """

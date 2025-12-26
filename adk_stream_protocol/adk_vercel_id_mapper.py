@@ -39,8 +39,7 @@ class ADKVercelIDMapper:
     Manages bidirectional ID mapping between ADK and Vercel AI SDK v6.
 
     Provides a clean separation of concerns between the two systems' ID schemes,
-    enabling tools like FrontendToolDelegate and ToolConfirmationInterceptor
-    to work without direct knowledge of ID conversion logic.
+    enabling tools to work without direct knowledge of ID conversion logic.
     """
 
     def __init__(self) -> None:

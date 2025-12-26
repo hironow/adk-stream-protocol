@@ -150,6 +150,45 @@ response = runner.run_async(
 
 **Evidence**: `run_live()` has no invocation_id resume mechanism.
 
+### ❌ DO NOT await confirmation inside tool function in BIDI mode
+
+**Why**: Blocks ADK's event loop, causing deadlock
+
+```python
+# ❌ WRONG - Causes deadlock in BIDI mode
+async def process_payment(amount: float, tool_context: ToolContext):
+    confirmation_delegate = tool_context.session.state.get("confirmation_delegate")
+
+    # ❌ This blocks ADK's event loop!
+    approved = await confirmation_delegate.request_confirmation(
+        tool_call_id=tool_call_id,
+        tool_name="process_payment",
+        args={"amount": amount}
+    )
+
+    if approved:
+        return execute_payment(amount)
+```
+
+**Evidence**: Server logs (2025-12-27):
+- Tool blocks at `await confirmation_delegate.request_confirmation()`
+- ADK event loop stops
+- WebSocket messages cannot be processed
+- Approval message arrives but never processed
+- Timeout after 60 seconds, WebSocket disconnects
+
+**Root Cause**:
+- BIDI mode uses single persistent WebSocket connection
+- Tool execution blocks ADK's asyncio event loop
+- Blocked event loop cannot process incoming WebSocket messages
+- Approval message cannot be received → Deadlock
+
+**Why SSE mode doesn't have this problem**:
+- SSE mode: Tool returns immediately (no await)
+- Turn 1 HTTP response completes
+- Turn 2: New HTTP request processed independently
+- No event loop blocking
+
 ### Summary: Why These Don't Work
 
 | Feature | SSE (generateContent) | BIDI (Live API) |
@@ -261,19 +300,263 @@ async for event in runner.run_live(...):
 3. Let ADK's native processor handle re-execution
 4. ❌ **This doesn't work** - Tool is not re-executed
 
-### Current State (2025-12-26 22:27)
+### Phase 4: Return to Phase 2 - Deadlock Discovery (2025-12-27)
 
-**Status**: **BLOCKED - Tool confirmation doesn't work in BIDI mode**
+**Discovery**: Phase 3 doesn't work because Live API doesn't support ADK native confirmation
+
+**Attempted Fix**: Return to Phase 2 approach (ToolConfirmationDelegate)
+1. Tool function awaits `confirmation_delegate.request_confirmation()`
+2. BidiEventReceiver resolves Future when approval arrives
+
+**❌ CRITICAL DEADLOCK DISCOVERED**:
+
+**Problem**: Tool function blocks ADK's event loop while awaiting confirmation
+
+**Evidence from logs (2025-12-27 03:31)**:
+```
+03:31:14.739 - [process_payment] Awaiting approval (tool blocks here)
+03:31:14.739 - [ToolConfirmation] Awaiting approval for tool=process_payment
+INFO:     connection closed  ← WebSocket disconnects!
+03:32:14.741 - [ToolConfirmation] Timeout (60 seconds later)
+```
+
+**Root Cause**:
+- Tool function calls `await confirmation_delegate.request_confirmation()`
+- This **blocks the entire ADK event loop**
+- ADK cannot process WebSocket messages while blocked
+- Approval message arrives but cannot be processed
+- Future never resolves → Timeout after 60 seconds
+- WebSocket disconnects due to no response
+
+**Why SSE Mode Works**:
+- SSE mode: Tool returns immediately, ADK pauses execution
+- Turn 2: New HTTP request with approval → ADK resumes
+- No blocking of event loop
+
+**Why BIDI Mode Fails**:
+- BIDI mode: Single persistent WebSocket connection
+- Tool function blocks → Event loop stops
+- Cannot receive/process approval message → Deadlock
+
+**Affected Tools**:
+- ❌ `process_payment` (backend tool with confirmation)
+- ❌ `get_location` (frontend-delegated tool with confirmation)
+
+Both use `await confirmation_delegate.request_confirmation()` and suffer from the same deadlock.
+
+### Phase 5: LongRunningFunctionTool Solution (2025-12-27)
+
+**✅ SOLUTION FOUND**: Use ADK's `LongRunningFunctionTool` pattern to avoid event loop blocking
+
+**Source**: Official ADK documentation and samples
+- https://google.github.io/adk-docs/tools-custom/function-tools/#how-it-works_1
+- https://google.github.io/adk-docs/agents/multi-agents/#human-in-the-loop-pattern
+- `contributing/samples/human_in_loop/main.py`
+- `contributing/samples/human_in_loop/agent.py`
+
+**Key Pattern**: Tool function returns immediately WITHOUT awaiting, then resumes later
+
+#### How LongRunningFunctionTool Works
+
+1. **Initial Call - Tool Returns Pending Immediately**:
+   ```python
+   from google.adk.tools.long_running_tool import LongRunningFunctionTool
+
+   def process_payment(purpose: str, amount: float, tool_context: ToolContext) -> dict:
+       """Request payment approval - returns immediately WITHOUT blocking"""
+       return {
+           'status': 'pending',
+           'amount': amount,
+           'recipient': purpose,
+           'ticketId': 'payment-ticket-001',  # Unique ID for tracking
+       }
+
+   # Register as LongRunningFunctionTool
+   tools = [LongRunningFunctionTool(func=process_payment)]
+   ```
+
+2. **ADK Detects Long-Running Call and Pauses**:
+   - ADK identifies the call via `event.long_running_tool_ids`
+   - Sends initial `FunctionResponse` with pending status to LLM
+   - **Pauses execution** (does NOT block event loop)
+   - Client can continue processing other events
+
+3. **External Process Handles Approval**:
+   - Frontend displays confirmation UI
+   - User approves/rejects
+   - Frontend constructs updated `FunctionResponse`
+
+4. **Resume with Updated FunctionResponse**:
+   ```python
+   # Frontend sends updated response with SAME id and name
+   updated_response = types.Part(
+       function_response=types.FunctionResponse(
+           id=original_function_call.id,  # ← MUST match original!
+           name=original_function_call.name,  # ← MUST match original!
+           response={
+               'status': 'approved',
+               'ticketId': 'payment-ticket-001',
+               'approver_feedback': 'Approved by manager',
+           }
+       )
+   )
+
+   # For run_async (SSE mode): Send as new message
+   await runner.run_async(
+       session_id=session.id,
+       user_id=user_id,
+       new_message=types.Content(parts=[updated_response], role="user")
+   )
+
+   # For run_live (BIDI mode): Send via WebSocket
+   # (Same mechanism - ADK processes FunctionResponse and continues)
+   ```
+
+5. **ADK Resumes Execution**:
+   - Receives updated `FunctionResponse`
+   - Continues agent workflow with approval result
+   - Agent can now call actual `reimburse()` tool or inform user of rejection
+
+#### Why This Solves the Deadlock
+
+**❌ Phase 2 Problem**:
+```python
+# Tool function BLOCKS event loop
+approved = await confirmation_delegate.request_confirmation(...)
+# ↑ ADK cannot process WebSocket messages while awaiting
+```
+
+**✅ Phase 5 Solution**:
+```python
+# Tool function returns IMMEDIATELY
+return {'status': 'pending', 'ticketId': '...'}
+# ↑ No await, no blocking, event loop continues
+```
+
+**Key Difference**:
+- Phase 2: Tool awaits → Blocks event loop → Deadlock
+- Phase 5: Tool returns → Event loop continues → No blocking
+
+#### Implementation for BIDI Mode
+
+**Pattern from `human_in_loop/main.py` adapted for BIDI**:
+
+1. **Tool Definition** (same as SSE):
+   ```python
+   def ask_for_approval(purpose: str, amount: float, tool_context: ToolContext):
+       return {'status': 'pending', 'amount': amount, 'ticketId': 'ticket-001'}
+
+   agent = Agent(
+       tools=[reimburse, LongRunningFunctionTool(func=ask_for_approval)]
+   )
+   ```
+
+2. **Detection in Event Loop** (BIDI adaptation):
+   ```python
+   # In BidiEventSender - detect long-running call
+   async for event in adk_events:
+       if event.long_running_tool_ids:
+           # This is a long-running call that paused execution
+           for part in event.content.parts:
+               if part.function_call and part.function_call.id in event.long_running_tool_ids:
+                   # Capture for later resumption
+                   pending_call = part.function_call
+   ```
+
+3. **Resume via WebSocket** (BIDI-specific):
+   ```python
+   # In BidiEventReceiver - when approval arrives
+   updated_response = types.Content(
+       role="user",
+       parts=[types.Part(
+           function_response=types.FunctionResponse(
+               id=pending_call.id,
+               name=pending_call.name,
+               response={'status': 'approved', ...}
+           )
+       )]
+   )
+
+   # Send to ADK via LiveRequestQueue
+   live_request_queue.send_content(updated_response)
+   # ADK continues execution without blocking
+   ```
+
+**Critical Insight**:
+- SSE mode uses separate `run_async()` calls for pause/resume
+- BIDI mode uses `send_content()` within single `run_live()` session
+- **Same FunctionResponse mechanism works for both!**
+
+#### Evidence from ADK Samples
+
+From `contributing/samples/human_in_loop/main.py`:
+
+```python
+# Initial turn - agent calls long-running tool
+events_async = runner.run_async(session_id=session.id, user_id=USER_ID, new_message=content)
+
+long_running_function_call = None
+async for event in events_async:
+    if event.long_running_tool_ids:
+        for part in event.content.parts:
+            if part.function_call and part.function_call.id in event.long_running_tool_ids:
+                long_running_function_call = part.function_call
+                # Captured! Agent is now paused
+
+# Later - send updated response to resume
+updated_response = types.Part(
+    function_response=types.FunctionResponse(
+        id=long_running_function_call.id,
+        name=long_running_function_call.name,
+        response={'status': 'approved', ...}
+    )
+)
+
+# Resume agent with updated response
+async for event in runner.run_async(
+    session_id=session.id,
+    user_id=USER_ID,
+    new_message=types.Content(parts=[updated_response], role="user")
+):
+    # Agent continues with approval result
+```
+
+### Current State (2025-12-27 15:30 JST)
+
+**Status**: **IMPLEMENTING Phase 5 - LongRunningFunctionTool Pattern**
+
+**Progress**:
+1. ✅ Modified `process_payment` and `get_location` to return pending status immediately
+2. ✅ Wrapped tools with `LongRunningFunctionTool` in agent definition (adk_ag_runner.py)
+3. 🔄 In progress: Update `BidiEventSender` to detect `event.long_running_tool_ids`
+4. ⏳ Pending: Update `BidiEventReceiver` to execute tool logic and send FunctionResponse
+5. ⏳ Pending: Remove `ToolConfirmationDelegate` (no longer needed)
+6. ⏳ Pending: Test with all 4 BIDI baseline fixtures
+
+**Key Changes**:
+- ✅ Tool functions: No await, return pending immediately
+- ✅ LongRunningFunctionTool wrapper: Applied to process_payment and get_location
+- ✅ Event loop: Never blocked, can process WebSocket messages
+- 🔄 Pending call storage: Need to capture FunctionCall from long_running_tool_ids
+- ⏳ Resume: FunctionResponse sent via send_content() after manual execution
+- ✅ No deadlock: Event loop continues throughout
+
+### Previous State (2025-12-27 03:32)
+
+**Status**: **BLOCKED - Deadlock in Phase 2 approach**
 
 **Working**:
 - ✅ Turn 1: Confirmation request flow
-- ✅ FunctionResponse creation and sending
-- ✅ WebSocket session persistence
+- ✅ BidiEventSender injects adk_request_confirmation
+- ✅ Frontend receives confirmation request
+- ✅ Frontend sends approval message
+- ✅ BidiEventReceiver receives approval message
 
 **Not Working**:
-- ❌ Turn 2: Tool re-execution after approval
-- ❌ ADK's `_RequestConfirmationLlmRequestProcessor` not triggering in BIDI mode
-- ❌ run_live() connection lifecycle unclear
+- ❌ Tool function blocks ADK event loop while awaiting
+- ❌ Approval message cannot be processed (deadlock)
+- ❌ Future never resolves, 60-second timeout
+- ❌ WebSocket disconnects
 
 ## Related Resources
 

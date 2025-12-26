@@ -13,12 +13,10 @@ from .adk_ag_runner import (
     SSE_CONFIRMATION_TOOLS,
     bidi_agent,
     bidi_agent_runner,
-    get_tools_requiring_confirmation,
     sse_agent,
     sse_agent_runner,
 )
 from .adk_ag_tools import (
-    _adk_request_confirmation,
     change_bgm,
     get_location,
     get_weather,
@@ -76,7 +74,6 @@ __all__ = [
     "ToolConfirmationDelegate",
     "ToolConfirmationInterceptor",
     "ToolUsePart",
-    "_adk_request_confirmation",
     "_map_adk_finish_reason_to_ai_sdk",
     "bidi_agent",
     "bidi_agent_runner",
@@ -86,7 +83,6 @@ __all__ = [
     "get_delegate",
     "get_location",
     "get_or_create_session",
-    "get_tools_requiring_confirmation",
     "get_weather",
     "process_chat_message_for_bidi",
     "process_payment",
