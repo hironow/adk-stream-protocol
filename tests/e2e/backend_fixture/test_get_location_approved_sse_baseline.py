@@ -106,8 +106,19 @@ async def test_get_location_approved_sse_baseline(frontend_fixture_dir: Path):
     # Reconstruct assistant's confirmation message from Turn 1 events
     assistant_msg = create_assistant_message_from_turn1(actual_events)
 
-    # Construct approval message
-    approval_msg = create_approval_message(confirmation_id, original_id)
+    # Construct approval message with tool result (get_location is frontend-delegated)
+    mock_location_result = {
+        "latitude": 35.6762,
+        "longitude": 139.6503,
+        "accuracy": 20,
+        "city": "Tokyo",
+        "country": "Japan",
+    }
+    approval_msg = create_approval_message(
+        confirmation_id,
+        original_id,
+        tool_result=mock_location_result,
+    )
 
     # Build complete message history for Turn 2
     turn2_messages = [

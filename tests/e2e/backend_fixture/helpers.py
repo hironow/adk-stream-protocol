@@ -176,30 +176,42 @@ def create_assistant_message_from_turn1(
 def create_approval_message(
     confirmation_id: str,
     original_tool_call_id: str,
+    tool_result: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Create approval response message for Turn 2.
 
     Args:
         confirmation_id: Confirmation tool call ID from Turn 1
         original_tool_call_id: Original tool call ID (e.g., process_payment ID)
+        tool_result: Optional tool execution result (for frontend-delegated tools)
 
     Returns:
-        Message dict with approval response
+        Message dict with approval response (and optionally tool result)
     """
+    parts = [
+        {
+            "type": "tool-adk_request_confirmation",
+            "toolCallId": confirmation_id,
+            "toolName": "adk_request_confirmation",
+            "state": "approval-responded",
+            "approval": {
+                "id": confirmation_id,
+                "approved": True,
+            },
+        }
+    ]
+
+    # Add tool result if provided (for frontend-delegated tools like get_location)
+    if tool_result is not None:
+        parts.append({
+            "type": "tool-result",
+            "toolCallId": original_tool_call_id,
+            "result": tool_result,
+        })
+
     return {
         "role": "user",
-        "parts": [
-            {
-                "type": "tool-adk_request_confirmation",
-                "toolCallId": confirmation_id,
-                "toolName": "adk_request_confirmation",
-                "state": "approval-responded",
-                "approval": {
-                    "id": confirmation_id,
-                    "approved": True,
-                },
-            }
-        ],
+        "parts": parts,
     }
 
 
