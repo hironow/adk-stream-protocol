@@ -21,7 +21,7 @@
       "data: {\"type\": \"text-start\", \"id\": \"0\"}\n\n",
       "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"OK、トラック1に変更しました。\"}\n\n",
       "data: {\"type\": \"text-end\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1334, \"completionTokens\": 7, \"totalTokens\": 1341}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
@@ -57,12 +57,7 @@
         "type": "finish",
         "finishReason": "stop",
         "messageMetadata": {
-          "usage": {
-            "promptTokens": 1334,
-            "completionTokens": 7,
-            "totalTokens": 1341
-          },
-          "modelVersion": "gemini-3-flash-preview"
+          "modelVersion": "gemini-2.5-flash-native-audio-preview-12-2025"
         }
       }
     ],

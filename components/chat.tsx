@@ -60,43 +60,6 @@ export function Chat({
     addToolApprovalResponse,
   } = useChat({
     ...useChatOptions,
-    // TODO: mv to lib/build-use-chat-options.ts?
-    // AI SDK v6 standard pattern: Auto-execute client-side tools
-    async onToolCall({ toolCall }) {
-      // Check if it's a dynamic tool first for proper type narrowing
-      if (toolCall.dynamic) {
-        return;
-      }
-
-      // Auto-execute change_bgm tool
-      if (toolCall.toolName === "change_bgm") {
-        const track = Number(
-          (toolCall.input as { track?: number })?.track ?? 1,
-        );
-
-        // Execute BGM change using AudioContext
-        audioContext.bgmChannel.switchTrack();
-
-        const toolResult = {
-          success: true,
-          current_track: track,
-          message: `BGM changed to track ${track}`,
-        };
-
-        // BIDI delegate pattern: addToolOutput() triggers AI SDK v6 auto-send
-        // AI SDK v6 will call transport.sendMessages() automatically
-        // No await - avoids potential deadlocks (per AI SDK v6 docs)
-        addToolOutput({
-          tool: "change_bgm",
-          toolCallId: toolCall.toolCallId,
-          output: toolResult,
-        });
-
-        console.log(
-          `[Chat] Tool output added for toolCallId=${toolCall.toolCallId}, AI SDK v6 will auto-send`,
-        );
-      }
-    },
   });
 
   // DEBUG: Log messages array changes to understand sendAutomaticallyWhen behavior

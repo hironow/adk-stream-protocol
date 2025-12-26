@@ -240,6 +240,8 @@ async def send_bidi_request(
     messages: list[dict[str, Any]],
     backend_url: str = "ws://localhost:8000/live",
     timeout: float = 30.0,
+    frontend_delegate_tools: dict[str, dict[str, Any]] | None = None,
+    confirmation_response: str | None = "approve",
 ) -> list[str]:
     """Send BIDI WebSocket request to backend and collect rawEvents.
 
@@ -249,6 +251,14 @@ async def send_bidi_request(
         messages: Message history to send
         backend_url: Backend WebSocket endpoint URL
         timeout: Timeout in seconds for WebSocket operations (default: 30.0)
+        frontend_delegate_tools: Dict of tool names to mock outputs for frontend-executed tools.
+                                 Example: {"change_bgm": {"success": True, "track": 1}}
+                                 When a tool-input-available event is received for these tools,
+                                 a tool result will be automatically sent back to the backend.
+        confirmation_response: How to respond to adk_request_confirmation events
+                               - "approve": Auto-approve confirmations (default)
+                               - "deny": Auto-deny confirmations
+                               - None: Don't handle confirmations (single-turn tests)
 
     Returns:
         List of SSE-format event strings (e.g., 'data: {...}\\n\\n')
@@ -256,6 +266,7 @@ async def send_bidi_request(
     import websockets
 
     raw_events = []
+    confirmation_data = None  # Store confirmation IDs for multi-turn flow (dict with confirmation_id and original_id)
     websocket = None
 
     try:
@@ -273,15 +284,84 @@ async def send_bidi_request(
             "messages": messages
         }))
 
-        # Receive events until [DONE]
+        # Receive events until all turns complete
         while True:
             try:
                 event = await asyncio.wait_for(websocket.recv(), timeout=timeout)
                 raw_events.append(event)
 
-                # Check for [DONE] marker
+                # Check for tool-input-available events
+                if "tool-input-available" in event:
+                    try:
+                        # Parse event to extract tool info
+                        json_str = event.replace("data: ", "").strip()
+                        event_data = json.loads(json_str)
+
+                        tool_name = event_data.get("toolName")
+                        tool_call_id = event_data.get("toolCallId")
+
+                        # Handle adk_request_confirmation (ADK confirmation pattern)
+                        if tool_name == "adk_request_confirmation" and confirmation_response:
+                            # Extract confirmation IDs from the event stream
+                            confirmation_id = tool_call_id
+                            # Extract original tool ID from the confirmation input
+                            original_id = event_data.get("input", {}).get("originalFunctionCall", {}).get("id")
+
+                            if confirmation_id and original_id:
+                                confirmation_data = {
+                                    "confirmation_id": confirmation_id,
+                                    "original_id": original_id,
+                                }
+                                logger.info(f"[Confirmation] Detected confirmation request: {confirmation_id} for {original_id}")
+
+                        # Handle frontend-delegate tools (frontend execution pattern)
+                        elif frontend_delegate_tools and tool_name in frontend_delegate_tools:
+                            logger.info(f"[Frontend Delegate] Simulating {tool_name} execution")
+
+                            # Create tool result message (BidiEventReceiver format)
+                            tool_result_message = {
+                                "type": "tool_result",  # underscore, not hyphen!
+                                "toolCallId": tool_call_id,
+                                "result": frontend_delegate_tools[tool_name],  # object, not JSON string
+                            }
+
+                            # Send tool result back to backend
+                            await websocket.send(json.dumps(tool_result_message))
+                            logger.info(f"[Frontend Delegate] Sent tool result for {tool_name}")
+                    except (json.JSONDecodeError, KeyError) as e:
+                        logger.warning(f"Failed to parse tool-input-available event: {e}")
+
+                # Check for [DONE] marker (end of turn)
                 if "[DONE]" in event:
-                    break
+                    # If we have confirmation data, send approval/denial and continue to next turn
+                    if confirmation_data and confirmation_response:
+                        logger.info(f"[Confirmation] Turn ended. Sending {confirmation_response} response")
+
+                        # Create approval or denial message
+                        if confirmation_response == "approve":
+                            response_msg = create_approval_message(
+                                confirmation_data["confirmation_id"],
+                                confirmation_data["original_id"],
+                            )
+                        else:  # deny
+                            response_msg = create_denial_message(
+                                confirmation_data["confirmation_id"],
+                                confirmation_data["original_id"],
+                            )
+
+                        # Send approval/denial message to trigger next turn
+                        await websocket.send(json.dumps({
+                            "type": "message",
+                            "messages": [response_msg]
+                        }))
+                        logger.info(f"[Confirmation] Sent {confirmation_response} response, continuing to next turn")
+
+                        # Clear confirmation data (only respond once)
+                        confirmation_data = None
+                        continue  # Continue receiving events for next turn
+                    else:
+                        # No confirmation pending, this is the final turn
+                        break
             except websockets.exceptions.ConnectionClosed:
                 break
             except TimeoutError:
@@ -452,14 +532,8 @@ def validate_event_structure(
             # output field should exist
             if "output" not in actual_json or "output" not in expected_json:
                 return (False, "Missing output field")
-            # Both should have "cached" field with same value
-            actual_cached = actual_json.get("output", {}).get("cached")
-            expected_cached = expected_json.get("output", {}).get("cached")
-            if actual_cached != expected_cached:
-                return (
-                    False,
-                    f"Cached flag mismatch: actual={actual_cached}, expected={expected_cached}",
-                )
+            # Skip cached field validation - it's dynamic and may vary between runs
+            # (cached depends on whether data was already in cache, which is non-deterministic)
             return (True, "")
 
         # 5. For text-delta: check structure only (not delta content)
@@ -498,6 +572,8 @@ def validate_event_structure(
                 # If expected has usage, actual should also have it (but values can differ)
                 if "usage" not in actual_json.get("messageMetadata", {}):
                     return (False, "Missing usage field in messageMetadata")
+            # audio metadata is dynamic (native-audio models include audio stats)
+            # Skip validation - it may or may not be present depending on the model
             return (True, "")
 
         # 7. For other event types: exact match after normalization

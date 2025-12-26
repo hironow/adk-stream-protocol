@@ -21,14 +21,14 @@
       "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-42a0576f-8245-4234-9d19-3a18a278086a\", \"toolName\": \"process_payment\", \"input\": {\"currency\": \"USD\", \"amount\": 200, \"recipient\": \"Jiro\"}}\n\n",
       "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-a843d840-f720-4387-98c7-4482e4d6e173\", \"toolName\": \"adk_request_confirmation\"}\n\n",
       "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-a843d840-f720-4387-98c7-4482e4d6e173\", \"toolName\": \"adk_request_confirmation\", \"input\": {\"originalFunctionCall\": {\"id\": \"adk-42a0576f-8245-4234-9d19-3a18a278086a\", \"args\": {\"currency\": \"USD\", \"amount\": 200, \"recipient\": \"Jiro\"}, \"name\": \"process_payment\"}, \"toolConfirmation\": {\"hint\": \"Please approve or reject the tool call process_payment() by responding with a FunctionResponse with an expected ToolConfirmation payload.\", \"confirmed\": false}}}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1499, \"completionTokens\": 29, \"totalTokens\": 1702}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
       "data: [DONE]\n\n",
       "data: {\"type\": \"start\", \"messageId\": \"81e8fde4-28cb-416a-b4ff-335b3510a1d2\"}\n\n",
       "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"adk-42a0576f-8245-4234-9d19-3a18a278086a\", \"errorText\": \"This tool call is rejected.\"}\n\n",
       "data: {\"type\": \"text-start\", \"id\": \"0\"}\n\n",
       "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"次郎さんへの200ドルの送金リクエストは承認されませんでした。再度実行が必要な場合はお知らせください。\"}\n\n",
       "data: {\"type\": \"text-end\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1721, \"completionTokens\": 26, \"totalTokens\": 1796}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
@@ -69,12 +69,7 @@
         "type": "finish",
         "finishReason": "stop",
         "messageMetadata": {
-          "usage": {
-            "promptTokens": 1499,
-            "completionTokens": 29,
-            "totalTokens": 1702
-          },
-          "modelVersion": "gemini-3-flash-preview"
+          "modelVersion": "gemini-2.5-flash-native-audio-preview-12-2025"
         }
       },
       { "type": "start", "messageId": "81e8fde4-28cb-416a-b4ff-335b3510a1d2" },
@@ -94,12 +89,7 @@
         "type": "finish",
         "finishReason": "stop",
         "messageMetadata": {
-          "usage": {
-            "promptTokens": 1721,
-            "completionTokens": 26,
-            "totalTokens": 1796
-          },
-          "modelVersion": "gemini-3-flash-preview"
+          "modelVersion": "gemini-2.5-flash-native-audio-preview-12-2025"
         }
       }
     ],

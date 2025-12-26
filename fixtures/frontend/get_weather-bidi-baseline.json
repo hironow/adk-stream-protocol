@@ -17,11 +17,11 @@
       "data: {\"type\": \"start\", \"messageId\": \"6785d4a7-8cf5-467c-9ba5-58ffa44231ee\"}\n\n",
       "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-66d7f02b-dbbe-455a-be2d-b3bac16b5c55\", \"toolName\": \"get_weather\"}\n\n",
       "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-66d7f02b-dbbe-455a-be2d-b3bac16b5c55\", \"toolName\": \"get_weather\", \"input\": {\"location\": \"Tokyo\"}}\n\n",
-      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"adk-66d7f02b-dbbe-455a-be2d-b3bac16b5c55\", \"output\": {\"temperature\": 9.8, \"condition\": \"Clear\", \"description\": \"clear sky\", \"humidity\": 64, \"feels_like\": 9.8, \"wind_speed\": 1.11, \"cached\": true}}\n\n",
+      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"adk-66d7f02b-dbbe-455a-be2d-b3bac16b5c55\", \"output\": {\"temperature\": 9.8, \"condition\": \"Clear\", \"description\": \"clear sky\", \"humidity\": 64, \"feels_like\": 9.8, \"wind_speed\": 1.11}}\n\n",
       "data: {\"type\": \"text-start\", \"id\": \"0\"}\n\n",
       "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"現在の東京の天気は晴れで、気温は9.8℃です。湿度は64%、風速は1.11m/sとなっています。空は澄み渡っています。\"}\n\n",
       "data: {\"type\": \"text-end\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 2418, \"completionTokens\": 41, \"totalTokens\": 2459}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
@@ -46,8 +46,7 @@
           "description": "clear sky",
           "humidity": 64,
           "feels_like": 9.8,
-          "wind_speed": 1.11,
-          "cached": true
+          "wind_speed": 1.11
         }
       },
       { "type": "text-start", "id": "0" },
@@ -61,12 +60,7 @@
         "type": "finish",
         "finishReason": "stop",
         "messageMetadata": {
-          "usage": {
-            "promptTokens": 2418,
-            "completionTokens": 41,
-            "totalTokens": 2459
-          },
-          "modelVersion": "gemini-3-flash-preview"
+          "modelVersion": "gemini-2.5-flash-native-audio-preview-12-2025"
         }
       }
     ],

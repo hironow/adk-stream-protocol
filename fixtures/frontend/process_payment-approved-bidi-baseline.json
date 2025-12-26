@@ -21,14 +21,14 @@
       "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-37911c3c-a17d-4b80-83a9-c48d297b10a7\", \"toolName\": \"process_payment\", \"input\": {\"amount\": 50, \"recipient\": \"Hanako\", \"currency\": \"USD\"}}\n\n",
       "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-69336dc0-1379-4f1b-b9d3-36e1d668f755\", \"toolName\": \"adk_request_confirmation\"}\n\n",
       "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-69336dc0-1379-4f1b-b9d3-36e1d668f755\", \"toolName\": \"adk_request_confirmation\", \"input\": {\"originalFunctionCall\": {\"id\": \"adk-37911c3c-a17d-4b80-83a9-c48d297b10a7\", \"args\": {\"amount\": 50, \"recipient\": \"Hanako\", \"currency\": \"USD\"}, \"name\": \"process_payment\"}, \"toolConfirmation\": {\"hint\": \"Please approve or reject the tool call process_payment() by responding with a FunctionResponse with an expected ToolConfirmation payload.\", \"confirmed\": false}}}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1262, \"completionTokens\": 28, \"totalTokens\": 1488}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
       "data: [DONE]\n\n",
       "data: {\"type\": \"start\", \"messageId\": \"dd1c8a44-b7d7-4cd6-8365-fd3af6c6940f\"}\n\n",
       "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"adk-37911c3c-a17d-4b80-83a9-c48d297b10a7\", \"output\": {\"success\": true, \"transaction_id\": \"txn_c560338f95cd\", \"amount\": 50, \"currency\": \"USD\", \"recipient\": \"Hanako\", \"description\": \"\", \"wallet_balance\": 950.0, \"timestamp\": \"2025-12-19T03:59:40.638708+00:00\"}}\n\n",
       "data: {\"type\": \"text-start\", \"id\": \"0\"}\n\n",
       "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"花子さんへの50ドルの送金が完了しました。\\n\\n**取引詳細:**\\n- **取引ID:** txn_c560338f95cd\\n- **金額:** 50 USD\\n- **受取人:** Hanako\\n- **日時:** 2025年12月19日\\n\\n現在のウォレット残高は 950 USD です。\"}\n\n",
       "data: {\"type\": \"text-end\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1588, \"completionTokens\": 87, \"totalTokens\": 1675}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
@@ -69,12 +69,7 @@
         "type": "finish",
         "finishReason": "stop",
         "messageMetadata": {
-          "usage": {
-            "promptTokens": 1262,
-            "completionTokens": 28,
-            "totalTokens": 1488
-          },
-          "modelVersion": "gemini-3-flash-preview"
+          "modelVersion": "gemini-2.5-flash-native-audio-preview-12-2025"
         }
       },
       { "type": "start", "messageId": "dd1c8a44-b7d7-4cd6-8365-fd3af6c6940f" },
@@ -103,12 +98,7 @@
         "type": "finish",
         "finishReason": "stop",
         "messageMetadata": {
-          "usage": {
-            "promptTokens": 1588,
-            "completionTokens": 87,
-            "totalTokens": 1675
-          },
-          "modelVersion": "gemini-3-flash-preview"
+          "modelVersion": "gemini-2.5-flash-native-audio-preview-12-2025"
         }
       }
     ],
