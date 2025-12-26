@@ -93,15 +93,17 @@ class TestWebSocketBIDIStructure:
         with TestClient(app) as client:
             with client.websocket_connect("/live") as websocket:
                 # Send message in correct BIDI event format (matches TypeScript EventSender)
-                websocket.send_json({
-                    "type": "message",
-                    "version": "1.0",
-                    "timestamp": 1234567890,
-                    "id": "test-chat-id",
-                    "messages": frontend_fixture["input"]["messages"],
-                    "trigger": "submit-message",
-                    "messageId": None,
-                })
+                websocket.send_json(
+                    {
+                        "type": "message",
+                        "version": "1.0",
+                        "timestamp": 1234567890,
+                        "id": "test-chat-id",
+                        "messages": frontend_fixture["input"]["messages"],
+                        "trigger": "submit-message",
+                        "messageId": None,
+                    }
+                )
 
                 # Receive events
                 actual_chunks = []
@@ -130,7 +132,9 @@ class TestWebSocketBIDIStructure:
         for expected_chunk in expected_chunks:
             expected_type = expected_chunk.get("type")
             # Find first matching event type in actual chunks
-            matching_actual = next((c for c in actual_chunks if c.get("type") == expected_type), None)
+            matching_actual = next(
+                (c for c in actual_chunks if c.get("type") == expected_type), None
+            )
 
             if matching_actual:
                 actual_structure = extract_structure(matching_actual)
@@ -151,15 +155,17 @@ class TestWebSocketBIDIStructure:
         # When: Connect and send message
         with TestClient(app) as client:
             with client.websocket_connect("/live") as websocket:
-                websocket.send_json({
-                    "type": "message",
-                    "version": "1.0",
-                    "timestamp": 1234567890,
-                    "id": "test-chat-id",
-                    "messages": frontend_fixture["input"]["messages"],
-                    "trigger": "submit-message",
-                    "messageId": None,
-                })
+                websocket.send_json(
+                    {
+                        "type": "message",
+                        "version": "1.0",
+                        "timestamp": 1234567890,
+                        "id": "test-chat-id",
+                        "messages": frontend_fixture["input"]["messages"],
+                        "trigger": "submit-message",
+                        "messageId": None,
+                    }
+                )
 
                 # Receive events and respond to frontend tool calls
                 actual_chunks = []
@@ -178,15 +184,17 @@ class TestWebSocketBIDIStructure:
                         tool_call_id = chunk.get("toolCallId")
                         if tool_name == "change_bgm":
                             # Send tool_result event (simulating frontend approval)
-                            websocket.send_json({
-                                "type": "tool_result",
-                                "toolCallId": tool_call_id,
-                                "result": {
-                                    "success": True,
-                                    "track": 1,
-                                    "message": "BGM change to track 1 initiated (frontend handles execution)",
-                                },
-                            })
+                            websocket.send_json(
+                                {
+                                    "type": "tool_result",
+                                    "toolCallId": tool_call_id,
+                                    "result": {
+                                        "success": True,
+                                        "track": 1,
+                                        "message": "BGM change to track 1 initiated (frontend handles execution)",
+                                    },
+                                }
+                            )
 
         # Then: All expected event types should be present
         expected_event_types = [chunk.get("type") for chunk in expected_chunks]
@@ -200,7 +208,9 @@ class TestWebSocketBIDIStructure:
         # And: Validate structure of key event types
         for expected_chunk in expected_chunks:
             expected_type = expected_chunk.get("type")
-            matching_actual = next((c for c in actual_chunks if c.get("type") == expected_type), None)
+            matching_actual = next(
+                (c for c in actual_chunks if c.get("type") == expected_type), None
+            )
 
             if matching_actual:
                 actual_structure = extract_structure(matching_actual)
@@ -222,24 +232,24 @@ class TestWebSocketEventSequence:
         # When: Connect and send
         with TestClient(app) as client:
             with client.websocket_connect("/live") as websocket:
-                websocket.send_json({
-                    "type": "message",
-                    "version": "1.0",
-                    "timestamp": 1234567890,
-                    "id": "test-chat-id",
-                    "messages": frontend_fixture["input"]["messages"],
-                    "trigger": "submit-message",
-                    "messageId": None,
-                })
+                websocket.send_json(
+                    {
+                        "type": "message",
+                        "version": "1.0",
+                        "timestamp": 1234567890,
+                        "id": "test-chat-id",
+                        "messages": frontend_fixture["input"]["messages"],
+                        "trigger": "submit-message",
+                        "messageId": None,
+                    }
+                )
 
                 # Then: Should receive SSE-formatted strings
                 first_message = websocket.receive_text()
                 assert first_message.startswith("data: "), (
                     "WebSocket should send SSE-formatted messages"
                 )
-                assert first_message.endswith("\n\n"), (
-                    "SSE messages should end with double newline"
-                )
+                assert first_message.endswith("\n\n"), "SSE messages should end with double newline"
 
     def test_websocket_has_start_event(self):
         """WebSocket stream should start with 'start' event."""
@@ -249,26 +259,24 @@ class TestWebSocketEventSequence:
         # When: Connect and send
         with TestClient(app) as client:
             with client.websocket_connect("/live") as websocket:
-                websocket.send_json({
-                    "type": "message",
-                    "version": "1.0",
-                    "timestamp": 1234567890,
-                    "id": "test-chat-id",
-                    "messages": frontend_fixture["input"]["messages"],
-                    "trigger": "submit-message",
-                    "messageId": None,
-                })
+                websocket.send_json(
+                    {
+                        "type": "message",
+                        "version": "1.0",
+                        "timestamp": 1234567890,
+                        "id": "test-chat-id",
+                        "messages": frontend_fixture["input"]["messages"],
+                        "trigger": "submit-message",
+                        "messageId": None,
+                    }
+                )
 
                 # Then: First event should be 'start'
                 first_message = websocket.receive_text()
                 first_chunk = parse_sse_from_websocket(first_message)
 
-                assert first_chunk.get("type") == "start", (
-                    "First event should be 'start'"
-                )
-                assert "messageId" in first_chunk, (
-                    "Start event should have messageId"
-                )
+                assert first_chunk.get("type") == "start", "First event should be 'start'"
+                assert "messageId" in first_chunk, "Start event should have messageId"
 
     def test_websocket_ends_with_done_marker(self):
         """WebSocket stream should end with [DONE] marker."""
@@ -278,15 +286,17 @@ class TestWebSocketEventSequence:
         # When: Connect and send
         with TestClient(app) as client:
             with client.websocket_connect("/live") as websocket:
-                websocket.send_json({
-                    "type": "message",
-                    "version": "1.0",
-                    "timestamp": 1234567890,
-                    "id": "test-chat-id",
-                    "messages": frontend_fixture["input"]["messages"],
-                    "trigger": "submit-message",
-                    "messageId": None,
-                })
+                websocket.send_json(
+                    {
+                        "type": "message",
+                        "version": "1.0",
+                        "timestamp": 1234567890,
+                        "id": "test-chat-id",
+                        "messages": frontend_fixture["input"]["messages"],
+                        "trigger": "submit-message",
+                        "messageId": None,
+                    }
+                )
 
                 # Receive all events
                 events = []
@@ -299,9 +309,7 @@ class TestWebSocketEventSequence:
                         break
 
                 # Then: Last event should be [DONE]
-                assert events[-1] == "[DONE]", (
-                    "Stream should end with [DONE] marker"
-                )
+                assert events[-1] == "[DONE]", "Stream should end with [DONE] marker"
 
 
 class TestWebSocketRequiredFields:
@@ -315,15 +323,17 @@ class TestWebSocketRequiredFields:
         # When: Execute
         with TestClient(app) as client:
             with client.websocket_connect("/live") as websocket:
-                websocket.send_json({
-                    "type": "message",
-                    "version": "1.0",
-                    "timestamp": 1234567890,
-                    "id": "test-chat-id",
-                    "messages": frontend_fixture["input"]["messages"],
-                    "trigger": "submit-message",
-                    "messageId": None,
-                })
+                websocket.send_json(
+                    {
+                        "type": "message",
+                        "version": "1.0",
+                        "timestamp": 1234567890,
+                        "id": "test-chat-id",
+                        "messages": frontend_fixture["input"]["messages"],
+                        "trigger": "submit-message",
+                        "messageId": None,
+                    }
+                )
 
                 # Collect tool events
                 tool_events = []

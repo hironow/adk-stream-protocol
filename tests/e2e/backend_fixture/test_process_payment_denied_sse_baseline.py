@@ -57,9 +57,7 @@ async def test_process_payment_denied_sse_baseline(frontend_fixture_dir: Path):
 
     # Then: rawEvents should match expected Turn 1 (with normalization)
     # Extract Turn 1 events from expected (up to first [DONE])
-    first_done_index = next(
-        i for i, event in enumerate(expected_events) if "[DONE]" in event
-    )
+    first_done_index = next(i for i, event in enumerate(expected_events) if "[DONE]" in event)
     expected_turn1_events = expected_events[: first_done_index + 1]
 
     # Structure validation for confirmation tools (LLM parameters and tokens are dynamic)
@@ -74,8 +72,7 @@ async def test_process_payment_denied_sse_baseline(frontend_fixture_dir: Path):
     # And: Should have exactly 1 [DONE] marker (Turn 1 only)
     actual_done_count = count_done_markers(actual_events)
     assert actual_done_count == 1, (
-        f"[DONE] count mismatch for Turn 1: "
-        f"actual={actual_done_count}, expected=1"
+        f"[DONE] count mismatch for Turn 1: actual={actual_done_count}, expected=1"
     )
 
     # And: Turn 1 should be IDENTICAL to approval fixture Turn 1
@@ -83,9 +80,7 @@ async def test_process_payment_denied_sse_baseline(frontend_fixture_dir: Path):
     # This is verified by comparing with process_payment-approved-sse-baseline
     # Turn 1 events (excluding dynamic fields like messageId).
     # The only difference should be in Turn 2 (not tested here).
-    assert expected_done_count == 2, (
-        f"Fixture should have 2 turns, but has {expected_done_count}"
-    )
+    assert expected_done_count == 2, f"Fixture should have 2 turns, but has {expected_done_count}"
 
     # ===== TURN 2: Denial Execution =====
     print("\n=== TURN 2: Sending denial and testing execution ===")
@@ -140,19 +135,12 @@ async def test_process_payment_denied_sse_baseline(frontend_fixture_dir: Path):
     # And: Should have exactly 1 [DONE] marker (Turn 2 only)
     actual_done_count_turn2 = count_done_markers(turn2_events)
     assert actual_done_count_turn2 == 1, (
-        f"[DONE] count mismatch for Turn 2: "
-        f"actual={actual_done_count_turn2}, expected=1"
+        f"[DONE] count mismatch for Turn 2: actual={actual_done_count_turn2}, expected=1"
     )
 
     # And: Should contain tool-output-error event (tool rejection)
     # Note: tool-output-error events don't include toolName, only toolCallId
-    tool_error_events = [
-        event
-        for event in turn2_events
-        if "tool-output-error" in event
-    ]
-    assert len(tool_error_events) > 0, (
-        "Turn 2 should have tool-output-error event (tool rejection)"
-    )
+    tool_error_events = [event for event in turn2_events if "tool-output-error" in event]
+    assert len(tool_error_events) > 0, "Turn 2 should have tool-output-error event (tool rejection)"
 
     print("\n✅ Full invocation (Turn 1 + Turn 2) passed!")

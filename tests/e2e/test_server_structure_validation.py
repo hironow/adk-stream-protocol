@@ -123,7 +123,7 @@ class TestServerOutputStructure:
         )
 
         # And: Event structures should match
-        for i, (actual, expected) in enumerate(zip(actual_chunks_without_done, expected_chunks)):
+        for i, (actual, expected) in enumerate(zip(actual_chunks_without_done, expected_chunks, strict=False)):
             actual_structure = extract_structure(actual)
             expected_structure = extract_structure(expected)
 
@@ -160,12 +160,14 @@ class TestServerOutputStructure:
 
         # And: Structures should match (excluding DONE)
         assert len(actual_chunks_without_done) == len(expected_chunks)
-        for i, (actual, expected) in enumerate(zip(actual_chunks_without_done, expected_chunks)):
+        for i, (actual, expected) in enumerate(zip(actual_chunks_without_done, expected_chunks, strict=False)):
             actual_structure = extract_structure(actual)
             expected_structure = extract_structure(expected)
             assert actual_structure == expected_structure, f"Event {i} structure mismatch"
 
-    @pytest.mark.skip(reason="Multi-turn approval flow requires complete message history - tested in complete match tests")
+    @pytest.mark.skip(
+        reason="Multi-turn approval flow requires complete message history - tested in complete match tests"
+    )
     def test_get_location_approved_sse_structure_matches_baseline(self):
         """Server output structure for get_location approval should match baseline."""
         # Given: Frontend baseline fixture with approval flow
@@ -192,7 +194,7 @@ class TestServerOutputStructure:
 
         # And: Structures should match (excluding DONE)
         assert len(actual_chunks_without_done) == len(expected_chunks)
-        for i, (actual, expected) in enumerate(zip(actual_chunks_without_done, expected_chunks)):
+        for i, (actual, expected) in enumerate(zip(actual_chunks_without_done, expected_chunks, strict=False)):
             actual_structure = extract_structure(actual)
             expected_structure = extract_structure(expected)
             assert actual_structure == expected_structure, (
@@ -273,7 +275,7 @@ class TestRequiredFields:
     Tests that required fields exist in specific event types.
     """
 
-    def test_start_event_has_messageId(self):
+    def test_start_event_has_message_id(self):
         """Start event must have messageId field."""
         # Given: Any frontend fixture
         frontend_fixture = load_frontend_fixture("get_weather-sse-baseline.json")

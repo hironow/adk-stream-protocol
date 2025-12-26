@@ -82,7 +82,7 @@ class SseEventStreamer:
         async def events_with_invocation_capture():
             async for event in live_events:
                 # Capture invocation_id from first event
-                if self._current_invocation_id is None and hasattr(event, 'invocation_id'):
+                if self._current_invocation_id is None and hasattr(event, "invocation_id"):
                     self._current_invocation_id = event.invocation_id
                     logger.info(f"[SSE] Captured invocation_id: {self._current_invocation_id}")
 

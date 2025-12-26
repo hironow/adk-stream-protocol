@@ -59,18 +59,12 @@ async def test_change_bgm_sse_baseline(frontend_fixture_dir: Path):
     # And: Should have exactly 1 [DONE] marker (single-turn)
     actual_done_count = count_done_markers(actual_events)
     assert actual_done_count == expected_done_count, (
-        f"[DONE] count mismatch: "
-        f"actual={actual_done_count}, expected={expected_done_count}"
+        f"[DONE] count mismatch: actual={actual_done_count}, expected={expected_done_count}"
     )
 
     # And: Should contain tool-output-available from tool execution
-    tool_output_events = [
-        event for event in actual_events
-        if "tool-output-available" in event
-    ]
-    assert len(tool_output_events) > 0, (
-        "Should have tool-output-available from tool execution"
-    )
+    tool_output_events = [event for event in actual_events if "tool-output-available" in event]
+    assert len(tool_output_events) > 0, "Should have tool-output-available from tool execution"
 
     # And: Event count validation (AI text generation is non-deterministic)
     # Note: AI text generation is non-deterministic
@@ -78,7 +72,9 @@ async def test_change_bgm_sse_baseline(frontend_fixture_dir: Path):
     # - Full events (9): with text-start, text-delta, text-end
     # - Min events (6): without text-* events (AI skipped text response)
     expected_full = len(expected_events)  # 9
-    expected_min = 6  # start, tool-input-start, tool-input-available, tool-output-available, finish, DONE
+    expected_min = (
+        6  # start, tool-input-start, tool-input-available, tool-output-available, finish, DONE
+    )
 
     if len(actual_events) != expected_full:
         assert len(actual_events) == expected_min, (

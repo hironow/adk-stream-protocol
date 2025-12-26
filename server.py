@@ -319,7 +319,7 @@ def _process_latest_message(
 
 
 @app.post("/stream")
-async def stream(request: ChatRequest):
+async def stream(request: ChatRequest):  # noqa: C901, PLR0915
     """
     SSE streaming endpoint
 
@@ -344,7 +344,9 @@ async def stream(request: ChatRequest):
         logger.info(f"[/stream] --- Message {i} ---")
         logger.info(f"[/stream] role: {msg.role}")
 
-        msg_context = msg.to_adk_content(id_mapper=frontend_delegate._id_mapper, delegate=frontend_delegate)
+        msg_context = msg.to_adk_content(
+            id_mapper=frontend_delegate._id_mapper, delegate=frontend_delegate
+        )
         logger.info(f"[/stream] parts count: {len(msg_context.parts) if msg_context.parts else 0}")
 
         if msg_context.parts:
@@ -372,7 +374,7 @@ async def stream(request: ChatRequest):
         return _create_error_sse_response("No messages provided")
 
     # Create SSE stream generator inline (transaction script pattern)
-    async def generate_sse_stream():
+    async def generate_sse_stream():  # noqa: C901, PLR0912, PLR0915
         # 2. Session management
         # Get user ID (single user mode for demo environment without database)
         user_id = _get_user()
@@ -381,10 +383,9 @@ async def stream(request: ChatRequest):
         logger.info(f"[/stream] Session ID: {session.id}")
 
         # DEBUG: Check session state persistence
-        try:
+        try:  # nosem: semgrep.forbid-try-except - debug logging, legitimate exception handling
             events = await sse_agent_runner.session_service.get_events(
-                session=session,
-                after_event_index=0
+                session=session, after_event_index=0
             )
             event_count = len(list(events))
             logger.info(f"[/stream] Session has {event_count} events in history")
@@ -398,7 +399,9 @@ async def stream(request: ChatRequest):
         existing_delegate = get_delegate(session.id)
         if existing_delegate:
             frontend_delegate = existing_delegate
-            logger.info(f"[/stream] Reusing existing FrontendToolDelegate for session_id={session.id}")
+            logger.info(
+                f"[/stream] Reusing existing FrontendToolDelegate for session_id={session.id}"
+            )
         else:
             frontend_delegate = FrontendToolDelegate()
             register_delegate(session.id, frontend_delegate)
@@ -406,14 +409,19 @@ async def stream(request: ChatRequest):
 
         # Process the latest message (pass ID mapper and delegate for tool-result resolution)
         message_content = _process_latest_message(
-            request.messages[-1], session, id_mapper=frontend_delegate._id_mapper, delegate=frontend_delegate
+            request.messages[-1],
+            session,
+            id_mapper=frontend_delegate._id_mapper,
+            delegate=frontend_delegate,
         )
         if message_content is None:
             return
 
         logger.info("[/stream] ===== ADK INPUT (new_message) =====")
         logger.info(f"[/stream] role: {message_content.role}")
-        logger.info(f"[/stream] parts count: {len(message_content.parts) if message_content.parts else 0}")
+        logger.info(
+            f"[/stream] parts count: {len(message_content.parts) if message_content.parts else 0}"
+        )
         if message_content.parts:
             for i, part in enumerate(message_content.parts):
                 if part.text:
@@ -438,15 +446,14 @@ async def stream(request: ChatRequest):
         # This converts frontend confirmation IDs back to original ADK tool call IDs
         if message_content.parts:
             for part in message_content.parts:
-                if (hasattr(part, "function_response")
+                if (
+                    hasattr(part, "function_response")
                     and part.function_response is not None
                     and part.function_response.name == "adk_request_confirmation"
-                    and part.function_response.id.startswith("confirmation-")):
-
+                    and part.function_response.id.startswith("confirmation-")
+                ):
                     original_id = part.function_response.id.replace("confirmation-", "", 1)
-                    logger.info(
-                        f"[/stream] ID変換: {part.function_response.id} → {original_id}"
-                    )
+                    logger.info(f"[/stream] ID変換: {part.function_response.id} → {original_id}")
                     part.function_response.id = original_id
 
         logger.info(
@@ -458,9 +465,11 @@ async def stream(request: ChatRequest):
         is_confirmation_response = False
         if message_content.parts:
             for part in message_content.parts:
-                if (hasattr(part, "function_response")
+                if (
+                    hasattr(part, "function_response")
                     and part.function_response is not None
-                    and part.function_response.name == "adk_request_confirmation"):
+                    and part.function_response.name == "adk_request_confirmation"
+                ):
                     is_confirmation_response = True
                     break
 
@@ -469,7 +478,9 @@ async def stream(request: ChatRequest):
         if is_confirmation_response:
             last_invocation_id = session.state.get("last_invocation_id")
             if last_invocation_id:
-                logger.info(f"[/stream] Turn 2: Continuing from invocation_id: {last_invocation_id}")
+                logger.info(
+                    f"[/stream] Turn 2: Continuing from invocation_id: {last_invocation_id}"
+                )
             else:
                 logger.warning("[/stream] Turn 2 detected but no invocation_id found!")
         # Turn 1: Clear any old invocation_id and start fresh
@@ -500,7 +511,7 @@ async def stream(request: ChatRequest):
             yield sse_event
 
         # After streaming, save invocation_id from SseEventStreamer for Turn 2 continuation
-        current_invocation_id = getattr(streamer, '_current_invocation_id', None)
+        current_invocation_id = getattr(streamer, "_current_invocation_id", None)
         if current_invocation_id:
             session.state["last_invocation_id"] = current_invocation_id
             logger.info(f"[/stream] Saved invocation_id for continuation: {current_invocation_id}")
@@ -524,7 +535,7 @@ async def stream(request: ChatRequest):
 
 
 @app.websocket("/live")
-async def live_chat(websocket: WebSocket):  # noqa: PLR0915
+async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
     """
     WebSocket endpoint for bidirectional streaming with ADK BIDI mode
 

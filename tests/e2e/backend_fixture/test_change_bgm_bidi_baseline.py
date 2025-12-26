@@ -65,8 +65,7 @@ async def test_change_bgm_bidi_baseline(frontend_fixture_dir: Path):
     # And: Should have exactly 1 [DONE] marker (single-turn)
     actual_done_count = count_done_markers(actual_events)
     assert actual_done_count == expected_done_count, (
-        f"[DONE] count mismatch: "
-        f"actual={actual_done_count}, expected={expected_done_count}"
+        f"[DONE] count mismatch: actual={actual_done_count}, expected={expected_done_count}"
     )
 
     # And: Event structure should be IDENTICAL to SSE mode

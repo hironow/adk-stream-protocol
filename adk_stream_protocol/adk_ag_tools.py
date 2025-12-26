@@ -174,22 +174,28 @@ async def process_payment(
     Returns:
         Payment processing result with transaction details
     """
-    logger.info(f"[process_payment] ===== TOOL FUNCTION CALLED =====")
+    logger.info("[process_payment] ===== TOOL FUNCTION CALLED =====")
     logger.info(f"[process_payment] Processing payment: {amount} {currency} to {recipient}")
     logger.info(f"[process_payment] tool_context attributes: {dir(tool_context)}")
 
     # BIDI mode: Check if confirmation is required and handle accordingly
     confirmation_delegate = tool_context.session.state.get("confirmation_delegate")
-    logger.info(f"[process_payment] confirmation_delegate present: {confirmation_delegate is not None}")
+    logger.info(
+        f"[process_payment] confirmation_delegate present: {confirmation_delegate is not None}"
+    )
 
     if confirmation_delegate:
         logger.info("[process_payment] BIDI mode detected")
-        logger.info(f"[process_payment] tool_context.tool_confirmation value: {tool_context.tool_confirmation}")
+        logger.info(
+            f"[process_payment] tool_context.tool_confirmation value: {tool_context.tool_confirmation}"
+        )
 
         # Check if tool_confirmation is set (2nd call after user approved/rejected)
         if tool_context.tool_confirmation is not None:
             # This is the 2nd call - user has responded to confirmation request
-            logger.info(f"[process_payment] 2nd call detected - tool_confirmation.confirmed={tool_context.tool_confirmation.confirmed}")
+            logger.info(
+                f"[process_payment] 2nd call detected - tool_confirmation.confirmed={tool_context.tool_confirmation.confirmed}"
+            )
             if tool_context.tool_confirmation.confirmed:
                 logger.info("[process_payment] Confirmation approved, proceeding with execution")
             else:
@@ -202,25 +208,23 @@ async def process_payment(
         else:
             # This is the 1st call - request confirmation and return error immediately
             logger.info("[process_payment] 1st call detected - requesting confirmation")
-            logger.info(f"[process_payment] BEFORE request_confirmation() call")
+            logger.info("[process_payment] BEFORE request_confirmation() call")
 
             # Use ADK's built-in request_confirmation() method
             tool_context.request_confirmation(
                 hint=f"Approve payment of {amount} {currency} to {recipient}?"
             )
 
-            logger.info(f"[process_payment] AFTER request_confirmation() call")
+            logger.info("[process_payment] AFTER request_confirmation() call")
 
             # Skip summarization to prevent LLM from processing the error
             tool_context.actions.skip_summarization = True
-            logger.info(f"[process_payment] Set skip_summarization=True")
+            logger.info("[process_payment] Set skip_summarization=True")
 
             # Return error immediately - this allows stream to continue
             # ADK will handle the confirmation flow and call this function again
-            logger.info(f"[process_payment] Returning error response to ADK")
-            return {
-                "error": "This tool call requires confirmation, please approve or reject."
-            }
+            logger.info("[process_payment] Returning error response to ADK")
+            return {"error": "This tool call requires confirmation, please approve or reject."}
 
     # SSE mode: ADK handles confirmation automatically via require_confirmation=True
     # Continue with payment processing logic...

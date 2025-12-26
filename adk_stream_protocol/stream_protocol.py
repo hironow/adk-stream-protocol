@@ -241,30 +241,11 @@ class StreamProtocolConverter:
             )
             return
 
-        event_type = type(event).__name__
         has_content = hasattr(event, "content") and event.content
-        is_turn_complete = hasattr(event, "turn_complete") and event.turn_complete
-        has_usage = hasattr(event, "usage_metadata") and event.usage_metadata
-        has_finish = hasattr(event, "finish_reason") and event.finish_reason
-
-        # logger.debug(
-        #     f"[_convert_event] Processing event type: {event_type}, "
-        #     f"has_content={has_content}, is_turn_complete={is_turn_complete}, "
-        #     f"has_usage={has_usage}, has_finish={has_finish}"
-        # )
-
-        # Filter out private attributes (starting with _) for cleaner logs
-        event_attrs = (
-            {k: v for k, v in vars(event).items() if not k.startswith("_")}
-            if hasattr(event, "__dict__")
-            else {}
-        )
-        # only keys, no values
-        # logger.debug(f"[_convert_event] Event attributes keys: {list(event_attrs.keys())!s}")
 
         # Log content parts if present
         if has_content and event.content is not None and event.content.parts:
-            for idx, part in enumerate(event.content.parts):
+            for _idx, part in enumerate(event.content.parts):
                 part_types = []
                 if hasattr(part, "text") and part.text:
                     part_types.append(f"text({len(part.text)} chars)")
@@ -276,16 +257,6 @@ class StreamProtocolConverter:
                     part_types.append(f"function_response({part.function_response.name})")
                 if hasattr(part, "inline_data") and part.inline_data:
                     part_types.append("inline_data")
-                    # Filter out private attributes (starting with _) for cleaner logs
-                    part_attrs = (
-                        {k: v for k, v in vars(part).items() if not k.startswith("_")}
-                        if hasattr(part, "__dict__")
-                        else {}
-                    )
-                    # only keys, no values
-                    # logger.debug(
-                    #     f"[_convert_event] Part[{idx}] inline_data attributes keys: {list(part_attrs.keys())!s}"
-                    # )
                 if hasattr(part, "executable_code") and part.executable_code:
                     part_types.append("executable_code")
                 if hasattr(part, "code_execution_result") and part.code_execution_result:
@@ -869,7 +840,7 @@ class StreamProtocolConverter:
         yield "data: [DONE]\n\n"
 
 
-async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912
+async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912, PLR0915
     event_stream: AsyncGenerator[Event | SseFormattedEvent],
     message_id: str | None = None,
     mode: Mode = "adk-sse",  # "adk-sse" or "adk-bidi" for chunk logger

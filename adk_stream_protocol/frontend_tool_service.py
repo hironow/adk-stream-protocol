@@ -225,4 +225,3 @@ class FrontendToolDelegate:
             logger.warning(
                 f"[FrontendDelegate] No pending call found for tool_call_id={tool_call_id}"
             )
-

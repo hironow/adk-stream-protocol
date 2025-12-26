@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING
 
 from loguru import logger
 
+
 if TYPE_CHECKING:
     from .frontend_tool_service import FrontendToolDelegate
 
@@ -76,7 +77,9 @@ def unregister_delegate(session_id: str) -> None:
         del _REGISTRY[session_id]
         logger.info(f"[FrontendToolRegistry] Unregistered delegate for session_id={session_id}")
     else:
-        logger.warning(f"[FrontendToolRegistry] No delegate to unregister for session_id={session_id}")
+        logger.warning(
+            f"[FrontendToolRegistry] No delegate to unregister for session_id={session_id}"
+        )
 
 
 def get_all_session_ids() -> list[str]:

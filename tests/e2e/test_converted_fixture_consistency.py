@@ -62,7 +62,9 @@ def normalize_ids_in_chunk(chunk: dict[str, Any]) -> dict[str, Any]:
         elif isinstance(value, dict):
             normalized[key] = normalize_ids_in_chunk(value)
         elif isinstance(value, list):
-            normalized[key] = [normalize_ids_in_chunk(v) if isinstance(v, dict) else v for v in value]
+            normalized[key] = [
+                normalize_ids_in_chunk(v) if isinstance(v, dict) else v for v in value
+            ]
         else:
             normalized[key] = value
     return normalized
@@ -102,8 +104,7 @@ class TestConvertedFixtureConsistency:
 
         # And: Parse rawEvents to chunks
         expected_chunks = [
-            parse_raw_event_to_chunk(event)
-            for event in frontend_fixture["output"]["rawEvents"]
+            parse_raw_event_to_chunk(event) for event in frontend_fixture["output"]["rawEvents"]
         ]
 
         # And: Load converted backend fixture
@@ -121,10 +122,14 @@ class TestConvertedFixtureConsistency:
         )
 
         # And: Each chunk should match exactly (after ID normalization)
-        for i, (actual, expected) in enumerate(zip(actual_chunks_raw, expected_chunks)):
+        for i, (actual, expected) in enumerate(zip(actual_chunks_raw, expected_chunks, strict=False)):
             # Normalize IDs for comparison
-            actual_normalized = normalize_ids_in_chunk(actual) if isinstance(actual, dict) else actual
-            expected_normalized = normalize_ids_in_chunk(expected) if isinstance(expected, dict) else expected
+            actual_normalized = (
+                normalize_ids_in_chunk(actual) if isinstance(actual, dict) else actual
+            )
+            expected_normalized = (
+                normalize_ids_in_chunk(expected) if isinstance(expected, dict) else expected
+            )
 
             assert actual_normalized == expected_normalized, (
                 f"Chunk {i} mismatch:\n"
@@ -140,8 +145,7 @@ class TestConvertedFixtureConsistency:
 
         # And: Parse rawEvents
         expected_chunks = [
-            parse_raw_event_to_chunk(event)
-            for event in frontend_fixture["output"]["rawEvents"]
+            parse_raw_event_to_chunk(event) for event in frontend_fixture["output"]["rawEvents"]
         ]
 
         # And: Load converted backend fixture
@@ -155,9 +159,13 @@ class TestConvertedFixtureConsistency:
 
         # Then: Should match exactly
         assert len(actual_chunks_raw) == len(expected_chunks)
-        for i, (actual, expected) in enumerate(zip(actual_chunks_raw, expected_chunks)):
-            actual_normalized = normalize_ids_in_chunk(actual) if isinstance(actual, dict) else actual
-            expected_normalized = normalize_ids_in_chunk(expected) if isinstance(expected, dict) else expected
+        for i, (actual, expected) in enumerate(zip(actual_chunks_raw, expected_chunks, strict=False)):
+            actual_normalized = (
+                normalize_ids_in_chunk(actual) if isinstance(actual, dict) else actual
+            )
+            expected_normalized = (
+                normalize_ids_in_chunk(expected) if isinstance(expected, dict) else expected
+            )
             assert actual_normalized == expected_normalized, f"Chunk {i} mismatch"
 
     @pytest.mark.asyncio
@@ -168,8 +176,7 @@ class TestConvertedFixtureConsistency:
 
         # And: Parse rawEvents
         expected_chunks = [
-            parse_raw_event_to_chunk(event)
-            for event in frontend_fixture["output"]["rawEvents"]
+            parse_raw_event_to_chunk(event) for event in frontend_fixture["output"]["rawEvents"]
         ]
 
         # And: Load converted backend fixture
@@ -184,9 +191,13 @@ class TestConvertedFixtureConsistency:
         # Then: Should match exactly (14 chunks for approval flow)
         assert len(actual_chunks_raw) == 14
         assert len(actual_chunks_raw) == len(expected_chunks)
-        for i, (actual, expected) in enumerate(zip(actual_chunks_raw, expected_chunks)):
-            actual_normalized = normalize_ids_in_chunk(actual) if isinstance(actual, dict) else actual
-            expected_normalized = normalize_ids_in_chunk(expected) if isinstance(expected, dict) else expected
+        for _i, (actual, expected) in enumerate(zip(actual_chunks_raw, expected_chunks, strict=False)):
+            actual_normalized = (
+                normalize_ids_in_chunk(actual) if isinstance(actual, dict) else actual
+            )
+            expected_normalized = (
+                normalize_ids_in_chunk(expected) if isinstance(expected, dict) else expected
+            )
             assert actual_normalized == expected_normalized
 
 
@@ -218,8 +229,7 @@ class TestAllConvertedFixtures:
             # Load frontend baseline
             frontend_fixture = load_frontend_fixture(f"{fixture_name}-baseline.json")
             expected_chunks = [
-                parse_raw_event_to_chunk(event)
-                for event in frontend_fixture["output"]["rawEvents"]
+                parse_raw_event_to_chunk(event) for event in frontend_fixture["output"]["rawEvents"]
             ]
 
             # Load converted backend fixture
@@ -240,9 +250,11 @@ class TestAllConvertedFixtures:
                 continue
 
             # Compare chunks
-            for i, (actual, expected) in enumerate(zip(actual_chunks_raw, expected_chunks)):
+            for i, (actual, expected) in enumerate(zip(actual_chunks_raw, expected_chunks, strict=False)):
                 actual_norm = normalize_ids_in_chunk(actual) if isinstance(actual, dict) else actual
-                expected_norm = normalize_ids_in_chunk(expected) if isinstance(expected, dict) else expected
+                expected_norm = (
+                    normalize_ids_in_chunk(expected) if isinstance(expected, dict) else expected
+                )
 
                 if actual_norm != expected_norm:
                     errors.append(f"{fixture_name}: chunk {i} mismatch")

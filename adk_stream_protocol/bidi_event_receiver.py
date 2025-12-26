@@ -264,15 +264,16 @@ class BidiEventReceiver:
         logger.info("=" * 80)
         logger.info("[BIDI-APPROVAL] ===== APPROVAL MESSAGE ARRIVED AT WEBSOCKET SERVER =====")
         logger.info(
-            f"[BIDI-APPROVAL] confirmation_id={confirmation_id}, "
-            f"response_data={response_data}"
+            f"[BIDI-APPROVAL] confirmation_id={confirmation_id}, response_data={response_data}"
         )
         logger.info("=" * 80)
 
         # Look up original tool_call_id using confirmation_id from session.state
-        try:
+        try:  # nosem: semgrep.forbid-try-except - legitimate session.state access with KeyError handling
             confirmation_id_mapping = self._session.state["confirmation_id_mapping"]
-            logger.info(f"[BIDI-APPROVAL] confirmation_id_mapping keys: {list(confirmation_id_mapping.keys())}")
+            logger.info(
+                f"[BIDI-APPROVAL] confirmation_id_mapping keys: {list(confirmation_id_mapping.keys())}"
+            )
         except KeyError as e:
             logger.error(
                 f"[BIDI-APPROVAL] KeyError accessing confirmation_id_mapping: {e}. "
@@ -336,7 +337,9 @@ class BidiEventReceiver:
         # Send to ADK via LiveRequestQueue
         # ADK will process this and re-execute the tool function
         logger.info("=" * 80)
-        logger.info("[BIDI-APPROVAL] ===== SENDING TO ADK VIA LiveRequestQueue.send_content() =====")
+        logger.info(
+            "[BIDI-APPROVAL] ===== SENDING TO ADK VIA LiveRequestQueue.send_content() ====="
+        )
         logger.info("=" * 80)
 
         self._live_request_queue.send_content(content)
@@ -344,10 +347,18 @@ class BidiEventReceiver:
         logger.info("=" * 80)
         logger.info("[BIDI-APPROVAL] ===== SENT TO ADK - WAITING FOR ADK TO RE-EXECUTE TOOL =====")
         logger.info("[BIDI-APPROVAL] ADK should now:")
-        logger.info("[BIDI-APPROVAL]   1. Process FunctionResponse via _RequestConfirmationLlmRequestProcessor")
-        logger.info("[BIDI-APPROVAL]   2. Extract ToolConfirmation and store in tool_confirmation_dict")
-        logger.info("[BIDI-APPROVAL]   3. Re-execute tool function with tool_context.tool_confirmation set")
-        logger.info("[BIDI-APPROVAL]   4. Tool function will check tool_context.tool_confirmation.confirmed")
+        logger.info(
+            "[BIDI-APPROVAL]   1. Process FunctionResponse via _RequestConfirmationLlmRequestProcessor"
+        )
+        logger.info(
+            "[BIDI-APPROVAL]   2. Extract ToolConfirmation and store in tool_confirmation_dict"
+        )
+        logger.info(
+            "[BIDI-APPROVAL]   3. Re-execute tool function with tool_context.tool_confirmation set"
+        )
+        logger.info(
+            "[BIDI-APPROVAL]   4. Tool function will check tool_context.tool_confirmation.confirmed"
+        )
         logger.info("[BIDI-APPROVAL]   5. Tool function will execute and return actual result")
         logger.info("=" * 80)
 

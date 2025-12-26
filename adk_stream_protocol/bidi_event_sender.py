@@ -97,7 +97,7 @@ class BidiEventSender:
         async def events_with_invocation_capture():
             async for event in live_events:
                 # Capture invocation_id from first event
-                if self._current_invocation_id is None and hasattr(event, 'invocation_id'):
+                if self._current_invocation_id is None and hasattr(event, "invocation_id"):
                     self._current_invocation_id = event.invocation_id
                     logger.info(f"[BIDI] Captured invocation_id: {self._current_invocation_id}")
 
@@ -121,9 +121,7 @@ class BidiEventSender:
                 # Log [DONE] markers for debugging multi-turn flow
                 # Note: We do NOT break here - run_live() stream continues for Turn 2+
                 if sse_event.strip() == "data: [DONE]":
-                    logger.info(
-                        "[BIDI] Sent [DONE] marker (turn completed, stream continues)"
-                    )
+                    logger.info("[BIDI] Sent [DONE] marker (turn completed, stream continues)")
 
             logger.info(f"[BIDI] Sent {event_count} events to client")
         except WebSocketDisconnect:
@@ -204,7 +202,11 @@ class BidiEventSender:
                 tool_call_id = event_data.get("toolCallId")
 
                 # Phase 1: Record tool-input-start for confirmation-required tools
-                if event_type == "tool-input-start" and tool_name in self._confirmation_tools and tool_call_id:
+                if (
+                    event_type == "tool-input-start"
+                    and tool_name in self._confirmation_tools
+                    and tool_call_id
+                ):
                     self._pending_confirmation[tool_call_id] = tool_name
                     logger.info(
                         f"[BIDI] Recorded pending confirmation for {tool_name} (ID: {tool_call_id})"
@@ -212,19 +214,19 @@ class BidiEventSender:
                     return True  # Send this event normally
 
                 # Phase 2: Send original tool-input-available FIRST, then inject confirmation events
-                elif event_type == "tool-input-available" and tool_call_id and tool_call_id in self._pending_confirmation:
+                elif (
+                    event_type == "tool-input-available"
+                    and tool_call_id
+                    and tool_call_id in self._pending_confirmation
+                ):
                     tool_name = self._pending_confirmation.pop(tool_call_id)
                     tool_input = event_data.get("input")
 
                     # First, send the original tool-input-available event
                     await self._ws.send_text(sse_event)
-                    logger.info(
-                        f"[BIDI] Sent original tool-input-available for {tool_name}"
-                    )
+                    logger.info(f"[BIDI] Sent original tool-input-available for {tool_name}")
 
-                    logger.info(
-                        f"[BIDI] Injecting adk_request_confirmation events for {tool_name}"
-                    )
+                    logger.info(f"[BIDI] Injecting adk_request_confirmation events for {tool_name}")
 
                     # Generate unique ID for confirmation tool call
                     confirmation_id = f"adk-{uuid.uuid4()}"
@@ -261,9 +263,7 @@ class BidiEventSender:
                     }
                     available_sse = f"data: {json.dumps(available_event)}\n\n"
                     await self._ws.send_text(available_sse)
-                    logger.info(
-                        "[BIDI] Sent tool-input-available for adk_request_confirmation"
-                    )
+                    logger.info("[BIDI] Sent tool-input-available for adk_request_confirmation")
 
                     # Save confirmation_id → original_tool_call_id mapping in session.state
                     # BidiEventReceiver will use this to resolve the original tool_call_id
@@ -289,4 +289,3 @@ class BidiEventSender:
 
         # Default: send event normally
         return True
-

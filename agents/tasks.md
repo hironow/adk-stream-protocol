@@ -48,7 +48,63 @@ See `fixtures/README.md` "Recording Procedure" section:
 
 ---
 
-## ✅ Recently Completed (2025-12-25)
+## ✅ Recently Completed (2025-12-27)
+
+### SSE Mode Pattern A for Frontend-Delegated Tools
+
+**Completed**: 2025-12-27 15:45 JST
+
+**Summary**: Implemented Pattern A (1-request) support for frontend-delegated tools in SSE mode with pre-resolution cache, mode detection, and full E2E test coverage.
+
+**Key Components**:
+
+1. **Architecture Decision (ADR-0008)**
+   - Documented Pattern A only support for SSE mode
+   - Pattern B (2-request) not supported due to SSE invocation lifecycle
+   - BIDI mode continues to support both patterns
+
+2. **Pre-Resolution Cache Pattern**
+   - Handles timing where tool results arrive before Future creation
+   - `_pre_resolved_results` dict in FrontendToolDelegate
+   - Ensures no results lost in Pattern A flow
+
+3. **Mode Detection Strategy**
+   - Backend tools check `confirmation_delegate` in session.state
+   - BIDI: Has confirmation_delegate → delegates to frontend via Future
+   - SSE: No confirmation_delegate → returns immediate success
+
+4. **Frontend Tool Execution**
+   - Implemented in `components/tool-invocation.tsx`
+   - `get_location`: Uses browser Geolocation API
+   - `change_bgm`: Returns success response (TODO: AudioContext implementation)
+   - Both approval + result sent in single request via AI SDK v6
+
+5. **Test Coverage with AI Non-Determinism Handling**
+   - All 6 SSE E2E tests passing (100% success rate)
+   - Strict event count validation: exactly 9 (with text) or 6 (without text)
+   - Handles Gemini 2.0 Flash non-deterministic text generation
+
+**Files Modified**:
+- `docs/adr/0008-sse-mode-pattern-a-only-for-frontend-tools.md` (NEW)
+- `adk_stream_protocol/frontend_tool_service.py` (pre-resolution cache)
+- `adk_stream_protocol/adk_ag_tools.py` (mode detection)
+- `components/tool-invocation.tsx` (frontend execution)
+- `tests/e2e/backend_fixture/test_change_bgm_sse_baseline.py`
+- `tests/e2e/backend_fixture/test_get_weather_sse_baseline.py`
+
+**Test Results**:
+- ✅ `test_change_bgm_sse_baseline` - PASSED
+- ✅ `test_get_location_approved_sse_baseline` - PASSED
+- ✅ `test_get_location_denied_sse_baseline` - PASSED
+- ✅ `test_get_weather_sse_baseline` - PASSED
+- ✅ `test_process_payment_approved_sse_baseline` - PASSED
+- ✅ `test_process_payment_denied_sse_baseline` - PASSED
+
+**Branch**: `hironow/fix-confirm`
+
+---
+
+## ✅ Previously Completed (2025-12-25)
 
 ### Fixture Consolidation & SSE Confirmation Flow
 

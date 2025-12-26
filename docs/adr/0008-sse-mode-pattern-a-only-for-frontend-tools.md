@@ -10,7 +10,9 @@ Frontend-delegated tools (e.g., `get_location`) require user approval before exe
 There are two possible patterns for sending approval and tool results:
 
 ### Pattern A (1-request)
+
 Send approval response AND tool execution result in the **same HTTP request**:
+
 ```json
 {
   "messages": [{
@@ -24,9 +26,11 @@ Send approval response AND tool execution result in the **same HTTP request**:
 ```
 
 ### Pattern B (2-request)
+
 Send approval and tool result in **separate HTTP requests**:
 
 Request 1 (approval only):
+
 ```json
 {
   "messages": [{
@@ -39,6 +43,7 @@ Request 1 (approval only):
 ```
 
 Request 2 (tool result):
+
 ```json
 {
   "messages": [{
@@ -53,6 +58,7 @@ Request 2 (tool result):
 ### Technical Constraints
 
 **SSE Mode (HTTP/REST)** operates on a request-response model:
+
 - Each HTTP request creates a new invocation
 - When the response completes, the invocation terminates
 - Awaiting tool results (via `asyncio.Future`) blocks until timeout or resolution
@@ -61,6 +67,7 @@ Request 2 (tool result):
   2. Turn 2b (tool result): **New invocation** → pre-resolved result cached, but the original Future was already destroyed
 
 **BIDI Mode (WebSocket)** maintains persistent connections:
+
 - Single invocation spans multiple messages
 - Future created in Turn 2a remains active when Turn 2b arrives
 - Both Pattern A and Pattern B work correctly
@@ -87,6 +94,7 @@ const handleApprove = async () => {
 ```
 
 Pattern B would require artificial separation:
+
 ```typescript
 // Unnatural implementation (Pattern B)
 const handleApprove = async () => {
@@ -155,6 +163,7 @@ Both `addToolApprovalResponse()` and `addToolOutput()` are sent in a single HTTP
 ## Consequences
 
 ### Positive
+
 - **Natural frontend implementation**: Matches the intuitive user flow (approve → execute → send)
 - **Simpler API contract**: One pattern to document and test for SSE mode
 - **Aligned with technical constraints**: Pattern A avoids the invocation lifecycle issues inherent to HTTP request-response model
@@ -163,10 +172,12 @@ Both `addToolApprovalResponse()` and `addToolOutput()` are sent in a single HTTP
 - **Clear mode detection**: `confirmation_delegate` check unambiguously distinguishes SSE from BIDI
 
 ### Negative
+
 - **Less flexibility**: Clients cannot choose to send approval and result separately in SSE mode
 - **Different behavior between modes**: SSE and BIDI have different supported patterns (though this reflects their fundamental architectural differences)
 
 ### Neutral
+
 - Pattern B remains available in BIDI mode for edge cases where deferred tool execution is needed
 - Documentation must clearly state the pattern difference between SSE and BIDI modes
 - Test suite simplified: SSE tests only need to cover Pattern A

@@ -33,7 +33,6 @@ from .helpers import (
     count_done_markers,
     create_approval_message,
     create_assistant_message_from_turn1,
-    create_tool_result_message,
     extract_tool_call_ids_from_turn1,
     load_frontend_fixture,
     send_sse_request,
@@ -76,9 +75,7 @@ async def test_get_location_approved_sse_baseline(frontend_fixture_dir: Path):
 
     # Then: rawEvents should match expected Turn 1
     # Extract Turn 1 events (up to first [DONE])
-    first_done_index = next(
-        i for i, event in enumerate(expected_events) if "[DONE]" in event
-    )
+    first_done_index = next(i for i, event in enumerate(expected_events) if "[DONE]" in event)
     expected_turn1_events = expected_events[: first_done_index + 1]
 
     # Structure validation for confirmation tools (LLM parameters and tokens are dynamic)
@@ -93,28 +90,22 @@ async def test_get_location_approved_sse_baseline(frontend_fixture_dir: Path):
     # And: Should have exactly 1 [DONE] marker (Turn 1 only)
     actual_done_count = count_done_markers(actual_events)
     assert actual_done_count == 1, (
-        f"[DONE] count mismatch for Turn 1: "
-        f"actual={actual_done_count}, expected=1"
+        f"[DONE] count mismatch for Turn 1: actual={actual_done_count}, expected=1"
     )
 
     # And: Should contain tool-input-available with empty args
     tool_input_events = [
-        event for event in actual_events
+        event
+        for event in actual_events
         if "tool-input-available" in event and "get_location" in event
     ]
-    assert len(tool_input_events) > 0, (
-        "Should have tool-input-available for get_location"
-    )
+    assert len(tool_input_events) > 0, "Should have tool-input-available for get_location"
 
     # Verify empty input: {} in the event
     # (This is characteristic of get_location - no arguments needed)
-    assert '"input": {}' in tool_input_events[0], (
-        "get_location should have empty input: {}"
-    )
+    assert '"input": {}' in tool_input_events[0], "get_location should have empty input: {}"
 
-    assert expected_done_count == 2, (
-        f"Fixture should have 2 turns, but has {expected_done_count}"
-    )
+    assert expected_done_count == 2, f"Fixture should have 2 turns, but has {expected_done_count}"
 
     # ===== TURN 2: Approval Execution =====
     print("\n=== TURN 2: Sending approval and testing execution ===")
@@ -180,17 +171,12 @@ async def test_get_location_approved_sse_baseline(frontend_fixture_dir: Path):
     # And: Should have exactly 1 [DONE] marker (Turn 2 only)
     actual_done_count_turn2 = count_done_markers(turn2_events)
     assert actual_done_count_turn2 == 1, (
-        f"[DONE] count mismatch for Turn 2: "
-        f"actual={actual_done_count_turn2}, expected=1"
+        f"[DONE] count mismatch for Turn 2: actual={actual_done_count_turn2}, expected=1"
     )
 
     # And: Should contain tool-output-available event (tool execution result)
     # Note: tool-output-available events don't include toolName, only toolCallId
-    tool_output_events = [
-        event
-        for event in turn2_events
-        if "tool-output-available" in event
-    ]
+    tool_output_events = [event for event in turn2_events if "tool-output-available" in event]
     assert len(tool_output_events) > 0, (
         "Turn 2 should have tool-output-available event (tool execution result)"
     )

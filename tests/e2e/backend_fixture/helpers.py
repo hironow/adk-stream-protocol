@@ -203,11 +203,13 @@ def create_approval_message(
 
     # Add tool result if provided (for frontend-delegated tools like get_location)
     if tool_result is not None:
-        parts.append({
-            "type": "tool-result",
-            "toolCallId": original_tool_call_id,
-            "result": tool_result,
-        })
+        parts.append(
+            {
+                "type": "tool-result",
+                "toolCallId": original_tool_call_id,
+                "result": tool_result,
+            }
+        )
 
     return {
         "role": "user",
@@ -273,7 +275,7 @@ def create_tool_result_message(
     }
 
 
-async def send_bidi_request(
+async def send_bidi_request(  # noqa: C901, PLR0912, PLR0915
     messages: list[dict[str, Any]],
     backend_url: str = "ws://localhost:8000/live",
     timeout: float = 30.0,
@@ -321,7 +323,9 @@ async def send_bidi_request(
         # Receive events until all turns complete
         while True:
             try:
-                event = await asyncio.wait_for(websocket.recv(), timeout=timeout)
+                event_raw = await asyncio.wait_for(websocket.recv(), timeout=timeout)
+                # Ensure event is str (websocket.recv() can return bytes or str)
+                event = event_raw.decode("utf-8") if isinstance(event_raw, bytes) else event_raw
                 raw_events.append(event)
 
                 # Check for tool-input-available events
@@ -488,7 +492,7 @@ def normalize_event(event_str: str) -> str:
         return event_str
 
 
-def validate_event_structure(
+def validate_event_structure(  # noqa: C901, PLR0911, PLR0912
     actual_event: str,
     expected_event: str,
 ) -> tuple[bool, str]:
@@ -630,7 +634,7 @@ def validate_event_structure(
         return (False, f"Failed to parse event: {e}")
 
 
-def compare_raw_events(
+def compare_raw_events(  # noqa: C901, PLR0912, PLR0915
     actual: list[str],
     expected: list[str],
     normalize: bool = True,

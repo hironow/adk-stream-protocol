@@ -58,9 +58,7 @@ async def test_process_payment_approved_sse_baseline(frontend_fixture_dir: Path)
     # Turn 2 (approval execution) is tested separately below.
     #
     # Extract Turn 1 events from expected (up to first [DONE])
-    first_done_index = next(
-        i for i, event in enumerate(expected_events) if "[DONE]" in event
-    )
+    first_done_index = next(i for i, event in enumerate(expected_events) if "[DONE]" in event)
     expected_turn1_events = expected_events[: first_done_index + 1]
 
     # DEBUG: Print actual events to understand the difference
@@ -83,14 +81,11 @@ async def test_process_payment_approved_sse_baseline(frontend_fixture_dir: Path)
     # And: Should have exactly 1 [DONE] marker (Turn 1 only)
     actual_done_count = count_done_markers(actual_events)
     assert actual_done_count == 1, (
-        f"[DONE] count mismatch for Turn 1: "
-        f"actual={actual_done_count}, expected=1"
+        f"[DONE] count mismatch for Turn 1: actual={actual_done_count}, expected=1"
     )
 
     # Note: Full fixture has expectedDoneCount=2 (both turns).
-    assert expected_done_count == 2, (
-        f"Fixture should have 2 turns, but has {expected_done_count}"
-    )
+    assert expected_done_count == 2, f"Fixture should have 2 turns, but has {expected_done_count}"
 
     # ===== TURN 2: Approval Execution =====
     print("\n=== TURN 2: Sending approval and testing execution ===")
@@ -145,17 +140,12 @@ async def test_process_payment_approved_sse_baseline(frontend_fixture_dir: Path)
     # And: Should have exactly 1 [DONE] marker (Turn 2 only)
     actual_done_count_turn2 = count_done_markers(turn2_events)
     assert actual_done_count_turn2 == 1, (
-        f"[DONE] count mismatch for Turn 2: "
-        f"actual={actual_done_count_turn2}, expected=1"
+        f"[DONE] count mismatch for Turn 2: actual={actual_done_count_turn2}, expected=1"
     )
 
     # And: Should contain tool-output-available event (tool execution result)
     # Note: tool-output-available events don't include toolName, only toolCallId
-    tool_output_events = [
-        event
-        for event in turn2_events
-        if "tool-output-available" in event
-    ]
+    tool_output_events = [event for event in turn2_events if "tool-output-available" in event]
     assert len(tool_output_events) > 0, (
         "Turn 2 should have tool-output-available event (tool execution result)"
     )

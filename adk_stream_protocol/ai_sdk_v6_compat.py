@@ -402,7 +402,7 @@ class ChatMessage(BaseModel):
         # Re-injecting them during history sync corrupts ADK's internal context (ctx.agent becomes None).
         # Only process user's approval/denial responses (APPROVAL_RESPONDED state).
 
-        if part.state == ToolCallState.CALL or part.state == ToolCallState.APPROVAL_REQUESTED:
+        if part.state in {ToolCallState.CALL, ToolCallState.APPROVAL_REQUESTED}:
             # Skip assistant's tool calls - ADK already has them from the original run
             logger.debug(
                 f"[AI SDK v6] Skipping assistant tool call during history sync "
@@ -420,9 +420,7 @@ class ChatMessage(BaseModel):
 
             # Extract approval decision
             if part.approval is None:
-                logger.warning(
-                    "[AI SDK v6] Missing approval metadata in approval-responded state"
-                )
+                logger.warning("[AI SDK v6] Missing approval metadata in approval-responded state")
                 return
 
             confirmed = part.approval.approved

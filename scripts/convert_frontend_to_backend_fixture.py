@@ -160,13 +160,13 @@ def main() -> None:
             print(f"✓ {frontend_json.name} -> {backend_jsonl.name} ({chunk_count} chunks)")
 
     # Summary
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Converted {len(converted_files)} files ({total_chunks} total chunks)")
     if skipped_files:
         print(f"Skipped {len(skipped_files)} files (no rawEvents)")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print("\nGenerated files:")
-    for frontend_name, backend_name, chunk_count in converted_files:
+    for _frontend_name, backend_name, chunk_count in converted_files:
         print(f"  {backend_name:50} ({chunk_count:3} chunks)")
 
     if skipped_files:

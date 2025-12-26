@@ -60,8 +60,7 @@ async def test_process_payment_denied_bidi_baseline(frontend_fixture_dir: Path):
     # And: Should have exactly 2 [DONE] markers (two-turn: confirmation + rejection)
     actual_done_count = count_done_markers(actual_events)
     assert actual_done_count == expected_done_count, (
-        f"[DONE] count mismatch: "
-        f"actual={actual_done_count}, expected={expected_done_count}"
+        f"[DONE] count mismatch: actual={actual_done_count}, expected={expected_done_count}"
     )
 
     # And: Event structure should be IDENTICAL to SSE mode
