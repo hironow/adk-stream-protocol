@@ -519,6 +519,16 @@ class ChatMessage(BaseModel):
             f"(id={part.tool_call_id}, name={tool_name})"
         )
 
+        # SSE Mode: Resolve pending Future before ADK processes the message
+        # In SSE mode, tool execution from Turn 1 may still be awaiting this result
+        # By resolving the Future now, the await will complete when ADK processes the FunctionResponse
+        if hasattr(self, "_delegate") and self._delegate:
+            logger.info(
+                f"[tool-result] Resolving pending Future for SSE mode "
+                f"(id={part.tool_call_id}, tool={tool_name})"
+            )
+            self._delegate.resolve_tool_result(part.tool_call_id, part.result)
+
         # Create ADK FunctionResponse
         function_response = types.FunctionResponse(
             id=part.tool_call_id,
@@ -552,7 +562,7 @@ class ChatMessage(BaseModel):
         elif isinstance(part, ToolResultPart):
             self._process_tool_result_part(part, adk_parts)
 
-    def to_adk_content(self, id_mapper: Any = None) -> types.Content:
+    def to_adk_content(self, id_mapper: Any = None, delegate: Any = None) -> types.Content:
         """
         Convert AI SDK v6 message to ADK Content format.
 
@@ -573,9 +583,12 @@ class ChatMessage(BaseModel):
         Args:
             id_mapper: Optional ADKVercelIDMapper for resolving tool_call_id → tool_name
                       Required for processing tool-result parts in Pattern B.
+            delegate: Optional FrontendToolDelegate for resolving Futures in SSE mode
+                     Required for resolving pending tool results across turns.
         """
-        # Store ID mapper temporarily for use in _process_tool_result_part
+        # Store ID mapper and delegate temporarily for use in _process_tool_result_part
         self._id_mapper = id_mapper
+        self._delegate = delegate
 
         adk_parts = []
 

@@ -349,3 +349,141 @@ Based on the investigation, **tool confirmation in BIDI mode appears to be unsup
 - "If no, what is the recommended approach for confirmation flows in real-time streaming?"
 
 **Fallback approach**: Use SSE mode for any tools requiring confirmation, reserve BIDI mode for tools that don't need approval.
+
+---
+
+## SSE Mode: session.state Persistence Issue (2025-12-27)
+
+**Last Updated: 2025-12-27 00:35 JST**
+
+### 🎯 DISCOVERY: session.state Cannot Store Non-Serializable Objects
+
+**ROOT CAUSE**: ADK's session.state only supports serializable data (strings, numbers, dicts). Complex Python objects like FrontendToolDelegate (containing asyncio.Future) **cannot be stored** in session.state.
+
+### Problem Background
+
+While implementing SSE mode confirmation flow for frontend-delegated tools (get_location, change_bgm), we encountered an issue where `session.state["frontend_delegate"]` was empty in Turn 2 (after invocation_id continuation).
+
+**Symptom:**
+```
+Turn 1: session.state["frontend_delegate"] = frontend_delegate  # Set in server.py
+Turn 2: session.state.get("frontend_delegate") = None  # Empty in tool execution!
+```
+
+### Investigation Results
+
+**Query 1**: DeepWiki search on ADK repository
+- **Finding**: "session.state persists across invocation_id continuations in SSE mode"
+- **Expectation**: session.state SHOULD be preserved
+
+**Query 2**: GitHub Discussion #3204
+- **Critical Quote**: "Changes made to the session state within an agent are not saved immediately - they are only committed to the persistent SessionService when an Event is yielded by your agent"
+- **Key Insight**: Setting session.state OUTSIDE agent execution (e.g., in server.py) **is not persisted**
+
+**Query 3**: ADK State Documentation (https://google.github.io/adk-docs/sessions/state/)
+- **Rule 1**: "State should always be updated as part of adding an Event to the session history"
+- **Rule 2**: "Never directly modify session.state retrieved from SessionService outside callback/tool scopes"
+- **Rule 3**: "Use context.state within tool functions - ADK ensures changes are captured in EventActions.state_delta"
+- **Constraint**: "Data types must be serializable — stick to basic types like strings, numbers, booleans, and simple lists/dictionaries"
+
+### Why Our Approach Failed
+
+```python
+# ❌ WRONG - This violates ADK patterns
+session = await get_or_create_session(...)
+session.state["frontend_delegate"] = frontend_delegate  # Set OUTSIDE agent execution
+# → NOT persisted because no Event was yielded
+# → FrontendToolDelegate contains asyncio.Future (not serializable)
+
+event_stream = sse_agent_runner.run_async(
+    session_id=session.id,  # Only session ID is passed
+    ...
+)
+# → run_async retrieves fresh session from SessionService
+# → frontend_delegate is gone!
+```
+
+### ✅ SOLUTION: Global Registry Pattern
+
+**Architecture**:
+1. **FrontendToolDelegate is NOT stored in session.state**
+2. **Use module-level registry dict[session_id, FrontendToolDelegate]**
+3. **Tools access delegate via tool_context.session.id lookup**
+
+**Implementation**:
+
+Created `frontend_tool_registry.py`:
+```python
+_REGISTRY: dict[str, FrontendToolDelegate] = {}
+
+def register_delegate(session_id: str, delegate: FrontendToolDelegate):
+    """Register delegate for a session"""
+    _REGISTRY[session_id] = delegate
+
+def get_delegate(session_id: str) -> FrontendToolDelegate | None:
+    """Lookup delegate by session ID"""
+    return _REGISTRY.get(session_id)
+```
+
+**Usage Pattern**:
+
+```python
+# server.py - HTTP request handler
+session = await get_or_create_session(...)
+frontend_delegate = FrontendToolDelegate()
+register_delegate(session.id, frontend_delegate)  # ✅ Register in global dict
+
+# adk_ag_tools.py - Tool function
+async def get_location(tool_context: ToolContext):
+    delegate = get_delegate(tool_context.session.id)  # ✅ Lookup from registry
+    if not delegate:
+        return {"error": "No delegate found"}
+
+    result = await delegate.execute_on_frontend(...)
+    return result
+```
+
+**Why This Works**:
+- `session.id` persists across invocation_id continuations (confirmed by ADK docs)
+- `tool_context.session.id` is accessible in all tool executions
+- No serialization required (registry is in-memory Python dict)
+- Follows ADK patterns (no direct session.state manipulation outside tools)
+
+### Files Modified
+
+1. ✅ `adk_stream_protocol/frontend_tool_registry.py` (NEW)
+   - Module-level registry implementation
+   - `register_delegate()`, `get_delegate()`, `unregister_delegate()`
+
+2. ✅ `server.py`
+   - Replaced `session.state["frontend_delegate"] = ...`
+   - With `register_delegate(session.id, frontend_delegate)`
+   - Both SSE and BIDI modes updated
+
+3. ✅ `adk_stream_protocol/adk_ag_tools.py`
+   - Replaced `session.state.get("frontend_delegate")`
+   - With `get_delegate(tool_context.session.id)`
+   - Updated: `change_bgm`, `get_location`, `_adk_request_confirmation`
+
+4. ✅ `adk_stream_protocol/__init__.py`
+   - Exported `register_delegate`, `get_delegate`, `unregister_delegate`
+
+### Key Learnings
+
+**DO:**
+- ✅ Use session.state for serializable data only (strings, numbers, dicts)
+- ✅ Modify state via `context.state` inside tool functions
+- ✅ Use global registry for complex Python objects (objects with asyncio.Future, etc.)
+- ✅ Use `tool_context.session.id` as stable identifier across turns
+
+**DON'T:**
+- ❌ Store complex objects in session.state
+- ❌ Modify session.state outside agent/tool execution
+- ❌ Expect direct session.state assignment to persist without Event yielding
+- ❌ Assume session object passed to run_async() is the same instance returned from SessionService
+
+### References
+
+- **ADK State Documentation**: https://google.github.io/adk-docs/sessions/state/
+- **GitHub Discussion #3204**: Session state persistence behavior
+- **DeepWiki Query**: "How to properly set session state that persists across invocations?"

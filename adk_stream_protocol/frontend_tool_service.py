@@ -32,13 +32,23 @@ class FrontendToolDelegate:
     """
     Makes frontend tool execution awaitable using asyncio.Future.
 
-    Pattern:
+    BIDI Mode (WebSocket) Pattern:
         1. Tool calls execute_on_frontend() with tool_call_id
         2. Future is created and stored in _pending_calls
         3. Tool awaits the Future (blocks)
         4. Frontend executes tool and sends result via WebSocket
         5. WebSocket handler calls resolve_tool_result()
         6. Future is resolved, tool resumes and returns result
+
+    SSE Mode Pattern A (1-request):
+        1. to_adk_content() processes message with tool-result → calls resolve_tool_result()
+        2. No Future exists yet → result stored in _pre_resolved_results cache
+        3. ADK calls tool → execute_on_frontend() checks cache
+        4. Cache hit → returns result immediately without creating Future
+        5. No await, no timeout
+
+    Note: SSE mode only supports Pattern A (approval + result in same request).
+    See ADR-0008 for rationale.
     """
 
     def __init__(self, id_mapper: ADKVercelIDMapper | None = None) -> None:
@@ -49,6 +59,10 @@ class FrontendToolDelegate:
             id_mapper: Optional ID mapper (creates new instance if not provided)
         """
         self._pending_calls: dict[str, asyncio.Future[dict[str, Any]]] = {}
+        # SSE Mode Pattern A: Cache for results that arrive before Future creation
+        # In Pattern A, tool-result arrives during message processing (to_adk_content)
+        # but Future is created later when ADK calls the tool (execute_on_frontend)
+        self._pre_resolved_results: dict[str, dict[str, Any]] = {}
         self._id_mapper = id_mapper or ADKVercelIDMapper()
 
     def set_function_call_id(self, tool_name: str, function_call_id: str) -> Result[None, str]:
@@ -91,6 +105,17 @@ class FrontendToolDelegate:
         else:
             # failed to resolve ID
             return Error(f"Function call ID not found for tool: {tool_name}")
+
+        # SSE Mode Pattern A: Check if result was pre-resolved (arrived before Future creation)
+        # In Pattern A, result arrives during message processing (to_adk_content)
+        # BEFORE ADK calls this function. Cache hit means we can return immediately.
+        if function_call_id in self._pre_resolved_results:
+            result = self._pre_resolved_results.pop(function_call_id)
+            logger.info(
+                f"[FrontendDelegate] Using pre-resolved result for tool={tool_name}, "
+                f"function_call.id={function_call_id}: {result}"
+            )
+            return Ok(result)
 
         # Register Future with function_call.id
         future: asyncio.Future[dict[str, Any]] = asyncio.Future()
@@ -171,11 +196,15 @@ class FrontendToolDelegate:
                 del self._pending_calls[original_id]
                 return
 
-        logger.error("[BIDI] ========== IMPLEMENTATION GAP DETECTED ==========")
-        logger.warning(
-            f"[FrontendDelegate] No pending call found for function_call.id={tool_call_id}. "
-            f"Pending: {list(self._pending_calls.keys())}"
+        # SSE Mode Pattern A: Result arrived before Future was created
+        # In Pattern A, message processing (to_adk_content) happens BEFORE ADK calls the tool
+        # Store result in cache for later use when execute_on_frontend() is called
+        # This prevents timeout waiting for a result that has already arrived
+        logger.info(
+            f"[FrontendDelegate] Pre-resolving result for SSE mode (id={tool_call_id}). "
+            f"Result will be used when tool executes."
         )
+        self._pre_resolved_results[tool_call_id] = result
 
     def _reject_tool_call(self, tool_call_id: str, error_message: str) -> None:
         """

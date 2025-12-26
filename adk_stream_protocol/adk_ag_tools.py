@@ -21,6 +21,7 @@ import aiohttp
 from google.adk.tools.tool_context import ToolContext
 from loguru import logger
 
+from .frontend_tool_registry import get_delegate
 from .result import Error, Ok
 
 
@@ -290,9 +291,9 @@ async def change_bgm(track: int, tool_context: ToolContext | None = None) -> dic
 
     if tool_context:
         logger.info("[change_bgm] tool_context exists, checking for delegate")
-        # Check for delegate in tool_context (BIDI mode)
-        delegate = tool_context.session.state.get("frontend_delegate")
-        logger.info(f"[change_bgm] delegate={delegate}")
+        # Get delegate from global registry using session.id
+        delegate = get_delegate(tool_context.session.id)
+        logger.info(f"[change_bgm] delegate={delegate} (session_id={tool_context.session.id})")
         if delegate:
             # BIDI mode - delegate to frontend
             logger.info("[change_bgm] BIDI mode detected - delegating to frontend")
@@ -373,13 +374,13 @@ async def get_location(tool_context: ToolContext) -> dict[str, Any]:
     # Continue with location retrieval via frontend delegation...
 
     # Delegate execution to frontend and await result
-    # Note: Uses global frontend_delegate via session.state
+    # Note: Gets delegate from global registry using session.id
     # ID resolution is handled automatically by execute_on_frontend via id_mapper
-    delegate = tool_context.session.state.get("frontend_delegate")
-    logger.info(f"[get_location] delegate={delegate}")
+    delegate = get_delegate(tool_context.session.id)
+    logger.info(f"[get_location] delegate={delegate} (session_id={tool_context.session.id})")
 
     if not delegate:
-        error_msg = "Missing frontend_delegate in session.state"
+        error_msg = f"Missing frontend_delegate for session_id={tool_context.session.id}"
         logger.error(f"[get_location] {error_msg}")
         return {"success": False, "error": error_msg}
 
@@ -435,16 +436,10 @@ async def _adk_request_confirmation(
         f"original_tool={originalFunctionCall.get('name')}"
     )
 
-    # Get frontend delegate from session state
-    session_state = getattr(tool_context.session, "state", None)
-    if not session_state:
-        error_msg = "Missing session.state in ToolContext"
-        logger.error(f"[adk_request_confirmation] {error_msg}")
-        return {"confirmed": False, "error": error_msg}
-
-    delegate = session_state.get("frontend_delegate")
+    # Get frontend delegate from global registry
+    delegate = get_delegate(tool_context.session.id)
     if not delegate:
-        error_msg = "Missing frontend_delegate in session.state"
+        error_msg = f"Missing frontend_delegate for session_id={tool_context.session.id}"
         logger.error(f"[adk_request_confirmation] {error_msg}")
         return {"confirmed": False, "error": error_msg}
 

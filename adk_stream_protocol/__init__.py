@@ -44,6 +44,7 @@ from .bidi_event_sender import BidiEventSender
 from .chunk_logger import ChunkLogger, Mode, chunk_logger
 from .chunk_player import ChunkPlayer, ChunkPlayerManager
 from .confirmation_interceptor import ToolConfirmationInterceptor
+from .frontend_tool_registry import get_delegate, register_delegate, unregister_delegate
 from .frontend_tool_service import FrontendToolDelegate
 from .sse_event_streamer import SseEventStreamer
 from .tool_confirmation_service import ToolConfirmationDelegate
@@ -82,14 +83,17 @@ __all__ = [
     "change_bgm",
     "chunk_logger",
     "clear_sessions",
+    "get_delegate",
     "get_location",
     "get_or_create_session",
     "get_tools_requiring_confirmation",
     "get_weather",
     "process_chat_message_for_bidi",
     "process_payment",
+    "register_delegate",
     "sse_agent",
     "sse_agent_runner",
     "stream_adk_to_ai_sdk",
     "sync_conversation_history_to_session",
+    "unregister_delegate",
 ]

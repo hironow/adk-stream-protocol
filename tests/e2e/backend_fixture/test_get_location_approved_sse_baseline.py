@@ -4,19 +4,24 @@ Tests backend behavior against get_location approval flow SSE baseline fixture.
 
 Fixture: fixtures/frontend/get_location-approved-sse-baseline.json
 Invocation: 1 Invocation, 2 Turns
-Tool: get_location (multi-turn, requires approval, no arguments)
+Tool: get_location (frontend-delegated, requires approval, no arguments)
+
+SSE Mode Execution Pattern:
+- **Pattern A only** (1-request): approval + tool result in same HTTP request
+- Pattern B (2-request) is NOT supported in SSE mode due to request-response lifecycle
+- See ADR-0008 for rationale
 
 Expected Flow:
 Turn 1 (Confirmation Request):
 - User: "現在地を教えて"
 - Backend: tool-input-start → tool-input-available (empty args) → adk_request_confirmation → [DONE]
 
-Turn 2 (Approved Execution):
-- User approval response
+Turn 2 (Approved Execution - Pattern A):
+- User approval response + tool execution result (single request)
 - Backend: tool-output-available → location data → [DONE]
 
 Note: get_location takes no arguments (input: {}).
-This is a Server Execute pattern, not Frontend Delegation.
+This is a Frontend-Delegated pattern (execution happens in frontend, result sent to backend).
 """
 
 from pathlib import Path
@@ -37,12 +42,21 @@ from .helpers import (
 
 @pytest.mark.asyncio
 async def test_get_location_approved_sse_baseline(frontend_fixture_dir: Path):
-    """Pattern A: Send approval and tool result in single request.
+    """SSE Mode: Pattern A (1-request) - Standard frontend-delegated tool flow.
 
-    This pattern sends both the approval response and tool execution result
-    together in a single API request after the confirmation.
+    SSE mode ONLY supports Pattern A where approval and tool result are sent together.
+    This matches the natural frontend flow: approve → execute → send both in one request.
+
+    Flow:
     - Request 1 (Turn 1): Initial message → Return confirmation
-    - Request 2 (Turn 2): Approval + Tool result → AI response with location data
+    - Request 2 (Turn 2): Approval + Tool result (single request) → AI response with location data
+
+    Technical Implementation:
+    - Pre-resolution cache handles timing: result arrives before Future creation
+    - Backend uses cached result when ADK calls get_location()
+    - No timeout, immediate response
+
+    See ADR-0008 for why Pattern B (2-request) is not supported in SSE mode.
     """
     # Given: Frontend baseline fixture (2 turns)
     fixture_path = frontend_fixture_dir / "get_location-approved-sse-baseline.json"
@@ -182,154 +196,3 @@ async def test_get_location_approved_sse_baseline(frontend_fixture_dir: Path):
     )
 
     print("\n✅ Full invocation (Turn 1 + Turn 2) passed!")
-
-
-@pytest.mark.asyncio
-async def test_get_location_approved_pattern_b(frontend_fixture_dir: Path):
-    """Pattern B: Send approval and tool result in separate requests (like addToolOutput).
-
-    This pattern mimics frontend behavior when using AI SDK v6's addToolOutput():
-    - Request 1 (Turn 1): Initial message → Return confirmation
-    - Request 2 (Turn 2a): Approval response only → Acknowledge (204 or minimal response)
-    - Request 3 (Turn 2b): Tool result only → AI response with location data
-    """
-    # Given: Frontend baseline fixture (reuse same fixture)
-    fixture_path = frontend_fixture_dir / "get_location-approved-sse-baseline.json"
-    fixture = await load_frontend_fixture(fixture_path)
-
-    input_messages = fixture["input"]["messages"]
-    expected_events = fixture["output"]["rawEvents"]
-
-    # ===== TURN 1: Send initial request and verify confirmation =====
-    print("\n=== TURN 1: Initial request ===" )
-    actual_events = await send_sse_request(
-        messages=input_messages,
-        backend_url="http://localhost:8000/stream",
-    )
-
-    # Extract Turn 1 events (up to first [DONE])
-    first_done_index = next(
-        i for i, event in enumerate(expected_events) if "[DONE]" in event
-    )
-    expected_turn1_events = expected_events[: first_done_index + 1]
-
-    # Structure validation for Turn 1
-    is_match, diff_msg = compare_raw_events(
-        actual=actual_events,
-        expected=expected_turn1_events,
-        normalize=True,
-        dynamic_content_tools=["get_location", "adk_request_confirmation"],
-    )
-    assert is_match, f"Turn 1 rawEvents structure mismatch:\n{diff_msg}"
-
-    # Extract tool call IDs from Turn 1
-    original_id, confirmation_id = extract_tool_call_ids_from_turn1(actual_events)
-    assert original_id is not None, "Should have original tool call ID (get_location)"
-    assert confirmation_id is not None, "Should have confirmation tool call ID"
-
-    # Reconstruct assistant's confirmation message from Turn 1 events
-    assistant_msg = create_assistant_message_from_turn1(actual_events)
-
-    # ===== TURN 2a: Send approval only (no tool result) =====
-    print("\n=== TURN 2a: Sending approval only (Pattern B) ===")
-
-    # Create approval message WITHOUT tool result
-    approval_msg = create_approval_message(
-        confirmation_id,
-        original_id,
-        tool_result=None,  # Pattern B: NO tool result in approval request
-    )
-
-    # Build message history for Turn 2a
-    turn2a_messages = [
-        *input_messages,  # Original user message
-        assistant_msg,  # Assistant's confirmation response
-        approval_msg,  # User's approval response (without tool result)
-    ]
-
-    # Send Turn 2a request with approval only
-    turn2a_events = await send_sse_request(
-        messages=turn2a_messages,
-        backend_url="http://localhost:8000/stream",
-    )
-
-    # DEBUG: Print Turn 2a events
-    print(f"\n=== TURN 2a EVENTS (count={len(turn2a_events)}) ===")
-    for i, event in enumerate(turn2a_events):
-        print(f"{i}: {event.strip()}")
-
-    # Turn 2a should acknowledge approval but not have final AI response yet
-    # (The exact behavior depends on backend implementation)
-
-    # ===== TURN 2b: Send tool result separately =====
-    print("\n=== TURN 2b: Sending tool result separately (Pattern B) ===")
-
-    # Prepare mock location result
-    mock_location_result = {
-        "latitude": 35.6762,
-        "longitude": 139.6503,
-        "accuracy": 20,
-        "city": "Tokyo",
-        "country": "Japan",
-    }
-
-    # Create tool result message using new helper
-    tool_result_msg = create_tool_result_message(
-        tool_call_id=original_id,
-        tool_result=mock_location_result,
-    )
-
-    # Build message history for Turn 2b (includes Turn 2a approval message)
-    turn2b_messages = [
-        *input_messages,  # Original user message
-        assistant_msg,  # Assistant's confirmation response
-        approval_msg,  # User's approval response (from Turn 2a)
-        tool_result_msg,  # Tool execution result (NEW)
-    ]
-
-    # Send Turn 2b request with tool result
-    turn2b_events = await send_sse_request(
-        messages=turn2b_messages,
-        backend_url="http://localhost:8000/stream",
-    )
-
-    # DEBUG: Print Turn 2b events
-    print(f"\n=== TURN 2b EVENTS (count={len(turn2b_events)}) ===")
-    for i, event in enumerate(turn2b_events):
-        print(f"{i}: {event.strip()}")
-
-    # Extract expected Turn 2 events from fixture (after first [DONE])
-    expected_turn2_events = expected_events[first_done_index + 1 :]
-
-    print(f"\n=== EXPECTED TURN 2 EVENTS (count={len(expected_turn2_events)}) ===")
-    for i, event in enumerate(expected_turn2_events):
-        print(f"{i}: {event.strip()}")
-
-    # Structure validation for Turn 2b (should match expected final turn)
-    is_match_turn2b, diff_msg_turn2b = compare_raw_events(
-        actual=turn2b_events,
-        expected=expected_turn2_events,
-        normalize=True,
-        dynamic_content_tools=["get_location"],
-        include_text_events=True,  # SSE mode fixtures include text-* events
-    )
-    assert is_match_turn2b, f"Turn 2b rawEvents structure mismatch:\n{diff_msg_turn2b}"
-
-    # And: Should have exactly 1 [DONE] marker (Turn 2b only)
-    actual_done_count_turn2b = count_done_markers(turn2b_events)
-    assert actual_done_count_turn2b == 1, (
-        f"[DONE] count mismatch for Turn 2b: "
-        f"actual={actual_done_count_turn2b}, expected=1"
-    )
-
-    # And: Should contain tool-output-available event (tool execution result)
-    tool_output_events = [
-        event
-        for event in turn2b_events
-        if "tool-output-available" in event
-    ]
-    assert len(tool_output_events) > 0, (
-        "Turn 2b should have tool-output-available event (tool execution result)"
-    )
-
-    print("\n✅ Pattern B test (Turn 1 + Turn 2a + Turn 2b) passed!")

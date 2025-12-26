@@ -47,7 +47,9 @@ from adk_stream_protocol import (  # noqa: E402  # noqa: E402  # noqa: E402
     bidi_agent_runner,
     chunk_logger,
     clear_sessions,
+    get_delegate,
     get_or_create_session,
+    register_delegate,
     sse_agent,
     sse_agent_runner,
 )
@@ -266,7 +268,7 @@ def _create_error_sse_response(error_message: str) -> StreamingResponse:
 
 
 def _process_latest_message(
-    last_message: ChatMessage, session: Any, id_mapper: Any = None
+    last_message: ChatMessage, session: Any, id_mapper: Any = None, delegate: Any = None
 ) -> types.Content | None:
     """
     Process the latest message and convert to ADK Content.
@@ -294,7 +296,7 @@ def _process_latest_message(
         if has_confirmation:
             # Convert confirmation to ADK content
             # This will be a FunctionResponse that ADK can process
-            message_content = last_message.to_adk_content(id_mapper=id_mapper)
+            message_content = last_message.to_adk_content(id_mapper=id_mapper, delegate=delegate)
             logger.info(f"[/stream] Processing confirmation response: {message_content}")
             return message_content
         else:
@@ -304,7 +306,7 @@ def _process_latest_message(
     else:
         # User message processing
         # Create ADK message content (includes text, images, function responses, etc.)
-        message_content = last_message.to_adk_content(id_mapper=id_mapper)
+        message_content = last_message.to_adk_content(id_mapper=id_mapper, delegate=delegate)
 
         # Log processing type
         last_user_message_text = last_message._get_text_content()
@@ -342,7 +344,7 @@ async def stream(request: ChatRequest):
         logger.info(f"[/stream] --- Message {i} ---")
         logger.info(f"[/stream] role: {msg.role}")
 
-        msg_context = msg.to_adk_content(id_mapper=frontend_delegate._id_mapper)
+        msg_context = msg.to_adk_content(id_mapper=frontend_delegate._id_mapper, delegate=frontend_delegate)
         logger.info(f"[/stream] parts count: {len(msg_context.parts) if msg_context.parts else 0}")
 
         if msg_context.parts:
@@ -389,13 +391,22 @@ async def stream(request: ChatRequest):
         except Exception as e:
             logger.warning(f"[/stream] Could not get session events: {e}")
 
-        # Use global frontend tool delegate (shared across SSE and BIDI modes)
-        session.state["frontend_delegate"] = frontend_delegate
-        logger.info("[/stream] Global FrontendToolDelegate stored in session.state")
+        # Get or create session-specific frontend delegate
+        # Delegate must persist across turns so Futures created in Turn 1 can be resolved in Turn 2
+        # Note: Cannot store in session.state (not serializable - contains asyncio.Future)
+        # Tools access delegate via frontend_tool_registry.get_delegate(session.id)
+        existing_delegate = get_delegate(session.id)
+        if existing_delegate:
+            frontend_delegate = existing_delegate
+            logger.info(f"[/stream] Reusing existing FrontendToolDelegate for session_id={session.id}")
+        else:
+            frontend_delegate = FrontendToolDelegate()
+            register_delegate(session.id, frontend_delegate)
+            logger.info(f"[/stream] Created new FrontendToolDelegate for session_id={session.id}")
 
-        # Process the latest message (pass ID mapper for tool-result resolution)
+        # Process the latest message (pass ID mapper and delegate for tool-result resolution)
         message_content = _process_latest_message(
-            request.messages[-1], session, id_mapper=frontend_delegate._id_mapper
+            request.messages[-1], session, id_mapper=frontend_delegate._id_mapper, delegate=frontend_delegate
         )
         if message_content is None:
             return
@@ -566,9 +577,18 @@ async def live_chat(websocket: WebSocket):  # noqa: PLR0915
     )
     logger.info(f"[BIDI] Session created: {session.id}")
 
-    # Use global frontend tool delegate (shared across SSE and BIDI modes)
-    session.state["frontend_delegate"] = frontend_delegate
-    logger.info("[BIDI] Global FrontendToolDelegate stored in session.state")
+    # Get or create session-specific frontend delegate
+    # Delegate must persist across turns so Futures created in Turn 1 can be resolved in Turn 2
+    # Note: Cannot store in session.state (not serializable - contains asyncio.Future)
+    # Tools access delegate via frontend_tool_registry.get_delegate(session.id)
+    existing_delegate = get_delegate(session.id)
+    if existing_delegate:
+        frontend_delegate = existing_delegate
+        logger.info(f"[BIDI] Reusing existing FrontendToolDelegate for session_id={session.id}")
+    else:
+        frontend_delegate = FrontendToolDelegate()
+        register_delegate(session.id, frontend_delegate)
+        logger.info(f"[BIDI] Created new FrontendToolDelegate for session_id={session.id}")
 
     # Create LiveRequestQueue for bidirectional communication
     live_request_queue = LiveRequestQueue()
