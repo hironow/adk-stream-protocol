@@ -138,7 +138,10 @@ class BidiEventReceiver:
         # Process AI SDK v6 message format → ADK format
         # Separates image blobs from text parts (Live API requirement)
         # Tool confirmations handled in ChatMessage.to_adk_content()
-        image_blobs, text_content = process_chat_message_for_bidi(message_data)
+        # Pass ID mapper for tool-result part resolution
+        image_blobs, text_content = process_chat_message_for_bidi(
+            message_data, id_mapper=self._delegate._id_mapper
+        )
 
         # Send images/videos to ADK LiveRequestQueue
         for blob in image_blobs:

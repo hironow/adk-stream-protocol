@@ -224,6 +224,30 @@ class ToolUsePart(BaseModel):
             self.tool_name = self.type[5:]  # Remove "tool-" prefix
 
 
+class ToolResultPart(BaseModel):
+    """
+    Tool result part in message (AI SDK v6 format).
+
+    This represents tool execution results sent from frontend to backend.
+    Used in Pattern B where tool result is sent separately from approval.
+
+    Frontend sends this when:
+    - Using addToolOutput() in AI SDK v6
+    - Tool execution completes on browser (e.g., Geolocation API)
+
+    Converts to: ADK FunctionResponse with tool execution result
+
+    Reference:
+    - Frontend test: lib/tests/e2e/frontend-execute-sse.e2e.test.tsx (addToolOutput)
+    """
+
+    model_config = {"populate_by_name": True}
+
+    type: Literal["tool-result"] = "tool-result"
+    tool_call_id: str = Field(alias="toolCallId")
+    result: dict[str, Any]
+
+
 # ============================================================
 # Generic Part for AI SDK v6 Internal Chunks
 # ============================================================
@@ -263,7 +287,9 @@ class GenericPart(BaseModel):
 # Pydantic tries each type in order, so specific types must come before generic ones.
 # StepPart handles known internal chunks (start, step-start, start-step, finish-step).
 # Only truly unknown types fall through to GenericPart, preventing 422 validation errors.
-MessagePart = TextPart | ImagePart | FilePart | ToolUsePart | StepPart | GenericPart
+MessagePart = (
+    TextPart | ImagePart | FilePart | ToolUsePart | ToolResultPart | StepPart | GenericPart
+)
 """
 Union type for all message parts (AI SDK v6 format).
 
@@ -458,6 +484,49 @@ class ChatMessage(BaseModel):
             )
             adk_parts.append(types.Part(function_response=function_response))
 
+    def _process_tool_result_part(self, part: ToolResultPart, adk_parts: list[types.Part]) -> None:
+        """
+        Process a ToolResultPart and convert to ADK FunctionResponse.
+
+        This handles tool execution results sent from frontend (Pattern B):
+        - Frontend executes tool (e.g., browser Geolocation API)
+        - Frontend sends tool result via addToolOutput()
+        - Backend converts to ADK FunctionResponse
+
+        The tool_call_id maps to the original tool call ID from ADK.
+        We use the ID mapper to retrieve the tool name.
+        """
+        # Validate result
+        if not isinstance(part.result, dict):
+            logger.warning(f"[tool-result] Invalid result format: {part.result}")
+            return
+
+        # Resolve tool name from ID using ID mapper
+        # The ID mapper tracks tool_name → function_call.id mappings
+        tool_name = None
+        if hasattr(self, "_id_mapper") and self._id_mapper:
+            tool_name = self._id_mapper.resolve_tool_result(part.tool_call_id)
+
+        if not tool_name:
+            logger.error(
+                f"[tool-result] Cannot resolve tool name for ID: {part.tool_call_id}. "
+                f"This may indicate the tool was never registered in ID mapper."
+            )
+            return
+
+        logger.info(
+            f"[tool-result] Converting to ADK FunctionResponse "
+            f"(id={part.tool_call_id}, name={tool_name})"
+        )
+
+        # Create ADK FunctionResponse
+        function_response = types.FunctionResponse(
+            id=part.tool_call_id,
+            name=tool_name,
+            response=part.result,
+        )
+        adk_parts.append(types.Part(function_response=function_response))
+
     def _process_part(self, part: object, adk_parts: list[types.Part]) -> None:
         """Process a single part and add to adk_parts if applicable."""
         if isinstance(part, StepPart):
@@ -480,8 +549,10 @@ class ChatMessage(BaseModel):
                 adk_parts.append(adk_part)
         elif isinstance(part, ToolUsePart):
             self._process_tool_use_part(part, adk_parts)
+        elif isinstance(part, ToolResultPart):
+            self._process_tool_result_part(part, adk_parts)
 
-    def to_adk_content(self) -> types.Content:
+    def to_adk_content(self, id_mapper: Any = None) -> types.Content:
         """
         Convert AI SDK v6 message to ADK Content format.
 
@@ -498,7 +569,14 @@ class ChatMessage(BaseModel):
             types.Part(text="..."),
             types.Part(inline_data=InlineData(mime_type="image/png", data=bytes))
           ])
+
+        Args:
+            id_mapper: Optional ADKVercelIDMapper for resolving tool_call_id → tool_name
+                      Required for processing tool-result parts in Pattern B.
         """
+        # Store ID mapper temporarily for use in _process_tool_result_part
+        self._id_mapper = id_mapper
+
         adk_parts = []
 
         if self.content:
@@ -513,6 +591,9 @@ class ChatMessage(BaseModel):
             for part in self.parts:
                 self._process_part(part, adk_parts)
 
+        # Clean up temporary reference
+        self._id_mapper = None
+
         return types.Content(role=self.role, parts=adk_parts)
 
 
@@ -523,6 +604,7 @@ class ChatMessage(BaseModel):
 
 def process_chat_message_for_bidi(  # noqa: C901, PLR0912 - Complexity needed for AI SDK v6 message processing
     message_data: dict,
+    id_mapper: Any = None,
 ) -> tuple[list[types.Blob], types.Content | None]:
     """
     Process AI SDK v6 message data for BIDI streaming.
@@ -543,6 +625,7 @@ def process_chat_message_for_bidi(  # noqa: C901, PLR0912 - Complexity needed fo
     Args:
         message_data: Message data from WebSocket event (AI SDK v6 format)
                      Example: {"messages": [{"role": "user", "parts": [...]}]}
+        id_mapper: Optional ID mapper for resolving tool_call_id → tool_name
 
     Returns:
         (image_blobs, text_content): Tuple of:
@@ -583,7 +666,7 @@ def process_chat_message_for_bidi(  # noqa: C901, PLR0912 - Complexity needed fo
 
     # Convert message to ADK Content using ChatMessage.to_adk_content()
     # This handles all part types including ToolUsePart (confirmation responses)
-    adk_content = last_msg.to_adk_content()
+    adk_content = last_msg.to_adk_content(id_mapper=id_mapper)
 
     # Separate image/video blobs from other parts
     # IMPORTANT: Live API requires separation

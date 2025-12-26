@@ -248,6 +248,31 @@ def create_denial_message(
     }
 
 
+def create_tool_result_message(
+    tool_call_id: str,
+    tool_result: dict[str, Any],
+) -> dict[str, Any]:
+    """Create tool result message (Pattern B: separate tool result request).
+
+    Args:
+        tool_call_id: Original tool call ID
+        tool_result: Tool execution result
+
+    Returns:
+        Message dict with tool result
+    """
+    return {
+        "role": "user",
+        "parts": [
+            {
+                "type": "tool-result",
+                "toolCallId": tool_call_id,
+                "result": tool_result,
+            }
+        ],
+    }
+
+
 async def send_bidi_request(
     messages: list[dict[str, Any]],
     backend_url: str = "ws://localhost:8000/live",

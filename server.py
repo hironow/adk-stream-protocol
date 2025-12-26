@@ -265,7 +265,9 @@ def _create_error_sse_response(error_message: str) -> StreamingResponse:
     )
 
 
-def _process_latest_message(last_message: ChatMessage, session: Any) -> types.Content | None:
+def _process_latest_message(
+    last_message: ChatMessage, session: Any, id_mapper: Any = None
+) -> types.Content | None:
     """
     Process the latest message and convert to ADK Content.
 
@@ -275,6 +277,7 @@ def _process_latest_message(last_message: ChatMessage, session: Any) -> types.Co
     Args:
         last_message: Message to process
         session: ADK session (for accessing pending_confirmations in Turn 2)
+        id_mapper: Optional ID mapper for resolving tool_call_id → tool_name
     """
     # When user approves adk_request_confirmation, AI SDK sends assistant message back
     # with tool output (not a new user message). We need to send the confirmation
@@ -291,7 +294,7 @@ def _process_latest_message(last_message: ChatMessage, session: Any) -> types.Co
         if has_confirmation:
             # Convert confirmation to ADK content
             # This will be a FunctionResponse that ADK can process
-            message_content = last_message.to_adk_content()
+            message_content = last_message.to_adk_content(id_mapper=id_mapper)
             logger.info(f"[/stream] Processing confirmation response: {message_content}")
             return message_content
         else:
@@ -301,7 +304,7 @@ def _process_latest_message(last_message: ChatMessage, session: Any) -> types.Co
     else:
         # User message processing
         # Create ADK message content (includes text, images, function responses, etc.)
-        message_content = last_message.to_adk_content()
+        message_content = last_message.to_adk_content(id_mapper=id_mapper)
 
         # Log processing type
         last_user_message_text = last_message._get_text_content()
@@ -334,11 +337,12 @@ async def stream(request: ChatRequest):
     logger.info(f"[/stream] Total messages: {len(request.messages)}")
 
     # Debug logging for all incoming messages with detailed parts
+    # Note: Pass ID mapper for tool-result part resolution
     for i, msg in enumerate(request.messages):
         logger.info(f"[/stream] --- Message {i} ---")
         logger.info(f"[/stream] role: {msg.role}")
 
-        msg_context = msg.to_adk_content()
+        msg_context = msg.to_adk_content(id_mapper=frontend_delegate._id_mapper)
         logger.info(f"[/stream] parts count: {len(msg_context.parts) if msg_context.parts else 0}")
 
         if msg_context.parts:
@@ -389,8 +393,10 @@ async def stream(request: ChatRequest):
         session.state["frontend_delegate"] = frontend_delegate
         logger.info("[/stream] Global FrontendToolDelegate stored in session.state")
 
-        # Process the latest message
-        message_content = _process_latest_message(request.messages[-1], session)
+        # Process the latest message (pass ID mapper for tool-result resolution)
+        message_content = _process_latest_message(
+            request.messages[-1], session, id_mapper=frontend_delegate._id_mapper
+        )
         if message_content is None:
             return
 

@@ -1,0 +1,1 @@
+You do not need to start the server or run the tests yourself, as the user will do that. Instead, provide instructions to the user on how to do so. The user will provide you with server logs and test results. So do not execute anything yourself, just give instructions.
