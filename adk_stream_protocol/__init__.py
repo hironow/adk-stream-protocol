@@ -46,6 +46,7 @@ from .chunk_player import ChunkPlayer, ChunkPlayerManager
 from .confirmation_interceptor import ToolConfirmationInterceptor
 from .frontend_tool_service import FrontendToolDelegate
 from .sse_event_streamer import SseEventStreamer
+from .tool_confirmation_service import ToolConfirmationDelegate
 from .stream_protocol import (
     StreamProtocolConverter,
     _map_adk_finish_reason_to_ai_sdk,
@@ -71,6 +72,7 @@ __all__ = [
     "StreamProtocolConverter",
     "TextPart",
     "ToolCallState",
+    "ToolConfirmationDelegate",
     "ToolConfirmationInterceptor",
     "ToolUsePart",
     "_adk_request_confirmation",

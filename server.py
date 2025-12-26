@@ -33,7 +33,6 @@ from loguru import logger  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
 from adk_stream_protocol import (  # noqa: E402  # noqa: E402  # noqa: E402
-    BIDI_CONFIRMATION_TOOLS,
     SSE_CONFIRMATION_TOOLS,
     BidiEventReceiver,
     BidiEventSender,
@@ -42,6 +41,7 @@ from adk_stream_protocol import (  # noqa: E402  # noqa: E402  # noqa: E402
     SseEventStreamer,
     StreamProtocolConverter,
     ToolCallState,
+    ToolConfirmationDelegate,
     ToolUsePart,
     bidi_agent,
     bidi_agent_runner,
@@ -50,7 +50,6 @@ from adk_stream_protocol import (  # noqa: E402  # noqa: E402  # noqa: E402
     get_or_create_session,
     sse_agent,
     sse_agent_runner,
-    sync_conversation_history_to_session,
 )
 
 
@@ -331,7 +330,7 @@ async def stream(request: ChatRequest):
     - Request: UIMessage[] (full message history)
     - Response: SSE stream (text-start, text-delta, text-end, finish)
     """
-    logger.info(f"[/stream] ===== API REQUEST RECEIVED =====")
+    logger.info("[/stream] ===== API REQUEST RECEIVED =====")
     logger.info(f"[/stream] Total messages: {len(request.messages)}")
 
     # Debug logging for all incoming messages with detailed parts
@@ -360,7 +359,7 @@ async def stream(request: ChatRequest):
                         f"name={part.function_call.name}, "
                         f"args={part.function_call.args})"
                     )
-    logger.info(f"[/stream] ===================================")
+    logger.info("[/stream] ===================================")
 
     # Validate input messages
     if not request.messages:
@@ -395,7 +394,7 @@ async def stream(request: ChatRequest):
         if message_content is None:
             return
 
-        logger.info(f"[/stream] ===== ADK INPUT (new_message) =====")
+        logger.info("[/stream] ===== ADK INPUT (new_message) =====")
         logger.info(f"[/stream] role: {message_content.role}")
         logger.info(f"[/stream] parts count: {len(message_content.parts) if message_content.parts else 0}")
         if message_content.parts:
@@ -416,7 +415,7 @@ async def stream(request: ChatRequest):
                         f"name={part.function_call.name}, "
                         f"args={part.function_call.args})"
                     )
-        logger.info(f"[/stream] =======================================")
+        logger.info("[/stream] =======================================")
 
         # ID変換: confirmation-adk-xxx → adk-xxx (for adk_request_confirmation approval responses)
         # This converts frontend confirmation IDs back to original ADK tool call IDs
@@ -456,13 +455,12 @@ async def stream(request: ChatRequest):
                 logger.info(f"[/stream] Turn 2: Continuing from invocation_id: {last_invocation_id}")
             else:
                 logger.warning("[/stream] Turn 2 detected but no invocation_id found!")
+        # Turn 1: Clear any old invocation_id and start fresh
+        elif "last_invocation_id" in session.state:
+            del session.state["last_invocation_id"]
+            logger.info("[/stream] Turn 1: Cleared old invocation_id, starting new invocation")
         else:
-            # Turn 1: Clear any old invocation_id and start fresh
-            if "last_invocation_id" in session.state:
-                del session.state["last_invocation_id"]
-                logger.info("[/stream] Turn 1: Cleared old invocation_id, starting new invocation")
-            else:
-                logger.info("[/stream] Turn 1: Starting new invocation")
+            logger.info("[/stream] Turn 1: Starting new invocation")
 
         # Run ADK agent with streaming
         # Use invocation_id for multi-turn continuation
@@ -623,71 +621,89 @@ async def live_chat(websocket: WebSocket):  # noqa: PLR0915
             ),
         )
 
-    try:
-        # Start ADK BIDI streaming
+    # Initialize ToolConfirmationDelegate for BIDI mode
+    # Tool functions (process_payment, get_location) use this to await user confirmation
+    confirmation_delegate = ToolConfirmationDelegate()
+    session.state["confirmation_delegate"] = confirmation_delegate
+    logger.info("[BIDI] ToolConfirmationDelegate initialized")
+
+    # Initialize confirmation_id_mapping for BidiEventSender/Receiver
+    # Maps confirmation_id → original_tool_call_id for approval resolution
+    session.state["confirmation_id_mapping"] = {}
+    logger.info("[BIDI] confirmation_id_mapping dict initialized")
+
+    # Create BidiEventReceiver (upstream: WebSocket → ADK)
+    # Single receiver handles all messages across all turns
+    bidi_event_receiver = BidiEventReceiver(
+        session=session,
+        frontend_delegate=frontend_delegate,
+        live_request_queue=live_request_queue,
+        bidi_agent_runner=bidi_agent_runner,
+    )
+    session.state["bidi_event_receiver"] = bidi_event_receiver
+    logger.info("[BIDI] BidiEventReceiver created (upstream: WebSocket → ADK)")
+
+    # Convert model to string if needed (bidi_agent.model is str | BaseLlm)
+    agent_model_str = (
+        bidi_agent.model if isinstance(bidi_agent.model, str) else str(bidi_agent.model)
+    )
+
+    # Create BidiEventSender for downstream (ADK → WebSocket)
+    bidi_event_sender = BidiEventSender(
+        websocket=websocket,
+        frontend_delegate=frontend_delegate,
+        session=session,
+        agent_model=agent_model_str,  # Pass agent model for modelVersion fallback
+        confirmation_tools=["process_payment", "get_location"],  # Tools requiring user approval
+    )
+    logger.info("[BIDI] BidiEventSender created (downstream: ADK → WebSocket)")
+
+    # Downstream task: Stream ADK events → WebSocket (following official bidi-demo pattern)
+    async def downstream_task():
+        """Receives Events from run_live() and sends to WebSocket."""
+        logger.info("[BIDI] downstream_task started, calling runner.run_live()")
+        logger.info(f"[BIDI] Starting run_live with user_id={user_id}, session_id={session.id}")
+
+        # Single run_live() call handles ALL turns
+        # Turn 1: Initial message via live_request_queue
+        # Turn 2+: Continuation via send_content() on same queue
         live_events = bidi_agent_runner.run_live(
             user_id=user_id,
             session_id=session.id,
             live_request_queue=live_request_queue,
             run_config=run_config,
-            session=session,  # IMPORTANT: Pass the session object explicitly. If not passed, tool_context.state will be empty
-        )
-
-        logger.info("[BIDI] ADK live stream started")
-
-        # Create BidiEventReceiver for upstream (WebSocket → ADK)
-        bidi_event_receiver = BidiEventReceiver(
             session=session,
-            frontend_delegate=frontend_delegate,
-            live_request_queue=live_request_queue,
-            bidi_agent_runner=bidi_agent_runner,
         )
-        logger.info("[BIDI] BidiEventReceiver created (upstream: WebSocket → ADK)")
+        await bidi_event_sender.send_events(live_events)
+        logger.info("[BIDI] run_live() generator completed")
 
-        # Create BidiEventSender for downstream (ADK → WebSocket)
-        bidi_event_sender = BidiEventSender(
-            websocket=websocket,
-            frontend_delegate=frontend_delegate,
-            session=session,
-            agent_model=bidi_agent.model,  # Pass agent model for modelVersion fallback
-        )
-        logger.info("[BIDI] BidiEventSender created (downstream: ADK → WebSocket)")
+    # Upstream task: Receive WebSocket messages and send to LiveRequestQueue
+    async def upstream_task():
+        """Receives messages from WebSocket and sends to LiveRequestQueue."""
+        logger.info("[BIDI] upstream_task started")
+        while True:
+            data = await websocket.receive_text()
+            event = json.loads(data)
+            event_type = event.get("type")
 
-        # Receive messages from WebSocket → send to LiveRequestQueue
-        async def receive_from_client():
-            while True:
-                data = await websocket.receive_text()
-                # Parse structured event format
-                event = json.loads(data)
-                event_type = event.get("type")
+            # Handle ping/pong
+            if event_type == "ping":
+                await websocket.send_text(
+                    json.dumps({"type": "pong", "timestamp": event.get("timestamp")})
+                )
+                continue
 
-                # Handle ping/pong for latency monitoring
-                if event_type == "ping":
-                    await websocket.send_text(
-                        json.dumps(
-                            {
-                                "type": "pong",
-                                "timestamp": event.get("timestamp"),
-                            }
-                        )
-                    )
-                    continue
+            # Get current receiver from session.state
+            receiver = session.state.get("bidi_event_receiver")
+            if receiver:
+                await receiver.handle_event(event)
+            else:
+                logger.warning(f"[BIDI] No receiver available for event: {event_type}")
 
-                # Delegate event handling to BidiEventReceiver (upstream: WebSocket → ADK)
-                # Handles: message, interrupt, audio_control, audio_chunk, tool_result
-                await bidi_event_receiver.handle_event(event)
-
-        # Receive ADK events → send to WebSocket
-        async def send_to_client():
-            # Delegate to BidiEventSender (downstream: ADK → WebSocket)
-            await bidi_event_sender.send_events(live_events)
-
-        # Run both tasks concurrently
-        await asyncio.gather(
-            receive_from_client(),
-            send_to_client(),
-            return_exceptions=True,
-        )
+    try:
+        # Run both tasks concurrently (following official bidi-demo pattern)
+        logger.info("[BIDI] Starting asyncio.gather() for upstream/downstream tasks")
+        await asyncio.gather(upstream_task(), downstream_task())
 
     except WebSocketDisconnect:
         logger.error("[BIDI] WebSocket disconnected")

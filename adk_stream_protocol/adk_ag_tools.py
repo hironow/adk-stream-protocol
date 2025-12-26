@@ -145,7 +145,7 @@ async def get_weather(location: str) -> dict[str, Any]:
         }
 
 
-def process_payment(
+async def process_payment(
     amount: float,
     recipient: str,
     tool_context: ToolContext,
@@ -155,8 +155,13 @@ def process_payment(
     """
     Process a payment transaction (server-side execution with user approval required).
 
-    This tool requires user approval before execution. The actual payment
-    processing happens on the server after the user approves the transaction.
+    This tool requires user approval before execution:
+    - SSE mode: Uses ADK native confirmation (require_confirmation=True)
+    - BIDI mode: Uses ADK request_confirmation() pattern (2-call pattern)
+
+    Implementation follows ADK official pattern:
+    - 1st call: Request confirmation, return error, stream continues
+    - 2nd call: Check tool_confirmation, execute if approved
 
     Args:
         amount: Payment amount (must be positive)
@@ -168,7 +173,56 @@ def process_payment(
     Returns:
         Payment processing result with transaction details
     """
+    logger.info(f"[process_payment] ===== TOOL FUNCTION CALLED =====")
     logger.info(f"[process_payment] Processing payment: {amount} {currency} to {recipient}")
+    logger.info(f"[process_payment] tool_context attributes: {dir(tool_context)}")
+
+    # BIDI mode: Check if confirmation is required and handle accordingly
+    confirmation_delegate = tool_context.session.state.get("confirmation_delegate")
+    logger.info(f"[process_payment] confirmation_delegate present: {confirmation_delegate is not None}")
+
+    if confirmation_delegate:
+        logger.info("[process_payment] BIDI mode detected")
+        logger.info(f"[process_payment] tool_context.tool_confirmation value: {tool_context.tool_confirmation}")
+
+        # Check if tool_confirmation is set (2nd call after user approved/rejected)
+        if tool_context.tool_confirmation is not None:
+            # This is the 2nd call - user has responded to confirmation request
+            logger.info(f"[process_payment] 2nd call detected - tool_confirmation.confirmed={tool_context.tool_confirmation.confirmed}")
+            if tool_context.tool_confirmation.confirmed:
+                logger.info("[process_payment] Confirmation approved, proceeding with execution")
+            else:
+                logger.info("[process_payment] Confirmation rejected by user")
+                return {
+                    "success": False,
+                    "error": "Payment rejected by user",
+                    "transaction_id": None,
+                }
+        else:
+            # This is the 1st call - request confirmation and return error immediately
+            logger.info("[process_payment] 1st call detected - requesting confirmation")
+            logger.info(f"[process_payment] BEFORE request_confirmation() call")
+
+            # Use ADK's built-in request_confirmation() method
+            tool_context.request_confirmation(
+                hint=f"Approve payment of {amount} {currency} to {recipient}?"
+            )
+
+            logger.info(f"[process_payment] AFTER request_confirmation() call")
+
+            # Skip summarization to prevent LLM from processing the error
+            tool_context.actions.skip_summarization = True
+            logger.info(f"[process_payment] Set skip_summarization=True")
+
+            # Return error immediately - this allows stream to continue
+            # ADK will handle the confirmation flow and call this function again
+            logger.info(f"[process_payment] Returning error response to ADK")
+            return {
+                "error": "This tool call requires confirmation, please approve or reject."
+            }
+
+    # SSE mode: ADK handles confirmation automatically via require_confirmation=True
+    # Continue with payment processing logic...
 
     # Mock wallet balance (in real app, this would come from a database)
     mock_wallet_balance = 1000.0
@@ -272,8 +326,9 @@ async def get_location(tool_context: ToolContext) -> dict[str, Any]:
     """
     Get user's current location (requires user approval).
 
-    This tool delegates execution to the frontend browser via the global FrontendToolDelegate.
-    Both SSE and BIDI modes use the same delegation pattern.
+    This tool requires user approval before execution:
+    - SSE mode: Uses ADK native confirmation (require_confirmation=True) + frontend delegation
+    - BIDI mode: Uses ToolConfirmationDelegate (manual confirmation) + frontend delegation
 
     The actual location retrieval is handled by the frontend's browser Geolocation API.
 
@@ -286,18 +341,41 @@ async def get_location(tool_context: ToolContext) -> dict[str, Any]:
     logger.info("[get_location] ========== TOOL FUNCTION CALLED ==========")
     logger.info(f"[get_location] tool_context={tool_context}")
 
+    # BIDI mode: Request confirmation via ToolConfirmationDelegate
+    confirmation_delegate = tool_context.session.state.get("confirmation_delegate")
+    if confirmation_delegate:
+        logger.info("[get_location] BIDI mode detected - requesting confirmation")
+
+        # Get function_call.id from session.state (saved by BidiEventSender)
+        function_call_id = tool_context.session.state.get("current_function_call_id")
+        if not function_call_id:
+            error_msg = "Missing current_function_call_id in session.state"
+            logger.error(f"[get_location] {error_msg}")
+            return {"success": False, "error": error_msg}
+
+        # Request confirmation and await user decision
+        approved = await confirmation_delegate.request_confirmation(
+            tool_call_id=function_call_id,
+            tool_name="get_location",
+            args={},
+        )
+
+        if not approved:
+            logger.info("[get_location] Location access rejected by user")
+            return {
+                "success": False,
+                "error": "Location access rejected by user",
+            }
+
+        logger.info("[get_location] Location access approved by user, proceeding with execution")
+
+    # SSE mode: ADK handles confirmation automatically via require_confirmation=True
+    # Continue with location retrieval via frontend delegation...
+
     # Delegate execution to frontend and await result
     # Note: Uses global frontend_delegate via session.state
     # ID resolution is handled automatically by execute_on_frontend via id_mapper
-    session_state = getattr(tool_context.session, "state", None)
-    logger.info(f"[get_location] session_state={session_state}")
-
-    if not session_state:
-        error_msg = "Missing session.state in ToolContext"
-        logger.error(f"[get_location] {error_msg}")
-        return {"success": False, "error": error_msg}
-
-    delegate = session_state.get("frontend_delegate")
+    delegate = tool_context.session.state.get("frontend_delegate")
     logger.info(f"[get_location] delegate={delegate}")
 
     if not delegate:

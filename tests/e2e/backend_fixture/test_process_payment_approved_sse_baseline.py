@@ -45,22 +45,17 @@ async def test_process_payment_approved_sse_baseline(frontend_fixture_dir: Path)
     expected_events = fixture["output"]["rawEvents"]
     expected_done_count = fixture["output"]["expectedDoneCount"]
 
-    # When: Send request to backend SSE endpoint
-    # Note: This test sends the initial user message only.
-    # The fixture's rawEvents include BOTH turns (confirmation + execution),
-    # but in a real E2E flow, Turn 2 would require a separate HTTP request
-    # with approval response.
-    #
-    # For fixture-based golden file testing, we verify the complete
-    # event sequence as documented in the fixture.
+    # ===== TURN 1: Send initial request and verify confirmation =====
+    # When: Send request to backend SSE endpoint (Turn 1)
+    # This sends the initial user message and expects confirmation request
     actual_events = await send_sse_request(
         messages=input_messages,
         backend_url="http://localhost:8000/stream",
     )
 
-    # Then: rawEvents should match expected (with normalization)
-    # Note: This comparison expects Turn 1 events only (confirmation request).
-    # Full 2-turn flow requires separate approval request (see note above).
+    # Then: rawEvents should match expected Turn 1 (with normalization)
+    # This comparison validates Turn 1 events only (confirmation request).
+    # Turn 2 (approval execution) is tested separately below.
     #
     # Extract Turn 1 events from expected (up to first [DONE])
     first_done_index = next(
@@ -137,11 +132,13 @@ async def test_process_payment_approved_sse_baseline(frontend_fixture_dir: Path)
         print(f"{i}: {event.strip()}")
 
     # Structure validation for Turn 2 (tool output and AI text are dynamic)
+    # Note: SSE mode includes text-* events, so we need to validate them
     is_match_turn2, diff_msg_turn2 = compare_raw_events(
         actual=turn2_events,
         expected=expected_turn2_events,
         normalize=True,
         dynamic_content_tools=["process_payment"],
+        include_text_events=True,  # SSE mode fixtures include text-* events
     )
     assert is_match_turn2, f"Turn 2 rawEvents structure mismatch:\n{diff_msg_turn2}"
 

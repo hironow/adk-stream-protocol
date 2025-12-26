@@ -279,10 +279,7 @@ async def send_bidi_request(
 
         # Send message event with type field (BIDI protocol requirement)
         # BidiEventReceiver expects {"type": "message", "messages": [...]}
-        await websocket.send(json.dumps({
-            "type": "message",
-            "messages": messages
-        }))
+        await websocket.send(json.dumps({"type": "message", "messages": messages}))
 
         # Receive events until all turns complete
         while True:
@@ -305,14 +302,20 @@ async def send_bidi_request(
                             # Extract confirmation IDs from the event stream
                             confirmation_id = tool_call_id
                             # Extract original tool ID from the confirmation input
-                            original_id = event_data.get("input", {}).get("originalFunctionCall", {}).get("id")
+                            original_id = (
+                                event_data.get("input", {})
+                                .get("originalFunctionCall", {})
+                                .get("id")
+                            )
 
                             if confirmation_id and original_id:
                                 confirmation_data = {
                                     "confirmation_id": confirmation_id,
                                     "original_id": original_id,
                                 }
-                                logger.info(f"[Confirmation] Detected confirmation request: {confirmation_id} for {original_id}")
+                                logger.info(
+                                    f"[Confirmation] Detected confirmation request: {confirmation_id} for {original_id}"
+                                )
 
                         # Handle frontend-delegate tools (frontend execution pattern)
                         elif frontend_delegate_tools and tool_name in frontend_delegate_tools:
@@ -322,7 +325,9 @@ async def send_bidi_request(
                             tool_result_message = {
                                 "type": "tool_result",  # underscore, not hyphen!
                                 "toolCallId": tool_call_id,
-                                "result": frontend_delegate_tools[tool_name],  # object, not JSON string
+                                "result": frontend_delegate_tools[
+                                    tool_name
+                                ],  # object, not JSON string
                             }
 
                             # Send tool result back to backend
@@ -335,7 +340,9 @@ async def send_bidi_request(
                 if "[DONE]" in event:
                     # If we have confirmation data, send approval/denial and continue to next turn
                     if confirmation_data and confirmation_response:
-                        logger.info(f"[Confirmation] Turn ended. Sending {confirmation_response} response")
+                        logger.info(
+                            f"[Confirmation] Turn ended. Sending {confirmation_response} response"
+                        )
 
                         # Create approval or denial message
                         if confirmation_response == "approve":
@@ -350,11 +357,12 @@ async def send_bidi_request(
                             )
 
                         # Send approval/denial message to trigger next turn
-                        await websocket.send(json.dumps({
-                            "type": "message",
-                            "messages": [response_msg]
-                        }))
-                        logger.info(f"[Confirmation] Sent {confirmation_response} response, continuing to next turn")
+                        await websocket.send(
+                            json.dumps({"type": "message", "messages": [response_msg]})
+                        )
+                        logger.info(
+                            f"[Confirmation] Sent {confirmation_response} response, continuing to next turn"
+                        )
 
                         # Clear confirmation data (only respond once)
                         confirmation_data = None
@@ -423,7 +431,9 @@ def normalize_event(event_str: str) -> str:
         # Replace dynamic toolCallId with placeholder
         if "toolCallId" in event_obj:
             # Keep tool name prefix if exists (e.g., "adk-...")
-            if isinstance(event_obj["toolCallId"], str) and event_obj["toolCallId"].startswith("adk-"):
+            if isinstance(event_obj["toolCallId"], str) and event_obj["toolCallId"].startswith(
+                "adk-"
+            ):
                 event_obj["toolCallId"] = "adk-DYNAMIC_ID"
             else:
                 event_obj["toolCallId"] = "DYNAMIC_TOOL_CALL_ID"
@@ -588,6 +598,7 @@ def compare_raw_events(
     expected: list[str],
     normalize: bool = True,
     dynamic_content_tools: list[str] | None = None,
+    include_text_events: bool = False,
 ) -> tuple[bool, str]:
     """Compare actual vs expected rawEvents.
 
@@ -598,6 +609,9 @@ def compare_raw_events(
         dynamic_content_tools: List of tool names with dynamic output content.
                               For these tools, only event structure is validated,
                               not exact content (e.g., ['get_weather']).
+        include_text_events: Whether to include text-* events in validation (default: False).
+                           If False, text-* events are filtered out (for BIDI mode).
+                           If True, text-* events are validated (for SSE mode Turn 2).
 
     Returns:
         Tuple of (is_match, diff_message)
@@ -606,14 +620,16 @@ def compare_raw_events(
     """
     # Filter out audio and reasoning events from actual events
     # Baseline fixtures exclude these audio/thinking-specific events
-    # Also filter text events with simple numeric IDs (thinking text display)
+    # Optionally filter text-* events based on include_text_events flag
+    # Note: BIDI mode fixtures don't include text-* events, but SSE mode fixtures do
     actual_filtered = [
-        e for e in actual
+        e
+        for e in actual
         if '"type": "data-pcm"' not in e
         and '"type": "reasoning-start"' not in e
         and '"type": "reasoning-delta"' not in e
         and '"type": "reasoning-end"' not in e
-        and not ('"type": "text-' in e and '"id": "1"' in e)  # Filter thinking text display
+        and (include_text_events or '"type": "text-' not in e)  # Conditionally filter text-* events
     ]
 
     # Merge consecutive text-delta events with same id (for structure validation)
@@ -662,6 +678,15 @@ def compare_raw_events(
 
     actual_filtered = merged
 
+    # Debug: Print filtered events for comparison
+    print(f"\n=== ACTUAL EVENTS (filtered, count={len(actual_filtered)}) ===")
+    for i, event in enumerate(actual_filtered):
+        print(f"{i}: {event.strip()}")
+
+    print(f"\n=== EXPECTED EVENTS (count={len(expected)}) ===")
+    for i, event in enumerate(expected):
+        print(f"{i}: {event.strip()}")
+
     if len(actual_filtered) != len(expected):
         return (
             False,
@@ -701,11 +726,7 @@ def compare_raw_events(
                 mismatches.append(f"Event {i} structure mismatch: {diff_msg}")
         # Exact match for deterministic tools
         elif a != e:
-            mismatches.append(
-                f"Event {i} mismatch:\n"
-                f"  Actual:   {a}\n"
-                f"  Expected: {e}"
-            )
+            mismatches.append(f"Event {i} mismatch:\n  Actual:   {a}\n  Expected: {e}")
 
     if mismatches:
         diff_msg = "\n".join(mismatches)
@@ -743,7 +764,9 @@ async def run_backend_fixture_test(
 
     # When: Send request to backend
     if backend_url is None:
-        backend_url = "http://localhost:8000/stream" if mode == "sse" else "ws://localhost:8000/live"
+        backend_url = (
+            "http://localhost:8000/stream" if mode == "sse" else "ws://localhost:8000/live"
+        )
 
     if mode == "sse":
         actual_events = await send_sse_request(input_messages, backend_url)

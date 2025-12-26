@@ -27,6 +27,9 @@ import pytest
 from .helpers import (
     compare_raw_events,
     count_done_markers,
+    create_assistant_message_from_turn1,
+    create_denial_message,
+    extract_tool_call_ids_from_turn1,
     load_frontend_fixture,
     send_sse_request,
 )
@@ -43,9 +46,10 @@ async def test_process_payment_denied_sse_baseline(frontend_fixture_dir: Path):
     expected_events = fixture["output"]["rawEvents"]
     expected_done_count = fixture["output"]["expectedDoneCount"]
 
-    # When: Send request to backend SSE endpoint
+    # ===== TURN 1: Send initial request and verify confirmation =====
+    # When: Send request to backend SSE endpoint (Turn 1)
     # Note: This sends Turn 1 only (initial user message).
-    # Turn 2 (denial response) requires separate HTTP request.
+    # Turn 2 (denial response) is NOT yet implemented in this test.
     actual_events = await send_sse_request(
         messages=input_messages,
         backend_url="http://localhost:8000/stream",
@@ -82,3 +86,73 @@ async def test_process_payment_denied_sse_baseline(frontend_fixture_dir: Path):
     assert expected_done_count == 2, (
         f"Fixture should have 2 turns, but has {expected_done_count}"
     )
+
+    # ===== TURN 2: Denial Execution =====
+    print("\n=== TURN 2: Sending denial and testing execution ===")
+
+    # Extract tool call IDs from Turn 1
+    original_id, confirmation_id = extract_tool_call_ids_from_turn1(actual_events)
+    assert original_id is not None, "Should have original tool call ID (process_payment)"
+    assert confirmation_id is not None, "Should have confirmation tool call ID"
+
+    # Reconstruct assistant's confirmation message from Turn 1 events
+    assistant_msg = create_assistant_message_from_turn1(actual_events)
+
+    # Construct denial message
+    denial_msg = create_denial_message(confirmation_id, original_id)
+
+    # Build complete message history for Turn 2
+    turn2_messages = [
+        *input_messages,  # Original user message
+        assistant_msg,  # Assistant's confirmation response
+        denial_msg,  # User's denial response
+    ]
+
+    # Send Turn 2 request with denial
+    turn2_events = await send_sse_request(
+        messages=turn2_messages,
+        backend_url="http://localhost:8000/stream",
+    )
+
+    # DEBUG: Print Turn 2 events
+    print(f"\n=== TURN 2 EVENTS (count={len(turn2_events)}) ===")
+    for i, event in enumerate(turn2_events):
+        print(f"{i}: {event.strip()}")
+
+    # Extract expected Turn 2 events from fixture (after first [DONE])
+    expected_turn2_events = expected_events[first_done_index + 1 :]
+
+    print(f"\n=== EXPECTED TURN 2 EVENTS (count={len(expected_turn2_events)}) ===")
+    for i, event in enumerate(expected_turn2_events):
+        print(f"{i}: {event.strip()}")
+
+    # Structure validation for Turn 2 (tool error and AI text are dynamic)
+    # Note: SSE mode includes text-* events, so we need to validate them
+    is_match_turn2, diff_msg_turn2 = compare_raw_events(
+        actual=turn2_events,
+        expected=expected_turn2_events,
+        normalize=True,
+        dynamic_content_tools=["process_payment"],
+        include_text_events=True,  # SSE mode fixtures include text-* events
+    )
+    assert is_match_turn2, f"Turn 2 rawEvents structure mismatch:\n{diff_msg_turn2}"
+
+    # And: Should have exactly 1 [DONE] marker (Turn 2 only)
+    actual_done_count_turn2 = count_done_markers(turn2_events)
+    assert actual_done_count_turn2 == 1, (
+        f"[DONE] count mismatch for Turn 2: "
+        f"actual={actual_done_count_turn2}, expected=1"
+    )
+
+    # And: Should contain tool-output-error event (tool rejection)
+    # Note: tool-output-error events don't include toolName, only toolCallId
+    tool_error_events = [
+        event
+        for event in turn2_events
+        if "tool-output-error" in event
+    ]
+    assert len(tool_error_events) > 0, (
+        "Turn 2 should have tool-output-error event (tool rejection)"
+    )
+
+    print("\n✅ Full invocation (Turn 1 + Turn 2) passed!")

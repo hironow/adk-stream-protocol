@@ -249,4 +249,4 @@ class TestAllConvertedFixtures:
                     break
 
         # Then: No errors
-        assert not errors, f"Fixture consistency errors:\n" + "\n".join(errors)
+        assert not errors, "Fixture consistency errors:\n" + "\n".join(errors)

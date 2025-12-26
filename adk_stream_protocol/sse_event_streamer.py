@@ -13,94 +13,17 @@ Responsibilities:
 Counterpart: BidiEventSender handles WebSocket (BIDI) mode.
 """
 
-import inspect
 from collections.abc import AsyncIterable
-from types import SimpleNamespace
 from typing import Any
 
 from google.adk.runners import Runner
 from google.adk.sessions import Session
 from loguru import logger
 
-from . import adk_ag_tools
-from .adk_compat import extract_function_call_from_event, is_function_call_requiring_confirmation
-from .confirmation_interceptor import ToolConfirmationInterceptor
 from .frontend_tool_service import FrontendToolDelegate
-from .result import Error, Ok, Result
-from .stream_protocol import format_sse_event, stream_adk_to_ai_sdk
+from .result import Ok
+from .stream_protocol import stream_adk_to_ai_sdk
 from .utils import _parse_sse_event_data
-
-
-async def _execute_tool_function_sse(
-    fc_name: str, fc_args: dict[str, Any], fc_id: str, session: Session
-) -> Result[Any, str]:
-    """
-    Execute tool function and return result (SSE mode).
-
-    Args:
-        fc_name: Tool function name
-        fc_args: Tool arguments
-        fc_id: Function call ID (for tool context)
-        session: ADK Session (for tool context)
-
-    Returns:
-        Ok(tool_result) if execution succeeds, Error(str) if execution fails
-    """
-    # Get tool function
-    tool_func = getattr(adk_ag_tools, fc_name, None)
-    if not tool_func:
-        return Error(f"Tool function '{fc_name}' not found")
-
-    # Create tool context
-    tool_context = SimpleNamespace()
-    tool_context.invocation_id = fc_id
-    tool_context.session = session
-
-    # Execute tool
-    sig = inspect.signature(tool_func)
-    if "tool_context" in sig.parameters:
-        fc_args_with_context = {**fc_args, "tool_context": tool_context}
-        if inspect.iscoroutinefunction(tool_func):
-            tool_result = await tool_func(**fc_args_with_context)
-        else:
-            tool_result = tool_func(**fc_args_with_context)
-    elif inspect.iscoroutinefunction(tool_func):
-        tool_result = await tool_func(**fc_args)
-    else:
-        tool_result = tool_func(**fc_args)
-
-    return Ok(tool_result)
-
-
-async def _execute_confirmation_sse(
-    interceptor: ToolConfirmationInterceptor,
-    confirmation_id: str,
-    fc_id: str,
-    fc_name: str,
-    fc_args: dict[str, Any],
-) -> Result[dict[str, Any], str]:
-    """
-    Execute confirmation flow and wait for user decision (SSE mode).
-
-    Args:
-        interceptor: ToolConfirmationInterceptor instance
-        confirmation_id: Confirmation UI tool call ID
-        fc_id: Original function call ID
-        fc_name: Tool name
-        fc_args: Tool arguments
-
-    Returns:
-        Ok(confirmation_result) if execution succeeds, Error(str) if execution fails
-    """
-    # execute_confirmation now returns Result, so we just pass it through
-    return await interceptor.execute_confirmation(
-        tool_call_id=confirmation_id,
-        original_function_call={
-            "id": fc_id,
-            "name": fc_name,
-            "args": fc_args,
-        },
-    )
 
 
 class SseEventStreamer:

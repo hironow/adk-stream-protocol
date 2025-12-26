@@ -78,10 +78,10 @@ def format_sse_event(event_data: dict[str, Any]) -> SseFormattedEvent:
         log_data["data"] = data_copy
 
     # If log_data is too long, show only the beginning
-    logger.debug(
-        f"[ADK→SSE] {str(log_data)[:DEBUG_LOG_MAX_LENGTH]}"
-        f"{'... (truncated)' if len(str(log_data)) > DEBUG_LOG_MAX_LENGTH else ''}"
-    )
+    # logger.debug(
+    #     f"[ADK→SSE] {str(log_data)[:DEBUG_LOG_MAX_LENGTH]}"
+    #     f"{'... (truncated)' if len(str(log_data)) > DEBUG_LOG_MAX_LENGTH else ''}"
+    # )
     return f"data: {json.dumps(event_data)}\n\n"
 
 
@@ -247,11 +247,11 @@ class StreamProtocolConverter:
         has_usage = hasattr(event, "usage_metadata") and event.usage_metadata
         has_finish = hasattr(event, "finish_reason") and event.finish_reason
 
-        logger.debug(
-            f"[_convert_event] Processing event type: {event_type}, "
-            f"has_content={has_content}, is_turn_complete={is_turn_complete}, "
-            f"has_usage={has_usage}, has_finish={has_finish}"
-        )
+        # logger.debug(
+        #     f"[_convert_event] Processing event type: {event_type}, "
+        #     f"has_content={has_content}, is_turn_complete={is_turn_complete}, "
+        #     f"has_usage={has_usage}, has_finish={has_finish}"
+        # )
 
         # Filter out private attributes (starting with _) for cleaner logs
         event_attrs = (
@@ -260,7 +260,7 @@ class StreamProtocolConverter:
             else {}
         )
         # only keys, no values
-        logger.debug(f"[_convert_event] Event attributes keys: {list(event_attrs.keys())!s}")
+        # logger.debug(f"[_convert_event] Event attributes keys: {list(event_attrs.keys())!s}")
 
         # Log content parts if present
         if has_content and event.content is not None and event.content.parts:
@@ -283,9 +283,9 @@ class StreamProtocolConverter:
                         else {}
                     )
                     # only keys, no values
-                    logger.debug(
-                        f"[_convert_event] Part[{idx}] inline_data attributes keys: {list(part_attrs.keys())!s}"
-                    )
+                    # logger.debug(
+                    #     f"[_convert_event] Part[{idx}] inline_data attributes keys: {list(part_attrs.keys())!s}"
+                    # )
                 if hasattr(part, "executable_code") and part.executable_code:
                     part_types.append("executable_code")
                 if hasattr(part, "code_execution_result") and part.code_execution_result:
@@ -340,7 +340,7 @@ class StreamProtocolConverter:
                     and part.inline_data
                     and isinstance(part.inline_data, types.Blob)
                 ):
-                    logger.info("[INLINE DATA] Processing inline data part")
+                    # logger.info("[INLINE DATA] Processing inline data part")
                     for sse_event in self._process_inline_data_part(part.inline_data):
                         yield sse_event
 
@@ -403,9 +403,9 @@ class StreamProtocolConverter:
         if hasattr(event, "output_transcription") and event.output_transcription:
             transcription = event.output_transcription
             if hasattr(transcription, "text") and transcription.text:
-                logger.debug(
-                    f"[OUTPUT TRANSCRIPTION] text='{transcription.text}', finished={getattr(transcription, 'finished', None)}"
-                )
+                # logger.debug(
+                #     f"[OUTPUT TRANSCRIPTION] text='{transcription.text}', finished={getattr(transcription, 'finished', None)}"
+                # )
 
                 # Send text-start if this is the first transcription chunk
                 if not self._output_text_block_started:

@@ -84,26 +84,43 @@ if not API_KEY:
 else:
     logger.info(f"ADK API key loaded: {API_KEY[:6]}...")
 
-# ========= Common Tools Definition ==========
-# Single source of truth for all agent tools
-# Agent implementers only need to modify this list - no need to know SSE/BIDI differences
+# ========= SSE Tools Definition ==========
+# SSE mode uses ADK native confirmation (require_confirmation=True)
 
-COMMON_TOOLS = [
+SSE_TOOLS = [
     get_weather,  # Weather information retrieval (server, no approval)
     FunctionTool(
         process_payment, require_confirmation=True
-    ),  # Payment processing with user approval (server execution)
+    ),  # Payment processing with ADK native confirmation
     change_bgm,  # Background music control (client execution, no approval)
     FunctionTool(
         get_location, require_confirmation=True
-    ),  # User location retrieval (client execution with user approval)
+    ),  # User location retrieval with ADK native confirmation
     LongRunningFunctionTool(
         # TODO: 現状これは使っていない & 想定していない
         approval_test_tool
-    ),  # Test tool for approval flow (BIDI: pause/resume, SSE: normal execution)
-    # Note: adk_request_confirmation is NOT registered as a tool
-    # ADK automatically generates it for tools with require_confirmation=True
-    # We intercept the auto-generated FunctionCall and execute the Python function
+    ),  # Test tool for approval flow
+]
+
+# ========= BIDI Tools Definition ==========
+# BIDI mode uses ToolConfirmationDelegate (require_confirmation=False)
+# Tool functions internally call confirmation_delegate.request_confirmation()
+#
+# IMPORTANT: Cannot use FunctionTool(..., require_confirmation=True) in BIDI mode
+# because ADK will NOT execute the tool function - it returns an error instead.
+# Tool function must handle confirmation internally via ToolConfirmationDelegate.
+
+BIDI_TOOLS = [
+    get_weather,  # Weather information retrieval (server, no approval)
+    # Note: No FunctionTool wrapper for confirmation tools in BIDI mode
+    # Tool functions handle confirmation internally using tool_context.request_confirmation()
+    process_payment,  # Payment processing with 2-call pattern (no FunctionTool wrapper!)
+    change_bgm,  # Background music control (client execution, no approval)
+    get_location,  # User location retrieval with 2-call pattern (no FunctionTool wrapper!)
+    LongRunningFunctionTool(
+        # TODO: 現状これは使っていない & 想定していない
+        approval_test_tool
+    ),  # Test tool for approval flow
 ]
 
 # ========= Define Agents ==========
@@ -115,7 +132,7 @@ sse_agent = Agent(
     model="gemini-3-flash-preview",  # Gemini 3 Flash Preview for generateContent API (SSE mode)
     description=AGENT_DESCRIPTION,
     instruction=AGENT_INSTRUCTION,
-    tools=COMMON_TOOLS,  # type: ignore[arg-type]  # Uses common tools definition
+    tools=SSE_TOOLS,  # type: ignore[arg-type]  # SSE-specific tools with ADK native confirmation
     # Note: ADK Agent doesn't support seed and temperature parameters
 )
 
@@ -128,7 +145,7 @@ bidi_agent = Agent(
     model=bidi_model,  # Configurable model for BIDI mode
     description=AGENT_DESCRIPTION,
     instruction=AGENT_INSTRUCTION,
-    tools=COMMON_TOOLS,  # type: ignore[arg-type]  # Uses common tools definition
+    tools=BIDI_TOOLS,  # type: ignore[arg-type]  # BIDI-specific tools with ToolConfirmationDelegate
     # Note: ADK Agent doesn't support seed and temperature parameters
 )
 
@@ -202,11 +219,18 @@ def get_tools_requiring_confirmation(agent: Agent) -> list[str]:
 
 
 # Extract confirmation tools for each agent
-# These lists are used by ToolConfirmationInterceptor in BIDI mode
+# SSE: Auto-detect from FunctionTool(require_confirmation=True)
 SSE_CONFIRMATION_TOOLS = get_tools_requiring_confirmation(sse_agent)
-BIDI_CONFIRMATION_TOOLS = get_tools_requiring_confirmation(bidi_agent)
+
+# BIDI: Manually specify since tools are plain functions (not FunctionTool wrappers)
+# These tools use ToolConfirmationDelegate.request_confirmation() internally
+BIDI_CONFIRMATION_TOOLS = ["process_payment", "get_location"]
 
 logger.info(f"SSE Agent confirmation tools: {SSE_CONFIRMATION_TOOLS}")
 logger.info(f"BIDI Agent confirmation tools: {BIDI_CONFIRMATION_TOOLS}")
+logger.info(
+    "Note: SSE uses FunctionTool(require_confirmation=True), "
+    "BIDI uses ToolConfirmationDelegate (tools must be separate)"
+)
 
 logger.info("ADK agents and runners initialized successfully")

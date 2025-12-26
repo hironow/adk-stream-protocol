@@ -52,10 +52,13 @@ class BidiEventReceiver:
         Initialize BIDI event handler.
 
         Args:
-            session: ADK Session object
+            session: ADK Session object (also provides access to shared state)
             frontend_delegate: Frontend tool delegate for tool execution
             live_request_queue: ADK LiveRequestQueue for sending data to Live API
             bidi_agent_runner: ADK Runner with session_service
+
+        Note:
+            Tool execution deferral state is accessed via session.state["pending_confirmations"]
         """
         self._session = session
         self._delegate = frontend_delegate
@@ -188,28 +191,40 @@ class BidiEventReceiver:
         """
         Handle FunctionResponse parts in message event.
 
-        FunctionResponse must be added to session history, not sent via send_content().
-        ADK documentation: "send_content() is for text; FunctionResponse handled automatically"
-        This matches SSE mode behavior.
+        Simplified confirmation flow (user suggestion 2025-12-26):
+        - adk_request_confirmation: Don't send to ADK, handle approval/rejection only
+        - Other tools: Add to session history via append_event() OR send via send_content()
 
-        Reference: experiments/2025-12-18_bidi_function_response_investigation.md
+        The key insight: We don't need to tell ADK about the confirmation flow.
+        We only send the FINAL tool result to ADK after user approval.
         """
-        logger.info("[BIDI] Creating Event with FunctionResponse, author='user'")
-        event = AdkEvent(author="user", content=text_content)
+        logger.info("[BIDI] Processing FunctionResponse")
 
-        logger.info(
-            f"[BIDI] Calling session_service.append_event() with session={self._session.id}"
-        )
-        await self._ag_runner.session_service.append_event(self._session, event)
-        logger.info(
-            "[BIDI] ✓ Successfully added FunctionResponse to session history via append_event()"
-        )
-
+        # Process each FunctionResponse part
         for part in text_content.parts or []:
             if hasattr(part, "function_response") and part.function_response:
                 func_resp = part.function_response
                 tool_call_id = func_resp.id
                 response_data = func_resp.response
+
+                # Handle confirmation approval: execute deferred tool
+                # Don't add adk_request_confirmation to ADK session - ADK doesn't know about it
+                if func_resp.name == "adk_request_confirmation":
+                    logger.info("[BIDI] Handling adk_request_confirmation (not sending to ADK)")
+                    if func_resp.id and response_data is not None:
+                        await self._handle_confirmation_approval(func_resp.id, response_data)
+                    else:
+                        logger.error(
+                            f"[BIDI] Invalid confirmation approval: id={func_resp.id}, "
+                            f"response_data={response_data}"
+                        )
+                    continue
+
+                # For non-confirmation tools, add to session history
+                logger.info(f"[BIDI] Adding {func_resp.name} FunctionResponse to session history")
+                event = AdkEvent(author="user", content=text_content)
+                await self._ag_runner.session_service.append_event(self._session, event)
+                logger.info(f"[BIDI] ✓ Added {func_resp.name} FunctionResponse to session history")
 
                 # Resolve frontend tool request (skip if id or response is None)
                 if tool_call_id and response_data is not None:
@@ -225,19 +240,132 @@ class BidiEventReceiver:
 
             continue
 
+    async def _handle_confirmation_approval(
+        self, confirmation_id: str, response_data: dict[str, Any]
+    ) -> None:
+        """
+        Handle confirmation approval: Send FunctionResponse to ADK for native re-execution.
+
+        When frontend sends approval for adk_request_confirmation:
+        1. Get confirmation_id from FunctionResponse.id (passed as parameter)
+        2. Look up original tool_call_id in confirmation_id_mapping
+        3. Extract approval status from response_data
+        4. Create types.FunctionResponse with REQUEST_CONFIRMATION_FUNCTION_CALL_NAME
+        5. Send FunctionResponse to ADK via LiveRequestQueue
+        6. ADK's _RequestConfirmationLlmRequestProcessor will re-execute the tool
+
+        Args:
+            confirmation_id: The ID of the confirmation FunctionResponse (lookup key)
+            response_data: FunctionResponse.response dict containing {"confirmed": bool}
+        """
+        logger.info("=" * 80)
+        logger.info("[BIDI-APPROVAL] ===== APPROVAL MESSAGE ARRIVED AT WEBSOCKET SERVER =====")
+        logger.info(
+            f"[BIDI-APPROVAL] confirmation_id={confirmation_id}, "
+            f"response_data={response_data}"
+        )
+        logger.info("=" * 80)
+
+        # Look up original tool_call_id using confirmation_id from session.state
+        try:
+            confirmation_id_mapping = self._session.state["confirmation_id_mapping"]
+            logger.info(f"[BIDI-APPROVAL] confirmation_id_mapping keys: {list(confirmation_id_mapping.keys())}")
+        except KeyError as e:
+            logger.error(
+                f"[BIDI-APPROVAL] KeyError accessing confirmation_id_mapping: {e}. "
+                f"session.state keys: {list(self._session.state.keys())}"
+            )
+            return
+
+        if confirmation_id not in confirmation_id_mapping:
+            logger.error(
+                f"[BIDI-APPROVAL] confirmation_id {confirmation_id} not found in mapping. "
+                f"Available keys: {list(confirmation_id_mapping.keys())}"
+            )
+            return
+
+        # Get original tool_call_id
+        tool_call_id = confirmation_id_mapping[confirmation_id]
+        logger.info(
+            f"[BIDI-APPROVAL] Resolved confirmation mapping: {confirmation_id} → {tool_call_id}"
+        )
+
+        # Extract approval status
+        # response_data is {"confirmed": True/False} from ai_sdk_v6_compat.py
+        approved = response_data.get("confirmed", False)
+        logger.info(f"[BIDI-APPROVAL] Approval status: {approved}")
+
+        # ===== SEND FUNCTIONRESPONSE TO ADK =====
+        # Per ADK documentation: Send types.FunctionResponse to trigger tool re-execution
+        # ADK's _RequestConfirmationLlmRequestProcessor will:
+        # 1. Extract ToolConfirmation from FunctionResponse
+        # 2. Store it in tool_confirmation_dict
+        # 3. Re-execute the tool function with tool_context.tool_confirmation set
+
+        logger.info("=" * 80)
+        logger.info("[BIDI-APPROVAL] ===== SENDING FUNCTIONRESPONSE TO ADK =====")
+        logger.info(f"[BIDI-APPROVAL] Creating FunctionResponse for tool_call_id={tool_call_id}")
+        logger.info(f"[BIDI-APPROVAL] Confirmation status: confirmed={approved}")
+        logger.info("=" * 80)
+
+        # Import REQUEST_CONFIRMATION_FUNCTION_CALL_NAME constant from ADK
+        # This constant is 'adk_request_confirmation' - the special function name for confirmation flow
+        from google.adk.flows.llm_flows.functions import REQUEST_CONFIRMATION_FUNCTION_CALL_NAME
+
+        # Create FunctionResponse with ADK's expected format
+        function_response = types.FunctionResponse(
+            id=tool_call_id,  # Original tool call ID that requested confirmation
+            name=REQUEST_CONFIRMATION_FUNCTION_CALL_NAME,  # ADK's special confirmation function name
+            response={"confirmed": approved},  # ToolConfirmation payload
+        )
+
+        # Create Content with FunctionResponse part
+        content = types.Content(
+            role="user",
+            parts=[types.Part(function_response=function_response)],
+        )
+
+        logger.info("[BIDI-APPROVAL] Created types.Content with FunctionResponse part")
+        logger.info(f"[BIDI-APPROVAL] FunctionResponse.id={function_response.id}")
+        logger.info(f"[BIDI-APPROVAL] FunctionResponse.name={function_response.name}")
+        logger.info(f"[BIDI-APPROVAL] FunctionResponse.response={function_response.response}")
+
+        # Send to ADK via LiveRequestQueue
+        # ADK will process this and re-execute the tool function
+        logger.info("=" * 80)
+        logger.info("[BIDI-APPROVAL] ===== SENDING TO ADK VIA LiveRequestQueue.send_content() =====")
+        logger.info("=" * 80)
+
+        self._live_request_queue.send_content(content)
+
+        logger.info("=" * 80)
+        logger.info("[BIDI-APPROVAL] ===== SENT TO ADK - WAITING FOR ADK TO RE-EXECUTE TOOL =====")
+        logger.info("[BIDI-APPROVAL] ADK should now:")
+        logger.info("[BIDI-APPROVAL]   1. Process FunctionResponse via _RequestConfirmationLlmRequestProcessor")
+        logger.info("[BIDI-APPROVAL]   2. Extract ToolConfirmation and store in tool_confirmation_dict")
+        logger.info("[BIDI-APPROVAL]   3. Re-execute tool function with tool_context.tool_confirmation set")
+        logger.info("[BIDI-APPROVAL]   4. Tool function will check tool_context.tool_confirmation.confirmed")
+        logger.info("[BIDI-APPROVAL]   5. Tool function will execute and return actual result")
+        logger.info("=" * 80)
+
+        # Clean up mapping
+        del confirmation_id_mapping[confirmation_id]
+        logger.info(f"[BIDI-APPROVAL] Removed {confirmation_id} from confirmation_id_mapping")
+
     async def _handle_interrupt_event(self, event: dict[str, Any]) -> None:
         """
-        Handle 'interrupt' event: user cancellation.
+        Handle 'interrupt' event: user interruption during streaming.
 
-        Closes the LiveRequestQueue to stop AI generation.
-        WebSocket stays open for next turn.
+        Per ADK documentation: Interrupt is a conversation state change, not connection termination.
+        - Frontend should stop rendering current partial response
+        - LiveRequestQueue remains open for continued interaction
+        - Queue.close() should only be called in finally block (session end)
+
+        Reference: https://google.github.io/adk-docs/streaming/dev-guide/part3/
         """
         reason = event.get("reason", "user_abort")
         logger.info(f"[BIDI] User interrupted (reason: {reason})")
-
-        # Close the request queue to stop AI generation
-        self._live_request_queue.close()
-        # Note: WebSocket stays open for next turn
+        logger.info("[BIDI] Note: LiveRequestQueue remains open, interrupt is a state change only")
 
     async def _handle_audio_control_event(self, event: dict[str, Any]) -> None:
         """

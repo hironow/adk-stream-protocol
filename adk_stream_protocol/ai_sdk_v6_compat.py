@@ -395,7 +395,7 @@ class ChatMessage(BaseModel):
             # Extract approval decision
             if part.approval is None:
                 logger.warning(
-                    f"[AI SDK v6] Missing approval metadata in approval-responded state"
+                    "[AI SDK v6] Missing approval metadata in approval-responded state"
                 )
                 return
 
