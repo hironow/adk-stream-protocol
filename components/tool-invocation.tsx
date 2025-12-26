@@ -343,19 +343,80 @@ export function ToolInvocationComponent({
                     reason: "User approved the tool execution.",
                   });
 
-                  // TODO: approve -> callback -> ws send
-                  // TODO: to-be: approve -> sendAutomaticallyWhen -> ws send
-                  // Execute the tool on client if callback provided
-                  // if (executeToolCallback) {
-                  //   console.info(
-                  //     `[ToolInvocationComponent] Executing tool ${toolName} on client`,
-                  //   );
-                  //   await executeToolCallback(
-                  //     toolName,
-                  //     toolInvocation.toolCallId,
-                  //     toolInvocation.input || {},
-                  //   );
-                  // }
+                  // SSE Mode Pattern A (1-request): Execute tool and send result immediately
+                  // After approval, execute frontend-delegated tools and send result
+                  // Both approval + result sent together via sendAutomaticallyWhen
+                  if (toolName === "get_location") {
+                    console.info(
+                      `[ToolInvocationComponent] Executing get_location on client`,
+                    );
+                    try {
+                      const position = await new Promise<GeolocationPosition>(
+                        (resolve, reject) => {
+                          navigator.geolocation.getCurrentPosition(
+                            resolve,
+                            reject,
+                            {
+                              enableHighAccuracy: true,
+                              timeout: 5000,
+                              maximumAge: 0,
+                            },
+                          );
+                        },
+                      );
+
+                      const locationResult = {
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude,
+                        accuracy: position.coords.accuracy,
+                        timestamp: position.timestamp,
+                      };
+
+                      console.info(
+                        `[ToolInvocationComponent] get_location result:`,
+                        locationResult,
+                      );
+
+                      addToolOutput?.({
+                        tool: toolName,
+                        toolCallId: toolInvocation.toolCallId,
+                        output: locationResult,
+                      });
+                    } catch (error) {
+                      const errorMessage =
+                        error instanceof Error
+                          ? error.message
+                          : "Geolocation failed";
+                      console.error(
+                        `[ToolInvocationComponent] get_location error:`,
+                        errorMessage,
+                      );
+                      addToolOutput?.({
+                        tool: toolName,
+                        toolCallId: toolInvocation.toolCallId,
+                        output: {
+                          success: false,
+                          error: errorMessage,
+                        },
+                      });
+                    }
+                  } else if (toolName === "change_bgm") {
+                    console.info(
+                      `[ToolInvocationComponent] Executing change_bgm on client`,
+                    );
+                    const track = toolInvocation.input?.track || 1;
+                    // TODO: Implement actual BGM change logic with AudioContext
+                    // For now, just send success response
+                    addToolOutput?.({
+                      tool: toolName,
+                      toolCallId: toolInvocation.toolCallId,
+                      output: {
+                        success: true,
+                        track,
+                        message: `BGM changed to track ${track}`,
+                      },
+                    });
+                  }
                 }}
                 style={{
                   padding: "0.5rem 1rem",

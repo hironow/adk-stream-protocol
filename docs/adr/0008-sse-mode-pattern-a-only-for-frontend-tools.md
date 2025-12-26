@@ -111,6 +111,47 @@ const handleApprove = async () => {
 
 **BIDI Mode continues to support both patterns** due to persistent connection nature.
 
+## Implementation
+
+### Mode Detection in Backend Tools
+
+Backend tools distinguish between SSE and BIDI modes by checking for `confirmation_delegate` in `session.state`:
+
+```python
+async def change_bgm(track: int, tool_context: ToolContext | None = None) -> dict[str, Any]:
+    if tool_context:
+        # Detect BIDI mode by checking for confirmation_delegate
+        confirmation_delegate = tool_context.session.state.get("confirmation_delegate")
+        if confirmation_delegate:
+            # BIDI mode - delegate execution to frontend
+            delegate = get_delegate(tool_context.session.id)
+            result_or_error = await delegate.execute_on_frontend(...)
+            return result
+
+    # SSE mode - direct return (frontend handles execution separately)
+    return {"success": True, "track": track, ...}
+```
+
+- **BIDI mode**: `confirmation_delegate` exists → Use FrontendToolDelegate for execution
+- **SSE mode**: No `confirmation_delegate` → Return immediate success (frontend executes separately if needed)
+
+### Frontend Implementation
+
+Frontend executes tools immediately after approval using browser APIs:
+
+```typescript
+// Approve button onClick
+addToolApprovalResponse({ id, approved: true });
+
+// Execute tool immediately
+if (toolName === "get_location") {
+  const position = await navigator.geolocation.getCurrentPosition(...);
+  addToolOutput({ tool: toolName, toolCallId, output: locationResult });
+}
+```
+
+Both `addToolApprovalResponse()` and `addToolOutput()` are sent in a single HTTP request via `sendAutomaticallyWhen`.
+
 ## Consequences
 
 ### Positive
@@ -119,6 +160,7 @@ const handleApprove = async () => {
 - **Aligned with technical constraints**: Pattern A avoids the invocation lifecycle issues inherent to HTTP request-response model
 - **Better performance**: Single round-trip instead of two separate requests
 - **Pre-resolution cache works perfectly**: Result always arrives before Future creation in Pattern A
+- **Clear mode detection**: `confirmation_delegate` check unambiguously distinguishes SSE from BIDI
 
 ### Negative
 - **Less flexibility**: Clients cannot choose to send approval and result separately in SSE mode

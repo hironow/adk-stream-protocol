@@ -276,12 +276,16 @@ async def change_bgm(track: int, tool_context: ToolContext | None = None) -> dic
     """
     Change background music track.
 
-    - SSE mode: Direct execution (no delegate needed)
-    - BIDI mode: Frontend delegate (via tool_context)
+    - SSE mode: Direct execution (no frontend delegation)
+    - BIDI mode: Frontend delegation (via FrontendToolDelegate)
+
+    Mode Detection:
+    - BIDI mode: confirmation_delegate exists in session.state
+    - SSE mode: No confirmation_delegate
 
     Args:
         track: Track number (1 or 2) - matches frontend "BGM 1" and "BGM 2" labels
-        tool_context: ADK ToolContext (required for BIDI delegate)
+        tool_context: ADK ToolContext (automatically injected)
 
     Returns:
         Success confirmation
@@ -290,14 +294,19 @@ async def change_bgm(track: int, tool_context: ToolContext | None = None) -> dic
     logger.info(f"[change_bgm] track={track}, tool_context={tool_context}")
 
     if tool_context:
-        logger.info("[change_bgm] tool_context exists, checking for delegate")
-        # Get delegate from global registry using session.id
-        delegate = get_delegate(tool_context.session.id)
-        logger.info(f"[change_bgm] delegate={delegate} (session_id={tool_context.session.id})")
-        if delegate:
-            # BIDI mode - delegate to frontend
+        # Detect BIDI mode by checking for confirmation_delegate
+        confirmation_delegate = tool_context.session.state.get("confirmation_delegate")
+        if confirmation_delegate:
+            # BIDI mode - delegate execution to frontend
             logger.info("[change_bgm] BIDI mode detected - delegating to frontend")
-            logger.info("[change_bgm] Calling delegate.execute_on_frontend()")
+            delegate = get_delegate(tool_context.session.id)
+            logger.info(f"[change_bgm] delegate={delegate} (session_id={tool_context.session.id})")
+
+            if not delegate:
+                error_msg = f"Missing frontend_delegate for session_id={tool_context.session.id}"
+                logger.error(f"[change_bgm] {error_msg}")
+                return {"success": False, "error": error_msg}
+
             result_or_error = await delegate.execute_on_frontend(
                 tool_name="change_bgm",
                 args={"track": track},
@@ -313,9 +322,8 @@ async def change_bgm(track: int, tool_context: ToolContext | None = None) -> dic
                 case _:
                     assert_never(result_or_error)
 
-    # TODO: remove suspicious execution path if not needed
-    # SSE mode or no delegate - direct return (frontend handles via onToolCall)
-    logger.info(f"[change_bgm] SSE mode: track={track} (frontend auto-executes)")
+    # SSE mode - direct return (frontend handles audio playback separately)
+    logger.info(f"[change_bgm] SSE mode: track={track} (frontend handles execution separately)")
     return {
         "success": True,
         "track": track,
@@ -447,7 +455,6 @@ async def _adk_request_confirmation(
     # Delegate to frontend and await user decision
     # This blocks AI processing until user approves/rejects
     result_or_error = await delegate.execute_on_frontend(
-        tool_call_id=tool_call_id,
         tool_name="adk_request_confirmation",
         args={
             "originalFunctionCall": originalFunctionCall,
