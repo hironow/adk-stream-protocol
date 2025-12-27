@@ -16,35 +16,27 @@
   },
   "output": {
     "rawEvents": [
-      "data: {\"type\": \"start\", \"messageId\": \"76273c7c-112b-431f-9201-fe1469ed5a8b\"}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"cf1b20e4-783b-4708-95b6-259f5cf0a050\"}\n\n",
       "data: {\"type\": \"reasoning-start\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Determining Payment Method**\\n\\nI've determined that the `process_payment` tool is the most suitable for sending $200 to Jiro-san.  The tool seems straightforward. I will use the arguments `amount=200`, `recipient='Jiro-san'`, and `currency='USD'`, given the user's input. The recipient name should be safe.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Examining Payment Parameters**\\n\\nI'm currently focused on the `process_payment` parameters for sending $200 to \\\"\\u6b21\\u90ce\\u3055\\u3093\\\" (Jiro). I've noted the amount and currency are straightforward, but the recipient name requires further scrutiny. The tool's description mentions identifiers like email or wallet addresses, making me question if a Japanese name is valid. I'll start by attempting the payment with the name as-is.\\n\\n\\n\"}\n\n",
       "data: {\"type\": \"reasoning-end\", \"id\": \"0\"}\n\n",
       "data: {\"type\": \"reasoning-start\", \"id\": \"1\"}\n\n",
-      "data: {\"type\": \"reasoning-delta\", \"id\": \"1\", \"delta\": \"**Analyzing Tool Requirements**\\n\\nMy analysis of the user's input continues. I've confirmed that the `process_payment` tool is the best option. I will send $200 USD to \\\"Jiro-san\\\". I've decided to use the arguments `amount=200`, `recipient='Jiro-san'`, and `currency='USD'`. This seems secure and aligns with the user's intent to send the funds. The tool's approval mechanism is internal, so I will call it directly.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"1\", \"delta\": \"**Testing the Tool Call**\\n\\nI'm now about to initiate the `process_payment` tool call with the specified parameters. My primary concern is the validity of the Japanese name \\\"\\u6b21\\u90ce\\u3055\\u3093\\\" as a recipient identifier, given the tool's description. The system will likely reject it if the name is invalid, but I'll make the call and see what happens.\\n\\n\\n\"}\n\n",
       "data: {\"type\": \"reasoning-end\", \"id\": \"1\"}\n\n",
-      "data: {\"type\": \"text-start\", \"id\": \"2\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"2\", \"delta\": \"**Determining Payment Method**\\n\\nI've determined that the `process_payment` tool is the most suitable for sending $200 to Jiro-san.  The tool seems straightforward. I will use the arguments `amount=200`, `recipient='Jiro-san'`, and `currency='USD'`, given the user's input. The recipient name should be safe.\\n\\n\\n**Analyzing Tool Requirements**\\n\\nMy analysis of the user's input continues. I've confirmed that the `process_payment` tool is the best option. I will send $200 USD to \\\"Jiro-san\\\". I've decided to use the arguments `amount=200`, `recipient='Jiro-san'`, and `currency='USD'`. This seems secure and aligns with the user's intent to send the funds. The tool's approval mechanism is internal, so I will call it directly.\\n\\n\\n\"}\n\n",
-      "data: {\"type\": \"text-end\", \"id\": \"2\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-16582297689601931878\", \"toolName\": \"process_payment\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-16582297689601931878\", \"toolName\": \"process_payment\", \"input\": {\"amount\": 200, \"currency\": \"USD\", \"recipient\": \"Jiro-san\"}}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-02d79a0f-85d3-4f61-b47a-641252b56bc7\", \"toolName\": \"adk_request_confirmation\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-02d79a0f-85d3-4f61-b47a-641252b56bc7\", \"toolName\": \"adk_request_confirmation\", \"input\": {\"originalFunctionCall\": {\"id\": \"function-call-16582297689601931878\", \"name\": \"process_payment\", \"args\": {\"amount\": 200, \"currency\": \"USD\", \"recipient\": \"Jiro-san\"}}, \"toolConfirmation\": {\"hint\": \"Please approve or reject the tool call process_payment() by responding with a FunctionResponse with an expected ToolConfirmation payload.\", \"confirmed\": false}}}\n\n",
-      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"function-call-16582297689601931878\", \"output\": {\"success\": true, \"transaction_id\": \"txn_68fd19170d00\", \"amount\": 200, \"currency\": \"USD\", \"recipient\": \"Jiro-san\", \"description\": \"\", \"wallet_balance\": 800.0, \"timestamp\": \"2025-12-27T17:40:05.991395+00:00\"}}\n\n",
-      "data: {\"type\": \"text-start\", \"id\": \"76273c7c-112b-431f-9201-fe1469ed5a8b_output_text\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"76273c7c-112b-431f-9201-fe1469ed5a8b_output_text\", \"delta\": \"\\u6b21\\u90ce\\u3055\\u3093\\u306b200\\u30c9\\u30eb\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"76273c7c-112b-431f-9201-fe1469ed5a8b_output_text\", \"delta\": \"\\u306e\\u9001\\u91d1\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"76273c7c-112b-431f-9201-fe1469ed5a8b_output_text\", \"delta\": \"\\u304c\\u5b8c\\u4e86\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"76273c7c-112b-431f-9201-fe1469ed5a8b_output_text\", \"delta\": \"\\u3057\\u307e\\u3057\\u305f\\u3002\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"76273c7c-112b-431f-9201-fe1469ed5a8b_output_text\", \"delta\": \"\\u6b21\\u90ce\\u3055\\u3093\\u306b200\\u30c9\\u30eb\\u306e\\u9001\\u91d1\\u304c\\u5b8c\\u4e86\\u3057\\u307e\\u3057\\u305f\\u3002\"}\n\n",
-      "data: {\"type\": \"text-end\", \"id\": \"76273c7c-112b-431f-9201-fe1469ed5a8b_output_text\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"audio\": {\"chunks\": 37, \"bytes\": 115200, \"sampleRate\": 24000, \"duration\": 2.4}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-3398619140066119640\", \"toolName\": \"process_payment\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-3398619140066119640\", \"toolName\": \"process_payment\", \"input\": {\"recipient\": \"\\u6b21\\u90ce\\u3055\\u3093\", \"amount\": 200}}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-3398619140066119640\", \"approvalId\": \"adk-4c5269aa-b2b0-45e8-b908-ce00376b9d69\"}\n\n",
+      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"function-call-3398619140066119640\", \"output\": {\"success\": true, \"transaction_id\": \"txn_f3cef791fcd0\", \"amount\": 200, \"currency\": \"USD\", \"recipient\": \"\\u6b21\\u90ce\\u3055\\u3093\", \"description\": \"\", \"wallet_balance\": 800.0, \"timestamp\": \"2025-12-27T20:00:36.222074+00:00\"}}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"cf1b20e4-783b-4708-95b6-259f5cf0a050_output_text\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"cf1b20e4-783b-4708-95b6-259f5cf0a050_output_text\", \"delta\": \"\\u6b21\\u90ce\\u3055\\u3093\\u306b200\\u30c9\\u30eb\\u306e\\u9001\\u91d1\\u51e6\\u7406\\u304c\\u5b8c\\u4e86\\u3057\\u307e\\u3057\\u305f\\u3002\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"cf1b20e4-783b-4708-95b6-259f5cf0a050_output_text\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"audio\": {\"chunks\": 47, \"bytes\": 134400, \"sampleRate\": 24000, \"duration\": 2.8}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
       {
         "type": "start",
-        "messageId": "76273c7c-112b-431f-9201-fe1469ed5a8b"
+        "messageId": "cf1b20e4-783b-4708-95b6-259f5cf0a050"
       },
       {
         "type": "reasoning-start",
@@ -53,7 +45,7 @@
       {
         "type": "reasoning-delta",
         "id": "0",
-        "delta": "**Determining Payment Method**\n\nI've determined that the `process_payment` tool is the most suitable for sending $200 to Jiro-san.  The tool seems straightforward. I will use the arguments `amount=200`, `recipient='Jiro-san'`, and `currency='USD'`, given the user's input. The recipient name should be safe.\n\n\n"
+        "delta": "**Examining Payment Parameters**\n\nI'm currently focused on the `process_payment` parameters for sending $200 to \"次郎さん\" (Jiro). I've noted the amount and currency are straightforward, but the recipient name requires further scrutiny. The tool's description mentions identifiers like email or wallet addresses, making me question if a Japanese name is valid. I'll start by attempting the payment with the name as-is.\n\n\n"
       },
       {
         "type": "reasoning-end",
@@ -66,121 +58,67 @@
       {
         "type": "reasoning-delta",
         "id": "1",
-        "delta": "**Analyzing Tool Requirements**\n\nMy analysis of the user's input continues. I've confirmed that the `process_payment` tool is the best option. I will send $200 USD to \"Jiro-san\". I've decided to use the arguments `amount=200`, `recipient='Jiro-san'`, and `currency='USD'`. This seems secure and aligns with the user's intent to send the funds. The tool's approval mechanism is internal, so I will call it directly.\n\n\n"
+        "delta": "**Testing the Tool Call**\n\nI'm now about to initiate the `process_payment` tool call with the specified parameters. My primary concern is the validity of the Japanese name \"次郎さん\" as a recipient identifier, given the tool's description. The system will likely reject it if the name is invalid, but I'll make the call and see what happens.\n\n\n"
       },
       {
         "type": "reasoning-end",
         "id": "1"
       },
       {
-        "type": "text-start",
-        "id": "2"
-      },
-      {
-        "type": "text-delta",
-        "id": "2",
-        "delta": "**Determining Payment Method**\n\nI've determined that the `process_payment` tool is the most suitable for sending $200 to Jiro-san.  The tool seems straightforward. I will use the arguments `amount=200`, `recipient='Jiro-san'`, and `currency='USD'`, given the user's input. The recipient name should be safe.\n\n\n**Analyzing Tool Requirements**\n\nMy analysis of the user's input continues. I've confirmed that the `process_payment` tool is the best option. I will send $200 USD to \"Jiro-san\". I've decided to use the arguments `amount=200`, `recipient='Jiro-san'`, and `currency='USD'`. This seems secure and aligns with the user's intent to send the funds. The tool's approval mechanism is internal, so I will call it directly.\n\n\n"
-      },
-      {
-        "type": "text-end",
-        "id": "2"
-      },
-      {
         "type": "tool-input-start",
-        "toolCallId": "function-call-16582297689601931878",
+        "toolCallId": "function-call-3398619140066119640",
         "toolName": "process_payment"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "function-call-16582297689601931878",
+        "toolCallId": "function-call-3398619140066119640",
         "toolName": "process_payment",
         "input": {
-          "amount": 200,
-          "currency": "USD",
-          "recipient": "Jiro-san"
+          "recipient": "次郎さん",
+          "amount": 200
         }
       },
       {
-        "type": "tool-input-start",
-        "toolCallId": "adk-02d79a0f-85d3-4f61-b47a-641252b56bc7",
-        "toolName": "adk_request_confirmation"
-      },
-      {
-        "type": "tool-input-available",
-        "toolCallId": "adk-02d79a0f-85d3-4f61-b47a-641252b56bc7",
-        "toolName": "adk_request_confirmation",
-        "input": {
-          "originalFunctionCall": {
-            "id": "function-call-16582297689601931878",
-            "name": "process_payment",
-            "args": {
-              "amount": 200,
-              "currency": "USD",
-              "recipient": "Jiro-san"
-            }
-          },
-          "toolConfirmation": {
-            "hint": "Please approve or reject the tool call process_payment() by responding with a FunctionResponse with an expected ToolConfirmation payload.",
-            "confirmed": false
-          }
-        }
+        "type": "tool-approval-request",
+        "toolCallId": "function-call-3398619140066119640",
+        "approvalId": "adk-4c5269aa-b2b0-45e8-b908-ce00376b9d69"
       },
       {
         "type": "tool-output-available",
-        "toolCallId": "function-call-16582297689601931878",
+        "toolCallId": "function-call-3398619140066119640",
         "output": {
           "success": true,
-          "transaction_id": "txn_68fd19170d00",
+          "transaction_id": "txn_f3cef791fcd0",
           "amount": 200,
           "currency": "USD",
-          "recipient": "Jiro-san",
+          "recipient": "次郎さん",
           "description": "",
           "wallet_balance": 800.0,
-          "timestamp": "2025-12-27T17:40:05.991395+00:00"
+          "timestamp": "2025-12-27T20:00:36.222074+00:00"
         }
       },
       {
         "type": "text-start",
-        "id": "76273c7c-112b-431f-9201-fe1469ed5a8b_output_text"
+        "id": "cf1b20e4-783b-4708-95b6-259f5cf0a050_output_text"
       },
       {
         "type": "text-delta",
-        "id": "76273c7c-112b-431f-9201-fe1469ed5a8b_output_text",
-        "delta": "次郎さんに200ドル"
-      },
-      {
-        "type": "text-delta",
-        "id": "76273c7c-112b-431f-9201-fe1469ed5a8b_output_text",
-        "delta": "の送金"
-      },
-      {
-        "type": "text-delta",
-        "id": "76273c7c-112b-431f-9201-fe1469ed5a8b_output_text",
-        "delta": "が完了"
-      },
-      {
-        "type": "text-delta",
-        "id": "76273c7c-112b-431f-9201-fe1469ed5a8b_output_text",
-        "delta": "しました。"
-      },
-      {
-        "type": "text-delta",
-        "id": "76273c7c-112b-431f-9201-fe1469ed5a8b_output_text",
-        "delta": "次郎さんに200ドルの送金が完了しました。"
+        "id": "cf1b20e4-783b-4708-95b6-259f5cf0a050_output_text",
+        "delta": "次郎さんに200ドルの送金処理が完了しました。"
       },
       {
         "type": "text-end",
-        "id": "76273c7c-112b-431f-9201-fe1469ed5a8b_output_text"
+        "id": "cf1b20e4-783b-4708-95b6-259f5cf0a050_output_text"
       },
       {
         "type": "finish",
         "finishReason": "stop",
         "messageMetadata": {
           "audio": {
-            "chunks": 37,
-            "bytes": 115200,
+            "chunks": 47,
+            "bytes": 134400,
             "sampleRate": 24000,
-            "duration": 2.4
+            "duration": 2.8
           },
           "modelVersion": "gemini-2.5-flash-native-audio-preview-12-2025"
         }

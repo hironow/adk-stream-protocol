@@ -91,6 +91,13 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
 
             const data = JSON.parse(event.data as string);
 
+            console.log("[MSW Handler] Received message:", {
+              type: data.type,
+              trigger: data.trigger,
+              messageCount: data.messages?.length,
+              lastMessage: data.messages?.[data.messages.length - 1],
+            });
+
             // Check if this is approval response (assistant message with approval-responded)
             const hasApprovalResponse = data.messages?.some(
               (msg: any) =>
@@ -112,6 +119,12 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
                     part.state === "output-available",
                 ),
             );
+
+            console.log("[MSW Handler] Check results:", {
+              hasApprovalResponse,
+              hasToolOutput,
+              toolResultReceived,
+            });
 
             if (hasToolOutput) {
               // Frontend sent tool-result
@@ -139,6 +152,9 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
               return;
             } else {
               // First message: Send original tool + confirmation request
+              // NOTE: No text-* events here (unlike real backend) to match SSE E2E pattern
+              // This allows sendAutomaticallyWhen to work correctly
+
               // Send original tool chunks first
               client.send(
                 `data: ${JSON.stringify({
@@ -177,19 +193,26 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
                       name: "get_location",
                       args: {},
                     },
+                    toolConfirmation: {
+                      hint: "Please approve or reject the tool call get_location()",
+                      confirmed: false,
+                    },
                   },
                 })}\n\n`,
               );
 
+              // Send tool-approval-request (AI SDK v6 standard event)
+              // Reference: ADR 0002 - Tool Approval Architecture
               client.send(
                 `data: ${JSON.stringify({
                   type: "tool-approval-request",
-                  approvalId: "call-location",
                   toolCallId: "call-location",
+                  approvalId: "call-location",
                 })}\n\n`,
               );
 
-              client.send("data: [DONE]\n\n");
+              // Phase 12 BLOCKING: Don't send [DONE] yet - tool is awaiting approval
+              // [DONE] will be sent after final AI response (when tool output is received)
             }
           });
         }),
@@ -401,19 +424,26 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
                       name: "take_photo",
                       args: {},
                     },
+                    toolConfirmation: {
+                      hint: "Please approve or reject the tool call take_photo()",
+                      confirmed: false,
+                    },
                   },
                 })}\n\n`,
               );
 
+              // Send tool-approval-request (AI SDK v6 standard event)
+              // Reference: ADR 0002 - Tool Approval Architecture
               client.send(
                 `data: ${JSON.stringify({
                   type: "tool-approval-request",
-                  approvalId: "call-camera",
                   toolCallId: "call-camera",
+                  approvalId: "call-camera",
                 })}\n\n`,
               );
 
-              client.send("data: [DONE]\n\n");
+              // Phase 12 BLOCKING: Don't send [DONE] yet - tool is awaiting approval
+              // [DONE] will be sent after final AI response (when tool output is received)
             }
           });
         }),

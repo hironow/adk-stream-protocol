@@ -16,36 +16,27 @@
   },
   "output": {
     "rawEvents": [
-      "data: {\"type\": \"start\", \"messageId\": \"ae05b4e7-c3ca-4192-9112-80a961ae132d\"}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"e3116c66-affc-42f5-bd3d-0126d6a59121\"}\n\n",
       "data: {\"type\": \"reasoning-start\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Selecting Payment Method**\\n\\nI've homed in on the `process_payment` tool. It looks like the right fit to handle the monetary transaction.  I've parsed the user's request for 200\\u30c9\\u30eb and translated that to USD, so I'll be using $200.  To minimize potential issues, I'll use \\\"Jiro-san\\\" as the recipient, as opposed to the original, which might present character encoding challenges.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Evaluating Payment Tools**\\n\\nI've homed in on the `process_payment` tool. It looks like the right fit to transfer $200 to Jiro-san. I've set the amount, recipient (using the provided string), and currency to USD. Now, I'm expecting a prompt for approval before executing the payment.\\n\\n\\n\"}\n\n",
       "data: {\"type\": \"reasoning-end\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"reasoning-start\", \"id\": \"1\"}\n\n",
-      "data: {\"type\": \"reasoning-delta\", \"id\": \"1\", \"delta\": \"**Finalizing Payment Details**\\n\\nI'm now fully committed to the `process_payment` tool. I have all the necessary parameters, including the amount ($200), the recipient (\\\"Jiro-san\\\"), and the currency (\\\"USD\\\"). The tool description indicates it handles user approval internally, so I will now proceed to execute the payment using these finalized inputs.\\n\\n\\n\"}\n\n",
-      "data: {\"type\": \"reasoning-end\", \"id\": \"1\"}\n\n",
-      "data: {\"type\": \"text-start\", \"id\": \"2\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"2\", \"delta\": \"**Selecting Payment Method**\\n\\nI've homed in on the `process_payment` tool. It looks like the right fit to handle the monetary transaction.  I've parsed the user's request for 200\\u30c9\\u30eb and translated that to USD, so I'll be using $200.  To minimize potential issues, I'll use \\\"Jiro-san\\\" as the recipient, as opposed to the original, which might present character encoding challenges.\\n\\n\\n**Finalizing Payment Details**\\n\\nI'm now fully committed to the `process_payment` tool. I have all the necessary parameters, including the amount ($200), the recipient (\\\"Jiro-san\\\"), and the currency (\\\"USD\\\"). The tool description indicates it handles user approval internally, so I will now proceed to execute the payment using these finalized inputs.\\n\\n\\n\"}\n\n",
-      "data: {\"type\": \"text-end\", \"id\": \"2\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-8682393237209731996\", \"toolName\": \"process_payment\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-8682393237209731996\", \"toolName\": \"process_payment\", \"input\": {\"currency\": \"USD\", \"amount\": 200, \"recipient\": \"Jiro-san\"}}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-b679247f-0436-44b1-825c-3b8d18123a15\", \"toolName\": \"adk_request_confirmation\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-b679247f-0436-44b1-825c-3b8d18123a15\", \"toolName\": \"adk_request_confirmation\", \"input\": {\"originalFunctionCall\": {\"id\": \"function-call-8682393237209731996\", \"name\": \"process_payment\", \"args\": {\"currency\": \"USD\", \"amount\": 200, \"recipient\": \"Jiro-san\"}}, \"toolConfirmation\": {\"hint\": \"Please approve or reject the tool call process_payment() by responding with a FunctionResponse with an expected ToolConfirmation payload.\", \"confirmed\": false}}}\n\n",
-      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"function-call-8682393237209731996\", \"errorText\": \"User denied the payment\"}\n\n",
-      "data: {\"type\": \"text-start\", \"id\": \"ae05b4e7-c3ca-4192-9112-80a961ae132d_output_text\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"ae05b4e7-c3ca-4192-9112-80a961ae132d_output_text\", \"delta\": \"\\u7533\\u3057\\u8a33\\u3042\\u308a\\u307e\\u305b\\u3093\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"ae05b4e7-c3ca-4192-9112-80a961ae132d_output_text\", \"delta\": \"\\u3002\\u9001\\u91d1\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"ae05b4e7-c3ca-4192-9112-80a961ae132d_output_text\", \"delta\": \"\\u304c\\u62d2\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"ae05b4e7-c3ca-4192-9112-80a961ae132d_output_text\", \"delta\": \"\\u5426\\u3055\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"ae05b4e7-c3ca-4192-9112-80a961ae132d_output_text\", \"delta\": \"\\u308c\\u307e\\u3057\\u305f\\u3002\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"ae05b4e7-c3ca-4192-9112-80a961ae132d_output_text\", \"delta\": \"\\u7533\\u3057\\u8a33\\u3042\\u308a\\u307e\\u305b\\u3093\\u3002\\u9001\\u91d1\\u304c\\u62d2\\u5426\\u3055\\u308c\\u307e\\u3057\\u305f\\u3002\"}\n\n",
-      "data: {\"type\": \"text-end\", \"id\": \"ae05b4e7-c3ca-4192-9112-80a961ae132d_output_text\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"audio\": {\"chunks\": 49, \"bytes\": 138240, \"sampleRate\": 24000, \"duration\": 2.88}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-775428664124720382\", \"toolName\": \"process_payment\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-775428664124720382\", \"toolName\": \"process_payment\", \"input\": {\"amount\": 200, \"currency\": \"USD\", \"recipient\": \"\\u6b21\\u90ce\\u3055\\u3093\"}}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-775428664124720382\", \"approvalId\": \"adk-9342021f-2cec-49b6-970b-5dba67544a15\"}\n\n",
+      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"function-call-775428664124720382\", \"errorText\": \"User denied the payment\"}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"e3116c66-affc-42f5-bd3d-0126d6a59121_output_text\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e3116c66-affc-42f5-bd3d-0126d6a59121_output_text\", \"delta\": \"\\u652f\\u6255\\u3044\\u306f\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e3116c66-affc-42f5-bd3d-0126d6a59121_output_text\", \"delta\": \"\\u62d2\\u5426\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e3116c66-affc-42f5-bd3d-0126d6a59121_output_text\", \"delta\": \"\\u3055\\u308c\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e3116c66-affc-42f5-bd3d-0126d6a59121_output_text\", \"delta\": \"\\u307e\\u3057\\u305f\\u3002\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"e3116c66-affc-42f5-bd3d-0126d6a59121_output_text\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"audio\": {\"chunks\": 22, \"bytes\": 86400, \"sampleRate\": 24000, \"duration\": 1.8}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
       {
         "type": "start",
-        "messageId": "ae05b4e7-c3ca-4192-9112-80a961ae132d"
+        "messageId": "e3116c66-affc-42f5-bd3d-0126d6a59121"
       },
       {
         "type": "reasoning-start",
@@ -54,130 +45,74 @@
       {
         "type": "reasoning-delta",
         "id": "0",
-        "delta": "**Selecting Payment Method**\n\nI've homed in on the `process_payment` tool. It looks like the right fit to handle the monetary transaction.  I've parsed the user's request for 200ドル and translated that to USD, so I'll be using $200.  To minimize potential issues, I'll use \"Jiro-san\" as the recipient, as opposed to the original, which might present character encoding challenges.\n\n\n"
+        "delta": "**Evaluating Payment Tools**\n\nI've homed in on the `process_payment` tool. It looks like the right fit to transfer $200 to Jiro-san. I've set the amount, recipient (using the provided string), and currency to USD. Now, I'm expecting a prompt for approval before executing the payment.\n\n\n"
       },
       {
         "type": "reasoning-end",
         "id": "0"
       },
       {
-        "type": "reasoning-start",
-        "id": "1"
-      },
-      {
-        "type": "reasoning-delta",
-        "id": "1",
-        "delta": "**Finalizing Payment Details**\n\nI'm now fully committed to the `process_payment` tool. I have all the necessary parameters, including the amount ($200), the recipient (\"Jiro-san\"), and the currency (\"USD\"). The tool description indicates it handles user approval internally, so I will now proceed to execute the payment using these finalized inputs.\n\n\n"
-      },
-      {
-        "type": "reasoning-end",
-        "id": "1"
-      },
-      {
-        "type": "text-start",
-        "id": "2"
-      },
-      {
-        "type": "text-delta",
-        "id": "2",
-        "delta": "**Selecting Payment Method**\n\nI've homed in on the `process_payment` tool. It looks like the right fit to handle the monetary transaction.  I've parsed the user's request for 200ドル and translated that to USD, so I'll be using $200.  To minimize potential issues, I'll use \"Jiro-san\" as the recipient, as opposed to the original, which might present character encoding challenges.\n\n\n**Finalizing Payment Details**\n\nI'm now fully committed to the `process_payment` tool. I have all the necessary parameters, including the amount ($200), the recipient (\"Jiro-san\"), and the currency (\"USD\"). The tool description indicates it handles user approval internally, so I will now proceed to execute the payment using these finalized inputs.\n\n\n"
-      },
-      {
-        "type": "text-end",
-        "id": "2"
-      },
-      {
         "type": "tool-input-start",
-        "toolCallId": "function-call-8682393237209731996",
+        "toolCallId": "function-call-775428664124720382",
         "toolName": "process_payment"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "function-call-8682393237209731996",
+        "toolCallId": "function-call-775428664124720382",
         "toolName": "process_payment",
         "input": {
-          "currency": "USD",
           "amount": 200,
-          "recipient": "Jiro-san"
+          "currency": "USD",
+          "recipient": "次郎さん"
         }
       },
       {
-        "type": "tool-input-start",
-        "toolCallId": "adk-b679247f-0436-44b1-825c-3b8d18123a15",
-        "toolName": "adk_request_confirmation"
-      },
-      {
-        "type": "tool-input-available",
-        "toolCallId": "adk-b679247f-0436-44b1-825c-3b8d18123a15",
-        "toolName": "adk_request_confirmation",
-        "input": {
-          "originalFunctionCall": {
-            "id": "function-call-8682393237209731996",
-            "name": "process_payment",
-            "args": {
-              "currency": "USD",
-              "amount": 200,
-              "recipient": "Jiro-san"
-            }
-          },
-          "toolConfirmation": {
-            "hint": "Please approve or reject the tool call process_payment() by responding with a FunctionResponse with an expected ToolConfirmation payload.",
-            "confirmed": false
-          }
-        }
+        "type": "tool-approval-request",
+        "toolCallId": "function-call-775428664124720382",
+        "approvalId": "adk-9342021f-2cec-49b6-970b-5dba67544a15"
       },
       {
         "type": "tool-output-error",
-        "toolCallId": "function-call-8682393237209731996",
+        "toolCallId": "function-call-775428664124720382",
         "errorText": "User denied the payment"
       },
       {
         "type": "text-start",
-        "id": "ae05b4e7-c3ca-4192-9112-80a961ae132d_output_text"
+        "id": "e3116c66-affc-42f5-bd3d-0126d6a59121_output_text"
       },
       {
         "type": "text-delta",
-        "id": "ae05b4e7-c3ca-4192-9112-80a961ae132d_output_text",
-        "delta": "申し訳ありません"
+        "id": "e3116c66-affc-42f5-bd3d-0126d6a59121_output_text",
+        "delta": "支払いは"
       },
       {
         "type": "text-delta",
-        "id": "ae05b4e7-c3ca-4192-9112-80a961ae132d_output_text",
-        "delta": "。送金"
+        "id": "e3116c66-affc-42f5-bd3d-0126d6a59121_output_text",
+        "delta": "拒否"
       },
       {
         "type": "text-delta",
-        "id": "ae05b4e7-c3ca-4192-9112-80a961ae132d_output_text",
-        "delta": "が拒"
+        "id": "e3116c66-affc-42f5-bd3d-0126d6a59121_output_text",
+        "delta": "され"
       },
       {
         "type": "text-delta",
-        "id": "ae05b4e7-c3ca-4192-9112-80a961ae132d_output_text",
-        "delta": "否さ"
-      },
-      {
-        "type": "text-delta",
-        "id": "ae05b4e7-c3ca-4192-9112-80a961ae132d_output_text",
-        "delta": "れました。"
-      },
-      {
-        "type": "text-delta",
-        "id": "ae05b4e7-c3ca-4192-9112-80a961ae132d_output_text",
-        "delta": "申し訳ありません。送金が拒否されました。"
+        "id": "e3116c66-affc-42f5-bd3d-0126d6a59121_output_text",
+        "delta": "ました。"
       },
       {
         "type": "text-end",
-        "id": "ae05b4e7-c3ca-4192-9112-80a961ae132d_output_text"
+        "id": "e3116c66-affc-42f5-bd3d-0126d6a59121_output_text"
       },
       {
         "type": "finish",
         "finishReason": "stop",
         "messageMetadata": {
           "audio": {
-            "chunks": 49,
-            "bytes": 138240,
+            "chunks": 22,
+            "bytes": 86400,
             "sampleRate": 24000,
-            "duration": 2.88
+            "duration": 1.8
           },
           "modelVersion": "gemini-2.5-flash-native-audio-preview-12-2025"
         }

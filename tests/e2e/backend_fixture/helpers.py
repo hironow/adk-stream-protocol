@@ -60,6 +60,78 @@ async def send_sse_request(
     return raw_events
 
 
+async def receive_events_until_approval_request(
+    websocket: Any,
+    original_tool_name: str,
+    timeout: float = 5.0,
+) -> tuple[list[str], str | None, str | None]:
+    """Receive WebSocket events until tool-approval-request is found (BIDI mode).
+
+    This helper extracts common logic for BIDI mode approval flow tests.
+    It receives events in a loop until tool-approval-request is detected.
+
+    Args:
+        websocket: WebSocket connection (websockets.WebSocketClientProtocol)
+        original_tool_name: Name of the original tool requiring approval (e.g., "get_location", "process_payment")
+        timeout: Timeout for each recv() call in seconds
+
+    Returns:
+        Tuple of (all_events, confirmation_id, original_tool_call_id)
+        - all_events: List of all received event strings
+        - confirmation_id: approvalId from tool-approval-request event
+        - original_tool_call_id: toolCallId of the original tool
+
+    Raises:
+        AssertionError: If [DONE] is received before tool-approval-request (Phase 12 BLOCKING violation)
+        asyncio.TimeoutError: If timeout waiting for tool-approval-request
+    """
+    all_events = []
+    confirmation_id = None
+    original_tool_call_id = None
+
+    print(f"\n=== Receiving events until tool-approval-request (original tool: {original_tool_name}) ===")
+    while True:
+        try:
+            event = await asyncio.wait_for(websocket.recv(), timeout=timeout)
+            all_events.append(event)
+            print(f"Event {len(all_events)}: {event.strip()}")
+
+            # ERROR: If we get [DONE] before approval response, that's wrong!
+            if "[DONE]" in event:
+                raise AssertionError(
+                    "Received [DONE] before approval response in Phase 12 BLOCKING mode! "
+                    "This indicates the tool returned early instead of BLOCKING."
+                )
+
+            # Parse event to extract tool call IDs
+            if "data:" in event and event.strip() != "data: [DONE]":
+                try:
+                    event_data = json.loads(event.strip().replace("data: ", ""))
+
+                    # Look for tool-approval-request (AI SDK v6 standard)
+                    if event_data.get("type") == "tool-approval-request":
+                        confirmation_id = event_data.get("approvalId")
+                        print(f"\n✓ Found tool-approval-request:")
+                        print(f"  approvalId: {confirmation_id}")
+                        # IMPORTANT: Don't wait for [DONE], break immediately
+                        break
+
+                    # Also track original tool call ID from tool-input-available
+                    if event_data.get("type") == "tool-input-available":
+                        tool_name = event_data.get("toolName")
+                        if tool_name == original_tool_name:
+                            original_tool_call_id = event_data.get("toolCallId")
+                            print(f"  original_tool_call_id: {original_tool_call_id}")
+                except json.JSONDecodeError:
+                    pass
+
+        except asyncio.TimeoutError:
+            print(f"\n✗ Timeout waiting for tool-approval-request after {len(all_events)} events")
+            raise
+
+    return (all_events, confirmation_id, original_tool_call_id)
+
+
 def extract_tool_call_ids_from_turn1(
     raw_events: list[str],
 ) -> tuple[str | None, str | None]:
@@ -71,7 +143,7 @@ def extract_tool_call_ids_from_turn1(
     Returns:
         Tuple of (original_tool_call_id, confirmation_id)
         - original_tool_call_id: ID of the original tool (e.g., process_payment)
-        - confirmation_id: ID of the adk_request_confirmation tool
+        - confirmation_id: ID from tool-approval-request event (AI SDK v6 standard)
     """
     original_id = None
     confirmation_id = None
@@ -85,20 +157,21 @@ def extract_tool_call_ids_from_turn1(
         try:
             json_str = event[6:].strip()
             event_obj = json.loads(json_str)
+            event_type = event_obj.get("type")
 
-            if event_obj.get("type") != "tool-input-available":
-                continue
+            # Extract original tool ID from tool-input-available
+            if event_type == "tool-input-available":
+                tool_name = event_obj.get("toolName")
+                tool_call_id = event_obj.get("toolCallId")
 
-            tool_name = event_obj.get("toolName")
-            tool_call_id = event_obj.get("toolCallId")
+                # Only get first non-confirmation tool (original tool)
+                if tool_name != "adk_request_confirmation" and original_id is None:
+                    original_id = tool_call_id
 
-            # Extract original tool ID (first non-confirmation tool)
-            if tool_name != "adk_request_confirmation" and original_id is None:
-                original_id = tool_call_id
-
-            # Extract confirmation tool ID
-            if tool_name == "adk_request_confirmation":
-                confirmation_id = tool_call_id
+            # Extract confirmation ID from tool-approval-request (AI SDK v6 standard)
+            # Note: adk_request_confirmation tool events are no longer sent to frontend
+            elif event_type == "tool-approval-request":
+                confirmation_id = event_obj.get("approvalId")
 
         except (json.JSONDecodeError, KeyError):
             continue
@@ -478,6 +551,15 @@ def normalize_event(event_str: str) -> str:
                 event_obj["toolCallId"] = "adk-DYNAMIC_ID"
             else:
                 event_obj["toolCallId"] = "DYNAMIC_TOOL_CALL_ID"
+
+        # Replace dynamic approvalId with placeholder (for tool-approval-request events)
+        if "approvalId" in event_obj:
+            if isinstance(event_obj["approvalId"], str) and event_obj["approvalId"].startswith(
+                "adk-"
+            ):
+                event_obj["approvalId"] = "adk-DYNAMIC_ID"
+            else:
+                event_obj["approvalId"] = "DYNAMIC_APPROVAL_ID"
 
         # Replace timestamps in nested structures
         if "messageMetadata" in event_obj:
@@ -926,6 +1008,122 @@ async def run_backend_fixture_test(
         return (
             False,
             f"[DONE] count mismatch: actual={actual_done_count}, expected={expected_done_count}",
+        )
+
+    return (True, "")
+
+
+def validate_tool_approval_request_toolcallid(raw_events: list[str]) -> tuple[bool, str]:
+    """Validate that tool-approval-request toolCallId matches the original tool's toolCallId.
+
+    This ensures that the tool-approval-request event references the correct tool call.
+    If there's a mismatch, the frontend cannot properly associate the approval request
+    with the original tool call.
+
+    Args:
+        raw_events: List of SSE-format event strings
+
+    Returns:
+        Tuple of (is_valid, error_message)
+        - is_valid: True if validation passes
+        - error_message: Empty string if valid, error description if invalid
+    """
+    # Build mapping: toolName -> toolCallId from tool-input-available events
+    tool_calls: dict[str, str] = {}
+
+    # Find tool-approval-request events
+    approval_requests: list[tuple[str, str]] = []  # (toolCallId, approvalId)
+
+    for event in raw_events:
+        if not event.startswith("data: "):
+            continue
+        if "[DONE]" in event:
+            continue
+
+        try:
+            json_str = event[6:].strip()
+            event_obj = json.loads(json_str)
+            event_type = event_obj.get("type")
+
+            # Track tool-input-available events
+            if event_type == "tool-input-available":
+                tool_name = event_obj.get("toolName")
+                tool_call_id = event_obj.get("toolCallId")
+                if tool_name and tool_call_id:
+                    # Skip adk_request_confirmation - it should never appear as tool-input-available
+                    if tool_name != "adk_request_confirmation":
+                        tool_calls[tool_name] = tool_call_id
+
+            # Track tool-approval-request events
+            elif event_type == "tool-approval-request":
+                tool_call_id = event_obj.get("toolCallId")
+                approval_id = event_obj.get("approvalId")
+                if tool_call_id and approval_id:
+                    approval_requests.append((tool_call_id, approval_id))
+
+        except (json.JSONDecodeError, KeyError):
+            continue
+
+    # Validate each approval request
+    for approval_toolcallid, approval_id in approval_requests:
+        # The toolCallId in tool-approval-request should match one of the tool-input-available toolCallIds
+        if approval_toolcallid not in tool_calls.values():
+            return (
+                False,
+                f"tool-approval-request has toolCallId '{approval_toolcallid}' which does not match any "
+                f"tool-input-available toolCallId. Available tool calls: {tool_calls}. "
+                f"This indicates the approval request is not properly linked to the original tool call.",
+            )
+
+    return (True, "")
+
+
+def validate_no_adk_request_confirmation_tool_input(
+    raw_events: list[str],
+) -> tuple[bool, str]:
+    """Validate that adk_request_confirmation tool-input events do NOT exist.
+
+    According to ADR 0002 (Tool Approval Architecture), adk_request_confirmation is
+    an internal tool that should be hidden from the frontend. Only tool-approval-request
+    events should be exposed.
+
+    Args:
+        raw_events: List of SSE-format event strings
+
+    Returns:
+        Tuple of (is_valid, error_message)
+        - is_valid: True if validation passes (no adk_request_confirmation tool-input events)
+        - error_message: Empty string if valid, error description if invalid
+    """
+    forbidden_events: list[str] = []
+
+    for idx, event in enumerate(raw_events):
+        if not event.startswith("data: "):
+            continue
+        if "[DONE]" in event:
+            continue
+
+        try:
+            json_str = event[6:].strip()
+            event_obj = json.loads(json_str)
+            event_type = event_obj.get("type")
+
+            # Check for forbidden tool-input-* events with adk_request_confirmation
+            if event_type in ("tool-input-start", "tool-input-available"):
+                tool_name = event_obj.get("toolName")
+                if tool_name == "adk_request_confirmation":
+                    forbidden_events.append(f"Event {idx}: {event_type} for adk_request_confirmation")
+
+        except (json.JSONDecodeError, KeyError):
+            continue
+
+    if forbidden_events:
+        return (
+            False,
+            f"Found forbidden adk_request_confirmation tool-input events:\n"
+            + "\n".join(forbidden_events)
+            + "\n\nAccording to ADR 0002, adk_request_confirmation is internal and should be hidden. "
+            + "Only tool-approval-request events should be exposed to frontend.",
         )
 
     return (True, "")

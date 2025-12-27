@@ -16,29 +16,29 @@
   },
   "output": {
     "rawEvents": [
-      "data: {\"type\": \"start\", \"messageId\": \"db691224-274e-4ff7-a9a1-01586257c7c5\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-20bb0de1-44a5-4904-ae16-f532b00476ed\", \"toolName\": \"get_weather\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-20bb0de1-44a5-4904-ae16-f532b00476ed\", \"toolName\": \"get_weather\", \"input\": {\"location\": \"Tokyo\"}}\n\n",
-      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"adk-20bb0de1-44a5-4904-ae16-f532b00476ed\", \"output\": {\"temperature\": 4.5, \"condition\": \"Clouds\", \"description\": \"few clouds\", \"humidity\": 58, \"feels_like\": 2.3, \"wind_speed\": 2.57, \"cached\": true}}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"6c92af7b-9444-4b48-8d6a-73d6f6dba92f\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-dd6aa09d-b19b-4521-a34e-0e92f11150c0\", \"toolName\": \"get_weather\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-dd6aa09d-b19b-4521-a34e-0e92f11150c0\", \"toolName\": \"get_weather\", \"input\": {\"location\": \"Tokyo\"}}\n\n",
+      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"adk-dd6aa09d-b19b-4521-a34e-0e92f11150c0\", \"output\": {\"temperature\": 4.5, \"condition\": \"Clouds\", \"description\": \"few clouds\", \"humidity\": 58, \"feels_like\": 2.3, \"wind_speed\": 2.57, \"cached\": true}}\n\n",
       "data: {\"type\": \"text-start\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"\\u73fe\\u5728\\u306e\\u6771\\u4eac\\u306e\\u5929\\u6c17\\u306f\\u3001\\u5c11\\u3057\\u96f2\\u304c\\u51fa\\u3066\\u3044\\u307e\\u3059\\u304c\\uff08few clouds\\uff09\\u3001\\u6c17\\u6e29\\u306f4.5\\u5ea6\\u3067\\u3059\\u3002\\u4f53\\u611f\\u6e29\\u5ea6\\u306f2.3\\u5ea6\\u3001\\u6e7f\\u5ea6\\u306f58%\\u3068\\u306a\\u3063\\u3066\\u3044\\u307e\\u3059\\u3002\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"\\u73fe\\u5728\\u306e\\u6771\\u4eac\\u306e\\u5929\\u6c17\\u306f\\u300c\\u96f2\\uff08\\u5c11\\u306a\\u3044\\u96f2\\uff09\\u300d\\u3067\\u3059\\u3002\\u6c17\\u6e29\\u306f4.5\\u2103\\uff08\\u4f53\\u611f\\u6e29\\u5ea62.3\\u2103\\uff09\\u3001\\u6e7f\\u5ea6\\u306f58\\uff05\\u3001\\u98a8\\u901f\\u306f2.57m/s\\u3067\\u3059\\u3002\"}\n\n",
       "data: {\"type\": \"text-end\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1278, \"completionTokens\": 38, \"totalTokens\": 1316}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1288, \"completionTokens\": 46, \"totalTokens\": 1334}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
       {
         "type": "start",
-        "messageId": "db691224-274e-4ff7-a9a1-01586257c7c5"
+        "messageId": "6c92af7b-9444-4b48-8d6a-73d6f6dba92f"
       },
       {
         "type": "tool-input-start",
-        "toolCallId": "adk-20bb0de1-44a5-4904-ae16-f532b00476ed",
+        "toolCallId": "adk-dd6aa09d-b19b-4521-a34e-0e92f11150c0",
         "toolName": "get_weather"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "adk-20bb0de1-44a5-4904-ae16-f532b00476ed",
+        "toolCallId": "adk-dd6aa09d-b19b-4521-a34e-0e92f11150c0",
         "toolName": "get_weather",
         "input": {
           "location": "Tokyo"
@@ -46,7 +46,7 @@
       },
       {
         "type": "tool-output-available",
-        "toolCallId": "adk-20bb0de1-44a5-4904-ae16-f532b00476ed",
+        "toolCallId": "adk-dd6aa09d-b19b-4521-a34e-0e92f11150c0",
         "output": {
           "temperature": 4.5,
           "condition": "Clouds",
@@ -64,7 +64,7 @@
       {
         "type": "text-delta",
         "id": "0",
-        "delta": "現在の東京の天気は、少し雲が出ていますが（few clouds）、気温は4.5度です。体感温度は2.3度、湿度は58%となっています。"
+        "delta": "現在の東京の天気は「雲（少ない雲）」です。気温は4.5℃（体感温度2.3℃）、湿度は58％、風速は2.57m/sです。"
       },
       {
         "type": "text-end",
@@ -75,9 +75,9 @@
         "finishReason": "stop",
         "messageMetadata": {
           "usage": {
-            "promptTokens": 1278,
-            "completionTokens": 38,
-            "totalTokens": 1316
+            "promptTokens": 1288,
+            "completionTokens": 46,
+            "totalTokens": 1334
           },
           "modelVersion": "gemini-3-flash-preview"
         }

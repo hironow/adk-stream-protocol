@@ -26,7 +26,7 @@ from loguru import logger
 
 from .frontend_tool_service import FrontendToolDelegate
 from .result import Error, Ok
-from .stream_protocol import stream_adk_to_ai_sdk
+from .stream_protocol import StreamProtocolConverter, stream_adk_to_ai_sdk
 from .utils import _parse_sse_event_data
 
 
@@ -318,41 +318,21 @@ class BidiEventSender:
                             "args": tool_args,
                         }
 
-                        logger.info(f"[BIDI Phase 5] Injecting adk_request_confirmation events for {tool_name}")
+                        logger.info(f"[BIDI Phase 5] Injecting tool-approval-request for {tool_name}")
 
-                        # Inject tool-input-start for adk_request_confirmation
-                        start_event = {
-                            "type": "tool-input-start",
-                            "toolCallId": confirmation_id,
-                            "toolName": "adk_request_confirmation",
-                        }
-                        start_sse = f"data: {json.dumps(start_event)}\n\n"
+                        # Send tool-approval-request (AI SDK v6 standard event)
+                        # Do NOT send tool-input-* events for adk_request_confirmation
+                        # Reference: ADR 0002 - Tool Approval Architecture
+                        # Use StreamProtocolConverter's centralized static method for consistent formatting
+                        approval_request_sse = StreamProtocolConverter.format_tool_approval_request(
+                            original_tool_call_id=tool_call_id,  # Original tool's ID
+                            approval_id=confirmation_id,  # Unique approval request ID
+                        )
                         try:
-                            await self._ws.send_text(start_sse)
-                            logger.info("[BIDI Phase 5] ✓ Sent tool-input-start for adk_request_confirmation")
+                            await self._ws.send_text(approval_request_sse)
+                            logger.info("[BIDI Phase 5] ✓ Sent tool-approval-request")
                         except Exception as e:
-                            logger.error(f"[BIDI Phase 5] ✗ Failed to send tool-input-start: {e!s}")
-                            raise
-
-                        # Inject tool-input-available for adk_request_confirmation
-                        available_event = {
-                            "type": "tool-input-available",
-                            "toolCallId": confirmation_id,
-                            "toolName": "adk_request_confirmation",
-                            "input": {
-                                "originalFunctionCall": original_function_call,
-                                "toolConfirmation": {
-                                    "hint": f"Please approve or reject the tool call {tool_name}() by responding with a FunctionResponse with an expected ToolConfirmation payload.",
-                                    "confirmed": False,
-                                },
-                            },
-                        }
-                        available_sse = f"data: {json.dumps(available_event)}\n\n"
-                        try:
-                            await self._ws.send_text(available_sse)
-                            logger.info("[BIDI Phase 5] ✓ Sent tool-input-available for adk_request_confirmation")
-                        except Exception as e:
-                            logger.error(f"[BIDI Phase 5] ✗ Failed to send tool-input-available: {e!s}")
+                            logger.error(f"[BIDI Phase 5] ✗ Failed to send tool-approval-request: {e!s}")
                             raise
 
                         # Save confirmation_id → original_tool_call_id mapping in session.state

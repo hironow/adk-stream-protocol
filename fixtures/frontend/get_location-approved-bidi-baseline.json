@@ -16,32 +16,32 @@
   },
   "output": {
     "rawEvents": [
-      "data: {\"type\": \"start\", \"messageId\": \"d3127a0f-c700-4cea-b3f8-d6d2e30edd5f\"}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"99d69240-eebd-42bb-b3bf-f8bc6268200b\"}\n\n",
       "data: {\"type\": \"reasoning-start\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Acquiring Current Location**\\n\\nI've determined that the user is requesting their location in Japanese. I've decided to utilize the `get_location` tool, which will prompt the user for permission. No arguments are necessary for this tool. I'm now ready to call `get_location` and let the tool execution handle the response.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Acquiring Location Data**\\n\\nI've determined that the Japanese phrase translates directly to a request for location data. My assessment is that the `get_location` tool aligns perfectly with this. It seems the tool's description and argument specifications, notably `tool_context`, suggest it's designed to handle this type of inquiry. I'm now formulating the call to `get_location` to proceed.\\n\\n\\n\"}\n\n",
       "data: {\"type\": \"reasoning-end\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"text-start\", \"id\": \"1\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"1\", \"delta\": \"**Acquiring Current Location**\\n\\nI've determined that the user is requesting their location in Japanese. I've decided to utilize the `get_location` tool, which will prompt the user for permission. No arguments are necessary for this tool. I'm now ready to call `get_location` and let the tool execution handle the response.\\n\\n\\n\"}\n\n",
-      "data: {\"type\": \"text-end\", \"id\": \"1\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-8771056645011490282\", \"toolName\": \"get_location\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-8771056645011490282\", \"toolName\": \"get_location\", \"input\": {}}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-55c6a424-d148-4c1d-a761-acafcdc6de13\", \"toolName\": \"adk_request_confirmation\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-55c6a424-d148-4c1d-a761-acafcdc6de13\", \"toolName\": \"adk_request_confirmation\", \"input\": {\"originalFunctionCall\": {\"id\": \"function-call-8771056645011490282\", \"name\": \"get_location\", \"args\": {}}, \"toolConfirmation\": {\"hint\": \"Please approve or reject the tool call get_location() by responding with a FunctionResponse with an expected ToolConfirmation payload.\", \"confirmed\": false}}}\n\n",
-      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"function-call-8771056645011490282\", \"output\": {\"latitude\": 35.6762, \"longitude\": 139.6503, \"accuracy\": 20, \"city\": \"Tokyo\", \"country\": \"Japan\"}}\n\n",
-      "data: {\"type\": \"text-start\", \"id\": \"d3127a0f-c700-4cea-b3f8-d6d2e30edd5f_output_text\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"d3127a0f-c700-4cea-b3f8-d6d2e30edd5f_output_text\", \"delta\": \"\\u73fe\\u5728\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"d3127a0f-c700-4cea-b3f8-d6d2e30edd5f_output_text\", \"delta\": \"\\u5730\\u306f\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"d3127a0f-c700-4cea-b3f8-d6d2e30edd5f_output_text\", \"delta\": \"\\u6771\\u4eac\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"d3127a0f-c700-4cea-b3f8-d6d2e30edd5f_output_text\", \"delta\": \"\\u3067\\u3059\\u3002\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"d3127a0f-c700-4cea-b3f8-d6d2e30edd5f_output_text\", \"delta\": \"\\u73fe\\u5728\\u5730\\u306f\\u6771\\u4eac\\u3067\\u3059\\u3002\"}\n\n",
-      "data: {\"type\": \"text-end\", \"id\": \"d3127a0f-c700-4cea-b3f8-d6d2e30edd5f_output_text\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"audio\": {\"chunks\": 18, \"bytes\": 78720, \"sampleRate\": 24000, \"duration\": 1.64}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-916111763024937707\", \"toolName\": \"get_location\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-916111763024937707\", \"toolName\": \"get_location\", \"input\": {}}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-916111763024937707\", \"approvalId\": \"adk-df077e9b-1448-4c79-9abf-63c58e20f82e\"}\n\n",
+      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"function-call-916111763024937707\", \"output\": {\"latitude\": 35.6762, \"longitude\": 139.6503, \"accuracy\": 20, \"city\": \"Tokyo\", \"country\": \"Japan\"}}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text\", \"delta\": \"\\u73fe\\u5728\\u5730\\u306f\\u3001\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text\", \"delta\": \"\\u6771\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text\", \"delta\": \"\\u4eac\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text\", \"delta\": \"\\u306e\\u7def\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text\", \"delta\": \"\\u5ea635.6762\\u3001\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text\", \"delta\": \"\\u7d4c\\u5ea6139.6503\\u3001\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text\", \"delta\": \"\\u7cbe\\u5ea620\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text\", \"delta\": \"\\u30e1\\u30fc\\u30c8\\u30eb\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text\", \"delta\": \"\\u3067\\u3059\\u3002\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"audio\": {\"chunks\": 202, \"bytes\": 432000, \"sampleRate\": 24000, \"duration\": 9.0}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
       {
         "type": "start",
-        "messageId": "d3127a0f-c700-4cea-b3f8-d6d2e30edd5f"
+        "messageId": "99d69240-eebd-42bb-b3bf-f8bc6268200b"
       },
       {
         "type": "reasoning-start",
@@ -50,60 +50,31 @@
       {
         "type": "reasoning-delta",
         "id": "0",
-        "delta": "**Acquiring Current Location**\n\nI've determined that the user is requesting their location in Japanese. I've decided to utilize the `get_location` tool, which will prompt the user for permission. No arguments are necessary for this tool. I'm now ready to call `get_location` and let the tool execution handle the response.\n\n\n"
+        "delta": "**Acquiring Location Data**\n\nI've determined that the Japanese phrase translates directly to a request for location data. My assessment is that the `get_location` tool aligns perfectly with this. It seems the tool's description and argument specifications, notably `tool_context`, suggest it's designed to handle this type of inquiry. I'm now formulating the call to `get_location` to proceed.\n\n\n"
       },
       {
         "type": "reasoning-end",
         "id": "0"
       },
       {
-        "type": "text-start",
-        "id": "1"
-      },
-      {
-        "type": "text-delta",
-        "id": "1",
-        "delta": "**Acquiring Current Location**\n\nI've determined that the user is requesting their location in Japanese. I've decided to utilize the `get_location` tool, which will prompt the user for permission. No arguments are necessary for this tool. I'm now ready to call `get_location` and let the tool execution handle the response.\n\n\n"
-      },
-      {
-        "type": "text-end",
-        "id": "1"
-      },
-      {
         "type": "tool-input-start",
-        "toolCallId": "function-call-8771056645011490282",
+        "toolCallId": "function-call-916111763024937707",
         "toolName": "get_location"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "function-call-8771056645011490282",
+        "toolCallId": "function-call-916111763024937707",
         "toolName": "get_location",
         "input": {}
       },
       {
-        "type": "tool-input-start",
-        "toolCallId": "adk-55c6a424-d148-4c1d-a761-acafcdc6de13",
-        "toolName": "adk_request_confirmation"
-      },
-      {
-        "type": "tool-input-available",
-        "toolCallId": "adk-55c6a424-d148-4c1d-a761-acafcdc6de13",
-        "toolName": "adk_request_confirmation",
-        "input": {
-          "originalFunctionCall": {
-            "id": "function-call-8771056645011490282",
-            "name": "get_location",
-            "args": {}
-          },
-          "toolConfirmation": {
-            "hint": "Please approve or reject the tool call get_location() by responding with a FunctionResponse with an expected ToolConfirmation payload.",
-            "confirmed": false
-          }
-        }
+        "type": "tool-approval-request",
+        "toolCallId": "function-call-916111763024937707",
+        "approvalId": "adk-df077e9b-1448-4c79-9abf-63c58e20f82e"
       },
       {
         "type": "tool-output-available",
-        "toolCallId": "function-call-8771056645011490282",
+        "toolCallId": "function-call-916111763024937707",
         "output": {
           "latitude": 35.6762,
           "longitude": 139.6503,
@@ -114,46 +85,66 @@
       },
       {
         "type": "text-start",
-        "id": "d3127a0f-c700-4cea-b3f8-d6d2e30edd5f_output_text"
+        "id": "99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text"
       },
       {
         "type": "text-delta",
-        "id": "d3127a0f-c700-4cea-b3f8-d6d2e30edd5f_output_text",
-        "delta": "現在"
+        "id": "99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text",
+        "delta": "現在地は、"
       },
       {
         "type": "text-delta",
-        "id": "d3127a0f-c700-4cea-b3f8-d6d2e30edd5f_output_text",
-        "delta": "地は"
+        "id": "99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text",
+        "delta": "東"
       },
       {
         "type": "text-delta",
-        "id": "d3127a0f-c700-4cea-b3f8-d6d2e30edd5f_output_text",
-        "delta": "東京"
+        "id": "99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text",
+        "delta": "京"
       },
       {
         "type": "text-delta",
-        "id": "d3127a0f-c700-4cea-b3f8-d6d2e30edd5f_output_text",
+        "id": "99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text",
+        "delta": "の緯"
+      },
+      {
+        "type": "text-delta",
+        "id": "99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text",
+        "delta": "度35.6762、"
+      },
+      {
+        "type": "text-delta",
+        "id": "99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text",
+        "delta": "経度139.6503、"
+      },
+      {
+        "type": "text-delta",
+        "id": "99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text",
+        "delta": "精度20"
+      },
+      {
+        "type": "text-delta",
+        "id": "99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text",
+        "delta": "メートル"
+      },
+      {
+        "type": "text-delta",
+        "id": "99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text",
         "delta": "です。"
       },
       {
-        "type": "text-delta",
-        "id": "d3127a0f-c700-4cea-b3f8-d6d2e30edd5f_output_text",
-        "delta": "現在地は東京です。"
-      },
-      {
         "type": "text-end",
-        "id": "d3127a0f-c700-4cea-b3f8-d6d2e30edd5f_output_text"
+        "id": "99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text"
       },
       {
         "type": "finish",
         "finishReason": "stop",
         "messageMetadata": {
           "audio": {
-            "chunks": 18,
-            "bytes": 78720,
+            "chunks": 202,
+            "bytes": 432000,
             "sampleRate": 24000,
-            "duration": 1.64
+            "duration": 9.0
           },
           "modelVersion": "gemini-2.5-flash-native-audio-preview-12-2025"
         }

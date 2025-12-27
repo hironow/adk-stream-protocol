@@ -201,6 +201,13 @@ class StreamProtocolConverter:
         # Track output transcription text blocks (AI audio response in native-audio models)
         self._output_text_block_id: str | None = None
         self._output_text_block_started = False
+        # Track cumulative output transcription text to filter duplicate final summary
+        # Gemini 2.0 sends final transcription with finished=True containing full text
+        self._output_transcription_accumulated = ""
+        # Track ALL reasoning texts to filter duplicate text-delta events
+        # In BIDI mode, Gemini 2.0 sometimes sends reasoning parts followed by a text part
+        # containing the concatenation of all reasoning parts
+        self._accumulated_reasoning_texts: list[str] = []
 
     def _generate_part_id(self) -> str:
         """Generate unique part ID."""
@@ -279,10 +286,46 @@ class StreamProtocolConverter:
                     and hasattr(part, "text")
                     and part.text
                 ):
+                    logger.info(f"[THOUGHT PART] Processing thought text: length={len(part.text)}, preview='{part.text[:50]}...'")
+                    # Accumulate reasoning text to filter duplicate text-delta
+                    self._accumulated_reasoning_texts.append(part.text)
                     for sse_event in self._process_thought_part(part.text):
                         yield sse_event
                 # Text content (regular answer when thought=False or None)
                 elif hasattr(part, "text") and part.text:
+                    # Filter duplicate text-delta if it matches accumulated reasoning texts
+                    # This handles BIDI mode where Gemini 2.0 sends reasoning parts followed by text parts
+                    # containing either:
+                    # 1. The concatenation of all reasoning texts
+                    # 2. Individual reasoning texts repeated as separate text parts
+                    should_skip = False
+                    if self._accumulated_reasoning_texts:
+                        # Check if text matches concatenation of all reasoning texts
+                        accumulated_reasoning = "".join(self._accumulated_reasoning_texts)
+                        if part.text == accumulated_reasoning:
+                            logger.info(
+                                f"[TEXT PART] Filtering duplicate text-delta (matches concatenated reasoning): "
+                                f"length={len(part.text)}, reasoning_parts={len(self._accumulated_reasoning_texts)}, "
+                                f"preview='{part.text[:50]}...'"
+                            )
+                            should_skip = True
+
+                        # Also check if text matches any individual reasoning text
+                        if not should_skip:
+                            for idx, reasoning_text in enumerate(self._accumulated_reasoning_texts):
+                                if part.text == reasoning_text:
+                                    logger.info(
+                                        f"[TEXT PART] Filtering duplicate text-delta (matches reasoning[{idx}]): "
+                                        f"length={len(part.text)}, preview='{part.text[:50]}...'"
+                                    )
+                                    should_skip = True
+                                    break
+
+                    if should_skip:
+                        continue
+
+                    thought_value = getattr(part, "thought", None)
+                    logger.info(f"[TEXT PART] Processing text (thought={thought_value}): length={len(part.text)}, preview='{part.text[:50]}...'")
                     for sse_event in self._process_text_part(part.text):
                         yield sse_event
 
@@ -374,33 +417,55 @@ class StreamProtocolConverter:
         if hasattr(event, "output_transcription") and event.output_transcription:
             transcription = event.output_transcription
             if hasattr(transcription, "text") and transcription.text:
-                # logger.debug(
-                #     f"[OUTPUT TRANSCRIPTION] text='{transcription.text}', finished={getattr(transcription, 'finished', None)}"
-                # )
-
-                # Send text-start if this is the first transcription chunk
-                if not self._output_text_block_started:
-                    self._output_text_block_id = f"{self.message_id}_output_text"
-                    self._output_text_block_started = True
-                    yield self.format_sse_event(
-                        {"type": "text-start", "id": self._output_text_block_id}
-                    )
-
-                # Send text-delta with the transcription text (AI SDK v6 protocol)
-                yield self.format_sse_event(
-                    {
-                        "type": "text-delta",
-                        "id": self._output_text_block_id,
-                        "delta": transcription.text,
-                    }
+                finished = getattr(transcription, "finished", None)
+                text_length = len(transcription.text)
+                logger.info(
+                    f"[OUTPUT TRANSCRIPTION] text_length={text_length}, "
+                    f"finished={finished}, "
+                    f"accumulated_length={len(self._output_transcription_accumulated)}, "
+                    f"text_preview='{transcription.text[:100]}...'"
                 )
 
-                # Send text-end if transcription is finished
-                if hasattr(transcription, "finished") and transcription.finished:
+                # Check if this is final transcription with full text (Gemini 2.0 behavior)
+                # If finished=True and text matches accumulated, skip (duplicate summary)
+                if finished and transcription.text == self._output_transcription_accumulated:
+                    logger.info(
+                        f"[OUTPUT TRANSCRIPTION] Filtering duplicate final summary "
+                        f"(finished=True, matches accumulated text)"
+                    )
+                    # Send text-end and skip text-delta
                     yield self.format_sse_event(
                         {"type": "text-end", "id": self._output_text_block_id}
                     )
                     self._output_text_block_started = False
+                    # Don't send text-delta for this duplicate
+                else:
+                    # Send text-start if this is the first transcription chunk
+                    if not self._output_text_block_started:
+                        self._output_text_block_id = f"{self.message_id}_output_text"
+                        self._output_text_block_started = True
+                        yield self.format_sse_event(
+                            {"type": "text-start", "id": self._output_text_block_id}
+                        )
+
+                    # Send text-delta with the transcription text (AI SDK v6 protocol)
+                    yield self.format_sse_event(
+                        {
+                            "type": "text-delta",
+                            "id": self._output_text_block_id,
+                            "delta": transcription.text,
+                        }
+                    )
+
+                    # Accumulate text for duplicate detection
+                    self._output_transcription_accumulated += transcription.text
+
+                    # Send text-end if transcription is finished
+                    if hasattr(transcription, "finished") and transcription.finished:
+                        yield self.format_sse_event(
+                            {"type": "text-end", "id": self._output_text_block_id}
+                        )
+                        self._output_text_block_started = False
 
         # BIDI mode: Handle turn completion within convert_event
         # This ensures content and turn_complete are processed in correct order
@@ -470,6 +535,37 @@ class StreamProtocolConverter:
         """Process thought part into reasoning-* events."""
         return self._create_streaming_events("reasoning", thought)
 
+    @staticmethod
+    def format_tool_approval_request(
+        original_tool_call_id: str, approval_id: str
+    ) -> str:
+        """Generate tool-approval-request event (AI SDK v6 standard).
+
+        This method centralizes the generation of tool-approval-request events,
+        ensuring consistent format across SSE and BIDI modes.
+
+        Args:
+            original_tool_call_id: ID of the original tool call that needs approval
+                (e.g., the get_location or process_payment tool call ID)
+            approval_id: Unique ID for this approval request
+                (e.g., adk_request_confirmation's tool call ID)
+
+        Returns:
+            SSE-formatted tool-approval-request event string
+
+        Reference:
+            - ADR 0002: Tool Approval Architecture
+            - AI SDK v6: tool-approval-request event specification
+        """
+        import json
+
+        event_data = {
+            "type": "tool-approval-request",
+            "toolCallId": original_tool_call_id,  # Must match the original tool's ID
+            "approvalId": approval_id,  # Unique ID for this approval request
+        }
+        return f"data: {json.dumps(event_data)}\n\n"
+
     def _process_function_call(self, function_call: types.FunctionCall) -> list[str]:
         """
         Process FunctionCall and generate AI SDK v6 SSE events.
@@ -504,6 +600,21 @@ class StreamProtocolConverter:
         if tool_name == "adk_request_confirmation":
             logger.info(f"[DEBUG] adk_request_confirmation tool_args: {tool_args}")
 
+        # For adk_request_confirmation: Send ONLY tool-approval-request (AI SDK v6 standard)
+        # Do NOT send tool-input-* events - adk_request_confirmation is internal, not exposed to frontend
+        # Reference: ADR 0002 - Tool Approval Architecture
+        if tool_name == "adk_request_confirmation":
+            # Extract original tool call ID from tool_args
+            # adk_request_confirmation args contain: {"originalFunctionCall": {"id": "...", "name": "...", "args": {...}}}
+            original_call_id = tool_args.get("originalFunctionCall", {}).get("id", tool_call_id)
+
+            return [
+                StreamProtocolConverter.format_tool_approval_request(
+                    original_tool_call_id=original_call_id, approval_id=tool_call_id
+                )
+            ]
+
+        # For regular tools: Send tool-input-* events as normal
         events = [
             self.format_sse_event(
                 {

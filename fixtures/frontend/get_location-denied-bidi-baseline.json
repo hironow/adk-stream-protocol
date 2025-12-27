@@ -16,34 +16,33 @@
   },
   "output": {
     "rawEvents": [
-      "data: {\"type\": \"start\", \"messageId\": \"47291765-50ff-4191-a77c-003ba45b283f\"}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"b947824e-da5a-4cd9-92fd-419d3ea167df\"}\n\n",
       "data: {\"type\": \"reasoning-start\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Acquiring Current Location**\\n\\nI've determined that the user is requesting their location in Japanese. I've decided to utilize the `get_location` tool, which is ideal for this purpose. The tool is designed to fetch the user's location, and it will require their approval to proceed.  I will execute this tool now.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Locating User Position**\\n\\nI've determined that the user is requesting their current location. The Japanese phrase confirms this. My plan is to use the `get_location` tool, which is designed precisely for this purpose. I am aware that user approval is required, and I've confirmed that the retrieval itself is managed by the browser's Geolocation API. I'll simply call `get_location()`, given that `tool_context` is automatically handled.\\n\\n\\n\"}\n\n",
       "data: {\"type\": \"reasoning-end\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"text-start\", \"id\": \"1\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"1\", \"delta\": \"**Acquiring Current Location**\\n\\nI've determined that the user is requesting their location in Japanese. I've decided to utilize the `get_location` tool, which is ideal for this purpose. The tool is designed to fetch the user's location, and it will require their approval to proceed.  I will execute this tool now.\\n\\n\\n\"}\n\n",
-      "data: {\"type\": \"text-end\", \"id\": \"1\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-14693805459183527551\", \"toolName\": \"get_location\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-14693805459183527551\", \"toolName\": \"get_location\", \"input\": {}}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-9ddb30e4-a37c-424c-83d3-667385bb5276\", \"toolName\": \"adk_request_confirmation\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-9ddb30e4-a37c-424c-83d3-667385bb5276\", \"toolName\": \"adk_request_confirmation\", \"input\": {\"originalFunctionCall\": {\"id\": \"function-call-14693805459183527551\", \"name\": \"get_location\", \"args\": {}}, \"toolConfirmation\": {\"hint\": \"Please approve or reject the tool call get_location() by responding with a FunctionResponse with an expected ToolConfirmation payload.\", \"confirmed\": false}}}\n\n",
-      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"function-call-14693805459183527551\", \"errorText\": \"User denied location access\"}\n\n",
-      "data: {\"type\": \"text-start\", \"id\": \"47291765-50ff-4191-a77c-003ba45b283f_output_text\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"47291765-50ff-4191-a77c-003ba45b283f_output_text\", \"delta\": \"\\u73fe\\u5728\\u5730\\u306e\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"47291765-50ff-4191-a77c-003ba45b283f_output_text\", \"delta\": \"\\u53d6\\u5f97\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"47291765-50ff-4191-a77c-003ba45b283f_output_text\", \"delta\": \"\\u304c\\u62d2\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"47291765-50ff-4191-a77c-003ba45b283f_output_text\", \"delta\": \"\\u5426\\u3055\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"47291765-50ff-4191-a77c-003ba45b283f_output_text\", \"delta\": \"\\u308c\\u307e\\u3057\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"47291765-50ff-4191-a77c-003ba45b283f_output_text\", \"delta\": \"\\u305f\\u3002\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"47291765-50ff-4191-a77c-003ba45b283f_output_text\", \"delta\": \"\\u73fe\\u5728\\u5730\\u306e\\u53d6\\u5f97\\u304c\\u62d2\\u5426\\u3055\\u308c\\u307e\\u3057\\u305f\\u3002\"}\n\n",
-      "data: {\"type\": \"text-end\", \"id\": \"47291765-50ff-4191-a77c-003ba45b283f_output_text\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"audio\": {\"chunks\": 27, \"bytes\": 96000, \"sampleRate\": 24000, \"duration\": 2.0}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-7431017044049307302\", \"toolName\": \"get_location\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-7431017044049307302\", \"toolName\": \"get_location\", \"input\": {}}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-7431017044049307302\", \"approvalId\": \"adk-17734498-08fa-456b-b126-6c55b423e029\"}\n\n",
+      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"function-call-7431017044049307302\", \"errorText\": \"User denied location access\"}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"b947824e-da5a-4cd9-92fd-419d3ea167df_output_text\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"b947824e-da5a-4cd9-92fd-419d3ea167df_output_text\", \"delta\": \"\\u73fe\\u5728\\u5730\\u306e\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"b947824e-da5a-4cd9-92fd-419d3ea167df_output_text\", \"delta\": \"\\u30a2\\u30af\\u30bb\\u30b9\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"b947824e-da5a-4cd9-92fd-419d3ea167df_output_text\", \"delta\": \"\\u304c\\u62d2\\u5426\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"b947824e-da5a-4cd9-92fd-419d3ea167df_output_text\", \"delta\": \"\\u3055\\u308c\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"b947824e-da5a-4cd9-92fd-419d3ea167df_output_text\", \"delta\": \"\\u307e\\u3057\\u305f\\u3002\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"b947824e-da5a-4cd9-92fd-419d3ea167df_output_text\", \"delta\": \" \\u4f4d\\u7f6e\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"b947824e-da5a-4cd9-92fd-419d3ea167df_output_text\", \"delta\": \"\\u60c5\\u5831\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"b947824e-da5a-4cd9-92fd-419d3ea167df_output_text\", \"delta\": \"\\u306e\\u53d6\\u5f97\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"b947824e-da5a-4cd9-92fd-419d3ea167df_output_text\", \"delta\": \"\\u306f\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"b947824e-da5a-4cd9-92fd-419d3ea167df_output_text\", \"delta\": \"\\u3067\\u304d\\u307e\\u305b\\u3093\\u3002\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"b947824e-da5a-4cd9-92fd-419d3ea167df_output_text\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"audio\": {\"chunks\": 85, \"bytes\": 207360, \"sampleRate\": 24000, \"duration\": 4.32}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
       {
         "type": "start",
-        "messageId": "47291765-50ff-4191-a77c-003ba45b283f"
+        "messageId": "b947824e-da5a-4cd9-92fd-419d3ea167df"
       },
       {
         "type": "reasoning-start",
@@ -52,114 +51,100 @@
       {
         "type": "reasoning-delta",
         "id": "0",
-        "delta": "**Acquiring Current Location**\n\nI've determined that the user is requesting their location in Japanese. I've decided to utilize the `get_location` tool, which is ideal for this purpose. The tool is designed to fetch the user's location, and it will require their approval to proceed.  I will execute this tool now.\n\n\n"
+        "delta": "**Locating User Position**\n\nI've determined that the user is requesting their current location. The Japanese phrase confirms this. My plan is to use the `get_location` tool, which is designed precisely for this purpose. I am aware that user approval is required, and I've confirmed that the retrieval itself is managed by the browser's Geolocation API. I'll simply call `get_location()`, given that `tool_context` is automatically handled.\n\n\n"
       },
       {
         "type": "reasoning-end",
         "id": "0"
       },
       {
-        "type": "text-start",
-        "id": "1"
-      },
-      {
-        "type": "text-delta",
-        "id": "1",
-        "delta": "**Acquiring Current Location**\n\nI've determined that the user is requesting their location in Japanese. I've decided to utilize the `get_location` tool, which is ideal for this purpose. The tool is designed to fetch the user's location, and it will require their approval to proceed.  I will execute this tool now.\n\n\n"
-      },
-      {
-        "type": "text-end",
-        "id": "1"
-      },
-      {
         "type": "tool-input-start",
-        "toolCallId": "function-call-14693805459183527551",
+        "toolCallId": "function-call-7431017044049307302",
         "toolName": "get_location"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "function-call-14693805459183527551",
+        "toolCallId": "function-call-7431017044049307302",
         "toolName": "get_location",
         "input": {}
       },
       {
-        "type": "tool-input-start",
-        "toolCallId": "adk-9ddb30e4-a37c-424c-83d3-667385bb5276",
-        "toolName": "adk_request_confirmation"
-      },
-      {
-        "type": "tool-input-available",
-        "toolCallId": "adk-9ddb30e4-a37c-424c-83d3-667385bb5276",
-        "toolName": "adk_request_confirmation",
-        "input": {
-          "originalFunctionCall": {
-            "id": "function-call-14693805459183527551",
-            "name": "get_location",
-            "args": {}
-          },
-          "toolConfirmation": {
-            "hint": "Please approve or reject the tool call get_location() by responding with a FunctionResponse with an expected ToolConfirmation payload.",
-            "confirmed": false
-          }
-        }
+        "type": "tool-approval-request",
+        "toolCallId": "function-call-7431017044049307302",
+        "approvalId": "adk-17734498-08fa-456b-b126-6c55b423e029"
       },
       {
         "type": "tool-output-error",
-        "toolCallId": "function-call-14693805459183527551",
+        "toolCallId": "function-call-7431017044049307302",
         "errorText": "User denied location access"
       },
       {
         "type": "text-start",
-        "id": "47291765-50ff-4191-a77c-003ba45b283f_output_text"
+        "id": "b947824e-da5a-4cd9-92fd-419d3ea167df_output_text"
       },
       {
         "type": "text-delta",
-        "id": "47291765-50ff-4191-a77c-003ba45b283f_output_text",
+        "id": "b947824e-da5a-4cd9-92fd-419d3ea167df_output_text",
         "delta": "現在地の"
       },
       {
         "type": "text-delta",
-        "id": "47291765-50ff-4191-a77c-003ba45b283f_output_text",
-        "delta": "取得"
+        "id": "b947824e-da5a-4cd9-92fd-419d3ea167df_output_text",
+        "delta": "アクセス"
       },
       {
         "type": "text-delta",
-        "id": "47291765-50ff-4191-a77c-003ba45b283f_output_text",
-        "delta": "が拒"
+        "id": "b947824e-da5a-4cd9-92fd-419d3ea167df_output_text",
+        "delta": "が拒否"
       },
       {
         "type": "text-delta",
-        "id": "47291765-50ff-4191-a77c-003ba45b283f_output_text",
-        "delta": "否さ"
+        "id": "b947824e-da5a-4cd9-92fd-419d3ea167df_output_text",
+        "delta": "され"
       },
       {
         "type": "text-delta",
-        "id": "47291765-50ff-4191-a77c-003ba45b283f_output_text",
-        "delta": "れまし"
+        "id": "b947824e-da5a-4cd9-92fd-419d3ea167df_output_text",
+        "delta": "ました。"
       },
       {
         "type": "text-delta",
-        "id": "47291765-50ff-4191-a77c-003ba45b283f_output_text",
-        "delta": "た。"
+        "id": "b947824e-da5a-4cd9-92fd-419d3ea167df_output_text",
+        "delta": " 位置"
       },
       {
         "type": "text-delta",
-        "id": "47291765-50ff-4191-a77c-003ba45b283f_output_text",
-        "delta": "現在地の取得が拒否されました。"
+        "id": "b947824e-da5a-4cd9-92fd-419d3ea167df_output_text",
+        "delta": "情報"
+      },
+      {
+        "type": "text-delta",
+        "id": "b947824e-da5a-4cd9-92fd-419d3ea167df_output_text",
+        "delta": "の取得"
+      },
+      {
+        "type": "text-delta",
+        "id": "b947824e-da5a-4cd9-92fd-419d3ea167df_output_text",
+        "delta": "は"
+      },
+      {
+        "type": "text-delta",
+        "id": "b947824e-da5a-4cd9-92fd-419d3ea167df_output_text",
+        "delta": "できません。"
       },
       {
         "type": "text-end",
-        "id": "47291765-50ff-4191-a77c-003ba45b283f_output_text"
+        "id": "b947824e-da5a-4cd9-92fd-419d3ea167df_output_text"
       },
       {
         "type": "finish",
         "finishReason": "stop",
         "messageMetadata": {
           "audio": {
-            "chunks": 27,
-            "bytes": 96000,
+            "chunks": 85,
+            "bytes": 207360,
             "sampleRate": 24000,
-            "duration": 2.0
+            "duration": 4.32
           },
           "modelVersion": "gemini-2.5-flash-native-audio-preview-12-2025"
         }

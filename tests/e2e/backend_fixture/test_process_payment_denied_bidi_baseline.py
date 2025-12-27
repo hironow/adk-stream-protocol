@@ -27,7 +27,10 @@ import websockets
 from .helpers import (
     compare_raw_events,
     load_frontend_fixture,
+    receive_events_until_approval_request,
     save_frontend_fixture,
+    validate_no_adk_request_confirmation_tool_input,
+    validate_tool_approval_request_toolcallid,
 )
 
 
@@ -57,48 +60,12 @@ async def test_process_payment_denied_bidi_baseline(frontend_fixture_dir: Path):
         await websocket.send(json.dumps({"type": "message", "messages": input_messages}))
         print("✓ Sent initial request")
 
-        # Receive events until we get adk_request_confirmation
-        all_events = []
-        confirmation_id = None
-        original_tool_call_id = None
-
-        print("\n=== Receiving events until adk_request_confirmation ===")
-        while True:
-            try:
-                event = await asyncio.wait_for(websocket.recv(), timeout=5.0)
-                all_events.append(event)
-                print(f"Event {len(all_events)}: {event.strip()}")
-
-                # ERROR: If we get [DONE] before approval response, that's wrong!
-                if "[DONE]" in event:
-                    raise AssertionError(
-                        "Received [DONE] before approval response in Phase 12 BLOCKING mode! "
-                        "This indicates the tool returned early instead of BLOCKING."
-                    )
-
-                # Parse event to extract tool call IDs
-                if "data:" in event and event.strip() != "data: [DONE]":
-                    try:
-                        event_data = json.loads(event.strip().replace("data: ", ""))
-
-                        # Look for adk_request_confirmation
-                        if event_data.get("type") == "tool-input-available":
-                            if event_data.get("toolName") == "adk_request_confirmation":
-                                confirmation_id = event_data.get("toolCallId")
-                                original_tool_call_id = event_data.get("input", {}).get(
-                                    "originalFunctionCall", {}
-                                ).get("id")
-                                print(f"\n✓ Found confirmation request:")
-                                print(f"  confirmation_id: {confirmation_id}")
-                                print(f"  original_id: {original_tool_call_id}")
-                                # IMPORTANT: Don't wait for [DONE], send denial immediately
-                                break
-                    except json.JSONDecodeError:
-                        pass
-
-            except asyncio.TimeoutError:
-                print(f"\n✗ Timeout waiting for adk_request_confirmation after {len(all_events)} events")
-                raise
+        # Receive events until we get tool-approval-request
+        all_events, confirmation_id, original_tool_call_id = await receive_events_until_approval_request(
+            websocket=websocket,
+            original_tool_name="process_payment",
+            timeout=5.0,
+        )
 
         assert confirmation_id is not None, "Should have confirmation_id"
         assert original_tool_call_id is not None, "Should have original tool call ID"
@@ -142,6 +109,16 @@ async def test_process_payment_denied_bidi_baseline(frontend_fixture_dir: Path):
 
         # Verify results
         print("\n=== VERIFICATION ===")
+
+        # Validate tool-approval-request toolCallId matches original tool's toolCallId
+        is_valid, error_msg = validate_tool_approval_request_toolcallid(all_events)
+        assert is_valid, f"tool-approval-request toolCallId validation failed:\n{error_msg}"
+        print("✓ tool-approval-request toolCallId matches original tool")
+
+        # Validate no adk_request_confirmation tool-input events
+        is_valid, error_msg = validate_no_adk_request_confirmation_tool_input(all_events)
+        assert is_valid, f"adk_request_confirmation tool-input validation failed:\n{error_msg}"
+        print("✓ No forbidden adk_request_confirmation tool-input events")
 
         # Count [DONE] markers
         done_count = sum(1 for e in all_events if "[DONE]" in e)

@@ -32,6 +32,8 @@ from .helpers import (
     load_frontend_fixture,
     save_frontend_fixture,
     send_sse_request,
+    validate_no_adk_request_confirmation_tool_input,
+    validate_tool_approval_request_toolcallid,
 )
 
 
@@ -69,6 +71,16 @@ async def test_process_payment_approved_sse_baseline(frontend_fixture_dir: Path)
     print(f"\n=== EXPECTED TURN 1 EVENTS (count={len(expected_turn1_events)}) ===")
     for i, event in enumerate(expected_turn1_events):
         print(f"{i}: {event.strip()}")
+
+    # Validate tool-approval-request toolCallId matches original tool's toolCallId
+    is_valid, error_msg = validate_tool_approval_request_toolcallid(actual_events)
+    assert is_valid, f"Turn 1: tool-approval-request toolCallId validation failed:\n{error_msg}"
+    print("✓ Turn 1: tool-approval-request toolCallId matches original tool")
+
+    # Validate no adk_request_confirmation tool-input events
+    is_valid, error_msg = validate_no_adk_request_confirmation_tool_input(actual_events)
+    assert is_valid, f"Turn 1: adk_request_confirmation tool-input validation failed:\n{error_msg}"
+    print("✓ Turn 1: No forbidden adk_request_confirmation tool-input events")
 
     # Structure validation for confirmation tools (LLM parameters and tokens are dynamic)
     is_match, diff_msg = compare_raw_events(
@@ -119,6 +131,11 @@ async def test_process_payment_approved_sse_baseline(frontend_fixture_dir: Path)
     print(f"\n=== TURN 2 EVENTS (count={len(turn2_events)}) ===")
     for i, event in enumerate(turn2_events):
         print(f"{i}: {event.strip()}")
+
+    # Validate Turn 2 events
+    is_valid, error_msg = validate_no_adk_request_confirmation_tool_input(turn2_events)
+    assert is_valid, f"Turn 2: adk_request_confirmation tool-input validation failed:\n{error_msg}"
+    print("✓ Turn 2: No forbidden adk_request_confirmation tool-input events")
 
     # Extract expected Turn 2 events from fixture (after first [DONE])
     expected_turn2_events = expected_events[first_done_index + 1 :]
