@@ -216,7 +216,7 @@ def _execute_process_payment(
     return result
 
 
-def process_payment(
+async def process_payment(
     amount: float,
     recipient: str,
     tool_context: ToolContext,
@@ -226,14 +226,14 @@ def process_payment(
     """
     Process a payment transaction (server-side execution with user approval required).
 
-    Phase 5: LongRunningFunctionTool pattern for BIDI mode:
+    Phase 12: BLOCKING behavior mode for BIDI mode:
     - SSE mode: Uses ADK native confirmation (require_confirmation=True)
-    - BIDI mode: Returns pending status immediately, actual execution happens after approval
+    - BIDI mode: Uses BLOCKING behavior to await approval inside function
 
     Implementation by mode:
     - SSE: ADK handles confirmation automatically, this function executes after approval
-    - BIDI: Returns pending status, BidiEventReceiver sends actual result via send_content() after approval
-           (Live API doesn't support ADK native confirmation, requires LongRunningFunctionTool pattern)
+    - BIDI: Awaits approval via approval_queue, returns final result after approval/denial
+           (Uses types.Behavior.BLOCKING to allow awaiting without blocking event loop)
 
     Args:
         amount: Payment amount (must be positive)
@@ -244,7 +244,7 @@ def process_payment(
 
     Returns:
         - SSE mode: Actual payment result after confirmation
-        - BIDI mode: Pending status dict (ADK generates FunctionResponse from this)
+        - BIDI mode: Final result after approval/denial (no pending status)
     """
     logger.info("[process_payment] ===== TOOL FUNCTION CALLED =====")
     logger.info(f"[process_payment] Processing payment: {amount} {currency} to {recipient}")
@@ -256,18 +256,56 @@ def process_payment(
     logger.info(f"[process_payment] Mode: {mode}")
 
     if is_bidi_mode:
-        # BIDI mode: Return pending status dict
-        # ADK's correct LongRunningFunctionTool pattern (from official docs):
-        # - Tool returns {'status': 'pending', ...} → ADK generates FunctionResponse
-        # - Turn completes with turn_complete event
-        # - BidiEventSender injects confirmation events for user approval
-        # - BidiEventReceiver sends actual result via LiveRequestQueue.send_content() after approval
-        logger.info("[process_payment] BIDI mode - returning pending status dict")
-        return {
-            "status": "pending",
-            "awaiting_confirmation": True,
-            "message": f"Payment of {amount} {currency} to {recipient} requires user approval",
-        }
+        # BIDI mode: BLOCKING behavior - await approval inside function
+        logger.info("[process_payment] BIDI mode - using BLOCKING behavior to await approval")
+
+        tool_call_id = tool_context.function_call_id
+
+        # Get approval_queue from session state
+        approval_queue = tool_context.session.state.get("approval_queue")
+
+        if not approval_queue:
+            logger.error("[process_payment] No approval_queue in session state!")
+            return {
+                "success": False,
+                "error": "approval_queue not configured",
+                "transaction_id": None,
+            }
+
+        # Register this tool call for approval
+        approval_queue.request_approval(
+            tool_call_id,
+            "process_payment",
+            {"amount": amount, "recipient": recipient, "currency": currency, "description": description},
+        )
+        logger.info(f"[process_payment] Registered approval request for {tool_call_id}")
+
+        # Await approval (BLOCKING behavior allows this without blocking event loop)
+        try:
+            logger.info("[process_payment] ⏳ Awaiting approval...")
+            approval_result = await approval_queue.wait_for_approval(
+                tool_call_id, timeout=30.0
+            )
+            logger.info(f"[process_payment] ✓ Approval received: {approval_result}")
+
+            if approval_result.get("approved"):
+                logger.info("[process_payment] ✅ APPROVED - executing payment")
+                return _execute_process_payment(amount, recipient, currency, description)
+            else:
+                logger.info("[process_payment] ❌ DENIED - rejecting payment")
+                return {
+                    "success": False,
+                    "error": "User denied the payment",
+                    "transaction_id": None,
+                }
+
+        except TimeoutError:
+            logger.error("[process_payment] ⏰ Timeout waiting for approval")
+            return {
+                "success": False,
+                "error": "Approval request timed out",
+                "transaction_id": None,
+            }
 
     # SSE mode: ADK handles confirmation automatically via require_confirmation=True
     # Execute payment logic directly (ADK has already handled approval)
@@ -381,20 +419,18 @@ async def get_location(tool_context: ToolContext) -> dict[str, Any]:
     """
     Get user's current location (requires user approval).
 
-    Phase 5: LongRunningFunctionTool pattern for BIDI mode:
+    Phase 12: BLOCKING behavior mode for BIDI mode:
     - SSE mode: Uses ADK native confirmation (require_confirmation=True) + frontend delegation
-    - BIDI mode: Returns pending status immediately, frontend delegation happens after approval
+    - BIDI mode: Uses BLOCKING behavior to await approval inside function
 
     The actual location retrieval is handled by the frontend's browser Geolocation API.
-
-    Note: This function must be async because SSE mode calls await _execute_get_location()
 
     Args:
         tool_context: ADK ToolContext (automatically injected)
 
     Returns:
         - SSE mode: User's location information from browser Geolocation API
-        - BIDI mode: Pending status dict (ADK generates FunctionResponse from this)
+        - BIDI mode: Final result after approval/denial (no pending status)
     """
     logger.info("[get_location] ========== TOOL FUNCTION CALLED ==========")
 
@@ -405,18 +441,53 @@ async def get_location(tool_context: ToolContext) -> dict[str, Any]:
     logger.info(f"[get_location] Mode: {mode}")
 
     if is_bidi_mode:
-        # BIDI mode: Return pending status dict
-        # ADK's correct LongRunningFunctionTool pattern (from official docs):
-        # - Tool returns {'status': 'pending', ...} → ADK generates FunctionResponse
-        # - Turn completes with turn_complete event
-        # - BidiEventSender injects confirmation events for user approval
-        # - BidiEventReceiver sends actual result via LiveRequestQueue.send_content() after approval
-        logger.info("[get_location] BIDI mode - returning pending status dict")
-        return {
-            "status": "pending",
-            "awaiting_confirmation": True,
-            "message": "Location access requires user approval",
-        }
+        # BIDI mode: BLOCKING behavior - await approval inside function
+        logger.info("[get_location] BIDI mode - using BLOCKING behavior to await approval")
+
+        tool_call_id = tool_context.function_call_id
+
+        # Get approval_queue from session state
+        approval_queue = tool_context.session.state.get("approval_queue")
+
+        if not approval_queue:
+            logger.error("[get_location] No approval_queue in session state!")
+            return {
+                "success": False,
+                "error": "approval_queue not configured",
+            }
+
+        # Register this tool call for approval
+        approval_queue.request_approval(
+            tool_call_id,
+            "get_location",
+            {},
+        )
+        logger.info(f"[get_location] Registered approval request for {tool_call_id}")
+
+        # Await approval (BLOCKING behavior allows this without blocking event loop)
+        try:
+            logger.info("[get_location] ⏳ Awaiting approval...")
+            approval_result = await approval_queue.wait_for_approval(
+                tool_call_id, timeout=30.0
+            )
+            logger.info(f"[get_location] ✓ Approval received: {approval_result}")
+
+            if approval_result.get("approved"):
+                logger.info("[get_location] ✅ APPROVED - executing frontend delegation")
+                return await _execute_get_location(tool_context.session.id)
+            else:
+                logger.info("[get_location] ❌ DENIED - rejecting location access")
+                return {
+                    "success": False,
+                    "error": "User denied location access",
+                }
+
+        except TimeoutError:
+            logger.error("[get_location] ⏰ Timeout waiting for approval")
+            return {
+                "success": False,
+                "error": "Approval request timed out",
+            }
 
     # SSE mode: ADK handles confirmation automatically via require_confirmation=True
     # Execute frontend delegation directly (ADK has already handled approval)

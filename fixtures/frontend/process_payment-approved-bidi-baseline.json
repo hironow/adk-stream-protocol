@@ -1,63 +1,68 @@
 {
-  "description": "BIDI mode baseline - process_payment with approval flow (MULTI-REQUEST: confirmation + execution)",
+  "description": "BIDI mode Phase 12 BLOCKING - process_payment with approval flow (SINGLE CONTINUOUS STREAM)",
   "mode": "bidi",
-  "source": "chunk_logs/e2e-baseline-for-integration/backend-adk-event (BIDI produces identical SSE-format events).jsonl (lines 1-14)",
-  "scenario": "User approves process_payment tool call - complete flow from confirmation request to successful execution",
-  "note": "This fixture captures TWO separate HTTP requests: (1) Initial request ending with confirmation [DONE], (2) Approval response ending with execution [DONE]. It serves as documentation of the complete approval flow, not for single-stream transport testing. Transport tests verify one [DONE] per stream.",
+  "source": "tests/e2e/backend_fixture/test_process_payment_approved_bidi_phase12.py output",
+  "scenario": "User approves process_payment tool call - Phase 12 BLOCKING mode where tool awaits approval inside function",
+  "note": "Phase 12 BLOCKING behavior: Single continuous stream with 1 [DONE]. Tool enters BLOCKING state awaiting approval, then returns success result after approval. This is different from Phase 5 where tool returns pending immediately.",
   "input": {
     "messages": [
       {
         "id": "msg-1",
         "role": "user",
-        "content": "Hanakoさんに50ドル送金して"
+        "content": "次郎さんに200ドル送金してください"
       }
     ],
     "trigger": "submit-message"
   },
   "output": {
     "rawEvents": [
-      "data: {\"type\": \"start\", \"messageId\": \"3bee2e30-c491-4e05-a471-4058e58806ee\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-37911c3c-a17d-4b80-83a9-c48d297b10a7\", \"toolName\": \"process_payment\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-37911c3c-a17d-4b80-83a9-c48d297b10a7\", \"toolName\": \"process_payment\", \"input\": {\"amount\": 50, \"recipient\": \"Hanako\", \"currency\": \"USD\"}}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-69336dc0-1379-4f1b-b9d3-36e1d668f755\", \"toolName\": \"adk_request_confirmation\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-69336dc0-1379-4f1b-b9d3-36e1d668f755\", \"toolName\": \"adk_request_confirmation\", \"input\": {\"originalFunctionCall\": {\"id\": \"adk-37911c3c-a17d-4b80-83a9-c48d297b10a7\", \"args\": {\"amount\": 50, \"recipient\": \"Hanako\", \"currency\": \"USD\"}, \"name\": \"process_payment\"}, \"toolConfirmation\": {\"hint\": \"Please approve or reject the tool call process_payment() by responding with a FunctionResponse with an expected ToolConfirmation payload.\", \"confirmed\": false}}}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
-      "data: [DONE]\n\n",
-      "data: {\"type\": \"start\", \"messageId\": \"dd1c8a44-b7d7-4cd6-8365-fd3af6c6940f\"}\n\n",
-      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"adk-37911c3c-a17d-4b80-83a9-c48d297b10a7\", \"output\": {\"success\": true, \"transaction_id\": \"txn_c560338f95cd\", \"amount\": 50, \"currency\": \"USD\", \"recipient\": \"Hanako\", \"description\": \"\", \"wallet_balance\": 950.0, \"timestamp\": \"2025-12-19T03:59:40.638708+00:00\"}}\n\n",
-      "data: {\"type\": \"text-start\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"花子さんへの50ドルの送金が完了しました。\\n\\n**取引詳細:**\\n- **取引ID:** txn_c560338f95cd\\n- **金額:** 50 USD\\n- **受取人:** Hanako\\n- **日時:** 2025年12月19日\\n\\n現在のウォレット残高は 950 USD です。\"}\n\n",
-      "data: {\"type\": \"text-end\", \"id\": \"0\"}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"eb683a62-3270-48a9-b9e0-7516f6fdafe9\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-13953094815459002903\", \"toolName\": \"process_payment\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-13953094815459002903\", \"toolName\": \"process_payment\", \"input\": {\"amount\": 200, \"currency\": \"USD\", \"recipient\": \"次郎さん\"}}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-a457ec6b-a2b8-4593-90b8-2877eaab9af8\", \"toolName\": \"adk_request_confirmation\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-a457ec6b-a2b8-4593-90b8-2877eaab9af8\", \"toolName\": \"adk_request_confirmation\", \"input\": {\"originalFunctionCall\": {\"id\": \"function-call-13953094815459002903\", \"name\": \"process_payment\", \"args\": {\"amount\": 200, \"currency\": \"USD\", \"recipient\": \"次郎さん\"}}, \"toolConfirmation\": {\"hint\": \"Please approve or reject the tool call process_payment() by responding with a FunctionResponse with an expected ToolConfirmation payload.\", \"confirmed\": false}}}\n\n",
+      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"function-call-13953094815459002903\", \"output\": {\"success\": true, \"transaction_id\": \"txn_7c2bbde8b6af\", \"amount\": 200, \"currency\": \"USD\", \"recipient\": \"次郎さん\", \"description\": \"\", \"wallet_balance\": 800.0, \"timestamp\": \"2025-12-27T14:48:32.821671+00:00\"}}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"eb683a62-3270-48a9-b9e0-7516f6fdafe9_output_text\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"eb683a62-3270-48a9-b9e0-7516f6fdafe9_output_text\", \"delta\": \"次郎さんに200ドル送金しました。\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"eb683a62-3270-48a9-b9e0-7516f6fdafe9_output_text\"}\n\n",
       "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
-      { "type": "start", "messageId": "3bee2e30-c491-4e05-a471-4058e58806ee" },
+      { "type": "start", "messageId": "eb683a62-3270-48a9-b9e0-7516f6fdafe9" },
       {
         "type": "tool-input-start",
-        "toolCallId": "adk-37911c3c-a17d-4b80-83a9-c48d297b10a7",
+        "toolCallId": "function-call-13953094815459002903",
         "toolName": "process_payment"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "adk-37911c3c-a17d-4b80-83a9-c48d297b10a7",
+        "toolCallId": "function-call-13953094815459002903",
         "toolName": "process_payment",
-        "input": { "amount": 50, "recipient": "Hanako", "currency": "USD" }
+        "input": {
+          "amount": 200,
+          "currency": "USD",
+          "recipient": "次郎さん"
+        }
       },
       {
         "type": "tool-input-start",
-        "toolCallId": "adk-69336dc0-1379-4f1b-b9d3-36e1d668f755",
+        "toolCallId": "adk-a457ec6b-a2b8-4593-90b8-2877eaab9af8",
         "toolName": "adk_request_confirmation"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "adk-69336dc0-1379-4f1b-b9d3-36e1d668f755",
+        "toolCallId": "adk-a457ec6b-a2b8-4593-90b8-2877eaab9af8",
         "toolName": "adk_request_confirmation",
         "input": {
           "originalFunctionCall": {
-            "id": "adk-37911c3c-a17d-4b80-83a9-c48d297b10a7",
-            "args": { "amount": 50, "recipient": "Hanako", "currency": "USD" },
-            "name": "process_payment"
+            "id": "function-call-13953094815459002903",
+            "name": "process_payment",
+            "args": {
+              "amount": 200,
+              "currency": "USD",
+              "recipient": "次郎さん"
+            }
           },
           "toolConfirmation": {
             "hint": "Please approve or reject the tool call process_payment() by responding with a FunctionResponse with an expected ToolConfirmation payload.",
@@ -66,34 +71,26 @@
         }
       },
       {
-        "type": "finish",
-        "finishReason": "stop",
-        "messageMetadata": {
-          "modelVersion": "gemini-2.5-flash-native-audio-preview-12-2025"
-        }
-      },
-      { "type": "start", "messageId": "dd1c8a44-b7d7-4cd6-8365-fd3af6c6940f" },
-      {
         "type": "tool-output-available",
-        "toolCallId": "adk-37911c3c-a17d-4b80-83a9-c48d297b10a7",
+        "toolCallId": "function-call-13953094815459002903",
         "output": {
           "success": true,
-          "transaction_id": "txn_c560338f95cd",
-          "amount": 50,
+          "transaction_id": "txn_7c2bbde8b6af",
+          "amount": 200,
           "currency": "USD",
-          "recipient": "Hanako",
+          "recipient": "次郎さん",
           "description": "",
-          "wallet_balance": 950.0,
-          "timestamp": "2025-12-19T03:59:40.638708+00:00"
+          "wallet_balance": 800,
+          "timestamp": "2025-12-27T14:48:32.821671+00:00"
         }
       },
-      { "type": "text-start", "id": "0" },
+      { "type": "text-start", "id": "eb683a62-3270-48a9-b9e0-7516f6fdafe9_output_text" },
       {
         "type": "text-delta",
-        "id": "0",
-        "delta": "花子さんへの50ドルの送金が完了しました。\n\n**取引詳細:**\n- **取引ID:** txn_c560338f95cd\n- **金額:** 50 USD\n- **受取人:** Hanako\n- **日時:** 2025年12月19日\n\n現在のウォレット残高は 950 USD です。"
+        "id": "eb683a62-3270-48a9-b9e0-7516f6fdafe9_output_text",
+        "delta": "次郎さんに200ドル送金しました。"
       },
-      { "type": "text-end", "id": "0" },
+      { "type": "text-end", "id": "eb683a62-3270-48a9-b9e0-7516f6fdafe9_output_text" },
       {
         "type": "finish",
         "finishReason": "stop",
@@ -102,7 +99,7 @@
         }
       }
     ],
-    "expectedDoneCount": 2,
+    "expectedDoneCount": 1,
     "expectedStreamCompletion": true
   }
 }

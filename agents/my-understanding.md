@@ -2658,3 +2658,67 @@ PROCESS_PAYMENT_TOOL._declaration = process_payment_declaration_blocking
 - Event loop continues processing `LiveRequestQueue` messages
 - External handler forwards approvals to `approval_queue`
 - Tool resumes when approval arrives
+
+### DeepWiki Fact-Check: LiveRequestQueue Parameter Injection
+
+**Question**: Can we access `LiveRequestQueue` via parameter injection instead of `approval_queue`?
+
+**DeepWiki Query Results** (2025-12-27):
+
+**Finding 1: Parameter injection EXISTS, but ONLY for streaming tools**
+- ✅ Tools CAN receive `LiveRequestQueue` via parameter injection
+- ❌ But ONLY for **async generator streaming tools** (tools that `yield`)
+- ❌ NOT for BLOCKING tools (regular async functions that `return`)
+
+**Code Path** (from `google/adk-python`):
+```python
+# 1. Runner.run_live() creates InvocationContext with live_request_queue
+invocation_context.live_request_queue = live_request_queue
+
+# 2. Runner inspects tool signatures for LiveRequestQueue annotation
+for tool in agent.tools:
+    if has_parameter_annotated_with(tool, LiveRequestQueue):
+        # Create ActiveStreamingTool with new LiveRequestQueue
+        invocation_context.active_streaming_tools[tool.name] = ActiveStreamingTool(stream=LiveRequestQueue())
+
+# 3. When tool is invoked, FunctionTool._call_live injects the stream
+if tool in invocation_context.active_streaming_tools:
+    await tool_function(input_stream=active_tool.stream, ...)
+```
+
+**Example: Streaming Tool with LiveRequestQueue Parameter**
+```python
+# From contributing/samples/live_bidi_streaming_tools_agent/agent.py
+async def monitor_video_stream(
+    input_stream: LiveRequestQueue,
+) -> AsyncGenerator[str, None]:
+    """Streaming tool that continuously yields results"""
+    while True:
+        live_req = await input_stream.get()  # ← Read from LiveRequestQueue
+        if live_req.blob is not None:
+            # Process and yield result
+            yield response
+        await asyncio.sleep(0.5)
+```
+
+**Finding 2: BLOCKING tools (return dict) do NOT receive LiveRequestQueue injection**
+
+DeepWiki explicitly states:
+> "A BLOCKING tool that returns a dict and is not an async generator will NOT receive LiveRequestQueue parameter injection because the Runner specifically looks for async generator functions"
+
+**Comparison**:
+
+| Tool Type | Function Signature | LiveRequestQueue Injection |
+|-----------|-------------------|---------------------------|
+| Streaming Tool | `async def tool(...) -> AsyncGenerator[str, None]: yield ...` | ✅ YES |
+| BLOCKING Tool | `async def tool(...) -> dict: return {...}` | ❌ NO |
+
+**Conclusion**: Our experimental findings were CORRECT
+- ✅ BLOCKING tools CANNOT access `LiveRequestQueue` via parameter injection
+- ✅ `approval_queue` is the necessary and correct pattern for BLOCKING tools
+- ✅ Parameter injection only works for async generator streaming tools
+
+**Why `approval_queue` is essential**:
+1. BLOCKING tools (non-generator) don't get LiveRequestQueue injection
+2. ToolContext doesn't expose LiveRequestQueue
+3. External bridge (`approval_queue`) is the only way to pass approval messages to BLOCKING tools

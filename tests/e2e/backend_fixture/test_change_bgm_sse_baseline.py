@@ -24,6 +24,7 @@ from .helpers import (
     compare_raw_events,
     count_done_markers,
     load_frontend_fixture,
+    save_frontend_fixture,
     send_sse_request,
 )
 
@@ -85,3 +86,16 @@ async def test_change_bgm_sse_baseline(frontend_fixture_dir: Path):
             f"⚠️  AI did not generate text response (non-deterministic behavior): "
             f"actual={len(actual_events)}, expected={expected_full}"
         )
+
+    # Save events to fixture
+    save_frontend_fixture(
+        fixture_path=fixture_path,
+        description="SSE mode baseline - real E2E capture from change_bgm tool call",
+        mode="sse",
+        input_messages=input_messages,
+        raw_events=actual_events,
+        expected_done_count=1,
+        source="Backend E2E test capture",
+        scenario="User requests background music change - frontend delegation pattern",
+        note="change_bgm is a Frontend Delegation tool. Backend receives result via FrontendToolDelegate and returns tool-output-available.",
+    )

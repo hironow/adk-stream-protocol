@@ -616,13 +616,15 @@ describe("Transport [DONE] Baseline Integration Tests", () => {
 
   it("[BIDI] should match baseline behavior for process_payment with [DONE]", async () => {
     /**
-     * Tool-Level Test: process_payment (multi-turn tool with approval)
+     * Tool-Level Test: process_payment (Phase 12 BLOCKING approval flow)
      *
-     * Given: Baseline fixture with process_payment approval (2 turns)
-     *   Turn 1: Confirmation request
-     *   Turn 2: Approval execution
-     * When: Transport processes each turn with BIDI mode (persistent connection)
+     * Given: Baseline fixture with Phase 12 BLOCKING approval flow
+     *   - Tool enters BLOCKING state awaiting approval inside function
+     *   - Single continuous stream with 1 [DONE] marker
+     * When: Transport processes events with BIDI mode (persistent connection)
      * Then: Complete tool execution matches baseline
+     *
+     * Note: Baseline now uses Phase 12 BLOCKING mode (not Phase 5)
      */
 
     const fixture = loadFixture("process_payment-approved-bidi-baseline.json");

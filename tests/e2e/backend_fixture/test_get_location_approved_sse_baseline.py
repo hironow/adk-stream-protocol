@@ -29,12 +29,14 @@ from pathlib import Path
 import pytest
 
 from .helpers import (
+    save_frontend_fixture,
     compare_raw_events,
     count_done_markers,
     create_approval_message,
     create_assistant_message_from_turn1,
     extract_tool_call_ids_from_turn1,
     load_frontend_fixture,
+    save_frontend_fixture,
     send_sse_request,
 )
 
@@ -182,3 +184,17 @@ async def test_get_location_approved_sse_baseline(frontend_fixture_dir: Path):
     )
 
     print("\n✅ Full invocation (Turn 1 + Turn 2) passed!")
+
+    # Save combined events (Turn 1 + Turn 2) to fixture
+    all_events = actual_events + turn2_events
+    save_frontend_fixture(
+        fixture_path=fixture_path,
+        description="SSE mode baseline - get_location with approval flow (MULTI-REQUEST: confirmation + execution)",
+        mode="sse",
+        input_messages=input_messages,
+        raw_events=all_events,
+        expected_done_count=2,
+        source="Backend E2E test capture",
+        scenario="User approves get_location tool call - complete flow from confirmation request to successful execution",
+        note="This fixture captures TWO separate HTTP requests: (1) Initial request ending with confirmation [DONE], (2) Approval response with tool result ending with execution [DONE].",
+    )

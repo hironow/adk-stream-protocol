@@ -3,21 +3,18 @@
 Tests backend behavior against process_payment BIDI baseline fixture with denial flow.
 
 Fixture: fixtures/frontend/process_payment-denied-bidi-baseline.json
-Invocation: 1 Invocation, 2 Turns (confirmation + denial)
-Tool: process_payment (multi-turn, requires approval)
+Mode: Phase 12 BLOCKING (single continuous stream)
+Tool: process_payment (requires approval)
 Transport: WebSocket (BIDI mode)
 
-Expected Flow:
-Turn 1 (Confirmation Request):
-- User: "次郎さんに200ドル送金して"
-- Backend: confirmation request → [DONE]
+Expected Flow (Phase 12):
+- Single continuous stream (no [DONE] between approval request and response)
+- User: Initial request
+- Backend: tool-input → adk_request_confirmation (tool is BLOCKING, waiting for approval)
+- User: denial response (unblocks the BLOCKING tool)
+- Backend: tool-output-error → finish → [DONE]
 
-Turn 2 (Denied Execution):
-- User denial response
-- Backend: tool-output-error + rejection message → [DONE]
-
-Note: This fixture captures the COMPLETE invocation (2 turns).
-Backend must handle both turns correctly in a single WebSocket session.
+Note: Phase 12 BLOCKING mode uses single stream with 1 [DONE], not 2 turns.
 """
 
 import asyncio
@@ -29,17 +26,15 @@ import websockets
 
 from .helpers import (
     compare_raw_events,
-    count_done_markers,
-    create_denial_message,
-    extract_tool_call_ids_from_turn1,
     load_frontend_fixture,
+    save_frontend_fixture,
 )
 
 
 @pytest.mark.asyncio
 async def test_process_payment_denied_bidi_baseline(frontend_fixture_dir: Path):
-    """Should generate correct rawEvents for process_payment denial flow (BIDI)."""
-    # Given: Frontend baseline fixture (2 turns)
+    """Should generate correct rawEvents for process_payment denial flow (Phase 12 BLOCKING)."""
+    # Given: Frontend baseline fixture (Phase 12)
     fixture_path = frontend_fixture_dir / "process_payment-denied-bidi-baseline.json"
     fixture = await load_frontend_fixture(fixture_path)
 
@@ -47,104 +42,147 @@ async def test_process_payment_denied_bidi_baseline(frontend_fixture_dir: Path):
     expected_events = fixture["output"]["rawEvents"]
     expected_done_count = fixture["output"]["expectedDoneCount"]
 
-    # Extract Turn 1 expected events (up to first [DONE])
-    first_done_index = next(i for i, event in enumerate(expected_events) if "[DONE]" in event)
-    expected_turn1_events = expected_events[: first_done_index + 1]
-    expected_turn2_events = expected_events[first_done_index + 1 :]
+    timeout = 35.0  # Slightly longer than tool timeout (30s)
 
-    # When: Open WebSocket connection and process both turns in the same session
-    # This is explicit E2E: Turn 1 → denial → Turn 2 in a single WebSocket session
-    timeout = 30.0
     async with websockets.connect(
         "ws://localhost:8000/live",
         open_timeout=timeout,
         close_timeout=10.0,
     ) as websocket:
-        # ===== TURN 1: Send initial request and receive confirmation =====
-        print("\n=== TURN 1: Sending request and receiving confirmation ===")
+        print("\n=== PHASE 12 BLOCKING MODE TEST (DENIAL) ===")
+        print("Expected: Single continuous stream with 1 [DONE]")
+        print("Tool will BLOCK awaiting approval, then return error\n")
 
-        # Send Turn 1 message
+        # Send initial request
         await websocket.send(json.dumps({"type": "message", "messages": input_messages}))
+        print("✓ Sent initial request")
 
-        # Receive Turn 1 events until [DONE]
-        turn1_events = []
+        # Receive events until we get adk_request_confirmation
+        all_events = []
+        confirmation_id = None
+        original_tool_call_id = None
+
+        print("\n=== Receiving events until adk_request_confirmation ===")
         while True:
-            event = await asyncio.wait_for(websocket.recv(), timeout=timeout)
-            turn1_events.append(event)
-            if "[DONE]" in event:
-                break
+            try:
+                event = await asyncio.wait_for(websocket.recv(), timeout=5.0)
+                all_events.append(event)
+                print(f"Event {len(all_events)}: {event.strip()}")
 
-        # Then: Verify Turn 1 events (confirmation request)
+                # ERROR: If we get [DONE] before approval response, that's wrong!
+                if "[DONE]" in event:
+                    raise AssertionError(
+                        "Received [DONE] before approval response in Phase 12 BLOCKING mode! "
+                        "This indicates the tool returned early instead of BLOCKING."
+                    )
+
+                # Parse event to extract tool call IDs
+                if "data:" in event and event.strip() != "data: [DONE]":
+                    try:
+                        event_data = json.loads(event.strip().replace("data: ", ""))
+
+                        # Look for adk_request_confirmation
+                        if event_data.get("type") == "tool-input-available":
+                            if event_data.get("toolName") == "adk_request_confirmation":
+                                confirmation_id = event_data.get("toolCallId")
+                                original_tool_call_id = event_data.get("input", {}).get(
+                                    "originalFunctionCall", {}
+                                ).get("id")
+                                print(f"\n✓ Found confirmation request:")
+                                print(f"  confirmation_id: {confirmation_id}")
+                                print(f"  original_id: {original_tool_call_id}")
+                                # IMPORTANT: Don't wait for [DONE], send denial immediately
+                                break
+                    except json.JSONDecodeError:
+                        pass
+
+            except asyncio.TimeoutError:
+                print(f"\n✗ Timeout waiting for adk_request_confirmation after {len(all_events)} events")
+                raise
+
+        assert confirmation_id is not None, "Should have confirmation_id"
+        assert original_tool_call_id is not None, "Should have original tool call ID"
+
+        # Immediately send denial (don't wait for [DONE])
+        print("\n=== Sending denial (tool is BLOCKING, awaiting this) ===")
+        denial_message = {
+            "role": "user",
+            "parts": [
+                {
+                    "type": "tool-adk_request_confirmation",
+                    "toolCallId": confirmation_id,
+                    "toolName": "adk_request_confirmation",
+                    "state": "approval-responded",
+                    "approval": {
+                        "id": confirmation_id,
+                        "approved": False,
+                        "reason": "User rejected the operation",
+                    },
+                }
+            ],
+        }
+
+        await websocket.send(json.dumps({"type": "message", "messages": [denial_message]}))
+        print("✓ Sent denial message")
+
+        # Continue receiving events until [DONE]
+        print("\n=== Receiving remaining events until [DONE] ===")
+        while True:
+            try:
+                event = await asyncio.wait_for(websocket.recv(), timeout=10.0)
+                all_events.append(event)
+                print(f"Event {len(all_events)}: {event.strip()}")
+
+                if "[DONE]" in event:
+                    print("\n✓ Received [DONE]")
+                    break
+            except asyncio.TimeoutError:
+                print(f"\n✗ Timeout waiting for [DONE] after {len(all_events)} events")
+                raise
+
+        # Verify results
+        print("\n=== VERIFICATION ===")
+
+        # Count [DONE] markers
+        done_count = sum(1 for e in all_events if "[DONE]" in e)
+        print(f"[DONE] count: {done_count} (expected: {expected_done_count})")
+        assert done_count == expected_done_count, f"Expected {expected_done_count} [DONE], got {done_count}"
+
+        # Verify we got tool-output-error
+        tool_output_events = [
+            e for e in all_events
+            if "tool-output" in e and original_tool_call_id in e
+        ]
+        print(f"Tool output events: {len(tool_output_events)}")
+        assert len(tool_output_events) > 0, "Should have tool output event"
+
+        # Verify against expected events (structure comparison)
         is_match, diff_msg = compare_raw_events(
-            actual=turn1_events,
-            expected=expected_turn1_events,
+            actual=all_events,
+            expected=expected_events,
             normalize=True,
             dynamic_content_tools=["process_payment", "adk_request_confirmation"],
             include_text_events=False,  # Ignore text-* events (thought process is non-deterministic)
         )
-        assert is_match, f"Turn 1 rawEvents structure mismatch:\n{diff_msg}"
+        assert is_match, f"rawEvents structure mismatch:\n{diff_msg}"
 
-        # And: Should have exactly 1 [DONE] marker (Turn 1 only)
-        turn1_done_count = count_done_markers(turn1_events)
-        assert turn1_done_count == 1, (
-            f"Turn 1 [DONE] count mismatch: actual={turn1_done_count}, expected=1"
-        )
+        print("\n✓ Phase 12 BLOCKING denial flow test completed successfully")
 
-        # ===== TURN 2: Send denial and receive rejection result =====
-        print("\n=== TURN 2: Sending denial and receiving rejection result ===")
-
-        # Extract tool call IDs from Turn 1
-        original_id, confirmation_id = extract_tool_call_ids_from_turn1(turn1_events)
-        assert original_id is not None, "Should have original tool call ID (process_payment)"
-        assert confirmation_id is not None, "Should have confirmation tool call ID"
-
-        # Construct denial message
-        # NOTE: In BIDI mode, we only send the denial message, not the full history
-        # The WebSocket session maintains the conversation context from Turn 1
-        denial_msg = create_denial_message(confirmation_id, original_id)
-
-        # Send Turn 2 denial message (in the same WebSocket session)
-        # BIDI mode: session context is preserved, so we only send the new message
-        await websocket.send(json.dumps({"type": "message", "messages": [denial_msg]}))
-
-        # Receive Turn 2 events until [DONE]
-        turn2_events = []
-        while True:
-            event = await asyncio.wait_for(websocket.recv(), timeout=timeout)
-            turn2_events.append(event)
-            if "[DONE]" in event:
-                break
-
-        # DEBUG: Print Turn 2 events
-        print(f"\n=== TURN 2 EVENTS (count={len(turn2_events)}) ===")
-        for i, event in enumerate(turn2_events):
-            print(f"{i}: {event.strip()}")
-
-        print(f"\n=== EXPECTED TURN 2 EVENTS (count={len(expected_turn2_events)}) ===")
-        for i, event in enumerate(expected_turn2_events):
-            print(f"{i}: {event.strip()}")
-
-        # Verify Turn 2 events (tool rejection result)
-        is_match, diff_msg = compare_raw_events(
-            actual=turn2_events,
-            expected=expected_turn2_events,
-            normalize=True,
-            dynamic_content_tools=["process_payment"],  # Tool error has dynamic content
-            include_text_events=False,  # Ignore text-* events (thought process is non-deterministic)
-        )
-        assert is_match, f"Turn 2 rawEvents structure mismatch:\n{diff_msg}"
-
-        # And: Should have exactly 1 [DONE] marker in Turn 2
-        turn2_done_count = count_done_markers(turn2_events)
-        assert turn2_done_count == 1, (
-            f"Turn 2 [DONE] count mismatch: actual={turn2_done_count}, expected=1"
-        )
-
-    # And: Total should be 2 [DONE] markers (Turn 1 + Turn 2)
-    total_done_count = turn1_done_count + turn2_done_count
+    # Total should be 1 [DONE] marker
+    total_done_count = done_count
     assert total_done_count == expected_done_count, (
         f"Total [DONE] count mismatch: actual={total_done_count}, expected={expected_done_count}"
     )
 
-    # And: Event structure should be IDENTICAL to SSE mode
-    # (Only transport layer differs, event format is same)
+    # Save events to fixture
+    save_frontend_fixture(
+        fixture_path=fixture_path,
+        description="BIDI mode Phase 12 BLOCKING - process_payment with denial flow (SINGLE CONTINUOUS STREAM)",
+        mode="bidi",
+        input_messages=input_messages,
+        raw_events=all_events,
+        expected_done_count=1,
+        source="Backend E2E test capture",
+        scenario="User denies process_payment tool call - Phase 12 BLOCKING mode where tool awaits approval inside function",
+        note="Phase 12 BLOCKING behavior: Single continuous stream with 1 [DONE]. Tool enters BLOCKING state awaiting approval, then returns error after denial. This is different from Phase 5 where tool returns pending immediately.",
+    )

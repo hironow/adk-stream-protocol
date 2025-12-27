@@ -24,6 +24,7 @@ from .helpers import (
     compare_raw_events,
     count_done_markers,
     load_frontend_fixture,
+    save_frontend_fixture,
     send_bidi_request,
 )
 
@@ -72,3 +73,16 @@ async def test_change_bgm_bidi_baseline(frontend_fixture_dir: Path):
 
     # And: Event structure should be IDENTICAL to SSE mode
     # (Only transport layer differs, event format is same)
+
+    # Save events to fixture
+    save_frontend_fixture(
+        fixture_path=fixture_path,
+        description="BIDI mode baseline - real E2E capture from change_bgm tool call",
+        mode="bidi",
+        input_messages=input_messages,
+        raw_events=actual_events,
+        expected_done_count=1,
+        source="Backend E2E test capture",
+        scenario="User requests background music change via WebSocket - frontend delegation pattern",
+        note="BIDI mode sends events in SSE format over WebSocket. change_bgm is a Frontend Delegation tool executed by browser API.",
+    )

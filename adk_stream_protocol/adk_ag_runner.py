@@ -13,7 +13,7 @@ from google.adk.agents import Agent
 from google.adk.apps import App, ResumabilityConfig
 from google.adk.runners import InMemoryRunner
 from google.adk.tools.function_tool import FunctionTool
-from google.adk.tools.long_running_tool import LongRunningFunctionTool
+from google.genai import types
 from loguru import logger
 
 from .adk_ag_tools import (
@@ -82,23 +82,52 @@ SSE_TOOLS = [
 ]
 
 # ========= BIDI Tools Definition ==========
-# BIDI mode uses LongRunningFunctionTool pattern (Phase 5)
-# Tools return pending status immediately, actual execution happens after approval
+# BIDI mode uses BLOCKING behavior mode (Phase 12)
+# Tools use types.Behavior.BLOCKING to await approval inside function without blocking event loop
 #
 # IMPORTANT: Cannot use FunctionTool(..., require_confirmation=True) in BIDI mode
 # because Live API doesn't support automatic tool response handling.
-# Use LongRunningFunctionTool to avoid event loop blocking (deadlock).
+# Use BLOCKING behavior to await approval_queue inside tool function.
+
+# Simple wrappers for FunctionDeclaration creation (from_callable_with_api_option cannot handle ToolContext)
+def process_payment_simple(
+    amount: float, recipient: str, currency: str = "USD", description: str = ""
+) -> dict:
+    """Simple wrapper for process_payment declaration."""
+    return {"status": "pending"}
+
+
+def get_location_simple() -> dict:
+    """Simple wrapper for get_location declaration."""
+    return {"status": "pending"}
+
+
+# Create FunctionDeclarations with BLOCKING behavior
+process_payment_declaration = types.FunctionDeclaration.from_callable_with_api_option(
+    callable=process_payment_simple,
+    api_option="GEMINI_API",
+    behavior=types.Behavior.BLOCKING,
+)
+
+get_location_declaration = types.FunctionDeclaration.from_callable_with_api_option(
+    callable=get_location_simple,
+    api_option="GEMINI_API",
+    behavior=types.Behavior.BLOCKING,
+)
+
+# Create FunctionTools from actual implementations with BLOCKING declarations
+PROCESS_PAYMENT_BLOCKING = FunctionTool(process_payment)
+PROCESS_PAYMENT_BLOCKING._declaration = process_payment_declaration  # type: ignore[attr-defined]
+
+GET_LOCATION_BLOCKING = FunctionTool(get_location)
+GET_LOCATION_BLOCKING._declaration = get_location_declaration  # type: ignore[attr-defined]
 
 BIDI_TOOLS = [
     get_weather,  # Weather information retrieval (server, no approval)
-    # Phase 5: LongRunningFunctionTool pattern for approval-required tools
-    LongRunningFunctionTool(
-        process_payment
-    ),  # Payment processing with pending → approval → execution flow
+    # Phase 12: BLOCKING behavior for approval-required tools
+    PROCESS_PAYMENT_BLOCKING,  # Payment processing with BLOCKING await for approval
     change_bgm,  # Background music control (client execution, no approval)
-    LongRunningFunctionTool(
-        get_location
-    ),  # User location retrieval with pending → approval → delegation flow
+    GET_LOCATION_BLOCKING,  # User location retrieval with BLOCKING await for approval
 ]
 
 # ========= Define Agents ==========

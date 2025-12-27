@@ -25,12 +25,14 @@ from pathlib import Path
 import pytest
 
 from .helpers import (
+    save_frontend_fixture,
     compare_raw_events,
     count_done_markers,
     create_assistant_message_from_turn1,
     create_denial_message,
     extract_tool_call_ids_from_turn1,
     load_frontend_fixture,
+    save_frontend_fixture,
     send_sse_request,
 )
 
@@ -144,3 +146,17 @@ async def test_process_payment_denied_sse_baseline(frontend_fixture_dir: Path):
     assert len(tool_error_events) > 0, "Turn 2 should have tool-output-error event (tool rejection)"
 
     print("\n✅ Full invocation (Turn 1 + Turn 2) passed!")
+
+    # Save combined events (Turn 1 + Turn 2) to fixture
+    all_events = actual_events + turn2_events
+    save_frontend_fixture(
+        fixture_path=fixture_path,
+        description="SSE mode baseline - process_payment with denial flow (MULTI-REQUEST: confirmation + rejection)",
+        mode="sse",
+        input_messages=input_messages,
+        raw_events=all_events,
+        expected_done_count=2,
+        source="Backend E2E test capture",
+        scenario="User denies process_payment tool call - complete flow from confirmation request to rejection",
+        note="This fixture captures TWO separate HTTP requests: (1) Initial request ending with confirmation [DONE], (2) Denial response ending with rejection [DONE].",
+    )

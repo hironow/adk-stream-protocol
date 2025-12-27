@@ -28,6 +28,7 @@ from .adk_compat import (
     sync_conversation_history_to_session,
 )
 from .adk_vercel_id_mapper import ADKVercelIDMapper
+from .approval_queue import ApprovalQueue
 from .ai_sdk_v6_compat import (
     ChatMessage,
     GenericPart,
@@ -57,6 +58,7 @@ __all__ = [
     "BIDI_CONFIRMATION_TOOLS",
     "SSE_CONFIRMATION_TOOLS",
     "ADKVercelIDMapper",
+    "ApprovalQueue",
     "BidiEventReceiver",
     "BidiEventSender",
     "ChatMessage",

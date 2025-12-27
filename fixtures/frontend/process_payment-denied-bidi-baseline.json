@@ -1,9 +1,9 @@
 {
-  "description": "BIDI mode baseline - process_payment with denial flow (MULTI-REQUEST: confirmation + rejection)",
+  "description": "BIDI mode Phase 12 BLOCKING - process_payment with denial flow (SINGLE CONTINUOUS STREAM)",
   "mode": "bidi",
-  "source": "chunk_logs/e2e-baseline-for-integration/backend-adk-event (BIDI produces identical SSE-format events).jsonl (lines 15-28)",
-  "scenario": "User denies process_payment tool call - complete flow from confirmation request to rejection",
-  "note": "This fixture captures TWO separate HTTP requests: (1) Initial request ending with confirmation [DONE], (2) Denial response ending with rejection [DONE]. It serves as documentation of the complete denial flow, not for single-stream transport testing. Transport tests verify one [DONE] per stream.",
+  "source": "tests/e2e/backend_fixture/test_process_payment_denied_bidi_phase12.py output",
+  "scenario": "User denies process_payment tool call - Phase 12 BLOCKING mode where tool awaits approval inside function",
+  "note": "Phase 12 BLOCKING behavior: Single continuous stream with 1 [DONE]. Tool enters BLOCKING state awaiting approval, then returns result after denial. This is different from Phase 5 where tool returns pending immediately.",
   "input": {
     "messages": [
       {
@@ -16,48 +16,53 @@
   },
   "output": {
     "rawEvents": [
-      "data: {\"type\": \"start\", \"messageId\": \"e83f82a4-2305-42cf-882b-7dc504141917\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-42a0576f-8245-4234-9d19-3a18a278086a\", \"toolName\": \"process_payment\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-42a0576f-8245-4234-9d19-3a18a278086a\", \"toolName\": \"process_payment\", \"input\": {\"currency\": \"USD\", \"amount\": 200, \"recipient\": \"Jiro\"}}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-a843d840-f720-4387-98c7-4482e4d6e173\", \"toolName\": \"adk_request_confirmation\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-a843d840-f720-4387-98c7-4482e4d6e173\", \"toolName\": \"adk_request_confirmation\", \"input\": {\"originalFunctionCall\": {\"id\": \"adk-42a0576f-8245-4234-9d19-3a18a278086a\", \"args\": {\"currency\": \"USD\", \"amount\": 200, \"recipient\": \"Jiro\"}, \"name\": \"process_payment\"}, \"toolConfirmation\": {\"hint\": \"Please approve or reject the tool call process_payment() by responding with a FunctionResponse with an expected ToolConfirmation payload.\", \"confirmed\": false}}}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
-      "data: [DONE]\n\n",
-      "data: {\"type\": \"start\", \"messageId\": \"81e8fde4-28cb-416a-b4ff-335b3510a1d2\"}\n\n",
-      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"adk-42a0576f-8245-4234-9d19-3a18a278086a\", \"errorText\": \"This tool call is rejected.\"}\n\n",
-      "data: {\"type\": \"text-start\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"次郎さんへの200ドルの送金リクエストは承認されませんでした。再度実行が必要な場合はお知らせください。\"}\n\n",
-      "data: {\"type\": \"text-end\", \"id\": \"0\"}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"80a93683-25d5-4c05-92ab-c2fc8d5321e3\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-10075329384012504412\", \"toolName\": \"process_payment\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-10075329384012504412\", \"toolName\": \"process_payment\", \"input\": {\"amount\": 200, \"recipient\": \"次郎\", \"currency\": \"USD\"}}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-bdacb188-6a73-4f19-8dd4-acf818084a4d\", \"toolName\": \"adk_request_confirmation\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-bdacb188-6a73-4f19-8dd4-acf818084a4d\", \"toolName\": \"adk_request_confirmation\", \"input\": {\"originalFunctionCall\": {\"id\": \"function-call-10075329384012504412\", \"name\": \"process_payment\", \"args\": {\"amount\": 200, \"recipient\": \"次郎\", \"currency\": \"USD\"}}, \"toolConfirmation\": {\"hint\": \"Please approve or reject the tool call process_payment() by responding with a FunctionResponse with an expected ToolConfirmation payload.\", \"confirmed\": false}}}\n\n",
+      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"function-call-10075329384012504412\", \"errorText\": \"User denied the payment\"}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"80a93683-25d5-4c05-92ab-c2fc8d5321e3_output_text\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"80a93683-25d5-4c05-92ab-c2fc8d5321e3_output_text\", \"delta\": \"申し訳ありません。\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"80a93683-25d5-4c05-92ab-c2fc8d5321e3_output_text\"}\n\n",
       "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
-      { "type": "start", "messageId": "e83f82a4-2305-42cf-882b-7dc504141917" },
+      { "type": "start", "messageId": "80a93683-25d5-4c05-92ab-c2fc8d5321e3" },
       {
         "type": "tool-input-start",
-        "toolCallId": "adk-42a0576f-8245-4234-9d19-3a18a278086a",
+        "toolCallId": "function-call-10075329384012504412",
         "toolName": "process_payment"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "adk-42a0576f-8245-4234-9d19-3a18a278086a",
+        "toolCallId": "function-call-10075329384012504412",
         "toolName": "process_payment",
-        "input": { "currency": "USD", "amount": 200, "recipient": "Jiro" }
+        "input": {
+          "amount": 200,
+          "recipient": "次郎",
+          "currency": "USD"
+        }
       },
       {
         "type": "tool-input-start",
-        "toolCallId": "adk-a843d840-f720-4387-98c7-4482e4d6e173",
+        "toolCallId": "adk-bdacb188-6a73-4f19-8dd4-acf818084a4d",
         "toolName": "adk_request_confirmation"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "adk-a843d840-f720-4387-98c7-4482e4d6e173",
+        "toolCallId": "adk-bdacb188-6a73-4f19-8dd4-acf818084a4d",
         "toolName": "adk_request_confirmation",
         "input": {
           "originalFunctionCall": {
-            "id": "adk-42a0576f-8245-4234-9d19-3a18a278086a",
-            "args": { "currency": "USD", "amount": 200, "recipient": "Jiro" },
-            "name": "process_payment"
+            "id": "function-call-10075329384012504412",
+            "name": "process_payment",
+            "args": {
+              "amount": 200,
+              "recipient": "次郎",
+              "currency": "USD"
+            }
           },
           "toolConfirmation": {
             "hint": "Please approve or reject the tool call process_payment() by responding with a FunctionResponse with an expected ToolConfirmation payload.",
@@ -66,25 +71,17 @@
         }
       },
       {
-        "type": "finish",
-        "finishReason": "stop",
-        "messageMetadata": {
-          "modelVersion": "gemini-2.5-flash-native-audio-preview-12-2025"
-        }
-      },
-      { "type": "start", "messageId": "81e8fde4-28cb-416a-b4ff-335b3510a1d2" },
-      {
         "type": "tool-output-error",
-        "toolCallId": "adk-42a0576f-8245-4234-9d19-3a18a278086a",
-        "errorText": "This tool call is rejected."
+        "toolCallId": "function-call-10075329384012504412",
+        "errorText": "User denied the payment"
       },
-      { "type": "text-start", "id": "0" },
+      { "type": "text-start", "id": "80a93683-25d5-4c05-92ab-c2fc8d5321e3_output_text" },
       {
         "type": "text-delta",
-        "id": "0",
-        "delta": "次郎さんへの200ドルの送金リクエストは承認されませんでした。再度実行が必要な場合はお知らせください。"
+        "id": "80a93683-25d5-4c05-92ab-c2fc8d5321e3_output_text",
+        "delta": "申し訳ありません。"
       },
-      { "type": "text-end", "id": "0" },
+      { "type": "text-end", "id": "80a93683-25d5-4c05-92ab-c2fc8d5321e3_output_text" },
       {
         "type": "finish",
         "finishReason": "stop",
@@ -93,7 +90,7 @@
         }
       }
     ],
-    "expectedDoneCount": 2,
+    "expectedDoneCount": 1,
     "expectedStreamCompletion": true
   }
 }

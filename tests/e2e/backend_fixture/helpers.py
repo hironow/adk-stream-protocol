@@ -781,6 +781,76 @@ def compare_raw_events(  # noqa: C901, PLR0912, PLR0915
     return (True, "")
 
 
+def save_frontend_fixture(
+    fixture_path: Path,
+    description: str,
+    mode: str,
+    input_messages: list[dict[str, Any]],
+    raw_events: list[str],
+    expected_done_count: int,
+    source: str | None = None,
+    scenario: str | None = None,
+    note: str | None = None,
+) -> None:
+    """Save frontend baseline fixture file from backend E2E test output.
+
+    This function generates frontend baseline fixtures by:
+    1. Parsing raw SSE events into expectedChunks
+    2. Constructing fixture metadata (description, mode, source, etc.)
+    3. Writing JSON file to fixtures/frontend/ directory
+
+    Args:
+        fixture_path: Path to save fixture JSON file (e.g., fixtures/frontend/xxx.json)
+        description: Brief description of the fixture
+        mode: Transport mode ("sse" or "bidi")
+        input_messages: Input messages sent to backend
+        raw_events: SSE-format event strings collected from backend
+        expected_done_count: Expected number of [DONE] markers
+        source: Optional source information (e.g., test file name)
+        scenario: Optional scenario description
+        note: Optional implementation notes
+    """
+    # Parse events into chunks for expectedChunks
+    expected_chunks = []
+    for event in raw_events:
+        if event.strip() == "data: [DONE]":
+            continue
+        if "data:" in event:
+            try:
+                event_data = json.loads(event.strip().replace("data: ", ""))
+                expected_chunks.append(event_data)
+            except json.JSONDecodeError:
+                pass
+
+    # Construct fixture data
+    fixture_data: dict[str, Any] = {
+        "description": description,
+        "mode": mode,
+    }
+
+    if source:
+        fixture_data["source"] = source
+    if scenario:
+        fixture_data["scenario"] = scenario
+    if note:
+        fixture_data["note"] = note
+
+    fixture_data["input"] = {"messages": input_messages, "trigger": "submit-message"}
+    fixture_data["output"] = {
+        "rawEvents": raw_events,
+        "expectedChunks": expected_chunks,
+        "expectedDoneCount": expected_done_count,
+        "expectedStreamCompletion": True,
+    }
+
+    # Ensure directory exists
+    fixture_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Write fixture file
+    fixture_path.write_text(json.dumps(fixture_data, indent=2, ensure_ascii=False) + "\n")
+    logger.info(f"✓ Saved frontend baseline fixture to {fixture_path}")
+
+
 async def run_backend_fixture_test(
     fixture_path: Path,
     backend_url: str | None = None,
