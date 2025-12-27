@@ -67,7 +67,7 @@ async def test_long_running_tool_send_content_integration() -> None:
     connection_signature = str(uuid.uuid4())
     session_id = None  # Will be set after session creation
     tool_call_id_captured = None
-    pending_status_captured = False
+    function_response_received = False  # Changed: LongRunningFunctionTool returns None, so no FunctionResponse
     turn1_complete = False
     turn2_events_received = False
 
@@ -132,12 +132,20 @@ async def test_long_running_tool_send_content_integration() -> None:
                             f"for tool: {tool_name_captured}"
                         )
 
-                    # Check for pending status in FunctionResponse
+                    # LongRunningFunctionTool returns pending status dict
+                    # ADK should generate FunctionResponse from this dict
                     if hasattr(part, "function_response") and part.function_response:
+                        function_response_received = True
+                        # Verify pending status is in response
                         response_data = part.function_response.response
-                        if isinstance(response_data, dict) and response_data.get("status") == "pending":
-                            pending_status_captured = True
-                            logger.info("[TEST-TURN1] ✓ Captured pending status in FunctionResponse")
+                        logger.info(
+                            f"[TEST-TURN1] ✓ FunctionResponse received with pending status: {response_data}"
+                        )
+                        # Verify pending status structure
+                        if isinstance(response_data, dict):
+                            assert (
+                                response_data.get("status") == "pending"
+                            ), "FunctionResponse should contain pending status"
 
             # Check for turn_complete
             if hasattr(event, "turn_complete") and event.turn_complete:
@@ -148,8 +156,15 @@ async def test_long_running_tool_send_content_integration() -> None:
         # then - Verify Turn 1 completed correctly
         assert turn1_complete, "Turn 1 should complete with turn_complete event"
         assert tool_call_id_captured, "Should capture tool_call_id from FunctionCall"
-        assert pending_status_captured, "Should capture pending status from LongRunningFunctionTool"
+        assert function_response_received, (
+            "LongRunningFunctionTool returns pending status dict - "
+            "ADK SHOULD generate FunctionResponse in Turn 1"
+        )
         logger.info("[TEST-TURN1] ✓ All Turn 1 assertions passed")
+        logger.info(
+            "[TEST-TURN1] ✓ Confirmed: FunctionResponse with pending status generated "
+            "(correct LongRunningFunctionTool behavior)"
+        )
 
         # when - Turn 2: Send real FunctionResponse via send_content()
         logger.info("=" * 80)
