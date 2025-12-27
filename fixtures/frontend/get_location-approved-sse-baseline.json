@@ -16,49 +16,49 @@
   },
   "output": {
     "rawEvents": [
-      "data: {\"type\": \"start\", \"messageId\": \"6df6e980-caf6-423d-9218-b8fb41e1ebaa\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-cb6764ef-1883-44a8-99a0-5ccc754c893d\", \"toolName\": \"get_location\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-cb6764ef-1883-44a8-99a0-5ccc754c893d\", \"toolName\": \"get_location\", \"input\": {}}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-fe80a4f2-ce81-426b-9960-79c2d75e8d2a\", \"toolName\": \"adk_request_confirmation\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-fe80a4f2-ce81-426b-9960-79c2d75e8d2a\", \"toolName\": \"adk_request_confirmation\", \"input\": {\"originalFunctionCall\": {\"id\": \"adk-cb6764ef-1883-44a8-99a0-5ccc754c893d\", \"args\": {}, \"name\": \"get_location\"}, \"toolConfirmation\": {\"hint\": \"Please approve or reject the tool call get_location() by responding with a FunctionResponse with an expected ToolConfirmation payload.\", \"confirmed\": false}}}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1040, \"completionTokens\": 10, \"totalTokens\": 1156}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"b7266be0-c911-4e11-8c31-0a1df0232b6b\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-cbe194b3-d3ad-453a-94a7-ce13556ba426\", \"toolName\": \"get_location\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-cbe194b3-d3ad-453a-94a7-ce13556ba426\", \"toolName\": \"get_location\", \"input\": {}}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-fc183854-ae1a-430b-a792-011f00028aee\", \"toolName\": \"adk_request_confirmation\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-fc183854-ae1a-430b-a792-011f00028aee\", \"toolName\": \"adk_request_confirmation\", \"input\": {\"originalFunctionCall\": {\"id\": \"adk-cbe194b3-d3ad-453a-94a7-ce13556ba426\", \"args\": {}, \"name\": \"get_location\"}, \"toolConfirmation\": {\"hint\": \"Please approve or reject the tool call get_location() by responding with a FunctionResponse with an expected ToolConfirmation payload.\", \"confirmed\": false}}}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1040, \"completionTokens\": 10, \"totalTokens\": 1110}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
       "data: [DONE]\n\n",
-      "data: {\"type\": \"start\", \"messageId\": \"ef3bda3e-e9ae-4b9a-8d0c-680aeffc50d9\"}\n\n",
-      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"adk-cb6764ef-1883-44a8-99a0-5ccc754c893d\", \"output\": {\"latitude\": 35.6762, \"longitude\": 139.6503, \"accuracy\": 20, \"city\": \"Tokyo\", \"country\": \"Japan\"}}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"631614ff-7b41-4e79-8a79-55473d902e3e\"}\n\n",
+      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"adk-cbe194b3-d3ad-453a-94a7-ce13556ba426\", \"output\": {\"latitude\": 35.6762, \"longitude\": 139.6503, \"accuracy\": 20, \"city\": \"Tokyo\", \"country\": \"Japan\"}}\n\n",
       "data: {\"type\": \"text-start\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"\\u3042\\u306a\\u305f\\u306e\\u73fe\\u5728\\u5730\\u306f\\u3001\\u65e5\\u672c\\u3001\\u6771\\u4eac\\u90fd\\uff08\\u5317\\u7def35.68\\u5ea6\\u3001\\u6771\\u7d4c139.65\\u5ea6\\u3001\\u7cbe\\u5ea6\\u7d0420\\u30e1\\u30fc\\u30c8\\u30eb\\uff09\\u3067\\u3059\\u3002\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"\\u73fe\\u5728\\u5730\\u306f\\u3001\\u6771\\u4eac\\u90fd\\u5343\\u4ee3\\u7530\\u533a\\uff08\\u7def\\u5ea6: 35.6762, \\u7d4c\\u5ea6: 139.6503, \\u7cbe\\u5ea6: \\u7d0420m\\uff09\\u3067\\u3059\\u3002\"}\n\n",
       "data: {\"type\": \"text-end\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1202, \"completionTokens\": 36, \"totalTokens\": 1238}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1156, \"completionTokens\": 46, \"totalTokens\": 1202}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
       {
         "type": "start",
-        "messageId": "6df6e980-caf6-423d-9218-b8fb41e1ebaa"
+        "messageId": "b7266be0-c911-4e11-8c31-0a1df0232b6b"
       },
       {
         "type": "tool-input-start",
-        "toolCallId": "adk-cb6764ef-1883-44a8-99a0-5ccc754c893d",
+        "toolCallId": "adk-cbe194b3-d3ad-453a-94a7-ce13556ba426",
         "toolName": "get_location"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "adk-cb6764ef-1883-44a8-99a0-5ccc754c893d",
+        "toolCallId": "adk-cbe194b3-d3ad-453a-94a7-ce13556ba426",
         "toolName": "get_location",
         "input": {}
       },
       {
         "type": "tool-input-start",
-        "toolCallId": "adk-fe80a4f2-ce81-426b-9960-79c2d75e8d2a",
+        "toolCallId": "adk-fc183854-ae1a-430b-a792-011f00028aee",
         "toolName": "adk_request_confirmation"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "adk-fe80a4f2-ce81-426b-9960-79c2d75e8d2a",
+        "toolCallId": "adk-fc183854-ae1a-430b-a792-011f00028aee",
         "toolName": "adk_request_confirmation",
         "input": {
           "originalFunctionCall": {
-            "id": "adk-cb6764ef-1883-44a8-99a0-5ccc754c893d",
+            "id": "adk-cbe194b3-d3ad-453a-94a7-ce13556ba426",
             "args": {},
             "name": "get_location"
           },
@@ -75,18 +75,18 @@
           "usage": {
             "promptTokens": 1040,
             "completionTokens": 10,
-            "totalTokens": 1156
+            "totalTokens": 1110
           },
           "modelVersion": "gemini-3-flash-preview"
         }
       },
       {
         "type": "start",
-        "messageId": "ef3bda3e-e9ae-4b9a-8d0c-680aeffc50d9"
+        "messageId": "631614ff-7b41-4e79-8a79-55473d902e3e"
       },
       {
         "type": "tool-output-available",
-        "toolCallId": "adk-cb6764ef-1883-44a8-99a0-5ccc754c893d",
+        "toolCallId": "adk-cbe194b3-d3ad-453a-94a7-ce13556ba426",
         "output": {
           "latitude": 35.6762,
           "longitude": 139.6503,
@@ -102,7 +102,7 @@
       {
         "type": "text-delta",
         "id": "0",
-        "delta": "あなたの現在地は、日本、東京都（北緯35.68度、東経139.65度、精度約20メートル）です。"
+        "delta": "現在地は、東京都千代田区（緯度: 35.6762, 経度: 139.6503, 精度: 約20m）です。"
       },
       {
         "type": "text-end",
@@ -113,9 +113,9 @@
         "finishReason": "stop",
         "messageMetadata": {
           "usage": {
-            "promptTokens": 1202,
-            "completionTokens": 36,
-            "totalTokens": 1238
+            "promptTokens": 1156,
+            "completionTokens": 46,
+            "totalTokens": 1202
           },
           "modelVersion": "gemini-3-flash-preview"
         }

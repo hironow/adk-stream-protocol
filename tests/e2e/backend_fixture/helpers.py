@@ -810,22 +810,38 @@ def save_frontend_fixture(
         scenario: Optional scenario description
         note: Optional implementation notes
     """
-    # Parse events into chunks for expectedChunks
-    # Filter out audio chunks (model-specific binary data) but keep reasoning chunks
-    expected_chunks = []
+    # Filter audio chunks from raw events to ensure test consistency
+    # (MockWebSocket will replay these events, so they must match expectedChunks)
+    filtered_raw_events = []
     for event in raw_events:
+        if event.strip() == "data: [DONE]":
+            filtered_raw_events.append(event)
+            continue
+        if "data:" in event:
+            try:
+                event_data = json.loads(event.strip().replace("data: ", ""))
+                chunk_type = event_data.get("type", "")
+                # Skip audio chunks (binary data not relevant for protocol testing)
+                if chunk_type == "data-pcm":
+                    continue
+                if chunk_type == "file" and event_data.get("mediaType", "").startswith("audio/"):
+                    continue
+                filtered_raw_events.append(event)
+            except json.JSONDecodeError:
+                # Keep non-JSON events as-is
+                filtered_raw_events.append(event)
+        else:
+            filtered_raw_events.append(event)
+
+    # Parse events into chunks for expectedChunks
+    # Audio chunks already filtered from raw events above
+    expected_chunks = []
+    for event in filtered_raw_events:
         if event.strip() == "data: [DONE]":
             continue
         if "data:" in event:
             try:
                 event_data = json.loads(event.strip().replace("data: ", ""))
-                # Skip audio chunks (binary data not relevant for protocol testing)
-                chunk_type = event_data.get("type", "")
-                if chunk_type == "data-pcm":
-                    continue
-                # Skip file chunks with audio media type (e.g., audio/wav)
-                if chunk_type == "file" and event_data.get("mediaType", "").startswith("audio/"):
-                    continue
                 expected_chunks.append(event_data)
             except json.JSONDecodeError:
                 pass
@@ -845,7 +861,7 @@ def save_frontend_fixture(
 
     fixture_data["input"] = {"messages": input_messages, "trigger": "submit-message"}
     fixture_data["output"] = {
-        "rawEvents": raw_events,
+        "rawEvents": filtered_raw_events,
         "expectedChunks": expected_chunks,
         "expectedDoneCount": expected_done_count,
         "expectedStreamCompletion": True,

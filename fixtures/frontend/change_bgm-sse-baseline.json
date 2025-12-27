@@ -16,10 +16,10 @@
   },
   "output": {
     "rawEvents": [
-      "data: {\"type\": \"start\", \"messageId\": \"4c2dd862-0da9-4700-8bc7-65f39ff1d119\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-39bd007f-4dd7-43a1-93a9-07d663f4faad\", \"toolName\": \"change_bgm\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-39bd007f-4dd7-43a1-93a9-07d663f4faad\", \"toolName\": \"change_bgm\", \"input\": {\"track\": 1}}\n\n",
-      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"adk-39bd007f-4dd7-43a1-93a9-07d663f4faad\", \"output\": {\"success\": true, \"track\": 1, \"message\": \"BGM change to track 1 initiated (frontend handles execution)\"}}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"f57ca180-2b96-446b-9155-4f61c48c4cdf\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-074ab1fa-77c0-4522-b42f-eef5d17e4de4\", \"toolName\": \"change_bgm\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-074ab1fa-77c0-4522-b42f-eef5d17e4de4\", \"toolName\": \"change_bgm\", \"input\": {\"track\": 1}}\n\n",
+      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"adk-074ab1fa-77c0-4522-b42f-eef5d17e4de4\", \"output\": {\"success\": true, \"track\": 1, \"message\": \"BGM change to track 1 initiated (frontend handles execution)\"}}\n\n",
       "data: {\"type\": \"text-start\", \"id\": \"0\"}\n\n",
       "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"\\u80cc\\u666f\\u97f3\\u697d\\u3092\\u30c8\\u30e9\\u30c3\\u30af1\\u306b\\u5909\\u66f4\\u3057\\u307e\\u3057\\u305f\\u3002\"}\n\n",
       "data: {\"type\": \"text-end\", \"id\": \"0\"}\n\n",
@@ -29,16 +29,16 @@
     "expectedChunks": [
       {
         "type": "start",
-        "messageId": "4c2dd862-0da9-4700-8bc7-65f39ff1d119"
+        "messageId": "f57ca180-2b96-446b-9155-4f61c48c4cdf"
       },
       {
         "type": "tool-input-start",
-        "toolCallId": "adk-39bd007f-4dd7-43a1-93a9-07d663f4faad",
+        "toolCallId": "adk-074ab1fa-77c0-4522-b42f-eef5d17e4de4",
         "toolName": "change_bgm"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "adk-39bd007f-4dd7-43a1-93a9-07d663f4faad",
+        "toolCallId": "adk-074ab1fa-77c0-4522-b42f-eef5d17e4de4",
         "toolName": "change_bgm",
         "input": {
           "track": 1
@@ -46,7 +46,7 @@
       },
       {
         "type": "tool-output-available",
-        "toolCallId": "adk-39bd007f-4dd7-43a1-93a9-07d663f4faad",
+        "toolCallId": "adk-074ab1fa-77c0-4522-b42f-eef5d17e4de4",
         "output": {
           "success": true,
           "track": 1,
