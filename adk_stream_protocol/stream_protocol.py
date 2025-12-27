@@ -209,6 +209,17 @@ class StreamProtocolConverter:
         # containing the concatenation of all reasoning parts
         self._accumulated_reasoning_texts: list[str] = []
 
+        # Track metadata for BIDI mode finalization
+        # In BIDI mode (WebSocket), stream doesn't end until connection closes,
+        # so finally block in stream_adk_to_ai_sdk doesn't execute per turn.
+        # We need to accumulate metadata in the converter instance instead.
+        self._usage_metadata: Any | None = None
+        self._finish_reason: Any | None = None
+        self._grounding_metadata: Any | None = None
+        self._citation_metadata: Any | None = None
+        self._cache_metadata: Any | None = None
+        self._model_version: str | None = None
+
     def _generate_part_id(self) -> str:
         """Generate unique part ID."""
         part_id = str(self.part_id_counter)
@@ -247,6 +258,27 @@ class StreamProtocolConverter:
                 }
             )
             return
+
+        # Accumulate metadata from events for BIDI mode finalization
+        # In BIDI mode, usage_metadata may arrive in a different event than turn_complete
+        if hasattr(event, "usage_metadata") and event.usage_metadata:
+            self._usage_metadata = event.usage_metadata
+            logger.info(f"[CONVERTER] Accumulated usage_metadata: {self._usage_metadata!r}")
+        if hasattr(event, "finish_reason") and event.finish_reason:
+            self._finish_reason = event.finish_reason
+        if hasattr(event, "grounding_metadata") and event.grounding_metadata:
+            self._grounding_metadata = event.grounding_metadata
+        if hasattr(event, "citation_metadata") and event.citation_metadata:
+            self._citation_metadata = event.citation_metadata
+        if hasattr(event, "cache_metadata") and event.cache_metadata:
+            self._cache_metadata = event.cache_metadata
+        if hasattr(event, "model_version") and event.model_version:
+            self._model_version = event.model_version
+            logger.debug(f"[CONVERTER] Accumulated model_version: {self._model_version}")
+        elif not self._model_version and self.agent_model:
+            # Use agent_model as fallback only if not already set
+            self._model_version = self.agent_model
+            logger.debug(f"[CONVERTER] Using agent_model fallback: {self._model_version}")
 
         has_content = hasattr(event, "content") and event.content
 
@@ -472,30 +504,19 @@ class StreamProtocolConverter:
         if hasattr(event, "turn_complete") and event.turn_complete:
             logger.info("[TURN COMPLETE] Detected turn_complete in convert_event")
 
-            # Extract metadata from event if present
-            usage_metadata = None
-            finish_reason = None
-            model_version = None
+            # Use accumulated metadata from instance variables
+            # In BIDI mode, usage_metadata may have arrived in a previous event
+            logger.info(f"[TURN COMPLETE] Using accumulated metadata - usage: {self._usage_metadata!r}")
 
-            if hasattr(event, "usage_metadata") and event.usage_metadata:
-                usage_metadata = event.usage_metadata
-            if hasattr(event, "finish_reason") and event.finish_reason:
-                finish_reason = event.finish_reason
-
-            # Extract model_version from event or use agent_model fallback
-            if hasattr(event, "model_version") and event.model_version:
-                model_version = event.model_version
-                logger.debug(f"[BIDI TURN_COMPLETE] Using event.model_version: {model_version}")
-            elif self.agent_model:
-                model_version = self.agent_model
-                logger.debug(f"[BIDI TURN_COMPLETE] Using agent_model fallback: {model_version}")
-
-            # Send finish event
+            # Send finish event with accumulated metadata
             async for final_event in self.finalize(
-                usage_metadata=usage_metadata,
+                usage_metadata=self._usage_metadata,
                 error=None,
-                finish_reason=finish_reason,
-                model_version=model_version,
+                finish_reason=self._finish_reason,
+                grounding_metadata=self._grounding_metadata,
+                citation_metadata=self._citation_metadata,
+                cache_metadata=self._cache_metadata,
+                model_version=self._model_version,
             ):
                 yield final_event
 
@@ -858,6 +879,9 @@ class StreamProtocolConverter:
             # Build messageMetadata with usage and audio stats
             metadata: dict[str, Any] = {}
 
+            # DEBUG: Log usage_metadata value
+            logger.info(f"[FINALIZE-METADATA] usage_metadata={usage_metadata!r}")
+
             # Add usage metadata if available
             if usage_metadata:
                 metadata["usage"] = {
@@ -1026,7 +1050,10 @@ async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912, PLR0915
             if hasattr(event, "usage_metadata") and event.usage_metadata:
                 usage_metadata_list.append(event.usage_metadata)
                 # DEBUG: Log usage_metadata contents
-                logger.debug(f"[USAGE_METADATA] Found usage_metadata: {event.usage_metadata!r}")
+                logger.info(f"[USAGE_METADATA] Found usage_metadata (list size now: {len(usage_metadata_list)}): {event.usage_metadata!r}")
+            else:
+                # Log when usage_metadata is NOT found
+                logger.info(f"[USAGE_METADATA] No usage_metadata in event: {type(event).__name__}")
             if hasattr(event, "custom_metadata") and event.custom_metadata:
                 # DEBUG: Log custom_metadata contents
                 logger.debug(f"[CUSTOM_METADATA] Found custom_metadata: {event.custom_metadata!r}")
@@ -1054,10 +1081,13 @@ async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912, PLR0915
         logger.error(f"[stream_adk_to_ai_sdk] Traceback:\n{traceback.format_exc()}")
         error_list.append(e)
     finally:
+        logger.info(f"[FINALIZE] Entering finally block")
         # Send final events with all collected metadata
         # Extract last values from lists (most recent)
         error = error_list[-1] if len(error_list) > 0 else None
+        logger.info(f"[FINALIZE] usage_metadata_list length: {len(usage_metadata_list)}")
         usage_metadata = usage_metadata_list[-1] if len(usage_metadata_list) > 0 else None
+        logger.info(f"[FINALIZE] usage_metadata_list count: {len(usage_metadata_list)}, selected: {usage_metadata!r}")
         finish_reason = finish_reason_list[-1] if len(finish_reason_list) > 0 else None
         grounding_metadata = (
             grounding_metadata_list[-1] if len(grounding_metadata_list) > 0 else None

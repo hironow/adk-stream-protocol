@@ -16,27 +16,29 @@
   },
   "output": {
     "rawEvents": [
-      "data: {\"type\": \"start\", \"messageId\": \"cf1b20e4-783b-4708-95b6-259f5cf0a050\"}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"4070cb08-0285-4600-94cc-4e8587674182\"}\n\n",
       "data: {\"type\": \"reasoning-start\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Examining Payment Parameters**\\n\\nI'm currently focused on the `process_payment` parameters for sending $200 to \\\"\\u6b21\\u90ce\\u3055\\u3093\\\" (Jiro). I've noted the amount and currency are straightforward, but the recipient name requires further scrutiny. The tool's description mentions identifiers like email or wallet addresses, making me question if a Japanese name is valid. I'll start by attempting the payment with the name as-is.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Executing the Transaction**\\n\\nI'm ready to proceed with the payment. I've formulated the necessary details: $200, recipient: \\u6b21\\u90ce\\u3055\\u3093, and currency: USD. Now, I'm calling the `process_payment` tool with these parameters to execute the transaction, which is subject to user confirmation.\\n\\n\\n\"}\n\n",
       "data: {\"type\": \"reasoning-end\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"reasoning-start\", \"id\": \"1\"}\n\n",
-      "data: {\"type\": \"reasoning-delta\", \"id\": \"1\", \"delta\": \"**Testing the Tool Call**\\n\\nI'm now about to initiate the `process_payment` tool call with the specified parameters. My primary concern is the validity of the Japanese name \\\"\\u6b21\\u90ce\\u3055\\u3093\\\" as a recipient identifier, given the tool's description. The system will likely reject it if the name is invalid, but I'll make the call and see what happens.\\n\\n\\n\"}\n\n",
-      "data: {\"type\": \"reasoning-end\", \"id\": \"1\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-3398619140066119640\", \"toolName\": \"process_payment\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-3398619140066119640\", \"toolName\": \"process_payment\", \"input\": {\"recipient\": \"\\u6b21\\u90ce\\u3055\\u3093\", \"amount\": 200}}\n\n",
-      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-3398619140066119640\", \"approvalId\": \"adk-4c5269aa-b2b0-45e8-b908-ce00376b9d69\"}\n\n",
-      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"function-call-3398619140066119640\", \"output\": {\"success\": true, \"transaction_id\": \"txn_f3cef791fcd0\", \"amount\": 200, \"currency\": \"USD\", \"recipient\": \"\\u6b21\\u90ce\\u3055\\u3093\", \"description\": \"\", \"wallet_balance\": 800.0, \"timestamp\": \"2025-12-27T20:00:36.222074+00:00\"}}\n\n",
-      "data: {\"type\": \"text-start\", \"id\": \"cf1b20e4-783b-4708-95b6-259f5cf0a050_output_text\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"cf1b20e4-783b-4708-95b6-259f5cf0a050_output_text\", \"delta\": \"\\u6b21\\u90ce\\u3055\\u3093\\u306b200\\u30c9\\u30eb\\u306e\\u9001\\u91d1\\u51e6\\u7406\\u304c\\u5b8c\\u4e86\\u3057\\u307e\\u3057\\u305f\\u3002\"}\n\n",
-      "data: {\"type\": \"text-end\", \"id\": \"cf1b20e4-783b-4708-95b6-259f5cf0a050_output_text\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"audio\": {\"chunks\": 47, \"bytes\": 134400, \"sampleRate\": 24000, \"duration\": 2.8}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-13756759654239794259\", \"toolName\": \"process_payment\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-13756759654239794259\", \"toolName\": \"process_payment\", \"input\": {\"recipient\": \"\\u6b21\\u90ce\\u3055\\u3093\", \"amount\": 200, \"currency\": \"USD\"}}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-13756759654239794259\", \"approvalId\": \"adk-b8da2971-ad29-4fb4-a908-08ee70695cc0\"}\n\n",
+      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"function-call-13756759654239794259\", \"output\": {\"success\": true, \"transaction_id\": \"txn_b91dc5c2e326\", \"amount\": 200, \"currency\": \"USD\", \"recipient\": \"\\u6b21\\u90ce\\u3055\\u3093\", \"description\": \"\", \"wallet_balance\": 800.0, \"timestamp\": \"2025-12-27T20:18:45.435691+00:00\"}}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"4070cb08-0285-4600-94cc-4e8587674182_output_text\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"4070cb08-0285-4600-94cc-4e8587674182_output_text\", \"delta\": \"\\u6b21\\u90ce\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"4070cb08-0285-4600-94cc-4e8587674182_output_text\", \"delta\": \"\\u3055\\u3093\\u306b200\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"4070cb08-0285-4600-94cc-4e8587674182_output_text\", \"delta\": \"\\u30c9\\u30eb\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"4070cb08-0285-4600-94cc-4e8587674182_output_text\", \"delta\": \"\\u9001\\u91d1\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"4070cb08-0285-4600-94cc-4e8587674182_output_text\", \"delta\": \"\\u304c\\u5b8c\\u4e86\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"4070cb08-0285-4600-94cc-4e8587674182_output_text\", \"delta\": \"\\u3057\\u307e\\u3057\\u305f\\u3002\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"4070cb08-0285-4600-94cc-4e8587674182_output_text\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1573, \"completionTokens\": null, \"totalTokens\": 1639}, \"audio\": {\"chunks\": 37, \"bytes\": 115200, \"sampleRate\": 24000, \"duration\": 2.4}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
       {
         "type": "start",
-        "messageId": "cf1b20e4-783b-4708-95b6-259f5cf0a050"
+        "messageId": "4070cb08-0285-4600-94cc-4e8587674182"
       },
       {
         "type": "reasoning-start",
@@ -45,80 +47,98 @@
       {
         "type": "reasoning-delta",
         "id": "0",
-        "delta": "**Examining Payment Parameters**\n\nI'm currently focused on the `process_payment` parameters for sending $200 to \"次郎さん\" (Jiro). I've noted the amount and currency are straightforward, but the recipient name requires further scrutiny. The tool's description mentions identifiers like email or wallet addresses, making me question if a Japanese name is valid. I'll start by attempting the payment with the name as-is.\n\n\n"
+        "delta": "**Executing the Transaction**\n\nI'm ready to proceed with the payment. I've formulated the necessary details: $200, recipient: 次郎さん, and currency: USD. Now, I'm calling the `process_payment` tool with these parameters to execute the transaction, which is subject to user confirmation.\n\n\n"
       },
       {
         "type": "reasoning-end",
         "id": "0"
       },
       {
-        "type": "reasoning-start",
-        "id": "1"
-      },
-      {
-        "type": "reasoning-delta",
-        "id": "1",
-        "delta": "**Testing the Tool Call**\n\nI'm now about to initiate the `process_payment` tool call with the specified parameters. My primary concern is the validity of the Japanese name \"次郎さん\" as a recipient identifier, given the tool's description. The system will likely reject it if the name is invalid, but I'll make the call and see what happens.\n\n\n"
-      },
-      {
-        "type": "reasoning-end",
-        "id": "1"
-      },
-      {
         "type": "tool-input-start",
-        "toolCallId": "function-call-3398619140066119640",
+        "toolCallId": "function-call-13756759654239794259",
         "toolName": "process_payment"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "function-call-3398619140066119640",
+        "toolCallId": "function-call-13756759654239794259",
         "toolName": "process_payment",
         "input": {
           "recipient": "次郎さん",
-          "amount": 200
+          "amount": 200,
+          "currency": "USD"
         }
       },
       {
         "type": "tool-approval-request",
-        "toolCallId": "function-call-3398619140066119640",
-        "approvalId": "adk-4c5269aa-b2b0-45e8-b908-ce00376b9d69"
+        "toolCallId": "function-call-13756759654239794259",
+        "approvalId": "adk-b8da2971-ad29-4fb4-a908-08ee70695cc0"
       },
       {
         "type": "tool-output-available",
-        "toolCallId": "function-call-3398619140066119640",
+        "toolCallId": "function-call-13756759654239794259",
         "output": {
           "success": true,
-          "transaction_id": "txn_f3cef791fcd0",
+          "transaction_id": "txn_b91dc5c2e326",
           "amount": 200,
           "currency": "USD",
           "recipient": "次郎さん",
           "description": "",
           "wallet_balance": 800.0,
-          "timestamp": "2025-12-27T20:00:36.222074+00:00"
+          "timestamp": "2025-12-27T20:18:45.435691+00:00"
         }
       },
       {
         "type": "text-start",
-        "id": "cf1b20e4-783b-4708-95b6-259f5cf0a050_output_text"
+        "id": "4070cb08-0285-4600-94cc-4e8587674182_output_text"
       },
       {
         "type": "text-delta",
-        "id": "cf1b20e4-783b-4708-95b6-259f5cf0a050_output_text",
-        "delta": "次郎さんに200ドルの送金処理が完了しました。"
+        "id": "4070cb08-0285-4600-94cc-4e8587674182_output_text",
+        "delta": "次郎"
+      },
+      {
+        "type": "text-delta",
+        "id": "4070cb08-0285-4600-94cc-4e8587674182_output_text",
+        "delta": "さんに200"
+      },
+      {
+        "type": "text-delta",
+        "id": "4070cb08-0285-4600-94cc-4e8587674182_output_text",
+        "delta": "ドル"
+      },
+      {
+        "type": "text-delta",
+        "id": "4070cb08-0285-4600-94cc-4e8587674182_output_text",
+        "delta": "送金"
+      },
+      {
+        "type": "text-delta",
+        "id": "4070cb08-0285-4600-94cc-4e8587674182_output_text",
+        "delta": "が完了"
+      },
+      {
+        "type": "text-delta",
+        "id": "4070cb08-0285-4600-94cc-4e8587674182_output_text",
+        "delta": "しました。"
       },
       {
         "type": "text-end",
-        "id": "cf1b20e4-783b-4708-95b6-259f5cf0a050_output_text"
+        "id": "4070cb08-0285-4600-94cc-4e8587674182_output_text"
       },
       {
         "type": "finish",
         "finishReason": "stop",
         "messageMetadata": {
+          "usage": {
+            "promptTokens": 1573,
+            "completionTokens": null,
+            "totalTokens": 1639
+          },
           "audio": {
-            "chunks": 47,
-            "bytes": 134400,
+            "chunks": 37,
+            "bytes": 115200,
             "sampleRate": 24000,
-            "duration": 2.8
+            "duration": 2.4
           },
           "modelVersion": "gemini-2.5-flash-native-audio-preview-12-2025"
         }

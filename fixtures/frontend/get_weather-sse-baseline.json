@@ -16,29 +16,29 @@
   },
   "output": {
     "rawEvents": [
-      "data: {\"type\": \"start\", \"messageId\": \"6c92af7b-9444-4b48-8d6a-73d6f6dba92f\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-dd6aa09d-b19b-4521-a34e-0e92f11150c0\", \"toolName\": \"get_weather\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-dd6aa09d-b19b-4521-a34e-0e92f11150c0\", \"toolName\": \"get_weather\", \"input\": {\"location\": \"Tokyo\"}}\n\n",
-      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"adk-dd6aa09d-b19b-4521-a34e-0e92f11150c0\", \"output\": {\"temperature\": 4.5, \"condition\": \"Clouds\", \"description\": \"few clouds\", \"humidity\": 58, \"feels_like\": 2.3, \"wind_speed\": 2.57, \"cached\": true}}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"1c3472cb-de3a-4764-aa05-37b3c99e5dee\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-8d09610d-39ce-433c-b4b4-646e6a28a5c0\", \"toolName\": \"get_weather\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-8d09610d-39ce-433c-b4b4-646e6a28a5c0\", \"toolName\": \"get_weather\", \"input\": {\"location\": \"Tokyo\"}}\n\n",
+      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"adk-8d09610d-39ce-433c-b4b4-646e6a28a5c0\", \"output\": {\"temperature\": 4.5, \"condition\": \"Clouds\", \"description\": \"few clouds\", \"humidity\": 58, \"feels_like\": 2.3, \"wind_speed\": 2.57, \"cached\": true}}\n\n",
       "data: {\"type\": \"text-start\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"\\u73fe\\u5728\\u306e\\u6771\\u4eac\\u306e\\u5929\\u6c17\\u306f\\u300c\\u96f2\\uff08\\u5c11\\u306a\\u3044\\u96f2\\uff09\\u300d\\u3067\\u3059\\u3002\\u6c17\\u6e29\\u306f4.5\\u2103\\uff08\\u4f53\\u611f\\u6e29\\u5ea62.3\\u2103\\uff09\\u3001\\u6e7f\\u5ea6\\u306f58\\uff05\\u3001\\u98a8\\u901f\\u306f2.57m/s\\u3067\\u3059\\u3002\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"\\u6771\\u4eac\\u306e\\u73fe\\u5728\\u306e\\u5929\\u6c17\\u306f\\u300c\\u5c11\\u91cf\\u306e\\u96f2\\u300d\\u3067\\u3001\\u6c17\\u6e29\\u306f4.5\\u2103\\uff08\\u4f53\\u611f\\u6e29\\u5ea62.3\\u2103\\uff09\\u3001\\u6e7f\\u5ea6\\u306f58%\\u3001\\u98a8\\u901f\\u306f2.57m/s\\u3067\\u3059\\u3002\"}\n\n",
       "data: {\"type\": \"text-end\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1288, \"completionTokens\": 46, \"totalTokens\": 1334}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1316, \"completionTokens\": 44, \"totalTokens\": 1360}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
       {
         "type": "start",
-        "messageId": "6c92af7b-9444-4b48-8d6a-73d6f6dba92f"
+        "messageId": "1c3472cb-de3a-4764-aa05-37b3c99e5dee"
       },
       {
         "type": "tool-input-start",
-        "toolCallId": "adk-dd6aa09d-b19b-4521-a34e-0e92f11150c0",
+        "toolCallId": "adk-8d09610d-39ce-433c-b4b4-646e6a28a5c0",
         "toolName": "get_weather"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "adk-dd6aa09d-b19b-4521-a34e-0e92f11150c0",
+        "toolCallId": "adk-8d09610d-39ce-433c-b4b4-646e6a28a5c0",
         "toolName": "get_weather",
         "input": {
           "location": "Tokyo"
@@ -46,7 +46,7 @@
       },
       {
         "type": "tool-output-available",
-        "toolCallId": "adk-dd6aa09d-b19b-4521-a34e-0e92f11150c0",
+        "toolCallId": "adk-8d09610d-39ce-433c-b4b4-646e6a28a5c0",
         "output": {
           "temperature": 4.5,
           "condition": "Clouds",
@@ -64,7 +64,7 @@
       {
         "type": "text-delta",
         "id": "0",
-        "delta": "現在の東京の天気は「雲（少ない雲）」です。気温は4.5℃（体感温度2.3℃）、湿度は58％、風速は2.57m/sです。"
+        "delta": "東京の現在の天気は「少量の雲」で、気温は4.5℃（体感温度2.3℃）、湿度は58%、風速は2.57m/sです。"
       },
       {
         "type": "text-end",
@@ -75,9 +75,9 @@
         "finishReason": "stop",
         "messageMetadata": {
           "usage": {
-            "promptTokens": 1288,
-            "completionTokens": 46,
-            "totalTokens": 1334
+            "promptTokens": 1316,
+            "completionTokens": 44,
+            "totalTokens": 1360
           },
           "modelVersion": "gemini-3-flash-preview"
         }

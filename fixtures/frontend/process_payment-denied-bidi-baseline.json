@@ -16,27 +16,27 @@
   },
   "output": {
     "rawEvents": [
-      "data: {\"type\": \"start\", \"messageId\": \"e3116c66-affc-42f5-bd3d-0126d6a59121\"}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"8c73a60e-6a80-4cd7-aa8e-ff5f5b4f5e79\"}\n\n",
       "data: {\"type\": \"reasoning-start\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Evaluating Payment Tools**\\n\\nI've homed in on the `process_payment` tool. It looks like the right fit to transfer $200 to Jiro-san. I've set the amount, recipient (using the provided string), and currency to USD. Now, I'm expecting a prompt for approval before executing the payment.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Executing the Payment**\\n\\nI am now calling the `process_payment` tool. I've set the `amount` to 200, the `recipient` to \\\"\\u6b21\\u90ce\\u3055\\u3093,\\\" and the `currency` to USD. I recall that the tool requires user approval. I'm ready for the next step.\\n\\n\\n\"}\n\n",
       "data: {\"type\": \"reasoning-end\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-775428664124720382\", \"toolName\": \"process_payment\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-775428664124720382\", \"toolName\": \"process_payment\", \"input\": {\"amount\": 200, \"currency\": \"USD\", \"recipient\": \"\\u6b21\\u90ce\\u3055\\u3093\"}}\n\n",
-      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-775428664124720382\", \"approvalId\": \"adk-9342021f-2cec-49b6-970b-5dba67544a15\"}\n\n",
-      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"function-call-775428664124720382\", \"errorText\": \"User denied the payment\"}\n\n",
-      "data: {\"type\": \"text-start\", \"id\": \"e3116c66-affc-42f5-bd3d-0126d6a59121_output_text\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"e3116c66-affc-42f5-bd3d-0126d6a59121_output_text\", \"delta\": \"\\u652f\\u6255\\u3044\\u306f\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"e3116c66-affc-42f5-bd3d-0126d6a59121_output_text\", \"delta\": \"\\u62d2\\u5426\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"e3116c66-affc-42f5-bd3d-0126d6a59121_output_text\", \"delta\": \"\\u3055\\u308c\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"e3116c66-affc-42f5-bd3d-0126d6a59121_output_text\", \"delta\": \"\\u307e\\u3057\\u305f\\u3002\"}\n\n",
-      "data: {\"type\": \"text-end\", \"id\": \"e3116c66-affc-42f5-bd3d-0126d6a59121_output_text\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"audio\": {\"chunks\": 22, \"bytes\": 86400, \"sampleRate\": 24000, \"duration\": 1.8}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-16969784480474182426\", \"toolName\": \"process_payment\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-16969784480474182426\", \"toolName\": \"process_payment\", \"input\": {\"amount\": 200, \"recipient\": \"\\u6b21\\u90ce\\u3055\\u3093\", \"currency\": \"USD\"}}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-16969784480474182426\", \"approvalId\": \"adk-899278e9-111a-4dd5-bc53-c6e33fcb88df\"}\n\n",
+      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"function-call-16969784480474182426\", \"errorText\": \"User denied the payment\"}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"8c73a60e-6a80-4cd7-aa8e-ff5f5b4f5e79_output_text\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"8c73a60e-6a80-4cd7-aa8e-ff5f5b4f5e79_output_text\", \"delta\": \"\\u652f\\u6255\\u3044\\u306f\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"8c73a60e-6a80-4cd7-aa8e-ff5f5b4f5e79_output_text\", \"delta\": \"\\u62d2\\u5426\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"8c73a60e-6a80-4cd7-aa8e-ff5f5b4f5e79_output_text\", \"delta\": \"\\u3055\\u308c\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"8c73a60e-6a80-4cd7-aa8e-ff5f5b4f5e79_output_text\", \"delta\": \"\\u307e\\u3057\\u305f\\u3002\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"8c73a60e-6a80-4cd7-aa8e-ff5f5b4f5e79_output_text\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1498, \"completionTokens\": null, \"totalTokens\": 1545}, \"audio\": {\"chunks\": 18, \"bytes\": 78720, \"sampleRate\": 24000, \"duration\": 1.64}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
       {
         "type": "start",
-        "messageId": "e3116c66-affc-42f5-bd3d-0126d6a59121"
+        "messageId": "8c73a60e-6a80-4cd7-aa8e-ff5f5b4f5e79"
       },
       {
         "type": "reasoning-start",
@@ -45,7 +45,7 @@
       {
         "type": "reasoning-delta",
         "id": "0",
-        "delta": "**Evaluating Payment Tools**\n\nI've homed in on the `process_payment` tool. It looks like the right fit to transfer $200 to Jiro-san. I've set the amount, recipient (using the provided string), and currency to USD. Now, I'm expecting a prompt for approval before executing the payment.\n\n\n"
+        "delta": "**Executing the Payment**\n\nI am now calling the `process_payment` tool. I've set the `amount` to 200, the `recipient` to \"次郎さん,\" and the `currency` to USD. I recall that the tool requires user approval. I'm ready for the next step.\n\n\n"
       },
       {
         "type": "reasoning-end",
@@ -53,66 +53,71 @@
       },
       {
         "type": "tool-input-start",
-        "toolCallId": "function-call-775428664124720382",
+        "toolCallId": "function-call-16969784480474182426",
         "toolName": "process_payment"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "function-call-775428664124720382",
+        "toolCallId": "function-call-16969784480474182426",
         "toolName": "process_payment",
         "input": {
           "amount": 200,
-          "currency": "USD",
-          "recipient": "次郎さん"
+          "recipient": "次郎さん",
+          "currency": "USD"
         }
       },
       {
         "type": "tool-approval-request",
-        "toolCallId": "function-call-775428664124720382",
-        "approvalId": "adk-9342021f-2cec-49b6-970b-5dba67544a15"
+        "toolCallId": "function-call-16969784480474182426",
+        "approvalId": "adk-899278e9-111a-4dd5-bc53-c6e33fcb88df"
       },
       {
         "type": "tool-output-error",
-        "toolCallId": "function-call-775428664124720382",
+        "toolCallId": "function-call-16969784480474182426",
         "errorText": "User denied the payment"
       },
       {
         "type": "text-start",
-        "id": "e3116c66-affc-42f5-bd3d-0126d6a59121_output_text"
+        "id": "8c73a60e-6a80-4cd7-aa8e-ff5f5b4f5e79_output_text"
       },
       {
         "type": "text-delta",
-        "id": "e3116c66-affc-42f5-bd3d-0126d6a59121_output_text",
+        "id": "8c73a60e-6a80-4cd7-aa8e-ff5f5b4f5e79_output_text",
         "delta": "支払いは"
       },
       {
         "type": "text-delta",
-        "id": "e3116c66-affc-42f5-bd3d-0126d6a59121_output_text",
+        "id": "8c73a60e-6a80-4cd7-aa8e-ff5f5b4f5e79_output_text",
         "delta": "拒否"
       },
       {
         "type": "text-delta",
-        "id": "e3116c66-affc-42f5-bd3d-0126d6a59121_output_text",
+        "id": "8c73a60e-6a80-4cd7-aa8e-ff5f5b4f5e79_output_text",
         "delta": "され"
       },
       {
         "type": "text-delta",
-        "id": "e3116c66-affc-42f5-bd3d-0126d6a59121_output_text",
+        "id": "8c73a60e-6a80-4cd7-aa8e-ff5f5b4f5e79_output_text",
         "delta": "ました。"
       },
       {
         "type": "text-end",
-        "id": "e3116c66-affc-42f5-bd3d-0126d6a59121_output_text"
+        "id": "8c73a60e-6a80-4cd7-aa8e-ff5f5b4f5e79_output_text"
       },
       {
         "type": "finish",
         "finishReason": "stop",
         "messageMetadata": {
+          "usage": {
+            "promptTokens": 1498,
+            "completionTokens": null,
+            "totalTokens": 1545
+          },
           "audio": {
-            "chunks": 22,
-            "bytes": 86400,
+            "chunks": 18,
+            "bytes": 78720,
             "sampleRate": 24000,
-            "duration": 1.8
+            "duration": 1.64
           },
           "modelVersion": "gemini-2.5-flash-native-audio-preview-12-2025"
         }

@@ -16,32 +16,26 @@
   },
   "output": {
     "rawEvents": [
-      "data: {\"type\": \"start\", \"messageId\": \"99d69240-eebd-42bb-b3bf-f8bc6268200b\"}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"01c06261-e2a2-4220-93e5-c7dfab5ac883\"}\n\n",
       "data: {\"type\": \"reasoning-start\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Acquiring Location Data**\\n\\nI've determined that the Japanese phrase translates directly to a request for location data. My assessment is that the `get_location` tool aligns perfectly with this. It seems the tool's description and argument specifications, notably `tool_context`, suggest it's designed to handle this type of inquiry. I'm now formulating the call to `get_location` to proceed.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Initiating Location Retrieval**\\n\\nI'm now generating a tool call to `get_location()`. The user wants their location in Japanese, and this seems like the most direct approach. I've considered that the `get_location` tool needs user approval, so I'll be sure to handle any potential permission requests properly. The `tool_context` argument is automatically handled, so that simplifies things.\\n\\n\\n\"}\n\n",
       "data: {\"type\": \"reasoning-end\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-916111763024937707\", \"toolName\": \"get_location\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-916111763024937707\", \"toolName\": \"get_location\", \"input\": {}}\n\n",
-      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-916111763024937707\", \"approvalId\": \"adk-df077e9b-1448-4c79-9abf-63c58e20f82e\"}\n\n",
-      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"function-call-916111763024937707\", \"output\": {\"latitude\": 35.6762, \"longitude\": 139.6503, \"accuracy\": 20, \"city\": \"Tokyo\", \"country\": \"Japan\"}}\n\n",
-      "data: {\"type\": \"text-start\", \"id\": \"99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text\", \"delta\": \"\\u73fe\\u5728\\u5730\\u306f\\u3001\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text\", \"delta\": \"\\u6771\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text\", \"delta\": \"\\u4eac\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text\", \"delta\": \"\\u306e\\u7def\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text\", \"delta\": \"\\u5ea635.6762\\u3001\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text\", \"delta\": \"\\u7d4c\\u5ea6139.6503\\u3001\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text\", \"delta\": \"\\u7cbe\\u5ea620\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text\", \"delta\": \"\\u30e1\\u30fc\\u30c8\\u30eb\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text\", \"delta\": \"\\u3067\\u3059\\u3002\"}\n\n",
-      "data: {\"type\": \"text-end\", \"id\": \"99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"audio\": {\"chunks\": 202, \"bytes\": 432000, \"sampleRate\": 24000, \"duration\": 9.0}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-4340337261796659662\", \"toolName\": \"get_location\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-4340337261796659662\", \"toolName\": \"get_location\", \"input\": {}}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-4340337261796659662\", \"approvalId\": \"adk-64390c20-f009-4464-9386-f57c2a8a9c2c\"}\n\n",
+      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"function-call-4340337261796659662\", \"output\": {\"latitude\": 35.6762, \"longitude\": 139.6503, \"accuracy\": 20, \"city\": \"Tokyo\", \"country\": \"Japan\"}}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"01c06261-e2a2-4220-93e5-c7dfab5ac883_output_text\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"01c06261-e2a2-4220-93e5-c7dfab5ac883_output_text\", \"delta\": \"\\u73fe\\u5728\\u5730\\u306f\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"01c06261-e2a2-4220-93e5-c7dfab5ac883_output_text\", \"delta\": \" \\u6771\\u4eac\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"01c06261-e2a2-4220-93e5-c7dfab5ac883_output_text\", \"delta\": \"\\u3067\\u3059\\u3002\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"01c06261-e2a2-4220-93e5-c7dfab5ac883_output_text\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1519, \"completionTokens\": null, \"totalTokens\": 1569}, \"audio\": {\"chunks\": 20, \"bytes\": 82560, \"sampleRate\": 24000, \"duration\": 1.72}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
       {
         "type": "start",
-        "messageId": "99d69240-eebd-42bb-b3bf-f8bc6268200b"
+        "messageId": "01c06261-e2a2-4220-93e5-c7dfab5ac883"
       },
       {
         "type": "reasoning-start",
@@ -50,7 +44,7 @@
       {
         "type": "reasoning-delta",
         "id": "0",
-        "delta": "**Acquiring Location Data**\n\nI've determined that the Japanese phrase translates directly to a request for location data. My assessment is that the `get_location` tool aligns perfectly with this. It seems the tool's description and argument specifications, notably `tool_context`, suggest it's designed to handle this type of inquiry. I'm now formulating the call to `get_location` to proceed.\n\n\n"
+        "delta": "**Initiating Location Retrieval**\n\nI'm now generating a tool call to `get_location()`. The user wants their location in Japanese, and this seems like the most direct approach. I've considered that the `get_location` tool needs user approval, so I'll be sure to handle any potential permission requests properly. The `tool_context` argument is automatically handled, so that simplifies things.\n\n\n"
       },
       {
         "type": "reasoning-end",
@@ -58,23 +52,23 @@
       },
       {
         "type": "tool-input-start",
-        "toolCallId": "function-call-916111763024937707",
+        "toolCallId": "function-call-4340337261796659662",
         "toolName": "get_location"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "function-call-916111763024937707",
+        "toolCallId": "function-call-4340337261796659662",
         "toolName": "get_location",
         "input": {}
       },
       {
         "type": "tool-approval-request",
-        "toolCallId": "function-call-916111763024937707",
-        "approvalId": "adk-df077e9b-1448-4c79-9abf-63c58e20f82e"
+        "toolCallId": "function-call-4340337261796659662",
+        "approvalId": "adk-64390c20-f009-4464-9386-f57c2a8a9c2c"
       },
       {
         "type": "tool-output-available",
-        "toolCallId": "function-call-916111763024937707",
+        "toolCallId": "function-call-4340337261796659662",
         "output": {
           "latitude": 35.6762,
           "longitude": 139.6503,
@@ -85,66 +79,41 @@
       },
       {
         "type": "text-start",
-        "id": "99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text"
+        "id": "01c06261-e2a2-4220-93e5-c7dfab5ac883_output_text"
       },
       {
         "type": "text-delta",
-        "id": "99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text",
-        "delta": "現在地は、"
+        "id": "01c06261-e2a2-4220-93e5-c7dfab5ac883_output_text",
+        "delta": "現在地は"
       },
       {
         "type": "text-delta",
-        "id": "99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text",
-        "delta": "東"
+        "id": "01c06261-e2a2-4220-93e5-c7dfab5ac883_output_text",
+        "delta": " 東京"
       },
       {
         "type": "text-delta",
-        "id": "99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text",
-        "delta": "京"
-      },
-      {
-        "type": "text-delta",
-        "id": "99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text",
-        "delta": "の緯"
-      },
-      {
-        "type": "text-delta",
-        "id": "99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text",
-        "delta": "度35.6762、"
-      },
-      {
-        "type": "text-delta",
-        "id": "99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text",
-        "delta": "経度139.6503、"
-      },
-      {
-        "type": "text-delta",
-        "id": "99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text",
-        "delta": "精度20"
-      },
-      {
-        "type": "text-delta",
-        "id": "99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text",
-        "delta": "メートル"
-      },
-      {
-        "type": "text-delta",
-        "id": "99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text",
+        "id": "01c06261-e2a2-4220-93e5-c7dfab5ac883_output_text",
         "delta": "です。"
       },
       {
         "type": "text-end",
-        "id": "99d69240-eebd-42bb-b3bf-f8bc6268200b_output_text"
+        "id": "01c06261-e2a2-4220-93e5-c7dfab5ac883_output_text"
       },
       {
         "type": "finish",
         "finishReason": "stop",
         "messageMetadata": {
+          "usage": {
+            "promptTokens": 1519,
+            "completionTokens": null,
+            "totalTokens": 1569
+          },
           "audio": {
-            "chunks": 202,
-            "bytes": 432000,
+            "chunks": 20,
+            "bytes": 82560,
             "sampleRate": 24000,
-            "duration": 9.0
+            "duration": 1.72
           },
           "modelVersion": "gemini-2.5-flash-native-audio-preview-12-2025"
         }

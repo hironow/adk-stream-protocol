@@ -16,27 +16,26 @@
   },
   "output": {
     "rawEvents": [
-      "data: {\"type\": \"start\", \"messageId\": \"9f6feaaf-1f41-46a4-bc99-6dc214f5a799\"}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"b9b71689-a64a-491d-b7d2-9338483143c3\"}\n\n",
       "data: {\"type\": \"reasoning-start\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Updating the BGM**\\n\\nI've processed the user's intent. They requested a change to the background music, specifically to track number 1, as implied by the phrase \\\"\\u30c8\\u30e9\\u30c3\\u30af1.\\\" My analysis determined I must invoke the `change_bgm` tool with the argument `track=1`. I'm ready to proceed with the execution.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Confirming Track Change**\\n\\nI've determined that the `change_bgm` tool is the perfect fit. Its description aligns with the user's intent. The crucial step is calling it with `track=1`. I've also noted that the `tool_context` is handled automatically, eliminating the need for manual specification. Thus, I'm ready to execute the tool call.\\n\\n\\n\"}\n\n",
       "data: {\"type\": \"reasoning-end\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-8578376294087486970\", \"toolName\": \"change_bgm\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-8578376294087486970\", \"toolName\": \"change_bgm\", \"input\": {\"track\": 1}}\n\n",
-      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"function-call-8578376294087486970\", \"output\": {\"success\": true, \"track\": 1, \"message\": \"BGM change to track 1 initiated (frontend handles execution)\"}}\n\n",
-      "data: {\"type\": \"text-start\", \"id\": \"9f6feaaf-1f41-46a4-bc99-6dc214f5a799_output_text\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"9f6feaaf-1f41-46a4-bc99-6dc214f5a799_output_text\", \"delta\": \"BGM\\u3092\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"9f6feaaf-1f41-46a4-bc99-6dc214f5a799_output_text\", \"delta\": \"\\u30c8\\u30e9\\u30c3\\u30af1\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"9f6feaaf-1f41-46a4-bc99-6dc214f5a799_output_text\", \"delta\": \"\\u306b\\u5909\\u66f4\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"9f6feaaf-1f41-46a4-bc99-6dc214f5a799_output_text\", \"delta\": \"\\u3057\\u307e\\u3057\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"9f6feaaf-1f41-46a4-bc99-6dc214f5a799_output_text\", \"delta\": \"\\u305f\\u3002\"}\n\n",
-      "data: {\"type\": \"text-end\", \"id\": \"9f6feaaf-1f41-46a4-bc99-6dc214f5a799_output_text\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"audio\": {\"chunks\": 38, \"bytes\": 117120, \"sampleRate\": 24000, \"duration\": 2.44}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-15635262726991893816\", \"toolName\": \"change_bgm\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-15635262726991893816\", \"toolName\": \"change_bgm\", \"input\": {\"track\": 1}}\n\n",
+      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"function-call-15635262726991893816\", \"output\": {\"success\": true, \"track\": 1, \"message\": \"BGM change to track 1 initiated (frontend handles execution)\"}}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"b9b71689-a64a-491d-b7d2-9338483143c3_output_text\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"b9b71689-a64a-491d-b7d2-9338483143c3_output_text\", \"delta\": \"BGM\\u3092\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"b9b71689-a64a-491d-b7d2-9338483143c3_output_text\", \"delta\": \"\\u30c8\\u30e9\\u30c3\\u30af1\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"b9b71689-a64a-491d-b7d2-9338483143c3_output_text\", \"delta\": \"\\u306b\\u5909\\u66f4\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"b9b71689-a64a-491d-b7d2-9338483143c3_output_text\", \"delta\": \"\\u3057\\u307e\\u3057\\u305f\\u3002\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"b9b71689-a64a-491d-b7d2-9338483143c3_output_text\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1544, \"completionTokens\": null, \"totalTokens\": 1606}, \"audio\": {\"chunks\": 35, \"bytes\": 111360, \"sampleRate\": 24000, \"duration\": 2.32}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
       {
         "type": "start",
-        "messageId": "9f6feaaf-1f41-46a4-bc99-6dc214f5a799"
+        "messageId": "b9b71689-a64a-491d-b7d2-9338483143c3"
       },
       {
         "type": "reasoning-start",
@@ -45,7 +44,7 @@
       {
         "type": "reasoning-delta",
         "id": "0",
-        "delta": "**Updating the BGM**\n\nI've processed the user's intent. They requested a change to the background music, specifically to track number 1, as implied by the phrase \"トラック1.\" My analysis determined I must invoke the `change_bgm` tool with the argument `track=1`. I'm ready to proceed with the execution.\n\n\n"
+        "delta": "**Confirming Track Change**\n\nI've determined that the `change_bgm` tool is the perfect fit. Its description aligns with the user's intent. The crucial step is calling it with `track=1`. I've also noted that the `tool_context` is handled automatically, eliminating the need for manual specification. Thus, I'm ready to execute the tool call.\n\n\n"
       },
       {
         "type": "reasoning-end",
@@ -53,12 +52,12 @@
       },
       {
         "type": "tool-input-start",
-        "toolCallId": "function-call-8578376294087486970",
+        "toolCallId": "function-call-15635262726991893816",
         "toolName": "change_bgm"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "function-call-8578376294087486970",
+        "toolCallId": "function-call-15635262726991893816",
         "toolName": "change_bgm",
         "input": {
           "track": 1
@@ -66,7 +65,7 @@
       },
       {
         "type": "tool-output-available",
-        "toolCallId": "function-call-8578376294087486970",
+        "toolCallId": "function-call-15635262726991893816",
         "output": {
           "success": true,
           "track": 1,
@@ -75,46 +74,46 @@
       },
       {
         "type": "text-start",
-        "id": "9f6feaaf-1f41-46a4-bc99-6dc214f5a799_output_text"
+        "id": "b9b71689-a64a-491d-b7d2-9338483143c3_output_text"
       },
       {
         "type": "text-delta",
-        "id": "9f6feaaf-1f41-46a4-bc99-6dc214f5a799_output_text",
+        "id": "b9b71689-a64a-491d-b7d2-9338483143c3_output_text",
         "delta": "BGMを"
       },
       {
         "type": "text-delta",
-        "id": "9f6feaaf-1f41-46a4-bc99-6dc214f5a799_output_text",
+        "id": "b9b71689-a64a-491d-b7d2-9338483143c3_output_text",
         "delta": "トラック1"
       },
       {
         "type": "text-delta",
-        "id": "9f6feaaf-1f41-46a4-bc99-6dc214f5a799_output_text",
+        "id": "b9b71689-a64a-491d-b7d2-9338483143c3_output_text",
         "delta": "に変更"
       },
       {
         "type": "text-delta",
-        "id": "9f6feaaf-1f41-46a4-bc99-6dc214f5a799_output_text",
-        "delta": "しまし"
-      },
-      {
-        "type": "text-delta",
-        "id": "9f6feaaf-1f41-46a4-bc99-6dc214f5a799_output_text",
-        "delta": "た。"
+        "id": "b9b71689-a64a-491d-b7d2-9338483143c3_output_text",
+        "delta": "しました。"
       },
       {
         "type": "text-end",
-        "id": "9f6feaaf-1f41-46a4-bc99-6dc214f5a799_output_text"
+        "id": "b9b71689-a64a-491d-b7d2-9338483143c3_output_text"
       },
       {
         "type": "finish",
         "finishReason": "stop",
         "messageMetadata": {
+          "usage": {
+            "promptTokens": 1544,
+            "completionTokens": null,
+            "totalTokens": 1606
+          },
           "audio": {
-            "chunks": 38,
-            "bytes": 117120,
+            "chunks": 35,
+            "bytes": 111360,
             "sampleRate": 24000,
-            "duration": 2.44
+            "duration": 2.32
           },
           "modelVersion": "gemini-2.5-flash-native-audio-preview-12-2025"
         }
