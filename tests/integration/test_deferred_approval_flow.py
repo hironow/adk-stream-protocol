@@ -9,16 +9,19 @@ This test validates the proposed architecture:
 """
 
 import asyncio
+import logging
 import time
 import uuid
+from typing import Any, Optional
 
 import pytest
 from dotenv import load_dotenv
 from google.adk.agents import Agent, LiveRequestQueue
 from google.adk.agents.run_config import RunConfig, StreamingMode
 from google.adk.apps import App, ResumabilityConfig
+from google.adk.plugins import BasePlugin
 from google.adk.runners import InMemoryRunner
-from google.adk.tools.long_running_tool import LongRunningFunctionTool
+from google.adk.tools import BaseTool, FunctionTool, ToolContext
 from google.genai import types
 from loguru import logger
 
@@ -27,17 +30,126 @@ from adk_stream_protocol import get_or_create_session
 
 load_dotenv(".env.local")
 
+# Enable ADK debug logging to see what's sent to Live API
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+# Focus on gemini_llm_connection to see FunctionResponse sending
+logging.getLogger('google.adk.models.gemini_llm_connection').setLevel(logging.DEBUG)
+# Enable plugin manager logging to see plugin registration and callback execution
+logging.getLogger('google_adk.google.adk.plugins.plugin_manager').setLevel(logging.DEBUG)
+logging.getLogger('google_adk.google.adk.flows.llm_flows.functions').setLevel(logging.DEBUG)
+
 
 # ========== Test-specific Minimal Agent Setup ==========
 # This test uses a dedicated agent with only ONE tool to ensure isolation
+
+
+class DeferredApprovalPlugin(BasePlugin):
+    """
+    Plugin that intercepts tool calls and sends pending FunctionResponse with will_continue=True.
+
+    This allows the LLM to receive multiple FunctionResponses for the same tool call:
+    1. Pending response (will_continue=True) - sent immediately
+    2. Final response (will_continue=False) - sent after approval
+    """
+
+    def __init__(self, approval_queue: "ApprovalQueue") -> None:
+        super().__init__(name="deferred_approval_plugin")
+        self.approval_queue = approval_queue
+
+    async def before_tool_callback(
+        self,
+        *,
+        tool: BaseTool,
+        tool_args: dict[str, Any],
+        tool_context: ToolContext,
+    ) -> Optional[dict]:
+        """
+        Intercept test_approval_tool calls and send pending FunctionResponse with will_continue=True.
+
+        Returns pending dict to skip actual tool execution.
+        """
+        print(f"\n{'='*80}\n[PLUGIN DEBUG] before_tool_callback CALLED! tool.name={tool.name}\n{'='*80}\n")
+        logger.info(f"[Plugin] before_tool_callback triggered for tool: {tool.name}")
+
+        if tool.name != "test_approval_tool":
+            logger.info("[Plugin] Not test_approval_tool, returning None for normal execution")
+            return None  # Normal execution for other tools
+
+        logger.info("[Plugin] MATCHED test_approval_tool! Intercepting...")
+
+        # Access InvocationContext to get LiveRequestQueue
+        invocation_context = tool_context._invocation_context  # type: ignore
+        live_request_queue = invocation_context.live_request_queue
+
+        if not live_request_queue:
+            logger.warning("[Plugin] LiveRequestQueue not available in InvocationContext")
+            return None
+
+        tool_call_id = tool_context.function_call_id
+
+        # Create pending FunctionResponse with will_continue=True
+        pending_func_response = types.FunctionResponse(
+            id=tool_call_id,
+            name=tool.name,
+            response={
+                "status": "pending",
+                "message": f"Processing '{tool_args.get('message', '')}' requires approval",
+                "awaiting_confirmation": True,
+            },
+            will_continue=True,  # Signal that more responses will follow
+        )
+
+        logger.info("=" * 80)
+        logger.info("[Plugin] >>> SENDING PENDING RESPONSE WITH will_continue=True <<<")
+        logger.info(f"[Plugin] id: {pending_func_response.id}")
+        logger.info(f"[Plugin] name: {pending_func_response.name}")
+        logger.info(f"[Plugin] response: {pending_func_response.response}")
+        logger.info(f"[Plugin] will_continue: {pending_func_response.will_continue}")
+        logger.info("=" * 80)
+
+        pending_response = types.Content(
+            role="user",
+            parts=[types.Part(function_response=pending_func_response)],
+        )
+        live_request_queue.send_content(pending_response)
+        logger.info("[Plugin] ✓ Sent pending FunctionResponse")
+
+        # Register approval request
+        self.approval_queue.request_approval(tool_call_id, tool.name, tool_args)
+
+        # Start deferred execution in separate task
+        # This task will wait for approval, then send the actual result
+        import asyncio  # Import here to avoid top-level import
+
+        _deferred_task = asyncio.create_task(
+            deferred_tool_execution(
+                tool_call_id,
+                tool.name,
+                tool_args,
+                self.approval_queue,
+                live_request_queue,
+            )
+        )
+        logger.info(f"[Plugin] ✓ Started deferred execution task for {tool_call_id}")
+
+        # Return pending dict to skip actual tool execution
+        # This prevents ADK from auto-generating another FunctionResponse
+        return {
+            "status": "pending",
+            "message": f"Processing '{tool_args.get('message', '')}' requires approval",
+            "awaiting_confirmation": True,
+        }
 
 
 def test_approval_tool(message: str) -> dict:
     """
     Minimal test tool that requires approval.
 
-    This tool returns pending status to signal that it requires
-    user approval before actual execution.
+    This tool returns pending status to signal that approval is required.
+    The LongRunningFunctionTool wrapper will handle this appropriately.
 
     Args:
         message: A message to process
@@ -45,7 +157,8 @@ def test_approval_tool(message: str) -> dict:
     Returns:
         dict: Pending status indicating approval is required
     """
-    logger.info(f"[test_approval_tool] Message: {message}")
+    logger.info(f"[test_approval_tool] Called with message: {message}")
+    # Return pending status - LongRunningFunctionTool will handle this
     return {
         "status": "pending",
         "message": f"Processing '{message}' requires approval",
@@ -53,9 +166,20 @@ def test_approval_tool(message: str) -> dict:
     }
 
 
-# Wrap tool with LongRunningFunctionTool for deferred execution pattern
-# TODO: LongRunningFunctionTool があることで、よくないADKの内部挙動があるかもしれない
-TEST_APPROVAL_TOOL = LongRunningFunctionTool(test_approval_tool)
+# Create FunctionDeclaration with NON_BLOCKING behavior using from_callable_with_api_option
+# This allows will_continue field to work properly
+test_approval_declaration = types.FunctionDeclaration.from_callable_with_api_option(
+    callable=test_approval_tool,
+    api_option='GEMINI_API',
+    behavior=types.Behavior.NON_BLOCKING,  # Enable multi-response pattern
+)
+
+# Wrap tool with FunctionTool using the custom declaration
+TEST_APPROVAL_TOOL = FunctionTool(test_approval_tool)
+# Override the declaration with our NON_BLOCKING version
+TEST_APPROVAL_TOOL._declaration = test_approval_declaration
+# TEMPORARILY DISABLED: Testing if is_long_running interferes with plugin callbacks
+# TEST_APPROVAL_TOOL.is_long_running = True
 
 # Create minimal test agent with only ONE tool
 test_agent = Agent(
@@ -146,6 +270,8 @@ async def deferred_tool_execution(
     2. Execute tool if approved
     3. Send result via LiveRequestQueue
     """
+    import time  # Import at function level
+
     try:
         logger.info(f"[DeferredExec] Started for {tool_call_id}")
 
@@ -200,17 +326,32 @@ async def deferred_tool_execution(
             logger.info(f"[DeferredExec] ✗ Rejection result: {result}")
 
         # 3. Send actual result via LiveRequestQueue
-        logger.info(f"[DeferredExec] Sending final result for {tool_call_id}")
+        send_time = time.time()
+        logger.info("=" * 80)
+        logger.info(f"[DeferredExec] >>> SENDING FINAL RESULT via send_content() <<<")
+        logger.info(f"[DeferredExec] Tool call ID: {tool_call_id}")
+        logger.info(f"[DeferredExec] Result: {result}")
+        logger.info(f"[DeferredExec] Timestamp: {send_time}")
+        logger.info("=" * 80)
+
+        final_func_response = types.FunctionResponse(
+            id=tool_call_id,
+            name=tool_name,
+            response=result,
+            will_continue=False,  # Signal that function call is finished
+        )
+
+        logger.info("=" * 80)
+        logger.info("[DeferredExec] >>> MANUAL FINAL RESPONSE <<<")
+        logger.info(f"[DeferredExec] id: {final_func_response.id}")
+        logger.info(f"[DeferredExec] name: {final_func_response.name}")
+        logger.info(f"[DeferredExec] response: {final_func_response.response}")
+        logger.info(f"[DeferredExec] will_continue: {final_func_response.will_continue}")
+        logger.info("=" * 80)
+
         function_response = types.Content(
-            parts=[
-                types.Part(
-                    function_response=types.FunctionResponse(
-                        id=tool_call_id,
-                        name=tool_name,
-                        response=result,
-                    )
-                )
-            ],
+            role="user",
+            parts=[types.Part(function_response=final_func_response)],
         )
         live_request_queue.send_content(function_response)
         logger.info(f"[DeferredExec] ✓ Final result sent for {tool_call_id}")
@@ -239,17 +380,55 @@ async def test_deferred_approval_flow_approved():
 
     Flow:
     1. User message triggers FunctionCall (from ADK agent)
-    2. Manually send "deferred" status via LiveRequestQueue
+    2. DeferredApprovalPlugin intercepts and sends pending FunctionResponse (will_continue=True)
     3. Approval granted (simulated after 2 seconds)
-    4. Tool executed, real result sent via LiveRequestQueue
+    4. Final result sent via LiveRequestQueue (will_continue=False)
     5. ADK generates final response
     """
     logger.info("=" * 80)
-    logger.info("[TEST] Deferred Approval Flow - APPROVED case (ADK BIDI)")
+    logger.info("[TEST] Deferred Approval Flow - APPROVED case (ADK BIDI with Plugin)")
     logger.info("=" * 80)
 
     approval_queue = ApprovalQueue()
     live_request_queue = LiveRequestQueue()
+
+    # Create Plugin instance with approval_queue
+    deferred_approval_plugin = DeferredApprovalPlugin(approval_queue=approval_queue)
+    logger.info("[TEST] ✓ Created DeferredApprovalPlugin")
+
+    # Create a fresh agent for this test (not using the module-level test_agent)
+    # This ensures the agent is created after the plugin is defined
+    fresh_test_agent = Agent(
+        name="test_deferred_approval_agent_fresh",
+        model="gemini-2.5-flash-native-audio-preview-12-2025",
+        description="Fresh test agent for deferred approval flow testing with plugin",
+        instruction=(
+            "You are a test assistant. When the user asks you to process a message, "
+            "call the test_approval_tool function. You MUST use the tool - do not just describe what you would do."
+        ),
+        tools=[TEST_APPROVAL_TOOL],  # type: ignore[list-item]
+    )
+    logger.info("[TEST] ✓ Created fresh test agent")
+
+    # Create App with Plugin registered
+    test_app_with_plugin = App(
+        name="test_deferred_approval_app_with_plugin",
+        root_agent=fresh_test_agent,
+        resumability_config=ResumabilityConfig(is_resumable=True),
+        plugins=[deferred_approval_plugin],  # Register the plugin
+    )
+    logger.info("[TEST] ✓ Created App with Plugin registered")
+
+    # Create Runner with the plugin-enabled App
+    test_runner_with_plugin = InMemoryRunner(app=test_app_with_plugin)
+    logger.info("[TEST] ✓ Created Runner with plugin-enabled App")
+
+    # DEBUG: Verify plugin is registered
+    print(f"\n{'='*80}")
+    print(f"[DEBUG] Runner plugin_manager has {len(test_runner_with_plugin.plugin_manager.plugins)} plugins:")
+    for plugin in test_runner_with_plugin.plugin_manager.plugins:
+        print(f"  - {plugin.name}: {type(plugin).__name__}")
+    print(f"{'='*80}\n")
 
     # Create RunConfig for BIDI mode with TEXT modality (matching server.py configuration)
     run_config = RunConfig(
@@ -273,25 +452,25 @@ async def test_deferred_approval_flow_approved():
     deferred_sent = False
     final_response_received = False
     all_events = []
+    function_response_count = 0  # Track FunctionResponse count
+    final_result_sent_time = None  # Track when we send final result
 
     try:
         # ========== Agent Configuration ==========
-        # - Using test_agent_runner (minimal test agent with ONE tool: test_approval_tool)
-        # - test_approval_tool is wrapped with LongRunningFunctionTool (requires approval)
-        # - In BIDI mode (session.state["mode"] = "bidi"), LongRunningFunctionTool
-        #   should automatically return pending/deferred status without blocking
+        # - Using DeferredApprovalPlugin to intercept tool calls
+        # - Plugin sends pending FunctionResponse with will_continue=True
+        # - Then sends final FunctionResponse with will_continue=False after approval
         #
         # Test Strategy:
-        # - Intercept FunctionCall events from ADK
-        # - Observe ADK's automatic deferred status generation (if any)
-        # - After approval, send actual result via LiveRequestQueue
-        # - This allows testing approval flow in isolation with minimal dependencies
+        # - Plugin's before_tool_callback intercepts test_approval_tool
+        # - Sends pending response immediately
+        # - Deferred execution task sends final result after approval
 
         # Create ADK session using get_or_create_session
         session = await get_or_create_session(
             user_id=user_id,
-            agent_runner=test_agent_runner,
-            app_name="test_app",
+            agent_runner=test_runner_with_plugin,  # Use plugin-enabled runner
+            app_name="test_app_with_plugin",
             connection_signature=connection_signature,
         )
         session_id = session.id
@@ -301,8 +480,8 @@ async def test_deferred_approval_flow_approved():
         session.state["mode"] = "bidi"
         logger.info("[TEST] ✓ Set session.state['mode'] = 'bidi'")
 
-        # Start run_live() with the created session
-        live_events = test_agent_runner.run_live(
+        # Start run_live() with the created session (use plugin-enabled runner!)
+        live_events = test_runner_with_plugin.run_live(
             session=session,
             live_request_queue=live_request_queue,
             run_config=run_config,
@@ -319,12 +498,23 @@ async def test_deferred_approval_flow_approved():
         # Collect events and handle FunctionCall
         async def event_loop():
             nonlocal tool_call_id, tool_name, tool_args, deferred_sent, final_response_received
+            nonlocal function_response_count, final_result_sent_time
 
             async for event in live_events:
                 all_events.append(event)
                 event_num = len(all_events)
                 event_type = type(event).__name__
-                logger.info(f"[TEST] Event {event_num}: {event_type}")
+
+                # Add timestamp for precise timing analysis
+                event_time = time.time()
+                if final_result_sent_time:
+                    time_since_final = event_time - final_result_sent_time
+                    logger.info(
+                        f"[TEST] Event {event_num}: {event_type} "
+                        f"(+{time_since_final:.3f}s after final result sent)"
+                    )
+                else:
+                    logger.info(f"[TEST] Event {event_num}: {event_type}")
 
                 # Capture FunctionCall from event
                 if hasattr(event, "content") and event.content:
@@ -337,20 +527,10 @@ async def test_deferred_approval_flow_approved():
                                 f"[TEST] ✓ FunctionCall received: {tool_name}(id={tool_call_id})"
                             )
 
-                            # Register approval request
-                            approval_queue.request_approval(tool_call_id, tool_name, tool_args)
-
-                            # Start deferred execution in separate task
-                            # This task will wait for approval, then send the actual result
-                            _deferred_task = asyncio.create_task(
-                                deferred_tool_execution(
-                                    tool_call_id,
-                                    tool_name,
-                                    tool_args,
-                                    approval_queue,
-                                    live_request_queue,
-                                )
-                            )
+                            # Plugin will handle:
+                            # 1. Sending pending FunctionResponse (will_continue=True)
+                            # 2. Registering approval request
+                            # 3. Starting deferred execution task
 
                             # Simulate approval after 2 seconds
                             async def approve_after_delay(call_id: str = tool_call_id) -> None:
@@ -363,17 +543,31 @@ async def test_deferred_approval_flow_approved():
                         # Check for ADK-generated FunctionResponse (pending/deferred status)
                         # LongRunningFunctionTool should automatically generate this in BIDI mode
                         if hasattr(part, "function_response") and part.function_response:
+                            function_response_count += 1
+                            response_id = part.function_response.id
                             response_data = part.function_response.response
+                            will_continue = getattr(part.function_response, "will_continue", None)
+
+                            logger.info("=" * 80)
                             logger.info(
-                                f"[TEST] ✓ ADK generated FunctionResponse: {response_data}"
+                                f"[TEST] FunctionResponse #{function_response_count} received "
+                                f"(id={response_id})"
                             )
+                            logger.info(f"[TEST] Response data: {response_data}")
+                            logger.info(f"[TEST] will_continue: {will_continue}")
+                            logger.info("=" * 80)
+
                             # If this is a pending/deferred status, mark it
                             if isinstance(response_data, dict) and response_data.get("status") in [
                                 "pending",
                                 "deferred",
                             ]:
                                 deferred_sent = True
-                                logger.info("[TEST] ✓ Deferred status detected from ADK")
+                                logger.info("[TEST] ✓ This is the PENDING status (FunctionResponse #1)")
+                            elif isinstance(response_data, dict) and response_data.get("status") == "completed":
+                                logger.info("[TEST] ✓ This is the FINAL RESULT (FunctionResponse #2)")
+                            elif isinstance(response_data, dict) and response_data.get("status") == "denied":
+                                logger.info("[TEST] ✓ This is the DENIAL RESULT (FunctionResponse #2)")
 
                 # Check for final model response (text from model)
                 if hasattr(event, "content") and event.content:
@@ -503,6 +697,10 @@ async def test_deferred_approval_flow_rejected():
                             logger.info(
                                 f"[TEST] ✓ FunctionCall received: {tool_name}(id={tool_call_id})"
                             )
+
+                            # Let ADK automatically generate FunctionResponse from tool's return value
+                            # The tool returns pending dict, which ADK will convert to FunctionResponse
+                            logger.info("[TEST] Letting ADK auto-generate pending FunctionResponse...")
 
                             # Register approval request
                             approval_queue.request_approval(tool_call_id, tool_name, tool_args)

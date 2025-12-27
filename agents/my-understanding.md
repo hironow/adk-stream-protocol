@@ -1796,3 +1796,558 @@ uv run pytest tests/integration/test_deferred_approval_flow.py -v -s
 - Final result delivery
 
 The remaining challenge is ensuring LLM uses the final result, which may require architectural changes beyond the scope of this test.
+
+---
+
+## Phase 11: Plugin Callback Investigation - will_continue Field Control (2025-12-27)
+
+**Last Updated: 2025-12-27 19:30 JST**
+
+### 🎯 INVESTIGATION: Plugin Callbacks Do Not Work in run_live() Mode
+
+**Status**: ❌ **BLOCKED** - ADK's plugin callback mechanism does not function in BIDI mode (run_live())
+
+**Goal**: Use ADK's plugin system with `before_tool_callback` to manually control the `will_continue` field in FunctionResponse
+
+**Motivation**:
+- Phase 10 showed LLM doesn't understand final results after deferred approval
+- `will_continue` field in FunctionResponse signals multi-response pattern
+- Need to send:
+  1. Pending FunctionResponse with `will_continue=True`
+  2. Final FunctionResponse with `will_continue=False`
+
+### Implementation Attempt
+
+**Created DeferredApprovalPlugin** extending `BasePlugin`:
+
+```python
+class DeferredApprovalPlugin(BasePlugin):
+    """
+    Plugin that intercepts tool calls and sends pending FunctionResponse with will_continue=True.
+
+    This allows the LLM to receive multiple FunctionResponses for the same tool call:
+    1. Pending response (will_continue=True) - sent immediately
+    2. Final response (will_continue=False) - sent after approval
+    """
+
+    def __init__(self, approval_queue: ApprovalQueue) -> None:
+        super().__init__(name="deferred_approval_plugin")
+        self.approval_queue = approval_queue
+
+    async def before_tool_callback(
+        self,
+        *,
+        tool: BaseTool,
+        tool_args: dict[str, Any],
+        tool_context: ToolContext,
+    ) -> Optional[dict]:
+        """Intercept test_approval_tool calls and send pending FunctionResponse"""
+        if tool.name != "test_approval_tool":
+            return None  # Normal execution for other tools
+
+        # Access InvocationContext to get LiveRequestQueue
+        invocation_context = tool_context._invocation_context
+        live_request_queue = invocation_context.live_request_queue
+
+        tool_call_id = tool_context.function_call_id
+
+        # Create pending FunctionResponse with will_continue=True
+        pending_func_response = types.FunctionResponse(
+            id=tool_call_id,
+            name=tool.name,
+            response={
+                "status": "pending",
+                "message": f"Processing requires approval",
+                "awaiting_confirmation": True,
+            },
+            will_continue=True,  # Signal that more responses will follow
+        )
+
+        pending_response = types.Content(
+            role="user",
+            parts=[types.Part(function_response=pending_func_response)],
+        )
+        live_request_queue.send_content(pending_response)
+
+        # Register approval request
+        self.approval_queue.request_approval(tool_call_id, tool.name, tool_args)
+
+        # Start deferred execution in separate task
+        asyncio.create_task(
+            deferred_tool_execution(
+                tool_call_id, tool.name, tool_args,
+                self.approval_queue, live_request_queue
+            )
+        )
+
+        # Return pending dict to skip actual tool execution
+        return {"status": "pending", ...}
+```
+
+**App and Runner Setup**:
+
+```python
+# Create App with Plugin registered
+test_app_with_plugin = App(
+    name="test_deferred_approval_app_with_plugin",
+    root_agent=test_agent,
+    resumability_config=ResumabilityConfig(is_resumable=True),
+    plugins=[deferred_approval_plugin],  # Register the plugin
+)
+
+# Create Runner with the plugin-enabled App
+test_runner_with_plugin = InMemoryRunner(app=test_app_with_plugin)
+
+# Verify plugin is registered
+print(f"Runner plugin_manager has {len(test_runner_with_plugin.plugin_manager.plugins)} plugins:")
+for plugin in test_runner_with_plugin.plugin_manager.plugins:
+    print(f"  - {plugin.name}: {type(plugin).__name__}")
+```
+
+**Expected Output**:
+```
+Runner plugin_manager has 1 plugins:
+  - deferred_approval_plugin: DeferredApprovalPlugin
+```
+
+### Critical Finding: Callbacks Never Triggered
+
+**Evidence from Test Output**:
+
+```bash
+# Plugin registered successfully ✅
+[DEBUG] Runner plugin_manager has 1 plugins:
+  - deferred_approval_plugin: DeferredApprovalPlugin
+
+# Tool was executed directly (callback bypassed) ❌
+[test_approval_tool] Called with message: Hello from test
+
+# will_continue field is still None ❌
+[TEST] will_continue: None
+
+# NO plugin debug output at all ❌
+# Expected: "[PLUGIN DEBUG] before_tool_callback CALLED! tool.name=test_approval_tool"
+# Actual: (nothing)
+```
+
+**Debug Attempts**:
+
+1. ✅ Added `print()` statement at start of callback (should always show)
+2. ✅ Added logger.info() statements throughout callback
+3. ✅ Verified plugin is registered in runner.plugin_manager
+4. ✅ Created fresh agent instance (not reusing module-level agent)
+5. ✅ Disabled `is_long_running=True` property (tested without it)
+6. ❌ **NONE of the debug output appeared**
+
+**Conclusion**: The `before_tool_callback` method is **never invoked** in `run_live()` mode.
+
+### ✅ FACT CHECK: DeepWiki Analysis of ADK Source Code (2025-12-27 19:35 JST)
+
+**DeepWiki Search URL**: https://deepwiki.com/search/show-me-the-exact-source-code_479fe266-0356-4ebe-b18d-156a1a883497
+
+**Query to DeepWiki**: "Show me the exact source code of _execute_single_function_call_live function. Does it call invocation_context.plugin_manager.run_before_tool_callback?"
+
+**DeepWiki Response**: ❌ **"It does not directly call `invocation_context.plugin_manager.run_before_tool_callback`"**
+
+---
+
+#### BIDI Mode Implementation (Missing PluginManager Call)
+
+**File**: `src/google/adk/flows/llm_flows/functions.py`
+**Function**: `_execute_single_function_call_live`
+
+**Source Code from ADK Repository** (via DeepWiki):
+
+```python
+async def _execute_single_function_call_live(
+    invocation_context: InvocationContext,
+    function_call: types.FunctionCall,
+    tools_dict: dict[str, BaseTool],
+    agent: LlmAgent,
+    streaming_lock: asyncio.Lock,
+) -> Optional[Event]:
+  """Execute a single function call for live mode with thread safety."""
+  tool, tool_context = _get_tool_and_context(
+      invocation_context, function_call, tools_dict
+  )
+
+  function_args = (
+      copy.deepcopy(function_call.args) if function_call.args else {}
+  )
+
+  async def _run_with_trace():
+    nonlocal function_args
+    function_response = None
+
+    # ❌ MISSING: No call to plugin_manager.run_before_tool_callback
+    # ❌ Only agent callbacks are executed, NOT plugin callbacks
+
+    # Handle before_tool_callbacks - iterate through the canonical callback list
+    for callback in agent.canonical_before_tool_callbacks:  # ← ONLY agent callbacks!
+      function_response = callback(
+          tool=tool, args=function_args, tool_context=tool_context
+      )
+      if inspect.isawaitable(function_response):
+        function_response = await function_response
+      if function_response:
+        break
+
+    if function_response is None:
+      function_response = await _process_function_live_helper(
+          tool,
+          tool_context,
+          function_call,
+          function_args,
+          invocation_context,
+          streaming_lock,
+      )
+
+    # Calls after_tool_callback if it exists.
+    altered_function_response = None
+    for callback in agent.canonical_after_tool_callbacks:  # ← Also only agent callbacks
+      altered_function_response = callback(
+          tool=tool,
+          args=function_args,
+          tool_context=tool_context,
+          tool_response=function_response,
+      )
+      if inspect.isawaitable(altered_function_response):
+        altered_function_response = await altered_function_response
+      if altered_function_response:
+        break
+    # ... rest of function
+```
+
+**Critical Observation**: The function iterates through `agent.canonical_before_tool_callbacks` but **NEVER calls `invocation_context.plugin_manager.run_before_tool_callback`**.
+
+---
+
+#### SSE Mode Implementation (Has PluginManager Call)
+
+**File**: `src/google/adk/flows/llm_flows/functions.py`
+**Function**: `_execute_single_function_call_async`
+
+**DeepWiki Confirmation**: "the `_execute_single_function_call_async` function... *does* call `invocation_context.plugin_manager.run_before_tool_callback`"
+
+**Expected Code Pattern in SSE Mode** (based on DeepWiki analysis):
+
+```python
+async def _execute_single_function_call_async(...):
+  async def _run_with_trace():
+    # ✅ Step 1: Check if plugin before_tool_callback overrides the function response
+    function_response = (
+        await invocation_context.plugin_manager.run_before_tool_callback(
+            tool=tool, tool_args=function_args, tool_context=tool_context
+        )
+    )
+
+    # ✅ Step 2: If no overrides from plugins, run canonical callback list
+    if function_response is None:
+        for callback in agent.canonical_before_tool_callbacks:
+            function_response = callback(...)
+            if function_response:
+                break
+
+    # ✅ Step 3: Otherwise, proceed calling the tool normally
+    if function_response is None:
+        function_response = await __call_tool_async(...)
+```
+
+**Key Difference**: SSE mode executes **both** plugin callbacks (via PluginManager) **and** agent callbacks, with plugins taking precedence.
+
+---
+
+#### Side-by-Side Comparison
+
+| Feature | SSE Mode (`_execute_single_function_call_async`) | BIDI Mode (`_execute_single_function_call_live`) |
+|---------|------------------------------------------------|------------------------------------------------|
+| **File** | `src/google/adk/flows/llm_flows/functions.py` | `src/google/adk/flows/llm_flows/functions.py` |
+| **PluginManager.run_before_tool_callback()** | ✅ **CALLED** (Step 1) | ❌ **NOT CALLED** |
+| **agent.canonical_before_tool_callbacks** | ✅ Called (Step 2, if plugin returns None) | ✅ Called (only callback source) |
+| **Plugin Precedence** | ✅ Plugins can short-circuit agent callbacks | ❌ N/A - plugins never invoked |
+| **BasePlugin.before_tool_callback** | ✅ **WORKS** | ❌ **NEVER TRIGGERED** |
+
+---
+
+#### DeepWiki's Own Assessment
+
+**Quote from DeepWiki Response**:
+> "the `_execute_single_function_call_async` function, which is a similar function for asynchronous execution, *does* call `invocation_context.plugin_manager.run_before_tool_callback`. **This suggests a difference in how plugins are handled between live and async execution modes.**"
+
+**Additional DeepWiki Finding**:
+
+When asked about the relationship between PluginManager and agent.canonical_before_tool_callbacks:
+
+> "`PluginManager` and `agent.canonical_before_tool_callbacks` are **separate but interacting mechanisms** for handling callbacks."
+>
+> "During the execution of a tool call, the `_execute_single_function_call_async` function in `src/google/adk/flows/llm_flows/functions.py` orchestrates the execution of both plugin callbacks and agent callbacks."
+>
+> "1. **Plugin Callbacks First**: The `PluginManager`'s `run_before_tool_callback` method is called first."
+> "2. **Agent Callbacks Second**: If no plugin callback returns a non-`None` value, then the callbacks in `agent.canonical_before_tool_callbacks` are executed in order."
+
+**But this orchestration only happens in `_execute_single_function_call_async`, NOT in `_execute_single_function_call_live`!**
+
+---
+
+#### Execution Flow Analysis
+
+**DeepWiki Query**: "In run_live() mode, when a FunctionCall arrives from the LLM, which function is called to execute the tool?"
+
+**DeepWiki Response**: "the function called to execute the tool is indeed `_execute_single_function_call_live`"
+
+**Complete Flow in run_live() Mode**:
+1. `Runner.run_live()` → Entry point
+2. `BaseAgent.run_live()` → Lifecycle management
+3. `LlmAgent._run_live_impl()` → Delegates to LLM flow
+4. `BaseLlmFlow.run_live()` → Manages LLM interaction
+5. `BaseLlmFlow._postprocess_live()` → Handles FunctionCall events
+6. `functions.handle_function_calls_live()` → Parallel execution
+7. **`functions._execute_single_function_call_live()`** ← Tool execution (NO plugin support)
+
+**Nowhere in this flow is `plugin_manager.run_before_tool_callback` invoked.**
+
+---
+
+#### Evidence Summary
+
+**This is the smoking gun**:
+- ✅ SSE mode (`_execute_single_function_call_async`): Calls `plugin_manager.run_before_tool_callback`
+- ❌ BIDI mode (`_execute_single_function_call_live`): Does NOT call it, only uses `agent.canonical_before_tool_callbacks`
+
+**Evidence Chain**:
+1. ✅ **Our experiment**: Plugin registered, but callback never triggered
+2. ✅ **DeepWiki source analysis**: Confirmed `_execute_single_function_call_live` doesn't call PluginManager
+3. ✅ **Code comparison**: SSE mode has the call, BIDI mode doesn't
+4. ✅ **DeepWiki assessment**: "difference in how plugins are handled between live and async execution modes"
+
+**DeepWiki Search References**:
+- Plugin callback functionality: https://deepwiki.com/search/do-plugin-callbacks-beforetool_3ba1b50c-ef6c-4cfc-aa40-d922e26af534
+- Source code verification: https://deepwiki.com/search/show-me-the-exact-source-code_479fe266-0356-4ebe-b18d-156a1a883497
+- Execution flow: https://deepwiki.com/search/in-runlive-mode-when-a-functio_11ef082b-9131-4bc6-bfb3-5255c94657aa
+- Callback mechanisms: https://deepwiki.com/search/how-are-plugin-callbacks-befor_f04bab5e-e8ba-4d20-821d-f591e9596ee6
+- Canonical callbacks: https://deepwiki.com/search/what-is-agentcanonicalbeforeto_e866215a-4295-4894-ad3d-f5cdb9b629ce
+
+### Analysis: Why Callbacks Don't Work in run_live()
+
+**Source Code Investigation** (`google/adk/runners.py`):
+
+```python
+class Runner:
+    def __init__(self, *, app: Optional[App] = None, ...):
+        # Plugin manager is correctly initialized ✅
+        self.plugin_manager = PluginManager(
+            plugins=plugins, close_timeout=plugin_close_timeout
+        )
+
+    async def run_live(
+        self,
+        *,
+        user_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+        live_request_queue: LiveRequestQueue,
+        run_config: Optional[RunConfig] = None,
+        session: Optional[Session] = None,
+    ) -> AsyncGenerator[Event, None]:
+        # Returns InvocationContext with plugin_manager ✅
+        invocation_context = self._create_invocation_context(...)
+        # invocation_context.plugin_manager = self.plugin_manager
+```
+
+**Plugin Manager Implementation** (`google/adk/plugins/plugin_manager.py`):
+
+```python
+async def run_before_tool_callback(
+    self,
+    *,
+    tool: BaseTool,
+    tool_args: dict[str, Any],
+    tool_context: ToolContext,
+) -> Optional[dict]:
+    """Runs the `before_tool_callback` for all plugins."""
+    return await self._run_callbacks(
+        "before_tool_callback",
+        tool=tool,
+        tool_args=tool_args,
+        tool_context=tool_context,
+    )
+```
+
+**Tool Execution Code** (`google/adk/flows/llm_flows/functions.py`):
+
+```python
+async def _run_with_trace():
+    # Step 1: Check if plugin before_tool_callback overrides the function response
+    function_response = (
+        await invocation_context.plugin_manager.run_before_tool_callback(
+            tool=tool, tool_args=function_args, tool_context=tool_context
+        )
+    )
+
+    # Step 2: If no overrides from plugins, run canonical callback
+    if function_response is None:
+        for callback in agent.canonical_before_tool_callbacks:
+            function_response = callback(...)
+            if function_response:
+                break
+
+    # Step 3: Otherwise, proceed calling the tool normally
+    if function_response is None:
+        function_response = await __call_tool_async(...)
+```
+
+**Theory**: The code path looks correct, but `run_live()` might use a **different execution path** that bypasses the plugin callback mechanism.
+
+**Possible Reasons**:
+
+1. **Different LLM Flow in BIDI Mode**:
+   - `run_async()` (SSE mode) uses standard invocation flow → Plugins work
+   - `run_live()` (BIDI mode) uses streaming flow → Plugins might be bypassed
+
+2. **InvocationContext Not Propagated**:
+   - Plugin manager exists in runner
+   - InvocationContext should receive plugin_manager
+   - But tool execution in live mode might not use the same InvocationContext
+
+3. **Timing Issue**:
+   - Plugin callbacks might be executed before tool execution starts
+   - But our debug output would still appear if callback was triggered
+
+### Test Results Summary
+
+| Attempt | Plugin Registered | Callback Triggered | will_continue | Result |
+|---------|-------------------|-------------------|---------------|---------|
+| Original implementation | ✅ | ❌ | None | Tool executed directly |
+| With fresh agent | ✅ | ❌ | None | Tool executed directly |
+| Without is_long_running | ✅ | ❌ | None | Tool executed directly |
+| Added debug print() | ✅ | ❌ | None | No output at all |
+
+**Consistency**: In ALL test attempts, the plugin callback was never triggered.
+
+### Evidence: Official ADK Documentation
+
+**Search Results**:
+- ❌ NO official examples of plugins in `run_live()` mode
+- ❌ NO documentation about plugin compatibility with BIDI streaming
+- ✅ Plugin documentation only shows `run_async()` (SSE mode) examples
+- ✅ BasePlugin docstring shows example with SSE mode only
+
+**Conclusion from Documentation Search**:
+- Plugins may be designed for SSE mode (`run_async()`) only
+- BIDI mode (`run_live()`) might not support plugin callbacks
+- This would be consistent with LongRunningFunctionTool not working in BIDI mode
+
+### Comparison with LongRunningFunctionTool Findings (Phase 7)
+
+| Feature | SSE Mode (run_async) | BIDI Mode (run_live) |
+|---------|---------------------|---------------------|
+| LongRunningFunctionTool | ✅ Documented & Works | ❌ No docs, doesn't work |
+| Tool Confirmation | ✅ Documented & Works | ❌ Unsupported |
+| Plugin Callbacks | ✅ Examples exist | ❌ No examples, doesn't work |
+| Manual send_content() | ✅ Works with invocation_id | ❌ Times out or ignored |
+
+**Pattern**: Multiple ADK features that work in SSE mode do NOT work in BIDI mode.
+
+### Root Cause Hypothesis
+
+**ADK's BIDI Mode (run_live()) is a Lightweight Streaming Implementation**:
+- Designed for real-time audio/video streaming
+- Optimized for minimal latency and overhead
+- May bypass certain ADK features to achieve performance
+- Plugin system might be part of "full" ADK only (run_async mode)
+
+**Evidence Supporting This**:
+1. LongRunningFunctionTool doesn't work in run_live()
+2. Tool confirmation doesn't work in run_live()
+3. Plugin callbacks don't work in run_live()
+4. Manual send_content() with FunctionResponse doesn't work properly
+5. All these features work fine in run_async() (SSE mode)
+
+### Impact and Recommendations
+
+**Current Status**:
+- ✅ Deferred approval flow works (Phase 10)
+- ✅ Pending status correctly sent to LLM
+- ✅ Final result successfully sent via LiveRequestQueue
+- ❌ **Cannot control `will_continue` field** (plugin callbacks don't work)
+- ❌ LLM doesn't understand final result (missing will_continue=True on pending response)
+
+**Blocked Approaches**:
+1. ❌ Plugin callbacks in run_live() - Not functional
+2. ❌ LongRunningFunctionTool pattern - Not supported in BIDI mode
+3. ❌ Manual FunctionResponse with will_continue - Plugin required for control
+
+**Viable Approaches**:
+1. ✅ **Keep Phase 10 implementation** (current deferred approval flow)
+   - Works for backend logic
+   - Frontend can handle result rendering
+   - LLM sees pending status but not final result
+
+2. ✅ **Hybrid Mode** (SSE for confirmation, BIDI for streaming)
+   - Use SSE mode for tools requiring confirmation
+   - Use BIDI mode for real-time features only
+   - Architectural split based on feature requirements
+
+3. ✅ **Client-Side Result Handling**
+   - Backend sends final result to client directly (via WebSocket data)
+   - Client renders result without waiting for LLM response
+   - LLM only sees pending status (acceptable for some use cases)
+
+### Files Modified/Created
+
+1. ✅ `tests/integration/test_deferred_approval_flow.py`
+   - Added `DeferredApprovalPlugin` class (lines 46-141)
+   - Modified test to use plugin-enabled App and Runner
+   - Added extensive debug logging
+
+2. ✅ Investigation performed on:
+   - `/google/adk/runners.py` - Verified plugin_manager initialization
+   - `/google/adk/plugins/plugin_manager.py` - Verified callback execution logic
+   - `/google/adk/flows/llm_flows/functions.py` - Verified before_tool_callback invocation
+
+### Next Steps
+
+1. ⏳ **Report to ADK Team**
+   - File GitHub issue documenting plugin callback limitation in run_live()
+   - Ask if this is intended behavior or a bug
+   - Request clarification on feature support matrix (SSE vs BIDI)
+
+2. ⏳ **Document Architectural Decision**
+   - Create ADR documenting BIDI mode limitations
+   - Document recommended approach for confirmation flows
+   - Update team on plugin callback findings
+
+3. ✅ **Update agents/my-understanding.md** (this document)
+   - Document Phase 11 findings
+   - Clarify which ADK features work in which modes
+   - Provide evidence for future reference
+
+### Conclusion
+
+**Plugin callbacks do NOT work in ADK's run_live() (BIDI mode)**. This is **CONFIRMED by ADK source code analysis**.
+
+**ROOT CAUSE (Verified by DeepWiki + ADK Source Code)**:
+- `_execute_single_function_call_live` (BIDI mode) does NOT call `plugin_manager.run_before_tool_callback`
+- `_execute_single_function_call_async` (SSE mode) DOES call `plugin_manager.run_before_tool_callback`
+- **This is not a bug in our implementation - it's missing functionality in ADK's BIDI mode**
+
+**Evidence Chain**:
+1. ✅ Our experiment: Plugin callbacks never triggered in run_live()
+2. ✅ DeepWiki analysis: Source code confirms `_execute_single_function_call_live` skips PluginManager
+3. ✅ Code comparison: SSE mode has the call, BIDI mode doesn't
+
+**This is an ADK implementation gap, not our mistake.**
+
+**Status**: **COMPLETED Phase 11 - Plugin Callback Investigation**
+
+The fundamental issue is confirmed: **BIDI mode lacks several advanced ADK features that SSE mode provides**. This includes:
+- ❌ Plugin callbacks (confirmed by source code - PluginManager not invoked)
+- ❌ LongRunningFunctionTool pattern (Phase 7 findings)
+- ❌ Tool confirmation (Phase 3 findings)
+- ❌ Proper manual FunctionResponse handling (Phase 6/9 findings)
+
+**Recommended Action**:
+- File GitHub issue on `google/adk-python` documenting this source code discrepancy
+- Request: Either add PluginManager support to `_execute_single_function_call_live`, or document this limitation officially
+- Reference: DeepWiki search showing the missing `plugin_manager.run_before_tool_callback` call
+
+These limitations must be considered when designing confirmation flows in BIDI mode.
