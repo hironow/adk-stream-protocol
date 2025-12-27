@@ -36,20 +36,20 @@ def test_approval_tool(message: str) -> dict:
     """
     Minimal test tool that requires approval.
 
-    This tool is intentionally simple to isolate the approval flow testing.
-    In production, this would be replaced by actual business logic tools.
+    This tool returns pending status to signal that it requires
+    user approval before actual execution.
 
     Args:
         message: A message to process
 
     Returns:
-        dict: Result containing success status and echoed message
+        dict: Pending status indicating approval is required
     """
-    logger.info(f"[TestApprovalTool] Processing message: {message}")
+    logger.info(f"[test_approval_tool] Message: {message}")
     return {
-        "success": True,
-        "message": f"Processed: {message}",
-        "timestamp": time.time(),
+        "status": "pending",
+        "message": f"Processing '{message}' requires approval",
+        "awaiting_confirmation": True,
     }
 
 
@@ -117,8 +117,14 @@ class ApprovalQueue:
 
     def submit_approval(self, tool_call_id: str, approved: bool) -> None:
         """Submit approval decision (called by external system)"""
+        logger.info("=" * 60)
+        if approved:
+            logger.info(f"[ApprovalQueue] ✓ APPROVAL submitted for: {tool_call_id}")
+        else:
+            logger.info(f"[ApprovalQueue] ✗ DENIAL submitted for: {tool_call_id}")
+        logger.info("=" * 60)
+
         self._approval_results[tool_call_id] = {"approved": approved}
-        logger.info(f"[ApprovalQueue] Approval submitted: {tool_call_id}, approved={approved}")
 
     def get_pending_count(self) -> int:
         """Debug: number of pending approvals"""
@@ -148,20 +154,50 @@ async def deferred_tool_execution(
 
         # 2. Execute tool or reject based on approval
         if approval["approved"]:
-            logger.info(f"[DeferredExec] Approved - executing tool: {tool_name}")
-            # Execute the actual tool function
+            # ========== APPROVED: Execute actual processing ==========
+            logger.info("=" * 60)
+            logger.info(f"[DeferredExec] ✓ APPROVED - Executing tool: {tool_name}")
+            logger.info(f"[DeferredExec] Tool call ID: {tool_call_id}")
+            logger.info(f"[DeferredExec] Arguments: {args}")
+            logger.info("=" * 60)
+
+            # Execute actual processing (not the pending-status-returning tool function)
             if tool_name == "test_approval_tool":
-                result = test_approval_tool(**args)
+                message_to_process = args.get('message', '')
+                result = {
+                    "success": True,
+                    "status": "completed",
+                    "message": f"Successfully processed message after user approval: '{message_to_process}'",
+                    "original_message": message_to_process,
+                    "timestamp": time.time(),
+                }
             else:
                 # Fallback for unknown tools
-                result = {"success": True, "message": f"Tool {tool_name} executed"}
+                result = {
+                    "success": True,
+                    "status": "completed",
+                    "message": f"Tool {tool_name} executed successfully after approval"
+                }
+
+            logger.info(f"[DeferredExec] ✓ Execution completed: {result}")
         else:
-            logger.info(f"[DeferredExec] Rejected - tool not executed: {tool_name}")
+            # ========== DENIED: Return rejection message ==========
+            logger.info("=" * 60)
+            logger.info(f"[DeferredExec] ✗ DENIED - Tool execution rejected: {tool_name}")
+            logger.info(f"[DeferredExec] Tool call ID: {tool_call_id}")
+            logger.info(f"[DeferredExec] User explicitly rejected this operation")
+            logger.info("=" * 60)
+
             result = {
                 "success": False,
-                "error": "User rejected the operation",
+                "status": "denied",
+                "error": "User denied the operation",
+                "message": f"The operation '{tool_name}' was denied by the user and was not executed.",
                 "tool_name": tool_name,
+                "denied_args": args,
             }
+
+            logger.info(f"[DeferredExec] ✗ Rejection result: {result}")
 
         # 3. Send actual result via LiveRequestQueue
         logger.info(f"[DeferredExec] Sending final result for {tool_call_id}")

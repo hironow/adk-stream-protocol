@@ -1618,3 +1618,181 @@ async def get_location(tool_context: ToolContext):
 - **ADK State Documentation**: https://google.github.io/adk-docs/sessions/state/
 - **GitHub Discussion #3204**: Session state persistence behavior
 - **DeepWiki Query**: "How to properly set session state that persists across invocations?"
+
+---
+
+## Phase 10: Deferred Approval Flow Integration Test (2025-12-27)
+
+**Last Updated: 2025-12-27 18:10 JST**
+
+### 🎯 COMPLETED: Minimal Integration Test for Deferred Approval Flow
+
+**Status**: ✅ **TESTS PASSING** - Deferred approval flow verified with minimal test agent
+
+**Goal**: Create isolated integration test to verify deferred approval flow works in BIDI mode without dependencies on production tools (process_payment, get_location, etc.)
+
+### Test Architecture
+
+**File**: `tests/integration/test_deferred_approval_flow.py`
+
+**Components**:
+1. **Minimal Test Agent** - Single tool only for isolation
+2. **test_approval_tool** - Returns pending status to simulate approval requirement
+3. **ApprovalQueue** - Queue-based approval mechanism (supports concurrent approvals)
+4. **deferred_tool_execution** - Separate task that waits for approval, then sends final result
+
+**Key Design Decisions**:
+- ✅ Used minimal test agent instead of `bidi_agent_runner` (avoids mixing other tools)
+- ✅ Single tool (`test_approval_tool`) wrapped with `LongRunningFunctionTool`
+- ✅ Tool returns `{"status": "pending", ...}` to signal approval required
+- ✅ Approval/denial happens in separate async task (non-blocking)
+- ✅ Final result sent via `LiveRequestQueue.send_content()` after approval
+
+### Test Results
+
+**Test 1: Approval Case** (`test_deferred_approval_flow_approved`):
+```
+✅ Event 3: FunctionCall received
+✅ Event 4: ADK generated FunctionResponse with pending status
+✅ 2 seconds later: User approval submitted
+✅ deferred_tool_execution: Executed actual processing
+✅ Final result sent: "Successfully processed message after user approval"
+✅ Event 57: turn_complete received
+✅ Test PASSED - 57 events
+```
+
+**Test 2: Rejection Case** (`test_deferred_approval_flow_rejected`):
+```
+✅ Event 3: FunctionCall received
+✅ Event 4: ADK generated FunctionResponse with pending status
+✅ 2 seconds later: User denial submitted
+✅ deferred_tool_execution: Returned rejection message
+✅ Final result sent: "The operation was denied by the user"
+✅ Event 59: turn_complete received
+✅ Test PASSED - 59 events
+```
+
+### Verified Behaviors
+
+1. **✅ run_live() Event Loop Not Blocked**
+   - Events continued flowing during approval wait
+   - `deferred_tool_execution` runs in separate task
+   - `await approval_queue.wait_for_approval()` only blocks that task
+
+2. **✅ Pending Status Correctly Processed by ADK**
+   - Tool returns `{"status": "pending", "awaiting_confirmation": True, ...}`
+   - ADK generates FunctionResponse from pending status dict
+   - Test detects deferred status: `[TEST] ✓ Deferred status detected from ADK`
+
+3. **✅ Approval/Denial Flow Works**
+   - ApprovalQueue registers pending approval
+   - Simulated approval/denial after 2 seconds
+   - deferred_tool_execution resumes and executes/rejects accordingly
+
+4. **✅ Final Result Sent via LiveRequestQueue**
+   - After approval: Sends actual processing result
+   - After denial: Sends rejection message
+   - `[DeferredExec] ✓ Final result sent for {tool_call_id}`
+
+5. **✅ Detailed Debug Logging**
+   - Clear execution order visibility
+   - Approval/denial marked with ✓/✗ symbols
+   - Separated log sections with `=` dividers
+
+### Known Limitation: Final Result Not Used by LLM
+
+**Observation**:
+```
+Event 56 (approval test): Model response: "...it's pending..."
+Event 58 (rejection test): Model response: "...it's pending..."
+```
+
+**Issue**: LLM continues to reference the "pending" status and does not generate new response based on final result.
+
+**Analysis**:
+- This aligns with **Phase 9** findings: Live API architectural limitation
+- Live API may reject same tool_call_id with multiple FunctionResponses
+- First FunctionResponse (pending status) processed, second (final result) possibly ignored
+
+**Impact**:
+- ✅ Deferred approval flow itself works correctly
+- ✅ run_live() not blocked, events continue flowing
+- ✅ Final result successfully sent via LiveRequestQueue
+- ❌ LLM does not use final result to generate updated response
+- ⚠️ Production implementation needs to address this for user-facing responses
+
+**Possible Solutions** (to be investigated):
+1. Send final result with different tool_call_id (may confuse LLM context)
+2. Use client-side result rendering instead of waiting for LLM response
+3. Send user message after final result to trigger new LLM turn
+4. Investigate if Live API has mechanism for updating tool responses
+
+### Files Created/Modified
+
+1. ✅ `tests/integration/test_deferred_approval_flow.py` (NEW)
+   - Minimal test agent with single tool
+   - ApprovalQueue implementation
+   - deferred_tool_execution function
+   - Two test cases: approval and rejection
+
+2. ✅ Detailed logging for debugging
+   - `[ApprovalQueue]` logs for approval submission
+   - `[DeferredExec]` logs for execution flow
+   - `[TEST]` logs for event tracking
+
+### Key Learnings
+
+**Deferred Approval Pattern Works in BIDI Mode**:
+- ✅ Tool returns pending status immediately
+- ✅ Separate task waits for approval without blocking run_live()
+- ✅ Final result can be sent via LiveRequestQueue.send_content()
+- ✅ ADK processes pending status correctly
+
+**LongRunningFunctionTool Behavior**:
+- Wrapping tool with `LongRunningFunctionTool` does NOT automatically return pending status
+- Tool function must explicitly return `{"status": "pending", ...}` dict
+- ADK detects pending status and generates FunctionResponse
+
+**Live API Limitation**:
+- Same tool_call_id cannot receive multiple FunctionResponses effectively
+- First response (pending) processed, second response (final result) may be ignored
+- This is consistent with Phase 9 investigation findings
+
+### Next Steps
+
+1. ⏳ **Investigate LLM not using final result**
+   - Try different tool_call_id for final result
+   - Test if user message after final result triggers new turn
+   - Check if Live API has update mechanism
+
+2. ⏳ **Production Implementation Strategy**
+   - Decide: Render final result client-side vs. wait for LLM response
+   - Consider hybrid: Show pending → Show final result immediately without LLM
+   - Document expected behavior for frontend team
+
+3. ✅ **Document Success**
+   - Update agents/my-understanding.md with Phase 10 findings
+   - Update agents/tasks.md with completed items
+   - Commit working test implementation
+
+### Test Execution Commands
+
+```bash
+# Run approval test
+uv run pytest tests/integration/test_deferred_approval_flow.py::test_deferred_approval_flow_approved -v -s
+
+# Run rejection test
+uv run pytest tests/integration/test_deferred_approval_flow.py::test_deferred_approval_flow_rejected -v -s
+
+# Run both tests
+uv run pytest tests/integration/test_deferred_approval_flow.py -v -s
+```
+
+### Conclusion
+
+**Deferred approval flow is viable in BIDI mode** with the pattern demonstrated in this test. The core mechanism works:
+- Non-blocking approval wait
+- Pending status communication
+- Final result delivery
+
+The remaining challenge is ensuring LLM uses the final result, which may require architectural changes beyond the scope of this test.

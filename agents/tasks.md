@@ -104,6 +104,60 @@ See `fixtures/README.md` "Recording Procedure" section:
 
 ---
 
+### Minimal Integration Test for Deferred Approval Flow (Phase 10)
+
+**Completed**: 2025-12-27 20:30 JST
+
+**Summary**: Created minimal integration test to verify deferred approval pattern in BIDI mode with ADK's `run_live()` and `LiveRequestQueue.send_content()`.
+
+**Test Architecture**:
+
+1. **Minimal Test Agent**
+   - Created dedicated `test_agent` with single tool for isolation
+   - `test_approval_tool`: Returns pending status to signal approval requirement
+   - Wrapped with `LongRunningFunctionTool` (ADK pattern)
+   - Avoids interference from production tools (process_payment, get_location)
+
+2. **ApprovalQueue Class**
+   - Queue-based approval mechanism supporting concurrent approvals
+   - Methods: `request_approval()`, `submit_approval()`, `wait_for_approval()`
+   - Detailed logging with ✓/✗ symbols for execution order visibility
+
+3. **Deferred Execution Pattern**
+   - `deferred_tool_execution()` runs in separate async task (non-blocking)
+   - Waits for approval without blocking `run_live()` event loop
+   - Executes tool logic if approved, rejection message if denied
+   - Sends final result via `LiveRequestQueue.send_content()`
+
+4. **Test Cases**
+   - Approval flow: Simulates 2-second delay → approval → execution
+   - Rejection flow: Simulates 2-second delay → denial → rejection message
+
+**Test Results**:
+- ✅ `test_deferred_approval_flow_approved` - PASSED (57 events)
+- ✅ `test_deferred_approval_flow_rejected` - PASSED (59 events)
+
+**Verified Behaviors**:
+1. ✅ Tool returns pending status, ADK generates FunctionResponse
+2. ✅ `deferred_tool_execution` runs without blocking event loop
+3. ✅ Approval/denial correctly triggers execution or rejection
+4. ✅ Final result sent via `send_content()` reaches ADK
+5. ✅ turn_complete event received after deferred execution
+
+**Known Limitation**:
+- LLM continues referencing "pending" status in final events
+- Final result sent successfully but not used by LLM for updated response
+- Aligns with Phase 9 findings: Live API architectural limitation
+- Same tool_call_id cannot effectively receive multiple FunctionResponses
+
+**Files Modified**:
+- `tests/integration/test_deferred_approval_flow.py` (NEW)
+- `agents/my-understanding.md` (Phase 10 documentation)
+
+**Branch**: `hironow/fix-confirm`
+
+---
+
 ## ✅ Previously Completed (2025-12-25)
 
 ### Fixture Consolidation & SSE Confirmation Flow
