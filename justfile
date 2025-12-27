@@ -130,28 +130,6 @@ test-frontend-e2e:
 [group("testing")]
 test-frontend-all: test-frontend-lib test-frontend-app test-frontend-components test-frontend-e2e
 
-# Setup E2E fixture symlinks (public/fixtures/ -> fixtures/public/)
-[group("setup")]
-setup-e2e-fixtures:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    echo "Setting up E2E fixture symlinks..."
-    mkdir -p public/fixtures
-    cd public/fixtures
-    # Symlink all *.jsonl files from fixtures/public/
-    for fixture in ../../fixtures/public/*.jsonl; do
-        if [ -f "$fixture" ]; then
-            filename=$(basename "$fixture")
-            if [ ! -L "$filename" ]; then
-                echo "Creating symlink: $filename"
-                ln -sf "$fixture" "$filename"
-            else
-                echo "Symlink already exists: $filename"
-            fi
-        fi
-    done
-    echo "E2E fixture symlinks ready."
-
 # Run E2E tests (Playwright) - uses existing servers if running
 [group("testing")]
 test-e2e:

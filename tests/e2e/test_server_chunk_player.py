@@ -4,14 +4,8 @@ Backend E2E Tests with Chunk Player
 Tests backend behavior by replaying pre-recorded chunks from fixture files.
 This enables deterministic testing without real LLM API calls.
 
-Test Patterns:
-- Pattern 1: Gemini Direct - No backend processing (frontend only)
-- Pattern 2: ADK SSE - Server-Sent Events with tool invocations
-- Pattern 3: ADK BIDI - WebSocket with audio chunks
-- Pattern 4: Mode switching - Multiple modes in single session
-
 Fixture Files:
-- tests/fixtures/pattern{1-4}-{frontend,backend}.jsonl
+- fixtures/backend/*-from-frontend.jsonl (converted from frontend baseline fixtures)
 
 Per CLAUDE.md guidelines:
 - No mocks allowed in E2E tests
@@ -26,68 +20,6 @@ from pathlib import Path
 import pytest
 
 from adk_stream_protocol import ChunkPlayer, ChunkPlayerManager
-
-
-class TestEmptyFixtures:
-    """
-    Tests for empty fixture files.
-
-    These tests verify that the system handles empty fixtures gracefully
-    before actual chunks are recorded.
-    """
-
-    def test_pattern1_empty_fixture_loads_without_error(self, fixture_dir: Path):
-        """Pattern 1: Gemini Direct - Empty fixture should load (no backend processing)."""
-        # Given: Empty backend fixture file (Gemini Direct has no backend processing)
-        fixture_path = fixture_dir / "pattern1-backend.jsonl"
-
-        # When: Create player from empty file
-        player = ChunkPlayer.from_file(fixture_path)
-
-        # Then: Player should be created without error
-        assert player is not None
-        # And: Should have 0 chunks
-        stats = player.get_stats()
-        assert stats["count"] == 0
-
-    def test_pattern2_empty_fixture_loads_without_error(self, fixture_dir: Path):
-        """Pattern 2: ADK SSE - Empty fixture should load (waiting for recording)."""
-        # Given: Empty backend fixture file
-        fixture_path = fixture_dir / "pattern2-backend.jsonl"
-
-        # When: Create player from empty file
-        player = ChunkPlayer.from_file(fixture_path)
-
-        # Then: Player should be created without error
-        assert player is not None
-        stats = player.get_stats()
-        assert stats["count"] == 0
-
-    def test_pattern3_empty_fixture_loads_without_error(self, fixture_dir: Path):
-        """Pattern 3: ADK BIDI - Empty fixture should load (waiting for recording)."""
-        # Given: Empty backend fixture file
-        fixture_path = fixture_dir / "pattern3-backend.jsonl"
-
-        # When: Create player from empty file
-        player = ChunkPlayer.from_file(fixture_path)
-
-        # Then: Player should be created without error
-        assert player is not None
-        stats = player.get_stats()
-        assert stats["count"] == 0
-
-    def test_pattern4_empty_fixture_loads_without_error(self, fixture_dir: Path):
-        """Pattern 4: Mode switching - Empty fixture should load (waiting for recording)."""
-        # Given: Empty backend fixture file
-        fixture_path = fixture_dir / "pattern4-backend.jsonl"
-
-        # When: Create player from empty file
-        player = ChunkPlayer.from_file(fixture_path)
-
-        # Then: Player should be created without error
-        assert player is not None
-        stats = player.get_stats()
-        assert stats["count"] == 0
 
 
 class TestChunkPlayerManager:
@@ -122,7 +54,7 @@ class TestChunkPlayerManager:
     def test_manager_creates_player_when_enabled(self, fixture_dir: Path):
         """Manager should create player when E2E mode enabled with fixture."""
         # Given: E2E mode enabled with fixture path
-        fixture_path = fixture_dir / "pattern2-backend.jsonl"
+        fixture_path = fixture_dir / "get_weather-sse-from-frontend.jsonl"
         os.environ["E2E_CHUNK_PLAYER_MODE"] = "true"
         os.environ["E2E_CHUNK_PLAYER_FIXTURE"] = str(fixture_path)
 

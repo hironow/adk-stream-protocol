@@ -9,28 +9,20 @@
 ```
 fixtures/
 ├── README.md              ← このファイル
-├── backend/               ← Backend E2E テスト用 (JSONL)
-│   ├── pattern1-backend.jsonl          # Recorded: Gemini Direct
-│   ├── pattern1-frontend.jsonl         # Recorded: Gemini Direct
-│   ├── pattern2-backend.jsonl          # Recorded: ADK SSE (記録待ち)
-│   ├── pattern2-frontend.jsonl         # Recorded: ADK SSE (記録待ち)
-│   ├── pattern3-backend.jsonl          # Recorded: ADK BIDI (記録待ち)
-│   ├── pattern3-frontend.jsonl         # Recorded: ADK BIDI (記録待ち)
-│   ├── pattern4-backend.jsonl          # Recorded: Mode Switching (記録待ち)
-│   ├── pattern4-frontend.jsonl         # Recorded: Mode Switching (記録待ち)
-│   ├── get_weather-sse-from-frontend.jsonl           # Converted
-│   ├── get_weather-bidi-from-frontend.jsonl          # Converted
-│   ├── get_location-approved-sse-from-frontend.jsonl # Converted
-│   ├── get_location-approved-bidi-from-frontend.jsonl # Converted
-│   ├── get_location-denied-sse-from-frontend.jsonl   # Converted
-│   ├── get_location-denied-bidi-from-frontend.jsonl  # Converted
-│   ├── process_payment-approved-sse-from-frontend.jsonl # Converted
-│   ├── process_payment-approved-bidi-from-frontend.jsonl # Converted
-│   ├── process_payment-denied-sse-from-frontend.jsonl # Converted
-│   ├── process_payment-denied-bidi-from-frontend.jsonl # Converted
-│   ├── change_bgm-sse-from-frontend.jsonl            # Converted
-│   └── change_bgm-bidi-from-frontend.jsonl           # Converted
-├── frontend/              ← Frontend統合テスト用 (JSON)
+├── backend/               ← Backend E2E テスト用 (JSONL - frontendから自動変換)
+│   ├── get_weather-sse-from-frontend.jsonl
+│   ├── get_weather-bidi-from-frontend.jsonl
+│   ├── get_location-approved-sse-from-frontend.jsonl
+│   ├── get_location-approved-bidi-from-frontend.jsonl
+│   ├── get_location-denied-sse-from-frontend.jsonl
+│   ├── get_location-denied-bidi-from-frontend.jsonl
+│   ├── process_payment-approved-sse-from-frontend.jsonl
+│   ├── process_payment-approved-bidi-from-frontend.jsonl
+│   ├── process_payment-denied-sse-from-frontend.jsonl
+│   ├── process_payment-denied-bidi-from-frontend.jsonl
+│   ├── change_bgm-sse-from-frontend.jsonl
+│   └── change_bgm-bidi-from-frontend.jsonl
+├── frontend/              ← Frontend統合テスト用 (JSON - 正解データ)
 │   ├── change_bgm-bidi-baseline.json
 │   ├── change_bgm-sse-baseline.json
 │   ├── get_location-approved-bidi-baseline.json
@@ -45,10 +37,6 @@ fixtures/
 │   ├── process_payment-denied-sse-baseline.json
 │   ├── process_payment-error-handling-green.json   # Test specification
 │   └── process_payment-failing-bidi-red.json       # Failing case (TDD RED)
-├── public/                ← Web公開用 (backend/へのsymlink)
-│   ├── pattern1-backend.jsonl -> ../backend/pattern1-backend.jsonl
-│   ├── pattern1-frontend.jsonl -> ../backend/pattern1-frontend.jsonl
-│   └── ...
 └── scenarios/             ← テストシナリオ用リソース
     └── test-image.png     # シナリオテスト用画像 (scripts/create-test-image.js で生成)
 ```
@@ -58,35 +46,13 @@ fixtures/
 ## Backend Fixtures (`backend/`)
 
 ### Purpose
-Backend E2Eテスト用のChunk Player fixturesです。実際のLLM APIコールの代わりに、事前に記録したchunksを再生します。
+Backend E2Eテスト用のChunk Player fixturesです。Frontend統合テストのrawEventsから自動変換されます。
 
 ### File Format: JSON Lines (JSONL)
 ```jsonl
-{"sequence_number":1,"timestamp":"2025-12-21T00:00:00.000Z","mode":"adk-sse","direction":"request","chunk":{...}}
-{"sequence_number":2,"timestamp":"2025-12-21T00:00:01.000Z","mode":"adk-sse","direction":"response","chunk":{...}}
+{"timestamp": 1766600712686, "session_id": "converted-from-frontend", "mode": "adk-sse", "location": "frontend-sse-event", "direction": "out", "sequence_number": 1, "chunk": {...}}
+{"timestamp": 1766600712687, "session_id": "converted-from-frontend", "mode": "adk-sse", "location": "frontend-sse-event", "direction": "out", "sequence_number": 2, "chunk": {...}}
 ```
-
-### Test Patterns
-
-#### Pattern 1: Gemini Direct
-- **Mode**: Gemini Direct固定（Backendを経由しない）
-- **Files**: `pattern1-{frontend,backend}.jsonl`
-- **Note**: backend.jsonlは空（Gemini Directはfrontend直接通信）
-
-#### Pattern 2: ADK SSE
-- **Mode**: ADK SSE固定（Server-Sent Events）
-- **Files**: `pattern2-{frontend,backend}.jsonl`
-- **Features**: Tool invocations, Token count, Model name
-
-#### Pattern 3: ADK BIDI
-- **Mode**: ADK BIDI固定（WebSocket双方向通信）
-- **Files**: `pattern3-{frontend,backend}.jsonl`
-- **Features**: Audio chunks, WebSocket latency monitoring
-
-#### Pattern 4: Mode Switching ⚠️ CRITICAL
-- **Modes**: Gemini → ADK SSE → ADK BIDI → ADK SSE → Gemini
-- **Files**: `pattern4-{frontend,backend}.jsonl`
-- **Purpose**: モード切り替え時のメッセージ履歴保持を検証
 
 ### Usage (Backend)
 
@@ -95,52 +61,17 @@ from pathlib import Path
 from adk_stream_protocol import ChunkPlayer
 
 # tests/conftest.py のfixture_dirを使用（自動的に fixtures/backend/ を指す）
-player = ChunkPlayer.from_file(fixture_dir / "pattern2-backend.jsonl")
+player = ChunkPlayer.from_file(fixture_dir / "get_weather-sse-from-frontend.jsonl")
 
 async for entry in player.play(mode="fast-forward"):
     # Process chunk
     print(entry.chunk)
 ```
 
-### Recording Procedure (Backend)
-
-#### 1. Enable Chunk Logger
-```bash
-export CHUNK_LOGGER_ENABLED=true
-export CHUNK_LOGGER_OUTPUT_DIR=./fixtures/backend
-export CHUNK_LOGGER_SESSION_ID=pattern1  # pattern{1-4}
-```
-
-#### 2. Execute Test Scenario
-各パターンの手順に従って操作を実行します。
-
-#### 3. Verify Recording
-```bash
-# ファイルサイズを確認
-ls -lh fixtures/backend/pattern*.jsonl
-
-# 内容を確認（最初の3行）
-head -n 3 fixtures/backend/pattern1-frontend.jsonl
-```
-
-#### 4. Rename Output
-Chunk Loggerは `{session_id}-{frontend|backend}-chunks.jsonl` で出力するため、リネームが必要：
-```bash
-mv fixtures/backend/pattern1-frontend-chunks.jsonl fixtures/backend/pattern1-frontend.jsonl
-mv fixtures/backend/pattern1-backend-chunks.jsonl fixtures/backend/pattern1-backend.jsonl
-```
-
 ### Converted Fixtures (Backend)
 
-Backend fixturesは2つのソースから生成されます：
+Backend fixturesはFrontend統合テストのrawEventsから自動変換されます：
 
-#### 1. Recorded Fixtures（記録ベース）
-- **ファイル**: `pattern*-{frontend,backend}.jsonl`
-- **生成方法**: Chunk Loggerで実際のLLM通信を記録
-- **目的**: E2Eフルフロー検証（モード切り替え含む）
-- **状態**: pattern1のみ記録済み（pattern2-4は記録待ち）
-
-#### 2. Converted Fixtures（変換ベース）
 - **ファイル**: `*-from-frontend.jsonl`
 - **生成方法**: Frontend統合テストのrawEventsから自動変換
 - **目的**: 個別ツール実行の検証（get_weather, get_location, process_payment, change_bgm）
@@ -357,36 +288,6 @@ expect(actualChunks).toEqual(fixture.output.expectedChunks);
 
 ---
 
-## Public Fixtures (`public/`)
-
-### Purpose
-Frontend E2Eテスト（Playwright）がHTTP経由でアクセスするためのsymlinksです。
-
-### Structure
-```
-Browser → HTTP GET: /fixtures/pattern1-frontend.jsonl
-       ↓
-Next.js public/ directory
-       ↓
-public/fixtures/pattern1-frontend.jsonl
-       → ../../fixtures/public/pattern1-frontend.jsonl
-       → ../../fixtures/backend/pattern1-frontend.jsonl
-```
-
-### Setup
-```bash
-# Symlinkの作成（justfileコマンド使用を推奨）
-just setup-e2e-fixtures
-
-# または手動で
-cd public/fixtures
-for fixture in ../../fixtures/public/*.jsonl; do
-  ln -sf "$fixture" "$(basename "$fixture")"
-done
-```
-
----
-
 ## Test Usage Patterns
 
 ### Backend E2E Tests
@@ -429,38 +330,25 @@ it("should execute tool correctly", async () => {
 ### Fixtures Not Found
 
 ```bash
-# Backend
-ls -la fixtures/backend/pattern*.jsonl
-
-# Frontend
+# Frontend baseline fixtures
 ls -la fixtures/frontend/*.json
 
-# Public symlinks
-ls -la public/fixtures
-ls -la fixtures/public
+# Backend converted fixtures
+ls -la fixtures/backend/*-from-frontend.jsonl
 ```
 
-### Empty Fixtures
+### Regenerating Backend Fixtures
 
-空のfixtureは記録待ちの状態です。テストは空ファイルでも正常に動作します（`count: 0`）。
-
-### Recording Failed
-
-1. `CHUNK_LOGGER_ENABLED=true` が設定されているか確認
-2. ブラウザコンソール/サーバーログでエラーを確認
-3. ファイル書き込み権限を確認
-4. 出力ディレクトリが存在するか確認: `mkdir -p fixtures/backend`
-
-### Symlink Issues
+Backend fixturesはfrontend統合テストのrawEventsから自動生成されます：
 
 ```bash
-# 既存のsymlinkを削除して再作成
-rm -rf public/fixtures/*
-just setup-e2e-fixtures
+# 全てのfrontend fixturesを変換
+uv run python scripts/convert_frontend_to_backend_fixture.py
 
-# Symlinkの確認
-ls -la public/fixtures/
-# All files should point to: ../fixtures/public/*.jsonl
+# 出力例
+✓ get_weather-sse-baseline.json -> get_weather-sse-from-frontend.jsonl (9 chunks)
+✓ change_bgm-bidi-baseline.json -> change_bgm-bidi-from-frontend.jsonl (9 chunks)
+⊘ process_payment-error-handling-green.json (skipped - no rawEvents)
 ```
 
 ---
