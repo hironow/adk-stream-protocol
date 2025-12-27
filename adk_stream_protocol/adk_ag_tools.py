@@ -256,17 +256,15 @@ def process_payment(
     logger.info(f"[process_payment] Mode: {mode}")
 
     if is_bidi_mode:
-        # BIDI mode: Return pending status immediately (LongRunningFunctionTool pattern)
-        # Do NOT await - this would block the event loop and cause deadlock
-        # BidiEventReceiver will execute the actual logic after approval
-        logger.info("[process_payment] BIDI mode - returning pending status (no execution)")
+        # BIDI mode: Return pending status to allow turn completion
+        # This enables LLM to respond and ADK to generate turn_complete event
+        # BidiEventSender injects confirmation events for user approval
+        # BidiEventReceiver executes actual logic after approval via LiveRequestQueue.send_content()
+        logger.info("[process_payment] BIDI mode - returning pending status")
         return {
             "status": "pending",
-            "amount": amount,
-            "recipient": recipient,
-            "currency": currency,
-            "description": description,
-            "message": f"Payment request for {amount} {currency} to {recipient} requires approval",
+            "awaiting_confirmation": True,
+            "message": f"Payment of {amount} {currency} to {recipient} requires user approval",
         }
 
     # SSE mode: ADK handles confirmation automatically via require_confirmation=True
@@ -405,13 +403,15 @@ async def get_location(tool_context: ToolContext) -> dict[str, Any]:
     logger.info(f"[get_location] Mode: {mode}")
 
     if is_bidi_mode:
-        # BIDI mode: Return pending status immediately (LongRunningFunctionTool pattern)
-        # Do NOT await - this would block the event loop and cause deadlock
-        # BidiEventReceiver will execute frontend delegation after approval
-        logger.info("[get_location] BIDI mode - returning pending status (no execution)")
+        # BIDI mode: Return pending status to allow turn completion
+        # This enables LLM to respond and ADK to generate turn_complete event
+        # BidiEventSender injects confirmation events for user approval
+        # BidiEventReceiver executes frontend delegation after approval via LiveRequestQueue.send_content()
+        logger.info("[get_location] BIDI mode - returning pending status")
         return {
             "status": "pending",
-            "message": "Location access request requires approval",
+            "awaiting_confirmation": True,
+            "message": "Location access requires user approval",
         }
 
     # SSE mode: ADK handles confirmation automatically via require_confirmation=True

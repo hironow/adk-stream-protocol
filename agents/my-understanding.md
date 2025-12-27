@@ -521,25 +521,160 @@ async for event in runner.run_async(
     # Agent continues with approval result
 ```
 
-### Current State (2025-12-27 15:30 JST)
+### 🔍 CRITICAL DISCOVERY (2025-12-27 16:00): Return None Behavior in run_live()
 
-**Status**: **IMPLEMENTING Phase 5 - LongRunningFunctionTool Pattern**
+**Investigation Question**: Why does returning `None` from LongRunningFunctionTool prevent finish/[DONE] events in `run_live()` mode?
+
+**Source**: ADK source code `google/adk/flows/llm_flows/functions.py`
+
+**Evidence from Code** (functions.py:563-566):
+```python
+if tool.is_long_running:
+    # Allow async function to return None to not provide function response.
+    if not function_response:
+        return None
+```
+
+**Execution Flow When Tool Returns `None`**:
+
+1. **Tool Execution** (adk_ag_tools.py:264):
+   ```python
+   if is_bidi_mode:
+       logger.info("[process_payment] BIDI mode - returning None")
+       return None  # Tool returns None
+   ```
+
+2. **Function Handler** (functions.py:566):
+   - `_execute_single_function_call_live` returns `None`
+   - No FunctionResponse event created
+
+3. **Response Filtering** (functions.py:478-484):
+   ```python
+   # Filter out None results
+   function_response_events = [
+       event for event in function_response_events if event is not None
+   ]
+
+   if not function_response_events:
+       return None  # Returns None when all are filtered out
+   ```
+
+4. **LLM Communication** (base_llm_flow.py:160-166):
+   ```python
+   # send back the function response to models
+   if event.get_function_responses():  # ← This is False when None returned!
+       logger.debug('Sending back last function response event: %s', event)
+       invocation_context.live_request_queue.send_content(event.content)
+   ```
+   - **No FunctionResponse** → Nothing sent to LLM
+   - **LLM never responds** → No new events generated
+
+5. **Result**:
+   - ❌ No finish event
+   - ❌ No [DONE] marker
+   - ❌ Stream hangs indefinitely
+   - ⏰ WebSocket timeout after 30 seconds
+
+**Why This Differs from DeepWiki Documentation**:
+
+DeepWiki documentation states: "Return `None` for LongRunningFunctionTool to prevent FunctionResponse and pause invocation"
+
+**However**, this pattern only works in `run_async()` mode:
+
+**run_async() Mode** (llm_agent.py:463):
+```python
+if ctx.should_pause_invocation(event):  # ← Pause check EXISTS
+    should_pause = True
+    # Saves invocation state, allows resume later
+```
+
+**run_live() Mode** (llm_agent.py:480-488):
+```python
+async def _run_live_impl(self, ctx: InvocationContext):
+    async with Aclosing(self._llm_flow.run_live(ctx)) as agen:
+        async for event in agen:
+            self.__maybe_save_output_to_state(event)
+            yield event  # Just yields events, NO pause logic!
+```
+
+**Critical Difference**:
+- `run_async()` has `should_pause_invocation()` check → Can pause and resume
+- `run_live()` has NO pause mechanism → Returning `None` creates dead end
+
+**Conclusion**:
+
+The `return None` pattern for LongRunningFunctionTool is designed for `run_async()` mode where:
+1. Tool returns `None`
+2. ADK detects long-running call via `should_pause_invocation()`
+3. ADK saves invocation state and pauses
+4. Later, client sends FunctionResponse
+5. ADK resumes with `invocation_id`
+
+In `run_live()` mode:
+1. Tool returns `None`
+2. **NO pause mechanism exists**
+3. No FunctionResponse sent to LLM
+4. LLM never responds
+5. **Stream hangs forever**
+
+**Next Step**: Find alternative approaches for BIDI mode confirmation flow without relying on `return None` pattern.
+
+**[DONE] Marker Generation Mechanism** (stream_protocol.py):
+
+There are 2 paths where `finalize()` sends finish + [DONE] events:
+
+1. **BIDI Mode** - Via `turn_complete` event (lines 405-435):
+   ```python
+   if hasattr(event, "turn_complete") and event.turn_complete:
+       logger.info("[TURN COMPLETE] Detected turn_complete in convert_event")
+       async for final_event in self.finalize(...):
+           yield final_event  # ← Sends finish + [DONE]
+   ```
+   - Triggered when ADK generates `turn_complete` event
+   - **Requires LLM to respond** (completes turn)
+
+2. **SSE Mode** - Via `finally` block (lines 945-986):
+   ```python
+   finally:
+       async for final_event in converter.finalize(...):
+           yield final_event  # ← Sends finish + [DONE]
+   ```
+   - Triggered when event stream completes
+   - BIDI mode: Stream is persistent, `finally` never runs (unless error)
+
+**Why `return None` Prevents [DONE]:**
+
+1. Tool returns `None` → No FunctionResponse
+2. LLM never receives response → LLM doesn't respond
+3. **ADK doesn't generate `turn_complete` event** ← Root cause!
+4. `finalize()` not called → No finish event, no [DONE]
+5. Stream hangs waiting for turn completion
+6. WebSocket times out (30 seconds)
+
+### Current State (2025-12-27 16:05 JST)
+
+**Status**: **INVESTIGATING Phase 5 - LongRunningFunctionTool Pattern**
+
+**Discovery**:
+- ❌ `return None` pattern does NOT work in `run_live()` mode
+- ✅ Confirmed via ADK source code investigation
+- 🔄 Need alternative approach for BIDI mode confirmation
 
 **Progress**:
-1. ✅ Modified `process_payment` and `get_location` to return pending status immediately
+1. ✅ Modified `process_payment` and `get_location` to return `None` in BIDI mode
 2. ✅ Wrapped tools with `LongRunningFunctionTool` in agent definition (adk_ag_runner.py)
-3. 🔄 In progress: Update `BidiEventSender` to detect `event.long_running_tool_ids`
-4. ⏳ Pending: Update `BidiEventReceiver` to execute tool logic and send FunctionResponse
-5. ⏳ Pending: Remove `ToolConfirmationDelegate` (no longer needed)
-6. ⏳ Pending: Test with all 4 BIDI baseline fixtures
+3. ✅ Updated `BidiEventSender` to inject confirmation after `tool-input-available`
+4. ❌ **BLOCKED**: `return None` prevents finish event generation in `run_live()`
+5. ⏳ Pending: Find working pattern for BIDI mode confirmation
+6. ⏳ Pending: Remove `ToolConfirmationDelegate` (no longer needed)
+7. ⏳ Pending: Test with all 4 BIDI baseline fixtures
 
 **Key Changes**:
-- ✅ Tool functions: No await, return pending immediately
+- ✅ Tool functions: Return `None` in BIDI mode (adk_ag_tools.py)
 - ✅ LongRunningFunctionTool wrapper: Applied to process_payment and get_location
-- ✅ Event loop: Never blocked, can process WebSocket messages
-- 🔄 Pending call storage: Need to capture FunctionCall from long_running_tool_ids
-- ⏳ Resume: FunctionResponse sent via send_content() after manual execution
-- ✅ No deadlock: Event loop continues throughout
+- ✅ BidiEventSender: Injects confirmation after `tool-input-available`
+- ❌ **Issue**: No finish/[DONE] event when returning `None`
+- 🔍 **Investigation**: Why does `run_live()` not support pause/resume pattern?
 
 ### Previous State (2025-12-27 03:32)
 

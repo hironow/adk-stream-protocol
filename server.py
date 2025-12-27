@@ -197,6 +197,7 @@ async def clear_backend_sessions():
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     """
+    @deprecated
     Non-streaming chat endpoint (NOT USED - for reference only)
 
     Transaction Script Pattern:
@@ -244,27 +245,6 @@ async def chat(request: ChatRequest):
     # 5. Return collected response
     response_text = response_text.strip()
     return ChatResponse(message=response_text)
-
-
-def _create_error_sse_response(error_message: str) -> StreamingResponse:
-    """
-    Create an SSE error response
-
-    Design Principle: [DONE] should ONLY be sent from finalize(), not directly from server.py
-    """
-
-    async def error_stream():
-        async for event in StreamProtocolConverter().finalize(error=error_message):
-            yield event
-
-    return StreamingResponse(
-        error_stream(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-        },
-    )
 
 
 def _process_latest_message(
@@ -371,7 +351,7 @@ async def stream(request: ChatRequest):  # noqa: C901, PLR0915
 
     # Validate input messages
     if not request.messages:
-        return _create_error_sse_response("No messages provided")
+        raise ValueError("No messages provided in request")
 
     # Create SSE stream generator inline (transaction script pattern)
     async def generate_sse_stream():  # noqa: C901, PLR0912, PLR0915

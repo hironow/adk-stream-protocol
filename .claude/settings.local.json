@@ -113,7 +113,8 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "Bash(uv run uvicorn:*)",
       "Bash(tail:*)",
-      "Bash(lsof:*)"
+      "Bash(lsof:*)",
+      "Bash(xargs:*)"
     ],
     "deny": [
       "Read(.env.keys)",
