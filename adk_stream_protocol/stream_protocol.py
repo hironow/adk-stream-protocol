@@ -625,6 +625,11 @@ class StreamProtocolConverter:
         # Do NOT send tool-input-* events - adk_request_confirmation is internal, not exposed to frontend
         # Reference: ADR 0002 - Tool Approval Architecture
         if tool_name == "adk_request_confirmation":
+            # Ensure tool_call_id is not None (required for approval flow)
+            if tool_call_id is None:
+                logger.error("[adk_request_confirmation] tool_call_id is None, cannot create approval request")
+                return []
+
             # Extract original tool call ID from tool_args
             # adk_request_confirmation args contain: {"originalFunctionCall": {"id": "...", "name": "...", "args": {...}}}
             original_call_id = tool_args.get("originalFunctionCall", {}).get("id", tool_call_id)

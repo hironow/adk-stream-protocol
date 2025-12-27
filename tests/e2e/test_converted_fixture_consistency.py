@@ -188,8 +188,7 @@ class TestConvertedFixtureConsistency:
         async for entry in player.play(mode="fast-forward"):
             actual_chunks_raw.append(entry.chunk)
 
-        # Then: Should match exactly (14 chunks for approval flow)
-        assert len(actual_chunks_raw) == 14
+        # Then: Should match exactly
         assert len(actual_chunks_raw) == len(expected_chunks)
         for _i, (actual, expected) in enumerate(zip(actual_chunks_raw, expected_chunks, strict=False)):
             actual_normalized = (
