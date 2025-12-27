@@ -180,8 +180,9 @@ async def test_long_running_tool_send_content_integration() -> None:
             "recipient": "Bob",
         }
 
+        # HYPOTHESIS: role="user" might cause gemini_llm_connection.py to take wrong branch
+        # Try without role field (gemini_llm_connection.py only checks content.parts[0].function_response)
         function_response = types.Content(
-            role="user",
             parts=[
                 types.Part(
                     function_response=types.FunctionResponse(
@@ -194,6 +195,7 @@ async def test_long_running_tool_send_content_integration() -> None:
         )
 
         # Send FunctionResponse via LiveRequestQueue
+        # TODO: This currently times out - need to find correct pattern for run_live() mode
         live_request_queue.send_content(function_response)
         logger.info("[TEST-TURN2] ✓ Sent FunctionResponse via send_content()")
         logger.info(f"[TEST-TURN2] FunctionResponse: id={tool_call_id_captured}, result={real_result}")
@@ -202,21 +204,31 @@ async def test_long_running_tool_send_content_integration() -> None:
         turn2_events = []
         turn2_event_count = 0
 
-        # Continue iterating over live_events for Turn 2
-        async for event in live_events:
-            turn2_event_count += 1
-            turn2_events.append(event)
-            event_type = type(event).__name__
-            logger.info(f"[TEST-TURN2] Event {turn2_event_count}: {event_type}")
+        # Add timeout for Turn 2 event collection (10 seconds)
+        async def collect_turn2_events():
+            nonlocal turn2_event_count, turn2_events_received
+            async for event in live_events:
+                turn2_event_count += 1
+                turn2_events.append(event)
+                event_type = type(event).__name__
+                logger.info(f"[TEST-TURN2] Event {turn2_event_count}: {event_type}")
 
-            # Check if we got any events
-            if turn2_event_count > 0:
-                turn2_events_received = True
+                # Check if we got any events
+                if turn2_event_count > 0:
+                    turn2_events_received = True
 
-            # Check for turn_complete
-            if hasattr(event, "turn_complete") and event.turn_complete:
-                logger.info("[TEST-TURN2] ✓ Turn 2 complete detected")
-                break
+                # Check for turn_complete
+                if hasattr(event, "turn_complete") and event.turn_complete:
+                    logger.info("[TEST-TURN2] ✓ Turn 2 complete detected")
+                    break
+
+        # Wait for Turn 2 events with 10-second timeout
+        try:
+            await asyncio.wait_for(collect_turn2_events(), timeout=10.0)
+        except asyncio.TimeoutError:
+            logger.error(
+                f"[TEST-TURN2] ✗ Timeout after 10 seconds - only received {turn2_event_count} events"
+            )
 
         # then - Verify Turn 2 received events
         assert turn2_events_received, "Should receive events from ADK after send_content()"
