@@ -1,9 +1,9 @@
 {
   "description": "SSE mode baseline - get_location with denial flow (MULTI-REQUEST: confirmation + rejection)",
   "mode": "sse",
-  "source": "Synthesized from get_location confirmation pattern + process_payment denial pattern",
+  "source": "Backend E2E test capture",
   "scenario": "User denies get_location tool call - complete flow from confirmation request to rejection",
-  "note": "This fixture captures TWO separate HTTP requests: (1) Initial request ending with confirmation [DONE], (2) Denial response ending with rejection [DONE]. It serves as documentation of the complete denial flow, not for single-stream transport testing. Transport tests verify one [DONE] per stream.",
+  "note": "This fixture captures TWO separate HTTP requests: (1) Initial request ending with confirmation [DONE], (2) Denial response ending with rejection [DONE].",
   "input": {
     "messages": [
       {
@@ -16,46 +16,49 @@
   },
   "output": {
     "rawEvents": [
-      "data: {\"type\": \"start\", \"messageId\": \"d8c759a5-fc5e-4c14-a395-e371966209b3\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-4c79e452-5971-4673-ac9a-c802ae108fd5\", \"toolName\": \"get_location\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-4c79e452-5971-4673-ac9a-c802ae108fd5\", \"toolName\": \"get_location\", \"input\": {}}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-5cac17b1-f205-47b3-a026-91d8e3349649\", \"toolName\": \"adk_request_confirmation\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-5cac17b1-f205-47b3-a026-91d8e3349649\", \"toolName\": \"adk_request_confirmation\", \"input\": {\"originalFunctionCall\": {\"id\": \"adk-4c79e452-5971-4673-ac9a-c802ae108fd5\", \"args\": {}, \"name\": \"get_location\"}, \"toolConfirmation\": {\"hint\": \"Please approve or reject the tool call get_location() by responding with a FunctionResponse with an expected ToolConfirmation payload.\", \"confirmed\": false}}}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1636, \"completionTokens\": 10, \"totalTokens\": 1699}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"727a3476-b604-4cd3-ad95-bfbd0d8ae5ca\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-a8624ed6-74c7-43a2-b3f2-fd492957deb7\", \"toolName\": \"get_location\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-a8624ed6-74c7-43a2-b3f2-fd492957deb7\", \"toolName\": \"get_location\", \"input\": {}}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-5732f091-f92d-415f-a0d9-8614632cad26\", \"toolName\": \"adk_request_confirmation\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-5732f091-f92d-415f-a0d9-8614632cad26\", \"toolName\": \"adk_request_confirmation\", \"input\": {\"originalFunctionCall\": {\"id\": \"adk-a8624ed6-74c7-43a2-b3f2-fd492957deb7\", \"args\": {}, \"name\": \"get_location\"}, \"toolConfirmation\": {\"hint\": \"Please approve or reject the tool call get_location() by responding with a FunctionResponse with an expected ToolConfirmation payload.\", \"confirmed\": false}}}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1138, \"completionTokens\": 10, \"totalTokens\": 1234}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
       "data: [DONE]\n\n",
-      "data: {\"type\": \"start\", \"messageId\": \"b2c3d4e5-f6a7-8901-bcde-f12345678901\"}\n\n",
-      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"adk-4c79e452-5971-4673-ac9a-c802ae108fd5\", \"errorText\": \"This tool call is rejected.\"}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"bb938321-4318-48b0-a795-b85fb6fd8c96\"}\n\n",
+      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"adk-a8624ed6-74c7-43a2-b3f2-fd492957deb7\", \"errorText\": \"This tool call is rejected.\"}\n\n",
       "data: {\"type\": \"text-start\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"現在地の取得リクエストは承認されませんでした。位置情報の共有が必要な場合は、再度お知らせください。\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"\\u7533\\u3057\\u8a33\\u3042\\u308a\\u307e\\u305b\\u3093\\u304c\\u3001\\u4f4d\\u7f6e\\u60c5\\u5831\\u306e\\u53d6\\u5f97\\u304c\\u62d2\\u5426\\u3055\\u308c\\u307e\\u3057\\u305f\\u3002\\u4f4d\\u7f6e\\u60c5\\u5831\\u3092\\u5171\\u6709\\u3059\\u308b\\u306b\\u306f\\u8a31\\u53ef\\u304c\\u5fc5\\u8981\\u3067\\u3059\\u3002\"}\n\n",
       "data: {\"type\": \"text-end\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1820, \"completionTokens\": 22, \"totalTokens\": 1842}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1253, \"completionTokens\": 20, \"totalTokens\": 1273}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
-      { "type": "start", "messageId": "d8c759a5-fc5e-4c14-a395-e371966209b3" },
+      {
+        "type": "start",
+        "messageId": "727a3476-b604-4cd3-ad95-bfbd0d8ae5ca"
+      },
       {
         "type": "tool-input-start",
-        "toolCallId": "adk-4c79e452-5971-4673-ac9a-c802ae108fd5",
+        "toolCallId": "adk-a8624ed6-74c7-43a2-b3f2-fd492957deb7",
         "toolName": "get_location"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "adk-4c79e452-5971-4673-ac9a-c802ae108fd5",
+        "toolCallId": "adk-a8624ed6-74c7-43a2-b3f2-fd492957deb7",
         "toolName": "get_location",
         "input": {}
       },
       {
         "type": "tool-input-start",
-        "toolCallId": "adk-5cac17b1-f205-47b3-a026-91d8e3349649",
+        "toolCallId": "adk-5732f091-f92d-415f-a0d9-8614632cad26",
         "toolName": "adk_request_confirmation"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "adk-5cac17b1-f205-47b3-a026-91d8e3349649",
+        "toolCallId": "adk-5732f091-f92d-415f-a0d9-8614632cad26",
         "toolName": "adk_request_confirmation",
         "input": {
           "originalFunctionCall": {
-            "id": "adk-4c79e452-5971-4673-ac9a-c802ae108fd5",
+            "id": "adk-a8624ed6-74c7-43a2-b3f2-fd492957deb7",
             "args": {},
             "name": "get_location"
           },
@@ -70,34 +73,43 @@
         "finishReason": "stop",
         "messageMetadata": {
           "usage": {
-            "promptTokens": 1636,
+            "promptTokens": 1138,
             "completionTokens": 10,
-            "totalTokens": 1699
+            "totalTokens": 1234
           },
           "modelVersion": "gemini-3-flash-preview"
         }
       },
-      { "type": "start", "messageId": "b2c3d4e5-f6a7-8901-bcde-f12345678901" },
+      {
+        "type": "start",
+        "messageId": "bb938321-4318-48b0-a795-b85fb6fd8c96"
+      },
       {
         "type": "tool-output-error",
-        "toolCallId": "adk-4c79e452-5971-4673-ac9a-c802ae108fd5",
+        "toolCallId": "adk-a8624ed6-74c7-43a2-b3f2-fd492957deb7",
         "errorText": "This tool call is rejected."
       },
-      { "type": "text-start", "id": "0" },
+      {
+        "type": "text-start",
+        "id": "0"
+      },
       {
         "type": "text-delta",
         "id": "0",
-        "delta": "現在地の取得リクエストは承認されませんでした。位置情報の共有が必要な場合は、再度お知らせください。"
+        "delta": "申し訳ありませんが、位置情報の取得が拒否されました。位置情報を共有するには許可が必要です。"
       },
-      { "type": "text-end", "id": "0" },
+      {
+        "type": "text-end",
+        "id": "0"
+      },
       {
         "type": "finish",
         "finishReason": "stop",
         "messageMetadata": {
           "usage": {
-            "promptTokens": 1820,
-            "completionTokens": 22,
-            "totalTokens": 1842
+            "promptTokens": 1253,
+            "completionTokens": 20,
+            "totalTokens": 1273
           },
           "modelVersion": "gemini-3-flash-preview"
         }

@@ -811,6 +811,7 @@ def save_frontend_fixture(
         note: Optional implementation notes
     """
     # Parse events into chunks for expectedChunks
+    # Filter out audio chunks (model-specific binary data) but keep reasoning chunks
     expected_chunks = []
     for event in raw_events:
         if event.strip() == "data: [DONE]":
@@ -818,6 +819,13 @@ def save_frontend_fixture(
         if "data:" in event:
             try:
                 event_data = json.loads(event.strip().replace("data: ", ""))
+                # Skip audio chunks (binary data not relevant for protocol testing)
+                chunk_type = event_data.get("type", "")
+                if chunk_type == "data-pcm":
+                    continue
+                # Skip file chunks with audio media type (e.g., audio/wav)
+                if chunk_type == "file" and event_data.get("mediaType", "").startswith("audio/"):
+                    continue
                 expected_chunks.append(event_data)
             except json.JSONDecodeError:
                 pass

@@ -154,7 +154,7 @@ async def test_process_payment_timeout_bidi():
         assert len(tool_output_error_events) > 0, "Should have tool-output-error event"
 
         # Save events to fixture
-        fixture_path = Path(__file__).parent.parent.parent / "fixtures" / "frontend" / "process_payment-timeout-bidi-baseline.json"
+        fixture_path = Path(__file__).parent.parent.parent.parent / "fixtures" / "frontend" / "process_payment-timeout-bidi-baseline.json"
         save_frontend_fixture(
             fixture_path=fixture_path,
             description="BIDI mode Phase 12 BLOCKING - process_payment with timeout flow (SINGLE CONTINUOUS STREAM, user doesn't respond)",

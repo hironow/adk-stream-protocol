@@ -106,8 +106,8 @@ async def test_get_location_approved_bidi_baseline(frontend_fixture_dir: Path):
         assert confirmation_id is not None, "Should have confirmation_id"
         assert original_tool_call_id is not None, "Should have original tool call ID"
 
-        # Immediately send approval (don't wait for [DONE])
-        print("\n=== Sending approval (tool is BLOCKING, awaiting this) ===")
+        # Immediately send approval with tool result (get_location is frontend-delegated)
+        print("\n=== Sending approval with tool result (tool is BLOCKING, awaiting this) ===")
         approval_message = {
             "role": "user",
             "parts": [
@@ -120,12 +120,23 @@ async def test_get_location_approved_bidi_baseline(frontend_fixture_dir: Path):
                         "id": confirmation_id,
                         "approved": True,
                     },
+                },
+                {
+                    "type": "tool-result",
+                    "toolCallId": original_tool_call_id,
+                    "result": {
+                        "latitude": 35.6762,
+                        "longitude": 139.6503,
+                        "accuracy": 20,
+                        "city": "Tokyo",
+                        "country": "Japan"
+                    },
                 }
             ],
         }
 
         await websocket.send(json.dumps({"type": "message", "messages": [approval_message]}))
-        print("✓ Sent approval message")
+        print("✓ Sent approval message with tool result")
 
         # Continue receiving events until [DONE]
         print("\n=== Receiving remaining events until [DONE] ===")
@@ -150,7 +161,7 @@ async def test_get_location_approved_bidi_baseline(frontend_fixture_dir: Path):
         print(f"[DONE] count: {done_count} (expected: {expected_done_count})")
         assert done_count == expected_done_count, f"Expected {expected_done_count} [DONE], got {done_count}"
 
-        # Verify we got tool-output with success
+        # Verify we got tool-output-available with location data
         tool_output_events = [
             e for e in all_events
             if "tool-output-available" in e and original_tool_call_id in e
@@ -158,10 +169,10 @@ async def test_get_location_approved_bidi_baseline(frontend_fixture_dir: Path):
         print(f"Tool output events: {len(tool_output_events)}")
         assert len(tool_output_events) > 0, "Should have tool output event"
 
-        # Verify success in tool output
-        success_events = [e for e in all_events if "success" in e and "true" in e.lower()]
-        print(f"Success events: {len(success_events)}")
-        assert len(success_events) > 0, "Should have success indicator in output"
+        # Verify location data in tool output (latitude/longitude)
+        location_events = [e for e in all_events if "latitude" in e and "longitude" in e]
+        print(f"Location data events: {len(location_events)}")
+        assert len(location_events) > 0, "Should have location data in output"
 
         # Verify against expected events (structure comparison)
         is_match, diff_msg = compare_raw_events(

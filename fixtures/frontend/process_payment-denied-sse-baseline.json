@@ -1,9 +1,9 @@
 {
   "description": "SSE mode baseline - process_payment with denial flow (MULTI-REQUEST: confirmation + rejection)",
   "mode": "sse",
-  "source": "chunk_logs/e2e-baseline-for-integration/backend-sse-event.jsonl (lines 15-28)",
+  "source": "Backend E2E test capture",
   "scenario": "User denies process_payment tool call - complete flow from confirmation request to rejection",
-  "note": "This fixture captures TWO separate HTTP requests: (1) Initial request ending with confirmation [DONE], (2) Denial response ending with rejection [DONE]. It serves as documentation of the complete denial flow, not for single-stream transport testing. Transport tests verify one [DONE] per stream.",
+  "note": "This fixture captures TWO separate HTTP requests: (1) Initial request ending with confirmation [DONE], (2) Denial response ending with rejection [DONE].",
   "input": {
     "messages": [
       {
@@ -16,47 +16,58 @@
   },
   "output": {
     "rawEvents": [
-      "data: {\"type\": \"start\", \"messageId\": \"e83f82a4-2305-42cf-882b-7dc504141917\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-42a0576f-8245-4234-9d19-3a18a278086a\", \"toolName\": \"process_payment\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-42a0576f-8245-4234-9d19-3a18a278086a\", \"toolName\": \"process_payment\", \"input\": {\"currency\": \"USD\", \"amount\": 200, \"recipient\": \"Jiro\"}}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-a843d840-f720-4387-98c7-4482e4d6e173\", \"toolName\": \"adk_request_confirmation\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-a843d840-f720-4387-98c7-4482e4d6e173\", \"toolName\": \"adk_request_confirmation\", \"input\": {\"originalFunctionCall\": {\"id\": \"adk-42a0576f-8245-4234-9d19-3a18a278086a\", \"args\": {\"currency\": \"USD\", \"amount\": 200, \"recipient\": \"Jiro\"}, \"name\": \"process_payment\"}, \"toolConfirmation\": {\"hint\": \"Please approve or reject the tool call process_payment() by responding with a FunctionResponse with an expected ToolConfirmation payload.\", \"confirmed\": false}}}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1499, \"completionTokens\": 29, \"totalTokens\": 1702}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"e22e30c6-9bc8-4fb5-8246-7a1337ec9e53\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-6bad7773-67e4-41e9-aa53-1d856aa77b19\", \"toolName\": \"process_payment\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-6bad7773-67e4-41e9-aa53-1d856aa77b19\", \"toolName\": \"process_payment\", \"input\": {\"currency\": \"USD\", \"amount\": 200, \"recipient\": \"\\u6b21\\u90ce\"}}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-218c087d-fd98-4a86-8590-cdd0038ef752\", \"toolName\": \"adk_request_confirmation\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-218c087d-fd98-4a86-8590-cdd0038ef752\", \"toolName\": \"adk_request_confirmation\", \"input\": {\"originalFunctionCall\": {\"id\": \"adk-6bad7773-67e4-41e9-aa53-1d856aa77b19\", \"args\": {\"currency\": \"USD\", \"amount\": 200, \"recipient\": \"\\u6b21\\u90ce\"}, \"name\": \"process_payment\"}, \"toolConfirmation\": {\"hint\": \"Please approve or reject the tool call process_payment() by responding with a FunctionResponse with an expected ToolConfirmation payload.\", \"confirmed\": false}}}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1501, \"completionTokens\": 29, \"totalTokens\": 1530}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
       "data: [DONE]\n\n",
-      "data: {\"type\": \"start\", \"messageId\": \"81e8fde4-28cb-416a-b4ff-335b3510a1d2\"}\n\n",
-      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"adk-42a0576f-8245-4234-9d19-3a18a278086a\", \"errorText\": \"This tool call is rejected.\"}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"136d7965-9a82-4f9a-ae90-bad33195f267\"}\n\n",
+      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"adk-6bad7773-67e4-41e9-aa53-1d856aa77b19\", \"errorText\": \"This tool call is rejected.\"}\n\n",
       "data: {\"type\": \"text-start\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"次郎さんへの200ドルの送金リクエストは承認されませんでした。再度実行が必要な場合はお知らせください。\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"\\u7533\\u3057\\u8a33\\u3042\\u308a\\u307e\\u305b\\u3093\\u304c\\u3001\\u6b21\\u90ce\\u3055\\u3093\\u3078\\u306e\\u9001\\u91d1\\u30ea\\u30af\\u30a8\\u30b9\\u30c8\\u306f\\u627f\\u8a8d\\u3055\\u308c\\u307e\\u305b\\u3093\\u3067\\u3057\\u305f\\u3002\\u9001\\u91d1\\u3092\\u5b8c\\u4e86\\u3059\\u308b\\u306b\\u306f\\u3001\\u627f\\u8a8d\\u304c\\u5fc5\\u8981\\u3067\\u3059\\u3002\"}\n\n",
       "data: {\"type\": \"text-end\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1721, \"completionTokens\": 26, \"totalTokens\": 1796}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1549, \"completionTokens\": 26, \"totalTokens\": 1575}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
-      { "type": "start", "messageId": "e83f82a4-2305-42cf-882b-7dc504141917" },
+      {
+        "type": "start",
+        "messageId": "e22e30c6-9bc8-4fb5-8246-7a1337ec9e53"
+      },
       {
         "type": "tool-input-start",
-        "toolCallId": "adk-42a0576f-8245-4234-9d19-3a18a278086a",
+        "toolCallId": "adk-6bad7773-67e4-41e9-aa53-1d856aa77b19",
         "toolName": "process_payment"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "adk-42a0576f-8245-4234-9d19-3a18a278086a",
+        "toolCallId": "adk-6bad7773-67e4-41e9-aa53-1d856aa77b19",
         "toolName": "process_payment",
-        "input": { "currency": "USD", "amount": 200, "recipient": "Jiro" }
+        "input": {
+          "currency": "USD",
+          "amount": 200,
+          "recipient": "次郎"
+        }
       },
       {
         "type": "tool-input-start",
-        "toolCallId": "adk-a843d840-f720-4387-98c7-4482e4d6e173",
+        "toolCallId": "adk-218c087d-fd98-4a86-8590-cdd0038ef752",
         "toolName": "adk_request_confirmation"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "adk-a843d840-f720-4387-98c7-4482e4d6e173",
+        "toolCallId": "adk-218c087d-fd98-4a86-8590-cdd0038ef752",
         "toolName": "adk_request_confirmation",
         "input": {
           "originalFunctionCall": {
-            "id": "adk-42a0576f-8245-4234-9d19-3a18a278086a",
-            "args": { "currency": "USD", "amount": 200, "recipient": "Jiro" },
+            "id": "adk-6bad7773-67e4-41e9-aa53-1d856aa77b19",
+            "args": {
+              "currency": "USD",
+              "amount": 200,
+              "recipient": "次郎"
+            },
             "name": "process_payment"
           },
           "toolConfirmation": {
@@ -70,34 +81,43 @@
         "finishReason": "stop",
         "messageMetadata": {
           "usage": {
-            "promptTokens": 1499,
+            "promptTokens": 1501,
             "completionTokens": 29,
-            "totalTokens": 1702
+            "totalTokens": 1530
           },
           "modelVersion": "gemini-3-flash-preview"
         }
       },
-      { "type": "start", "messageId": "81e8fde4-28cb-416a-b4ff-335b3510a1d2" },
+      {
+        "type": "start",
+        "messageId": "136d7965-9a82-4f9a-ae90-bad33195f267"
+      },
       {
         "type": "tool-output-error",
-        "toolCallId": "adk-42a0576f-8245-4234-9d19-3a18a278086a",
+        "toolCallId": "adk-6bad7773-67e4-41e9-aa53-1d856aa77b19",
         "errorText": "This tool call is rejected."
       },
-      { "type": "text-start", "id": "0" },
+      {
+        "type": "text-start",
+        "id": "0"
+      },
       {
         "type": "text-delta",
         "id": "0",
-        "delta": "次郎さんへの200ドルの送金リクエストは承認されませんでした。再度実行が必要な場合はお知らせください。"
+        "delta": "申し訳ありませんが、次郎さんへの送金リクエストは承認されませんでした。送金を完了するには、承認が必要です。"
       },
-      { "type": "text-end", "id": "0" },
+      {
+        "type": "text-end",
+        "id": "0"
+      },
       {
         "type": "finish",
         "finishReason": "stop",
         "messageMetadata": {
           "usage": {
-            "promptTokens": 1721,
+            "promptTokens": 1549,
             "completionTokens": 26,
-            "totalTokens": 1796
+            "totalTokens": 1575
           },
           "modelVersion": "gemini-3-flash-preview"
         }
