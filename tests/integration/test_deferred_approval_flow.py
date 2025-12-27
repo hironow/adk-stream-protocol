@@ -166,18 +166,85 @@ def test_approval_tool(message: str) -> dict:
     }
 
 
+async def test_approval_tool_blocking(
+    message: str, tool_context: ToolContext
+) -> dict:
+    """
+    EXPERIMENT: BLOCKING mode tool that waits for approval inside the function.
+
+    This tests if BLOCKING behavior allows the tool to await approval
+    without blocking the entire event loop.
+
+    Args:
+        message: A message to process
+        tool_context: ToolContext for accessing session state
+
+    Returns:
+        dict: Final result after approval (approved or denied)
+    """
+    logger.info(f"[test_approval_tool_blocking] Called with message: {message}")
+    logger.info(f"[test_approval_tool_blocking] Tool will now WAIT for approval...")
+
+    tool_call_id = tool_context.function_call_id
+
+    # Get approval_queue from session state
+    approval_queue = tool_context.session.state.get("approval_queue")
+
+    if not approval_queue:
+        logger.error("[test_approval_tool_blocking] No approval_queue in session state!")
+        return {
+            "status": "error",
+            "message": "approval_queue not configured",
+        }
+
+    # Register this tool call for approval
+    approval_queue.request_approval(tool_call_id, "test_approval_tool_blocking", {"message": message})
+    logger.info(f"[test_approval_tool_blocking] Registered approval request for {tool_call_id}")
+
+    # ⭐ KEY EXPERIMENT: await inside BLOCKING tool function
+    try:
+        approval_result = await approval_queue.wait_for_approval(tool_call_id, timeout=10.0)
+        logger.info(f"[test_approval_tool_blocking] ✓ Approval received: {approval_result}")
+
+        if approval_result.approved:
+            return {
+                "status": "approved",
+                "message": f"Successfully processed '{message}' after user approval",
+                "result": f"Task '{message}' completed",
+            }
+        else:
+            return {
+                "status": "denied",
+                "message": f"User denied the operation for '{message}'",
+            }
+
+    except asyncio.TimeoutError:
+        logger.error("[test_approval_tool_blocking] ❌ Timeout waiting for approval")
+        return {
+            "status": "timeout",
+            "message": "Approval request timed out",
+        }
+
+
 # Create FunctionDeclaration with NON_BLOCKING behavior using from_callable_with_api_option
 # This allows will_continue field to work properly
-test_approval_declaration = types.FunctionDeclaration.from_callable_with_api_option(
+test_approval_declaration_non_blocking = types.FunctionDeclaration.from_callable_with_api_option(
     callable=test_approval_tool,
     api_option='GEMINI_API',
     behavior=types.Behavior.NON_BLOCKING,  # Enable multi-response pattern
 )
 
+# EXPERIMENT: Create BLOCKING version to test if tool can await inside
+test_approval_declaration_blocking = types.FunctionDeclaration.from_callable_with_api_option(
+    callable=test_approval_tool,
+    api_option='GEMINI_API',
+    behavior=types.Behavior.BLOCKING,  # Tool can block and wait for approval
+)
+
 # Wrap tool with FunctionTool using the custom declaration
 TEST_APPROVAL_TOOL = FunctionTool(test_approval_tool)
 # Override the declaration with our NON_BLOCKING version
-TEST_APPROVAL_TOOL._declaration = test_approval_declaration
+TEST_APPROVAL_TOOL._declaration = test_approval_declaration_non_blocking
 # TEMPORARILY DISABLED: Testing if is_long_running interferes with plugin callbacks
 # TEST_APPROVAL_TOOL.is_long_running = True
 

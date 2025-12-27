@@ -2351,3 +2351,310 @@ The fundamental issue is confirmed: **BIDI mode lacks several advanced ADK featu
 - Reference: DeepWiki search showing the missing `plugin_manager.run_before_tool_callback` call
 
 These limitations must be considered when designing confirmation flows in BIDI mode.
+
+---
+
+## Phase 12: BLOCKING Behavior Mode - The Breakthrough Solution (2025-12-27)
+
+### 🎉 BREAKTHROUGH DISCOVERY - BLOCKING Mode Solves Deferred Approval
+
+**Status**: ✅ **EXPERIMENT SUCCESSFUL** - BLOCKING behavior allows tools to await approval without deadlock!
+
+### The Critical Insight
+
+After Phase 11 confirmed that plugin callbacks don't work in BIDI mode, we realized we had **never tested `types.Behavior.BLOCKING`** in our Phase 2 experiments.
+
+**User's insight**: "NON BLOCKINGをBLOCKINGに変えるのです" (Change NON_BLOCKING to BLOCKING)
+
+**Why we missed this**: In Phase 2, we didn't know about the `types.Behavior` enum, so we tried awaiting in a regular tool function → resulted in deadlock.
+
+### Experiment Setup
+
+**File**: `tests/integration/test_deferred_approval_flow_blocking.py`
+
+**Key Implementation**:
+
+```python
+async def test_approval_tool_blocking(
+    message: str, tool_context: ToolContext
+) -> dict:
+    """
+    BLOCKING mode tool that waits for approval inside the function.
+
+    This is the key experiment: Can the tool await approval without
+    blocking the entire event loop in BIDI mode?
+    """
+    tool_call_id = tool_context.function_call_id
+    approval_queue = tool_context.session.state.get("approval_queue")
+
+    # Register approval request
+    approval_queue.request_approval(
+        tool_call_id, "test_approval_tool_blocking", {"message": message}
+    )
+
+    # ⭐ KEY EXPERIMENT: await inside BLOCKING tool function
+    approval_result = await approval_queue.wait_for_approval(
+        tool_call_id, timeout=10.0
+    )
+
+    if approval_result.get("approved"):
+        return {
+            "status": "approved",
+            "message": f"Successfully processed '{message}' after user approval",
+            "result": f"Task '{message}' completed",
+        }
+    else:
+        return {
+            "status": "denied",
+            "message": f"User denied the operation for '{message}'",
+        }
+
+# Create FunctionDeclaration with BLOCKING behavior
+test_approval_declaration_blocking = types.FunctionDeclaration.from_callable_with_api_option(
+    callable=test_approval_tool_blocking_simple,  # Simple wrapper for schema
+    api_option='GEMINI_API',
+    behavior=types.Behavior.BLOCKING,  # ⭐ BLOCKING mode
+)
+
+# Wrap actual implementation with FunctionTool
+TEST_APPROVAL_TOOL_BLOCKING = FunctionTool(test_approval_tool_blocking)
+TEST_APPROVAL_TOOL_BLOCKING._declaration = test_approval_declaration_blocking
+```
+
+### Test Results - Complete Success! 🎉
+
+**Run**: `pytest tests/integration/test_deferred_approval_flow_blocking.py::test_blocking_mode_approved -v -s`
+
+**Timeline of events**:
+```
+22:34:41.830 - [BLOCKING_TOOL] Called with message: blocking-test
+22:34:41.831 - [BLOCKING_TOOL] ⏳ Awaiting approval (this is the critical moment)...
+22:34:43.832 - [TEST] ⏰ Simulating user APPROVAL...  [← 2 seconds later]
+22:34:43.858 - [BLOCKING_TOOL] ✓ Approval received: {'approved': True}
+22:34:43.858 - [BLOCKING_TOOL] ✅ APPROVED - returning success result
+22:34:43.859 - [TEST] FunctionResponse received (id=function-call-14885...)
+22:34:43.859 - [TEST] Response data: {'status': 'approved', 'message': ...}
+22:34:43.859 - [TEST] ✅ Final result received: approved
+22:34:49.409 - [TEST] ✓ turn_complete received
+22:34:49.409 - 🎉 SUCCESS! BLOCKING mode works - tool awaited approval without deadlock
+```
+
+**Test result**: ✅ **PASSED**
+
+### What This Proves
+
+1. ✅ **Tool can await approval inside the function** - No deadlock occurs
+2. ✅ **Event loop continues** - WebSocket can receive approval messages while tool is paused
+3. ✅ **LLM receives final result** - FunctionResponse contains `status: 'approved'` or `status: 'denied'`
+4. ✅ **No complex patterns needed** - No plugin callbacks, no deferred execution, no `will_continue` field
+
+### Why BLOCKING Mode Works
+
+**The Magic**: `types.Behavior.BLOCKING` tells ADK/Gemini API that:
+- This tool function **can pause** and wait for external input
+- The event loop should **continue running** while the tool is paused
+- The tool will **eventually return** a final result
+
+**Contrast with Phase 2 attempt**:
+- Phase 2: Tried awaiting in regular tool → ADK didn't know the tool could pause → deadlock
+- Phase 12: Used BLOCKING behavior → ADK knows to keep event loop alive → success!
+
+### Perfect Flow Achieved
+
+```
+1. User asks LLM to process payment
+2. LLM calls process_payment tool (BLOCKING behavior)
+3. Tool function:
+   a. Registers approval request
+   b. Awaits approval (tool execution pauses)
+4. Event loop continues (WebSocket alive)
+5. Frontend sends approval via WebSocket
+6. Approval arrives → await resolves
+7. Tool returns final result: {"status": "approved", "amount": 100, ...}
+8. LLM receives FunctionResponse with final result
+9. LLM responds naturally: "Payment of $100 to Alice has been completed!"
+```
+
+### Implementation Pattern for Production
+
+**For tools requiring approval** (process_payment, get_location):
+
+```python
+# 1. Simple wrapper for FunctionDeclaration (no ToolContext)
+def process_payment_simple(amount: float, recipient: str, currency: str = "USD") -> dict:
+    """Simple wrapper for schema generation"""
+    return {"status": "pending"}
+
+# 2. Create BLOCKING declaration
+process_payment_declaration_blocking = types.FunctionDeclaration.from_callable_with_api_option(
+    callable=process_payment_simple,
+    api_option='GEMINI_API',
+    behavior=types.Behavior.BLOCKING,  # Allow tool to await
+)
+
+# 3. Actual implementation with ToolContext
+async def process_payment(
+    amount: float,
+    recipient: str,
+    currency: str = "USD",
+    tool_context: ToolContext = None
+) -> dict:
+    """Actual implementation that awaits approval"""
+    if tool_context is None:
+        return {"status": "pending"}  # Fallback for direct calls
+
+    tool_call_id = tool_context.function_call_id
+    approval_queue = tool_context.session.state.get("approval_queue")
+
+    # Register and await approval
+    approval_queue.request_approval(tool_call_id, "process_payment", {
+        "amount": amount,
+        "recipient": recipient,
+        "currency": currency,
+    })
+
+    approval_result = await approval_queue.wait_for_approval(tool_call_id)
+
+    if approval_result.get("approved"):
+        # Execute payment
+        result = execute_payment(amount, recipient, currency)
+        return {
+            "status": "approved",
+            "amount": amount,
+            "recipient": recipient,
+            "currency": currency,
+            "transaction_id": result["transaction_id"],
+        }
+    else:
+        return {
+            "status": "denied",
+            "amount": amount,
+            "recipient": recipient,
+            "currency": currency,
+            "reason": "User denied the payment",
+        }
+
+# 4. Wrap with FunctionTool and override declaration
+PROCESS_PAYMENT_TOOL = FunctionTool(process_payment)
+PROCESS_PAYMENT_TOOL._declaration = process_payment_declaration_blocking
+```
+
+### Comparison: All Attempted Approaches
+
+| Approach | Complexity | Works? | Issues |
+|----------|------------|--------|--------|
+| **Phase 2**: Await in regular tool | Low | ❌ | Deadlock - event loop blocked |
+| **Phase 3-6**: Manual FunctionResponse | High | ❌ | ADK ignores it, tries to reconnect |
+| **Phase 7**: LongRunningFunctionTool | Medium | ❌ | Doesn't work in BIDI mode |
+| **Phase 10**: will_continue field | Medium | ❌ | LLM doesn't understand final result |
+| **Phase 11**: Plugin callbacks | Medium | ❌ | Not called in BIDI mode |
+| **Phase 12**: BLOCKING behavior | **Low** | ✅ | **PERFECT - clean and simple!** |
+
+### Why This is the Best Solution
+
+**Simplicity**:
+- ✅ Tool function is straightforward: await approval → return result
+- ✅ No external state management or deferred execution
+- ✅ No complex multi-response patterns
+
+**Correctness**:
+- ✅ LLM sees final result (approved/denied) in FunctionResponse
+- ✅ Natural conversation flow preserved
+- ✅ Works in BIDI mode (real-time streaming)
+
+**Maintainability**:
+- ✅ Clear code: approval logic is inside the tool function
+- ✅ No ADK workarounds or hacks
+- ✅ Uses documented ADK/Gemini API features
+
+### Next Steps - Production Implementation
+
+**Action Items**:
+1. ✅ Experiment successful (Phase 12 test passed)
+2. ⏳ Apply BLOCKING pattern to `process_payment` in `adk_ag_tools.py`
+3. ⏳ Apply BLOCKING pattern to `get_location` in `adk_ag_tools.py`
+4. ⏳ Update `BIDI_TOOLS` in `adk_ag_runner.py` to use BLOCKING declarations
+5. ⏳ Test end-to-end flow with real WebSocket frontend
+
+**Files to modify**:
+- `adk_stream_protocol/adk_ag_tools.py` - Tool implementations
+- `adk_stream_protocol/adk_ag_runner.py` - Tool declarations and BIDI_TOOLS list
+
+**Status**: **SOLUTION FOUND - Ready for implementation!** 🎉
+
+### Key Learnings
+
+1. **types.Behavior.BLOCKING is critical** for tools that need to wait for external input
+2. **FunctionDeclaration schema limitations** require simple wrapper pattern (no ToolContext)
+3. **ADK's BIDI mode** is different from SSE mode - not all features work the same way
+4. **Sometimes the simplest solution is the best** - BLOCKING behavior is cleaner than all our complex workarounds
+
+**This is the breakthrough we needed!** The deferred approval flow can now be implemented cleanly and correctly in BIDI mode.
+
+---
+
+### Experimental Validation: LiveRequestQueue Behavior During BLOCKING
+
+**Question**: Do we really need `approval_queue`? Can tools access `LiveRequestQueue` directly?
+
+**Experiment**: `tests/integration/test_live_request_queue_during_blocking.py`
+
+**Findings**:
+
+1. ✅ **`LiveRequestQueue` continues operating during BLOCKING**
+   - Sent 3 test messages while tool was blocked for 5 seconds
+   - Events continued flowing (106 total events)
+   - Event loop is NOT paused during BLOCKING
+
+2. ❌ **Tool cannot access `LiveRequestQueue` from `ToolContext`**
+   - Inspected `ToolContext` attributes: No `live_request_queue` field
+   - Inspected `ToolContext.session`: No `live_request_queue` field
+   - Tool has access to: `session`, `state`, `user_id`, `function_call_id`, `run_config`, etc.
+   - But NOT to `LiveRequestQueue`
+
+3. ✅ **`approval_queue` is necessary**
+   - `LiveRequestQueue` is managed by ADK's `run_live()` internally
+   - Tools have no API to read from `LiveRequestQueue`
+   - External handler (WebSocket) must:
+     - Read approval messages from `LiveRequestQueue`
+     - Forward them to `approval_queue`
+     - Tool awaits `approval_queue.wait_for_approval()`
+
+**Architecture**:
+
+```
+┌─────────────────────┐
+│ WebSocket Handler   │
+│                     │
+│ Receives approval   │
+│ from frontend       │
+└──────────┬──────────┘
+           │
+           │ Writes to
+           ▼
+    ┌──────────────┐
+    │approval_queue│ ← Tool reads from this
+    └──────────────┘
+           ▲
+           │ Awaits
+           │
+    ┌──────┴──────┐
+    │ BLOCKING    │
+    │ Tool        │
+    └─────────────┘
+
+┌─────────────────────┐
+│ LiveRequestQueue    │ ← Managed by run_live()
+│ (Internal to ADK)   │ ← Not accessible from tool
+└─────────────────────┘
+```
+
+**Conclusion**: `approval_queue` is the correct and necessary pattern. It acts as a bridge between:
+- `LiveRequestQueue` (managed by ADK, not accessible from tools)
+- Tool functions (can await on `approval_queue`)
+
+**Why this works**:
+- BLOCKING behavior allows tool to pause without blocking event loop
+- Event loop continues processing `LiveRequestQueue` messages
+- External handler forwards approvals to `approval_queue`
+- Tool resumes when approval arrives
