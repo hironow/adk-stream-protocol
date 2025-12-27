@@ -256,16 +256,13 @@ def process_payment(
     logger.info(f"[process_payment] Mode: {mode}")
 
     if is_bidi_mode:
-        # BIDI mode: Return pending status to allow turn completion
-        # This enables LLM to respond and ADK to generate turn_complete event
-        # BidiEventSender injects confirmation events for user approval
-        # BidiEventReceiver executes actual logic after approval via LiveRequestQueue.send_content()
-        logger.info("[process_payment] BIDI mode - returning pending status")
-        return {
-            "status": "pending",
-            "awaiting_confirmation": True,
-            "message": f"Payment of {amount} {currency} to {recipient} requires user approval",
-        }
+        # BIDI mode: Return None - ADK won't generate FunctionResponse
+        # This is the correct LongRunningFunctionTool pattern:
+        # - Tool returns None → ADK does NOT send FunctionResponse
+        # - BidiEventSender injects confirmation events for user approval
+        # - BidiEventReceiver sends actual result via LiveRequestQueue.send_content() after approval
+        logger.info("[process_payment] BIDI mode - returning None (LongRunningFunctionTool pattern)")
+        return None
 
     # SSE mode: ADK handles confirmation automatically via require_confirmation=True
     # Execute payment logic directly (ADK has already handled approval)
@@ -403,16 +400,13 @@ async def get_location(tool_context: ToolContext) -> dict[str, Any]:
     logger.info(f"[get_location] Mode: {mode}")
 
     if is_bidi_mode:
-        # BIDI mode: Return pending status to allow turn completion
-        # This enables LLM to respond and ADK to generate turn_complete event
-        # BidiEventSender injects confirmation events for user approval
-        # BidiEventReceiver executes frontend delegation after approval via LiveRequestQueue.send_content()
-        logger.info("[get_location] BIDI mode - returning pending status")
-        return {
-            "status": "pending",
-            "awaiting_confirmation": True,
-            "message": "Location access requires user approval",
-        }
+        # BIDI mode: Return None - ADK won't generate FunctionResponse
+        # This is the correct LongRunningFunctionTool pattern:
+        # - Tool returns None → ADK does NOT send FunctionResponse
+        # - BidiEventSender injects confirmation events for user approval
+        # - BidiEventReceiver sends actual result via LiveRequestQueue.send_content() after approval
+        logger.info("[get_location] BIDI mode - returning None (LongRunningFunctionTool pattern)")
+        return None
 
     # SSE mode: ADK handles confirmation automatically via require_confirmation=True
     # Execute frontend delegation directly (ADK has already handled approval)
