@@ -241,99 +241,149 @@ describe("lib/sse Integration Tests", () => {
         (c) => c.type === "tool-input-start",
       );
       expect(startChunk).toBeDefined();
-      expect(startChunk).toHaveProperty("toolCallId", "call-1");
+      // createAdkConfirmationRequest uses originalFunctionCall.id as toolCallId
+      expect(startChunk).toHaveProperty("toolCallId", "orig-1");
 
       const availableChunk = confirmationChunks.find(
         (c) => c.type === "tool-input-available",
       );
       expect(availableChunk).toBeDefined();
-      expect(availableChunk).toHaveProperty("toolCallId", "call-1");
+      expect(availableChunk).toHaveProperty("toolCallId", "orig-1");
       expect(availableChunk).toHaveProperty("input");
     });
 
     it("sendAutomaticallyWhen detects confirmation completion", async () => {
-      // given - AI SDK v6 approval flow uses "approval-responded" state
-      const messages: UIMessageFromAISDKv6[] = [
+      // AI SDK v6: State changes from approval-requested to approval-responded
+      // when user calls addToolApprovalResponse() with correct approval.id
+      const { useChatOptions } = buildUseChatOptions({
+        mode: "adk-sse",
+        initialMessages: [],
+      });
+
+      // when: Tool is waiting for approval (approval-requested state)
+      const messagesWaiting: UIMessageFromAISDKv6[] = [
         {
           id: "1",
           role: "assistant",
           content: "",
           parts: [
             {
-              type: "tool-approval-request",
-              state: "approval-responded",
-              toolCallId: "call-1",
-              input: {
-                originalFunctionCall: {
-                  id: "orig-1",
-                  name: "dangerous_operation",
-                  args: {},
-                },
-              },
+              type: "tool-dangerous_operation",
+              state: "approval-requested", // User hasn't responded yet
+              toolCallId: "orig-1",
+              toolName: "dangerous_operation",
+              input: {},
               approval: {
-                id: "call-1",
-                approved: true,
+                id: "approval-1", // Approval request exists, but no user response yet
               },
             },
           ],
         } as any,
       ];
 
-      const { useChatOptions } = buildUseChatOptions({
-        mode: "adk-sse",
-        initialMessages: [],
+      const waitingCall = await useChatOptions.sendAutomaticallyWhen!({
+        messages: messagesWaiting,
       });
 
-      // when
-      const shouldSend = await useChatOptions.sendAutomaticallyWhen!({
-        messages,
+      // then: Should return false (wait for user to respond)
+      expect(waitingCall).toBe(false);
+
+      // when: User has approved (state changed to approval-responded)
+      const messagesApproved: UIMessageFromAISDKv6[] = [
+        {
+          id: "1",
+          role: "assistant",
+          content: "",
+          parts: [
+            {
+              type: "tool-dangerous_operation",
+              state: "approval-responded", // State changed after addToolApprovalResponse
+              toolCallId: "orig-1",
+              toolName: "dangerous_operation",
+              input: {},
+              approval: {
+                id: "approval-1",
+                approved: true, // User's decision
+                reason: undefined,
+              },
+            },
+          ],
+        } as any,
+      ];
+
+      const approvedCall = await useChatOptions.sendAutomaticallyWhen!({
+        messages: messagesApproved,
       });
 
-      // then
-      expect(shouldSend).toBe(true);
+      // then: Should return true (send approval to backend)
+      expect(approvedCall).toBe(true);
     });
 
     it("sendAutomaticallyWhen detects confirmation denial", async () => {
-      // given - AI SDK v6 denial flow uses "approval-responded" state with approved: false
-      const messages: UIMessageFromAISDKv6[] = [
+      // AI SDK v6: Denial works same as approval - state changes to approval-responded
+      // The actual approval/denial decision (approved: false) is included in the state
+      const { useChatOptions } = buildUseChatOptions({
+        mode: "adk-sse",
+        initialMessages: [],
+      });
+
+      // when: Tool is waiting for approval (approval-requested state)
+      const messagesWaiting: UIMessageFromAISDKv6[] = [
         {
-          id: "1",
+          id: "2",
           role: "assistant",
           content: "",
           parts: [
             {
-              type: "tool-approval-request",
-              state: "approval-responded",
-              toolCallId: "call-1",
-              input: {
-                originalFunctionCall: {
-                  id: "orig-1",
-                  name: "dangerous_operation",
-                  args: {},
-                },
-              },
+              type: "tool-dangerous_operation",
+              state: "approval-requested", // User hasn't responded yet
+              toolCallId: "orig-2",
+              toolName: "dangerous_operation",
+              input: {},
               approval: {
-                id: "call-1",
-                approved: false, // ← Key difference: approved is false
-                reason: "User rejected the operation",
+                id: "approval-2", // Approval request exists, but no user response yet
               },
             },
           ],
         } as any,
       ];
 
-      const { useChatOptions } = buildUseChatOptions({
-        mode: "adk-sse",
-        initialMessages: [],
+      const waitingCall = await useChatOptions.sendAutomaticallyWhen!({
+        messages: messagesWaiting,
       });
 
-      // when
-      const shouldSend = await useChatOptions.sendAutomaticallyWhen!({
-        messages,
+      // then: Should return false (wait for user to respond)
+      expect(waitingCall).toBe(false);
+
+      // when: User has denied (state changed to approval-responded with approved: false)
+      const messagesDenied: UIMessageFromAISDKv6[] = [
+        {
+          id: "2",
+          role: "assistant",
+          content: "",
+          parts: [
+            {
+              type: "tool-dangerous_operation",
+              state: "approval-responded", // State changed after addToolApprovalResponse
+              toolCallId: "orig-2",
+              toolName: "dangerous_operation",
+              input: {},
+              approval: {
+                id: "approval-2",
+                approved: false, // User denied
+                reason: undefined,
+              },
+            },
+          ],
+        } as any,
+      ];
+
+      const deniedCall = await useChatOptions.sendAutomaticallyWhen!({
+        messages: messagesDenied,
       });
 
-      // then
-      expect(shouldSend).toBe(true);
+      // then: Should return true (send denial to backend)
+      expect(deniedCall).toBe(true);
     });
   });
 });

@@ -22,7 +22,7 @@ import { describe, expect, it } from "vitest";
 import { buildUseChatOptions } from "../../bidi";
 import type { UIMessageFromAISDKv6 } from "../../utils";
 import {
-  isApprovalRequestPart,
+  isApprovalRequestedTool,
   isApprovalRespondedTool,
   isTextUIPartFromAISDKv6,
   isToolUIPartFromAISDKv6,
@@ -67,27 +67,23 @@ describe("Multi-Tool Execution E2E Tests", () => {
 
             const data = JSON.parse(event.data as string);
 
-            // Check if Tool1 was approved
+            // Check if Tool1 was approved (AI SDK v6: approval object exists)
             const hasTool1Approval = data.messages?.some(
               (msg: any) =>
                 msg.role === "assistant" &&
                 msg.parts?.some(
                   (part: any) =>
-                    isApprovalRequestPart(part) &&
-                    part.toolCallId === "call-tool1" &&
-                    part.state === "approval-responded",
+                    part.toolCallId === "call-tool1" && part.approval !== undefined,
                 ),
             );
 
-            // Check if Tool2 was approved
+            // Check if Tool2 was approved (AI SDK v6: approval object exists)
             const hasTool2Approval = data.messages?.some(
               (msg: any) =>
                 msg.role === "assistant" &&
                 msg.parts?.some(
                   (part: any) =>
-                    isApprovalRequestPart(part) &&
-                    part.toolCallId === "call-tool2" &&
-                    part.state === "approval-responded",
+                    part.toolCallId === "call-tool2" && part.approval !== undefined,
                 ),
             );
 
@@ -237,9 +233,8 @@ describe("Multi-Tool Execution E2E Tests", () => {
             result.current.messages[result.current.messages.length - 1];
           if (!lastMessage || lastMessage.role !== "assistant") return false;
 
-          const confirmationPart = lastMessage.parts.find(
-            (part) =>
-              isToolUIPartFromAISDKv6(part) && isApprovalRequestPart(part),
+          const confirmationPart = lastMessage.parts.find((part) =>
+            isApprovalRequestedTool(part),
           );
           return confirmationPart !== undefined;
         },
@@ -253,8 +248,7 @@ describe("Multi-Tool Execution E2E Tests", () => {
         throw new Error("No assistant message found after waitFor");
       }
       const confirmationTool1 = assistantMessage1.parts.find(
-        (part): part is any =>
-          isToolUIPartFromAISDKv6(part) && isApprovalRequestPart(part),
+        (part): part is any => isApprovalRequestedTool(part),
       );
       if (!confirmationTool1) {
         throw new Error("No confirmation tool found in assistant message");
@@ -267,21 +261,7 @@ describe("Multi-Tool Execution E2E Tests", () => {
         });
       });
 
-      // Wait for the approval state to be updated
-      await waitFor(
-        () => {
-          const updatedMsg =
-            result.current.messages[result.current.messages.length - 1];
-          const updatedPart = (updatedMsg as any).parts?.find(
-            (p: any) =>
-              isApprovalRequestPart(p) && p.toolCallId === "call-tool1",
-          );
-          expect(updatedPart?.state).toBe("approval-responded");
-        },
-        { timeout: 3000 },
-      );
-
-      // Wait for Tool2 confirmation request
+      // Wait for Tool2 confirmation request (backend responds after receiving Tool1 approval)
       await waitFor(
         () => {
           const messages = result.current.messages;
@@ -291,9 +271,7 @@ describe("Multi-Tool Execution E2E Tests", () => {
           // Look for Tool2 confirmation specifically
           const tool2Part = lastMessage.parts.find(
             (part) =>
-              isToolUIPartFromAISDKv6(part) &&
-              isApprovalRequestPart(part) &&
-              part.toolCallId === "call-tool2",
+              isApprovalRequestedTool(part) && part.toolCallId === "call-tool2",
           );
 
           return tool2Part !== undefined;
@@ -309,9 +287,7 @@ describe("Multi-Tool Execution E2E Tests", () => {
       }
       const confirmationTool2 = assistantMessage2.parts.find(
         (part): part is any =>
-          isToolUIPartFromAISDKv6(part) &&
-          isApprovalRequestPart(part) &&
-          part.toolCallId === "call-tool2",
+          isApprovalRequestedTool(part) && part.toolCallId === "call-tool2",
       );
       if (!confirmationTool2) {
         throw new Error("No confirmation tool2 found in assistant message");
@@ -324,21 +300,7 @@ describe("Multi-Tool Execution E2E Tests", () => {
         });
       });
 
-      // Wait for the Tool2 approval state to be updated
-      await waitFor(
-        () => {
-          const updatedMsg =
-            result.current.messages[result.current.messages.length - 1];
-          const updatedPart = (updatedMsg as any).parts?.find(
-            (p: any) =>
-              isApprovalRequestPart(p) && p.toolCallId === "call-tool2",
-          );
-          expect(updatedPart?.state).toBe("approval-responded");
-        },
-        { timeout: 3000 },
-      );
-
-      // Wait for final completion
+      // Wait for final completion (backend responds after receiving Tool2 approval)
       await waitFor(
         () => {
           const lastMessage =
@@ -382,27 +344,23 @@ describe("Multi-Tool Execution E2E Tests", () => {
 
             const data = JSON.parse(event.data as string);
 
-            // Check if Tool1 was approved
+            // Check if Tool1 was approved (AI SDK v6: approval object exists)
             const hasTool1Approval = data.messages?.some(
               (msg: any) =>
                 msg.role === "assistant" &&
                 msg.parts?.some(
                   (part: any) =>
-                    isApprovalRequestPart(part) &&
-                    part.toolCallId === "call-tool1" &&
-                    part.state === "approval-responded",
+                    part.toolCallId === "call-tool1" && part.approval !== undefined,
                 ),
             );
 
-            // Check if Tool2 was denied
+            // Check if Tool2 was denied (AI SDK v6: approval object exists, backend knows it's denied from request)
             const hasTool2Denial = data.messages?.some(
               (msg: any) =>
                 msg.role === "assistant" &&
                 msg.parts?.some(
                   (part: any) =>
-                    isApprovalRequestPart(part) &&
-                    part.toolCallId === "call-tool2" &&
-                    part.approval?.approved === false,
+                    part.toolCallId === "call-tool2" && part.approval !== undefined,
                 ),
             );
 
@@ -545,9 +503,7 @@ describe("Multi-Tool Execution E2E Tests", () => {
             lastMessage?.role === "assistant" &&
             lastMessage.parts.some(
               (part) =>
-                isToolUIPartFromAISDKv6(part) &&
-                isApprovalRequestPart(part) &&
-                part.toolCallId === "call-tool1",
+                isApprovalRequestedTool(part) && part.toolCallId === "call-tool1",
             )
           );
         },
@@ -561,9 +517,7 @@ describe("Multi-Tool Execution E2E Tests", () => {
       }
       const tool1 = msg1.parts.find(
         (part): part is any =>
-          isToolUIPartFromAISDKv6(part) &&
-          isApprovalRequestPart(part) &&
-          part.toolCallId === "call-tool1",
+          isApprovalRequestedTool(part) && part.toolCallId === "call-tool1",
       );
       if (!tool1) {
         throw new Error("No confirmation tool1 found in assistant message");
@@ -576,21 +530,7 @@ describe("Multi-Tool Execution E2E Tests", () => {
         });
       });
 
-      // Wait for the approval state to be updated
-      await waitFor(
-        () => {
-          const updatedMsg =
-            result.current.messages[result.current.messages.length - 1];
-          const updatedPart = (updatedMsg as any).parts?.find(
-            (p: any) =>
-              isApprovalRequestPart(p) && p.toolCallId === "call-tool1",
-          );
-          expect(updatedPart?.state).toBe("approval-responded");
-        },
-        { timeout: 3000 },
-      );
-
-      // Wait for Tool2 confirmation
+      // Wait for Tool2 confirmation (backend responds after receiving Tool1 approval)
       await waitFor(
         () => {
           const lastMessage =
@@ -599,9 +539,7 @@ describe("Multi-Tool Execution E2E Tests", () => {
             lastMessage?.role === "assistant" &&
             lastMessage.parts.some(
               (part) =>
-                isToolUIPartFromAISDKv6(part) &&
-                isApprovalRequestPart(part) &&
-                part.toolCallId === "call-tool2",
+                isApprovalRequestedTool(part) && part.toolCallId === "call-tool2",
             )
           );
         },
@@ -615,9 +553,7 @@ describe("Multi-Tool Execution E2E Tests", () => {
       }
       const tool2 = msg2.parts.find(
         (part): part is any =>
-          isToolUIPartFromAISDKv6(part) &&
-          isApprovalRequestPart(part) &&
-          part.toolCallId === "call-tool2",
+          isApprovalRequestedTool(part) && part.toolCallId === "call-tool2",
       );
       if (!tool2) {
         throw new Error("No confirmation tool2 found in assistant message");
@@ -630,21 +566,7 @@ describe("Multi-Tool Execution E2E Tests", () => {
         });
       });
 
-      // Wait for the Tool2 denial state to be updated
-      await waitFor(
-        () => {
-          const updatedMsg =
-            result.current.messages[result.current.messages.length - 1];
-          const updatedPart = (updatedMsg as any).parts?.find(
-            (p: any) =>
-              isApprovalRequestPart(p) && p.toolCallId === "call-tool2",
-          );
-          expect(updatedPart?.state).toBe("approval-responded");
-        },
-        { timeout: 3000 },
-      );
-
-      // Wait for final response
+      // Wait for final response (backend responds after receiving Tool2 denial)
       await waitFor(
         () => {
           const lastMessage =

@@ -20,7 +20,6 @@ import { buildUseChatOptions } from "../../bidi";
 import type { UIMessageFromAISDKv6 } from "../../utils";
 import {
   isApprovalRequestedTool,
-  isApprovalRequestPart,
   isApprovalRespondedTool,
   isTextUIPartFromAISDKv6,
 } from "../../utils";
@@ -103,8 +102,7 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
                 msg.role === "assistant" &&
                 msg.parts?.some(
                   (part: any) =>
-                    isApprovalRequestPart(part) &&
-                    part.state === "approval-responded",
+                    isApprovalRespondedTool(part),
                 ),
             );
 
@@ -242,7 +240,7 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
             lastMessage?.role === "assistant" &&
             lastMessage.parts.some(
               (part: any) =>
-                isApprovalRequestPart(part) &&
+                isApprovalRequestedTool(part) &&
                 part.state === "approval-requested",
             )
           );
@@ -254,24 +252,25 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
       const confirmationMessage =
         result.current.messages[result.current.messages.length - 1];
       const confirmationPart = confirmationMessage.parts.find((part: any) =>
-        isApprovalRequestPart(part),
+        isApprovalRequestedTool(part),
       ) as any;
 
       await act(async () => {
         result.current.addToolApprovalResponse({
-          id: confirmationPart.toolCallId,
+          id: confirmationPart.approval.id, // ← Use approval.id, NOT toolCallId!
           approved: true,
         });
       });
 
-      // Wait for approval state to update
+      // Wait for state to change to approval-responded (AI SDK v6 standard behavior)
       await waitFor(
         () => {
           const msg =
             result.current.messages[result.current.messages.length - 1];
           const part = msg.parts.find((p: any) =>
-            isApprovalRequestPart(p),
+            isApprovalRespondedTool(p),
           ) as any;
+          expect(part).toBeDefined();
           expect(part?.state).toBe("approval-responded");
         },
         { timeout: 3000 },
@@ -346,8 +345,7 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
                 msg.role === "assistant" &&
                 msg.parts?.some(
                   (part: any) =>
-                    isApprovalRequestPart(part) &&
-                    part.state === "approval-responded",
+                    isApprovalRespondedTool(part),
                 ),
             );
 
@@ -470,7 +468,7 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
             result.current.messages[result.current.messages.length - 1];
           return msg?.parts?.some(
             (p: any) =>
-              isApprovalRequestPart(p) && p.state === "approval-requested",
+              isApprovalRequestedTool(p) && p.state === "approval-requested",
           );
         },
         { timeout: 3000 },
@@ -478,7 +476,7 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
 
       // Approve
       const msg = result.current.messages[result.current.messages.length - 1];
-      const part = msg.parts.find((p: any) => isApprovalRequestPart(p)) as any;
+      const part = msg.parts.find((p: any) => isApprovalRequestedTool(p)) as any;
 
       await act(async () => {
         result.current.addToolApprovalResponse({
@@ -487,14 +485,15 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
         });
       });
 
-      // Wait for approval state to update
+      // Wait for approval state to update to approval-responded
       await waitFor(
         () => {
           const msg =
             result.current.messages[result.current.messages.length - 1];
           const confirmationPart = msg.parts.find((p: any) =>
-            isApprovalRequestPart(p),
+            isApprovalRespondedTool(p),
           ) as any;
+          expect(confirmationPart).toBeDefined();
           expect(confirmationPart?.state).toBe("approval-responded");
         },
         { timeout: 3000 },
@@ -563,7 +562,7 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
                 msg.role === "assistant" &&
                 msg.parts?.some(
                   (part: any) =>
-                    isApprovalRequestPart(part) &&
+                    isApprovalRequestedTool(part) &&
                     part.state === "approval-responded" &&
                     part.approval?.approved === false,
                 ),
@@ -647,7 +646,7 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
             result.current.messages[result.current.messages.length - 1];
           return msg?.parts?.some(
             (p: any) =>
-              isApprovalRequestPart(p) && p.state === "approval-requested",
+              isApprovalRequestedTool(p) && p.state === "approval-requested",
           );
         },
         { timeout: 3000 },
@@ -655,7 +654,7 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
 
       // Deny
       const msg = result.current.messages[result.current.messages.length - 1];
-      const part = msg.parts.find((p: any) => isApprovalRequestPart(p)) as any;
+      const part = msg.parts.find((p: any) => isApprovalRequestedTool(p)) as any;
 
       await act(async () => {
         result.current.addToolApprovalResponse({
@@ -751,11 +750,11 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
               }
 
               // Turn 2: Alice approval → Alice execution + Bob approval request
-              // ADR 0002: Check for tool-adk_request_confirmation type part with approval
+              // ADR 0002: Check for actual tool part (tool-process_payment) with approval-responded state
               if (
                 lastMsg.parts?.some(
                   (p: any) =>
-                    p.type === "tool-adk_request_confirmation" &&
+                    p.type === "tool-process_payment" &&
                     "approval-responded" === p.state &&
                     p.approval?.id === "alice-approval-id",
                 )
@@ -787,11 +786,11 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
               }
 
               // Turn 3: Bob approval → Bob execution + final response
-              // ADR 0002: Check for tool-adk_request_confirmation type part with approval
+              // ADR 0002: Check for actual tool part (tool-process_payment) with approval-responded state
               if (
                 lastMsg.parts?.some(
                   (p: any) =>
-                    p.type === "tool-adk_request_confirmation" &&
+                    p.type === "tool-process_payment" &&
                     "approval-responded" === p.state &&
                     p.approval?.id === "bob-approval-id",
                 )

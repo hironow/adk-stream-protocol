@@ -23,10 +23,10 @@
   "author": "hironow",
   "license": "MIT",
   "dependencies": {
-    "@ai-sdk/google": "3.0.0-beta.72",
-    "@ai-sdk/react": "3.0.0-beta.151",
+    "@ai-sdk/google": "3.0.1",
+    "@ai-sdk/react": "3.0.3",
     "@valibot/to-json-schema": "^1.5.0",
-    "ai": "6.0.0-beta.148",
+    "ai": "6.0.3",
     "effect": "^3.19.11",
     "next": "^16.0.10",
     "react": "^19.2.3",

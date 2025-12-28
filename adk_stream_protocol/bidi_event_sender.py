@@ -314,13 +314,6 @@ class BidiEventSender:
                         # Generate unique ID for confirmation tool call
                         confirmation_id = f"adk-{uuid.uuid4()}"
 
-                        # Create originalFunctionCall payload
-                        original_function_call = {
-                            "id": tool_call_id,
-                            "name": tool_name,
-                            "args": tool_args,
-                        }
-
                         logger.info(
                             f"[BIDI Phase 5] Injecting tool-approval-request for {tool_name}"
                         )

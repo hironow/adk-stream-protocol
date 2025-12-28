@@ -186,9 +186,10 @@ export function sendAutomaticallyWhen({
       return false;
     }
 
-    // CRITICAL: Check if any tool has been approved (ADR 0002)
-    // With ADR 0002, tool-approval-request updates the original tool part's state
-    // to "approval-requested", and addToolApprovalResponse() updates it to "approval-responded"
+    // CRITICAL: Check if any tool has been approved (AI SDK v6 behavior)
+    // AI SDK v6: When user calls addToolApprovalResponse() with correct approval.id,
+    // the state immediately changes from "approval-requested" to "approval-responded"
+    // No two-phase tracking needed - just check for approval-responded state
     const hasApprovedTool = parts.some(
       // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
       (part: any) => isApprovalRespondedTool(part),
@@ -196,17 +197,17 @@ export function sendAutomaticallyWhen({
 
     if (!hasApprovedTool) {
       console.log(
-        "[SSE sendAutomaticallyWhen] No approved tool found, returning false",
+        "[SSE sendAutomaticallyWhen] No approved tool found (no approval-responded state), returning false",
       );
       // No approved tool found - user hasn't responded to approval request yet
       return false;
     }
 
-    console.log("[SSE sendAutomaticallyWhen] Has approved tool");
+    console.log("[SSE sendAutomaticallyWhen] Has approved tool (approval-responded state)");
 
-    // SSE-specific: Check for pending approval requests (approval-requested)
+    // SSE-specific: Check for pending approval requests
     // In SSE mode, multiple tools can be waiting for approval in the same message
-    // If there's a pending approval request, wait for user response before sending
+    // If there's still a tool in approval-requested state, wait for user response before sending
     const hasPendingApproval = parts.some(
       // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
       (part: any) => isApprovalRequestedTool(part),
@@ -214,7 +215,7 @@ export function sendAutomaticallyWhen({
 
     if (hasPendingApproval) {
       console.log(
-        "[SSE sendAutomaticallyWhen] Has pending approval, returning false",
+        "[SSE sendAutomaticallyWhen] Has pending approval (still in approval-requested state), returning false",
       );
       console.log(
         "[SSE sendAutomaticallyWhen] Parts states:",
@@ -236,7 +237,7 @@ export function sendAutomaticallyWhen({
       })),
     );
 
-    // Generate unique key for this approval state
+    // Generate unique key for this approval state (prevent infinite loops)
     // Key = messageId + sorted approved tool IDs
     const messageId = (lastMessage as any).id || "unknown";
     const approvedToolIds = parts

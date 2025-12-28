@@ -18,7 +18,12 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { describe, expect, it, vi } from "vitest";
 import { buildUseChatOptions, type Mode, type UseChatConfig } from "../../sse";
-import { isApprovalRequestPart, type UIMessageFromAISDKv6 } from "../../utils";
+import {
+  isApprovalRequestedTool,
+  isApprovalRespondedTool,
+  isToolUIPartFromAISDKv6,
+  type UIMessageFromAISDKv6,
+} from "../../utils";
 import {
   createAdkConfirmationRequest,
   createSendAutoSpy,
@@ -98,12 +103,13 @@ describe("SSE Mode with useChat - E2E Tests", () => {
       });
 
       // Wait for confirmation request to be received (state: approval-requested)
+      // AI SDK v6: tool-approval-request EVENT updates TOOL part state to "approval-requested"
       await waitFor(
         () => {
           const lastMessage = result.current.messages.at(-1);
           expect(lastMessage?.role).toBe("assistant");
           const confirmationPart = lastMessage?.parts?.find((p: any) =>
-            isApprovalRequestPart(p),
+            isApprovalRequestedTool(p),
           );
           expect(confirmationPart).toBeDefined();
           expect(confirmationPart?.state).toBe("approval-requested");
@@ -115,10 +121,10 @@ describe("SSE Mode with useChat - E2E Tests", () => {
       await act(async () => {
         const lastMessage = result.current.messages.at(-1);
         const confirmationPart = lastMessage?.parts?.find((p: any) =>
-          isApprovalRequestPart(p),
+          isApprovalRequestedTool(p),
         );
         result.current.addToolApprovalResponse({
-          id: confirmationPart?.toolCallId,
+          id: confirmationPart?.approval.id, // ← Use approval.id, NOT toolCallId!
           approved: true,
         });
       });
@@ -128,7 +134,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
         () => {
           const lastMessage = result.current.messages.at(-1);
           const confirmationPart = lastMessage?.parts?.find((p: any) =>
-            isApprovalRequestPart(p),
+            isApprovalRequestedTool(p),
           );
           console.log(
             "[Test] After approval, confirmation part:",
@@ -164,6 +170,9 @@ describe("SSE Mode with useChat - E2E Tests", () => {
       });
 
       // Verify second request payload (confirmation response)
+      // AI SDK v6: Tool parts have type "tool-{toolName}", not "tool-approval-request"
+      // After user approves, tool part has state "approval-requested" with approval object
+      // The approval object exists (user has responded) but backend hasn't processed it yet
       expect(capturedPayloads[1]).toMatchObject({
         messages: expect.arrayContaining([
           expect.objectContaining({
@@ -177,14 +186,13 @@ describe("SSE Mode with useChat - E2E Tests", () => {
           }),
           expect.objectContaining({
             role: "assistant",
-            // Should include confirmation approval response
+            // Should include TOOL part with approval object (user has responded)
             parts: expect.arrayContaining([
               expect.objectContaining({
-                type: "tool-approval-request",
-                state: "approval-responded",
-                approval: expect.objectContaining({
-                  approved: true,
-                }),
+                type: "tool-search_web", // AI SDK v6: type is "tool-{toolName}"
+                state: "approval-responded", // State changes immediately after addToolApprovalResponse
+                toolCallId: "orig-123",
+                approval: expect.anything(), // Approval object with {id, approved, reason}
               }),
             ]),
           }),
@@ -263,19 +271,23 @@ describe("SSE Mode with useChat - E2E Tests", () => {
           const payload = await request.json();
 
           // Check if this is the confirmation response
+          // AI SDK v6: Check for TOOL parts with approval objects (user has responded)
           const hasConfirmation = (payload as any).messages?.some(
             (msg: any) =>
               msg.role === "assistant" &&
-              msg.parts?.some((part: any) => isApprovalRequestPart(part)),
+              msg.parts?.some(
+                (part: any) =>
+                  isToolUIPartFromAISDKv6(part) && part.approval !== undefined,
+              ),
           );
 
           if (!confirmationReceived) {
             confirmationReceived = true;
             // Return confirmation request
+            // Note: createAdkConfirmationRequest uses originalFunctionCall.id as toolCallId
             return createAdkConfirmationRequest({
-              toolCallId: "call-456",
               originalFunctionCall: {
-                id: "orig-456",
+                id: "call-456",
                 name: "get_weather",
                 args: { location: "Tokyo" },
               },
@@ -306,21 +318,23 @@ describe("SSE Mode with useChat - E2E Tests", () => {
       });
 
       // Then: Wait for confirmation to appear in messages
+      // AI SDK v6: Tool parts have type "tool-{toolName}", state "approval-requested"
       await waitFor(
         () => {
           const messages = result.current.messages;
           const lastMessage = messages.at(-1);
 
           expect(lastMessage?.role).toBe("assistant");
-          expect(lastMessage?.parts).toEqual(
-            expect.arrayContaining([
-              expect.objectContaining({
-                type: "tool-approval-request",
-                toolCallId: "call-456",
-                state: "approval-requested",
-              }),
-            ]),
+          const toolPart = lastMessage?.parts?.find(
+            (p: any) =>
+              isToolUIPartFromAISDKv6(p) && p.toolCallId === "call-456",
           );
+          expect(toolPart).toBeDefined();
+          expect(toolPart).toMatchObject({
+            type: "tool-get_weather", // AI SDK v6: type is "tool-{toolName}"
+            toolCallId: "call-456",
+            state: "approval-requested",
+          });
         },
         { timeout: 3000 },
       );
@@ -329,10 +343,10 @@ describe("SSE Mode with useChat - E2E Tests", () => {
       await act(async () => {
         const lastMessage = result.current.messages.at(-1);
         const confirmationPart = lastMessage?.parts?.find((p: any) =>
-          isApprovalRequestPart(p),
+          isApprovalRequestedTool(p),
         );
         result.current.addToolApprovalResponse({
-          id: confirmationPart?.toolCallId,
+          id: confirmationPart?.approval.id, // ← Use approval.id, NOT toolCallId!
           approved: true,
         });
       });
@@ -370,9 +384,8 @@ describe("SSE Mode with useChat - E2E Tests", () => {
           // First request: Initial message
           if (requestCount === 1) {
             return createAdkConfirmationRequest({
-              toolCallId: "call-1",
               originalFunctionCall: {
-                id: "orig-1",
+                id: "call-1",
                 name: "step1",
                 args: {},
               },
@@ -382,9 +395,8 @@ describe("SSE Mode with useChat - E2E Tests", () => {
           // Second request: After first confirmation
           if (requestCount === 2) {
             return createAdkConfirmationRequest({
-              toolCallId: "call-2",
               originalFunctionCall: {
-                id: "orig-2",
+                id: "call-2",
                 name: "step2",
                 args: {},
               },
@@ -428,8 +440,12 @@ describe("SSE Mode with useChat - E2E Tests", () => {
 
       // Approve first confirmation
       await act(async () => {
+        const lastMessage = result.current.messages.at(-1);
+        const confirmationPart = lastMessage?.parts?.find(
+          (p: any) => p.toolCallId === "call-1",
+        );
         result.current.addToolApprovalResponse({
-          id: "call-1",
+          id: confirmationPart?.approval.id, // ← Use approval.id, NOT toolCallId!
           approved: true,
         });
       });
@@ -448,8 +464,12 @@ describe("SSE Mode with useChat - E2E Tests", () => {
 
       // Approve second confirmation
       await act(async () => {
+        const lastMessage = result.current.messages.at(-1);
+        const confirmationPart = lastMessage?.parts?.find(
+          (p: any) => p.toolCallId === "call-2",
+        );
         result.current.addToolApprovalResponse({
-          id: "call-2",
+          id: confirmationPart?.approval.id, // ← Use approval.id, NOT toolCallId!
           approved: true,
         });
       });
@@ -464,12 +484,14 @@ describe("SSE Mode with useChat - E2E Tests", () => {
       );
 
       // Verify both confirmations were processed
+      // AI SDK v6: Check for TOOL parts in approval-responded state (user has approved)
       const allMessages = result.current.messages;
       const confirmationParts = allMessages
         .flatMap((msg: any) => msg.parts || [])
         .filter(
           (p: any) =>
-            isApprovalRequestPart(p) && "approval-responded" === p.state,
+            isToolUIPartFromAISDKv6(p) &&
+            isApprovalRespondedTool(p),
         );
       expect(confirmationParts.length).toBeGreaterThanOrEqual(2);
     });
@@ -586,7 +608,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
           const lastMessage = result.current.messages.at(-1);
           expect(lastMessage?.role).toBe("assistant");
           const confirmationPart = lastMessage?.parts?.find((p: any) =>
-            isApprovalRequestPart(p),
+            isApprovalRequestedTool(p),
           );
           expect(confirmationPart).toBeDefined();
         },
@@ -597,10 +619,10 @@ describe("SSE Mode with useChat - E2E Tests", () => {
       await act(async () => {
         const lastMessage = result.current.messages.at(-1);
         const confirmationPart = lastMessage?.parts?.find((p: any) =>
-          isApprovalRequestPart(p),
+          isApprovalRequestedTool(p),
         );
         result.current.addToolApprovalResponse({
-          id: confirmationPart?.toolCallId,
+          id: confirmationPart?.approval.id, // ← Use approval.id, NOT toolCallId!
           approved: true,
         });
       });
@@ -619,40 +641,28 @@ describe("SSE Mode with useChat - E2E Tests", () => {
 
     it("should handle tool approval denial correctly", async () => {
       // Given: Backend returns confirmation request and handles denial
-      let denialReceived = false;
-      let finalResponseReceived = false;
+      let requestCount = 0;
 
       server.use(
         http.post("http://localhost:8000/stream", async ({ request }) => {
-          const payload = await request.json();
+          requestCount++;
+          const _payload = await request.json();
 
-          // Check if this is the denial response
-          const hasDenial = (payload as any).messages?.some(
-            (msg: any) =>
-              msg.role === "assistant" &&
-              msg.parts?.some(
-                (part: any) =>
-                  isApprovalRequestPart(part) &&
-                  part.approval?.approved === false,
-              ),
-          );
-
-          if (!denialReceived) {
-            denialReceived = true;
-            // Return confirmation request
+          // First request: Return confirmation request
+          if (requestCount === 1) {
             return createAdkConfirmationRequest({
-              toolCallId: "call-deny",
               originalFunctionCall: {
-                id: "orig-deny",
+                id: "call-deny",
                 name: "dangerous_operation",
                 args: { action: "delete_all" },
               },
             });
           }
 
-          if (hasDenial && !finalResponseReceived) {
-            finalResponseReceived = true;
-            // Return response acknowledging the denial
+          // Second request (after denial): Return response acknowledging the denial
+          // Note: Payload doesn't contain approval.approved field until backend responds
+          // We distinguish by request count
+          if (requestCount === 2) {
             return createTextResponse(
               "Operation cancelled as per your request.",
             );
@@ -681,7 +691,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
           const lastMessage = result.current.messages.at(-1);
           expect(lastMessage?.role).toBe("assistant");
           const confirmationPart = lastMessage?.parts?.find((p: any) =>
-            isApprovalRequestPart(p),
+            isApprovalRequestedTool(p),
           );
           expect(confirmationPart).toBeDefined();
           expect(confirmationPart?.state).toBe("approval-requested");
@@ -693,10 +703,10 @@ describe("SSE Mode with useChat - E2E Tests", () => {
       await act(async () => {
         const lastMessage = result.current.messages.at(-1);
         const confirmationPart = lastMessage?.parts?.find((p: any) =>
-          isApprovalRequestPart(p),
+          isApprovalRequestedTool(p),
         );
         result.current.addToolApprovalResponse({
-          id: confirmationPart?.toolCallId,
+          id: confirmationPart?.approval.id, // ← Use approval.id, NOT toolCallId!
           approved: false, // ← Denial
           reason: "User rejected the dangerous operation",
         });
@@ -705,8 +715,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
       // Verify sendAutomaticallyWhen triggers automatic resubmission on denial
       await waitFor(
         () => {
-          expect(denialReceived).toBe(true);
-          expect(finalResponseReceived).toBe(true);
+          expect(requestCount).toBe(2); // Initial + denial response
         },
         { timeout: 3000 },
       );
@@ -796,7 +805,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
         const lastMessage = result.current.messages.at(-1);
         const confirmationPart = findConfirmationPart(lastMessage);
         result.current.addToolApprovalResponse({
-          id: confirmationPart?.toolCallId,
+          id: confirmationPart?.approval.id, // ← Use approval.id, NOT toolCallId!
           approved: true,
         });
       });
@@ -818,11 +827,13 @@ describe("SSE Mode with useChat - E2E Tests", () => {
       expect(lastCall[0].messages.length).toBeGreaterThan(0);
 
       // Verify the messages array includes the approval response
+      // AI SDK v6: Check for TOOL parts in approval-responded state (user has approved)
       const messagesParam = lastCall[0].messages;
       const hasApprovalResponse = messagesParam.some((msg: any) =>
         msg.parts?.some(
           (p: any) =>
-            isApprovalRequestPart(p) && "approval-responded" === p.state,
+            isToolUIPartFromAISDKv6(p) &&
+            isApprovalRespondedTool(p),
         ),
       );
       expect(hasApprovalResponse).toBe(true);
@@ -864,9 +875,8 @@ describe("SSE Mode with useChat - E2E Tests", () => {
           // First request: Return first confirmation
           if (requestCount === 1) {
             return createAdkConfirmationRequest({
-              toolCallId: "first-call",
               originalFunctionCall: {
-                id: "first-orig",
+                id: "first-call",
                 name: "first_operation",
                 args: { action: "first" },
               },
@@ -876,9 +886,8 @@ describe("SSE Mode with useChat - E2E Tests", () => {
           // Second request (after first approval): Return second confirmation
           if (requestCount === 2) {
             return createAdkConfirmationRequest({
-              toolCallId: "second-call",
               originalFunctionCall: {
-                id: "second-orig",
+                id: "second-call",
                 name: "second_operation",
                 args: { action: "second" },
               },
@@ -920,7 +929,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
         const lastMessage = result.current.messages.at(-1);
         const confirmationPart = findConfirmationPart(lastMessage);
         result.current.addToolApprovalResponse({
-          id: confirmationPart?.toolCallId,
+          id: confirmationPart?.approval.id, // ← Use approval.id, NOT toolCallId!
           approved: true,
         });
       });
@@ -956,7 +965,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
           (c: any) => c.toolCallId === "second-call",
         );
         result.current.addToolApprovalResponse({
-          id: secondConfirmation?.toolCallId,
+          id: secondConfirmation?.approval.id, // ← Use approval.id, NOT toolCallId!
           approved: true,
         });
       });

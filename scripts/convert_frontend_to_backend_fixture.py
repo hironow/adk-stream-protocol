@@ -86,7 +86,9 @@ def convert_frontend_to_backend_jsonl(
     chunk_mode = f"adk-{mode}"  # "sse" -> "adk-sse", "bidi" -> "adk-bidi"
 
     # Generate fixed timestamp in Unix milliseconds (doesn't matter for fast-forward playback)
-    timestamp_ms = int(datetime.now(UTC).timestamp() * 1000)
+    # use the original file's modification time
+    d = datetime.fromtimestamp(frontend_json_path.stat().st_mtime, UTC)
+    timestamp_ms = int(d.timestamp() * 1000)
 
     # Fixed session ID for converted fixtures
     session_id = "converted-from-frontend"

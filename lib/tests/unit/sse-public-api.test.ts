@@ -121,7 +121,7 @@ describe("lib/sse Public API", () => {
         expected: false,
       },
       {
-        name: "returns true when confirmation completed (first time)",
+        name: "returns false when confirmation event arrives (Phase 1 - first time)",
         messages: [
           {
             id: "1",
@@ -129,25 +129,18 @@ describe("lib/sse Public API", () => {
             content: "",
             parts: [
               {
-                type: "tool-adk_request_confirmation",
-                state: "approval-responded",
-                toolCallId: "call-1",
-                input: {
-                  originalFunctionCall: {
-                    id: "orig-1",
-                    name: "search",
-                    args: {},
-                  },
-                },
+                type: "tool-search", // AI SDK v6: original tool, not adk_request_confirmation
+                state: "approval-requested", // State remains approval-requested
+                toolCallId: "orig-1",
+                input: { query: "test" },
                 approval: {
-                  id: "call-1",
-                  approved: true,
+                  id: "approval-1", // Just the id, no approved field yet
                 },
               },
             ],
           },
         ] as any,
-        expected: true,
+        expected: false, // Phase 1: Don't send yet, wait for user response
       },
       {
         name: "returns false when confirmation completed but other tool also completed (backend responded)",
@@ -240,6 +233,37 @@ describe("lib/sse Public API", () => {
 
       // then
       expect(result).toBe(false);
+    });
+
+    it("implements two-phase approval tracking (Phase 1 → false, Phase 2 → true)", () => {
+      // given: Message with tool approval request (approval object exists)
+      const messages = [
+        {
+          id: "msg-1",
+          role: "assistant",
+          parts: [
+            {
+              type: "tool-search",
+              state: "approval-requested",
+              toolCallId: "tool-1",
+              input: { query: "test" },
+              approval: { id: "approval-1" },
+            },
+          ],
+        },
+      ] as any;
+
+      // when: First call (Phase 1 - event just arrived)
+      const firstResult = sendAutomaticallyWhen({ messages });
+
+      // then: Should return false (wait for user to respond)
+      expect(firstResult).toBe(false);
+
+      // when: Second call (Phase 2 - user has responded)
+      const secondResult = sendAutomaticallyWhen({ messages });
+
+      // then: Should return true (send approval to backend)
+      expect(secondResult).toBe(true);
     });
   });
 

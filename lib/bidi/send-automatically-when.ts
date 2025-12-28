@@ -52,11 +52,6 @@ export interface SendAutomaticallyWhenOptions {
 // This prevents infinite loops where sendAutomaticallyWhen returns true repeatedly
 const sentApprovalStates = new Set<string>();
 
-// Track which approval requests we've RECEIVED (but user hasn't responded yet)
-// Key: messageId + toolCallId
-// This helps distinguish between "just received approval-request event" vs "user responded"
-const receivedApprovalRequests = new Set<string>();
-
 /**
  * BIDI Mode: Automatically Send When Tool Confirmation Completes OR Tool Output Added
  *
@@ -274,59 +269,44 @@ export function sendAutomaticallyWhen({
       return false;
     }
 
-    // CRITICAL: Check if any tool has user response (ADR 0002)
-    // With ADR 0002, tool-approval-request updates the original tool part's state
-    // to "approval-requested", and addToolApprovalResponse() adds an approval object
-    // Check both patterns:
-    // 1. Tool part with state: "approval-responded" (backend response)
-    // 2. Tool part with approval object (AI SDK v6 local marker after addToolApprovalResponse)
-    //    Note: approval object exists but doesn't have .approved until backend responds
+    // CRITICAL: Check if any tool has been approved (AI SDK v6 behavior)
+    // AI SDK v6: When user calls addToolApprovalResponse() with correct approval.id,
+    // the state immediately changes from "approval-requested" to "approval-responded"
+    // No two-phase tracking needed - just check for approval-responded state
     const hasApprovedTool = parts.some(
       // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
-      (part: any) =>
-        isApprovalRespondedTool(part) ||
-        (isToolUIPartFromAISDKv6(part) &&
-          part.state === "approval-requested" &&
-          part.approval),
+      (part: any) => isApprovalRespondedTool(part),
     );
 
     if (!hasApprovedTool) {
       console.log(
-        "[sendAutomaticallyWhen] No approved tool found, returning false",
+        "[sendAutomaticallyWhen] No approved tool found (no approval-responded state), returning false",
       );
       // No approved tool found - user hasn't responded to approval request yet
       return false;
     }
-    console.log("[sendAutomaticallyWhen] Has approved tool");
+    console.log("[sendAutomaticallyWhen] Has approved tool (approval-responded state)");
 
-    // BIDI-specific: Check for pending approval requests (approval-requested WITHOUT approval object)
+    // BIDI-specific: Check for pending approval requests
     // In BIDI mode, multiple tools can be waiting for approval in the same message
-    // If there's a pending approval request (user hasn't responded yet), wait for user response before sending
-    // Note: After addToolApprovalResponse(), the tool still has state "approval-requested" but now has approval object
+    // If there's still a tool in approval-requested state, wait for user response before sending
     const hasPendingApproval = parts.some(
       // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
-      (part: any) =>
-        isApprovalRequestedTool(part) && !part.approval,
+      (part: any) => isApprovalRequestedTool(part),
     );
 
     if (hasPendingApproval) {
       console.log(
-        "[sendAutomaticallyWhen] Has pending approval (no user response yet), returning false",
+        "[sendAutomaticallyWhen] Has pending approval (still in approval-requested state), returning false",
       );
       return false;
     }
 
-    // Generate unique key for this approval state
+    // Generate unique key for this approval state (prevent infinite loops)
     // Key = messageId + sorted approved tool IDs
     const messageId = (lastMessage as any).id || "unknown";
     const approvedToolIds = parts
-      .filter(
-        (p: any) =>
-          isApprovalRespondedTool(p) ||
-          (isToolUIPartFromAISDKv6(p) &&
-            p.state === "approval-requested" &&
-            p.approval),
-      )
+      .filter((p: any) => isApprovalRespondedTool(p))
       .map((p: any) => p.toolCallId)
       .sort()
       .join(",");
@@ -339,30 +319,6 @@ export function sendAutomaticallyWhen({
       );
       return false;
     }
-
-    // Two-phase approval tracking (AI SDK v6 adds approval object on tool-approval-request event)
-    // Phase 1: Just received approval-request event → approval object exists but user hasn't responded
-    // Phase 2: User called addToolApprovalResponse() → approval object still exists, but now we should send
-    // We distinguish by tracking which requests we've seen before
-    const approvalRequestKey = `${messageId}:${approvedToolIds}`;
-
-    if (!receivedApprovalRequests.has(approvalRequestKey)) {
-      // First time seeing this approval request - the tool-approval-request event just arrived
-      // Don't send yet, wait for user to respond
-      console.log(
-        "[sendAutomaticallyWhen] First time seeing approval request, waiting for user response",
-      );
-      receivedApprovalRequests.add(approvalRequestKey);
-      return false;
-    }
-
-    // Second time seeing this approval request - user must have called addToolApprovalResponse()
-    // Now we should send the approval to the backend
-    console.log(
-      "[sendAutomaticallyWhen] Second time seeing approval request, user has responded",
-    );
-    // Clean up the received request tracking
-    receivedApprovalRequests.delete(approvalRequestKey);
 
     // CRITICAL: Check if tools have completed execution BEFORE Frontend Execute check
     // This distinguishes:
