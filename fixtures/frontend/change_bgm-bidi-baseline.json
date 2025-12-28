@@ -16,26 +16,29 @@
   },
   "output": {
     "rawEvents": [
-      "data: {\"type\": \"start\", \"messageId\": \"b8f4ceb6-1e5d-43d8-a34b-56c06c096eb2\"}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"c3450366-4693-4f83-8cee-1e12fa4b1eca\"}\n\n",
       "data: {\"type\": \"reasoning-start\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Identifying Music Changer**\\n\\nI've identified `change_bgm` as the appropriate tool. This requires a `track` argument, and the user's input, \\\"\\u30c8\\u30e9\\u30c3\\u30af1\\\", translates precisely to `track=1`. I'm ready to call this tool with that specific argument. \\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Adjusting Music Settings**\\n\\nI've determined that the user's request, expressed as \\\"\\u30c8\\u30e9\\u30c3\\u30af1\\\", translates directly to setting the background music to track number 1. My understanding of the available tools, specifically `change_bgm`, allows me to execute this action by simply calling the tool with the argument `track=1`. I'm ready to proceed with this change.\\n\\n\\n\"}\n\n",
       "data: {\"type\": \"reasoning-end\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-13337400662835457839\", \"toolName\": \"change_bgm\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-13337400662835457839\", \"toolName\": \"change_bgm\", \"input\": {\"track\": 1}}\n\n",
-      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"function-call-13337400662835457839\", \"output\": {\"success\": true, \"track\": 1, \"message\": \"BGM change to track 1 initiated (frontend handles execution)\"}}\n\n",
-      "data: {\"type\": \"text-start\", \"id\": \"b8f4ceb6-1e5d-43d8-a34b-56c06c096eb2_output_text\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"b8f4ceb6-1e5d-43d8-a34b-56c06c096eb2_output_text\", \"delta\": \"BGM\\u3092\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"b8f4ceb6-1e5d-43d8-a34b-56c06c096eb2_output_text\", \"delta\": \"\\u30c8\\u30e9\\u30c3\\u30af1\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"b8f4ceb6-1e5d-43d8-a34b-56c06c096eb2_output_text\", \"delta\": \"\\u306b\\u5909\\u66f4\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"b8f4ceb6-1e5d-43d8-a34b-56c06c096eb2_output_text\", \"delta\": \"\\u3057\\u307e\\u3057\\u305f\\u3002\"}\n\n",
-      "data: {\"type\": \"text-end\", \"id\": \"b8f4ceb6-1e5d-43d8-a34b-56c06c096eb2_output_text\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1487, \"completionTokens\": null, \"totalTokens\": 1544}, \"audio\": {\"chunks\": 31, \"bytes\": 103680, \"sampleRate\": 24000, \"duration\": 2.16}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-6289285112291324975\", \"toolName\": \"change_bgm\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-6289285112291324975\", \"toolName\": \"change_bgm\", \"input\": {\"track\": 1}}\n\n",
+      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"function-call-6289285112291324975\", \"output\": {\"success\": true, \"track\": 1, \"message\": \"BGM change to track 1 initiated (frontend handles execution)\"}}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"c3450366-4693-4f83-8cee-1e12fa4b1eca_output_text\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"c3450366-4693-4f83-8cee-1e12fa4b1eca_output_text\", \"delta\": \"\\u80cc\\u666f\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"c3450366-4693-4f83-8cee-1e12fa4b1eca_output_text\", \"delta\": \"\\u30df\\u30e5\\u30fc\\u30b8\\u30c3\\u30af\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"c3450366-4693-4f83-8cee-1e12fa4b1eca_output_text\", \"delta\": \"\\u3092\\u30c8\\u30e9\\u30c3\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"c3450366-4693-4f83-8cee-1e12fa4b1eca_output_text\", \"delta\": \"\\u30af1\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"c3450366-4693-4f83-8cee-1e12fa4b1eca_output_text\", \"delta\": \"\\u306b\\u5909\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"c3450366-4693-4f83-8cee-1e12fa4b1eca_output_text\", \"delta\": \"\\u66f4\\u3057\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"c3450366-4693-4f83-8cee-1e12fa4b1eca_output_text\", \"delta\": \"\\u307e\\u3057\\u305f\\u3002\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"c3450366-4693-4f83-8cee-1e12fa4b1eca_output_text\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1474, \"completionTokens\": null, \"totalTokens\": 1537}, \"audio\": {\"chunks\": 36, \"bytes\": 113280, \"sampleRate\": 24000, \"duration\": 2.36}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
       {
         "type": "start",
-        "messageId": "b8f4ceb6-1e5d-43d8-a34b-56c06c096eb2"
+        "messageId": "c3450366-4693-4f83-8cee-1e12fa4b1eca"
       },
       {
         "type": "reasoning-start",
@@ -44,7 +47,7 @@
       {
         "type": "reasoning-delta",
         "id": "0",
-        "delta": "**Identifying Music Changer**\n\nI've identified `change_bgm` as the appropriate tool. This requires a `track` argument, and the user's input, \"トラック1\", translates precisely to `track=1`. I'm ready to call this tool with that specific argument. \n\n\n"
+        "delta": "**Adjusting Music Settings**\n\nI've determined that the user's request, expressed as \"トラック1\", translates directly to setting the background music to track number 1. My understanding of the available tools, specifically `change_bgm`, allows me to execute this action by simply calling the tool with the argument `track=1`. I'm ready to proceed with this change.\n\n\n"
       },
       {
         "type": "reasoning-end",
@@ -52,12 +55,12 @@
       },
       {
         "type": "tool-input-start",
-        "toolCallId": "function-call-13337400662835457839",
+        "toolCallId": "function-call-6289285112291324975",
         "toolName": "change_bgm"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "function-call-13337400662835457839",
+        "toolCallId": "function-call-6289285112291324975",
         "toolName": "change_bgm",
         "input": {
           "track": 1
@@ -65,7 +68,7 @@
       },
       {
         "type": "tool-output-available",
-        "toolCallId": "function-call-13337400662835457839",
+        "toolCallId": "function-call-6289285112291324975",
         "output": {
           "success": true,
           "track": 1,
@@ -74,46 +77,61 @@
       },
       {
         "type": "text-start",
-        "id": "b8f4ceb6-1e5d-43d8-a34b-56c06c096eb2_output_text"
+        "id": "c3450366-4693-4f83-8cee-1e12fa4b1eca_output_text"
       },
       {
         "type": "text-delta",
-        "id": "b8f4ceb6-1e5d-43d8-a34b-56c06c096eb2_output_text",
-        "delta": "BGMを"
+        "id": "c3450366-4693-4f83-8cee-1e12fa4b1eca_output_text",
+        "delta": "背景"
       },
       {
         "type": "text-delta",
-        "id": "b8f4ceb6-1e5d-43d8-a34b-56c06c096eb2_output_text",
-        "delta": "トラック1"
+        "id": "c3450366-4693-4f83-8cee-1e12fa4b1eca_output_text",
+        "delta": "ミュージック"
       },
       {
         "type": "text-delta",
-        "id": "b8f4ceb6-1e5d-43d8-a34b-56c06c096eb2_output_text",
-        "delta": "に変更"
+        "id": "c3450366-4693-4f83-8cee-1e12fa4b1eca_output_text",
+        "delta": "をトラッ"
       },
       {
         "type": "text-delta",
-        "id": "b8f4ceb6-1e5d-43d8-a34b-56c06c096eb2_output_text",
-        "delta": "しました。"
+        "id": "c3450366-4693-4f83-8cee-1e12fa4b1eca_output_text",
+        "delta": "ク1"
+      },
+      {
+        "type": "text-delta",
+        "id": "c3450366-4693-4f83-8cee-1e12fa4b1eca_output_text",
+        "delta": "に変"
+      },
+      {
+        "type": "text-delta",
+        "id": "c3450366-4693-4f83-8cee-1e12fa4b1eca_output_text",
+        "delta": "更し"
+      },
+      {
+        "type": "text-delta",
+        "id": "c3450366-4693-4f83-8cee-1e12fa4b1eca_output_text",
+        "delta": "ました。"
       },
       {
         "type": "text-end",
-        "id": "b8f4ceb6-1e5d-43d8-a34b-56c06c096eb2_output_text"
+        "id": "c3450366-4693-4f83-8cee-1e12fa4b1eca_output_text"
       },
       {
         "type": "finish",
         "finishReason": "stop",
         "messageMetadata": {
           "usage": {
-            "promptTokens": 1487,
+            "promptTokens": 1474,
             "completionTokens": null,
-            "totalTokens": 1544
+            "totalTokens": 1537
           },
           "audio": {
-            "chunks": 31,
-            "bytes": 103680,
+            "chunks": 36,
+            "bytes": 113280,
             "sampleRate": 24000,
-            "duration": 2.16
+            "duration": 2.36
           },
           "modelVersion": "gemini-2.5-flash-native-audio-preview-12-2025"
         }

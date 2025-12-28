@@ -20,34 +20,29 @@
   },
   "output": {
     "rawEvents": [
-      "data: {\"type\": \"start\", \"messageId\": \"8d586fbc-37d7-4b0a-bee2-fe7174feb43e\"}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"cb9fc1ed-07f5-404d-b959-329c305bd9be\"}\n\n",
       "data: {\"type\": \"reasoning-start\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Finding Payment Solutions**\\n\\nI've identified that the user wants a payment processed and found a suitable tool for that: `process_payment`.  It takes the amount, recipient, and currency as inputs.  I've mapped the user's intended values to the tool's required inputs. The default currency, USD, will be used. Thus, the parameters are set: `amount=100`, `recipient='Alice'`, and `currency='USD'`.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Examining Payment Processing**\\n\\nI'm zeroing in on the `process_payment` tool. It seems ideally suited for this. Based on the user's input, I've extracted the key information: an amount of $100 (in USD) and the recipient, Alice. I'm preparing to invoke `process_payment` with these parameters.\\n\\n\\n\"}\n\n",
       "data: {\"type\": \"reasoning-end\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-13258368836728118994\", \"toolName\": \"process_payment\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-13258368836728118994\", \"toolName\": \"process_payment\", \"input\": {\"recipient\": \"Alice\", \"currency\": \"USD\", \"amount\": 100}}\n\n",
-      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-13258368836728118994\", \"approvalId\": \"adk-7f45a4b1-0e46-40c5-a503-e5b20cf5b313\"}\n\n",
-      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"function-call-13258368836728118994\", \"errorText\": \"Approval request timed out\"}\n\n",
-      "data: {\"type\": \"reasoning-start\", \"id\": \"1\"}\n\n",
-      "data: {\"type\": \"reasoning-delta\", \"id\": \"1\", \"delta\": \"**Address Payment Failure**\\n\\nI've hit a snag. The payment process timed out during approval. Now, I need to craft a message to the user explaining that the transaction didn't go through due to the timeout. This communication will be crucial for managing their expectations and potentially prompting them to try again.\\n\\n\\n\"}\n\n",
-      "data: {\"type\": \"reasoning-end\", \"id\": \"1\"}\n\n",
-      "data: {\"type\": \"text-start\", \"id\": \"8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text\", \"delta\": \"Payment approval\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text\", \"delta\": \" timed\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text\", \"delta\": \" out,\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text\", \"delta\": \" so the\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text\", \"delta\": \" payment\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text\", \"delta\": \" was\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text\", \"delta\": \" not\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text\", \"delta\": \" processed.\"}\n\n",
-      "data: {\"type\": \"text-end\", \"id\": \"8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1521, \"completionTokens\": null, \"totalTokens\": 1604}, \"audio\": {\"chunks\": 56, \"bytes\": 151680, \"sampleRate\": 24000, \"duration\": 3.16}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-11335121233242397771\", \"toolName\": \"process_payment\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-11335121233242397771\", \"toolName\": \"process_payment\", \"input\": {\"currency\": \"USD\", \"recipient\": \"Alice\", \"amount\": 100}}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-11335121233242397771\", \"approvalId\": \"adk-305db98e-7902-4755-b64a-dfb1040a879c\"}\n\n",
+      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"function-call-11335121233242397771\", \"errorText\": \"Approval request timed out\"}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"cb9fc1ed-07f5-404d-b959-329c305bd9be_output_text\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"cb9fc1ed-07f5-404d-b959-329c305bd9be_output_text\", \"delta\": \"Payment to\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"cb9fc1ed-07f5-404d-b959-329c305bd9be_output_text\", \"delta\": \" Alice\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"cb9fc1ed-07f5-404d-b959-329c305bd9be_output_text\", \"delta\": \" was\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"cb9fc1ed-07f5-404d-b959-329c305bd9be_output_text\", \"delta\": \" not\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"cb9fc1ed-07f5-404d-b959-329c305bd9be_output_text\", \"delta\": \" approved\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"cb9fc1ed-07f5-404d-b959-329c305bd9be_output_text\", \"delta\": \" in time.\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"cb9fc1ed-07f5-404d-b959-329c305bd9be_output_text\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1498, \"completionTokens\": null, \"totalTokens\": 1558}, \"audio\": {\"chunks\": 31, \"bytes\": 103680, \"sampleRate\": 24000, \"duration\": 2.16}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
       {
         "type": "start",
-        "messageId": "8d586fbc-37d7-4b0a-bee2-fe7174feb43e"
+        "messageId": "cb9fc1ed-07f5-404d-b959-329c305bd9be"
       },
       {
         "type": "reasoning-start",
@@ -56,7 +51,7 @@
       {
         "type": "reasoning-delta",
         "id": "0",
-        "delta": "**Finding Payment Solutions**\n\nI've identified that the user wants a payment processed and found a suitable tool for that: `process_payment`.  It takes the amount, recipient, and currency as inputs.  I've mapped the user's intended values to the tool's required inputs. The default currency, USD, will be used. Thus, the parameters are set: `amount=100`, `recipient='Alice'`, and `currency='USD'`.\n\n\n"
+        "delta": "**Examining Payment Processing**\n\nI'm zeroing in on the `process_payment` tool. It seems ideally suited for this. Based on the user's input, I've extracted the key information: an amount of $100 (in USD) and the recipient, Alice. I'm preparing to invoke `process_payment` with these parameters.\n\n\n"
       },
       {
         "type": "reasoning-end",
@@ -64,104 +59,81 @@
       },
       {
         "type": "tool-input-start",
-        "toolCallId": "function-call-13258368836728118994",
+        "toolCallId": "function-call-11335121233242397771",
         "toolName": "process_payment"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "function-call-13258368836728118994",
+        "toolCallId": "function-call-11335121233242397771",
         "toolName": "process_payment",
         "input": {
-          "recipient": "Alice",
           "currency": "USD",
+          "recipient": "Alice",
           "amount": 100
         }
       },
       {
         "type": "tool-approval-request",
-        "toolCallId": "function-call-13258368836728118994",
-        "approvalId": "adk-7f45a4b1-0e46-40c5-a503-e5b20cf5b313"
+        "toolCallId": "function-call-11335121233242397771",
+        "approvalId": "adk-305db98e-7902-4755-b64a-dfb1040a879c"
       },
       {
         "type": "tool-output-error",
-        "toolCallId": "function-call-13258368836728118994",
+        "toolCallId": "function-call-11335121233242397771",
         "errorText": "Approval request timed out"
       },
       {
-        "type": "reasoning-start",
-        "id": "1"
-      },
-      {
-        "type": "reasoning-delta",
-        "id": "1",
-        "delta": "**Address Payment Failure**\n\nI've hit a snag. The payment process timed out during approval. Now, I need to craft a message to the user explaining that the transaction didn't go through due to the timeout. This communication will be crucial for managing their expectations and potentially prompting them to try again.\n\n\n"
-      },
-      {
-        "type": "reasoning-end",
-        "id": "1"
-      },
-      {
         "type": "text-start",
-        "id": "8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text"
+        "id": "cb9fc1ed-07f5-404d-b959-329c305bd9be_output_text"
       },
       {
         "type": "text-delta",
-        "id": "8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text",
-        "delta": "Payment approval"
+        "id": "cb9fc1ed-07f5-404d-b959-329c305bd9be_output_text",
+        "delta": "Payment to"
       },
       {
         "type": "text-delta",
-        "id": "8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text",
-        "delta": " timed"
+        "id": "cb9fc1ed-07f5-404d-b959-329c305bd9be_output_text",
+        "delta": " Alice"
       },
       {
         "type": "text-delta",
-        "id": "8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text",
-        "delta": " out,"
-      },
-      {
-        "type": "text-delta",
-        "id": "8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text",
-        "delta": " so the"
-      },
-      {
-        "type": "text-delta",
-        "id": "8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text",
-        "delta": " payment"
-      },
-      {
-        "type": "text-delta",
-        "id": "8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text",
+        "id": "cb9fc1ed-07f5-404d-b959-329c305bd9be_output_text",
         "delta": " was"
       },
       {
         "type": "text-delta",
-        "id": "8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text",
+        "id": "cb9fc1ed-07f5-404d-b959-329c305bd9be_output_text",
         "delta": " not"
       },
       {
         "type": "text-delta",
-        "id": "8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text",
-        "delta": " processed."
+        "id": "cb9fc1ed-07f5-404d-b959-329c305bd9be_output_text",
+        "delta": " approved"
+      },
+      {
+        "type": "text-delta",
+        "id": "cb9fc1ed-07f5-404d-b959-329c305bd9be_output_text",
+        "delta": " in time."
       },
       {
         "type": "text-end",
-        "id": "8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text"
+        "id": "cb9fc1ed-07f5-404d-b959-329c305bd9be_output_text"
       },
       {
         "type": "finish",
         "finishReason": "stop",
         "messageMetadata": {
           "usage": {
-            "promptTokens": 1521,
+            "promptTokens": 1498,
             "completionTokens": null,
-            "totalTokens": 1604
+            "totalTokens": 1558
           },
           "audio": {
-            "chunks": 56,
-            "bytes": 151680,
+            "chunks": 31,
+            "bytes": 103680,
             "sampleRate": 24000,
-            "duration": 3.16
+            "duration": 2.16
           },
           "modelVersion": "gemini-2.5-flash-native-audio-preview-12-2025"
         }

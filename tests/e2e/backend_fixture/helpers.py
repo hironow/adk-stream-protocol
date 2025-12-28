@@ -1046,8 +1046,9 @@ def validate_tool_approval_request_toolcallid(raw_events: list[str]) -> tuple[bo
         - is_valid: True if validation passes
         - error_message: Empty string if valid, error description if invalid
     """
-    # Build mapping: toolName -> toolCallId from tool-input-available events
-    tool_calls: dict[str, str] = {}
+    # Collect all toolCallIds from tool-input-available events
+    # Use a set to handle multiple tool calls with the same tool name
+    tool_call_ids: set[str] = set()
 
     # Find tool-approval-request events
     approval_requests: list[tuple[str, str]] = []  # (toolCallId, approvalId)
@@ -1070,7 +1071,7 @@ def validate_tool_approval_request_toolcallid(raw_events: list[str]) -> tuple[bo
                 if tool_name and tool_call_id:
                     # Skip adk_request_confirmation - it should never appear as tool-input-available
                     if tool_name != "adk_request_confirmation":
-                        tool_calls[tool_name] = tool_call_id
+                        tool_call_ids.add(tool_call_id)
 
             # Track tool-approval-request events
             elif event_type == "tool-approval-request":
@@ -1085,11 +1086,11 @@ def validate_tool_approval_request_toolcallid(raw_events: list[str]) -> tuple[bo
     # Validate each approval request
     for approval_toolcallid, approval_id in approval_requests:
         # The toolCallId in tool-approval-request should match one of the tool-input-available toolCallIds
-        if approval_toolcallid not in tool_calls.values():
+        if approval_toolcallid not in tool_call_ids:
             return (
                 False,
                 f"tool-approval-request has toolCallId '{approval_toolcallid}' which does not match any "
-                f"tool-input-available toolCallId. Available tool calls: {tool_calls}. "
+                f"tool-input-available toolCallId. Available tool call IDs: {tool_call_ids}. "
                 f"This indicates the approval request is not properly linked to the original tool call.",
             )
 

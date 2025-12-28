@@ -1,6 +1,6 @@
 [project]
 name = "adk-stream-protocol"
-version = "0.1.1"
+version = "0.1.2"
 description = "AI SDK v6 and Google ADK integration example demonstrating data stream protocol implementation"
 readme = "README.md"
 authors = [

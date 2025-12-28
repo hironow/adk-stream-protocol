@@ -114,7 +114,8 @@
       "Bash(uv run uvicorn:*)",
       "Bash(tail:*)",
       "Bash(lsof:*)",
-      "Bash(xargs:*)"
+      "Bash(xargs:*)",
+      "Bash(E2E_REFRESH_FIXTURE=true uv run pytest:*)"
     ],
     "deny": [
       "Read(.env.keys)",

@@ -16,27 +16,33 @@
   },
   "output": {
     "rawEvents": [
-      "data: {\"type\": \"start\", \"messageId\": \"26609b40-7707-4602-b262-67374e5d97d3\"}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"01a91e2a-f28b-4649-8796-4b3b42f76a28\"}\n\n",
       "data: {\"type\": \"reasoning-start\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Defining the Tool Call**\\n\\nI'm now zeroing in on the correct `process_payment` tool call.  I've confirmed the recipient, Jiro-san, as a string and the amount, $200, in USD.  The tool parameters have been verified and I am ready to construct the call itself. It's almost ready for execution.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Evaluating Payment Methods**\\n\\nI'm currently focused on identifying a suitable payment method for transferring $200 to \\\"\\u6b21\\u90ce\\u3055\\u3093\\\".  The `process_payment` tool seems promising, accepting an amount, recipient, and currency.  I'm slightly concerned about the recipient's identifier (\\\"\\u6b21\\u90ce\\u3055\\u3093\\\") since the tool typically uses emails, usernames, or wallet addresses, but I'll try it with the given input and see if it works. I plan to use USD as the currency.\\n\\n\\n\"}\n\n",
       "data: {\"type\": \"reasoning-end\", \"id\": \"0\"}\n\n",
       "data: {\"type\": \"reasoning-start\", \"id\": \"1\"}\n\n",
-      "data: {\"type\": \"reasoning-delta\", \"id\": \"1\", \"delta\": \"**Refining the Payment Parameters**\\n\\nI've firmed up the recipient, Jiro-san, as a string and the payment amount as $200 in USD. The `process_payment` tool is definitely the correct one to use. I'm now crafting the tool call with those exact values and ensuring the arguments align with the tool definition. The structure is almost complete for submission, just confirming the details.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"1\", \"delta\": \"**Confirming Payment Details**\\n\\nI've decided to proceed with the `process_payment` tool and input the exact provided recipient name, \\\"\\u6b21\\u90ce\\u3055\\u3093,\\\" along with the amount of $200 and currency, USD.  I'm hoping the tool can handle this identifier directly, or provide an informative error message if the format is invalid.  I'm ready to trigger the function now.\\n\\n\\n\"}\n\n",
       "data: {\"type\": \"reasoning-end\", \"id\": \"1\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-10272706747688841769\", \"toolName\": \"process_payment\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-10272706747688841769\", \"toolName\": \"process_payment\", \"input\": {\"amount\": 200, \"recipient\": \"\\u6b21\\u90ce\\u3055\\u3093\", \"currency\": \"USD\"}}\n\n",
-      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-10272706747688841769\", \"approvalId\": \"adk-3430557d-fed3-4843-8e3c-e113d3e6dc5f\"}\n\n",
-      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"function-call-10272706747688841769\", \"output\": {\"success\": true, \"transaction_id\": \"txn_97acab733d43\", \"amount\": 200, \"currency\": \"USD\", \"recipient\": \"\\u6b21\\u90ce\\u3055\\u3093\", \"description\": \"\", \"wallet_balance\": 800.0, \"timestamp\": \"2025-12-28T01:56:15.309941+00:00\"}}\n\n",
-      "data: {\"type\": \"text-start\", \"id\": \"26609b40-7707-4602-b262-67374e5d97d3_output_text\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"26609b40-7707-4602-b262-67374e5d97d3_output_text\", \"delta\": \"\\u6b21\\u90ce\\u3055\\u3093\\u306b200\\u30c9\\u30eb\\u306e\\u9001\\u91d1\\u51e6\\u7406\\u304c\\u5b8c\\u4e86\\u3057\\u307e\\u3057\\u305f\\u3002\"}\n\n",
-      "data: {\"type\": \"text-end\", \"id\": \"26609b40-7707-4602-b262-67374e5d97d3_output_text\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1640, \"completionTokens\": null, \"totalTokens\": 1718}, \"audio\": {\"chunks\": 51, \"bytes\": 142080, \"sampleRate\": 24000, \"duration\": 2.96}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-11993019767497702616\", \"toolName\": \"process_payment\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-11993019767497702616\", \"toolName\": \"process_payment\", \"input\": {\"recipient\": \"\\u6b21\\u90ce\\u3055\\u3093\", \"amount\": 200, \"currency\": \"USD\"}}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-11993019767497702616\", \"approvalId\": \"adk-2b341538-ab02-4472-afc4-8a2cfc372777\"}\n\n",
+      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"function-call-11993019767497702616\", \"output\": {\"success\": true, \"transaction_id\": \"txn_ec59f24f5e8b\", \"amount\": 200, \"currency\": \"USD\", \"recipient\": \"\\u6b21\\u90ce\\u3055\\u3093\", \"description\": \"\", \"wallet_balance\": 800.0, \"timestamp\": \"2025-12-28T05:43:40.529607+00:00\"}}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"01a91e2a-f28b-4649-8796-4b3b42f76a28_output_text\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"01a91e2a-f28b-4649-8796-4b3b42f76a28_output_text\", \"delta\": \"\\u6b21\\u90ce\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"01a91e2a-f28b-4649-8796-4b3b42f76a28_output_text\", \"delta\": \"\\u3055\\u3093\\u306b200\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"01a91e2a-f28b-4649-8796-4b3b42f76a28_output_text\", \"delta\": \"\\u30c9\\u30eb\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"01a91e2a-f28b-4649-8796-4b3b42f76a28_output_text\", \"delta\": \"\\u9001\\u91d1\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"01a91e2a-f28b-4649-8796-4b3b42f76a28_output_text\", \"delta\": \"\\u304c\\u5b8c\\u4e86\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"01a91e2a-f28b-4649-8796-4b3b42f76a28_output_text\", \"delta\": \"\\u3057\\u307e\\u3057\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"01a91e2a-f28b-4649-8796-4b3b42f76a28_output_text\", \"delta\": \"\\u305f\\u3002\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"01a91e2a-f28b-4649-8796-4b3b42f76a28_output_text\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1687, \"completionTokens\": null, \"totalTokens\": 1757}, \"audio\": {\"chunks\": 42, \"bytes\": 124800, \"sampleRate\": 24000, \"duration\": 2.6}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
       {
         "type": "start",
-        "messageId": "26609b40-7707-4602-b262-67374e5d97d3"
+        "messageId": "01a91e2a-f28b-4649-8796-4b3b42f76a28"
       },
       {
         "type": "reasoning-start",
@@ -45,7 +51,7 @@
       {
         "type": "reasoning-delta",
         "id": "0",
-        "delta": "**Defining the Tool Call**\n\nI'm now zeroing in on the correct `process_payment` tool call.  I've confirmed the recipient, Jiro-san, as a string and the amount, $200, in USD.  The tool parameters have been verified and I am ready to construct the call itself. It's almost ready for execution.\n\n\n"
+        "delta": "**Evaluating Payment Methods**\n\nI'm currently focused on identifying a suitable payment method for transferring $200 to \"次郎さん\".  The `process_payment` tool seems promising, accepting an amount, recipient, and currency.  I'm slightly concerned about the recipient's identifier (\"次郎さん\") since the tool typically uses emails, usernames, or wallet addresses, but I'll try it with the given input and see if it works. I plan to use USD as the currency.\n\n\n"
       },
       {
         "type": "reasoning-end",
@@ -58,7 +64,7 @@
       {
         "type": "reasoning-delta",
         "id": "1",
-        "delta": "**Refining the Payment Parameters**\n\nI've firmed up the recipient, Jiro-san, as a string and the payment amount as $200 in USD. The `process_payment` tool is definitely the correct one to use. I'm now crafting the tool call with those exact values and ensuring the arguments align with the tool definition. The structure is almost complete for submission, just confirming the details.\n\n\n"
+        "delta": "**Confirming Payment Details**\n\nI've decided to proceed with the `process_payment` tool and input the exact provided recipient name, \"次郎さん,\" along with the amount of $200 and currency, USD.  I'm hoping the tool can handle this identifier directly, or provide an informative error message if the format is invalid.  I'm ready to trigger the function now.\n\n\n"
       },
       {
         "type": "reasoning-end",
@@ -66,65 +72,95 @@
       },
       {
         "type": "tool-input-start",
-        "toolCallId": "function-call-10272706747688841769",
+        "toolCallId": "function-call-11993019767497702616",
         "toolName": "process_payment"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "function-call-10272706747688841769",
+        "toolCallId": "function-call-11993019767497702616",
         "toolName": "process_payment",
         "input": {
-          "amount": 200,
           "recipient": "次郎さん",
+          "amount": 200,
           "currency": "USD"
         }
       },
       {
         "type": "tool-approval-request",
-        "toolCallId": "function-call-10272706747688841769",
-        "approvalId": "adk-3430557d-fed3-4843-8e3c-e113d3e6dc5f"
+        "toolCallId": "function-call-11993019767497702616",
+        "approvalId": "adk-2b341538-ab02-4472-afc4-8a2cfc372777"
       },
       {
         "type": "tool-output-available",
-        "toolCallId": "function-call-10272706747688841769",
+        "toolCallId": "function-call-11993019767497702616",
         "output": {
           "success": true,
-          "transaction_id": "txn_97acab733d43",
+          "transaction_id": "txn_ec59f24f5e8b",
           "amount": 200,
           "currency": "USD",
           "recipient": "次郎さん",
           "description": "",
           "wallet_balance": 800.0,
-          "timestamp": "2025-12-28T01:56:15.309941+00:00"
+          "timestamp": "2025-12-28T05:43:40.529607+00:00"
         }
       },
       {
         "type": "text-start",
-        "id": "26609b40-7707-4602-b262-67374e5d97d3_output_text"
+        "id": "01a91e2a-f28b-4649-8796-4b3b42f76a28_output_text"
       },
       {
         "type": "text-delta",
-        "id": "26609b40-7707-4602-b262-67374e5d97d3_output_text",
-        "delta": "次郎さんに200ドルの送金処理が完了しました。"
+        "id": "01a91e2a-f28b-4649-8796-4b3b42f76a28_output_text",
+        "delta": "次郎"
+      },
+      {
+        "type": "text-delta",
+        "id": "01a91e2a-f28b-4649-8796-4b3b42f76a28_output_text",
+        "delta": "さんに200"
+      },
+      {
+        "type": "text-delta",
+        "id": "01a91e2a-f28b-4649-8796-4b3b42f76a28_output_text",
+        "delta": "ドル"
+      },
+      {
+        "type": "text-delta",
+        "id": "01a91e2a-f28b-4649-8796-4b3b42f76a28_output_text",
+        "delta": "送金"
+      },
+      {
+        "type": "text-delta",
+        "id": "01a91e2a-f28b-4649-8796-4b3b42f76a28_output_text",
+        "delta": "が完了"
+      },
+      {
+        "type": "text-delta",
+        "id": "01a91e2a-f28b-4649-8796-4b3b42f76a28_output_text",
+        "delta": "しまし"
+      },
+      {
+        "type": "text-delta",
+        "id": "01a91e2a-f28b-4649-8796-4b3b42f76a28_output_text",
+        "delta": "た。"
       },
       {
         "type": "text-end",
-        "id": "26609b40-7707-4602-b262-67374e5d97d3_output_text"
+        "id": "01a91e2a-f28b-4649-8796-4b3b42f76a28_output_text"
       },
       {
         "type": "finish",
         "finishReason": "stop",
         "messageMetadata": {
           "usage": {
-            "promptTokens": 1640,
+            "promptTokens": 1687,
             "completionTokens": null,
-            "totalTokens": 1718
+            "totalTokens": 1757
           },
           "audio": {
-            "chunks": 51,
-            "bytes": 142080,
+            "chunks": 42,
+            "bytes": 124800,
             "sampleRate": 24000,
-            "duration": 2.96
+            "duration": 2.6
           },
           "modelVersion": "gemini-2.5-flash-native-audio-preview-12-2025"
         }

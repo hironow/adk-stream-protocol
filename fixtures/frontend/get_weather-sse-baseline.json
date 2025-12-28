@@ -16,29 +16,29 @@
   },
   "output": {
     "rawEvents": [
-      "data: {\"type\": \"start\", \"messageId\": \"683118ff-7acb-434a-b9bf-38310ddc6d7a\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-970587d6-ae9e-4b1d-add5-2b3387b7afd5\", \"toolName\": \"get_weather\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-970587d6-ae9e-4b1d-add5-2b3387b7afd5\", \"toolName\": \"get_weather\", \"input\": {\"location\": \"Tokyo\"}}\n\n",
-      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"adk-970587d6-ae9e-4b1d-add5-2b3387b7afd5\", \"output\": {\"temperature\": 4.5, \"condition\": \"Clouds\", \"description\": \"few clouds\", \"humidity\": 58, \"feels_like\": 2.3, \"wind_speed\": 2.57, \"cached\": true}}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"2fef35de-9184-42cb-aa73-da71e2720a7a\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-c5c745d9-a9b8-4cb0-9a4b-1d8b398769ec\", \"toolName\": \"get_weather\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-c5c745d9-a9b8-4cb0-9a4b-1d8b398769ec\", \"toolName\": \"get_weather\", \"input\": {\"location\": \"Tokyo\"}}\n\n",
+      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"adk-c5c745d9-a9b8-4cb0-9a4b-1d8b398769ec\", \"output\": {\"temperature\": 8.5, \"condition\": \"Clear\", \"description\": \"clear sky\", \"humidity\": 48, \"feels_like\": 5.8, \"wind_speed\": 4.63, \"cached\": true}}\n\n",
       "data: {\"type\": \"text-start\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"\\u73fe\\u5728\\u306e\\u6771\\u4eac\\u306e\\u5929\\u6c17\\u306f\\u300c\\u96f2\\uff08\\u5c11\\u3057\\u306e\\u96f2\\uff09\\u300d\\u3067\\u3059\\u3002\\u6c17\\u6e29\\u306f4.5\\u2103\\uff08\\u4f53\\u611f\\u6e29\\u5ea62.3\\u2103\\uff09\\u3001\\u6e7f\\u5ea6\\u306f58\\uff05\\u3001\\u98a8\\u901f\\u306f2.57m/s\\u3067\\u3059\\u3002\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"\\u73fe\\u5728\\u306e\\u6771\\u4eac\\u306e\\u5929\\u6c17\\u306f\\u6674\\u308c\\uff08clear sky\\uff09\\u3067\\u3059\\u3002\\u6c17\\u6e29\\u306f8.5\\u2103\\uff08\\u4f53\\u611f\\u6e29\\u5ea65.8\\u2103\\uff09\\u3001\\u6e7f\\u5ea6\\u306f48%\\u3067\\u3001\\u98a8\\u901f\\u306f4.63m/s\\u3067\\u3059\\u3002\"}\n\n",
       "data: {\"type\": \"text-end\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1305, \"completionTokens\": 47, \"totalTokens\": 1352}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1265, \"completionTokens\": 47, \"totalTokens\": 1312}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
       {
         "type": "start",
-        "messageId": "683118ff-7acb-434a-b9bf-38310ddc6d7a"
+        "messageId": "2fef35de-9184-42cb-aa73-da71e2720a7a"
       },
       {
         "type": "tool-input-start",
-        "toolCallId": "adk-970587d6-ae9e-4b1d-add5-2b3387b7afd5",
+        "toolCallId": "adk-c5c745d9-a9b8-4cb0-9a4b-1d8b398769ec",
         "toolName": "get_weather"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "adk-970587d6-ae9e-4b1d-add5-2b3387b7afd5",
+        "toolCallId": "adk-c5c745d9-a9b8-4cb0-9a4b-1d8b398769ec",
         "toolName": "get_weather",
         "input": {
           "location": "Tokyo"
@@ -46,14 +46,14 @@
       },
       {
         "type": "tool-output-available",
-        "toolCallId": "adk-970587d6-ae9e-4b1d-add5-2b3387b7afd5",
+        "toolCallId": "adk-c5c745d9-a9b8-4cb0-9a4b-1d8b398769ec",
         "output": {
-          "temperature": 4.5,
-          "condition": "Clouds",
-          "description": "few clouds",
-          "humidity": 58,
-          "feels_like": 2.3,
-          "wind_speed": 2.57,
+          "temperature": 8.5,
+          "condition": "Clear",
+          "description": "clear sky",
+          "humidity": 48,
+          "feels_like": 5.8,
+          "wind_speed": 4.63,
           "cached": true
         }
       },
@@ -64,7 +64,7 @@
       {
         "type": "text-delta",
         "id": "0",
-        "delta": "現在の東京の天気は「雲（少しの雲）」です。気温は4.5℃（体感温度2.3℃）、湿度は58％、風速は2.57m/sです。"
+        "delta": "現在の東京の天気は晴れ（clear sky）です。気温は8.5℃（体感温度5.8℃）、湿度は48%で、風速は4.63m/sです。"
       },
       {
         "type": "text-end",
@@ -75,9 +75,9 @@
         "finishReason": "stop",
         "messageMetadata": {
           "usage": {
-            "promptTokens": 1305,
+            "promptTokens": 1265,
             "completionTokens": 47,
-            "totalTokens": 1352
+            "totalTokens": 1312
           },
           "modelVersion": "gemini-3-flash-preview"
         }

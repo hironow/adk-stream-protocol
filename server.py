@@ -120,9 +120,8 @@ use_vertexai = os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "0") == "1"
 
 
 app = FastAPI(
-    title="ADK Data Protocol Server",
-    description="Google ADK backend for AI SDK v6 integration",
-    version="0.1.0",
+    title="ADK Stream Protocol ",
+    description="ADK Backend Server with FastAPI implementing AI SDK v6 Data Stream Protocol",
 )
 
 # CORS middleware for frontend communication

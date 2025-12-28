@@ -228,57 +228,126 @@ test.describe("ADK Tool Confirmation Flow (Phase 5)", () => {
     expect(text.length).toBeGreaterThan(0);
   });
 
-  // TODO: This test is flaky - investigate SSE mode sequential approval flow
-  // The issue: First payment gets stuck in "Processing Approval..." state
-  // Other 11 tests pass, so basic approval flow works correctly
-  test.skip("should handle multiple payments in sequence without loops", async ({
+  test("should handle multiple payments in single message - SSE parallel approval", async ({
     page,
   }) => {
-    // Given: Backend is ready
+    // TODO: Frontend needs to batch multiple approvals into single HTTP request
+    // Current issue: Clicking approve buttons separately sends separate requests
+    // Backend fixture test shows both approvals should go in one request (see test_multiple_payments_approved_sse_baseline.py line 132-156)
+    // Frontend implementation needs update to collect multiple approval responses before sending
+    test.skip();
+
+    // Given: SSE mode is ready (default mode in beforeEach)
     let totalRequestCount = 0;
 
     page.on("request", (request) => {
-      if (
-        request.url().includes("/stream") ||
-        request.url().includes("/live")
-      ) {
+      if (request.url().includes("/stream")) {
         totalRequestCount++;
       }
     });
 
-    // When: User requests first payment
-    await sendTextMessage(page, "Aliceに30ドル送金");
+    // When: User requests TWO payments in SINGLE message
+    await sendTextMessage(page, "Aliceに30ドル、Bobに40ドル送金してください");
 
+    // SSE MODE: Both approval buttons should appear simultaneously (parallel)
+    console.log("[SSE Mode] Expecting 2 parallel approval buttons...");
+
+    // Both approval buttons should be visible
     await expect(
       page.getByRole("button", { name: "Approve" }).first(),
-    ).toBeVisible({
-      timeout: 30000,
-    });
-    await page.getByRole("button", { name: "Approve" }).first().click();
-
-    // Wait for first payment to complete
-    // Using waitForAssistantResponse to ensure "Thinking..." disappears and response is fully complete
-    await waitForAssistantResponse(page);
-
-    const countAfterFirst = totalRequestCount;
-
-    // When: User requests second payment
-    await sendTextMessage(page, "Bobに40ドル送金");
-
+    ).toBeVisible({ timeout: 30000 });
     await expect(
-      page.getByRole("button", { name: "Approve" }).first(),
-    ).toBeVisible({
-      timeout: 30000,
-    });
+      page.getByRole("button", { name: "Approve" }).nth(1),
+    ).toBeVisible({ timeout: 5000 });
+
+    // Count should be 2
+    const count = await page.getByRole("button", { name: "Approve" }).count();
+    expect(count).toBe(2);
+    console.log(`[SSE Mode] ✓ Found ${count} parallel approval buttons`);
+
+    // Click both approve buttons (re-query after each click since state changes)
+    await page.getByRole("button", { name: "Approve" }).first().click();
+    // Wait briefly for UI to update
+    await page.waitForTimeout(500);
     await page.getByRole("button", { name: "Approve" }).first().click();
 
-    // Wait for second payment to complete
+    // Wait for response
     await waitForAssistantResponse(page);
 
-    // Total requests should be reasonable (< 10 for two payments)
+    // Response should mention both payments
+    const responseText =
+      (await page.locator('[data-testid="message-text"]').last().textContent()) || "";
+    expect(responseText).toContain("Alice");
+    expect(responseText).toContain("Bob");
+    console.log(`[SSE Mode] ✓ Response: ${responseText}`);
+
+    // Total requests should be reasonable
     console.log(`[Test] Total requests for two payments: ${totalRequestCount}`);
     expect(totalRequestCount).toBeLessThan(10);
-    expect(totalRequestCount - countAfterFirst).toBeLessThan(5); // Second payment alone
+  });
+
+  test("should handle multiple payments in single message - BIDI sequential approval", async ({
+    page,
+  }) => {
+    // Given: BIDI mode is ready
+    // NOTE: Default mode is SSE, so this test doesn't currently work
+    // because we don't have a way to switch to BIDI mode in beforeEach
+    // Keeping this test for documentation purposes
+    // TODO: Add mode selection capability to test setup
+    test.skip();
+
+    let totalRequestCount = 0;
+
+    page.on("request", (request) => {
+      if (request.url().includes("/live")) {
+        totalRequestCount++;
+      }
+    });
+
+    // When: User requests TWO payments in SINGLE message
+    await sendTextMessage(page, "Aliceに30ドル、Bobに40ドル送金してください");
+
+    // BIDI MODE: Sequential execution (one at a time)
+    console.log("[BIDI Mode] Expecting sequential approval buttons...");
+
+    // First approval button (Alice)
+    await expect(
+      page.getByRole("button", { name: "Approve" }).first(),
+    ).toBeVisible({ timeout: 30000 });
+
+    // Should only have 1 approval button at this point
+    const firstCount = await page.getByRole("button", { name: "Approve" }).count();
+    expect(firstCount).toBe(1);
+    console.log(`[BIDI Mode] ✓ Found first approval button (Alice)`);
+
+    // Click first approve button
+    await page.getByRole("button", { name: "Approve" }).first().click();
+
+    // Wait a moment for first execution to complete and second to start
+    await page.waitForTimeout(1000);
+
+    // Second approval button (Bob) should now appear
+    await expect(
+      page.getByRole("button", { name: "Approve" }).first(),
+    ).toBeVisible({ timeout: 30000 });
+    console.log(`[BIDI Mode] ✓ Found second approval button (Bob)`);
+
+    // Click second approve button
+    await page.getByRole("button", { name: "Approve" }).first().click();
+
+    // Wait for final response
+    await waitForAssistantResponse(page);
+
+    // Response should mention both payments
+    const responseText =
+      (await page.locator('[data-testid="message-text"]').last().textContent()) || "";
+    expect(responseText).toContain("Alice");
+    expect(responseText).toContain("Bob");
+    console.log(`[BIDI Mode] ✓ Response: ${responseText}`);
+
+    // Total requests should be reasonable
+    console.log(`[Test] Total requests for two payments: ${totalRequestCount}`);
+    expect(totalRequestCount).toBeLessThan(10);
   });
 
   test("should show process_payment tool state transitions (ADR 0002)", async ({

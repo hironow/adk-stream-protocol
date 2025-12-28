@@ -243,6 +243,121 @@ Message 3: Tool2 approval
 
 **For detailed explanation**, see **ADR 0004: Multi-Tool Sequential Execution Response Timing**.
 
+## Parallel Tool Approval Limitations
+
+### SSE Mode: Parallel Approval Supported
+
+When executing **multiple tools that require approval in a single message**, SSE mode can handle parallel approvals:
+
+```
+Request 1: "Aliceに30ドル、Bobに40ドル送金してください"
+→ Response 1:
+  - tool-input-available (Alice payment)
+  - tool-input-available (Bob payment)
+  - tool-approval-request (Alice)
+  - tool-approval-request (Bob)
+  - [DONE]
+
+Request 2: Both approvals sent together
+→ Response 2:
+  - tool-output-available (Alice payment)
+  - tool-output-available (Bob payment)
+  - text-delta/text-done (combined response)
+  - [DONE]
+```
+
+**Why This Works**:
+- SSE uses `generateContent` API
+- LLM response completes before tool execution
+- All tool calls are generated at once
+- Backend sends all tool-approval-requests before [DONE]
+
+### BIDI Mode: Sequential Execution Only
+
+**CRITICAL LIMITATION**: BIDI mode does **NOT** support parallel approvals. Tools are executed sequentially, one at a time.
+
+```
+Message 1: "Aliceに30ドル、Bobに40ドル送金してください"
+→ Response:
+  - tool-input-available (Alice payment only)
+  - tool-approval-request (Alice only)
+  [BLOCKS HERE - Bob payment not generated yet]
+
+Message 2: Alice approval
+→ Response:
+  - tool-output-available (Alice payment)
+  - tool-input-available (Bob payment) ← Now generated
+  - tool-approval-request (Bob)
+  [BLOCKS HERE - awaiting Bob approval]
+
+Message 3: Bob approval
+→ Response:
+  - tool-output-available (Bob payment)
+  - text-delta/text-done (combined response)
+  - [DONE]
+```
+
+**Root Cause: Gemini Live API Design**
+
+Investigation revealed this is **Gemini Live API behavior**, not an ADK or ApprovalQueue limitation:
+
+1. **Function Calling Executes Sequentially by Default**:
+   - [Gemini Live API documentation](https://ai.google.dev/gemini-api/docs/live-tools) states: "function calling executes sequentially by default"
+   - Default behavior is `BLOCKING` (undocumented), not `NON_BLOCKING`
+
+2. **BLOCKING Behavior Prevents Parallel Generation**:
+   ```python
+   # Tool declaration with BLOCKING behavior (default)
+   process_payment_declaration = types.FunctionDeclaration.from_callable_with_api_option(
+       callable=process_payment_simple,
+       api_option="GEMINI_API",
+       behavior=types.Behavior.BLOCKING,  # Sequential execution
+   )
+   ```
+
+3. **First Tool Blocks Second Tool Generation**:
+   - First tool starts executing and awaits approval
+   - LLM/SDK does not generate second tool call until first completes
+   - This is by design in Live API's streaming execution model
+
+4. **ApprovalQueue Supports Parallel Approvals**:
+   ```python
+   # ApprovalQueue is designed for concurrent requests
+   self._active_approvals: dict[str, dict[str, Any]] = {}
+   # Multiple tools can await simultaneously
+   ```
+   - ApprovalQueue implementation supports parallel approvals
+   - Limitation is in Live API's tool execution, not our code
+
+**Evidence**:
+
+Test output showing sequential behavior:
+```
+Event 5: tool-input-start (Alice payment)
+Event 6: tool-input-available (Alice payment)
+Event 7: tool-approval-request (Alice payment)
+[Timeout - Bob payment never generated]
+```
+
+LLM's own reasoning acknowledges sequential execution:
+```
+"I'll sequentially request user approval, as required by the tool."
+```
+
+**Workaround**: None available. This is fundamental to how Live API handles BLOCKING tools.
+
+**Design Implications**:
+
+| Feature | SSE Mode | BIDI Mode |
+|---------|----------|-----------|
+| **Parallel Tool Calls** | ✅ Supported | ❌ Not Supported |
+| **Parallel Approvals** | ✅ Supported | ❌ Sequential Only |
+| **API Used** | generateContent | Live API |
+| **Tool Execution** | After LLM completion | During streaming |
+| **Use Case** | Multiple independent actions | Single focused task |
+
+**Recommendation**: For use cases requiring parallel approvals (e.g., "pay Alice $30 and Bob $40"), prefer SSE mode over BIDI mode.
+
 ## Related ADRs
 
 - **ADR 0002**: Tool Approval Architecture with Backend Delegation
