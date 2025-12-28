@@ -16,27 +16,34 @@
   },
   "output": {
     "rawEvents": [
-      "data: {\"type\": \"start\", \"messageId\": \"8c73a60e-6a80-4cd7-aa8e-ff5f5b4f5e79\"}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"14025256-2836-47c6-a1b5-886b75cdbe96\"}\n\n",
       "data: {\"type\": \"reasoning-start\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Executing the Payment**\\n\\nI am now calling the `process_payment` tool. I've set the `amount` to 200, the `recipient` to \\\"\\u6b21\\u90ce\\u3055\\u3093,\\\" and the `currency` to USD. I recall that the tool requires user approval. I'm ready for the next step.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Processing the Payment Request**\\n\\nI'm now formulating the tool call to process the $200 payment to \\\"\\u6b21\\u90ce\\u3055\\u3093\\\".  The `process_payment` tool is the chosen method, with an amount of 200, recipient \\\"\\u6b21\\u90ce\\u3055\\u3093\\\", and currency USD. This requires user approval. I'm ensuring the recipient is passed as a string, adhering to the tool's definition.\\n\\n\\n\"}\n\n",
       "data: {\"type\": \"reasoning-end\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-16969784480474182426\", \"toolName\": \"process_payment\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-16969784480474182426\", \"toolName\": \"process_payment\", \"input\": {\"amount\": 200, \"recipient\": \"\\u6b21\\u90ce\\u3055\\u3093\", \"currency\": \"USD\"}}\n\n",
-      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-16969784480474182426\", \"approvalId\": \"adk-899278e9-111a-4dd5-bc53-c6e33fcb88df\"}\n\n",
-      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"function-call-16969784480474182426\", \"errorText\": \"User denied the payment\"}\n\n",
-      "data: {\"type\": \"text-start\", \"id\": \"8c73a60e-6a80-4cd7-aa8e-ff5f5b4f5e79_output_text\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"8c73a60e-6a80-4cd7-aa8e-ff5f5b4f5e79_output_text\", \"delta\": \"\\u652f\\u6255\\u3044\\u306f\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"8c73a60e-6a80-4cd7-aa8e-ff5f5b4f5e79_output_text\", \"delta\": \"\\u62d2\\u5426\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"8c73a60e-6a80-4cd7-aa8e-ff5f5b4f5e79_output_text\", \"delta\": \"\\u3055\\u308c\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"8c73a60e-6a80-4cd7-aa8e-ff5f5b4f5e79_output_text\", \"delta\": \"\\u307e\\u3057\\u305f\\u3002\"}\n\n",
-      "data: {\"type\": \"text-end\", \"id\": \"8c73a60e-6a80-4cd7-aa8e-ff5f5b4f5e79_output_text\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1498, \"completionTokens\": null, \"totalTokens\": 1545}, \"audio\": {\"chunks\": 18, \"bytes\": 78720, \"sampleRate\": 24000, \"duration\": 1.64}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
+      "data: {\"type\": \"reasoning-start\", \"id\": \"1\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"1\", \"delta\": \"**Formulating the Tool Call**\\n\\nI've finalized the structure of the `process_payment` tool call.  It's now encapsulated as `process_payment(amount=200, recipient='\\u6b21\\u90ce\\u3055\\u3093', currency='USD')`.  This explicitly uses the correct data types, ensuring the recipient is a string. The user will be prompted for approval before execution.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-end\", \"id\": \"1\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-1938664083173019154\", \"toolName\": \"process_payment\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-1938664083173019154\", \"toolName\": \"process_payment\", \"input\": {\"recipient\": \"\\u6b21\\u90ce\\u3055\\u3093\", \"amount\": 200, \"currency\": \"USD\"}}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-1938664083173019154\", \"approvalId\": \"adk-d0412343-0ccc-4669-93b8-fe8b594527aa\"}\n\n",
+      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"function-call-1938664083173019154\", \"errorText\": \"User denied the payment\"}\n\n",
+      "data: {\"type\": \"reasoning-start\", \"id\": \"2\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"2\", \"delta\": \"**Communicating Payment Failure**\\n\\nI've hit a roadblock. The payment attempt to \\u6b21\\u90ce\\u3055\\u3093 was unfortunately denied. I need to relay this disappointing news to the user promptly, explaining the situation clearly and concisely.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-end\", \"id\": \"2\"}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"14025256-2836-47c6-a1b5-886b75cdbe96_output_text\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"14025256-2836-47c6-a1b5-886b75cdbe96_output_text\", \"delta\": \"\\u652f\\u6255\\u3044\\u306f\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"14025256-2836-47c6-a1b5-886b75cdbe96_output_text\", \"delta\": \"\\u6b21\\u90ce\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"14025256-2836-47c6-a1b5-886b75cdbe96_output_text\", \"delta\": \"\\u3055\\u3093\\u306b\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"14025256-2836-47c6-a1b5-886b75cdbe96_output_text\", \"delta\": \"\\u62d2\\u5426\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"14025256-2836-47c6-a1b5-886b75cdbe96_output_text\", \"delta\": \"\\u3055\\u308c\\u307e\\u3057\\u305f\\u3002\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"14025256-2836-47c6-a1b5-886b75cdbe96_output_text\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1566, \"completionTokens\": null, \"totalTokens\": 1629}, \"audio\": {\"chunks\": 37, \"bytes\": 115200, \"sampleRate\": 24000, \"duration\": 2.4}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
       {
         "type": "start",
-        "messageId": "8c73a60e-6a80-4cd7-aa8e-ff5f5b4f5e79"
+        "messageId": "14025256-2836-47c6-a1b5-886b75cdbe96"
       },
       {
         "type": "reasoning-start",
@@ -45,79 +52,110 @@
       {
         "type": "reasoning-delta",
         "id": "0",
-        "delta": "**Executing the Payment**\n\nI am now calling the `process_payment` tool. I've set the `amount` to 200, the `recipient` to \"次郎さん,\" and the `currency` to USD. I recall that the tool requires user approval. I'm ready for the next step.\n\n\n"
+        "delta": "**Processing the Payment Request**\n\nI'm now formulating the tool call to process the $200 payment to \"次郎さん\".  The `process_payment` tool is the chosen method, with an amount of 200, recipient \"次郎さん\", and currency USD. This requires user approval. I'm ensuring the recipient is passed as a string, adhering to the tool's definition.\n\n\n"
       },
       {
         "type": "reasoning-end",
         "id": "0"
       },
       {
+        "type": "reasoning-start",
+        "id": "1"
+      },
+      {
+        "type": "reasoning-delta",
+        "id": "1",
+        "delta": "**Formulating the Tool Call**\n\nI've finalized the structure of the `process_payment` tool call.  It's now encapsulated as `process_payment(amount=200, recipient='次郎さん', currency='USD')`.  This explicitly uses the correct data types, ensuring the recipient is a string. The user will be prompted for approval before execution.\n\n\n"
+      },
+      {
+        "type": "reasoning-end",
+        "id": "1"
+      },
+      {
         "type": "tool-input-start",
-        "toolCallId": "function-call-16969784480474182426",
+        "toolCallId": "function-call-1938664083173019154",
         "toolName": "process_payment"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "function-call-16969784480474182426",
+        "toolCallId": "function-call-1938664083173019154",
         "toolName": "process_payment",
         "input": {
-          "amount": 200,
           "recipient": "次郎さん",
+          "amount": 200,
           "currency": "USD"
         }
       },
       {
         "type": "tool-approval-request",
-        "toolCallId": "function-call-16969784480474182426",
-        "approvalId": "adk-899278e9-111a-4dd5-bc53-c6e33fcb88df"
+        "toolCallId": "function-call-1938664083173019154",
+        "approvalId": "adk-d0412343-0ccc-4669-93b8-fe8b594527aa"
       },
       {
         "type": "tool-output-error",
-        "toolCallId": "function-call-16969784480474182426",
+        "toolCallId": "function-call-1938664083173019154",
         "errorText": "User denied the payment"
       },
       {
+        "type": "reasoning-start",
+        "id": "2"
+      },
+      {
+        "type": "reasoning-delta",
+        "id": "2",
+        "delta": "**Communicating Payment Failure**\n\nI've hit a roadblock. The payment attempt to 次郎さん was unfortunately denied. I need to relay this disappointing news to the user promptly, explaining the situation clearly and concisely.\n\n\n"
+      },
+      {
+        "type": "reasoning-end",
+        "id": "2"
+      },
+      {
         "type": "text-start",
-        "id": "8c73a60e-6a80-4cd7-aa8e-ff5f5b4f5e79_output_text"
+        "id": "14025256-2836-47c6-a1b5-886b75cdbe96_output_text"
       },
       {
         "type": "text-delta",
-        "id": "8c73a60e-6a80-4cd7-aa8e-ff5f5b4f5e79_output_text",
+        "id": "14025256-2836-47c6-a1b5-886b75cdbe96_output_text",
         "delta": "支払いは"
       },
       {
         "type": "text-delta",
-        "id": "8c73a60e-6a80-4cd7-aa8e-ff5f5b4f5e79_output_text",
+        "id": "14025256-2836-47c6-a1b5-886b75cdbe96_output_text",
+        "delta": "次郎"
+      },
+      {
+        "type": "text-delta",
+        "id": "14025256-2836-47c6-a1b5-886b75cdbe96_output_text",
+        "delta": "さんに"
+      },
+      {
+        "type": "text-delta",
+        "id": "14025256-2836-47c6-a1b5-886b75cdbe96_output_text",
         "delta": "拒否"
       },
       {
         "type": "text-delta",
-        "id": "8c73a60e-6a80-4cd7-aa8e-ff5f5b4f5e79_output_text",
-        "delta": "され"
-      },
-      {
-        "type": "text-delta",
-        "id": "8c73a60e-6a80-4cd7-aa8e-ff5f5b4f5e79_output_text",
-        "delta": "ました。"
+        "id": "14025256-2836-47c6-a1b5-886b75cdbe96_output_text",
+        "delta": "されました。"
       },
       {
         "type": "text-end",
-        "id": "8c73a60e-6a80-4cd7-aa8e-ff5f5b4f5e79_output_text"
+        "id": "14025256-2836-47c6-a1b5-886b75cdbe96_output_text"
       },
       {
         "type": "finish",
         "finishReason": "stop",
         "messageMetadata": {
           "usage": {
-            "promptTokens": 1498,
+            "promptTokens": 1566,
             "completionTokens": null,
-            "totalTokens": 1545
+            "totalTokens": 1629
           },
           "audio": {
-            "chunks": 18,
-            "bytes": 78720,
+            "chunks": 37,
+            "bytes": 115200,
             "sampleRate": 24000,
-            "duration": 1.64
+            "duration": 2.4
           },
           "modelVersion": "gemini-2.5-flash-native-audio-preview-12-2025"
         }

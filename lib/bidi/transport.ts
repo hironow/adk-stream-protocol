@@ -378,38 +378,62 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
           } else {
             // Reuse existing connection
 
-            // Close previous controller to prevent orphaning (P4-T10)
-            if (this.currentController) {
-              console.warn(
-                "[WS Transport] Closing previous stream before reusing connection",
-              );
-              try {
-                this.currentController.close();
-              } catch (_err) {
-                // Controller already closed - ignore error
+            // Phase 12 BLOCKING: Check if previous stream completed with [DONE]
+            // If [DONE] not received, reuse controller (approval/tool-output in same stream)
+            // If [DONE] received, close previous controller and create new stream
+            const doneReceived = this.eventReceiver.isDoneReceived();
+
+            if (doneReceived) {
+              // Previous stream completed - close controller and start new stream
+              if (this.currentController) {
                 console.debug(
-                  "[WS Transport] Previous controller already closed",
+                  "[WS Transport] Closing previous stream (received [DONE])",
                 );
+                try {
+                  this.currentController.close();
+                } catch (_err) {
+                  // Controller already closed - ignore error
+                  console.debug(
+                    "[WS Transport] Previous controller already closed",
+                  );
+                }
               }
+
+              // Save new controller reference (P4-T10)
+              this.currentController = controller;
+
+              // Reset EventReceiver state for new stream (Session 7)
+              this.eventReceiver.reset();
+            } else {
+              // Phase 12 BLOCKING: Stream still active (no [DONE] yet)
+              // Reuse existing controller for approval/tool-output
+              console.debug(
+                "[WS Transport] Reusing controller (Phase 12 BLOCKING - no [DONE] yet)",
+              );
+
+              // DO NOT close previous controller
+              // DO NOT reset EventReceiver (maintain state)
+              // Continue using this.currentController
+
+              // Note: We ignore the new controller and keep using the existing one
+              // This ensures approval/tool-output responses are in the same stream
             }
 
-            // Save new controller reference (P4-T10)
-            this.currentController = controller;
+            // Update message handler for stream (use appropriate controller)
+            // If reusing controller (Phase 12), keep using existing one
+            // If new stream, use new controller
+            const activeController = doneReceived ? controller : this.currentController!;
 
-            // Reset EventReceiver state for new stream (Session 7)
-            this.eventReceiver.reset();
-
-            // Update message handler for new stream
             if (this.ws) {
               this.ws.onmessage = (event) => {
-                this._handleWebSocketMessage(event.data, controller);
+                this._handleWebSocketMessage(event.data, activeController);
               };
 
               this.ws.onerror = (error) => {
                 console.error("[WS Transport] Error:", error);
                 this._stopPing(); // Stop ping on error
                 try {
-                  controller.error(new Error("WebSocket error"));
+                  activeController.error(new Error("WebSocket error"));
                 } catch (err) {
                   // Controller already closed (e.g., [DONE] was received) - ignore error
                   console.debug(
@@ -422,7 +446,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
               this.ws.onclose = () => {
                 this._stopPing(); // Stop ping on close
                 try {
-                  controller.close();
+                  activeController.close();
                 } catch (_err) {
                   // Controller already closed - ignore error (common in tests)
                   // Suppress logging as this is expected behavior during cleanup

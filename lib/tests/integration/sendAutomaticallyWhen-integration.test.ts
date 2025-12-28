@@ -16,7 +16,6 @@ import { sendAutomaticallyWhen as bidiSendAuto } from "../../bidi";
 import {
   TOOL_STATE_APPROVAL_RESPONDED,
   TOOL_STATE_OUTPUT_AVAILABLE,
-  TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
 } from "../../constants";
 import { sendAutomaticallyWhen as sseSendAuto } from "../../sse";
 
@@ -28,6 +27,9 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
       //
       // Without this guard: confirmation completion → send → backend responds →
       // confirmation still complete → send → infinite loop! ❌
+      //
+      // ADR 0002: No separate adk_request_confirmation tool. Original tool transitions:
+      // approval-requested → approval-responded → output-available
 
       const messagesAfterBackendResponse: UIMessage[] = [
         {
@@ -36,27 +38,17 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
           content: "Here are the search results",
           parts: [
             {
-              type: "tool-adk_request_confirmation",
-              state: TOOL_STATE_APPROVAL_RESPONDED,
-              toolCallId: "call-1",
-              input: {
-                originalFunctionCall: {
-                  id: "orig-1",
-                  name: "search",
-                  args: { query: "test" },
-                },
-              },
-              approval: {
-                id: "call-1",
-                approved: true,
-              },
-            },
-            {
-              // Backend has responded with actual tool result
+              // ADR 0002: Original tool has transitioned to output-available after approval
               type: "tool-search",
               state: "output-available",
               toolCallId: "orig-1",
+              toolName: "search",
+              input: { query: "test" },
               output: { results: ["data1", "data2"] },
+              approval: {
+                id: "approval-1",
+                approved: true,
+              },
             },
             {
               // Backend has sent text response
@@ -79,7 +71,8 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
     it("CRITICAL: returns true only on FIRST confirmation completion", () => {
       // Scenario: User just confirmed, backend hasn't responded yet
       // Expected: sendAutomaticallyWhen returns TRUE (trigger auto-send once)
-      // AI SDK v6 format: state="approval-responded", approval.approved=true
+      //
+      // ADR 0002: Original tool is in approval-responded state, no output yet
 
       const messagesFirstConfirmation: UIMessage[] = [
         {
@@ -88,22 +81,18 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
           content: "",
           parts: [
             {
-              type: TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+              // ADR 0002: Original tool in approval-responded state
+              type: "tool-search",
               state: TOOL_STATE_APPROVAL_RESPONDED,
-              toolCallId: "call-1",
-              input: {
-                originalFunctionCall: {
-                  id: "orig-1",
-                  name: "search",
-                  args: {},
-                },
-              },
+              toolCallId: "orig-1",
+              toolName: "search",
+              input: {},
               approval: {
-                id: "call-1",
+                id: "approval-1",
                 approved: true,
               },
             },
-            // No other tool results yet - backend hasn't responded
+            // No output yet - backend hasn't responded
           ],
         } as any,
       ];
@@ -116,8 +105,10 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
     });
 
     it("CRITICAL: returns false when tool has error state to prevent infinite loop", () => {
-      // Scenario: Tool execution failed
+      // Scenario: Tool execution failed after approval
       // Expected: Must return FALSE to prevent retry loop
+      //
+      // ADR 0002: Original tool transitions to output-error state
 
       const messagesWithError: UIMessage[] = [
         {
@@ -126,15 +117,16 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
           content: "",
           parts: [
             {
-              type: "tool-adk_request_confirmation",
-              state: "output-available",
-              toolCallId: "call-1",
-              output: { confirmed: true },
-            },
-            {
+              // ADR 0002: Original tool in error state after approval
               type: "tool-search",
-              state: "output-error", // Error state
+              state: "output-error",
               toolCallId: "orig-1",
+              toolName: "search",
+              input: {},
+              approval: {
+                id: "approval-1",
+                approved: true,
+              },
               error: "Network timeout",
             },
           ],
@@ -180,6 +172,7 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
 
   describe("SSE Mode - Infinite Loop Prevention", () => {
     it("CRITICAL: returns false after backend responds to prevent infinite loop", () => {
+      // ADR 0002: Original tool transitions to output-available after approval
       const messagesAfterBackendResponse: UIMessage[] = [
         {
           id: "1",
@@ -187,27 +180,17 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
           content: "File deleted successfully",
           parts: [
             {
-              type: "tool-adk_request_confirmation",
-              state: TOOL_STATE_APPROVAL_RESPONDED,
-              toolCallId: "call-1",
-              input: {
-                originalFunctionCall: {
-                  id: "orig-1",
-                  name: "delete_file",
-                  args: { path: "/important.txt" },
-                },
-              },
-              approval: {
-                id: "call-1",
-                approved: true,
-              },
-            },
-            {
-              // Backend has responded
+              // ADR 0002: Original tool in output-available state after approval
               type: "tool-delete_file",
               state: "output-available",
               toolCallId: "orig-1",
+              toolName: "delete_file",
+              input: { path: "/important.txt" },
               output: { deleted: true },
+              approval: {
+                id: "approval-1",
+                approved: true,
+              },
             },
             {
               // Backend has sent text response
@@ -228,7 +211,7 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
     });
 
     it("CRITICAL: returns true only on FIRST confirmation completion", () => {
-      // AI SDK v6 format: state="approval-responded", approval.approved=true
+      // ADR 0002: Original tool in approval-responded state, no output yet
       const messagesFirstConfirmation: UIMessage[] = [
         {
           id: "1",
@@ -236,22 +219,18 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
           content: "",
           parts: [
             {
-              type: TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+              // ADR 0002: Original tool in approval-responded state
+              type: "tool-delete_file",
               state: TOOL_STATE_APPROVAL_RESPONDED,
-              toolCallId: "call-1",
-              input: {
-                originalFunctionCall: {
-                  id: "orig-1",
-                  name: "delete_file",
-                  args: {},
-                },
-              },
+              toolCallId: "orig-1",
+              toolName: "delete_file",
+              input: {},
               approval: {
-                id: "call-1",
+                id: "approval-1",
                 approved: true,
               },
             },
-            // No other tool results yet - backend hasn't responded
+            // No output yet - backend hasn't responded
           ],
         } as any,
       ];
@@ -264,6 +243,7 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
     });
 
     it("CRITICAL: returns false when tool has error state", () => {
+      // ADR 0002: Original tool transitions to output-error state after approval
       const messagesWithError: UIMessage[] = [
         {
           id: "1",
@@ -271,15 +251,16 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
           content: "",
           parts: [
             {
-              type: "tool-adk_request_confirmation",
-              state: "output-available",
-              toolCallId: "call-1",
-              output: { confirmed: true },
-            },
-            {
+              // ADR 0002: Original tool in error state after approval
               type: "tool-delete_file",
               state: "output-error",
               toolCallId: "orig-1",
+              toolName: "delete_file",
+              input: {},
+              approval: {
+                id: "approval-1",
+                approved: true,
+              },
               error: "Permission denied",
             },
           ],
@@ -309,6 +290,8 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
       // Simulation of conversation flow:
       // Turn 1: User confirms → auto-send → backend responds (OK, no loop)
       // Turn 2: Another confirmation → auto-send → backend responds (OK, no loop)
+      //
+      // ADR 0002: Original tools transition through states
 
       // Turn 1: After backend responds
       const turn1AfterResponse: UIMessage[] = [
@@ -323,26 +306,17 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
           content: "Here's the latest AI news",
           parts: [
             {
-              type: TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
-              state: TOOL_STATE_APPROVAL_RESPONDED,
-              toolCallId: "call-1",
-              input: {
-                originalFunctionCall: {
-                  id: "orig-1",
-                  name: "search",
-                  args: {},
-                },
-              },
-              approval: {
-                id: "call-1",
-                approved: true,
-              },
-            },
-            {
+              // ADR 0002: Original search tool in output-available state after approval
               type: "tool-search",
               state: TOOL_STATE_OUTPUT_AVAILABLE,
               toolCallId: "orig-1",
+              toolName: "search",
+              input: {},
               output: { results: ["news1"] },
+              approval: {
+                id: "approval-1",
+                approved: true,
+              },
             },
             {
               type: "text",
@@ -368,18 +342,14 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
           content: "",
           parts: [
             {
-              type: TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+              // ADR 0002: Original delete_file tool in approval-responded state
+              type: "tool-delete_file",
               state: TOOL_STATE_APPROVAL_RESPONDED,
-              toolCallId: "call-2",
-              input: {
-                originalFunctionCall: {
-                  id: "orig-2",
-                  name: "delete_file",
-                  args: {},
-                },
-              },
+              toolCallId: "orig-2",
+              toolName: "delete_file",
+              input: {},
               approval: {
-                id: "call-2",
+                id: "approval-2",
                 approved: true,
               },
             },
@@ -404,26 +374,17 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
           content: "File deleted successfully",
           parts: [
             {
-              type: TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
-              state: TOOL_STATE_APPROVAL_RESPONDED,
-              toolCallId: "call-2",
-              input: {
-                originalFunctionCall: {
-                  id: "orig-2",
-                  name: "delete_file",
-                  args: {},
-                },
-              },
-              approval: {
-                id: "call-2",
-                approved: true,
-              },
-            },
-            {
+              // ADR 0002: Original delete_file tool in output-available state after approval
               type: "tool-delete_file",
               state: TOOL_STATE_OUTPUT_AVAILABLE,
               toolCallId: "orig-2",
+              toolName: "delete_file",
+              input: {},
               output: { deleted: true },
+              approval: {
+                id: "approval-2",
+                approved: true,
+              },
             },
             {
               type: "text",

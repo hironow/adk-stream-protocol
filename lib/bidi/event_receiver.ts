@@ -111,6 +111,14 @@ export class EventReceiver {
   }
 
   /**
+   * Check if [DONE] was received in current stream
+   * Used by transport to determine if controller should be reused (Phase 12 BLOCKING)
+   */
+  public isDoneReceived(): boolean {
+    return this.doneReceived;
+  }
+
+  /**
    * Get current PCM buffer for testing
    */
   public getPcmBuffer(): Int16Array[] {

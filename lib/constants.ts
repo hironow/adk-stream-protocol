@@ -11,25 +11,15 @@
  */
 
 /**
- * ADK Request Confirmation Tool Name
+ * ADK Request Confirmation is Internal (ADR 0002)
  *
- * Tool name used in ADK protocol for user confirmation requests.
- * This tool is invoked by the backend when an action requires explicit user approval.
+ * As of ADR 0002, the adk_request_confirmation tool is an internal backend tool
+ * and is hidden from the frontend. Frontend receives tool-approval-request events
+ * instead and uses addToolApprovalResponse() to respond.
  *
- * Format in message parts:
- * - Type: `tool-${TOOL_NAME_ADK_REQUEST_CONFIRMATION}`
- * - Example: "tool-adk_request_confirmation"
+ * The adk_request_confirmation tool and tool-adk_request_confirmation message parts
+ * no longer exist in the frontend protocol.
  */
-export const TOOL_NAME_ADK_REQUEST_CONFIRMATION = "adk_request_confirmation";
-
-/**
- * ADK Request Confirmation Tool Type
- *
- * Full type identifier used in UI message parts.
- * Combines "tool-" prefix with tool name.
- */
-export const TOOL_TYPE_ADK_REQUEST_CONFIRMATION =
-  `tool-${TOOL_NAME_ADK_REQUEST_CONFIRMATION}` as const;
 
 /**
  * Backend Mode Values

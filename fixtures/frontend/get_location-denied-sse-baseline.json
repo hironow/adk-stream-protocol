@@ -16,60 +16,60 @@
   },
   "output": {
     "rawEvents": [
-      "data: {\"type\": \"start\", \"messageId\": \"d3400ec3-9239-41cf-8e0c-888d1fda01b5\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-e9c1d9f1-d837-431c-8f9f-5ae9d5aa16d3\", \"toolName\": \"get_location\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-e9c1d9f1-d837-431c-8f9f-5ae9d5aa16d3\", \"toolName\": \"get_location\", \"input\": {}}\n\n",
-      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"adk-e9c1d9f1-d837-431c-8f9f-5ae9d5aa16d3\", \"approvalId\": \"adk-d204c5d1-1af6-4c50-957d-3b440fb4caa7\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1145, \"completionTokens\": 10, \"totalTokens\": 1221}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"0a7e8e93-c825-4d38-9158-49fab933d4d1\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-d3e9b885-e78d-4031-8fa1-ba9bd0b85b78\", \"toolName\": \"get_location\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-d3e9b885-e78d-4031-8fa1-ba9bd0b85b78\", \"toolName\": \"get_location\", \"input\": {}}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"adk-d3e9b885-e78d-4031-8fa1-ba9bd0b85b78\", \"approvalId\": \"adk-9aed7018-5ed6-47b7-b773-5ea140df2964\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1149, \"completionTokens\": 10, \"totalTokens\": 1230}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
       "data: [DONE]\n\n",
-      "data: {\"type\": \"start\", \"messageId\": \"5b9b2abc-b9b9-4764-8ecc-264e5a7149c4\"}\n\n",
-      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"adk-e9c1d9f1-d837-431c-8f9f-5ae9d5aa16d3\", \"errorText\": \"This tool call is rejected.\"}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"4b4a9746-c703-4278-877e-67d116b9aa74\"}\n\n",
+      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"adk-d3e9b885-e78d-4031-8fa1-ba9bd0b85b78\", \"errorText\": \"This tool call is rejected.\"}\n\n",
       "data: {\"type\": \"text-start\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"\\u7533\\u3057\\u8a33\\u3042\\u308a\\u307e\\u305b\\u3093\\u304c\\u3001\\u4f4d\\u7f6e\\u60c5\\u5831\\u306e\\u53d6\\u5f97\\u304c\\u62d2\\u5426\\u3055\\u308c\\u307e\\u3057\\u305f\\u3002\\u4f4d\\u7f6e\\u60c5\\u5831\\u3092\\u5171\\u6709\\u3059\\u308b\\u306b\\u306f\\u3001\\u30a2\\u30af\\u30bb\\u30b9\\u3092\\u8a31\\u53ef\\u3057\\u3066\\u304f\\u3060\\u3055\\u3044\\u3002\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"\\u7533\\u3057\\u8a33\\u3042\\u308a\\u307e\\u305b\\u3093\\u304c\\u3001\\u4f4d\\u7f6e\\u60c5\\u5831\\u306e\\u53d6\\u5f97\\u304c\\u62d2\\u5426\\u3055\\u308c\\u307e\\u3057\\u305f\\u3002\\u4f4d\\u7f6e\\u60c5\\u5831\\u3092\\u5171\\u6709\\u3059\\u308b\\u306b\\u306f\\u3001\\u30d6\\u30e9\\u30a6\\u30b6\\u3067\\u306e\\u8a31\\u53ef\\u304c\\u5fc5\\u8981\\u3067\\u3059\\u3002\"}\n\n",
       "data: {\"type\": \"text-end\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1240, \"completionTokens\": 23, \"totalTokens\": 1263}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1249, \"completionTokens\": 24, \"totalTokens\": 1273}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
       {
         "type": "start",
-        "messageId": "d3400ec3-9239-41cf-8e0c-888d1fda01b5"
+        "messageId": "0a7e8e93-c825-4d38-9158-49fab933d4d1"
       },
       {
         "type": "tool-input-start",
-        "toolCallId": "adk-e9c1d9f1-d837-431c-8f9f-5ae9d5aa16d3",
+        "toolCallId": "adk-d3e9b885-e78d-4031-8fa1-ba9bd0b85b78",
         "toolName": "get_location"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "adk-e9c1d9f1-d837-431c-8f9f-5ae9d5aa16d3",
+        "toolCallId": "adk-d3e9b885-e78d-4031-8fa1-ba9bd0b85b78",
         "toolName": "get_location",
         "input": {}
       },
       {
         "type": "tool-approval-request",
-        "toolCallId": "adk-e9c1d9f1-d837-431c-8f9f-5ae9d5aa16d3",
-        "approvalId": "adk-d204c5d1-1af6-4c50-957d-3b440fb4caa7"
+        "toolCallId": "adk-d3e9b885-e78d-4031-8fa1-ba9bd0b85b78",
+        "approvalId": "adk-9aed7018-5ed6-47b7-b773-5ea140df2964"
       },
       {
         "type": "finish",
         "finishReason": "stop",
         "messageMetadata": {
           "usage": {
-            "promptTokens": 1145,
+            "promptTokens": 1149,
             "completionTokens": 10,
-            "totalTokens": 1221
+            "totalTokens": 1230
           },
           "modelVersion": "gemini-3-flash-preview"
         }
       },
       {
         "type": "start",
-        "messageId": "5b9b2abc-b9b9-4764-8ecc-264e5a7149c4"
+        "messageId": "4b4a9746-c703-4278-877e-67d116b9aa74"
       },
       {
         "type": "tool-output-error",
-        "toolCallId": "adk-e9c1d9f1-d837-431c-8f9f-5ae9d5aa16d3",
+        "toolCallId": "adk-d3e9b885-e78d-4031-8fa1-ba9bd0b85b78",
         "errorText": "This tool call is rejected."
       },
       {
@@ -79,7 +79,7 @@
       {
         "type": "text-delta",
         "id": "0",
-        "delta": "申し訳ありませんが、位置情報の取得が拒否されました。位置情報を共有するには、アクセスを許可してください。"
+        "delta": "申し訳ありませんが、位置情報の取得が拒否されました。位置情報を共有するには、ブラウザでの許可が必要です。"
       },
       {
         "type": "text-end",
@@ -90,9 +90,9 @@
         "finishReason": "stop",
         "messageMetadata": {
           "usage": {
-            "promptTokens": 1240,
-            "completionTokens": 23,
-            "totalTokens": 1263
+            "promptTokens": 1249,
+            "completionTokens": 24,
+            "totalTokens": 1273
           },
           "modelVersion": "gemini-3-flash-preview"
         }

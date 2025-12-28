@@ -17,7 +17,6 @@ import {
   TOOL_STATE_APPROVAL_RESPONDED,
   TOOL_STATE_OUTPUT_AVAILABLE,
   TOOL_STATE_OUTPUT_ERROR,
-  TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
 } from "@/lib/constants";
 
 /**
@@ -155,61 +154,58 @@ export function sendAutomaticallyWhen({
       return false;
     }
 
-    // CRITICAL: Check confirmation part BEFORE Frontend Execute pattern
-    // Frontend Execute requires approval-responded confirmation to be valid
-    const confirmationPart = parts.find(
+    // CRITICAL: Check if any tool has been approved (ADR 0002)
+    // With ADR 0002, tool-approval-request updates the original tool part's state
+    // to "approval-requested", and addToolApprovalResponse() updates it to "approval-responded"
+    const hasApprovedTool = parts.some(
       // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
       (part: any) =>
-        part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
-        part.state === TOOL_STATE_APPROVAL_RESPONDED,
+        isToolUIPart(part) && part.state === TOOL_STATE_APPROVAL_RESPONDED,
     );
 
-    if (!confirmationPart) {
-      // No approval-responded confirmation found
-      // This catches edge cases like confirmation in output-available state
+    if (!hasApprovedTool) {
+      // No approved tool found - user hasn't responded to approval request yet
       return false;
     }
 
-    // SSE-specific: Check for pending confirmations (approval-requested)
-    // In SSE mode, multiple confirmations can accumulate in the same message
-    // If there's a pending confirmation, wait for user response before sending
-    const hasPendingConfirmation = parts.some(
+    // SSE-specific: Check for pending approval requests (approval-requested)
+    // In SSE mode, multiple tools can be waiting for approval in the same message
+    // If there's a pending approval request, wait for user response before sending
+    const hasPendingApproval = parts.some(
       // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
       (part: any) =>
-        part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
-        part.state === TOOL_STATE_APPROVAL_REQUESTED,
+        isToolUIPart(part) && part.state === TOOL_STATE_APPROVAL_REQUESTED,
     );
 
-    if (hasPendingConfirmation) {
+    if (hasPendingApproval) {
       return false;
     }
 
-    // CRITICAL: Check if other tools have completed BEFORE Frontend Execute check
+    // CRITICAL: Check if tools have completed execution BEFORE Frontend Execute check
     // This distinguishes:
-    // - Backend already responded: Other tools in output-available/error → return false
-    // - Frontend Execute: No other completed tools, user called addToolOutput() → return true
+    // - Backend already responded: Tools in output-available/error → return false
+    // - Frontend Execute: Tool in approval-responded, user called addToolOutput() → return true
     //
-    // When user clicks Approve/Deny:
-    // - Confirmation tool in approval-responded state
-    // - Original tool (if exists) is still waiting (input-available or executing)
+    // When user approves:
+    // - Tool in approval-responded state
+    // - Tool is still waiting (input-available or needs frontend execution)
     //
     // After backend responds:
-    // - Confirmation still in approval-responded
-    // - Original tool (if exists) has completed (output-available or output-error)
+    // - Tool still in approval-responded (if server execute)
+    // - Tool has completed (output-available or output-error)
     // - Message may have new AI response text
     //
-    // Note: Text part check is done earlier (line 138-146)
+    // Note: Text part check is done earlier
 
-    // Find ANY other tool in the same message (not confirmation)
-    const otherTools = parts.filter(
+    // Find all tool parts in the message
+    const toolParts = parts.filter(
       // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
-      (part: any) =>
-        isToolUIPart(part) && part.type !== TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+      (part: any) => isToolUIPart(part),
     );
 
-    // Check if any other tool has ERRORED (backend responded with error)
+    // Check if any tool has ERRORED (backend responded with error)
     // Note: output-available state is handled by Frontend Execute check below
-    for (const toolPart of otherTools) {
+    for (const toolPart of toolParts) {
       // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
       const toolState = (toolPart as any).state;
 
@@ -228,12 +224,11 @@ export function sendAutomaticallyWhen({
 
     // Check for Frontend Execute pattern: tool output added via addToolOutput()
     // addToolOutput() updates existing tool part to state="output-available"
-    // This check is AFTER "other tools completed" check to prevent false positives
+    // This check is AFTER "tools completed" check to prevent false positives
     const hasToolOutputFromAddToolOutput = parts.some(
       // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
       (part: any) =>
         isToolUIPart(part) &&
-        part.type !== TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
         part.state === TOOL_STATE_OUTPUT_AVAILABLE &&
         part.output !== undefined,
     );

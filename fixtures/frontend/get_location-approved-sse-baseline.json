@@ -16,60 +16,60 @@
   },
   "output": {
     "rawEvents": [
-      "data: {\"type\": \"start\", \"messageId\": \"cf3f6082-b996-45f3-84a6-807c6bf9c648\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-d1191600-c515-4387-a066-b37562e8a46e\", \"toolName\": \"get_location\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-d1191600-c515-4387-a066-b37562e8a46e\", \"toolName\": \"get_location\", \"input\": {}}\n\n",
-      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"adk-d1191600-c515-4387-a066-b37562e8a46e\", \"approvalId\": \"adk-75f413ff-be07-44be-84d6-90c87995a62d\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1039, \"completionTokens\": 10, \"totalTokens\": 1128}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"9f85ffc1-b110-4055-88ae-6455770cab6b\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-3582b3dc-06d9-4a42-870b-1f7c8ba5b285\", \"toolName\": \"get_location\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-3582b3dc-06d9-4a42-870b-1f7c8ba5b285\", \"toolName\": \"get_location\", \"input\": {}}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"adk-3582b3dc-06d9-4a42-870b-1f7c8ba5b285\", \"approvalId\": \"adk-2f58b182-1381-4ea2-b47f-6a54c88ebf96\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1042, \"completionTokens\": 10, \"totalTokens\": 1196}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
       "data: [DONE]\n\n",
-      "data: {\"type\": \"start\", \"messageId\": \"9c9191be-b311-480e-969a-f1bfb6def305\"}\n\n",
-      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"adk-d1191600-c515-4387-a066-b37562e8a46e\", \"output\": {\"latitude\": 35.6762, \"longitude\": 139.6503, \"accuracy\": 20, \"city\": \"Tokyo\", \"country\": \"Japan\"}}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"93fa80fb-b934-4db5-a6f4-56f1c00f5f18\"}\n\n",
+      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"adk-3582b3dc-06d9-4a42-870b-1f7c8ba5b285\", \"output\": {\"latitude\": 35.6762, \"longitude\": 139.6503, \"accuracy\": 20, \"city\": \"Tokyo\", \"country\": \"Japan\"}}\n\n",
       "data: {\"type\": \"text-start\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"\\u3042\\u306a\\u305f\\u306e\\u73fe\\u5728\\u5730\\u306f\\u3001\\u65e5\\u672c\\u306e\\u6771\\u4eac\\u90fd\\uff08\\u7def\\u5ea6: 35.6762, \\u7d4c\\u5ea6: 139.6503, \\u7cbe\\u5ea6: 20m\\uff09\\u3067\\u3059\\u3002\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"\\u3042\\u306a\\u305f\\u306e\\u73fe\\u5728\\u5730\\u306f\\u3001\\u65e5\\u672c\\u3001\\u6771\\u4eac\\u90fd\\uff08\\u7def\\u5ea6: 35.6762, \\u7d4c\\u5ea6: 139.6503, \\u7cbe\\u5ea6: 20m\\uff09\\u3067\\u3059\\u3002\"}\n\n",
       "data: {\"type\": \"text-end\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1174, \"completionTokens\": 44, \"totalTokens\": 1218}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1242, \"completionTokens\": 45, \"totalTokens\": 1287}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
       {
         "type": "start",
-        "messageId": "cf3f6082-b996-45f3-84a6-807c6bf9c648"
+        "messageId": "9f85ffc1-b110-4055-88ae-6455770cab6b"
       },
       {
         "type": "tool-input-start",
-        "toolCallId": "adk-d1191600-c515-4387-a066-b37562e8a46e",
+        "toolCallId": "adk-3582b3dc-06d9-4a42-870b-1f7c8ba5b285",
         "toolName": "get_location"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "adk-d1191600-c515-4387-a066-b37562e8a46e",
+        "toolCallId": "adk-3582b3dc-06d9-4a42-870b-1f7c8ba5b285",
         "toolName": "get_location",
         "input": {}
       },
       {
         "type": "tool-approval-request",
-        "toolCallId": "adk-d1191600-c515-4387-a066-b37562e8a46e",
-        "approvalId": "adk-75f413ff-be07-44be-84d6-90c87995a62d"
+        "toolCallId": "adk-3582b3dc-06d9-4a42-870b-1f7c8ba5b285",
+        "approvalId": "adk-2f58b182-1381-4ea2-b47f-6a54c88ebf96"
       },
       {
         "type": "finish",
         "finishReason": "stop",
         "messageMetadata": {
           "usage": {
-            "promptTokens": 1039,
+            "promptTokens": 1042,
             "completionTokens": 10,
-            "totalTokens": 1128
+            "totalTokens": 1196
           },
           "modelVersion": "gemini-3-flash-preview"
         }
       },
       {
         "type": "start",
-        "messageId": "9c9191be-b311-480e-969a-f1bfb6def305"
+        "messageId": "93fa80fb-b934-4db5-a6f4-56f1c00f5f18"
       },
       {
         "type": "tool-output-available",
-        "toolCallId": "adk-d1191600-c515-4387-a066-b37562e8a46e",
+        "toolCallId": "adk-3582b3dc-06d9-4a42-870b-1f7c8ba5b285",
         "output": {
           "latitude": 35.6762,
           "longitude": 139.6503,
@@ -85,7 +85,7 @@
       {
         "type": "text-delta",
         "id": "0",
-        "delta": "あなたの現在地は、日本の東京都（緯度: 35.6762, 経度: 139.6503, 精度: 20m）です。"
+        "delta": "あなたの現在地は、日本、東京都（緯度: 35.6762, 経度: 139.6503, 精度: 20m）です。"
       },
       {
         "type": "text-end",
@@ -96,9 +96,9 @@
         "finishReason": "stop",
         "messageMetadata": {
           "usage": {
-            "promptTokens": 1174,
-            "completionTokens": 44,
-            "totalTokens": 1218
+            "promptTokens": 1242,
+            "completionTokens": 45,
+            "totalTokens": 1287
           },
           "modelVersion": "gemini-3-flash-preview"
         }

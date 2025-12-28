@@ -20,41 +20,34 @@
   },
   "output": {
     "rawEvents": [
-      "data: {\"type\": \"start\", \"messageId\": \"3f123fb6-8928-4883-88a4-a9fee7c040f1\"}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"8d586fbc-37d7-4b0a-bee2-fe7174feb43e\"}\n\n",
       "data: {\"type\": \"reasoning-start\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Determining Payment Method**\\n\\nI've homed in on using the `process_payment` tool to handle this. It seems ideal because it directly addresses the user's need. I've noted the inputs it requires, specifically the amount and recipient. I've deduced the amount is $100 in USD, and that 'Alice' is the recipient.  The next step will be executing this tool.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Finding Payment Solutions**\\n\\nI've identified that the user wants a payment processed and found a suitable tool for that: `process_payment`.  It takes the amount, recipient, and currency as inputs.  I've mapped the user's intended values to the tool's required inputs. The default currency, USD, will be used. Thus, the parameters are set: `amount=100`, `recipient='Alice'`, and `currency='USD'`.\\n\\n\\n\"}\n\n",
       "data: {\"type\": \"reasoning-end\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"text-start\", \"id\": \"1\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"1\", \"delta\": \"**Determining Payment Method**\\n\\nI've homed in on using the `process_payment` tool to handle this. It seems ideal because it directly addresses the user's need. I've noted the inputs it requires, specifically the amount and recipient. I've deduced the amount is $100 in USD, and that 'Alice' is the recipient.  The next step will be executing this tool.\\n\\n\\n\"}\n\n",
-      "data: {\"type\": \"text-end\", \"id\": \"1\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-3215008727580596202\", \"toolName\": \"process_payment\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-3215008727580596202\", \"toolName\": \"process_payment\", \"input\": {\"amount\": 100, \"recipient\": \"Alice\"}}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-c1205622-95c1-483a-afe3-40b24060237e\", \"toolName\": \"adk_request_confirmation\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-c1205622-95c1-483a-afe3-40b24060237e\", \"toolName\": \"adk_request_confirmation\", \"input\": {\"originalFunctionCall\": {\"id\": \"function-call-3215008727580596202\", \"name\": \"process_payment\", \"args\": {\"amount\": 100, \"recipient\": \"Alice\"}}, \"toolConfirmation\": {\"hint\": \"Please approve or reject the tool call process_payment() by responding with a FunctionResponse with an expected ToolConfirmation payload.\", \"confirmed\": false}}}\n\n",
-      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"function-call-3215008727580596202\", \"errorText\": \"Approval request timed out\"}\n\n",
-      "data: {\"type\": \"reasoning-start\", \"id\": \"2\"}\n\n",
-      "data: {\"type\": \"reasoning-delta\", \"id\": \"2\", \"delta\": \"**Notifying User About Timeout**\\n\\nI've hit a snag. The payment processing timed out, indicating the user didn't authorize the transaction quickly enough. My current focus is crafting a clear message to the user, explaining the situation and offering them the option to retry the payment. I aim to make this as user-friendly as possible, acknowledging the potential frustration and keeping the customer experience as positive as can be.\\n\\n\\n\"}\n\n",
-      "data: {\"type\": \"reasoning-end\", \"id\": \"2\"}\n\n",
-      "data: {\"type\": \"text-start\", \"id\": \"3f123fb6-8928-4883-88a4-a9fee7c040f1_output_text\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"3f123fb6-8928-4883-88a4-a9fee7c040f1_output_text\", \"delta\": \"Payment approval\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"3f123fb6-8928-4883-88a4-a9fee7c040f1_output_text\", \"delta\": \" timed\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"3f123fb6-8928-4883-88a4-a9fee7c040f1_output_text\", \"delta\": \" out.\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"3f123fb6-8928-4883-88a4-a9fee7c040f1_output_text\", \"delta\": \" Would you\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"3f123fb6-8928-4883-88a4-a9fee7c040f1_output_text\", \"delta\": \" like to\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"3f123fb6-8928-4883-88a4-a9fee7c040f1_output_text\", \"delta\": \" try\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"3f123fb6-8928-4883-88a4-a9fee7c040f1_output_text\", \"delta\": \" again?\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"3f123fb6-8928-4883-88a4-a9fee7c040f1_output_text\", \"delta\": \"Payment approval timed out. Would you like to try again?\"}\n\n",
-      "data: {\"type\": \"text-end\", \"id\": \"3f123fb6-8928-4883-88a4-a9fee7c040f1_output_text\"}\n\n",
-      "data: {\"type\": \"text-start\", \"id\": \"3\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"3\", \"delta\": \"**Notifying User About Timeout**\\n\\nI've hit a snag. The payment processing timed out, indicating the user didn't authorize the transaction quickly enough. My current focus is crafting a clear message to the user, explaining the situation and offering them the option to retry the payment. I aim to make this as user-friendly as possible, acknowledging the potential frustration and keeping the customer experience as positive as can be.\\n\\n\\n\"}\n\n",
-      "data: {\"type\": \"text-end\", \"id\": \"3\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"audio\": {\"chunks\": 41, \"bytes\": 122880, \"sampleRate\": 24000, \"duration\": 2.56}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-13258368836728118994\", \"toolName\": \"process_payment\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-13258368836728118994\", \"toolName\": \"process_payment\", \"input\": {\"recipient\": \"Alice\", \"currency\": \"USD\", \"amount\": 100}}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-13258368836728118994\", \"approvalId\": \"adk-7f45a4b1-0e46-40c5-a503-e5b20cf5b313\"}\n\n",
+      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"function-call-13258368836728118994\", \"errorText\": \"Approval request timed out\"}\n\n",
+      "data: {\"type\": \"reasoning-start\", \"id\": \"1\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"1\", \"delta\": \"**Address Payment Failure**\\n\\nI've hit a snag. The payment process timed out during approval. Now, I need to craft a message to the user explaining that the transaction didn't go through due to the timeout. This communication will be crucial for managing their expectations and potentially prompting them to try again.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-end\", \"id\": \"1\"}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text\", \"delta\": \"Payment approval\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text\", \"delta\": \" timed\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text\", \"delta\": \" out,\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text\", \"delta\": \" so the\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text\", \"delta\": \" payment\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text\", \"delta\": \" was\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text\", \"delta\": \" not\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text\", \"delta\": \" processed.\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1521, \"completionTokens\": null, \"totalTokens\": 1604}, \"audio\": {\"chunks\": 56, \"bytes\": 151680, \"sampleRate\": 24000, \"duration\": 3.16}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
       {
         "type": "start",
-        "messageId": "3f123fb6-8928-4883-88a4-a9fee7c040f1"
+        "messageId": "8d586fbc-37d7-4b0a-bee2-fe7174feb43e"
       },
       {
         "type": "reasoning-start",
@@ -63,151 +56,112 @@
       {
         "type": "reasoning-delta",
         "id": "0",
-        "delta": "**Determining Payment Method**\n\nI've homed in on using the `process_payment` tool to handle this. It seems ideal because it directly addresses the user's need. I've noted the inputs it requires, specifically the amount and recipient. I've deduced the amount is $100 in USD, and that 'Alice' is the recipient.  The next step will be executing this tool.\n\n\n"
+        "delta": "**Finding Payment Solutions**\n\nI've identified that the user wants a payment processed and found a suitable tool for that: `process_payment`.  It takes the amount, recipient, and currency as inputs.  I've mapped the user's intended values to the tool's required inputs. The default currency, USD, will be used. Thus, the parameters are set: `amount=100`, `recipient='Alice'`, and `currency='USD'`.\n\n\n"
       },
       {
         "type": "reasoning-end",
         "id": "0"
       },
       {
-        "type": "text-start",
-        "id": "1"
-      },
-      {
-        "type": "text-delta",
-        "id": "1",
-        "delta": "**Determining Payment Method**\n\nI've homed in on using the `process_payment` tool to handle this. It seems ideal because it directly addresses the user's need. I've noted the inputs it requires, specifically the amount and recipient. I've deduced the amount is $100 in USD, and that 'Alice' is the recipient.  The next step will be executing this tool.\n\n\n"
-      },
-      {
-        "type": "text-end",
-        "id": "1"
-      },
-      {
         "type": "tool-input-start",
-        "toolCallId": "function-call-3215008727580596202",
+        "toolCallId": "function-call-13258368836728118994",
         "toolName": "process_payment"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "function-call-3215008727580596202",
+        "toolCallId": "function-call-13258368836728118994",
         "toolName": "process_payment",
         "input": {
-          "amount": 100,
-          "recipient": "Alice"
+          "recipient": "Alice",
+          "currency": "USD",
+          "amount": 100
         }
       },
       {
-        "type": "tool-input-start",
-        "toolCallId": "adk-c1205622-95c1-483a-afe3-40b24060237e",
-        "toolName": "adk_request_confirmation"
-      },
-      {
-        "type": "tool-input-available",
-        "toolCallId": "adk-c1205622-95c1-483a-afe3-40b24060237e",
-        "toolName": "adk_request_confirmation",
-        "input": {
-          "originalFunctionCall": {
-            "id": "function-call-3215008727580596202",
-            "name": "process_payment",
-            "args": {
-              "amount": 100,
-              "recipient": "Alice"
-            }
-          },
-          "toolConfirmation": {
-            "hint": "Please approve or reject the tool call process_payment() by responding with a FunctionResponse with an expected ToolConfirmation payload.",
-            "confirmed": false
-          }
-        }
+        "type": "tool-approval-request",
+        "toolCallId": "function-call-13258368836728118994",
+        "approvalId": "adk-7f45a4b1-0e46-40c5-a503-e5b20cf5b313"
       },
       {
         "type": "tool-output-error",
-        "toolCallId": "function-call-3215008727580596202",
+        "toolCallId": "function-call-13258368836728118994",
         "errorText": "Approval request timed out"
       },
       {
         "type": "reasoning-start",
-        "id": "2"
+        "id": "1"
       },
       {
         "type": "reasoning-delta",
-        "id": "2",
-        "delta": "**Notifying User About Timeout**\n\nI've hit a snag. The payment processing timed out, indicating the user didn't authorize the transaction quickly enough. My current focus is crafting a clear message to the user, explaining the situation and offering them the option to retry the payment. I aim to make this as user-friendly as possible, acknowledging the potential frustration and keeping the customer experience as positive as can be.\n\n\n"
+        "id": "1",
+        "delta": "**Address Payment Failure**\n\nI've hit a snag. The payment process timed out during approval. Now, I need to craft a message to the user explaining that the transaction didn't go through due to the timeout. This communication will be crucial for managing their expectations and potentially prompting them to try again.\n\n\n"
       },
       {
         "type": "reasoning-end",
-        "id": "2"
+        "id": "1"
       },
       {
         "type": "text-start",
-        "id": "3f123fb6-8928-4883-88a4-a9fee7c040f1_output_text"
+        "id": "8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text"
       },
       {
         "type": "text-delta",
-        "id": "3f123fb6-8928-4883-88a4-a9fee7c040f1_output_text",
+        "id": "8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text",
         "delta": "Payment approval"
       },
       {
         "type": "text-delta",
-        "id": "3f123fb6-8928-4883-88a4-a9fee7c040f1_output_text",
+        "id": "8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text",
         "delta": " timed"
       },
       {
         "type": "text-delta",
-        "id": "3f123fb6-8928-4883-88a4-a9fee7c040f1_output_text",
-        "delta": " out."
+        "id": "8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text",
+        "delta": " out,"
       },
       {
         "type": "text-delta",
-        "id": "3f123fb6-8928-4883-88a4-a9fee7c040f1_output_text",
-        "delta": " Would you"
+        "id": "8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text",
+        "delta": " so the"
       },
       {
         "type": "text-delta",
-        "id": "3f123fb6-8928-4883-88a4-a9fee7c040f1_output_text",
-        "delta": " like to"
+        "id": "8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text",
+        "delta": " payment"
       },
       {
         "type": "text-delta",
-        "id": "3f123fb6-8928-4883-88a4-a9fee7c040f1_output_text",
-        "delta": " try"
+        "id": "8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text",
+        "delta": " was"
       },
       {
         "type": "text-delta",
-        "id": "3f123fb6-8928-4883-88a4-a9fee7c040f1_output_text",
-        "delta": " again?"
+        "id": "8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text",
+        "delta": " not"
       },
       {
         "type": "text-delta",
-        "id": "3f123fb6-8928-4883-88a4-a9fee7c040f1_output_text",
-        "delta": "Payment approval timed out. Would you like to try again?"
+        "id": "8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text",
+        "delta": " processed."
       },
       {
         "type": "text-end",
-        "id": "3f123fb6-8928-4883-88a4-a9fee7c040f1_output_text"
-      },
-      {
-        "type": "text-start",
-        "id": "3"
-      },
-      {
-        "type": "text-delta",
-        "id": "3",
-        "delta": "**Notifying User About Timeout**\n\nI've hit a snag. The payment processing timed out, indicating the user didn't authorize the transaction quickly enough. My current focus is crafting a clear message to the user, explaining the situation and offering them the option to retry the payment. I aim to make this as user-friendly as possible, acknowledging the potential frustration and keeping the customer experience as positive as can be.\n\n\n"
-      },
-      {
-        "type": "text-end",
-        "id": "3"
+        "id": "8d586fbc-37d7-4b0a-bee2-fe7174feb43e_output_text"
       },
       {
         "type": "finish",
         "finishReason": "stop",
         "messageMetadata": {
+          "usage": {
+            "promptTokens": 1521,
+            "completionTokens": null,
+            "totalTokens": 1604
+          },
           "audio": {
-            "chunks": 41,
-            "bytes": 122880,
+            "chunks": 56,
+            "bytes": 151680,
             "sampleRate": 24000,
-            "duration": 2.56
+            "duration": 3.16
           },
           "modelVersion": "gemini-2.5-flash-native-audio-preview-12-2025"
         }

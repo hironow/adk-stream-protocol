@@ -16,38 +16,44 @@
   },
   "output": {
     "rawEvents": [
-      "data: {\"type\": \"start\", \"messageId\": \"51d0a751-d940-4461-b1bf-0be4656b2ed4\"}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"3543bdb5-7bba-4f36-9be8-140a29dcfd3f\"}\n\n",
       "data: {\"type\": \"reasoning-start\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Pinpointing Your Location**\\n\\nI've determined that I need to pinpoint the user's location based on their request. My primary action is to call the `get_location` tool. This tool is equipped to retrieve the required location data. I'm preparing to formulate a tool call for the `get_location()` function, taking into account that the tool context will be automatically included. I won't respond directly, as executing the tool is the most pertinent step.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Obtain Location Request**\\n\\nI've determined that the user is asking for their current location in Japanese. I have the `get_location` tool available, which perfectly fits this request. Knowing this tool needs user approval, I've generated the necessary tool call: `get_location()`. I'm ready for the next step, which I expect will be the user's approval.\\n\\n\\n\"}\n\n",
       "data: {\"type\": \"reasoning-end\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-11758320459093659731\", \"toolName\": \"get_location\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-11758320459093659731\", \"toolName\": \"get_location\", \"input\": {}}\n\n",
-      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-11758320459093659731\", \"approvalId\": \"adk-f8cb55ce-57f1-47bf-9fdd-8f379a96566c\"}\n\n",
-      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"function-call-11758320459093659731\", \"errorText\": \"User denied location access\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-18049804585433850402\", \"toolName\": \"get_location\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-18049804585433850402\", \"toolName\": \"get_location\", \"input\": {}}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-18049804585433850402\", \"approvalId\": \"adk-27c37797-55bd-4c6c-a3af-2ac07c67490a\"}\n\n",
+      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"function-call-18049804585433850402\", \"errorText\": \"User denied location access\"}\n\n",
       "data: {\"type\": \"reasoning-start\", \"id\": \"1\"}\n\n",
-      "data: {\"type\": \"reasoning-delta\", \"id\": \"1\", \"delta\": \"**Processing Location Access Denial**\\n\\nI've hit a roadblock. The location tool reported a denial of access. Therefore, I'm now crafting a Japanese response explaining that I couldn't get the user's location because of this denial. I'm focusing on clarity and politeness in the message.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"1\", \"delta\": \"**Handling Location Denial**\\n\\nI've just received a crucial response from the `get_location` tool. It seems the user opted out of location sharing. Now, my immediate concern is how to communicate this clearly and effectively. I need to explain why I can't provide the current location, given the access denial, and maintain a seamless user experience.\\n\\n\\n\"}\n\n",
       "data: {\"type\": \"reasoning-end\", \"id\": \"1\"}\n\n",
-      "data: {\"type\": \"text-start\", \"id\": \"51d0a751-d940-4461-b1bf-0be4656b2ed4_output_text\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"51d0a751-d940-4461-b1bf-0be4656b2ed4_output_text\", \"delta\": \"\\u4f4d\\u7f6e\\u60c5\\u5831\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"51d0a751-d940-4461-b1bf-0be4656b2ed4_output_text\", \"delta\": \"\\u3078\\u306e\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"51d0a751-d940-4461-b1bf-0be4656b2ed4_output_text\", \"delta\": \"\\u30a2\\u30af\\u30bb\\u30b9\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"51d0a751-d940-4461-b1bf-0be4656b2ed4_output_text\", \"delta\": \"\\u304c\\u62d2\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"51d0a751-d940-4461-b1bf-0be4656b2ed4_output_text\", \"delta\": \"\\u5426\\u3055\\u308c\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"51d0a751-d940-4461-b1bf-0be4656b2ed4_output_text\", \"delta\": \"\\u307e\\u3057\\u305f\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"51d0a751-d940-4461-b1bf-0be4656b2ed4_output_text\", \"delta\": \"\\u306e\\u3067\\u3001\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"51d0a751-d940-4461-b1bf-0be4656b2ed4_output_text\", \"delta\": \"\\u73fe\\u5728\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"51d0a751-d940-4461-b1bf-0be4656b2ed4_output_text\", \"delta\": \"\\u5730\\u3092\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"51d0a751-d940-4461-b1bf-0be4656b2ed4_output_text\", \"delta\": \"\\u53d6\\u5f97\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"51d0a751-d940-4461-b1bf-0be4656b2ed4_output_text\", \"delta\": \"\\u3067\\u304d\\u307e\\u305b\\u3093\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"51d0a751-d940-4461-b1bf-0be4656b2ed4_output_text\", \"delta\": \"\\u3067\\u3057\\u305f\\u3002\"}\n\n",
-      "data: {\"type\": \"text-end\", \"id\": \"51d0a751-d940-4461-b1bf-0be4656b2ed4_output_text\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1494, \"completionTokens\": null, \"totalTokens\": 1620}, \"audio\": {\"chunks\": 102, \"bytes\": 240000, \"sampleRate\": 24000, \"duration\": 5.0}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text\", \"delta\": \"\\u73fe\\u5728\\u5730\\u306e\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text\", \"delta\": \"\\u53d6\\u5f97\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text\", \"delta\": \"\\u8981\\u6c42\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text\", \"delta\": \"\\u304c\\u62d2\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text\", \"delta\": \"\\u5426\\u3055\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text\", \"delta\": \"\\u308c\\u307e\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text\", \"delta\": \"\\u3057\\u305f\\u3002\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text\", \"delta\": \"\\u73fe\\u5728\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text\", \"delta\": \"\\u5730\\u3092\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text\", \"delta\": \"\\u53d6\\u5f97\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text\", \"delta\": \"\\u3059\\u308b\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text\", \"delta\": \"\\u306b\\u306f\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text\", \"delta\": \"\\u30e6\\u30fc\\u30b6\\u30fc\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text\", \"delta\": \"\\u306e\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text\", \"delta\": \"\\u8a31\\u53ef\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text\", \"delta\": \"\\u304c\\u5fc5\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text\", \"delta\": \"\\u8981\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text\", \"delta\": \"\\u3067\\u3059\\u3002\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1484, \"completionTokens\": null, \"totalTokens\": 1636}, \"audio\": {\"chunks\": 124, \"bytes\": 282240, \"sampleRate\": 24000, \"duration\": 5.88}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
       {
         "type": "start",
-        "messageId": "51d0a751-d940-4461-b1bf-0be4656b2ed4"
+        "messageId": "3543bdb5-7bba-4f36-9be8-140a29dcfd3f"
       },
       {
         "type": "reasoning-start",
@@ -56,7 +62,7 @@
       {
         "type": "reasoning-delta",
         "id": "0",
-        "delta": "**Pinpointing Your Location**\n\nI've determined that I need to pinpoint the user's location based on their request. My primary action is to call the `get_location` tool. This tool is equipped to retrieve the required location data. I'm preparing to formulate a tool call for the `get_location()` function, taking into account that the tool context will be automatically included. I won't respond directly, as executing the tool is the most pertinent step.\n\n\n"
+        "delta": "**Obtain Location Request**\n\nI've determined that the user is asking for their current location in Japanese. I have the `get_location` tool available, which perfectly fits this request. Knowing this tool needs user approval, I've generated the necessary tool call: `get_location()`. I'm ready for the next step, which I expect will be the user's approval.\n\n\n"
       },
       {
         "type": "reasoning-end",
@@ -64,23 +70,23 @@
       },
       {
         "type": "tool-input-start",
-        "toolCallId": "function-call-11758320459093659731",
+        "toolCallId": "function-call-18049804585433850402",
         "toolName": "get_location"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "function-call-11758320459093659731",
+        "toolCallId": "function-call-18049804585433850402",
         "toolName": "get_location",
         "input": {}
       },
       {
         "type": "tool-approval-request",
-        "toolCallId": "function-call-11758320459093659731",
-        "approvalId": "adk-f8cb55ce-57f1-47bf-9fdd-8f379a96566c"
+        "toolCallId": "function-call-18049804585433850402",
+        "approvalId": "adk-27c37797-55bd-4c6c-a3af-2ac07c67490a"
       },
       {
         "type": "tool-output-error",
-        "toolCallId": "function-call-11758320459093659731",
+        "toolCallId": "function-call-18049804585433850402",
         "errorText": "User denied location access"
       },
       {
@@ -90,7 +96,7 @@
       {
         "type": "reasoning-delta",
         "id": "1",
-        "delta": "**Processing Location Access Denial**\n\nI've hit a roadblock. The location tool reported a denial of access. Therefore, I'm now crafting a Japanese response explaining that I couldn't get the user's location because of this denial. I'm focusing on clarity and politeness in the message.\n\n\n"
+        "delta": "**Handling Location Denial**\n\nI've just received a crucial response from the `get_location` tool. It seems the user opted out of location sharing. Now, my immediate concern is how to communicate this clearly and effectively. I need to explain why I can't provide the current location, given the access denial, and maintain a seamless user experience.\n\n\n"
       },
       {
         "type": "reasoning-end",
@@ -98,86 +104,116 @@
       },
       {
         "type": "text-start",
-        "id": "51d0a751-d940-4461-b1bf-0be4656b2ed4_output_text"
+        "id": "3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text"
       },
       {
         "type": "text-delta",
-        "id": "51d0a751-d940-4461-b1bf-0be4656b2ed4_output_text",
-        "delta": "位置情報"
+        "id": "3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text",
+        "delta": "現在地の"
       },
       {
         "type": "text-delta",
-        "id": "51d0a751-d940-4461-b1bf-0be4656b2ed4_output_text",
-        "delta": "への"
-      },
-      {
-        "type": "text-delta",
-        "id": "51d0a751-d940-4461-b1bf-0be4656b2ed4_output_text",
-        "delta": "アクセス"
-      },
-      {
-        "type": "text-delta",
-        "id": "51d0a751-d940-4461-b1bf-0be4656b2ed4_output_text",
-        "delta": "が拒"
-      },
-      {
-        "type": "text-delta",
-        "id": "51d0a751-d940-4461-b1bf-0be4656b2ed4_output_text",
-        "delta": "否され"
-      },
-      {
-        "type": "text-delta",
-        "id": "51d0a751-d940-4461-b1bf-0be4656b2ed4_output_text",
-        "delta": "ました"
-      },
-      {
-        "type": "text-delta",
-        "id": "51d0a751-d940-4461-b1bf-0be4656b2ed4_output_text",
-        "delta": "ので、"
-      },
-      {
-        "type": "text-delta",
-        "id": "51d0a751-d940-4461-b1bf-0be4656b2ed4_output_text",
-        "delta": "現在"
-      },
-      {
-        "type": "text-delta",
-        "id": "51d0a751-d940-4461-b1bf-0be4656b2ed4_output_text",
-        "delta": "地を"
-      },
-      {
-        "type": "text-delta",
-        "id": "51d0a751-d940-4461-b1bf-0be4656b2ed4_output_text",
+        "id": "3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text",
         "delta": "取得"
       },
       {
         "type": "text-delta",
-        "id": "51d0a751-d940-4461-b1bf-0be4656b2ed4_output_text",
-        "delta": "できません"
+        "id": "3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text",
+        "delta": "要求"
       },
       {
         "type": "text-delta",
-        "id": "51d0a751-d940-4461-b1bf-0be4656b2ed4_output_text",
-        "delta": "でした。"
+        "id": "3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text",
+        "delta": "が拒"
+      },
+      {
+        "type": "text-delta",
+        "id": "3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text",
+        "delta": "否さ"
+      },
+      {
+        "type": "text-delta",
+        "id": "3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text",
+        "delta": "れま"
+      },
+      {
+        "type": "text-delta",
+        "id": "3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text",
+        "delta": "した。"
+      },
+      {
+        "type": "text-delta",
+        "id": "3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text",
+        "delta": "現在"
+      },
+      {
+        "type": "text-delta",
+        "id": "3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text",
+        "delta": "地を"
+      },
+      {
+        "type": "text-delta",
+        "id": "3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text",
+        "delta": "取得"
+      },
+      {
+        "type": "text-delta",
+        "id": "3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text",
+        "delta": "する"
+      },
+      {
+        "type": "text-delta",
+        "id": "3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text",
+        "delta": "には"
+      },
+      {
+        "type": "text-delta",
+        "id": "3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text",
+        "delta": "ユーザー"
+      },
+      {
+        "type": "text-delta",
+        "id": "3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text",
+        "delta": "の"
+      },
+      {
+        "type": "text-delta",
+        "id": "3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text",
+        "delta": "許可"
+      },
+      {
+        "type": "text-delta",
+        "id": "3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text",
+        "delta": "が必"
+      },
+      {
+        "type": "text-delta",
+        "id": "3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text",
+        "delta": "要"
+      },
+      {
+        "type": "text-delta",
+        "id": "3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text",
+        "delta": "です。"
       },
       {
         "type": "text-end",
-        "id": "51d0a751-d940-4461-b1bf-0be4656b2ed4_output_text"
+        "id": "3543bdb5-7bba-4f36-9be8-140a29dcfd3f_output_text"
       },
       {
         "type": "finish",
         "finishReason": "stop",
         "messageMetadata": {
           "usage": {
-            "promptTokens": 1494,
+            "promptTokens": 1484,
             "completionTokens": null,
-            "totalTokens": 1620
+            "totalTokens": 1636
           },
           "audio": {
-            "chunks": 102,
-            "bytes": 240000,
+            "chunks": 124,
+            "bytes": 282240,
             "sampleRate": 24000,
-            "duration": 5.0
+            "duration": 5.88
           },
           "modelVersion": "gemini-2.5-flash-native-audio-preview-12-2025"
         }

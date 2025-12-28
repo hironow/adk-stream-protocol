@@ -5,8 +5,6 @@
  * Provides consistent message formatting for mock WebSocket responses.
  */
 
-import { TOOL_NAME_ADK_REQUEST_CONFIRMATION } from "../../constants";
-
 /**
  * ADK BIDI message event (user/assistant content)
  */
@@ -113,32 +111,6 @@ export function createBidiEndOfTurnEvent(): BidiEndOfTurnEvent {
   return {
     type: "end_of_turn",
   };
-}
-
-/**
- * Create BIDI confirmation request (adk_request_confirmation tool)
- *
- * @param originalFunctionCall - Original function call to confirm
- * @returns BIDI tool use event for confirmation request
- *
- * @example
- * ```typescript
- * const event = createBidiConfirmationRequest({
- *   id: 'orig-1',
- *   name: 'dangerous_operation',
- *   args: { param: 'value' },
- * });
- * mockWebSocket.simulateMessage(JSON.stringify(event));
- * ```
- */
-export function createBidiConfirmationRequest(originalFunctionCall: {
-  id: string;
-  name: string;
-  args: Record<string, unknown>;
-}): BidiToolUseEvent {
-  return createBidiToolUseEvent("call-1", TOOL_NAME_ADK_REQUEST_CONFIRMATION, {
-    originalFunctionCall,
-  });
 }
 
 /**

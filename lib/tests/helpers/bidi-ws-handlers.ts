@@ -6,7 +6,6 @@
  */
 
 import { ws } from "msw";
-import { TOOL_NAME_ADK_REQUEST_CONFIRMATION } from "../../constants";
 
 /**
  * ADK BIDI WebSocket URL
@@ -106,10 +105,14 @@ export function createTextResponseHandler(
 }
 
 /**
- * Create WebSocket handler that sends confirmation request
+ * Create WebSocket handler that sends confirmation request (ADR 0002)
+ *
+ * Per ADR 0002, adk_request_confirmation is internal to backend.
+ * Frontend receives tool-approval-request events on the original tool.
  *
  * @param chat - MSW WebSocket link
  * @param originalFunctionCall - Original function call to confirm
+ * @param approvalId - Optional approval ID (defaults to "approval-1")
  * @returns MSW WebSocket handler
  *
  * @example
@@ -132,6 +135,7 @@ export function createConfirmationRequestHandler(
     name: string;
     args: Record<string, unknown>;
   },
+  approvalId: string = "approval-1",
 ) {
   return chat.addEventListener("connection", ({ server, client }) => {
     // Establish mock server connection
@@ -144,46 +148,48 @@ export function createConfirmationRequestHandler(
         event.data,
       );
 
-      // Send tool-input-start chunk
+      // ADR 0002: Send original tool chunks (will have approval requested on them)
+      // Send tool-input-start chunk for ORIGINAL tool
       const startChunk = {
         type: "tool-input-start",
-        toolCallId: "call-1",
-        toolName: TOOL_NAME_ADK_REQUEST_CONFIRMATION,
+        toolCallId: originalFunctionCall.id,
+        toolName: originalFunctionCall.name,
       };
       const startMessage = `data: ${JSON.stringify(startChunk)}\n\n`;
       console.log("[MSW WebSocket] Sending tool-input-start:", startMessage);
-      client.send(startMessage); // Use client.send() to send TO client
+      client.send(startMessage);
 
-      // Send tool-input-available chunk
+      // Send tool-input-available chunk for ORIGINAL tool
       const availableChunk = {
         type: "tool-input-available",
-        toolCallId: "call-1",
-        toolName: TOOL_NAME_ADK_REQUEST_CONFIRMATION,
-        input: { originalFunctionCall },
+        toolCallId: originalFunctionCall.id,
+        toolName: originalFunctionCall.name,
+        input: originalFunctionCall.args,
       };
       const availableMessage = `data: ${JSON.stringify(availableChunk)}\n\n`;
       console.log(
         "[MSW WebSocket] Sending tool-input-available:",
         availableMessage,
       );
-      client.send(availableMessage); // Use client.send() to send TO client
+      client.send(availableMessage);
 
-      // Send tool-approval-request chunk
+      // ADR 0002: Send tool-approval-request for the ORIGINAL tool
+      // This updates the original tool's state to "approval-requested"
       const approvalChunk = {
         type: "tool-approval-request",
-        approvalId: "call-1",
-        toolCallId: "call-1",
+        approvalId,
+        toolCallId: originalFunctionCall.id,
       };
       const approvalMessage = `data: ${JSON.stringify(approvalChunk)}\n\n`;
       console.log(
         "[MSW WebSocket] Sending tool-approval-request:",
         approvalMessage,
       );
-      client.send(approvalMessage); // Use client.send() to send TO client
+      client.send(approvalMessage);
 
       // Send [DONE] marker
       console.log("[MSW WebSocket] Sending DONE");
-      client.send("data: [DONE]\n\n"); // Use client.send() to send TO client
+      client.send("data: [DONE]\n\n");
     });
   });
 }

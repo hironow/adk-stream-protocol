@@ -56,19 +56,19 @@ async def test_process_payment_timeout_bidi():
         await websocket.send(json.dumps({"type": "message", "messages": [initial_message]}))
         print("✓ Sent initial request")
 
-        # Receive events until we get adk_request_confirmation
+        # Receive events until we get tool-approval-request (ADR 0002)
         all_events = []
-        confirmation_id = None
+        approval_id = None
         original_tool_call_id = None
 
-        print("\n=== Receiving events until adk_request_confirmation ===")
+        print("\n=== Receiving events until tool-approval-request ===")
         while True:
             try:
                 event = await asyncio.wait_for(websocket.recv(), timeout=5.0)
                 all_events.append(event)
                 print(f"Event {len(all_events)}: {event.strip()}")
 
-                # ERROR: If we get [DONE] before approval response, that's wrong!
+                # ERROR: If we get [DONE] before approval request, that's wrong!
                 if "[DONE]" in event:
                     raise AssertionError(
                         "Received [DONE] before approval request in Phase 12 BLOCKING mode! "
@@ -80,26 +80,23 @@ async def test_process_payment_timeout_bidi():
                     try:
                         event_data = json.loads(event.strip().replace("data: ", ""))
 
-                        # Look for adk_request_confirmation
-                        if event_data.get("type") == "tool-input-available":
-                            if event_data.get("toolName") == "adk_request_confirmation":
-                                confirmation_id = event_data.get("toolCallId")
-                                original_tool_call_id = event_data.get("input", {}).get(
-                                    "originalFunctionCall", {}
-                                ).get("id")
-                                print(f"\n✓ Found confirmation request:")
-                                print(f"  confirmation_id: {confirmation_id}")
-                                print(f"  original_id: {original_tool_call_id}")
-                                print("\n⏳ Waiting for timeout (30s)... NOT sending approval/denial")
-                                break
+                        # Look for tool-approval-request (ADR 0002)
+                        if event_data.get("type") == "tool-approval-request":
+                            approval_id = event_data.get("approvalId")
+                            original_tool_call_id = event_data.get("toolCallId")
+                            print(f"\n✓ Found tool-approval-request:")
+                            print(f"  approvalId: {approval_id}")
+                            print(f"  toolCallId: {original_tool_call_id}")
+                            print("\n⏳ Waiting for timeout (30s)... NOT sending approval/denial")
+                            break
                     except json.JSONDecodeError:
                         pass
 
             except asyncio.TimeoutError:
-                print(f"\n✗ Timeout waiting for adk_request_confirmation after {len(all_events)} events")
+                print(f"\n✗ Timeout waiting for tool-approval-request after {len(all_events)} events")
                 raise
 
-        assert confirmation_id is not None, "Should have confirmation_id"
+        assert approval_id is not None, "Should have approval_id (from tool-approval-request)"
         assert original_tool_call_id is not None, "Should have original tool call ID"
 
         # IMPORTANT: Don't send approval or denial - let it timeout

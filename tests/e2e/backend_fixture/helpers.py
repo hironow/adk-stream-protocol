@@ -9,6 +9,7 @@ Provides utilities for:
 
 import asyncio
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -881,6 +882,9 @@ def save_frontend_fixture(
     2. Constructing fixture metadata (description, mode, source, etc.)
     3. Writing JSON file to fixtures/frontend/ directory
 
+    Note: Fixture updates are controlled by E2E_REFRESH_FIXTURE environment variable.
+    Only saves fixture when E2E_REFRESH_FIXTURE=true to prevent accidental overwrites.
+
     Args:
         fixture_path: Path to save fixture JSON file (e.g., fixtures/frontend/xxx.json)
         description: Brief description of the fixture
@@ -892,6 +896,15 @@ def save_frontend_fixture(
         scenario: Optional scenario description
         note: Optional implementation notes
     """
+    # Check E2E_REFRESH_FIXTURE environment variable
+    # Only save fixture when explicitly enabled to prevent accidental overwrites
+    refresh_fixture = os.environ.get("E2E_REFRESH_FIXTURE", "").lower() == "true"
+    if not refresh_fixture:
+        logger.debug(
+            f"Skipping fixture save (E2E_REFRESH_FIXTURE not enabled): {fixture_path.name}"
+        )
+        return
+
     # Filter audio chunks from raw events to ensure test consistency
     # (MockWebSocket will replay these events, so they must match expectedChunks)
     filtered_raw_events = []
