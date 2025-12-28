@@ -20,8 +20,8 @@
     "test:e2e:ui": "playwright test --ui"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "hironow",
+  "license": "MIT",
   "dependencies": {
     "@ai-sdk/google": "3.0.0-beta.72",
     "@ai-sdk/react": "3.0.0-beta.151",

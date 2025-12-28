@@ -89,6 +89,7 @@ SSE_TOOLS = [
 # because Live API doesn't support automatic tool response handling.
 # Use BLOCKING behavior to await approval_queue inside tool function.
 
+
 # Simple wrappers for FunctionDeclaration creation (from_callable_with_api_option cannot handle ToolContext)
 def process_payment_simple(
     amount: float, recipient: str, currency: str = "USD", description: str = ""

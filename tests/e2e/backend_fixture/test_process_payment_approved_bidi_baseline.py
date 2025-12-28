@@ -64,7 +64,11 @@ async def test_process_payment_approved_bidi_baseline(frontend_fixture_dir: Path
         print("✓ Sent initial request")
 
         # Receive events until we get tool-approval-request
-        all_events, confirmation_id, original_tool_call_id = await receive_events_until_approval_request(
+        (
+            all_events,
+            confirmation_id,
+            original_tool_call_id,
+        ) = await receive_events_until_approval_request(
             websocket=websocket,
             original_tool_name="process_payment",
             timeout=5.0,
@@ -125,12 +129,13 @@ async def test_process_payment_approved_bidi_baseline(frontend_fixture_dir: Path
         # Count [DONE] markers
         done_count = sum(1 for e in all_events if "[DONE]" in e)
         print(f"[DONE] count: {done_count} (expected: {expected_done_count})")
-        assert done_count == expected_done_count, f"Expected {expected_done_count} [DONE], got {done_count}"
+        assert done_count == expected_done_count, (
+            f"Expected {expected_done_count} [DONE], got {done_count}"
+        )
 
         # Verify we got tool-output with success
         tool_output_events = [
-            e for e in all_events
-            if "tool-output-available" in e and original_tool_call_id in e
+            e for e in all_events if "tool-output-available" in e and original_tool_call_id in e
         ]
         print(f"Tool output events: {len(tool_output_events)}")
         assert len(tool_output_events) > 0, "Should have tool output event"

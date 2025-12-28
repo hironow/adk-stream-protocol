@@ -15,7 +15,7 @@ import {
   selectBackendMode,
   sendTextMessage,
   waitForAssistantResponse,
-} from "./helpers";
+} from "../helpers";
 
 // Test configuration
 const MODELS = [

@@ -67,7 +67,9 @@ async def test_long_running_tool_send_content_integration() -> None:
     connection_signature = str(uuid.uuid4())
     session_id = None  # Will be set after session creation
     tool_call_id_captured = None
-    function_response_received = False  # Changed: LongRunningFunctionTool returns None, so no FunctionResponse
+    function_response_received = (
+        False  # Changed: LongRunningFunctionTool returns None, so no FunctionResponse
+    )
     turn1_complete = False
     turn2_events_received = False
 
@@ -143,9 +145,9 @@ async def test_long_running_tool_send_content_integration() -> None:
                         )
                         # Verify pending status structure
                         if isinstance(response_data, dict):
-                            assert (
-                                response_data.get("status") == "pending"
-                            ), "FunctionResponse should contain pending status"
+                            assert response_data.get("status") == "pending", (
+                                "FunctionResponse should contain pending status"
+                            )
 
             # Check for turn_complete
             if hasattr(event, "turn_complete") and event.turn_complete:
@@ -198,7 +200,9 @@ async def test_long_running_tool_send_content_integration() -> None:
         # TODO: This currently times out - need to find correct pattern for run_live() mode
         live_request_queue.send_content(function_response)
         logger.info("[TEST-TURN2] ✓ Sent FunctionResponse via send_content()")
-        logger.info(f"[TEST-TURN2] FunctionResponse: id={tool_call_id_captured}, result={real_result}")
+        logger.info(
+            f"[TEST-TURN2] FunctionResponse: id={tool_call_id_captured}, result={real_result}"
+        )
 
         # Collect Turn 2 events - iterate over same live_events stream
         turn2_events = []

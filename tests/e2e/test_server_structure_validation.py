@@ -123,7 +123,9 @@ class TestServerOutputStructure:
         )
 
         # And: Event structures should match
-        for i, (actual, expected) in enumerate(zip(actual_chunks_without_done, expected_chunks, strict=False)):
+        for i, (actual, expected) in enumerate(
+            zip(actual_chunks_without_done, expected_chunks, strict=False)
+        ):
             actual_structure = extract_structure(actual)
             expected_structure = extract_structure(expected)
 
@@ -160,7 +162,9 @@ class TestServerOutputStructure:
 
         # And: Structures should match (excluding DONE)
         assert len(actual_chunks_without_done) == len(expected_chunks)
-        for i, (actual, expected) in enumerate(zip(actual_chunks_without_done, expected_chunks, strict=False)):
+        for i, (actual, expected) in enumerate(
+            zip(actual_chunks_without_done, expected_chunks, strict=False)
+        ):
             actual_structure = extract_structure(actual)
             expected_structure = extract_structure(expected)
             assert actual_structure == expected_structure, f"Event {i} structure mismatch"
@@ -194,7 +198,9 @@ class TestServerOutputStructure:
 
         # And: Structures should match (excluding DONE)
         assert len(actual_chunks_without_done) == len(expected_chunks)
-        for i, (actual, expected) in enumerate(zip(actual_chunks_without_done, expected_chunks, strict=False)):
+        for i, (actual, expected) in enumerate(
+            zip(actual_chunks_without_done, expected_chunks, strict=False)
+        ):
             actual_structure = extract_structure(actual)
             expected_structure = extract_structure(expected)
             assert actual_structure == expected_structure, (

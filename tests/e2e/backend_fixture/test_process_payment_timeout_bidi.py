@@ -93,7 +93,9 @@ async def test_process_payment_timeout_bidi():
                         pass
 
             except asyncio.TimeoutError:
-                print(f"\n✗ Timeout waiting for tool-approval-request after {len(all_events)} events")
+                print(
+                    f"\n✗ Timeout waiting for tool-approval-request after {len(all_events)} events"
+                )
                 raise
 
         assert approval_id is not None, "Should have approval_id (from tool-approval-request)"
@@ -128,15 +130,15 @@ async def test_process_payment_timeout_bidi():
 
         # Verify we got tool-output-error with timeout
         tool_output_events = [
-            e for e in all_events
-            if "tool-output" in e and original_tool_call_id in e
+            e for e in all_events if "tool-output" in e and original_tool_call_id in e
         ]
         print(f"Tool output events: {len(tool_output_events)}")
         assert len(tool_output_events) > 0, "Should have tool output event"
 
         # Verify timeout/error in output
         timeout_events = [
-            e for e in all_events
+            e
+            for e in all_events
             if ("timeout" in e.lower() or "error" in e.lower()) and original_tool_call_id in e
         ]
         print(f"Timeout/error events: {len(timeout_events)}")
@@ -144,14 +146,18 @@ async def test_process_payment_timeout_bidi():
 
         # Verify the tool output contains error information
         tool_output_error_events = [
-            e for e in all_events
-            if "tool-output" in e and "error" in e.lower()
+            e for e in all_events if "tool-output" in e and "error" in e.lower()
         ]
         print(f"Tool output error events: {len(tool_output_error_events)}")
         assert len(tool_output_error_events) > 0, "Should have tool-output-error event"
 
         # Save events to fixture
-        fixture_path = Path(__file__).parent.parent.parent.parent / "fixtures" / "frontend" / "process_payment-timeout-bidi-baseline.json"
+        fixture_path = (
+            Path(__file__).parent.parent.parent.parent
+            / "fixtures"
+            / "frontend"
+            / "process_payment-timeout-bidi-baseline.json"
+        )
         save_frontend_fixture(
             fixture_path=fixture_path,
             description="BIDI mode Phase 12 BLOCKING - process_payment with timeout flow (SINGLE CONTINUOUS STREAM, user doesn't respond)",

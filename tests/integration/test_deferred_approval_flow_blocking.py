@@ -36,8 +36,7 @@ load_dotenv(".env.local")
 
 # Enable ADK debug logging
 logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 
 logger = loguru_logger
@@ -45,9 +44,8 @@ logger = loguru_logger
 
 # ========== BLOCKING Mode Tool ==========
 
-async def blocking_approval_tool(
-    message: str, tool_context: ToolContext
-) -> dict:
+
+async def blocking_approval_tool(message: str, tool_context: ToolContext) -> dict:
     """
     BLOCKING mode tool that waits for approval inside the function.
 
@@ -70,17 +68,13 @@ async def blocking_approval_tool(
         }
 
     # Register this tool call for approval
-    approval_queue.request_approval(
-        tool_call_id, "blocking_approval_tool", {"message": message}
-    )
+    approval_queue.request_approval(tool_call_id, "blocking_approval_tool", {"message": message})
     logger.info(f"[BLOCKING_TOOL] Registered approval request for {tool_call_id}")
 
     # ⭐ KEY EXPERIMENT: await inside BLOCKING tool function
     try:
         logger.info("[BLOCKING_TOOL] ⏳ Awaiting approval (this is the critical moment)...")
-        approval_result = await approval_queue.wait_for_approval(
-            tool_call_id, timeout=10.0
-        )
+        approval_result = await approval_queue.wait_for_approval(tool_call_id, timeout=10.0)
         logger.info(f"[BLOCKING_TOOL] ✓ Approval received: {approval_result}")
 
         if approval_result.get("approved"):
@@ -119,7 +113,7 @@ def blocking_approval_tool_simple(message: str) -> dict:
 # Create FunctionDeclaration with BLOCKING behavior using simple wrapper
 blocking_approval_declaration = types.FunctionDeclaration.from_callable_with_api_option(
     callable=blocking_approval_tool_simple,  # Use simple wrapper for schema
-    api_option='GEMINI_API',
+    api_option="GEMINI_API",
     behavior=types.Behavior.BLOCKING,  # ⭐ BLOCKING mode
 )
 
@@ -152,6 +146,7 @@ test_runner_blocking = InMemoryRunner(app=test_app_blocking)
 
 
 # ========== Test Case ==========
+
 
 @pytest.mark.asyncio
 async def test_blocking_mode_approved():

@@ -23,8 +23,9 @@ import {
   navigateToChat,
   selectBackendMode,
   sendTextMessage,
+  setupFrontendConsoleLogger,
   waitForAssistantResponse,
-} from "./helpers";
+} from "../helpers";
 
 test.describe("Tool Approval Flow (Phase 4)", () => {
   test.beforeEach(async ({ page }) => {

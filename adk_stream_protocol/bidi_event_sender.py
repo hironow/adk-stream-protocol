@@ -145,8 +145,14 @@ class BidiEventSender:
                         case Ok(event_data):
                             event_type = event_data.get("type", "unknown")
                             # Log tool-related events only
-                            if event_type in ["tool-input-start", "tool-input-available", "tool-output-available"]:
-                                logger.info(f"[ADK→SSE OUTPUT] {event_type}: {event_data.get('toolName', 'N/A')}")
+                            if event_type in [
+                                "tool-input-start",
+                                "tool-input-available",
+                                "tool-output-available",
+                            ]:
+                                logger.info(
+                                    f"[ADK→SSE OUTPUT] {event_type}: {event_data.get('toolName', 'N/A')}"
+                                )
                             elif event_type in ["finish", "start"]:
                                 logger.info(f"[ADK→SSE OUTPUT] {event_type}")
 
@@ -273,10 +279,7 @@ class BidiEventSender:
                 # Phase 5 Step 2: Detect tool-input-available for confirmation-required tools
                 elif event_type == "tool-input-available":
                     # Check if this tool requires confirmation
-                    if (
-                        tool_call_id
-                        and tool_call_id in self._pending_confirmation
-                    ):
+                    if tool_call_id and tool_call_id in self._pending_confirmation:
                         # Get tool_name from pending_confirmation dict
                         tool_name = self._pending_confirmation.pop(tool_call_id)
                         logger.info(
@@ -318,7 +321,9 @@ class BidiEventSender:
                             "args": tool_args,
                         }
 
-                        logger.info(f"[BIDI Phase 5] Injecting tool-approval-request for {tool_name}")
+                        logger.info(
+                            f"[BIDI Phase 5] Injecting tool-approval-request for {tool_name}"
+                        )
 
                         # Send tool-approval-request (AI SDK v6 standard event)
                         # Do NOT send tool-input-* events for adk_request_confirmation
@@ -332,7 +337,9 @@ class BidiEventSender:
                             await self._ws.send_text(approval_request_sse)
                             logger.info("[BIDI Phase 5] ✓ Sent tool-approval-request")
                         except Exception as e:
-                            logger.error(f"[BIDI Phase 5] ✗ Failed to send tool-approval-request: {e!s}")
+                            logger.error(
+                                f"[BIDI Phase 5] ✗ Failed to send tool-approval-request: {e!s}"
+                            )
                             raise
 
                         # Save confirmation_id → original_tool_call_id mapping in session.state
@@ -340,7 +347,9 @@ class BidiEventSender:
                         # when it receives confirmation approval
                         if "confirmation_id_mapping" not in self._session.state:
                             self._session.state["confirmation_id_mapping"] = {}
-                        self._session.state["confirmation_id_mapping"][confirmation_id] = tool_call_id
+                        self._session.state["confirmation_id_mapping"][confirmation_id] = (
+                            tool_call_id
+                        )
                         logger.info(
                             f"[BIDI Phase 5] Saved confirmation mapping: {confirmation_id} → {tool_call_id} for tool {tool_name}"
                         )
@@ -377,4 +386,3 @@ class BidiEventSender:
 
         # Default: send event normally
         return True
-

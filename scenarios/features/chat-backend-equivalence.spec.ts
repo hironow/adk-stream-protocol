@@ -27,7 +27,7 @@ import {
   sendImageMessage,
   sendTextMessage,
   waitForAssistantResponse,
-} from "./helpers";
+} from "../helpers";
 
 // Test both backends with same test cases
 const backends: BackendMode[] = ["gemini", "adk-sse"];

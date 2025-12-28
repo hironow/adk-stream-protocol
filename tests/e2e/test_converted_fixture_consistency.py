@@ -122,7 +122,9 @@ class TestConvertedFixtureConsistency:
         )
 
         # And: Each chunk should match exactly (after ID normalization)
-        for i, (actual, expected) in enumerate(zip(actual_chunks_raw, expected_chunks, strict=False)):
+        for i, (actual, expected) in enumerate(
+            zip(actual_chunks_raw, expected_chunks, strict=False)
+        ):
             # Normalize IDs for comparison
             actual_normalized = (
                 normalize_ids_in_chunk(actual) if isinstance(actual, dict) else actual
@@ -159,7 +161,9 @@ class TestConvertedFixtureConsistency:
 
         # Then: Should match exactly
         assert len(actual_chunks_raw) == len(expected_chunks)
-        for i, (actual, expected) in enumerate(zip(actual_chunks_raw, expected_chunks, strict=False)):
+        for i, (actual, expected) in enumerate(
+            zip(actual_chunks_raw, expected_chunks, strict=False)
+        ):
             actual_normalized = (
                 normalize_ids_in_chunk(actual) if isinstance(actual, dict) else actual
             )
@@ -190,7 +194,9 @@ class TestConvertedFixtureConsistency:
 
         # Then: Should match exactly
         assert len(actual_chunks_raw) == len(expected_chunks)
-        for _i, (actual, expected) in enumerate(zip(actual_chunks_raw, expected_chunks, strict=False)):
+        for _i, (actual, expected) in enumerate(
+            zip(actual_chunks_raw, expected_chunks, strict=False)
+        ):
             actual_normalized = (
                 normalize_ids_in_chunk(actual) if isinstance(actual, dict) else actual
             )
@@ -249,7 +255,9 @@ class TestAllConvertedFixtures:
                 continue
 
             # Compare chunks
-            for i, (actual, expected) in enumerate(zip(actual_chunks_raw, expected_chunks, strict=False)):
+            for i, (actual, expected) in enumerate(
+                zip(actual_chunks_raw, expected_chunks, strict=False)
+            ):
                 actual_norm = normalize_ids_in_chunk(actual) if isinstance(actual, dict) else actual
                 expected_norm = (
                     normalize_ids_in_chunk(expected) if isinstance(expected, dict) else expected

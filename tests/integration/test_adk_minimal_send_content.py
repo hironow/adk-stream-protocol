@@ -138,7 +138,9 @@ async def test_adk_long_running_tool_returns_dict() -> None:
 
         queue.send_content(
             types.Content(
-                parts=[types.Part(text="Please use long_running_tool_returns_dict with task 'test'")]
+                parts=[
+                    types.Part(text="Please use long_running_tool_returns_dict with task 'test'")
+                ]
             )
         )
 
@@ -201,7 +203,9 @@ async def test_adk_long_running_tool_returns_none() -> None:
 
         queue.send_content(
             types.Content(
-                parts=[types.Part(text="Please use long_running_tool_returns_none with task 'test'")]
+                parts=[
+                    types.Part(text="Please use long_running_tool_returns_none with task 'test'")
+                ]
             )
         )
 
@@ -337,19 +341,11 @@ async def test_hypothesis_2_no_pending_status_direct_result() -> None:
         logger.info(f"[HYPOTHESIS-2] turn_complete: {turn_complete}")
 
         if turn_complete:
-            logger.info(
-                "[HYPOTHESIS-2] ✓ SUCCESS: Direct result (no pending status) works!"
-            )
-            logger.info(
-                "[HYPOTHESIS-2] → This suggests pending status might be the issue"
-            )
+            logger.info("[HYPOTHESIS-2] ✓ SUCCESS: Direct result (no pending status) works!")
+            logger.info("[HYPOTHESIS-2] → This suggests pending status might be the issue")
         else:
-            logger.error(
-                "[HYPOTHESIS-2] ✗ FAILED: Even direct result doesn't work"
-            )
-            logger.error(
-                "[HYPOTHESIS-2] → This suggests the issue is not with pending status"
-            )
+            logger.error("[HYPOTHESIS-2] ✗ FAILED: Even direct result doesn't work")
+            logger.error("[HYPOTHESIS-2] → This suggests the issue is not with pending status")
 
         assert turn_complete, "Turn should complete for direct result tool"
         logger.info("[HYPOTHESIS-2] ✓ Test passed")
@@ -372,7 +368,9 @@ async def test_hypothesis_1_same_tool_call_id_twice() -> None:
     """
     logger.info("=" * 80)
     logger.info("[HYPOTHESIS-1] Testing same tool_call_id sent twice")
-    logger.info("[HYPOTHESIS-1] Approach: pending status (Turn 1) + manual FunctionResponse (Turn 2)")
+    logger.info(
+        "[HYPOTHESIS-1] Approach: pending status (Turn 1) + manual FunctionResponse (Turn 2)"
+    )
     logger.info("=" * 80)
 
     def pending_tool(task: str) -> dict:
@@ -491,19 +489,11 @@ async def test_hypothesis_1_same_tool_call_id_twice() -> None:
         logger.info(f"[HYPOTHESIS-1-T2] turn2_complete: {turn2_complete}")
 
         if turn2_complete:
-            logger.info(
-                "[HYPOTHESIS-1] ✗ Turn 2 completed - Hypothesis 1 is WRONG"
-            )
-            logger.info(
-                "[HYPOTHESIS-1] → Same tool_call_id CAN be used twice"
-            )
+            logger.info("[HYPOTHESIS-1] ✗ Turn 2 completed - Hypothesis 1 is WRONG")
+            logger.info("[HYPOTHESIS-1] → Same tool_call_id CAN be used twice")
         else:
-            logger.info(
-                "[HYPOTHESIS-1] ✓ Turn 2 timeout - Hypothesis 1 is CORRECT"
-            )
-            logger.info(
-                "[HYPOTHESIS-1] → Same tool_call_id CANNOT be used twice"
-            )
+            logger.info("[HYPOTHESIS-1] ✓ Turn 2 timeout - Hypothesis 1 is CORRECT")
+            logger.info("[HYPOTHESIS-1] → Same tool_call_id CANNOT be used twice")
 
         # Document findings without asserting (this is exploratory test)
         logger.info("[HYPOTHESIS-1] Test completed - check logs for findings")
@@ -623,7 +613,9 @@ async def test_hypothesis_1_success_different_id_works() -> None:
                 ],
             )
         )
-        logger.info("[HYPOTHESIS-1-SUCCESS-T2] ✓ Sent FunctionResponse with NEW ID via send_content()")
+        logger.info(
+            "[HYPOTHESIS-1-SUCCESS-T2] ✓ Sent FunctionResponse with NEW ID via send_content()"
+        )
 
         # Collect Turn 2 events with timeout
         turn2_events = []
@@ -652,7 +644,9 @@ async def test_hypothesis_1_success_different_id_works() -> None:
         # Verify results
         if turn2_complete and len(turn2_events) > 0:
             logger.info("[HYPOTHESIS-1-SUCCESS] ✓ SUCCESS - Different ID works!")
-            logger.info("[HYPOTHESIS-1-SUCCESS] → Fix confirmed: Generate NEW ID for manual FunctionResponse")
+            logger.info(
+                "[HYPOTHESIS-1-SUCCESS] → Fix confirmed: Generate NEW ID for manual FunctionResponse"
+            )
         else:
             logger.error("[HYPOTHESIS-1-SUCCESS] ✗ FAILED - Even different ID doesn't work")
             logger.error(
@@ -729,7 +723,9 @@ async def test_hypothesis_3_direct_live_api_send_tool_response() -> None:
     try:
         # Connect to Live API
         logger.info("[HYPOTHESIS-3] Connecting to Live API...")
-        async with client.aio.live.connect(model="models/gemini-2.0-flash-exp", config=config) as session:
+        async with client.aio.live.connect(
+            model="models/gemini-2.0-flash-exp", config=config
+        ) as session:
             logger.info("[HYPOTHESIS-3] ✓ Connected to Live API")
 
             # Turn 1: Send message that triggers tool call
@@ -751,7 +747,9 @@ async def test_hypothesis_3_direct_live_api_send_tool_response() -> None:
             turn1_events = []
             async for response in session.receive():
                 turn1_events.append(response)
-                logger.info(f"[HYPOTHESIS-3-T1] Event {len(turn1_events)}: {type(response).__name__}")
+                logger.info(
+                    f"[HYPOTHESIS-3-T1] Event {len(turn1_events)}: {type(response).__name__}"
+                )
 
                 # Capture tool_call_id
                 if response.tool_call:

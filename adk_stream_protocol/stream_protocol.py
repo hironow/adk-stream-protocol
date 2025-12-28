@@ -318,7 +318,9 @@ class StreamProtocolConverter:
                     and hasattr(part, "text")
                     and part.text
                 ):
-                    logger.info(f"[THOUGHT PART] Processing thought text: length={len(part.text)}, preview='{part.text[:50]}...'")
+                    logger.info(
+                        f"[THOUGHT PART] Processing thought text: length={len(part.text)}, preview='{part.text[:50]}...'"
+                    )
                     # Accumulate reasoning text to filter duplicate text-delta
                     self._accumulated_reasoning_texts.append(part.text)
                     for sse_event in self._process_thought_part(part.text):
@@ -357,7 +359,9 @@ class StreamProtocolConverter:
                         continue
 
                     thought_value = getattr(part, "thought", None)
-                    logger.info(f"[TEXT PART] Processing text (thought={thought_value}): length={len(part.text)}, preview='{part.text[:50]}...'")
+                    logger.info(
+                        f"[TEXT PART] Processing text (thought={thought_value}): length={len(part.text)}, preview='{part.text[:50]}...'"
+                    )
                     for sse_event in self._process_text_part(part.text):
                         yield sse_event
 
@@ -506,7 +510,9 @@ class StreamProtocolConverter:
 
             # Use accumulated metadata from instance variables
             # In BIDI mode, usage_metadata may have arrived in a previous event
-            logger.info(f"[TURN COMPLETE] Using accumulated metadata - usage: {self._usage_metadata!r}")
+            logger.info(
+                f"[TURN COMPLETE] Using accumulated metadata - usage: {self._usage_metadata!r}"
+            )
 
             # Send finish event with accumulated metadata
             async for final_event in self.finalize(
@@ -557,9 +563,7 @@ class StreamProtocolConverter:
         return self._create_streaming_events("reasoning", thought)
 
     @staticmethod
-    def format_tool_approval_request(
-        original_tool_call_id: str, approval_id: str
-    ) -> str:
+    def format_tool_approval_request(original_tool_call_id: str, approval_id: str) -> str:
         """Generate tool-approval-request event (AI SDK v6 standard).
 
         This method centralizes the generation of tool-approval-request events,
@@ -627,7 +631,9 @@ class StreamProtocolConverter:
         if tool_name == "adk_request_confirmation":
             # Ensure tool_call_id is not None (required for approval flow)
             if tool_call_id is None:
-                logger.error("[adk_request_confirmation] tool_call_id is None, cannot create approval request")
+                logger.error(
+                    "[adk_request_confirmation] tool_call_id is None, cannot create approval request"
+                )
                 return []
 
             # Extract original tool call ID from tool_args
@@ -1055,7 +1061,9 @@ async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912, PLR0915
             if hasattr(event, "usage_metadata") and event.usage_metadata:
                 usage_metadata_list.append(event.usage_metadata)
                 # DEBUG: Log usage_metadata contents
-                logger.info(f"[USAGE_METADATA] Found usage_metadata (list size now: {len(usage_metadata_list)}): {event.usage_metadata!r}")
+                logger.info(
+                    f"[USAGE_METADATA] Found usage_metadata (list size now: {len(usage_metadata_list)}): {event.usage_metadata!r}"
+                )
             else:
                 # Log when usage_metadata is NOT found
                 logger.info(f"[USAGE_METADATA] No usage_metadata in event: {type(event).__name__}")
@@ -1092,7 +1100,9 @@ async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912, PLR0915
         error = error_list[-1] if len(error_list) > 0 else None
         logger.info(f"[FINALIZE] usage_metadata_list length: {len(usage_metadata_list)}")
         usage_metadata = usage_metadata_list[-1] if len(usage_metadata_list) > 0 else None
-        logger.info(f"[FINALIZE] usage_metadata_list count: {len(usage_metadata_list)}, selected: {usage_metadata!r}")
+        logger.info(
+            f"[FINALIZE] usage_metadata_list count: {len(usage_metadata_list)}, selected: {usage_metadata!r}"
+        )
         finish_reason = finish_reason_list[-1] if len(finish_reason_list) > 0 else None
         grounding_metadata = (
             grounding_metadata_list[-1] if len(grounding_metadata_list) > 0 else None

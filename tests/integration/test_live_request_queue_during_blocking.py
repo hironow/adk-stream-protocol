@@ -32,8 +32,7 @@ load_dotenv(".env.local")
 
 # Enable ADK debug logging
 logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 
 logger = loguru_logger
@@ -41,9 +40,8 @@ logger = loguru_logger
 
 # ========== Experiment Tool ==========
 
-async def live_queue_experiment_tool(
-    message: str, tool_context: ToolContext
-) -> dict:
+
+async def live_queue_experiment_tool(message: str, tool_context: ToolContext) -> dict:
     """
     EXPERIMENT: Inspect ToolContext to find LiveRequestQueue access.
 
@@ -60,14 +58,14 @@ async def live_queue_experiment_tool(
     logger.info(f"[EXPERIMENT_TOOL] ToolContext.session.state: {tool_context.session.state}")
 
     # Check if there's a live_request_queue accessible
-    if hasattr(tool_context, 'live_request_queue'):
+    if hasattr(tool_context, "live_request_queue"):
         logger.info("[EXPERIMENT_TOOL] ✅ Found live_request_queue in ToolContext!")
         logger.info(f"[EXPERIMENT_TOOL] Type: {type(tool_context.live_request_queue)}")
     else:
         logger.info("[EXPERIMENT_TOOL] ❌ No live_request_queue in ToolContext")
 
     # Check session for live_request_queue
-    if hasattr(tool_context.session, 'live_request_queue'):
+    if hasattr(tool_context.session, "live_request_queue"):
         logger.info("[EXPERIMENT_TOOL] ✅ Found live_request_queue in session!")
         logger.info(f"[EXPERIMENT_TOOL] Type: {type(tool_context.session.live_request_queue)}")
     else:
@@ -76,7 +74,7 @@ async def live_queue_experiment_tool(
     # Check what else is in the context
     logger.info(f"[EXPERIMENT_TOOL] Other ToolContext fields:")
     for attr in dir(tool_context):
-        if not attr.startswith('_'):
+        if not attr.startswith("_"):
             try:
                 value = getattr(tool_context, attr)
                 logger.info(f"[EXPERIMENT_TOOL]   - {attr}: {type(value)}")
@@ -91,8 +89,8 @@ async def live_queue_experiment_tool(
     return {
         "status": "completed",
         "message": f"Processed '{message}' - Check logs for ToolContext inspection results",
-        "has_live_request_queue_in_context": hasattr(tool_context, 'live_request_queue'),
-        "has_live_request_queue_in_session": hasattr(tool_context.session, 'live_request_queue'),
+        "has_live_request_queue_in_context": hasattr(tool_context, "live_request_queue"),
+        "has_live_request_queue_in_session": hasattr(tool_context.session, "live_request_queue"),
     }
 
 
@@ -105,7 +103,7 @@ def live_queue_experiment_tool_simple(message: str) -> dict:
 # Create BLOCKING declaration
 live_queue_experiment_declaration = types.FunctionDeclaration.from_callable_with_api_option(
     callable=live_queue_experiment_tool_simple,
-    api_option='GEMINI_API',
+    api_option="GEMINI_API",
     behavior=types.Behavior.BLOCKING,
 )
 
@@ -222,11 +220,11 @@ async def test_live_request_queue_during_blocking():
                 await asyncio.sleep(1.5)  # Send every 1.5 seconds
                 test_message = types.Content(
                     role="user",
-                    parts=[types.Part.from_text(text=f"TEST_MESSAGE_{i+1}")],
+                    parts=[types.Part.from_text(text=f"TEST_MESSAGE_{i + 1}")],
                 )
                 live_request_queue.send_content(test_message)
-                messages_sent_during_blocking.append(f"TEST_MESSAGE_{i+1}")
-                logger.info(f"[TEST] 📨 Sent TEST_MESSAGE_{i+1} while tool is BLOCKING")
+                messages_sent_during_blocking.append(f"TEST_MESSAGE_{i + 1}")
+                logger.info(f"[TEST] 📨 Sent TEST_MESSAGE_{i + 1} while tool is BLOCKING")
 
         message_task = asyncio.create_task(send_test_messages_during_blocking())
 
@@ -260,7 +258,9 @@ async def test_live_request_queue_during_blocking():
                 # If tool is blocking, track events
                 if tool_started and not tool_completed:
                     events_received_during_blocking.append(event)
-                    logger.info(f"[TEST] 📊 Event received while BLOCKING (count: {len(events_received_during_blocking)})")
+                    logger.info(
+                        f"[TEST] 📊 Event received while BLOCKING (count: {len(events_received_during_blocking)})"
+                    )
 
                 # Check for turn_complete
                 if hasattr(event, "turn_complete") and event.turn_complete:

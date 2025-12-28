@@ -29,7 +29,7 @@ import {
   sendTextMessage,
   waitForAssistantResponse,
   waitForToolApproval,
-} from "./helpers";
+} from "../helpers";
 
 test.describe
   .serial("Frontend Delegate Fix - SSE Mode", () => {

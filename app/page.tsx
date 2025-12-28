@@ -46,6 +46,8 @@ export default function ChatPage() {
               onClick={() => {
                 setMode("gemini");
               }}
+              // only for ai sdk v6 demo purpose
+              disabled={true}
               style={{
                 padding: "0.5rem 1rem",
                 borderRadius: "4px",

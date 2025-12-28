@@ -64,29 +64,3 @@ def get_delegate(session_id: str) -> "FrontendToolDelegate | None":
             f"Available sessions: {list(_REGISTRY.keys())}"
         )
     return delegate
-
-
-def unregister_delegate(session_id: str) -> None:
-    """
-    Remove FrontendToolDelegate for a session.
-
-    Args:
-        session_id: ADK session ID to remove
-    """
-    if session_id in _REGISTRY:
-        del _REGISTRY[session_id]
-        logger.info(f"[FrontendToolRegistry] Unregistered delegate for session_id={session_id}")
-    else:
-        logger.warning(
-            f"[FrontendToolRegistry] No delegate to unregister for session_id={session_id}"
-        )
-
-
-def get_all_session_ids() -> list[str]:
-    """
-    Get list of all registered session IDs (for debugging).
-
-    Returns:
-        List of session IDs with registered delegates
-    """
-    return list(_REGISTRY.keys())

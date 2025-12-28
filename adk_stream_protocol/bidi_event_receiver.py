@@ -319,7 +319,9 @@ class BidiEventReceiver:
 
             # Clean up confirmation mapping
             del confirmation_id_mapping[confirmation_id]
-            logger.info(f"[BIDI-APPROVAL] Phase 12: Cleaned up confirmation mapping for {confirmation_id}")
+            logger.info(
+                f"[BIDI-APPROVAL] Phase 12: Cleaned up confirmation mapping for {confirmation_id}"
+            )
 
             logger.info("[BIDI-APPROVAL] Phase 12: ✓ Approval decision submitted to ApprovalQueue")
             logger.info("[BIDI-APPROVAL] Phase 12: Tool will resume and return final result")

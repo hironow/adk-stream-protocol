@@ -26,7 +26,7 @@ import {
   sendTextMessage,
   setupFrontendConsoleLogger,
   waitForAssistantResponse,
-} from "./helpers";
+} from "../helpers";
 
 test.describe("History Sharing Tests", () => {
   test("should preserve history when switching from Gemini Direct to ADK SSE", async ({

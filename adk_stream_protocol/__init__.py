@@ -28,7 +28,6 @@ from .adk_compat import (
     sync_conversation_history_to_session,
 )
 from .adk_vercel_id_mapper import ADKVercelIDMapper
-from .approval_queue import ApprovalQueue
 from .ai_sdk_v6_compat import (
     ChatMessage,
     GenericPart,
@@ -38,12 +37,12 @@ from .ai_sdk_v6_compat import (
     ToolUsePart,
     process_chat_message_for_bidi,
 )
+from .approval_queue import ApprovalQueue
 from .bidi_event_receiver import BidiEventReceiver
 from .bidi_event_sender import BidiEventSender
 from .chunk_logger import ChunkLogger, Mode, chunk_logger
 from .chunk_player import ChunkPlayer, ChunkPlayerManager
-from .confirmation_interceptor import ToolConfirmationInterceptor
-from .frontend_tool_registry import get_delegate, register_delegate, unregister_delegate
+from .frontend_tool_registry import get_delegate, register_delegate
 from .frontend_tool_service import FrontendToolDelegate
 from .sse_event_streamer import SseEventStreamer
 from .stream_protocol import (
@@ -74,7 +73,6 @@ __all__ = [
     "TextPart",
     "ToolCallState",
     "ToolConfirmationDelegate",
-    "ToolConfirmationInterceptor",
     "ToolUsePart",
     "_map_adk_finish_reason_to_ai_sdk",
     "bidi_agent",
@@ -93,5 +91,4 @@ __all__ = [
     "sse_agent_runner",
     "stream_adk_to_ai_sdk",
     "sync_conversation_history_to_session",
-    "unregister_delegate",
 ]

@@ -90,7 +90,9 @@ async def receive_events_until_approval_request(
     confirmation_id = None
     original_tool_call_id = None
 
-    print(f"\n=== Receiving events until tool-approval-request (original tool: {original_tool_name}) ===")
+    print(
+        f"\n=== Receiving events until tool-approval-request (original tool: {original_tool_name}) ==="
+    )
     while True:
         try:
             event = await asyncio.wait_for(websocket.recv(), timeout=timeout)
@@ -742,6 +744,7 @@ def compare_raw_events(  # noqa: C901, PLR0912, PLR0915
         - is_match: True if events match
         - diff_message: Human-readable diff if not match, empty if match
     """
+
     # Filter out audio and reasoning events from both actual and expected events
     # Baseline fixtures exclude these audio/thinking-specific events
     # Optionally filter text-* events based on include_text_events flag
@@ -755,7 +758,9 @@ def compare_raw_events(  # noqa: C901, PLR0912, PLR0915
             and '"type": "reasoning-start"' not in e
             and '"type": "reasoning-delta"' not in e
             and '"type": "reasoning-end"' not in e
-            and (include_text_events or '"type": "text-' not in e)  # Conditionally filter text-* events
+            and (
+                include_text_events or '"type": "text-' not in e
+            )  # Conditionally filter text-* events
         ]
 
     actual_filtered = filter_events(actual)
@@ -1125,7 +1130,9 @@ def validate_no_adk_request_confirmation_tool_input(
             if event_type in ("tool-input-start", "tool-input-available"):
                 tool_name = event_obj.get("toolName")
                 if tool_name == "adk_request_confirmation":
-                    forbidden_events.append(f"Event {idx}: {event_type} for adk_request_confirmation")
+                    forbidden_events.append(
+                        f"Event {idx}: {event_type} for adk_request_confirmation"
+                    )
 
         except (json.JSONDecodeError, KeyError):
             continue

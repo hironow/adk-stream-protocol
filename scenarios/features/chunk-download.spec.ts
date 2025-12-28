@@ -7,7 +7,7 @@ import {
   navigateToChat,
   selectBackendMode,
   setupFrontendConsoleLogger,
-} from "./helpers";
+} from "../helpers";
 
 test("Check if Download Chunks button is visible", async ({ page }) => {
   // Setup frontend console logger

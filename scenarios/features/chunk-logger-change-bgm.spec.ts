@@ -26,7 +26,7 @@ import {
   selectBackendMode,
   sendTextMessage,
   waitForAssistantResponse,
-} from "./helpers";
+} from "../helpers";
 
 // Load environment variables from .env.local
 config({ path: ".env.local" });

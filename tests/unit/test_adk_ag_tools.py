@@ -446,4 +446,3 @@ class TestProcessPayment:
         # then
         assert result["success"] is True
         assert result["description"] == "Payment for services rendered"
-

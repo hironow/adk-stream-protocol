@@ -12,7 +12,7 @@ import os
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from dotenv import load_dotenv
 
@@ -30,7 +30,7 @@ from google.adk.agents import LiveRequestQueue  # noqa: E402
 from google.adk.agents.run_config import RunConfig, StreamingMode  # noqa: E402
 from google.genai import types  # noqa: E402
 from loguru import logger  # noqa: E402
-from pydantic import BaseModel  # noqa: E402
+from pydantic import BaseModel, field_validator  # noqa: E402
 
 from adk_stream_protocol import (  # noqa: E402  # noqa: E402  # noqa: E402
     SSE_CONFIRMATION_TOOLS,
@@ -39,7 +39,6 @@ from adk_stream_protocol import (  # noqa: E402  # noqa: E402  # noqa: E402
     ChatMessage,
     FrontendToolDelegate,
     SseEventStreamer,
-    StreamProtocolConverter,
     ToolCallState,
     ToolConfirmationDelegate,
     ToolUsePart,
@@ -146,15 +145,40 @@ frontend_delegate = FrontendToolDelegate()
 
 
 class ChatRequest(BaseModel):
-    """Chat request model"""
+    """
+    Chat request model matching AI SDK v6 ChatTransport.sendMessages signature.
+
+    Frontend (AI SDK v6 useChat) sends requests matching the sendMessages interface:
+    {
+      "messages": UIMessage[],           // Full conversation history (required)
+      "chatId": string,                  // Unique chat session ID (optional)
+      "trigger": "submit-message" | "regenerate-message",  // Optional
+      "messageId": string | undefined    // Message to regenerate (optional)
+    }
+
+    Note: AI SDK v6's DefaultChatTransport (SSE mode) may send only messages field.
+    BIDI mode explicitly sends all fields via MessageEvent.
+
+    Validation:
+    - messages array must not be empty
+    - Each message must conform to ChatMessage (UIMessage) schema
+    """
 
     messages: list[ChatMessage]
+    chatId: str | None = None  # Optional - for compatibility with BIDI mode
+    trigger: Literal["submit-message", "regenerate-message"] | None = None
+    messageId: str | None = None
 
+    # Pydantic v2 uses model_config instead of Config class
+    model_config = {"extra": "allow"}  # Allow additional fields for future compatibility
 
-class ChatResponse(BaseModel):
-    """Chat response model"""
-
-    message: str
+    @field_validator("messages")
+    @classmethod
+    def messages_not_empty(cls, v: list[ChatMessage]) -> list[ChatMessage]:
+        """Validate that messages array is not empty"""
+        if not v:
+            raise ValueError("messages array cannot be empty")
+        return v
 
 
 @app.get("/")
@@ -162,7 +186,6 @@ async def root():
     """Root endpoint"""
     return {
         "service": "ADK Data Protocol Server",
-        "version": "0.1.0",
         "status": "running",
     }
 
@@ -192,59 +215,6 @@ async def clear_backend_sessions():
     chunk_logger.close()
 
     return {"status": "success", "message": "All sessions cleared"}
-
-
-@app.post("/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest):
-    """
-    @deprecated
-    Non-streaming chat endpoint (NOT USED - for reference only)
-
-    Transaction Script Pattern:
-    1. Validate input
-    2. Get or create session
-    3. Create message content
-    4. Run agent and collect response
-    5. Return response
-
-    Current architecture uses /stream endpoint exclusively.
-    This endpoint is kept for reference but not actively used.
-    Use /stream for production.
-    """
-    logger.info(f"[/chat] Received request with {len(request.messages)} messages")
-
-    # 1. Validate input - get the last user message
-    last_message = request.messages[-1]._get_text_content() if request.messages else ""
-    if not last_message:
-        return ChatResponse(message="No message provided")
-
-    # 2. Session management
-    # Get user ID (single user mode for demo environment without database)
-    user_id = _get_user()
-    # App-based runner requires app_name to match the App's name
-    app_name = "adk_assistant_app_sse"
-    session = await get_or_create_session(user_id, sse_agent_runner, app_name)
-    logger.info(f"[/chat] Session ID: {session.id}")
-
-    # 3. Create ADK message content from user input
-    message_content = types.Content(role="user", parts=[types.Part(text=last_message)])
-
-    # 4. Run ADK agent and collect response
-    response_text = ""
-    async for event in sse_agent_runner.run_async(
-        user_id=user_id,
-        session_id=session.id,
-        new_message=message_content,
-    ):
-        # Collect final response text
-        if event.is_final_response() and event.content and event.content.parts:
-            for part in event.content.parts:
-                if hasattr(part, "text") and part.text:
-                    response_text += part.text
-
-    # 5. Return collected response
-    response_text = response_text.strip()
-    return ChatResponse(message=response_text)
 
 
 def _process_latest_message(
@@ -726,7 +696,7 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
         await asyncio.gather(upstream_task(), downstream_task())
 
     except WebSocketDisconnect:
-        logger.error("[BIDI] WebSocket disconnected")
+        logger.warning("[BIDI] WebSocket disconnected")
     except Exception as e:
         logger.error(f"[live_chat] Exception: {e!s}")
     finally:

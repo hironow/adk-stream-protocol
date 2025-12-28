@@ -25,7 +25,7 @@ import {
   sendTextMessage,
   setupChunkPlayerMode,
   setupFrontendConsoleLogger,
-} from "./helpers";
+} from "../helpers";
 
 test.describe("Chunk Player UI Verification", () => {
   test.beforeEach(async ({ page }) => {

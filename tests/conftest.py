@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
 
-from adk_stream_protocol import ADKVercelIDMapper, FrontendToolDelegate, ToolConfirmationInterceptor
+from adk_stream_protocol import ADKVercelIDMapper, FrontendToolDelegate
 
 
 # ============================================================
@@ -122,17 +122,6 @@ def id_mapper() -> ADKVercelIDMapper:
 def frontend_delegate(id_mapper: ADKVercelIDMapper) -> FrontendToolDelegate:
     """Create FrontendToolDelegate with ID mapper."""
     return FrontendToolDelegate(id_mapper=id_mapper)
-
-
-@pytest.fixture
-def confirmation_interceptor(
-    frontend_delegate: FrontendToolDelegate,
-) -> ToolConfirmationInterceptor:
-    """Create ToolConfirmationInterceptor with default confirmation tools."""
-    return ToolConfirmationInterceptor(
-        delegate=frontend_delegate,
-        confirmation_tools=["get_location", "process_payment"],
-    )
 
 
 @pytest.fixture

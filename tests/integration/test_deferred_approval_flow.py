@@ -32,14 +32,13 @@ load_dotenv(".env.local")
 
 # Enable ADK debug logging to see what's sent to Live API
 logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 # Focus on gemini_llm_connection to see FunctionResponse sending
-logging.getLogger('google.adk.models.gemini_llm_connection').setLevel(logging.DEBUG)
+logging.getLogger("google.adk.models.gemini_llm_connection").setLevel(logging.DEBUG)
 # Enable plugin manager logging to see plugin registration and callback execution
-logging.getLogger('google_adk.google.adk.plugins.plugin_manager').setLevel(logging.DEBUG)
-logging.getLogger('google_adk.google.adk.flows.llm_flows.functions').setLevel(logging.DEBUG)
+logging.getLogger("google_adk.google.adk.plugins.plugin_manager").setLevel(logging.DEBUG)
+logging.getLogger("google_adk.google.adk.flows.llm_flows.functions").setLevel(logging.DEBUG)
 
 
 # ========== Test-specific Minimal Agent Setup ==========
@@ -71,7 +70,9 @@ class DeferredApprovalPlugin(BasePlugin):
 
         Returns pending dict to skip actual tool execution.
         """
-        print(f"\n{'='*80}\n[PLUGIN DEBUG] before_tool_callback CALLED! tool.name={tool.name}\n{'='*80}\n")
+        print(
+            f"\n{'=' * 80}\n[PLUGIN DEBUG] before_tool_callback CALLED! tool.name={tool.name}\n{'=' * 80}\n"
+        )
         logger.info(f"[Plugin] before_tool_callback triggered for tool: {tool.name}")
 
         if tool.name != "test_approval_tool":
@@ -166,9 +167,7 @@ def test_approval_tool(message: str) -> dict:
     }
 
 
-async def test_approval_tool_blocking(
-    message: str, tool_context: ToolContext
-) -> dict:
+async def test_approval_tool_blocking(message: str, tool_context: ToolContext) -> dict:
     """
     EXPERIMENT: BLOCKING mode tool that waits for approval inside the function.
 
@@ -198,7 +197,9 @@ async def test_approval_tool_blocking(
         }
 
     # Register this tool call for approval
-    approval_queue.request_approval(tool_call_id, "test_approval_tool_blocking", {"message": message})
+    approval_queue.request_approval(
+        tool_call_id, "test_approval_tool_blocking", {"message": message}
+    )
     logger.info(f"[test_approval_tool_blocking] Registered approval request for {tool_call_id}")
 
     # ⭐ KEY EXPERIMENT: await inside BLOCKING tool function
@@ -230,14 +231,14 @@ async def test_approval_tool_blocking(
 # This allows will_continue field to work properly
 test_approval_declaration_non_blocking = types.FunctionDeclaration.from_callable_with_api_option(
     callable=test_approval_tool,
-    api_option='GEMINI_API',
+    api_option="GEMINI_API",
     behavior=types.Behavior.NON_BLOCKING,  # Enable multi-response pattern
 )
 
 # EXPERIMENT: Create BLOCKING version to test if tool can await inside
 test_approval_declaration_blocking = types.FunctionDeclaration.from_callable_with_api_option(
     callable=test_approval_tool,
-    api_option='GEMINI_API',
+    api_option="GEMINI_API",
     behavior=types.Behavior.BLOCKING,  # Tool can block and wait for approval
 )
 
@@ -356,7 +357,7 @@ async def deferred_tool_execution(
 
             # Execute actual processing (not the pending-status-returning tool function)
             if tool_name == "test_approval_tool":
-                message_to_process = args.get('message', '')
+                message_to_process = args.get("message", "")
                 result = {
                     "success": True,
                     "status": "completed",
@@ -369,7 +370,7 @@ async def deferred_tool_execution(
                 result = {
                     "success": True,
                     "status": "completed",
-                    "message": f"Tool {tool_name} executed successfully after approval"
+                    "message": f"Tool {tool_name} executed successfully after approval",
                 }
 
             logger.info(f"[DeferredExec] ✓ Execution completed: {result}")
@@ -491,11 +492,13 @@ async def test_deferred_approval_flow_approved():
     logger.info("[TEST] ✓ Created Runner with plugin-enabled App")
 
     # DEBUG: Verify plugin is registered
-    print(f"\n{'='*80}")
-    print(f"[DEBUG] Runner plugin_manager has {len(test_runner_with_plugin.plugin_manager.plugins)} plugins:")
+    print(f"\n{'=' * 80}")
+    print(
+        f"[DEBUG] Runner plugin_manager has {len(test_runner_with_plugin.plugin_manager.plugins)} plugins:"
+    )
     for plugin in test_runner_with_plugin.plugin_manager.plugins:
         print(f"  - {plugin.name}: {type(plugin).__name__}")
-    print(f"{'='*80}\n")
+    print(f"{'=' * 80}\n")
 
     # Create RunConfig for BIDI mode with TEXT modality (matching server.py configuration)
     run_config = RunConfig(
@@ -630,11 +633,23 @@ async def test_deferred_approval_flow_approved():
                                 "deferred",
                             ]:
                                 deferred_sent = True
-                                logger.info("[TEST] ✓ This is the PENDING status (FunctionResponse #1)")
-                            elif isinstance(response_data, dict) and response_data.get("status") == "completed":
-                                logger.info("[TEST] ✓ This is the FINAL RESULT (FunctionResponse #2)")
-                            elif isinstance(response_data, dict) and response_data.get("status") == "denied":
-                                logger.info("[TEST] ✓ This is the DENIAL RESULT (FunctionResponse #2)")
+                                logger.info(
+                                    "[TEST] ✓ This is the PENDING status (FunctionResponse #1)"
+                                )
+                            elif (
+                                isinstance(response_data, dict)
+                                and response_data.get("status") == "completed"
+                            ):
+                                logger.info(
+                                    "[TEST] ✓ This is the FINAL RESULT (FunctionResponse #2)"
+                                )
+                            elif (
+                                isinstance(response_data, dict)
+                                and response_data.get("status") == "denied"
+                            ):
+                                logger.info(
+                                    "[TEST] ✓ This is the DENIAL RESULT (FunctionResponse #2)"
+                                )
 
                 # Check for final model response (text from model)
                 if hasattr(event, "content") and event.content:
@@ -767,7 +782,9 @@ async def test_deferred_approval_flow_rejected():
 
                             # Let ADK automatically generate FunctionResponse from tool's return value
                             # The tool returns pending dict, which ADK will convert to FunctionResponse
-                            logger.info("[TEST] Letting ADK auto-generate pending FunctionResponse...")
+                            logger.info(
+                                "[TEST] Letting ADK auto-generate pending FunctionResponse..."
+                            )
 
                             # Register approval request
                             approval_queue.request_approval(tool_call_id, tool_name, tool_args)
@@ -796,9 +813,7 @@ async def test_deferred_approval_flow_rejected():
                         # LongRunningFunctionTool should automatically generate this in BIDI mode
                         if hasattr(part, "function_response") and part.function_response:
                             response_data = part.function_response.response
-                            logger.info(
-                                f"[TEST] ✓ ADK generated FunctionResponse: {response_data}"
-                            )
+                            logger.info(f"[TEST] ✓ ADK generated FunctionResponse: {response_data}")
                             # If this is a pending/deferred status, mark it
                             if isinstance(response_data, dict) and response_data.get("status") in [
                                 "pending",

@@ -325,7 +325,8 @@ class ChatMessage(BaseModel):
     Previously typed as str | None, causing Pydantic validation error in BIDI mode.
     """
 
-    role: str
+    id: str | None = None  # Message ID from AI SDK v6 (optional)
+    role: Literal["user", "assistant", "system", "tool"]  # Strict role validation
     content: str | list[MessagePart] | None = (
         None  # Simple format or Parts array (function_response)
     )
@@ -411,27 +412,28 @@ class ChatMessage(BaseModel):
             return
 
         # Handle APPROVAL_RESPONDED state (user's approval/denial response)
+        # ADR 0002: Any tool can be in approval-responded state (not just adk_request_confirmation)
+        # The approval.id is used as the confirmation_id to map back to the original tool
         if part.state == ToolCallState.APPROVAL_RESPONDED:
-            if part.tool_name != "adk_request_confirmation":
-                logger.warning(
-                    f"[AI SDK v6] Unexpected approval-responded for non-confirmation tool: {part.tool_name}"
-                )
-                return
-
-            # Extract approval decision
+            # Extract approval decision and approval ID
             if part.approval is None:
                 logger.warning("[AI SDK v6] Missing approval metadata in approval-responded state")
                 return
 
+            approval_id = part.approval.id
             confirmed = part.approval.approved
+
             logger.info(
                 f"[ADK Confirmation] Converting approval response to ADK FunctionResponse "
-                f"(id={part.tool_call_id}, approved={confirmed})"
+                f"(approval_id={approval_id}, original_tool={part.tool_name}, "
+                f"original_call_id={part.tool_call_id}, approved={confirmed})"
             )
 
             # Create ADK FunctionResponse for adk_request_confirmation with approval decision
+            # ADR 0002: Use approval.id as the function response ID (this is the confirmation_id)
+            # The backend's confirmation_id_mapping will resolve this to the original tool_call_id
             function_response = types.FunctionResponse(
-                id=part.tool_call_id,
+                id=approval_id,
                 name="adk_request_confirmation",
                 response={"confirmed": confirmed},
             )

@@ -169,7 +169,7 @@ export function ToolInvocationComponent({
           style={{ fontWeight: 600, color: getStateColor() }}
           data-testid="tool-name-debug"
         >
-          {toolName} ({toolInvocation.type})
+          {toolName}
         </span>
         <span style={{ fontSize: "0.875rem", color: "#999" }}>
           {getStateLabel()}

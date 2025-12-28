@@ -276,16 +276,19 @@ async def process_payment(
         approval_queue.request_approval(
             tool_call_id,
             "process_payment",
-            {"amount": amount, "recipient": recipient, "currency": currency, "description": description},
+            {
+                "amount": amount,
+                "recipient": recipient,
+                "currency": currency,
+                "description": description,
+            },
         )
         logger.info(f"[process_payment] Registered approval request for {tool_call_id}")
 
         # Await approval (BLOCKING behavior allows this without blocking event loop)
         try:
             logger.info("[process_payment] ⏳ Awaiting approval...")
-            approval_result = await approval_queue.wait_for_approval(
-                tool_call_id, timeout=30.0
-            )
+            approval_result = await approval_queue.wait_for_approval(tool_call_id, timeout=30.0)
             logger.info(f"[process_payment] ✓ Approval received: {approval_result}")
 
             if approval_result.get("approved"):
@@ -467,9 +470,7 @@ async def get_location(tool_context: ToolContext) -> dict[str, Any]:
         # Await approval (BLOCKING behavior allows this without blocking event loop)
         try:
             logger.info("[get_location] ⏳ Awaiting approval...")
-            approval_result = await approval_queue.wait_for_approval(
-                tool_call_id, timeout=30.0
-            )
+            approval_result = await approval_queue.wait_for_approval(tool_call_id, timeout=30.0)
             logger.info(f"[get_location] ✓ Approval received: {approval_result}")
 
             if approval_result.get("approved"):

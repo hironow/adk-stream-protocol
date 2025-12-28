@@ -11,7 +11,7 @@ import {
   sendTextMessage,
   setupFrontendConsoleLogger,
   waitForAssistantResponse,
-} from "./helpers";
+} from "../helpers";
 
 test("Simple chunk logger download test", async ({ page }) => {
   // Setup frontend console logger

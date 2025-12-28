@@ -361,8 +361,6 @@ export function MessageComponent({
               // Extract tool invocation data from part
               // biome-ignore lint/suspicious/noExplicitAny: Dynamic tool invocation structure
               const toolInvocation: any = {
-                // TODO: このtypeってわざわざ必要？
-                type: "dynamic-tool",
                 toolCallId: part.toolCallId,
                 toolName: part.type.replace("tool-", ""),
                 state: part.state,

@@ -62,9 +62,7 @@ class ApprovalQueue:
         # Active approval requests (tool_call_id -> request metadata)
         self._active_approvals: dict[str, dict[str, Any]] = {}
 
-    def request_approval(
-        self, tool_call_id: str, tool_name: str, args: dict[str, Any]
-    ) -> None:
+    def request_approval(self, tool_call_id: str, tool_name: str, args: dict[str, Any]) -> None:
         """
         Register a new approval request (non-blocking).
 
@@ -85,9 +83,7 @@ class ApprovalQueue:
         self._active_approvals[tool_call_id] = request
         logger.info(f"[ApprovalQueue] Request registered: {tool_call_id} ({tool_name})")
 
-    async def wait_for_approval(
-        self, tool_call_id: str, timeout: float = 30.0
-    ) -> dict[str, Any]:
+    async def wait_for_approval(self, tool_call_id: str, timeout: float = 30.0) -> dict[str, Any]:
         """
         Wait for approval decision (blocks only this task).
 
