@@ -145,7 +145,9 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
               );
               client.send("data: [DONE]\n\n");
             } else if (hasApprovalResponse) {
-              // User approved, wait for tool-result (don't send anything yet)
+              // Approval received, send [DONE] to complete this turn
+              // Tool output will come in next message
+              client.send("data: [DONE]\n\n");
               return;
             } else {
               // First message: Send original tool + confirmation request
@@ -208,8 +210,9 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
                 })}\n\n`,
               );
 
-              // Phase 12 BLOCKING: Don't send [DONE] yet - tool is awaiting approval
-              // [DONE] will be sent after final AI response (when tool output is received)
+              // Send [DONE] to complete this turn
+              // Approval response will come in a separate message
+              client.send("data: [DONE]\n\n");
             }
           });
         }),
@@ -585,8 +588,7 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
                 msg.role === "assistant" &&
                 msg.parts?.some(
                   (part: any) =>
-                    isApprovalRequestedTool(part) &&
-                    part.state === "approval-responded" &&
+                    isApprovalRespondedTool(part) &&
                     part.approval?.approved === false,
                 ),
             );
@@ -732,15 +734,12 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
             console.log("[Test Mock Server] Received:", msg.type, msg);
 
             // Turn 1: Initial message → Alice approval request
-            if (
-              msg.type === "message" &&
-              msg.messages &&
-              !aliceApprovalReceived
-            ) {
+            if (msg.type === "message" && msg.messages) {
               const lastMsg = msg.messages[msg.messages.length - 1];
 
               // Check if this is the initial user message (ADR 0002: no tool-adk_request_confirmation in initial message)
               if (
+                !aliceApprovalReceived &&
                 lastMsg.role === "user" &&
                 !lastMsg.parts?.some(
                   (p: any) => p.type === "tool-adk_request_confirmation",
@@ -778,6 +777,8 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
               // Turn 2: Alice approval → Alice execution + Bob approval request
               // ADR 0002: Check for actual tool part (tool-process_payment) with approval-responded state
               if (
+                aliceApprovalReceived &&
+                !bobApprovalReceived &&
                 lastMsg.parts?.some(
                   (p: any) =>
                     p.type === "tool-process_payment" &&
@@ -817,6 +818,7 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
               // Turn 3: Bob approval → Bob execution + final response
               // ADR 0002: Check for actual tool part (tool-process_payment) with approval-responded state
               if (
+                bobApprovalReceived &&
                 lastMsg.parts?.some(
                   (p: any) =>
                     p.type === "tool-process_payment" &&
@@ -853,17 +855,15 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
       );
 
       // When: User sends message requesting two payments
-      const { result } = renderHook(() =>
-        useChat(
-          buildUseChatOptions({
-            chat,
-            mode: "bidi",
-            chatId: "test-sequential-approvals",
-          }),
-        ),
-      );
+      const { useChatOptions, transport } = buildUseChatOptions({
+        initialMessages: [],
+        adkBackendUrl: "http://localhost:8000",
+        forceNewInstance: true,
+      });
 
-      currentTransport = chat.transport;
+      currentTransport = transport;
+
+      const { result } = renderHook(() => useChat(useChatOptions));
 
       await act(async () => {
         result.current.sendMessage({

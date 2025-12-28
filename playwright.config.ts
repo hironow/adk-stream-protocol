@@ -52,9 +52,15 @@ export default defineConfig({
   // Test timeout
   timeout: 30000, // 30s per test
 
-  // Expect timeout
+  // Expect timeout and snapshot configuration
   expect: {
     timeout: 10000, // 10s per assertion
+
+    // Snapshot configuration - centralize all snapshots in assets/snapshots/
+    // Example: assets/snapshots/{projectName}/{arg}-{projectName}-{platform}.png
+    toHaveScreenshot: {
+      pathTemplate: "assets/snapshots/{projectName}/{arg}-{projectName}-{platform}{ext}",
+    },
   },
 
   // Configure projects for different test suites

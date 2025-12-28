@@ -120,7 +120,9 @@
       "Bash(pnpm run lint:check:*)",
       "Bash(pnpm run test:lib:e2e:*)",
       "Bash(pnpm run check:*)",
-      "Bash(timeout 180 pnpm test:lib:*)"
+      "Bash(timeout 180 pnpm test:lib:*)",
+      "Bash(pnpm test:e2e:scenarios:*)",
+      "Bash(pnpm exec playwright:*)"
     ],
     "deny": [
       "Read(.env.keys)",
