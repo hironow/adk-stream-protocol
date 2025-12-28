@@ -26,6 +26,7 @@ export default function ChatPage() {
             background: "#1a1a1a",
             borderRadius: "8px",
             border: "1px solid #333",
+            minWidth: "220px",
           }}
         >
           <div
@@ -46,8 +47,6 @@ export default function ChatPage() {
               onClick={() => {
                 setMode("gemini");
               }}
-              // only for ai sdk v6 demo purpose
-              disabled={true}
               style={{
                 padding: "0.5rem 1rem",
                 borderRadius: "4px",

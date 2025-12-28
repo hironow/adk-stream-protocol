@@ -1,7 +1,7 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MessageComponent } from "@/components/message";
 import { useAudio } from "@/lib/audio-context";
 import {
@@ -56,7 +56,6 @@ export function Chat({
     sendMessage,
     status,
     error,
-    addToolOutput,
     addToolApprovalResponse,
   } = useChat({
     ...useChatOptions,
@@ -233,40 +232,25 @@ export function Chat({
         Skip to main content
       </a>
       {audioContext.needsUserActivation && (
-        <>
-          {/* Subtle backdrop */}
-          <div
-            style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background: "rgba(0, 0, 0, 0.3)",
-              zIndex: 999,
-              pointerEvents: "none",
-            }}
-          />
-          {/* Permission prompt banner */}
-          <div
-            role="dialog"
-            aria-labelledby="audio-permission-title"
-            aria-modal="true"
-            style={{
-              position: "fixed",
-              top: "2rem",
-              left: "50%",
-              transform: "translateX(-50%)",
-              maxWidth: "400px",
-              width: "calc(100% - 2rem)",
-              background: "#ffffff",
-              borderRadius: "12px",
-              padding: "1.5rem",
-              boxShadow:
-                "0 10px 25px rgba(0, 0, 0, 0.15), 0 4px 6px rgba(0, 0, 0, 0.1)",
-              zIndex: 1000,
-            }}
-          >
+        <div
+          role="dialog"
+          aria-labelledby="audio-permission-title"
+          aria-modal="true"
+          style={{
+            position: "fixed",
+            top: "2rem",
+            left: "50%",
+            transform: "translateX(-50%)",
+            maxWidth: "400px",
+            width: "calc(100% - 2rem)",
+            background: "#ffffff",
+            borderRadius: "12px",
+            padding: "1.5rem",
+            boxShadow:
+              "0 10px 25px rgba(0, 0, 0, 0.15), 0 4px 6px rgba(0, 0, 0, 0.1)",
+            zIndex: 1000,
+          }}
+        >
             <div
               style={{
                 display: "flex",
@@ -339,7 +323,6 @@ export function Chat({
               </button>
             </div>
           </div>
-        </>
       )}
 
       {/* BGM Switch Button (upper left) */}
