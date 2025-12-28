@@ -115,7 +115,8 @@
       "Bash(tail:*)",
       "Bash(lsof:*)",
       "Bash(xargs:*)",
-      "Bash(E2E_REFRESH_FIXTURE=true uv run pytest:*)"
+      "Bash(E2E_REFRESH_FIXTURE=true uv run pytest:*)",
+      "Bash(pnpm test:lib:e2e:*)"
     ],
     "deny": [
       "Read(.env.keys)",
