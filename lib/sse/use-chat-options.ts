@@ -20,8 +20,8 @@
  * - sendAutomaticallyWhen: Tool confirmation trigger (ADK SSE mode only)
  */
 
-import type { UIMessage } from "@ai-sdk/react";
 import { ChunkLoggingTransport } from "@/lib/chunk_logs";
+import type { UIMessageFromAISDKv6 } from "@/lib/utils";
 import { sendAutomaticallyWhen } from "./send-automatically-when";
 import { createSseTransport } from "./transport";
 
@@ -49,7 +49,7 @@ export type SseMode = "gemini" | "adk-sse";
  */
 export interface SseUseChatConfig {
   mode: SseMode;
-  initialMessages: UIMessage[];
+  initialMessages: UIMessageFromAISDKv6[];
   apiEndpoint?: string;
   adkBackendUrl?: string;
   forceNewInstance?: boolean;
@@ -71,10 +71,10 @@ export interface SseUseChatConfig {
 export interface SseUseChatOptions {
   useChatOptions: {
     transport: ChunkLoggingTransport;
-    messages: UIMessage[];
+    messages: UIMessageFromAISDKv6[];
     id: string;
     sendAutomaticallyWhen?: (options: {
-      messages: UIMessage[];
+      messages: UIMessageFromAISDKv6[];
     }) => boolean | PromiseLike<boolean>;
   };
   transport: undefined;

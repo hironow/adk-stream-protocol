@@ -15,9 +15,9 @@
  */
 
 import { render, screen } from "@testing-library/react";
-import type { UIMessage } from "ai";
 import { describe, expect, it, vi } from "vitest";
 import { MessageComponent } from "@/components/message";
+import type { UIMessageFromAISDKv6 } from "@/lib/utils";
 
 // Mock dependencies
 vi.mock("@/lib/audio-context", () => ({
@@ -51,7 +51,7 @@ vi.mock("@/components/tool-invocation", () => ({
 describe("MessageComponent", () => {
   describe("Basic Message Rendering", () => {
     it("should render user message with correct styling", () => {
-      const message: UIMessage = {
+      const message: UIMessageFromAISDKv6 = {
         id: "msg-1",
         role: "user",
         content: "Hello, AI!",
@@ -65,7 +65,7 @@ describe("MessageComponent", () => {
     });
 
     it("should render assistant message with correct styling", () => {
-      const message: UIMessage = {
+      const message: UIMessageFromAISDKv6 = {
         id: "msg-2",
         role: "assistant",
         content: "Hello, human!",
@@ -81,7 +81,7 @@ describe("MessageComponent", () => {
 
   describe("Text Content Rendering", () => {
     it("should render simple text content", () => {
-      const message: UIMessage = {
+      const message: UIMessageFromAISDKv6 = {
         id: "msg-3",
         role: "assistant",
         content: "This is a simple message.",
@@ -94,7 +94,7 @@ describe("MessageComponent", () => {
     });
 
     it("should render multi-line text content", () => {
-      const message: UIMessage = {
+      const message: UIMessageFromAISDKv6 = {
         id: "msg-4",
         role: "assistant",
         content: "Line 1\nLine 2\nLine 3",
@@ -111,7 +111,7 @@ describe("MessageComponent", () => {
     });
 
     it("should render empty string as valid content", () => {
-      const message: UIMessage = {
+      const message: UIMessageFromAISDKv6 = {
         id: "msg-5",
         role: "assistant",
         content: "",
@@ -127,7 +127,7 @@ describe("MessageComponent", () => {
 
   describe("Tool Invocations", () => {
     it("should render tool call request", () => {
-      const message: UIMessage = {
+      const message: UIMessageFromAISDKv6 = {
         id: "msg-6",
         role: "assistant",
         content: "",
@@ -158,7 +158,7 @@ describe("MessageComponent", () => {
     });
 
     it("should render multiple tool invocations", () => {
-      const message: UIMessage = {
+      const message: UIMessageFromAISDKv6 = {
         id: "msg-7",
         role: "assistant",
         content: "",
@@ -199,7 +199,7 @@ describe("MessageComponent", () => {
 
   describe("Image Content", () => {
     it("should render image part", () => {
-      const message: UIMessage = {
+      const message: UIMessageFromAISDKv6 = {
         id: "msg-8",
         role: "user",
         content: "Check this image",
@@ -222,7 +222,7 @@ describe("MessageComponent", () => {
     });
 
     it("should render multiple images", () => {
-      const message: UIMessage = {
+      const message: UIMessageFromAISDKv6 = {
         id: "msg-9",
         role: "user",
         content: "Two images",
@@ -251,7 +251,7 @@ describe("MessageComponent", () => {
 
   describe("Edge Cases", () => {
     it("should hide empty user message (delegate continuation)", () => {
-      const message: UIMessage = {
+      const message: UIMessageFromAISDKv6 = {
         id: "msg-10",
         role: "user",
         content: "",
@@ -265,7 +265,7 @@ describe("MessageComponent", () => {
     });
 
     it("should not hide empty assistant message", () => {
-      const message: UIMessage = {
+      const message: UIMessageFromAISDKv6 = {
         id: "msg-11",
         role: "assistant",
         content: "",
@@ -279,7 +279,7 @@ describe("MessageComponent", () => {
     });
 
     it("should handle message with no parts", () => {
-      const message: UIMessage = {
+      const message: UIMessageFromAISDKv6 = {
         id: "msg-12",
         role: "assistant",
         content: "Content from content field",
@@ -294,7 +294,7 @@ describe("MessageComponent", () => {
     });
 
     it("should handle message with mixed content types", () => {
-      const message: UIMessage = {
+      const message: UIMessageFromAISDKv6 = {
         id: "msg-13",
         role: "assistant",
         content: "Mixed content",
@@ -334,7 +334,7 @@ describe("MessageComponent", () => {
 
   describe("Metadata Display", () => {
     it("should display usage metadata when present", () => {
-      const message: UIMessage = {
+      const message: UIMessageFromAISDKv6 = {
         id: "msg-14",
         role: "assistant",
         content: "Response with metadata",
@@ -356,7 +356,7 @@ describe("MessageComponent", () => {
     });
 
     it("should not display metadata section when no metadata", () => {
-      const message: UIMessage = {
+      const message: UIMessageFromAISDKv6 = {
         id: "msg-15",
         role: "assistant",
         content: "Response without metadata",

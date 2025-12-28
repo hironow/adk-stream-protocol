@@ -17,22 +17,22 @@
  */
 
 import type {
-  ChatRequestOptions,
-  ChatTransport,
-  UIMessage,
-  UIMessageChunk,
-} from "ai";
+  ChatRequestOptionsFromAISDKv6,
+  ChatTransportFromAISDKv6,
+  UIMessageFromAISDKv6,
+  UIMessageChunkFromAISDKv6,
+} from "../utils";
 import { chunkLogger, type Mode } from "./chunk-logger";
 
 /**
  * Transport wrapper that logs chunks while delegating to any ChatTransport.
  * Works with both DefaultChatTransport (SSE) and WebSocketChatTransport (BIDI).
  */
-export class ChunkLoggingTransport implements ChatTransport<UIMessage> {
-  private delegate: ChatTransport<UIMessage>;
+export class ChunkLoggingTransport implements ChatTransportFromAISDKv6 {
+  private delegate: ChatTransportFromAISDKv6;
   private mode: Mode;
 
-  constructor(delegate: ChatTransport<UIMessage>, mode: Mode) {
+  constructor(delegate: ChatTransportFromAISDKv6, mode: Mode) {
     this.delegate = delegate;
     this.mode = mode;
   }
@@ -42,15 +42,15 @@ export class ChunkLoggingTransport implements ChatTransport<UIMessage> {
       trigger: "submit-message" | "regenerate-message";
       chatId: string;
       messageId: string | undefined;
-      messages: UIMessage[];
+      messages: UIMessageFromAISDKv6[];
       abortSignal: AbortSignal | undefined;
-    } & ChatRequestOptions,
-  ): Promise<ReadableStream<UIMessageChunk>> {
+    } & ChatRequestOptionsFromAISDKv6,
+  ): Promise<ReadableStream<UIMessageChunkFromAISDKv6>> {
     const delegateStream = await this.delegate.sendMessages(options);
     const mode = this.mode; // Capture mode for closure
 
     // Wrap the stream to log chunks
-    return new ReadableStream<UIMessageChunk>({
+    return new ReadableStream<UIMessageChunkFromAISDKv6>({
       async start(controller) {
         const reader = delegateStream.getReader();
         try {
@@ -96,8 +96,8 @@ export class ChunkLoggingTransport implements ChatTransport<UIMessage> {
   }
 
   async reconnectToStream(
-    options: { chatId: string } & ChatRequestOptions,
-  ): Promise<ReadableStream<UIMessageChunk> | null> {
+    options: { chatId: string } & ChatRequestOptionsFromAISDKv6,
+  ): Promise<ReadableStream<UIMessageChunkFromAISDKv6> | null> {
     return this.delegate.reconnectToStream(options);
   }
 }

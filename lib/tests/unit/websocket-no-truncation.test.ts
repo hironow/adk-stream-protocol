@@ -3,10 +3,10 @@
  * Uses MSW for WebSocket mocking
  */
 
-import type { UIMessage } from "ai";
 import { setupServer } from "msw/node";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { WebSocketChatTransport } from "../../bidi/transport";
+import type { UIMessageFromAISDKv6 } from "../../utils";
 import {
   createBidiWebSocketLink,
   createCustomHandler,
@@ -32,14 +32,14 @@ afterAll(() => {
 describe("WebSocketChatTransport - Message Preservation", () => {
   it("should send ALL messages without truncation", async () => {
     // Given: Create a large number of messages (more than old limit of 50)
-    const messages: UIMessage[] = Array.from(
+    const messages: UIMessageFromAISDKv6[] = Array.from(
       { length: 100 },
       (_, i) =>
         ({
           id: `msg-${i}`,
           role: i % 2 === 0 ? "user" : "assistant",
           parts: [{ type: "text", text: `Message ${i}` }],
-        }) as UIMessage,
+        }) as UIMessageFromAISDKv6,
     );
 
     let receivedData: any = null;
@@ -105,14 +105,14 @@ describe("WebSocketChatTransport - Message Preservation", () => {
   it("should warn for large payloads but still send them", async () => {
     // Create messages that will exceed warning threshold (> 1MB)
     const largeText = "x".repeat(20000); // 20KB per message
-    const messages: UIMessage[] = Array.from(
+    const messages: UIMessageFromAISDKv6[] = Array.from(
       { length: 60 },
       (_, i) =>
         ({
           id: `msg-${i}`,
           role: "user",
           parts: [{ type: "text", text: largeText }],
-        }) as UIMessage,
+        }) as UIMessageFromAISDKv6,
     );
 
     let receivedData: any = null;
@@ -167,7 +167,7 @@ describe("WebSocketChatTransport - Message Preservation", () => {
 
   it("should preserve full conversation context for ADK BIDI", async () => {
     // Simulate a long conversation with context
-    const conversation: UIMessage[] = [
+    const conversation: UIMessageFromAISDKv6[] = [
       {
         id: "1",
         role: "user",
@@ -189,7 +189,7 @@ describe("WebSocketChatTransport - Message Preservation", () => {
         role: "user",
         parts: [{ type: "text", text: "Recent message needing full context" }],
       },
-    ] as UIMessage[];
+    ] as UIMessageFromAISDKv6[];
 
     let receivedData: any = null;
 
@@ -246,7 +246,7 @@ describe("WebSocketChatTransport - Message Preservation", () => {
   });
 
   it("should handle messages with complex parts (images, tools)", async () => {
-    const complexMessages: UIMessage[] = [
+    const complexMessages: UIMessageFromAISDKv6[] = [
       {
         id: "1",
         role: "user",
@@ -279,7 +279,7 @@ describe("WebSocketChatTransport - Message Preservation", () => {
         role: "user",
         parts: [{ type: "text", text: `Message ${i}` }],
       })),
-    ] as UIMessage[];
+    ] as UIMessageFromAISDKv6[];
 
     let receivedData: any = null;
 
@@ -337,13 +337,13 @@ describe("WebSocketChatTransport - Message Preservation", () => {
     // Test the new thresholds (500KB warning, 10MB error)
 
     // Small payload - no warning
-    const smallMessages: UIMessage[] = [
+    const smallMessages: UIMessageFromAISDKv6[] = [
       {
         id: "1",
         role: "user",
         parts: [{ type: "text", text: "Small message" }],
       },
-    ] as UIMessage[];
+    ] as UIMessageFromAISDKv6[];
 
     let receivedData: any = null;
 
@@ -398,14 +398,14 @@ describe("WebSocketChatTransport - Message Preservation", () => {
 
     // Medium payload (>500KB) - should still send successfully
     const mediumText = "x".repeat(100000); // 100KB per message
-    const mediumMessages: UIMessage[] = Array.from(
+    const mediumMessages: UIMessageFromAISDKv6[] = Array.from(
       { length: 6 }, // 600KB total
       (_, i) =>
         ({
           id: `msg-${i}`,
           role: "user",
           parts: [{ type: "text", text: mediumText }],
-        }) as UIMessage,
+        }) as UIMessageFromAISDKv6,
     );
 
     server.use(

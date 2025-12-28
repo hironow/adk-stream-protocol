@@ -42,12 +42,8 @@ export function ToolInvocationComponent({
       : toolInvocation.type) ||
     "unknown";
 
-  // Detect ADK RequestConfirmation as approval request
-  // adk_request_confirmation tool calls should be rendered as approval UI
-  const isAdkConfirmation = toolName === "adk_request_confirmation";
-  const originalToolCall = isAdkConfirmation
-    ? toolInvocation.input?.originalFunctionCall
-    : null;
+  // ADK RequestConfirmation is handled by state === "approval-requested" (ADR 0002)
+  // The adk_request_confirmation tool is never sent to frontend (only tool-approval-request events)
 
   const { state } = toolInvocation;
 
@@ -176,136 +172,7 @@ export function ToolInvocationComponent({
         </span>
       </div>
 
-      {/* ADK RequestConfirmation Approval UI */}
-      {/* Only show approval buttons when NOT completed */}
-      {isAdkConfirmation &&
-        originalToolCall &&
-        state !== "output-available" && (
-          <div style={{ marginBottom: "0.5rem" }}>
-            <div
-              style={{
-                fontSize: "0.875rem",
-                color: "#d1d5db",
-                marginBottom: "0.5rem",
-              }}
-            >
-              The tool{" "}
-              <strong data-testid="tool-name-primary">
-                {originalToolCall.name}
-              </strong>{" "}
-              requires your approval:
-            </div>
-            <div
-              style={{
-                background: "#1a1a1a",
-                padding: "0.5rem",
-                borderRadius: "4px",
-                fontSize: "0.75rem",
-                fontFamily: "monospace",
-                marginBottom: "0.75rem",
-              }}
-            >
-              {JSON.stringify(originalToolCall.args, null, 2)}
-            </div>
-            <div
-              style={{
-                display: "flex",
-                gap: "0.5rem",
-              }}
-            >
-              <button
-                type="button"
-                data-testid="tool-approve-button"
-                onClick={() => {
-                  console.info(
-                    `[ToolInvocationComponent] User approved ${originalToolCall.name}`,
-                  );
-
-                  // Send confirmation via addToolOutput (works for both SSE and BIDI modes)
-                  // - SSE mode: Triggers HTTP request with confirmation output
-                  // - BIDI mode: Transport layer converts to WebSocket function_response
-                  // sendAutomaticallyWhen handles automatic message sending for both modes
-                  if (addToolOutput) {
-                    console.info(
-                      `[ToolInvocationComponent] Sending confirmation via addToolOutput`,
-                      { toolCallId: toolInvocation.toolCallId },
-                    );
-                    addToolOutput({
-                      tool: "adk_request_confirmation",
-                      toolCallId: toolInvocation.toolCallId,
-                      output: {
-                        confirmed: true,
-                      },
-                    });
-                    return;
-                  }
-
-                  console.error(
-                    `[ToolInvocationComponent] addToolOutput not available`,
-                  );
-                }}
-                style={{
-                  padding: "0.5rem 1rem",
-                  borderRadius: "4px",
-                  background: "#10b981",
-                  color: "white",
-                  border: "none",
-                  cursor: "pointer",
-                  fontSize: "0.875rem",
-                  fontWeight: 500,
-                }}
-              >
-                Approve
-              </button>
-              <button
-                type="button"
-                data-testid="tool-deny-button"
-                onClick={() => {
-                  console.info(
-                    `[ToolInvocationComponent] User denied ${originalToolCall.name}`,
-                  );
-
-                  // Send confirmation via addToolOutput (works for both SSE and BIDI modes)
-                  // - SSE mode: Triggers HTTP request with confirmation output
-                  // - BIDI mode: Transport layer converts to WebSocket function_response
-                  // sendAutomaticallyWhen handles automatic message sending for both modes
-                  if (addToolOutput) {
-                    console.info(
-                      `[ToolInvocationComponent] Sending confirmation via addToolOutput`,
-                      { toolCallId: toolInvocation.toolCallId },
-                    );
-                    addToolOutput({
-                      tool: "adk_request_confirmation",
-                      toolCallId: toolInvocation.toolCallId,
-                      output: {
-                        confirmed: false,
-                      },
-                    });
-                    return;
-                  }
-
-                  console.error(
-                    `[ToolInvocationComponent] addToolOutput not available`,
-                  );
-                }}
-                style={{
-                  padding: "0.5rem 1rem",
-                  borderRadius: "4px",
-                  background: "#ef4444",
-                  color: "white",
-                  border: "none",
-                  cursor: "pointer",
-                  fontSize: "0.875rem",
-                  fontWeight: 500,
-                }}
-              >
-                Deny
-              </button>
-            </div>
-          </div>
-        )}
-
-      {/* Approval UI */}
+      {/* Approval UI (ADR 0002 - Server Execute Pattern) */}
       {state === "approval-requested" &&
         "approval" in toolInvocation &&
         toolInvocation.approval && (
@@ -567,41 +434,38 @@ export function ToolInvocationComponent({
       )}
 
       {/* Tool Input */}
-      {/* Skip input display for adk_request_confirmation (shown in approval UI above) */}
-      {"input" in toolInvocation &&
-        toolInvocation.input &&
-        !isAdkConfirmation && (
-          <div style={{ marginBottom: "0.5rem" }}>
-            <div
-              style={{
-                fontSize: "0.75rem",
-                color: "#999",
-                marginBottom: "0.25rem",
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-              }}
-            >
-              Input
-            </div>
-            <pre
-              style={{
-                margin: 0,
-                padding: "0.5rem",
-                borderRadius: "4px",
-                background: "#1a1a1a",
-                fontSize: "0.875rem",
-                overflow: "auto",
-                color: "#d1d5db",
-              }}
-            >
-              {JSON.stringify(
-                toolInvocation.input as Record<string, unknown>,
-                null,
-                2,
-              )}
-            </pre>
+      {"input" in toolInvocation && toolInvocation.input && (
+        <div style={{ marginBottom: "0.5rem" }}>
+          <div
+            style={{
+              fontSize: "0.75rem",
+              color: "#999",
+              marginBottom: "0.25rem",
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+            }}
+          >
+            Input
           </div>
-        )}
+          <pre
+            style={{
+              margin: 0,
+              padding: "0.5rem",
+              borderRadius: "4px",
+              background: "#1a1a1a",
+              fontSize: "0.875rem",
+              overflow: "auto",
+              color: "#d1d5db",
+            }}
+          >
+            {JSON.stringify(
+              toolInvocation.input as Record<string, unknown>,
+              null,
+              2,
+            )}
+          </pre>
+        </div>
+      )}
 
       {/* Tool Output */}
       {state === "output-available" && "output" in toolInvocation && (

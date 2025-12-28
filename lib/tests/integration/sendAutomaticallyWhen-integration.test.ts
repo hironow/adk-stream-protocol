@@ -10,14 +10,10 @@
  * 3. Error states → no auto-send (false) - PREVENTS INFINITE LOOP
  */
 
-import type { UIMessage } from "ai";
 import { describe, expect, it } from "vitest";
 import { sendAutomaticallyWhen as bidiSendAuto } from "../../bidi";
-import {
-  TOOL_STATE_APPROVAL_RESPONDED,
-  TOOL_STATE_OUTPUT_AVAILABLE,
-} from "../../constants";
 import { sendAutomaticallyWhen as sseSendAuto } from "../../sse";
+import type { UIMessageFromAISDKv6 } from "../../utils";
 
 describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
   describe("BIDI Mode - Infinite Loop Prevention", () => {
@@ -31,7 +27,7 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
       // ADR 0002: No separate adk_request_confirmation tool. Original tool transitions:
       // approval-requested → approval-responded → output-available
 
-      const messagesAfterBackendResponse: UIMessage[] = [
+      const messagesAfterBackendResponse: UIMessageFromAISDKv6[] = [
         {
           id: "1",
           role: "assistant",
@@ -74,7 +70,7 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
       //
       // ADR 0002: Original tool is in approval-responded state, no output yet
 
-      const messagesFirstConfirmation: UIMessage[] = [
+      const messagesFirstConfirmation: UIMessageFromAISDKv6[] = [
         {
           id: "1",
           role: "assistant",
@@ -83,7 +79,7 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
             {
               // ADR 0002: Original tool in approval-responded state
               type: "tool-search",
-              state: TOOL_STATE_APPROVAL_RESPONDED,
+              state: "approval-responded",
               toolCallId: "orig-1",
               toolName: "search",
               input: {},
@@ -110,7 +106,7 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
       //
       // ADR 0002: Original tool transitions to output-error state
 
-      const messagesWithError: UIMessage[] = [
+      const messagesWithError: UIMessageFromAISDKv6[] = [
         {
           id: "1",
           role: "assistant",
@@ -141,7 +137,7 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
     });
 
     it("returns false for user messages to prevent accidental auto-send", () => {
-      const userMessage: UIMessage[] = [
+      const userMessage: UIMessageFromAISDKv6[] = [
         {
           id: "1",
           role: "user",
@@ -173,7 +169,7 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
   describe("SSE Mode - Infinite Loop Prevention", () => {
     it("CRITICAL: returns false after backend responds to prevent infinite loop", () => {
       // ADR 0002: Original tool transitions to output-available after approval
-      const messagesAfterBackendResponse: UIMessage[] = [
+      const messagesAfterBackendResponse: UIMessageFromAISDKv6[] = [
         {
           id: "1",
           role: "assistant",
@@ -212,7 +208,7 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
 
     it("CRITICAL: returns true only on FIRST confirmation completion", () => {
       // ADR 0002: Original tool in approval-responded state, no output yet
-      const messagesFirstConfirmation: UIMessage[] = [
+      const messagesFirstConfirmation: UIMessageFromAISDKv6[] = [
         {
           id: "1",
           role: "assistant",
@@ -221,7 +217,7 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
             {
               // ADR 0002: Original tool in approval-responded state
               type: "tool-delete_file",
-              state: TOOL_STATE_APPROVAL_RESPONDED,
+              state: "approval-responded",
               toolCallId: "orig-1",
               toolName: "delete_file",
               input: {},
@@ -244,7 +240,7 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
 
     it("CRITICAL: returns false when tool has error state", () => {
       // ADR 0002: Original tool transitions to output-error state after approval
-      const messagesWithError: UIMessage[] = [
+      const messagesWithError: UIMessageFromAISDKv6[] = [
         {
           id: "1",
           role: "assistant",
@@ -285,6 +281,303 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
     });
   });
 
+  describe("Multiple Tools in Single Message", () => {
+    describe("SSE Mode - Multiple Approvals", () => {
+      it("returns true when ALL tools are approved (parallel approvals)", () => {
+        // Scenario: User approved ALL 2 tools in single message
+        // Expected: sendAutomaticallyWhen returns TRUE (send to backend)
+        //
+        // This is the SSE parallel approval pattern:
+        // - Backend sends 2 tool-approval-requests
+        // - User approves both
+        // - Both tools transition to approval-responded
+        // - No pending approval-requested tools remain
+
+        const messagesWithAllApproved: UIMessageFromAISDKv6[] = [
+          {
+            id: "1",
+            role: "assistant",
+            content: "",
+            parts: [
+              {
+                // First tool: approved
+                type: "tool-process_payment",
+                state: "approval-responded",
+                toolCallId: "payment-1",
+                toolName: "process_payment",
+                input: { recipient: "Alice", amount: 30 },
+                approval: {
+                  id: "approval-1",
+                  approved: true,
+                },
+              },
+              {
+                // Second tool: approved
+                type: "tool-process_payment",
+                state: "approval-responded",
+                toolCallId: "payment-2",
+                toolName: "process_payment",
+                input: { recipient: "Bob", amount: 40 },
+                approval: {
+                  id: "approval-2",
+                  approved: true,
+                },
+              },
+            ],
+          } as any,
+        ];
+
+        // when
+        const shouldSend = sseSendAuto({ messages: messagesWithAllApproved });
+
+        // then
+        expect(shouldSend).toBe(true); // Send both approvals to backend
+      });
+
+      it("returns false when SOME tools are still pending approval", () => {
+        // Scenario: User approved ONLY 1 of 2 tools
+        // Expected: sendAutomaticallyWhen returns FALSE (wait for all approvals)
+        //
+        // Prevents partial submission:
+        // - Tool 1: approval-responded (user clicked approve)
+        // - Tool 2: approval-requested (still waiting)
+        // → Don't send yet, wait for user to approve Tool 2
+
+        const messagesWithPartialApproval: UIMessageFromAISDKv6[] = [
+          {
+            id: "1",
+            role: "assistant",
+            content: "",
+            parts: [
+              {
+                // First tool: approved
+                type: "tool-process_payment",
+                state: "approval-responded",
+                toolCallId: "payment-1",
+                toolName: "process_payment",
+                input: { recipient: "Alice", amount: 30 },
+                approval: {
+                  id: "approval-1",
+                  approved: true,
+                },
+              },
+              {
+                // Second tool: still pending
+                type: "tool-process_payment",
+                state: "approval-requested",
+                toolCallId: "payment-2",
+                toolName: "process_payment",
+                input: { recipient: "Bob", amount: 40 },
+                approval: {
+                  id: "approval-2",
+                  approved: undefined,
+                },
+              },
+            ],
+          } as any,
+        ];
+
+        // when
+        const shouldSend = sseSendAuto({
+          messages: messagesWithPartialApproval,
+        });
+
+        // then
+        expect(shouldSend).toBe(false); // Wait for all approvals
+      });
+
+      it("returns false after backend responds to prevent infinite loop", () => {
+        // Scenario: Backend executed both payments and responded
+        // Expected: sendAutomaticallyWhen returns FALSE (prevent re-sending)
+
+        const messagesAfterBothExecuted: UIMessageFromAISDKv6[] = [
+          {
+            id: "1",
+            role: "assistant",
+            content: "Both payments completed successfully",
+            parts: [
+              {
+                // First tool: executed
+                type: "tool-process_payment",
+                state: "output-available",
+                toolCallId: "payment-1",
+                toolName: "process_payment",
+                input: { recipient: "Alice", amount: 30 },
+                output: { success: true, transaction_id: "txn-001" },
+                approval: {
+                  id: "approval-1",
+                  approved: true,
+                },
+              },
+              {
+                // Second tool: executed
+                type: "tool-process_payment",
+                state: "output-available",
+                toolCallId: "payment-2",
+                toolName: "process_payment",
+                input: { recipient: "Bob", amount: 40 },
+                output: { success: true, transaction_id: "txn-002" },
+                approval: {
+                  id: "approval-2",
+                  approved: true,
+                },
+              },
+              {
+                // Backend text response
+                type: "text",
+                text: "Both payments completed successfully",
+              },
+            ],
+          } as any,
+        ];
+
+        // when
+        const shouldSend = sseSendAuto({
+          messages: messagesAfterBothExecuted,
+        });
+
+        // then
+        expect(shouldSend).toBe(false); // MUST prevent infinite loop
+      });
+    });
+
+    describe("BIDI Mode - Multiple Approvals", () => {
+      it("returns true when ALL tools are approved (parallel approvals)", () => {
+        // BIDI mode: Same as SSE for parallel approvals
+        // Note: BIDI typically uses sequential execution (ADR 0003),
+        // but this tests the parallel case if it occurs
+
+        const messagesWithAllApproved: UIMessageFromAISDKv6[] = [
+          {
+            id: "1",
+            role: "assistant",
+            content: "",
+            parts: [
+              {
+                type: "tool-process_payment",
+                state: "approval-responded",
+                toolCallId: "payment-1",
+                toolName: "process_payment",
+                input: { recipient: "Alice", amount: 30 },
+                approval: {
+                  id: "approval-1",
+                  approved: true,
+                },
+              },
+              {
+                type: "tool-process_payment",
+                state: "approval-responded",
+                toolCallId: "payment-2",
+                toolName: "process_payment",
+                input: { recipient: "Bob", amount: 40 },
+                approval: {
+                  id: "approval-2",
+                  approved: true,
+                },
+              },
+            ],
+          } as any,
+        ];
+
+        // when
+        const shouldSend = bidiSendAuto({ messages: messagesWithAllApproved });
+
+        // then
+        expect(shouldSend).toBe(true);
+      });
+
+      it("returns false when SOME tools are still pending approval", () => {
+        const messagesWithPartialApproval: UIMessageFromAISDKv6[] = [
+          {
+            id: "1",
+            role: "assistant",
+            content: "",
+            parts: [
+              {
+                type: "tool-process_payment",
+                state: "approval-responded",
+                toolCallId: "payment-1",
+                toolName: "process_payment",
+                input: { recipient: "Alice", amount: 30 },
+                approval: {
+                  id: "approval-1",
+                  approved: true,
+                },
+              },
+              {
+                type: "tool-process_payment",
+                state: "approval-requested",
+                toolCallId: "payment-2",
+                toolName: "process_payment",
+                input: { recipient: "Bob", amount: 40 },
+                approval: {
+                  id: "approval-2",
+                  approved: undefined,
+                },
+              },
+            ],
+          } as any,
+        ];
+
+        // when
+        const shouldSend = bidiSendAuto({
+          messages: messagesWithPartialApproval,
+        });
+
+        // then
+        expect(shouldSend).toBe(false);
+      });
+
+      it("returns false after backend responds to prevent infinite loop", () => {
+        const messagesAfterBothExecuted: UIMessageFromAISDKv6[] = [
+          {
+            id: "1",
+            role: "assistant",
+            content: "Both payments completed successfully",
+            parts: [
+              {
+                type: "tool-process_payment",
+                state: "output-available",
+                toolCallId: "payment-1",
+                toolName: "process_payment",
+                input: { recipient: "Alice", amount: 30 },
+                output: { success: true, transaction_id: "txn-001" },
+                approval: {
+                  id: "approval-1",
+                  approved: true,
+                },
+              },
+              {
+                type: "tool-process_payment",
+                state: "output-available",
+                toolCallId: "payment-2",
+                toolName: "process_payment",
+                input: { recipient: "Bob", amount: 40 },
+                output: { success: true, transaction_id: "txn-002" },
+                approval: {
+                  id: "approval-2",
+                  approved: true,
+                },
+              },
+              {
+                type: "text",
+                text: "Both payments completed successfully",
+              },
+            ],
+          } as any,
+        ];
+
+        // when
+        const shouldSend = bidiSendAuto({
+          messages: messagesAfterBothExecuted,
+        });
+
+        // then
+        expect(shouldSend).toBe(false);
+      });
+    });
+  });
+
   describe("Multi-turn Confirmation Flow Simulation", () => {
     it("CRITICAL: prevents infinite loop across multiple confirmation cycles", () => {
       // Simulation of conversation flow:
@@ -294,7 +587,7 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
       // ADR 0002: Original tools transition through states
 
       // Turn 1: After backend responds
-      const turn1AfterResponse: UIMessage[] = [
+      const turn1AfterResponse: UIMessageFromAISDKv6[] = [
         {
           id: "msg-1",
           role: "user",
@@ -308,7 +601,7 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
             {
               // ADR 0002: Original search tool in output-available state after approval
               type: "tool-search",
-              state: TOOL_STATE_OUTPUT_AVAILABLE,
+              state: "output-available",
               toolCallId: "orig-1",
               toolName: "search",
               input: {},
@@ -329,7 +622,7 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
       expect(bidiSendAuto({ messages: turn1AfterResponse })).toBe(false);
 
       // Turn 2: New confirmation request
-      const turn2FirstConfirmation: UIMessage[] = [
+      const turn2FirstConfirmation: UIMessageFromAISDKv6[] = [
         ...turn1AfterResponse,
         {
           id: "msg-3",
@@ -344,7 +637,7 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
             {
               // ADR 0002: Original delete_file tool in approval-responded state
               type: "tool-delete_file",
-              state: TOOL_STATE_APPROVAL_RESPONDED,
+              state: "approval-responded",
               toolCallId: "orig-2",
               toolName: "delete_file",
               input: {},
@@ -361,7 +654,7 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
       expect(bidiSendAuto({ messages: turn2FirstConfirmation })).toBe(true);
 
       // Turn 2: After backend responds
-      const turn2AfterResponse: UIMessage[] = [
+      const turn2AfterResponse: UIMessageFromAISDKv6[] = [
         ...turn1AfterResponse,
         {
           id: "msg-3",
@@ -376,7 +669,7 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
             {
               // ADR 0002: Original delete_file tool in output-available state after approval
               type: "tool-delete_file",
-              state: TOOL_STATE_OUTPUT_AVAILABLE,
+              state: "output-available",
               toolCallId: "orig-2",
               toolName: "delete_file",
               input: {},

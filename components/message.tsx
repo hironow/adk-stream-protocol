@@ -10,14 +10,16 @@
  * All rendering complexity is contained within this component.
  */
 
-import type { UIMessage } from "@ai-sdk/react";
-import type { DynamicToolUIPart } from "ai";
 import { useAudio } from "@/lib/audio-context";
+import type {
+  DynamicToolUIPartFromAISDKv6,
+  UIMessageFromAISDKv6,
+} from "@/lib/utils";
 import { ImageDisplay } from "./image-display";
 import { ToolInvocationComponent } from "./tool-invocation";
 
-// Extended UIMessage with metadata properties
-interface ExtendedUIMessage extends UIMessage {
+// Extended UIMessageFromAISDKv6 with metadata properties
+interface ExtendedUIMessage extends UIMessageFromAISDKv6 {
   status?: string;
   metadata?: {
     usage?: {
@@ -45,11 +47,11 @@ interface ExtendedUIMessage extends UIMessage {
     };
     modelVersion?: string;
   };
-  toolInvocations?: DynamicToolUIPart[];
+  toolInvocations?: DynamicToolUIPartFromAISDKv6[];
 }
 
 interface MessageComponentProps {
-  message: UIMessage;
+  message: UIMessageFromAISDKv6;
   addToolApprovalResponse?: (response: {
     id: string;
     approved: boolean;

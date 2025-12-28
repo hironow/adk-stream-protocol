@@ -20,9 +20,9 @@
  * - sendAutomaticallyWhen: Tool confirmation trigger logic
  */
 
-import type { UIMessage } from "@ai-sdk/react";
+import type { AudioContextValue } from "@/lib/audio-context";
 import { ChunkLoggingTransport } from "@/lib/chunk_logs";
-import type { AudioContextValue } from "@/lib/types";
+import type { UIMessageFromAISDKv6 } from "@/lib/utils";
 import { sendAutomaticallyWhen } from "./send-automatically-when";
 import { WebSocketChatTransport } from "./transport";
 
@@ -40,7 +40,7 @@ import { WebSocketChatTransport } from "./transport";
  *                          Only used in voice mode for playing AI-generated audio
  */
 export interface BidiUseChatConfig {
-  initialMessages: UIMessage[];
+  initialMessages: UIMessageFromAISDKv6[];
   adkBackendUrl?: string;
   forceNewInstance?: boolean;
   audioContext?: AudioContextValue;
@@ -63,10 +63,10 @@ export interface BidiUseChatConfig {
 export interface BidiUseChatOptions {
   useChatOptions: {
     transport: ChunkLoggingTransport;
-    messages: UIMessage[];
+    messages: UIMessageFromAISDKv6[];
     id: string;
     sendAutomaticallyWhen: (options: {
-      messages: UIMessage[];
+      messages: UIMessageFromAISDKv6[];
     }) => boolean | PromiseLike<boolean>;
   };
   transport: WebSocketChatTransport;

@@ -7,7 +7,6 @@ import { expect, test } from "@playwright/test";
  * Tests the complete approval workflow from request to execution.
  *
  * Test Focus:
- * - adk_request_confirmation tool behavior
  * - Approval request rendering
  * - Approval response handling
  * - Tool execution after approval

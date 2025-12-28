@@ -141,6 +141,8 @@ export function createConfirmationRequestHandler(
     // Establish mock server connection
     server.connect();
 
+    let messageCount = 0;
+
     // Listen for client messages
     client.addEventListener("message", (event) => {
       console.log(
@@ -148,48 +150,115 @@ export function createConfirmationRequestHandler(
         event.data,
       );
 
-      // ADR 0002: Send original tool chunks (will have approval requested on them)
-      // Send tool-input-start chunk for ORIGINAL tool
-      const startChunk = {
-        type: "tool-input-start",
-        toolCallId: originalFunctionCall.id,
-        toolName: originalFunctionCall.name,
-      };
-      const startMessage = `data: ${JSON.stringify(startChunk)}\n\n`;
-      console.log("[MSW WebSocket] Sending tool-input-start:", startMessage);
-      client.send(startMessage);
+      // Skip ping/pong messages
+      const data = JSON.parse(event.data as string);
+      if (data.type === "ping") {
+        return;
+      }
 
-      // Send tool-input-available chunk for ORIGINAL tool
-      const availableChunk = {
-        type: "tool-input-available",
-        toolCallId: originalFunctionCall.id,
-        toolName: originalFunctionCall.name,
-        input: originalFunctionCall.args,
-      };
-      const availableMessage = `data: ${JSON.stringify(availableChunk)}\n\n`;
-      console.log(
-        "[MSW WebSocket] Sending tool-input-available:",
-        availableMessage,
-      );
-      client.send(availableMessage);
+      messageCount++;
 
-      // ADR 0002: Send tool-approval-request for the ORIGINAL tool
-      // This updates the original tool's state to "approval-requested"
-      const approvalChunk = {
-        type: "tool-approval-request",
-        approvalId,
-        toolCallId: originalFunctionCall.id,
-      };
-      const approvalMessage = `data: ${JSON.stringify(approvalChunk)}\n\n`;
-      console.log(
-        "[MSW WebSocket] Sending tool-approval-request:",
-        approvalMessage,
-      );
-      client.send(approvalMessage);
+      // First message: Send approval request
+      if (messageCount === 1) {
+        console.log("[MSW WebSocket] First message - sending approval request");
 
-      // Send [DONE] marker
-      console.log("[MSW WebSocket] Sending DONE");
-      client.send("data: [DONE]\n\n");
+        // ADR 0002: Send original tool chunks (will have approval requested on them)
+        // Send tool-input-start chunk for ORIGINAL tool
+        const startChunk = {
+          type: "tool-input-start",
+          toolCallId: originalFunctionCall.id,
+          toolName: originalFunctionCall.name,
+        };
+        const startMessage = `data: ${JSON.stringify(startChunk)}\n\n`;
+        console.log("[MSW WebSocket] Sending tool-input-start:", startMessage);
+        client.send(startMessage);
+
+        // Send tool-input-available chunk for ORIGINAL tool
+        const availableChunk = {
+          type: "tool-input-available",
+          toolCallId: originalFunctionCall.id,
+          toolName: originalFunctionCall.name,
+          input: originalFunctionCall.args,
+        };
+        const availableMessage = `data: ${JSON.stringify(availableChunk)}\n\n`;
+        console.log(
+          "[MSW WebSocket] Sending tool-input-available:",
+          availableMessage,
+        );
+        client.send(availableMessage);
+
+        // ADR 0002: Send tool-approval-request for the ORIGINAL tool
+        // This updates the original tool's state to "approval-requested"
+        const approvalChunk = {
+          type: "tool-approval-request",
+          approvalId,
+          toolCallId: originalFunctionCall.id,
+        };
+        const approvalMessage = `data: ${JSON.stringify(approvalChunk)}\n\n`;
+        console.log(
+          "[MSW WebSocket] Sending tool-approval-request:",
+          approvalMessage,
+        );
+        client.send(approvalMessage);
+
+        // Send [DONE] marker
+        console.log("[MSW WebSocket] Sending DONE");
+        client.send("data: [DONE]\n\n");
+        return;
+      }
+
+      // Second message (after approval): Send final response
+      if (messageCount === 2) {
+        console.log(
+          "[MSW WebSocket] Second message - sending final response",
+        );
+        console.log(
+          "[MSW WebSocket] Message data:",
+          JSON.stringify(data, null, 2),
+        );
+
+        // Check if approval was granted or denied
+        const approvalPart = data.messages
+          ?.flatMap((msg: any) => msg.parts || [])
+          .find(
+            (part: any) =>
+              part.toolCallId === originalFunctionCall.id && part.approval,
+          );
+
+        console.log(
+          "[MSW WebSocket] Found approval part:",
+          JSON.stringify(approvalPart, null, 2),
+        );
+
+        // Check for approval object presence (AI SDK v6 only adds {id} to approval,
+        // not the approved/denied decision, until backend responds)
+        // If approval object exists, assume approved (sendAutomaticallyWhen triggered)
+        if (approvalPart?.approval) {
+          // Approved: Send output-available
+          const outputChunk = {
+            type: "tool-output-available",
+            toolCallId: originalFunctionCall.id,
+            toolName: originalFunctionCall.name,
+            output: { result: "Operation completed successfully" },
+          };
+          console.log("[MSW WebSocket] Sending tool-output-available");
+          client.send(`data: ${JSON.stringify(outputChunk)}\n\n`);
+        } else {
+          // Denied: Send output-denied
+          const deniedChunk = {
+            type: "tool-output-denied",
+            toolCallId: originalFunctionCall.id,
+            toolName: originalFunctionCall.name,
+            reason: approvalPart?.approval?.reason || "User denied",
+          };
+          console.log("[MSW WebSocket] Sending tool-output-denied");
+          client.send(`data: ${JSON.stringify(deniedChunk)}\n\n`);
+        }
+
+        // Send [DONE]
+        console.log("[MSW WebSocket] Sending DONE");
+        client.send("data: [DONE]\n\n");
+      }
     });
   });
 }

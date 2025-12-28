@@ -2,17 +2,17 @@
  * BIDI Event Receiver
  *
  * Handles incoming WebSocket messages from backend (ADK events in SSE format)
- * and converts them to UIMessageChunk for AI SDK v6 useChat hook.
+ * and converts them to UIMessageChunkFromAISDKv6 for AI SDK v6 useChat hook.
  *
  * Responsibilities:
  * - Parse SSE-formatted WebSocket messages
- * - Convert to UIMessageChunk format
+ * - Convert to UIMessageChunkFromAISDKv6 format
  * - Handle custom events (PCM audio, tool invocations)
  * - Manage stream lifecycle ([DONE] markers)
  * - Integrate with AudioContext for voice playback
  */
 
-import type { UIMessageChunk } from "ai";
+import type { UIMessageChunkFromAISDKv6 } from "../utils";
 
 /**
  * Audio context interface for voice playback and recording
@@ -50,7 +50,7 @@ export interface EventReceiverConfig {
 }
 
 /**
- * EventReceiver handles incoming WebSocket messages and converts them to UIMessageChunk.
+ * EventReceiver handles incoming WebSocket messages and converts them to UIMessageChunkFromAISDKv6.
  *
  * Usage:
  * ```typescript
@@ -78,7 +78,7 @@ export class EventReceiver {
    */
   public handleMessage(
     data: string,
-    controller: ReadableStreamDefaultController<UIMessageChunk>,
+    controller: ReadableStreamDefaultController<UIMessageChunkFromAISDKv6>,
   ): void {
     try {
       // Store controller reference for [DONE] handling
@@ -131,6 +131,9 @@ export class EventReceiver {
   private handleNonSSEMessage(data: string): void {
     try {
       const message = JSON.parse(data);
+      console.log(
+        `[Event Receiver] Non-SSE JSON message: type=${message.type}, keys=${Object.keys(message).join(",")}`,
+      );
       if (message.type === "pong" && message.timestamp) {
         this.config.onPong?.(message.timestamp);
       }
@@ -148,17 +151,20 @@ export class EventReceiver {
    */
   private handleSSEMessage(
     data: string,
-    controller: ReadableStreamDefaultController<UIMessageChunk>,
+    controller: ReadableStreamDefaultController<UIMessageChunkFromAISDKv6>,
   ): void {
     const jsonStr = data.substring(6).trim(); // Remove "data: " prefix
 
     // Handle [DONE] marker
     if (jsonStr === "[DONE]") {
+      console.log("[Event Receiver] ╔═══════════════════════════════╗");
+      console.log("[Event Receiver] ║      RECEIVED [DONE]          ║");
+      console.log("[Event Receiver] ╚═══════════════════════════════╝");
       this.handleDoneMarker(controller);
       return;
     }
 
-    // Parse JSON and convert to UIMessageChunk
+    // Parse JSON and convert to UIMessageChunkFromAISDKv6
     let chunk: unknown;
     try {
       chunk = JSON.parse(jsonStr);
@@ -171,10 +177,26 @@ export class EventReceiver {
       return; // Skip this message but keep stream open
     }
 
-    // Debug logging for specific event types
+    // Debug logging for ALL events with recipient info
+    const eventType = (chunk as any).type;
+    const toolName = (chunk as any).toolName;
+    const toolCallId = (chunk as any).toolCallId;
+    const input = (chunk as any).input;
+    const approvalId = (chunk as any).approvalId;
+    const recipient = input?.recipient || "N/A";
+
+    if (eventType?.startsWith("tool-")) {
+      console.log(
+        `[Event Receiver] ▶ ${eventType} | recipient=${recipient} | toolCallId=${toolCallId?.slice(-8)} | approvalId=${approvalId?.slice(-8)}`,
+      );
+    } else {
+      console.log(`[Event Receiver] ▶ ${eventType}`);
+    }
+
+    // Additional debug logging for specific event types
     if (chunk.type === "tool-approval-request") {
       console.log(
-        `[Event Receiver] Received tool-approval-request: approvalId=${chunk.approvalId}, toolCallId=${chunk.toolCallId}`,
+        `[Event Receiver]   └─ APPROVAL REQUEST for ${recipient}: approvalId=${chunk.approvalId}, toolCallId=${chunk.toolCallId}`,
       );
     }
 
@@ -194,7 +216,7 @@ export class EventReceiver {
 
     // Standard enqueue: Forward to AI SDK useChat hook
     try {
-      controller.enqueue(chunk as UIMessageChunk);
+      controller.enqueue(chunk as UIMessageChunkFromAISDKv6);
     } catch (err) {
       // Handle controller already closed (can happen in tests or when [DONE] races with other messages)
       if (
@@ -218,7 +240,7 @@ export class EventReceiver {
    * Handle [DONE] marker
    */
   private handleDoneMarker(
-    controller: ReadableStreamDefaultController<UIMessageChunk>,
+    controller: ReadableStreamDefaultController<UIMessageChunkFromAISDKv6>,
   ): void {
     // Protect against multiple [DONE] markers
     if (this.doneReceived) {
@@ -265,7 +287,7 @@ export class EventReceiver {
    */
   private handleCustomEventWithSkip(
     chunk: unknown,
-    _controller: ReadableStreamDefaultController<UIMessageChunk>,
+    _controller: ReadableStreamDefaultController<UIMessageChunkFromAISDKv6>,
   ): boolean {
     // Type guard
     if (
@@ -371,7 +393,7 @@ export class EventReceiver {
    * Inject recorded audio as file chunk before finish event
    */
   private injectRecordedAudio(
-    controller: ReadableStreamDefaultController<UIMessageChunk>,
+    controller: ReadableStreamDefaultController<UIMessageChunkFromAISDKv6>,
   ): void {
     try {
       console.log("[Audio Recording] Converting PCM to WAV...");
@@ -379,7 +401,7 @@ export class EventReceiver {
       const wavSizeKB = ((wavDataUri.length * 0.75) / 1024).toFixed(2);
       console.log(`[Audio Recording] WAV created: ${wavSizeKB} KB`);
 
-      const audioChunk: UIMessageChunk = {
+      const audioChunk: UIMessageChunkFromAISDKv6 = {
         type: "file",
         mediaType: "audio/wav",
         url: wavDataUri,

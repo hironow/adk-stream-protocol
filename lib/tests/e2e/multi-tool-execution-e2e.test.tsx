@@ -18,15 +18,15 @@
 
 import { useChat } from "@ai-sdk/react";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import type { UIMessage } from "ai";
-import { isTextUIPart, isToolUIPart } from "ai";
 import { describe, expect, it } from "vitest";
 import { buildUseChatOptions } from "../../bidi";
+import type { UIMessageFromAISDKv6 } from "../../utils";
 import {
-  TOOL_NAME_ADK_REQUEST_CONFIRMATION,
-  TOOL_STATE_APPROVAL_RESPONDED,
-  TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
-} from "../../constants";
+  isApprovalRequestPart,
+  isApprovalRespondedTool,
+  isTextUIPartFromAISDKv6,
+  isToolUIPartFromAISDKv6,
+} from "../../utils";
 import {
   createBidiWebSocketLink,
   createCustomHandler,
@@ -34,13 +34,13 @@ import {
 } from "../helpers";
 
 /**
- * Helper function to extract text content from UIMessage parts
+ * Helper function to extract text content from UIMessageFromAISDKv6 parts
  */
-function getMessageText(message: UIMessage | undefined): string {
+function getMessageText(message: UIMessageFromAISDKv6 | undefined): string {
   if (!message) return "";
   return message.parts
     .filter((part): part is { type: "text"; text: string } =>
-      isTextUIPart(part),
+      isTextUIPartFromAISDKv6(part),
     )
     .map((part) => part.text)
     .join("");
@@ -73,9 +73,9 @@ describe("Multi-Tool Execution E2E Tests", () => {
                 msg.role === "assistant" &&
                 msg.parts?.some(
                   (part: any) =>
-                    part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
+                    isApprovalRequestPart(part) &&
                     part.toolCallId === "call-tool1" &&
-                    part.state === TOOL_STATE_APPROVAL_RESPONDED,
+                    part.state === "approval-responded",
                 ),
             );
 
@@ -85,9 +85,9 @@ describe("Multi-Tool Execution E2E Tests", () => {
                 msg.role === "assistant" &&
                 msg.parts?.some(
                   (part: any) =>
-                    part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
+                    isApprovalRequestPart(part) &&
                     part.toolCallId === "call-tool2" &&
-                    part.state === TOOL_STATE_APPROVAL_RESPONDED,
+                    part.state === "approval-responded",
                 ),
             );
 
@@ -100,7 +100,7 @@ describe("Multi-Tool Execution E2E Tests", () => {
                 `data: ${JSON.stringify({
                   type: "tool-input-start",
                   toolCallId: "call-tool1",
-                  toolName: TOOL_NAME_ADK_REQUEST_CONFIRMATION,
+                  toolName: "test_operation",
                 })}\n\n`,
               );
 
@@ -109,7 +109,7 @@ describe("Multi-Tool Execution E2E Tests", () => {
                 `data: ${JSON.stringify({
                   type: "tool-input-available",
                   toolCallId: "call-tool1",
-                  toolName: TOOL_NAME_ADK_REQUEST_CONFIRMATION,
+                  toolName: "test_operation",
                   input: {
                     originalFunctionCall: {
                       id: "tool1-original",
@@ -139,7 +139,7 @@ describe("Multi-Tool Execution E2E Tests", () => {
                 `data: ${JSON.stringify({
                   type: "tool-input-start",
                   toolCallId: "call-tool2",
-                  toolName: TOOL_NAME_ADK_REQUEST_CONFIRMATION,
+                  toolName: "test_operation",
                 })}\n\n`,
               );
 
@@ -148,7 +148,7 @@ describe("Multi-Tool Execution E2E Tests", () => {
                 `data: ${JSON.stringify({
                   type: "tool-input-available",
                   toolCallId: "call-tool2",
-                  toolName: TOOL_NAME_ADK_REQUEST_CONFIRMATION,
+                  toolName: "test_operation",
                   input: {
                     originalFunctionCall: {
                       id: "tool2-original",
@@ -239,8 +239,7 @@ describe("Multi-Tool Execution E2E Tests", () => {
 
           const confirmationPart = lastMessage.parts.find(
             (part) =>
-              isToolUIPart(part) &&
-              part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+              isToolUIPartFromAISDKv6(part) && isApprovalRequestPart(part),
           );
           return confirmationPart !== undefined;
         },
@@ -255,8 +254,7 @@ describe("Multi-Tool Execution E2E Tests", () => {
       }
       const confirmationTool1 = assistantMessage1.parts.find(
         (part): part is any =>
-          isToolUIPart(part) &&
-          part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+          isToolUIPartFromAISDKv6(part) && isApprovalRequestPart(part),
       );
       if (!confirmationTool1) {
         throw new Error("No confirmation tool found in assistant message");
@@ -276,10 +274,9 @@ describe("Multi-Tool Execution E2E Tests", () => {
             result.current.messages[result.current.messages.length - 1];
           const updatedPart = (updatedMsg as any).parts?.find(
             (p: any) =>
-              p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
-              p.toolCallId === "call-tool1",
+              isApprovalRequestPart(p) && p.toolCallId === "call-tool1",
           );
-          expect(updatedPart?.state).toBe(TOOL_STATE_APPROVAL_RESPONDED);
+          expect(updatedPart?.state).toBe("approval-responded");
         },
         { timeout: 3000 },
       );
@@ -294,8 +291,8 @@ describe("Multi-Tool Execution E2E Tests", () => {
           // Look for Tool2 confirmation specifically
           const tool2Part = lastMessage.parts.find(
             (part) =>
-              isToolUIPart(part) &&
-              part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
+              isToolUIPartFromAISDKv6(part) &&
+              isApprovalRequestPart(part) &&
               part.toolCallId === "call-tool2",
           );
 
@@ -312,8 +309,8 @@ describe("Multi-Tool Execution E2E Tests", () => {
       }
       const confirmationTool2 = assistantMessage2.parts.find(
         (part): part is any =>
-          isToolUIPart(part) &&
-          part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
+          isToolUIPartFromAISDKv6(part) &&
+          isApprovalRequestPart(part) &&
           part.toolCallId === "call-tool2",
       );
       if (!confirmationTool2) {
@@ -334,10 +331,9 @@ describe("Multi-Tool Execution E2E Tests", () => {
             result.current.messages[result.current.messages.length - 1];
           const updatedPart = (updatedMsg as any).parts?.find(
             (p: any) =>
-              p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
-              p.toolCallId === "call-tool2",
+              isApprovalRequestPart(p) && p.toolCallId === "call-tool2",
           );
-          expect(updatedPart?.state).toBe(TOOL_STATE_APPROVAL_RESPONDED);
+          expect(updatedPart?.state).toBe("approval-responded");
         },
         { timeout: 3000 },
       );
@@ -392,9 +388,9 @@ describe("Multi-Tool Execution E2E Tests", () => {
                 msg.role === "assistant" &&
                 msg.parts?.some(
                   (part: any) =>
-                    part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
+                    isApprovalRequestPart(part) &&
                     part.toolCallId === "call-tool1" &&
-                    part.state === TOOL_STATE_APPROVAL_RESPONDED,
+                    part.state === "approval-responded",
                 ),
             );
 
@@ -404,7 +400,7 @@ describe("Multi-Tool Execution E2E Tests", () => {
                 msg.role === "assistant" &&
                 msg.parts?.some(
                   (part: any) =>
-                    part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
+                    isApprovalRequestPart(part) &&
                     part.toolCallId === "call-tool2" &&
                     part.approval?.approved === false,
                 ),
@@ -418,7 +414,7 @@ describe("Multi-Tool Execution E2E Tests", () => {
                 `data: ${JSON.stringify({
                   type: "tool-input-start",
                   toolCallId: "call-tool1",
-                  toolName: TOOL_NAME_ADK_REQUEST_CONFIRMATION,
+                  toolName: "test_operation",
                 })}\n\n`,
               );
 
@@ -427,7 +423,7 @@ describe("Multi-Tool Execution E2E Tests", () => {
                 `data: ${JSON.stringify({
                   type: "tool-input-available",
                   toolCallId: "call-tool1",
-                  toolName: TOOL_NAME_ADK_REQUEST_CONFIRMATION,
+                  toolName: "test_operation",
                   input: {
                     originalFunctionCall: {
                       id: "tool1-original",
@@ -457,7 +453,7 @@ describe("Multi-Tool Execution E2E Tests", () => {
                 `data: ${JSON.stringify({
                   type: "tool-input-start",
                   toolCallId: "call-tool2",
-                  toolName: TOOL_NAME_ADK_REQUEST_CONFIRMATION,
+                  toolName: "test_operation",
                 })}\n\n`,
               );
 
@@ -466,7 +462,7 @@ describe("Multi-Tool Execution E2E Tests", () => {
                 `data: ${JSON.stringify({
                   type: "tool-input-available",
                   toolCallId: "call-tool2",
-                  toolName: TOOL_NAME_ADK_REQUEST_CONFIRMATION,
+                  toolName: "test_operation",
                   input: {
                     originalFunctionCall: {
                       id: "tool2-original",
@@ -549,8 +545,8 @@ describe("Multi-Tool Execution E2E Tests", () => {
             lastMessage?.role === "assistant" &&
             lastMessage.parts.some(
               (part) =>
-                isToolUIPart(part) &&
-                part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
+                isToolUIPartFromAISDKv6(part) &&
+                isApprovalRequestPart(part) &&
                 part.toolCallId === "call-tool1",
             )
           );
@@ -565,8 +561,8 @@ describe("Multi-Tool Execution E2E Tests", () => {
       }
       const tool1 = msg1.parts.find(
         (part): part is any =>
-          isToolUIPart(part) &&
-          part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
+          isToolUIPartFromAISDKv6(part) &&
+          isApprovalRequestPart(part) &&
           part.toolCallId === "call-tool1",
       );
       if (!tool1) {
@@ -587,10 +583,9 @@ describe("Multi-Tool Execution E2E Tests", () => {
             result.current.messages[result.current.messages.length - 1];
           const updatedPart = (updatedMsg as any).parts?.find(
             (p: any) =>
-              p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
-              p.toolCallId === "call-tool1",
+              isApprovalRequestPart(p) && p.toolCallId === "call-tool1",
           );
-          expect(updatedPart?.state).toBe(TOOL_STATE_APPROVAL_RESPONDED);
+          expect(updatedPart?.state).toBe("approval-responded");
         },
         { timeout: 3000 },
       );
@@ -604,8 +599,8 @@ describe("Multi-Tool Execution E2E Tests", () => {
             lastMessage?.role === "assistant" &&
             lastMessage.parts.some(
               (part) =>
-                isToolUIPart(part) &&
-                part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
+                isToolUIPartFromAISDKv6(part) &&
+                isApprovalRequestPart(part) &&
                 part.toolCallId === "call-tool2",
             )
           );
@@ -620,8 +615,8 @@ describe("Multi-Tool Execution E2E Tests", () => {
       }
       const tool2 = msg2.parts.find(
         (part): part is any =>
-          isToolUIPart(part) &&
-          part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
+          isToolUIPartFromAISDKv6(part) &&
+          isApprovalRequestPart(part) &&
           part.toolCallId === "call-tool2",
       );
       if (!tool2) {
@@ -642,10 +637,9 @@ describe("Multi-Tool Execution E2E Tests", () => {
             result.current.messages[result.current.messages.length - 1];
           const updatedPart = (updatedMsg as any).parts?.find(
             (p: any) =>
-              p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
-              p.toolCallId === "call-tool2",
+              isApprovalRequestPart(p) && p.toolCallId === "call-tool2",
           );
-          expect(updatedPart?.state).toBe(TOOL_STATE_APPROVAL_RESPONDED);
+          expect(updatedPart?.state).toBe("approval-responded");
         },
         { timeout: 3000 },
       );

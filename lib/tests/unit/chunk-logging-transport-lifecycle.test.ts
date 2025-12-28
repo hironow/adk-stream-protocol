@@ -1,7 +1,7 @@
 /**
  * Unit Tests: ChunkLoggingTransport Stream Lifecycle
  *
- * Tests that ChunkLoggingTransport correctly wraps DefaultChatTransport
+ * Tests that ChunkLoggingTransport correctly wraps DefaultChatTransportFromAISDKv6
  * and properly handles stream lifecycle including [DONE].
  *
  * Design Principle:
@@ -15,19 +15,23 @@
  * - Verify error handling doesn't cause double-close issues
  */
 
-import type { DefaultChatTransport, UIMessage, UIMessageChunk } from "ai";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ChunkLoggingTransport } from "../../chunk_logs/chunk-logging-transport";
+import type {
+  DefaultChatTransportFromAISDKv6,
+  UIMessageChunkFromAISDKv6,
+  UIMessageFromAISDKv6,
+} from "../../utils";
 
 describe("ChunkLoggingTransport Stream Lifecycle Tests", () => {
-  let mockDelegate: DefaultChatTransport<UIMessage>;
+  let mockDelegate: DefaultChatTransportFromAISDKv6<UIMessageFromAISDKv6>;
 
   beforeEach(() => {
-    // Mock DefaultChatTransport
+    // Mock DefaultChatTransportFromAISDKv6
     mockDelegate = {
       sendMessages: vi.fn(),
       reconnectToStream: vi.fn(),
-    } as unknown as DefaultChatTransport<UIMessage>;
+    } as unknown as DefaultChatTransportFromAISDKv6<UIMessageFromAISDKv6>;
   });
 
   it("[PASS] should forward chunks from delegate and complete stream", async () => {
@@ -44,12 +48,12 @@ describe("ChunkLoggingTransport Stream Lifecycle Tests", () => {
      */
 
     // given: Mock delegate stream with chunks
-    const mockChunks: UIMessageChunk[] = [
+    const mockChunks: UIMessageChunkFromAISDKv6[] = [
       { type: "text-delta", text: "Hello" },
       { type: "text-delta", text: " World" },
     ];
 
-    const mockStream = new ReadableStream<UIMessageChunk>({
+    const mockStream = new ReadableStream<UIMessageChunkFromAISDKv6>({
       start(controller) {
         for (const chunk of mockChunks) {
           controller.enqueue(chunk);
@@ -73,7 +77,7 @@ describe("ChunkLoggingTransport Stream Lifecycle Tests", () => {
     });
 
     const reader = stream.getReader();
-    const receivedChunks: UIMessageChunk[] = [];
+    const receivedChunks: UIMessageChunkFromAISDKv6[] = [];
 
     // Read all chunks
     while (true) {
@@ -102,7 +106,7 @@ describe("ChunkLoggingTransport Stream Lifecycle Tests", () => {
 
     // given: Mock delegate stream that errors
     const mockError = new Error("Delegate stream error");
-    const mockStream = new ReadableStream<UIMessageChunk>({
+    const mockStream = new ReadableStream<UIMessageChunkFromAISDKv6>({
       start(controller) {
         controller.error(mockError);
       },
@@ -157,7 +161,7 @@ describe("ChunkLoggingTransport Stream Lifecycle Tests", () => {
      */
 
     // given: Mock delegate stream
-    const mockStream = new ReadableStream<UIMessageChunk>({
+    const mockStream = new ReadableStream<UIMessageChunkFromAISDKv6>({
       start(controller) {
         controller.enqueue({ type: "text-delta", text: "Test" });
         controller.close();
@@ -179,7 +183,7 @@ describe("ChunkLoggingTransport Stream Lifecycle Tests", () => {
     });
 
     const reader = stream.getReader();
-    const chunks: UIMessageChunk[] = [];
+    const chunks: UIMessageChunkFromAISDKv6[] = [];
 
     // Read all chunks
     while (true) {
@@ -201,7 +205,7 @@ describe("ChunkLoggingTransport Stream Lifecycle Tests", () => {
      * TDD GREEN: ChunkLoggingTransport forwards stream completion.
      *
      * This simulates what happens when backend sends [DONE]:
-     * 1. Delegate DefaultChatTransport receives SSE with [DONE]
+     * 1. Delegate DefaultChatTransportFromAISDKv6 receives SSE with [DONE]
      * 2. Delegate closes its stream
      * 3. ChunkLoggingTransport detects delegate stream done
      * 4. ChunkLoggingTransport closes wrapper stream
@@ -210,12 +214,12 @@ describe("ChunkLoggingTransport Stream Lifecycle Tests", () => {
      */
 
     // given: Mock delegate stream that completes after chunks
-    const mockChunks: UIMessageChunk[] = [
+    const mockChunks: UIMessageChunkFromAISDKv6[] = [
       { type: "text-delta", text: "Response" },
       { type: "text-delta", text: " complete" },
     ];
 
-    const mockStream = new ReadableStream<UIMessageChunk>({
+    const mockStream = new ReadableStream<UIMessageChunkFromAISDKv6>({
       start(controller) {
         for (const chunk of mockChunks) {
           controller.enqueue(chunk);
@@ -240,7 +244,7 @@ describe("ChunkLoggingTransport Stream Lifecycle Tests", () => {
     });
 
     const reader = stream.getReader();
-    const receivedChunks: UIMessageChunk[] = [];
+    const receivedChunks: UIMessageChunkFromAISDKv6[] = [];
     let streamCompleted = false;
 
     // Read all chunks until done

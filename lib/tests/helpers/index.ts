@@ -9,4 +9,5 @@ export * from "./message-fixtures";
 export * from "./msw-setup";
 export * from "./render-helpers";
 export * from "./sse-response-builders";
+export * from "./use-chat-test-helpers";
 export * from "./websocket-message-builders";

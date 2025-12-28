@@ -26,7 +26,7 @@
  * the endpoint. See experiments/2025-12-11_e2e_test_timeout_investigation.md:440-513.
  */
 
-import type { UIMessage } from "@ai-sdk/react";
+import type { AudioContextValue } from "@/lib/audio-context";
 import {
   type ChatTransport as BidiChatTransport,
   buildUseChatOptions as buildBidiUseChatOptions,
@@ -36,7 +36,7 @@ import {
   ChunkPlayerTransport,
 } from "@/lib/chunk_logs";
 import { buildUseChatOptions as buildSseUseChatOptions } from "@/lib/sse";
-import type { AudioContextValue, Mode } from "@/lib/types";
+import type { Mode, UIMessageFromAISDKv6 } from "@/lib/utils";
 
 // Re-export Mode for convenience
 export type { Mode };
@@ -58,10 +58,10 @@ export type BackendMode = Mode;
 export interface UseChatOptionsWithTransport {
   useChatOptions: {
     transport: BidiChatTransport | ChunkLoggingTransport | ChunkPlayerTransport;
-    messages: UIMessage[];
+    messages: UIMessageFromAISDKv6[];
     id: string;
     sendAutomaticallyWhen?: (options: {
-      messages: UIMessage[];
+      messages: UIMessageFromAISDKv6[];
     }) => boolean | PromiseLike<boolean>;
   };
   transport?: BidiChatTransport;
@@ -101,7 +101,7 @@ export function buildUseChatOptions({
   audioContext,
 }: {
   mode: Mode;
-  initialMessages: UIMessage[];
+  initialMessages: UIMessageFromAISDKv6[];
   adkBackendUrl?: string;
   forceNewInstance?: boolean;
   audioContext?: AudioContextValue;
@@ -122,11 +122,37 @@ export function buildUseChatOptions({
         // Fixture is loaded on first sendMessages() call for better performance
         const transport = ChunkPlayerTransport.fromFixture(fixturePath);
         const chatId = `chunk-player-${mode}`;
+
+        // Get mode-specific sendAutomaticallyWhen for testing
+        // Even though we're using ChunkPlayerTransport, we still want to test
+        // that sendAutomaticallyWhen would be called correctly
+        let sendAutomaticallyWhen: any;
+        if (mode === "adk-bidi") {
+          const bidiOptions = buildBidiUseChatOptions({
+            initialMessages,
+            adkBackendUrl,
+            forceNewInstance,
+            audioContext,
+          });
+          sendAutomaticallyWhen =
+            bidiOptions.useChatOptions.sendAutomaticallyWhen;
+        } else if (mode === "adk-sse" || mode === "gemini") {
+          const sseOptions = buildSseUseChatOptions({
+            mode,
+            initialMessages,
+            adkBackendUrl,
+            forceNewInstance,
+          });
+          sendAutomaticallyWhen =
+            sseOptions.useChatOptions.sendAutomaticallyWhen;
+        }
+
         return {
           useChatOptions: {
             messages: initialMessages,
             id: chatId,
             transport,
+            sendAutomaticallyWhen,
           },
           transport: undefined, // No imperative control needed for test mode
         };

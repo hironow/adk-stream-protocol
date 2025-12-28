@@ -10,7 +10,6 @@
  * - Prevent invalid configuration patterns
  */
 
-import type { UIMessage } from "ai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WebSocketChatTransport } from "../../bidi/transport";
 import {
@@ -18,6 +17,7 @@ import {
   buildUseChatOptions,
 } from "../../build-use-chat-options";
 import { ChunkLoggingTransport } from "../../chunk_logs";
+import type { UIMessageFromAISDKv6FromAISDKv6 } from "../../utils";
 
 // Mock WebSocket for transport testing
 class MockWebSocket {
@@ -73,7 +73,7 @@ describe("Transport Integration", () => {
     vi.clearAllMocks();
   });
 
-  const initialMessages: UIMessage[] = [
+  const initialMessages: UIMessageFromAISDKv6[] = [
     {
       id: "msg-1",
       role: "user",
@@ -429,7 +429,7 @@ describe("Transport Integration", () => {
     it("should include messages in useChatOptions", () => {
       // Given: ADK BIDI mode with messages
       const mode: BackendMode = "adk-bidi";
-      const messages: UIMessage[] = [
+      const messages: UIMessageFromAISDKv6[] = [
         { id: "1", role: "user", content: "First" },
         { id: "2", role: "assistant", content: "Second" },
       ];

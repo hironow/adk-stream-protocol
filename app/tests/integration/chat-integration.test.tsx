@@ -13,7 +13,6 @@
  */
 
 import { render, screen, waitFor } from "@testing-library/react";
-import type { UIMessage } from "ai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Chat } from "@/components/chat";
 import { buildUseChatOptions } from "@/lib/build-use-chat-options";
@@ -21,6 +20,7 @@ import {
   createMockAudioContext,
   MockWebSocket,
 } from "@/lib/tests/shared-mocks";
+import type { UIMessageFromAISDKv6 } from "@/lib/utils";
 
 vi.mock("@/lib/audio-context", () => ({
   useAudio: () => createMockAudioContext(),
@@ -108,7 +108,7 @@ describe("Chat Component Integration", () => {
   describe("Message History", () => {
     it("should accept initialMessages prop", () => {
       // Given: Initial messages from parent
-      const initialMessages: UIMessage[] = [
+      const initialMessages: UIMessageFromAISDKv6[] = [
         {
           id: "msg-1",
           role: "user",
@@ -131,7 +131,7 @@ describe("Chat Component Integration", () => {
     it("should call onMessagesChange when messages update", () => {
       // Given: Message change callback
       const onMessagesChange = vi.fn();
-      const initialMessages: UIMessage[] = [];
+      const initialMessages: UIMessageFromAISDKv6[] = [];
 
       // When: Render Chat with callback
       render(
@@ -151,7 +151,7 @@ describe("Chat Component Integration", () => {
 
     it("should preserve message IDs when mode changes", () => {
       // Given: Messages with specific IDs
-      const messagesWithIds: UIMessage[] = [
+      const messagesWithIds: UIMessageFromAISDKv6[] = [
         {
           id: "user-123",
           role: "user",
@@ -185,7 +185,7 @@ describe("Chat Component Integration", () => {
       expect(useChatOptions.sendAutomaticallyWhen).toBeDefined();
 
       // When: Provide messages after tool approval
-      const messagesAfterApproval: UIMessage[] = [
+      const messagesAfterApproval: UIMessageFromAISDKv6[] = [
         {
           id: "msg-1",
           role: "user",
@@ -230,7 +230,7 @@ describe("Chat Component Integration", () => {
       expect(useChatOptions.sendAutomaticallyWhen).toBeDefined();
 
       // When: Provide messages with Frontend Execute pattern (confirmation + tool output)
-      const messagesAfterFrontendExecute: UIMessage[] = [
+      const messagesAfterFrontendExecute: UIMessageFromAISDKv6[] = [
         {
           id: "msg-1",
           role: "user",
@@ -280,7 +280,7 @@ describe("Chat Component Integration", () => {
       });
 
       // When: Tool approval is requested but not yet responded
-      const messagesWithPendingApproval: UIMessage[] = [
+      const messagesWithPendingApproval: UIMessageFromAISDKv6[] = [
         {
           id: "msg-1",
           role: "user",

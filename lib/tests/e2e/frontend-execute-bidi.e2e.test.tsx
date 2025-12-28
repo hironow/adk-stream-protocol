@@ -15,16 +15,15 @@
 
 import { useChat } from "@ai-sdk/react";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import type { UIMessage } from "ai";
-import { isTextUIPart } from "ai";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { buildUseChatOptions } from "../../bidi";
+import type { UIMessageFromAISDKv6 } from "../../utils";
 import {
-  TOOL_NAME_ADK_REQUEST_CONFIRMATION,
-  TOOL_STATE_APPROVAL_REQUESTED,
-  TOOL_STATE_APPROVAL_RESPONDED,
-  TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
-} from "../../constants";
+  isApprovalRequestedTool,
+  isApprovalRequestPart,
+  isApprovalRespondedTool,
+  isTextUIPartFromAISDKv6,
+} from "../../utils";
 import {
   createBidiWebSocketLink,
   createCustomHandler,
@@ -32,13 +31,13 @@ import {
 import { createMswServer } from "../mocks/msw-server";
 
 /**
- * Helper function to extract text content from UIMessage parts
+ * Helper function to extract text content from UIMessageFromAISDKv6 parts
  */
-function getMessageText(message: UIMessage | undefined): string {
+function getMessageText(message: UIMessageFromAISDKv6 | undefined): string {
   if (!message) return "";
   return message.parts
     .filter((part): part is { type: "text"; text: string } =>
-      isTextUIPart(part),
+      isTextUIPartFromAISDKv6(part),
     )
     .map((part) => part.text)
     .join("");
@@ -104,8 +103,8 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
                 msg.role === "assistant" &&
                 msg.parts?.some(
                   (part: any) =>
-                    part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
-                    part.state === TOOL_STATE_APPROVAL_RESPONDED,
+                    isApprovalRequestPart(part) &&
+                    part.state === "approval-responded",
                 ),
             );
 
@@ -178,7 +177,7 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
                 `data: ${JSON.stringify({
                   type: "tool-input-start",
                   toolCallId: "call-location",
-                  toolName: TOOL_NAME_ADK_REQUEST_CONFIRMATION,
+                  toolName: "test_operation",
                 })}\n\n`,
               );
 
@@ -186,7 +185,7 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
                 `data: ${JSON.stringify({
                   type: "tool-input-available",
                   toolCallId: "call-location",
-                  toolName: TOOL_NAME_ADK_REQUEST_CONFIRMATION,
+                  toolName: "test_operation",
                   input: {
                     originalFunctionCall: {
                       id: "orig-location",
@@ -243,8 +242,8 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
             lastMessage?.role === "assistant" &&
             lastMessage.parts.some(
               (part: any) =>
-                part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
-                part.state === TOOL_STATE_APPROVAL_REQUESTED,
+                isApprovalRequestPart(part) &&
+                part.state === "approval-requested",
             )
           );
         },
@@ -254,8 +253,8 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
       // User approves confirmation
       const confirmationMessage =
         result.current.messages[result.current.messages.length - 1];
-      const confirmationPart = confirmationMessage.parts.find(
-        (part: any) => part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+      const confirmationPart = confirmationMessage.parts.find((part: any) =>
+        isApprovalRequestPart(part),
       ) as any;
 
       await act(async () => {
@@ -270,10 +269,10 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
         () => {
           const msg =
             result.current.messages[result.current.messages.length - 1];
-          const part = msg.parts.find(
-            (p: any) => p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+          const part = msg.parts.find((p: any) =>
+            isApprovalRequestPart(p),
           ) as any;
-          expect(part?.state).toBe(TOOL_STATE_APPROVAL_RESPONDED);
+          expect(part?.state).toBe("approval-responded");
         },
         { timeout: 3000 },
       );
@@ -347,8 +346,8 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
                 msg.role === "assistant" &&
                 msg.parts?.some(
                   (part: any) =>
-                    part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
-                    part.state === TOOL_STATE_APPROVAL_RESPONDED,
+                    isApprovalRequestPart(part) &&
+                    part.state === "approval-responded",
                 ),
             );
 
@@ -409,7 +408,7 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
                 `data: ${JSON.stringify({
                   type: "tool-input-start",
                   toolCallId: "call-camera",
-                  toolName: TOOL_NAME_ADK_REQUEST_CONFIRMATION,
+                  toolName: "test_operation",
                 })}\n\n`,
               );
 
@@ -417,7 +416,7 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
                 `data: ${JSON.stringify({
                   type: "tool-input-available",
                   toolCallId: "call-camera",
-                  toolName: TOOL_NAME_ADK_REQUEST_CONFIRMATION,
+                  toolName: "test_operation",
                   input: {
                     originalFunctionCall: {
                       id: "orig-camera",
@@ -471,8 +470,7 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
             result.current.messages[result.current.messages.length - 1];
           return msg?.parts?.some(
             (p: any) =>
-              p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
-              p.state === TOOL_STATE_APPROVAL_REQUESTED,
+              isApprovalRequestPart(p) && p.state === "approval-requested",
           );
         },
         { timeout: 3000 },
@@ -480,9 +478,7 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
 
       // Approve
       const msg = result.current.messages[result.current.messages.length - 1];
-      const part = msg.parts.find(
-        (p: any) => p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
-      ) as any;
+      const part = msg.parts.find((p: any) => isApprovalRequestPart(p)) as any;
 
       await act(async () => {
         result.current.addToolApprovalResponse({
@@ -496,10 +492,10 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
         () => {
           const msg =
             result.current.messages[result.current.messages.length - 1];
-          const confirmationPart = msg.parts.find(
-            (p: any) => p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+          const confirmationPart = msg.parts.find((p: any) =>
+            isApprovalRequestPart(p),
           ) as any;
-          expect(confirmationPart?.state).toBe(TOOL_STATE_APPROVAL_RESPONDED);
+          expect(confirmationPart?.state).toBe("approval-responded");
         },
         { timeout: 3000 },
       );
@@ -567,8 +563,8 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
                 msg.role === "assistant" &&
                 msg.parts?.some(
                   (part: any) =>
-                    part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
-                    part.state === TOOL_STATE_APPROVAL_RESPONDED &&
+                    isApprovalRequestPart(part) &&
+                    part.state === "approval-responded" &&
                     part.approval?.approved === false,
                 ),
             );
@@ -579,7 +575,7 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
                 `data: ${JSON.stringify({
                   type: "tool-input-start",
                   toolCallId: "call-mic",
-                  toolName: TOOL_NAME_ADK_REQUEST_CONFIRMATION,
+                  toolName: "test_operation",
                 })}\n\n`,
               );
 
@@ -587,7 +583,7 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
                 `data: ${JSON.stringify({
                   type: "tool-input-available",
                   toolCallId: "call-mic",
-                  toolName: TOOL_NAME_ADK_REQUEST_CONFIRMATION,
+                  toolName: "test_operation",
                   input: {
                     originalFunctionCall: {
                       id: "orig-mic",
@@ -651,8 +647,7 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
             result.current.messages[result.current.messages.length - 1];
           return msg?.parts?.some(
             (p: any) =>
-              p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
-              p.state === TOOL_STATE_APPROVAL_REQUESTED,
+              isApprovalRequestPart(p) && p.state === "approval-requested",
           );
         },
         { timeout: 3000 },
@@ -660,9 +655,7 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
 
       // Deny
       const msg = result.current.messages[result.current.messages.length - 1];
-      const part = msg.parts.find(
-        (p: any) => p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
-      ) as any;
+      const part = msg.parts.find((p: any) => isApprovalRequestPart(p)) as any;
 
       await act(async () => {
         result.current.addToolApprovalResponse({
@@ -687,6 +680,256 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
           result.current.messages[result.current.messages.length - 1],
         ),
       ).toContain("won't access your microphone");
+
+      // Transport cleanup handled by afterEach
+    });
+  });
+
+  describe("Multiple Sequential Approvals (BIDI)", () => {
+    it("should handle two sequential tool approvals (Alice → Bob)", async () => {
+      // Given: Backend sends two approval requests sequentially (BIDI mode behavior)
+      // Turn 1: Alice approval request
+      // Turn 2: Alice execution + Bob approval request
+      // Turn 3: Bob execution + final response
+      const chat = createBidiWebSocketLink();
+      let aliceApprovalReceived = false;
+      let bobApprovalReceived = false;
+
+      server.use(
+        createCustomHandler(chat, ({ server: _server, client }) => {
+          client.addEventListener("error", (error) => {
+            console.error("WebSocket error in test:", error);
+          });
+
+          client.addEventListener("message", async (event) => {
+            if (typeof event.data !== "string" || !event.data.startsWith("{")) {
+              return;
+            }
+
+            const msg = JSON.parse(event.data);
+            console.log("[Test Mock Server] Received:", msg.type, msg);
+
+            // Turn 1: Initial message → Alice approval request
+            if (
+              msg.type === "message" &&
+              msg.messages &&
+              !aliceApprovalReceived
+            ) {
+              const lastMsg = msg.messages[msg.messages.length - 1];
+
+              // Check if this is the initial user message (ADR 0002: no tool-adk_request_confirmation in initial message)
+              if (
+                lastMsg.role === "user" &&
+                !lastMsg.parts?.some(
+                  (p: any) => p.type === "tool-adk_request_confirmation",
+                )
+              ) {
+                console.log(
+                  "[Test Mock Server] Turn 1: Sending Alice approval request",
+                );
+
+                // Send start event
+                client.send(
+                  'data: {"type": "start", "messageId": "msg-1"}\n\n',
+                );
+
+                // Send Alice process_payment tool input
+                client.send(
+                  'data: {"type": "tool-input-start", "toolCallId": "alice-tool-id", "toolName": "process_payment"}\n\n',
+                );
+                client.send(
+                  'data: {"type": "tool-input-available", "toolCallId": "alice-tool-id", "toolName": "process_payment", "input": {"amount": 30, "recipient": "Alice", "currency": "USD"}}\n\n',
+                );
+
+                // Send approval request for Alice
+                client.send(
+                  'data: {"type": "tool-approval-request", "toolCallId": "alice-tool-id", "approvalId": "alice-approval-id"}\n\n',
+                );
+
+                aliceApprovalReceived = true;
+                return;
+              }
+
+              // Turn 2: Alice approval → Alice execution + Bob approval request
+              // ADR 0002: Check for tool-adk_request_confirmation type part with approval
+              if (
+                lastMsg.parts?.some(
+                  (p: any) =>
+                    p.type === "tool-adk_request_confirmation" &&
+                    "approval-responded" === p.state &&
+                    p.approval?.id === "alice-approval-id",
+                )
+              ) {
+                console.log(
+                  "[Test Mock Server] Turn 2: Sending Alice execution + Bob approval request",
+                );
+
+                // Send Alice execution result
+                client.send(
+                  'data: {"type": "tool-output-available", "toolCallId": "alice-tool-id", "output": {"success": true, "transaction_id": "txn-alice", "amount": 30, "recipient": "Alice"}}\n\n',
+                );
+
+                // Send Bob process_payment tool input
+                client.send(
+                  'data: {"type": "tool-input-start", "toolCallId": "bob-tool-id", "toolName": "process_payment"}\n\n',
+                );
+                client.send(
+                  'data: {"type": "tool-input-available", "toolCallId": "bob-tool-id", "toolName": "process_payment", "input": {"amount": 40, "recipient": "Bob", "currency": "USD"}}\n\n',
+                );
+
+                // Send approval request for Bob
+                client.send(
+                  'data: {"type": "tool-approval-request", "toolCallId": "bob-tool-id", "approvalId": "bob-approval-id"}\n\n',
+                );
+
+                bobApprovalReceived = true;
+                return;
+              }
+
+              // Turn 3: Bob approval → Bob execution + final response
+              // ADR 0002: Check for tool-adk_request_confirmation type part with approval
+              if (
+                lastMsg.parts?.some(
+                  (p: any) =>
+                    p.type === "tool-adk_request_confirmation" &&
+                    "approval-responded" === p.state &&
+                    p.approval?.id === "bob-approval-id",
+                )
+              ) {
+                console.log(
+                  "[Test Mock Server] Turn 3: Sending Bob execution + final response",
+                );
+
+                // Send Bob execution result
+                client.send(
+                  'data: {"type": "tool-output-available", "toolCallId": "bob-tool-id", "output": {"success": true, "transaction_id": "txn-bob", "amount": 40, "recipient": "Bob"}}\n\n',
+                );
+
+                // Send AI response
+                client.send('data: {"type": "text-start", "id": "text-1"}\n\n');
+                client.send(
+                  'data: {"type": "text-delta", "id": "text-1", "delta": "Both payments completed successfully."}\n\n',
+                );
+                client.send('data: {"type": "text-end", "id": "text-1"}\n\n');
+
+                // Send finish
+                client.send(
+                  'data: {"type": "finish", "finishReason": "stop"}\n\n',
+                );
+                client.send("data: [DONE]\n\n");
+                return;
+              }
+            }
+          });
+        }),
+      );
+
+      // When: User sends message requesting two payments
+      const { result } = renderHook(() =>
+        useChat(
+          buildUseChatOptions({
+            chat,
+            mode: "bidi",
+            chatId: "test-sequential-approvals",
+          }),
+        ),
+      );
+
+      currentTransport = chat.transport;
+
+      await act(async () => {
+        result.current.sendMessage({
+          text: "Aliceに30ドル、Bobに40ドル送金してください",
+        });
+      });
+
+      // Then: Should receive Alice approval request first
+      await waitFor(
+        () => {
+          const lastMsg =
+            result.current.messages[result.current.messages.length - 1];
+          const aliceTool = lastMsg?.parts?.find(
+            (p: any) =>
+              p.type === "tool-process_payment" &&
+              p.input?.recipient === "Alice",
+          );
+          return aliceTool?.state === "approval-requested";
+        },
+        { timeout: 5000 },
+      );
+
+      console.log("[Test] ✓ Alice approval request received");
+      const aliceTool = result.current.messages[
+        result.current.messages.length - 1
+      ]?.parts?.find(
+        (p: any) =>
+          p.type === "tool-process_payment" && p.input?.recipient === "Alice",
+      );
+      expect(aliceTool).toBeDefined();
+      expect(aliceTool?.state).toBe("approval-requested");
+
+      // When: User approves Alice payment
+      console.log("[Test] Sending Alice approval:", {
+        approvalId: aliceTool?.approval?.id,
+        toolCallId: aliceTool?.toolCallId,
+      });
+      await act(async () => {
+        result.current.addToolApprovalResponse({
+          id: aliceTool?.approval?.id,
+          approved: true,
+        });
+      });
+      console.log("[Test] Alice approval sent");
+
+      // Then: Should receive Bob approval request
+      await waitFor(
+        () => {
+          const lastMsg =
+            result.current.messages[result.current.messages.length - 1];
+          const bobTool = lastMsg?.parts?.find(
+            (p: any) =>
+              p.type === "tool-process_payment" && p.input?.recipient === "Bob",
+          );
+          return bobTool?.state === "approval-requested";
+        },
+        { timeout: 5000 },
+      );
+
+      console.log("[Test] ✓ Bob approval request received");
+      const bobTool = result.current.messages[
+        result.current.messages.length - 1
+      ]?.parts?.find(
+        (p: any) =>
+          p.type === "tool-process_payment" && p.input?.recipient === "Bob",
+      );
+      expect(bobTool).toBeDefined();
+      expect(bobTool?.state).toBe("approval-requested");
+
+      // When: User approves Bob payment
+      await act(async () => {
+        result.current.addToolApprovalResponse({
+          id: bobTool?.approval?.id,
+          approved: true,
+        });
+      });
+
+      // Then: Should receive final AI response
+      await waitFor(
+        () => {
+          const text = getMessageText(
+            result.current.messages[result.current.messages.length - 1],
+          );
+          return text.includes("completed");
+        },
+        { timeout: 5000 },
+      );
+
+      console.log("[Test] ✓ Final response received");
+      expect(
+        getMessageText(
+          result.current.messages[result.current.messages.length - 1],
+        ),
+      ).toContain("completed");
 
       // Transport cleanup handled by afterEach
     });

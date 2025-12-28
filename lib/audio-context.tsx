@@ -33,14 +33,14 @@ import {
   useState,
 } from "react";
 
-interface PCMChunk {
+export interface PCMChunk {
   content: string; // base64-encoded PCM data
   sampleRate: number;
   channels: number;
   bitDepth: number;
 }
 
-interface AudioMetadata {
+export interface AudioMetadata {
   chunks: number;
   bytes: number;
   sampleRate: number;

@@ -1,13 +1,13 @@
 /**
  * WebSocketChatTransport Unit Tests
  *
- * Tests the custom ChatTransport implementation for WebSocket bidirectional streaming.
+ * Tests the custom ChatTransportFromAISDKv6 implementation for WebSocket bidirectional streaming.
  * Key focus: Tool approval flow integration with AI SDK v6 (addToolOutput, addToolApprovalResponse)
  */
 
-import type { UIMessage } from "ai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WebSocketChatTransport } from "../../bidi/transport";
+import type { UIMessageFromAISDKv6 } from "../../utils";
 
 // Mock WebSocket
 class MockWebSocket {
@@ -95,7 +95,7 @@ describe("WebSocketChatTransport", () => {
   ): Promise<{ transport: WebSocketChatTransport; ws: MockWebSocket }> {
     const transport = new WebSocketChatTransport(config);
 
-    const messages: UIMessage[] = [
+    const messages: UIMessageFromAISDKv6[] = [
       {
         id: "msg-1",
         role: "user",
@@ -128,7 +128,7 @@ describe("WebSocketChatTransport", () => {
         url: "ws://localhost:8000/live",
       });
 
-      const messages: UIMessage[] = [
+      const messages: UIMessageFromAISDKv6[] = [
         { id: "msg-1", role: "user", content: "Hello" },
       ];
 
@@ -162,7 +162,7 @@ describe("WebSocketChatTransport", () => {
         url: "ws://localhost:8000/live",
       });
 
-      const messages: UIMessage[] = [
+      const messages: UIMessageFromAISDKv6[] = [
         { id: "msg-1", role: "user", content: "Hello" },
         { id: "msg-2", role: "assistant", content: "Hi!" },
         { id: "msg-3", role: "user", content: "How are you?" },
@@ -239,7 +239,7 @@ describe("WebSocketChatTransport", () => {
       });
 
       const abortController = new AbortController();
-      const messages: UIMessage[] = [
+      const messages: UIMessageFromAISDKv6[] = [
         { id: "msg-1", role: "user", content: "Hello" },
       ];
 
@@ -268,7 +268,7 @@ describe("WebSocketChatTransport", () => {
         url: "ws://localhost:8000/live",
       });
 
-      const messages: UIMessage[] = [
+      const messages: UIMessageFromAISDKv6[] = [
         { id: "msg-1", role: "user", content: "Hello" },
       ];
 
@@ -332,7 +332,7 @@ describe("WebSocketChatTransport", () => {
         url: "ws://localhost:8000/live",
       });
 
-      const messages: UIMessage[] = [
+      const messages: UIMessageFromAISDKv6[] = [
         { id: "msg-1", role: "user", content: "Hello" },
         { id: "msg-2", role: "assistant", content: "Old response" },
       ];
@@ -375,7 +375,7 @@ describe("WebSocketChatTransport", () => {
         url: "ws://localhost:8000/live",
       });
 
-      const messages: UIMessage[] = [
+      const messages: UIMessageFromAISDKv6[] = [
         { id: "msg-1", role: "user", content: "Hello" },
       ];
 

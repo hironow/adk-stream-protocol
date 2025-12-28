@@ -6,19 +6,19 @@
  *
  * Test Strategy:
  * - Use MSW to mock WebSocket and HTTP endpoints
- * - Create real transport instances (WebSocketChatTransport, DefaultChatTransport)
+ * - Create real transport instances (WebSocketChatTransport, DefaultChatTransportFromAISDKv6)
  * - Wrap with ChunkLoggingTransport
  * - Verify chunks are logged with correct metadata
  * - Verify buildUseChatOptions returns ChunkLoggingTransport wrapper
  */
 
-import type { UIMessage } from "ai";
 import { setupServer } from "msw/node";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { WebSocketChatTransport } from "../../bidi/transport";
 import { buildBidiUseChatOptions } from "../../bidi/use-chat-options";
 import { ChunkLoggingTransport, chunkLogger } from "../../chunk_logs";
 import { buildSseUseChatOptions } from "../../sse/use-chat-options";
+import type { UIMessageFromAISDKv6 } from "../../utils";
 import {
   createBidiWebSocketLink,
   createTextResponseHandler,
@@ -54,9 +54,9 @@ describe("ChunkLoggingTransport Integration Tests", () => {
         "adk-bidi",
       );
 
-      const messages: UIMessage[] = [
+      const messages: UIMessageFromAISDKv6[] = [
         { id: "1", role: "user", parts: [{ type: "text", text: "Test" }] },
-      ] as UIMessage[];
+      ] as UIMessageFromAISDKv6[];
 
       const initialLogCount = chunkLogger.getEntries().length;
 
@@ -110,9 +110,9 @@ describe("ChunkLoggingTransport Integration Tests", () => {
       expect(transport).toBeInstanceOf(WebSocketChatTransport);
 
       // Verify wrapped transport works
-      const messages: UIMessage[] = [
+      const messages: UIMessageFromAISDKv6[] = [
         { id: "1", role: "user", parts: [{ type: "text", text: "Test" }] },
-      ] as UIMessage[];
+      ] as UIMessageFromAISDKv6[];
 
       const stream = await useChatOptions.transport.sendMessages({
         trigger: "submit-message",
@@ -151,9 +151,9 @@ describe("ChunkLoggingTransport Integration Tests", () => {
       chunkLogger.clear();
 
       // when
-      const messages: UIMessage[] = [
+      const messages: UIMessageFromAISDKv6[] = [
         { id: "1", role: "user", parts: [{ type: "text", text: "Test" }] },
-      ] as UIMessage[];
+      ] as UIMessageFromAISDKv6[];
 
       const stream = await loggingTransport.sendMessages({
         trigger: "submit-message",
@@ -183,7 +183,7 @@ describe("ChunkLoggingTransport Integration Tests", () => {
     });
   });
 
-  describe("SSE Mode - DefaultChatTransport Wrapping", () => {
+  describe("SSE Mode - DefaultChatTransportFromAISDKv6 Wrapping", () => {
     it("should verify buildSseUseChatOptions returns ChunkLoggingTransport wrapper for ADK SSE", () => {
       // when
       const { useChatOptions, transport } = buildSseUseChatOptions({
@@ -231,9 +231,9 @@ describe("ChunkLoggingTransport Integration Tests", () => {
 
         const loggingTransport = new ChunkLoggingTransport(wsTransport, mode);
 
-        const messages: UIMessage[] = [
+        const messages: UIMessageFromAISDKv6[] = [
           { id: "1", role: "user", parts: [{ type: "text", text: "Test" }] },
-        ] as UIMessage[];
+        ] as UIMessageFromAISDKv6[];
 
         const stream = await loggingTransport.sendMessages({
           trigger: "submit-message",
@@ -278,9 +278,9 @@ describe("ChunkLoggingTransport Integration Tests", () => {
       );
 
       // when
-      const messages: UIMessage[] = [
+      const messages: UIMessageFromAISDKv6[] = [
         { id: "1", role: "user", parts: [{ type: "text", text: "Test" }] },
-      ] as UIMessage[];
+      ] as UIMessageFromAISDKv6[];
 
       const stream = await loggingTransport.sendMessages({
         trigger: "submit-message",

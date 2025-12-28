@@ -116,7 +116,11 @@
       "Bash(lsof:*)",
       "Bash(xargs:*)",
       "Bash(E2E_REFRESH_FIXTURE=true uv run pytest:*)",
-      "Bash(pnpm test:lib:e2e:*)"
+      "Bash(pnpm test:lib:e2e:*)",
+      "Bash(pgrep:*)",
+      "Bash(pnpm run lint:check:*)",
+      "Bash(pnpm run test:lib:e2e:*)",
+      "Bash(pnpm run check:*)"
     ],
     "deny": [
       "Read(.env.keys)",

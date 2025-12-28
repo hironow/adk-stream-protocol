@@ -20,17 +20,17 @@
  */
 
 import type {
-  ChatRequestOptions,
-  ChatTransport,
-  UIMessage,
-  UIMessageChunk,
-} from "ai";
+  ChatRequestOptionsFromAISDKv6,
+  ChatTransportFromAISDKv6,
+  UIMessageFromAISDKv6,
+  UIMessageChunkFromAISDKv6,
+} from "../utils";
 import { ChunkPlayer } from "./chunk-player";
 
 /**
  * Transport that replays chunks from recorded JSONL files.
  */
-export class ChunkPlayerTransport implements ChatTransport<UIMessage> {
+export class ChunkPlayerTransport implements ChatTransportFromAISDKv6 {
   private player: ChunkPlayer | null = null;
   private playerPromise: Promise<ChunkPlayer> | null = null;
   private fixturePath: string | null = null;
@@ -113,21 +113,21 @@ export class ChunkPlayerTransport implements ChatTransport<UIMessage> {
       trigger: "submit-message" | "regenerate-message";
       chatId: string;
       messageId: string | undefined;
-      messages: UIMessage[];
+      messages: UIMessageFromAISDKv6[];
       abortSignal: AbortSignal | undefined;
-    } & ChatRequestOptions,
-  ): Promise<ReadableStream<UIMessageChunk>> {
+    } & ChatRequestOptionsFromAISDKv6,
+  ): Promise<ReadableStream<UIMessageChunkFromAISDKv6>> {
     // Load player if needed
     const player = await this.getPlayer();
 
     // Create stream that replays chunks
-    return new ReadableStream<UIMessageChunk>({
+    return new ReadableStream<UIMessageChunkFromAISDKv6>({
       async start(controller) {
         try {
           // Replay chunks in fast-forward mode (no delays)
           for await (const entry of player.play({ mode: "fast-forward" })) {
             // Each entry.chunk should be a UIMessageChunk
-            controller.enqueue(entry.chunk as UIMessageChunk);
+            controller.enqueue(entry.chunk as UIMessageChunkFromAISDKv6);
           }
           controller.close();
         } catch (error) {
@@ -141,8 +141,8 @@ export class ChunkPlayerTransport implements ChatTransport<UIMessage> {
    * Reconnect to stream (not supported in replay mode).
    */
   async reconnectToStream(
-    _options: { chatId: string } & ChatRequestOptions,
-  ): Promise<ReadableStream<UIMessageChunk> | null> {
+    _options: { chatId: string } & ChatRequestOptionsFromAISDKv6,
+  ): Promise<ReadableStream<UIMessageChunkFromAISDKv6> | null> {
     // Chunk player doesn't support reconnection
     return null;
   }

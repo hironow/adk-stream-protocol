@@ -6,7 +6,7 @@
  *
  * Components under test (3-way integration):
  * 1. buildUseChatOptions (our code)
- * 2. WebSocketChatTransport / DefaultChatTransport (our code)
+ * 2. WebSocketChatTransport / DefaultChatTransportFromAISDKv6 (our code)
  * 3. useChat from AI SDK v6 (external library - not our code)
  *
  * Focus:
@@ -22,10 +22,10 @@
 
 import { useChat } from "@ai-sdk/react";
 import { act, renderHook } from "@testing-library/react";
-import type { UIMessage } from "ai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WebSocketChatTransport } from "../../bidi/transport";
 import { buildUseChatOptions } from "../../build-use-chat-options";
+import type { UIMessageFromAISDKv6 } from "../../utils";
 
 // Mock WebSocket for transport testing
 class MockWebSocket {
@@ -133,7 +133,7 @@ describe("useChat Integration", () => {
     });
 
     // Note: Tool approval is handled natively by AI SDK v6's addToolApprovalResponse
-    // The tool-approval-request events flow through UIMessageChunk stream to useChat
+    // The tool-approval-request events flow through UIMessageChunkFromAISDKv6 stream to useChat
     // See websocket-chat-transport.ts:handleCustomEventsWithSkip for implementation details
 
     it("should verify AI SDK v6 calls transport.sendMessages() on user message (ADK BIDI)", async () => {
@@ -195,7 +195,7 @@ describe("useChat Integration", () => {
 
       // Given: Message state after user approves tool (Server Execute pattern)
       // Pattern: Backend will execute the tool after receiving approval
-      const messagesAfterApproval: UIMessage[] = [
+      const messagesAfterApproval: UIMessageFromAISDKv6[] = [
         {
           id: "msg-1",
           role: "user" as const,
@@ -242,7 +242,7 @@ describe("useChat Integration", () => {
 
     it("should verify addToolOutput updates message state but does NOT auto-submit (ADK BIDI)", async () => {
       // Given: ADK BIDI mode with initial message containing tool call waiting for output
-      const initialMessages: UIMessage[] = [
+      const initialMessages: UIMessageFromAISDKv6[] = [
         {
           id: "msg-1",
           role: "user" as const,
@@ -332,7 +332,7 @@ describe("useChat Integration", () => {
 
       // Scenario 1: Only approval completed (Frontend Execute waiting)
       // Pattern: User approved, frontend needs to execute tool and send output
-      const messagesAfterApprovalOnly: UIMessage[] = [
+      const messagesAfterApprovalOnly: UIMessageFromAISDKv6[] = [
         {
           id: "msg-1",
           role: "user" as const,
@@ -369,7 +369,7 @@ describe("useChat Integration", () => {
 
       // Scenario 2: Approval + Tool Output completed (Frontend Execute completed)
       // Pattern: User approved, frontend executed tool, added output, ready to send to backend
-      const messagesAfterOutputAdded: UIMessage[] = [
+      const messagesAfterOutputAdded: UIMessageFromAISDKv6[] = [
         {
           id: "msg-1",
           role: "user" as const,
@@ -432,7 +432,7 @@ describe("useChat Integration", () => {
 
       // Scenario: Pending confirmation exists (approval-requested)
       // Pattern: User needs to respond to confirmation before auto-submit
-      const messagesWithPendingConfirmation: UIMessage[] = [
+      const messagesWithPendingConfirmation: UIMessageFromAISDKv6[] = [
         {
           id: "msg-1",
           role: "user" as const,
@@ -499,7 +499,7 @@ describe("useChat Integration", () => {
 
       // Scenario: Single tool denied (approved=false)
       // Pattern: User denied tool, backend should still receive the denial
-      const messagesAfterDenial: UIMessage[] = [
+      const messagesAfterDenial: UIMessageFromAISDKv6[] = [
         {
           id: "msg-1",
           role: "user" as const,
@@ -634,7 +634,7 @@ describe("useChat Integration", () => {
       global.fetch = originalFetch;
     });
 
-    it("should integrate buildUseChatOptions + DefaultChatTransport + useChat", async () => {
+    it("should integrate buildUseChatOptions + DefaultChatTransportFromAISDKv6 + useChat", async () => {
       // Given: Build options for ADK SSE mode
       const options = buildUseChatOptions({
         mode: "adk-sse",
@@ -645,7 +645,7 @@ describe("useChat Integration", () => {
       // When: Using with useChat hook
       const { result } = renderHook(() => useChat(options.useChatOptions));
 
-      // Then: useChat should work with DefaultChatTransport
+      // Then: useChat should work with DefaultChatTransportFromAISDKv6
       expect(result.current).toBeDefined();
       expect(result.current.messages).toEqual([]);
       expect(options.transport).toBeUndefined(); // SSE mode has no transport reference
@@ -653,7 +653,7 @@ describe("useChat Integration", () => {
   });
 
   describe("Gemini Direct Mode with useChat", () => {
-    it("should integrate buildUseChatOptions + DefaultChatTransport + useChat", async () => {
+    it("should integrate buildUseChatOptions + DefaultChatTransportFromAISDKv6 + useChat", async () => {
       // Given: Build options for Gemini Direct mode
       const options = buildUseChatOptions({
         mode: "gemini",
@@ -663,7 +663,7 @@ describe("useChat Integration", () => {
       // When: Using with useChat hook
       const { result } = renderHook(() => useChat(options.useChatOptions));
 
-      // Then: useChat should work with DefaultChatTransport
+      // Then: useChat should work with DefaultChatTransportFromAISDKv6
       expect(result.current.messages).toEqual([]);
       expect(options.transport).toBeUndefined(); // Gemini mode has no transport reference
     });
@@ -702,7 +702,7 @@ describe("useChat Integration", () => {
 
     it("should preserve initial messages in useChat", async () => {
       // Given: Options with initial messages
-      const initialMessages: UIMessage[] = [
+      const initialMessages: UIMessageFromAISDKv6[] = [
         {
           id: "msg-1",
           role: "user" as const,

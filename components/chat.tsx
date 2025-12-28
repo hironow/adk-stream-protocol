@@ -1,7 +1,6 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import type { UIMessage } from "ai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MessageComponent } from "@/components/message";
 import { useAudio } from "@/lib/audio-context";
@@ -9,12 +8,13 @@ import {
   type BackendMode,
   buildUseChatOptions,
 } from "@/lib/build-use-chat-options";
+import type { UIMessageFromAISDKv6 } from "@/lib/utils";
 
 interface ChatProps {
   mode: BackendMode;
   // Message history preservation
-  initialMessages?: UIMessage[];
-  onMessagesChange?: (messages: UIMessage[]) => void;
+  initialMessages?: UIMessageFromAISDKv6[];
+  onMessagesChange?: (messages: UIMessageFromAISDKv6[]) => void;
 }
 
 export function Chat({

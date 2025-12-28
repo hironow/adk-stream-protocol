@@ -5,7 +5,6 @@
  * Verifies logging behavior, JSONL parsing, and fixture-based playback.
  */
 
-import type { ChatRequestOptions, UIMessage, UIMessageChunk } from "ai";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   type ChunkLogEntry,
@@ -15,6 +14,11 @@ import {
   chunkLogger,
   type Mode,
 } from "../../chunk_logs";
+import type {
+  ChatRequestOptionsFromAISDKv6,
+  UIMessageChunkFromAISDKv6,
+  UIMessageFromAISDKv6,
+} from "../../utils";
 
 describe("lib/chunk_logs Integration Tests", () => {
   beforeEach(() => {
@@ -46,7 +50,7 @@ describe("lib/chunk_logs Integration Tests", () => {
 
       const transport = new ChunkLoggingTransport(mockDelegate as any, mode);
 
-      const messages: UIMessage[] = [];
+      const messages: UIMessageFromAISDKv6[] = [];
       const requestOptions = {
         trigger: "submit-message" as const,
         chatId: "test-chat",
@@ -61,7 +65,7 @@ describe("lib/chunk_logs Integration Tests", () => {
       // when
       const result = await transport.sendMessages(requestOptions);
       const reader = result.getReader();
-      const chunks: UIMessageChunk[] = [];
+      const chunks: UIMessageChunkFromAISDKv6[] = [];
 
       while (true) {
         const { done, value } = await reader.read();
@@ -92,7 +96,7 @@ describe("lib/chunk_logs Integration Tests", () => {
         { type: "text-delta", textDelta: "Hello" },
         { type: "text-delta", textDelta: " " },
         { type: "text-delta", textDelta: "World" },
-      ] as UIMessageChunk[];
+      ] as UIMessageChunkFromAISDKv6[];
 
       const mockDelegate = {
         sendMessages: vi.fn().mockResolvedValue({
@@ -126,7 +130,7 @@ describe("lib/chunk_logs Integration Tests", () => {
       });
 
       const reader = result.getReader();
-      const receivedChunks: UIMessageChunk[] = [];
+      const receivedChunks: UIMessageChunkFromAISDKv6[] = [];
 
       while (true) {
         const { done, value } = await reader.read();
@@ -210,13 +214,13 @@ describe("lib/chunk_logs Integration Tests", () => {
         "/fixtures/test.jsonl",
       );
 
-      const messages: UIMessage[] = [];
-      const options: ChatRequestOptions = {};
+      const messages: UIMessageFromAISDKv6[] = [];
+      const options: ChatRequestOptionsFromAISDKv6 = {};
 
       // when
       const result = await transport.sendMessages(messages, options);
       const reader = result.getReader();
-      const chunks: UIMessageChunk[] = [];
+      const chunks: UIMessageChunkFromAISDKv6[] = [];
 
       while (true) {
         const { done, value } = await reader.read();

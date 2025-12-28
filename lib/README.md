@@ -193,13 +193,25 @@ Type compatibility is verified at compile-time:
 
 ```typescript
 // lib/tests/types/transport-compatibility.test-d.ts
-import type { ChatTransport, UIMessage } from 'ai';
-import { ChatTransport as BidiTransport } from '@/lib/bidi';
-import { ChatTransport as SseTransport } from '@/lib/sse';
+import type { ChatTransportFromAISDKv6 as BidiTransport } from '@/lib/bidi';
+import type { ChatTransportFromAISDKv6 as SseTransport } from '@/lib/sse';
+import type {
+  ChatTransportFromAISDKv6,
+  UIMessageFromAISDKv6,
+} from '@/lib/utils';
 
-// Both satisfy ChatTransport<UIMessage>
-const bidi: ChatTransport<UIMessage> = new BidiTransport({ url: 'ws://...' });
-const sse: ChatTransport<UIMessage> = new SseTransport({ api: '/api/chat' });
+// Both satisfy ChatTransportFromAISDKv6<UIMessageFromAISDKv6>
+declare const bidiTransport: BidiTransport;
+declare const sseTransport: InstanceType<typeof SseTransport<UIMessageFromAISDKv6>>;
+
+function acceptsChatTransport(
+  transport: ChatTransportFromAISDKv6<UIMessageFromAISDKv6>
+) {
+  return transport;
+}
+
+acceptsChatTransport(bidiTransport); // ✅ Should compile
+acceptsChatTransport(sseTransport); // ✅ Should compile
 ```
 
 ## Testing Strategy

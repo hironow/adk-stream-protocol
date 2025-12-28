@@ -11,7 +11,7 @@
  * - Provide type-safe event construction
  */
 
-import type { UIMessage } from "ai";
+import type { UIMessageFromAISDKv6 } from "../utils";
 
 /**
  * WebSocket event types for BIDI protocol (Flat structure - no 'data' wrapper)
@@ -28,7 +28,7 @@ export type MessageEvent = {
   timestamp?: number; // Optional client timestamp (milliseconds since epoch)
   // Payload (same as SSE format)
   id: string; // chatId (same as SSE)
-  messages: UIMessage[]; // messages array (same as SSE)
+  messages: UIMessageFromAISDKv6[]; // messages array (same as SSE)
   trigger: "submit-message" | "regenerate-message"; // trigger (same as SSE)
   messageId: string | undefined; // messageId (same as SSE)
 };
@@ -175,7 +175,7 @@ export class EventSender {
    */
   public sendMessages(options: {
     chatId: string;
-    messages: UIMessage[];
+    messages: UIMessageFromAISDKv6[];
     trigger: "submit-message" | "regenerate-message";
     messageId: string | undefined;
   }): void {
@@ -191,10 +191,26 @@ export class EventSender {
       messageId: options.messageId,
     };
 
+    const lastMsg = options.messages[options.messages.length - 1];
+    const parts = (lastMsg as any).parts || [];
+    const toolParts = parts.filter((p: any) => p.type?.startsWith("tool-"));
+    const approvalParts = toolParts.filter(
+      (p: any) => p.state === "approval-responded",
+    );
+
     console.log(
       `[Event Sender] Sending ${options.messages.length} message(s) (chatId=${options.chatId}, trigger=${options.trigger})`,
-      options.messages[options.messages.length - 1],
     );
+    console.log(
+      `[Event Sender]   └─ Last message: role=${lastMsg.role}, parts=${parts.length}, toolParts=${toolParts.length}, approvalParts=${approvalParts.length}`,
+    );
+    if (approvalParts.length > 0) {
+      approvalParts.forEach((p: any) => {
+        console.log(
+          `[Event Sender]      ✓ Approval sent: toolCallId=${p.toolCallId?.slice(-8)}, approved=${p.approval?.approved}`,
+        );
+      });
+    }
 
     this.sendEvent(event);
   }

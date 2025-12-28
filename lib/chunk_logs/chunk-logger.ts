@@ -38,7 +38,7 @@
 
 "use client";
 
-import type { ChunkLogEntry, Direction, LogLocation, Mode } from "@/lib/types";
+import type { ChunkLogEntry, Direction, LogLocation, Mode } from "@/lib/utils";
 
 // Re-export types for backward compatibility
 export type { ChunkLogEntry, Direction, LogLocation, Mode };

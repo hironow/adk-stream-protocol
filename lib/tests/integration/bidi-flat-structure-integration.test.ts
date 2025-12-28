@@ -24,11 +24,11 @@
  * - Verify no nested "data" wrapper
  */
 
-import type { UIMessage } from "ai";
 import { ws } from "msw";
 import { setupServer } from "msw/node";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { WebSocketChatTransport } from "../../bidi/transport";
+import type { UIMessageFromAISDKv6 } from "../../utils";
 
 const server = setupServer();
 
@@ -76,9 +76,9 @@ describe("BIDI Flat Structure Integration Tests", () => {
         url: "ws://localhost:8000/live",
       });
 
-      const messages: UIMessage[] = [
+      const messages: UIMessageFromAISDKv6[] = [
         { id: "msg-1", role: "user", parts: [{ type: "text", text: "Hello" }] },
-      ] as UIMessage[];
+      ] as UIMessageFromAISDKv6[];
 
       // when
       const stream = await transport.sendMessages({
@@ -143,13 +143,13 @@ describe("BIDI Flat Structure Integration Tests", () => {
         url: "ws://localhost:8000/live",
       });
 
-      const messages: UIMessage[] = [
+      const messages: UIMessageFromAISDKv6[] = [
         {
           id: "msg-100",
           role: "user",
           parts: [{ type: "text", text: "Test" }],
         },
-      ] as UIMessage[];
+      ] as UIMessageFromAISDKv6[];
 
       // when
       const stream = await transport.sendMessages({
@@ -212,7 +212,7 @@ describe("BIDI Flat Structure Integration Tests", () => {
       });
 
       // Multiple messages (conversation history)
-      const messages: UIMessage[] = [
+      const messages: UIMessageFromAISDKv6[] = [
         { id: "msg-1", role: "user", parts: [{ type: "text", text: "First" }] },
         {
           id: "msg-2",
@@ -224,7 +224,7 @@ describe("BIDI Flat Structure Integration Tests", () => {
           role: "user",
           parts: [{ type: "text", text: "Second" }],
         },
-      ] as UIMessage[];
+      ] as UIMessageFromAISDKv6[];
 
       // when
       const stream = await transport.sendMessages({
@@ -296,9 +296,9 @@ describe("BIDI Flat Structure Integration Tests", () => {
         url: "ws://localhost:8000/live",
       });
 
-      const messages: UIMessage[] = [
+      const messages: UIMessageFromAISDKv6[] = [
         { id: "msg-1", role: "user", parts: [{ type: "text", text: "Test" }] },
-      ] as UIMessage[];
+      ] as UIMessageFromAISDKv6[];
 
       const beforeTimestamp = Date.now();
 
@@ -360,9 +360,9 @@ describe("BIDI Flat Structure Integration Tests", () => {
         url: "ws://localhost:8000/live",
       });
 
-      const messages: UIMessage[] = [
+      const messages: UIMessageFromAISDKv6[] = [
         { id: "msg-1", role: "user", parts: [{ type: "text", text: "Test" }] },
-      ] as UIMessage[];
+      ] as UIMessageFromAISDKv6[];
 
       // when
       const stream = await transport.sendMessages({

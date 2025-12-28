@@ -3,7 +3,7 @@
  * Provides reusable message objects for tests
  */
 
-import type { UIMessage } from "ai";
+import type { UIMessageFromAISDKv6FromAISDKv6 } from "../../utils";
 
 /**
  * Creates a basic text message
@@ -12,7 +12,7 @@ export function createTextMessage(
   text: string,
   id = "msg-1",
   role: "user" | "assistant" = "user",
-): UIMessage {
+): UIMessageFromAISDKv6 {
   return {
     id,
     role,
@@ -27,7 +27,7 @@ export function createFunctionCallMessage(
   toolName: string,
   args: Record<string, unknown>,
   id = "msg-1",
-): UIMessage {
+): UIMessageFromAISDKv6 {
   return {
     id,
     role: "assistant",
@@ -36,7 +36,7 @@ export function createFunctionCallMessage(
         type: "tool-call",
         toolName,
         args,
-        // biome-ignore lint/suspicious/noExplicitAny: Test fixture - partial UIMessage construction
+        // biome-ignore lint/suspicious/noExplicitAny: Test fixture - partial UIMessageFromAISDKv6 construction
       } as any,
     ],
   };
@@ -49,7 +49,7 @@ export function createToolResultMessage(
   toolCallId: string,
   result: unknown,
   id = "msg-1",
-): UIMessage {
+): UIMessageFromAISDKv6 {
   return {
     id,
     role: "tool",
@@ -58,7 +58,7 @@ export function createToolResultMessage(
         type: "tool-result",
         toolCallId,
         result,
-        // biome-ignore lint/suspicious/noExplicitAny: Test fixture - partial UIMessage construction
+        // biome-ignore lint/suspicious/noExplicitAny: Test fixture - partial UIMessageFromAISDKv6 construction
       } as any,
     ],
   };
@@ -69,7 +69,7 @@ export function createToolResultMessage(
  */
 export function createConversation(
   messages: Array<{ role: "user" | "assistant"; text: string }>,
-): UIMessage[] {
+): UIMessageFromAISDKv6[] {
   return messages.map((msg, index) => ({
     id: `msg-${index + 1}`,
     role: msg.role,

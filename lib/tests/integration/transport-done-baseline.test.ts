@@ -37,9 +37,9 @@
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { UIMessageChunk } from "ai";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { WebSocketChatTransport } from "../../bidi/transport";
+import type { UIMessageChunkFromAISDKv6 } from "../../utils";
 
 // Fixture types
 interface BaselineFixture {
@@ -51,7 +51,7 @@ interface BaselineFixture {
   };
   output: {
     rawEvents: string[];
-    expectedChunks: UIMessageChunk[];
+    expectedChunks: UIMessageChunkFromAISDKv6[];
     expectedDoneCount: number;
     expectedStreamCompletion: boolean;
   };
@@ -74,11 +74,14 @@ function loadFixture(filename: string): BaselineFixture {
 
 // Split multi-turn tool fixture into individual turns
 function splitIntoTurns(fixture: BaselineFixture): {
-  turns: Array<{ rawEvents: string[]; expectedChunks: UIMessageChunk[] }>;
+  turns: Array<{
+    rawEvents: string[];
+    expectedChunks: UIMessageChunkFromAISDKv6[];
+  }>;
 } {
   const turns: Array<{
     rawEvents: string[];
-    expectedChunks: UIMessageChunk[];
+    expectedChunks: UIMessageChunkFromAISDKv6[];
   }> = [];
 
   let currentTurnEvents: string[] = [];
@@ -115,7 +118,7 @@ function splitIntoTurns(fixture: BaselineFixture): {
 // Find the chunk index corresponding to a [DONE] marker
 // Looks for the last "finish" chunk before the next "start" chunk
 function findChunkIndexForDone(
-  chunks: UIMessageChunk[],
+  chunks: UIMessageChunkFromAISDKv6[],
   startIndex: number,
 ): number {
   for (let i = startIndex; i < chunks.length; i++) {
@@ -139,7 +142,7 @@ async function executeToolTest(
   const { turns } = splitIntoTurns(fixture);
   expect(turns.length).toBe(fixture.output.expectedDoneCount);
 
-  const allReceivedChunks: UIMessageChunk[] = [];
+  const allReceivedChunks: UIMessageChunkFromAISDKv6[] = [];
   let totalDoneCount = 0;
 
   if (fixture.mode === "sse") {
@@ -159,7 +162,7 @@ async function executeToolTest(
 
       const stream = await streamPromise;
       const reader = stream.getReader();
-      const turnChunks: UIMessageChunk[] = [];
+      const turnChunks: UIMessageChunkFromAISDKv6[] = [];
 
       const mockWs = (transport as any).ws as MockWebSocket;
       await new Promise((resolve) => setTimeout(resolve, 10));
@@ -211,7 +214,7 @@ async function executeToolTest(
       }
 
       const reader = stream.getReader();
-      const turnChunks: UIMessageChunk[] = [];
+      const turnChunks: UIMessageChunkFromAISDKv6[] = [];
 
       await new Promise((resolve) => setTimeout(resolve, 10));
 
@@ -316,11 +319,11 @@ describe("Transport [DONE] Baseline Integration Tests", () => {
      * Baseline Verification: SSE mode - change_bgm tool
      *
      * Given: Baseline fixture with expected SSE event sequence
-     * When: DefaultChatTransport (via ChunkLoggingTransport) processes events
+     * When: DefaultChatTransportFromAISDKv6 (via ChunkLoggingTransport) processes events
      * Then: Chunks match baseline, [DONE] processed exactly once, stream completes
      *
      * Note: This test uses WebSocketChatTransport as a proxy for testing
-     * the [DONE] handling pattern. In production, SSE uses DefaultChatTransport
+     * the [DONE] handling pattern. In production, SSE uses DefaultChatTransportFromAISDKv6
      * wrapped by ChunkLoggingTransport. The [DONE] handling principle is the same.
      */
 
@@ -343,7 +346,7 @@ describe("Transport [DONE] Baseline Integration Tests", () => {
 
     const stream = await streamPromise;
     const reader = stream.getReader();
-    const receivedChunks: UIMessageChunk[] = [];
+    const receivedChunks: UIMessageChunkFromAISDKv6[] = [];
     let doneCount = 0;
 
     // Simulate baseline events from fixture
@@ -395,7 +398,7 @@ describe("Transport [DONE] Baseline Integration Tests", () => {
      * Baseline Verification: get_weather tool call
      *
      * Given: Baseline fixture with get_weather tool call
-     * When: DefaultChatTransport processes events
+     * When: DefaultChatTransportFromAISDKv6 processes events
      * Then: Chunks match baseline, [DONE] processed exactly once, stream completes
      */
 
@@ -418,7 +421,7 @@ describe("Transport [DONE] Baseline Integration Tests", () => {
 
     const stream = await streamPromise;
     const reader = stream.getReader();
-    const receivedChunks: UIMessageChunk[] = [];
+    const receivedChunks: UIMessageChunkFromAISDKv6[] = [];
     let doneCount = 0;
 
     // Simulate baseline events from fixture
@@ -515,7 +518,7 @@ describe("Transport [DONE] Baseline Integration Tests", () => {
 
     const stream = await streamPromise;
     const reader = stream.getReader();
-    const receivedChunks: UIMessageChunk[] = [];
+    const receivedChunks: UIMessageChunkFromAISDKv6[] = [];
     let doneCount = 0;
 
     // Simulate baseline events from fixture
@@ -582,7 +585,7 @@ describe("Transport [DONE] Baseline Integration Tests", () => {
 
     const stream = await streamPromise;
     const reader = stream.getReader();
-    const receivedChunks: UIMessageChunk[] = [];
+    const receivedChunks: UIMessageChunkFromAISDKv6[] = [];
     let doneCount = 0;
 
     // Simulate baseline events from fixture
@@ -663,7 +666,7 @@ describe("Transport [DONE] Baseline Integration Tests", () => {
 
     const stream = await streamPromise;
     const reader = stream.getReader();
-    const receivedChunks: UIMessageChunk[] = [];
+    const receivedChunks: UIMessageChunkFromAISDKv6[] = [];
 
     // Simulate baseline events from fixture
     const mockWs = (transport as any).ws as MockWebSocket;

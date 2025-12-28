@@ -6,12 +6,7 @@
  */
 
 import { HttpResponse } from "msw";
-import type { SseChunk } from "@/lib/types";
-import {
-  TOOL_CHUNK_TYPE_APPROVAL_REQUEST,
-  TOOL_CHUNK_TYPE_INPUT_AVAILABLE,
-  TOOL_CHUNK_TYPE_INPUT_START,
-} from "../../constants";
+import type { UIMessageChunkFromAISDKv6 } from "@/lib/utils";
 
 /**
  * Create SSE stream response for MSW handler
@@ -34,7 +29,7 @@ import {
  * ```
  */
 export function createSseStreamResponse(
-  chunks: SseChunk[],
+  chunks: UIMessageChunkFromAISDKv6[],
 ): HttpResponse<ReadableStream<Uint8Array>> {
   const encoder = new TextEncoder();
 
@@ -109,23 +104,23 @@ export function createAdkConfirmationRequest(options: {
   return createSseStreamResponse([
     // Original tool chunks
     {
-      type: TOOL_CHUNK_TYPE_INPUT_START,
+      type: "tool-input-start",
       toolCallId: options.originalFunctionCall.id,
       toolName: options.originalFunctionCall.name,
     },
     {
-      type: TOOL_CHUNK_TYPE_INPUT_AVAILABLE,
+      type: "tool-input-available",
       toolCallId: options.originalFunctionCall.id,
       toolName: options.originalFunctionCall.name,
       input: options.originalFunctionCall.args,
     },
     // ADR 0002: tool-approval-request for the ORIGINAL tool
     {
-      type: TOOL_CHUNK_TYPE_APPROVAL_REQUEST,
+      type: "tool-approval-request",
       approvalId,
       toolCallId: options.originalFunctionCall.id,
     },
-  ] as SseChunk[]);
+  ] as UIMessageChunkFromAISDKv6[]);
 }
 
 /**
@@ -149,7 +144,7 @@ export function createTextResponse(
   const textId = `text-${Date.now()}`;
 
   // AI SDK v6 expects: text-start, text-delta(s), text-end sequence
-  const chunks: SseChunk[] = [
+  const chunks: UIMessageChunkFromAISDKv6[] = [
     // Start the text stream
     { type: "text-start" as const, id: textId },
     // Send each text part as a delta

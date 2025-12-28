@@ -1,7 +1,7 @@
 /**
  * BIDI WebSocket Chat Transport for AI SDK v6
  *
- * Implements custom ChatTransport to enable bidirectional streaming
+ * Implements custom ChatTransportFromAISDKv6 to enable bidirectional streaming
  * between AI SDK useChat hook and ADK BIDI mode via WebSocket.
  *
  * Architecture: "SSE format over WebSocket"
@@ -10,8 +10,8 @@
  *   - ADK events → SSE format (stream_protocol.py)
  *   - SSE format → WebSocket messages (server.py /live endpoint)
  *   - WebSocket messages → SSE parsing (this class)
- *   - SSE format → UIMessageChunk (handleWebSocketMessage)
- *   - UIMessageChunk → useChat hook (React state)
+ *   - SSE format → UIMessageChunkFromAISDKv6 (handleWebSocketMessage)
+ *   - UIMessageChunkFromAISDKv6 → useChat hook (React state)
  *
  * Key Insight: Protocol stays the same (AI SDK v6 Data Stream Protocol),
  *             only transport layer changes (HTTP SSE → WebSocket)
@@ -25,52 +25,16 @@
  * https://github.com/vercel/ai/discussions/5607
  */
 
+import type { AudioContextValue } from "../audio-context";
 import type {
-  ChatRequestOptions,
-  ChatTransport,
-  UIMessage,
-  UIMessageChunk,
-} from "ai";
+  ChatRequestOptionsFromAISDKv6,
+  ChatTransportFromAISDKv6,
+  UIMessageChunkFromAISDKv6,
+  UIMessageFromAISDKv6,
+} from "../utils";
 
 import { EventReceiver } from "./event_receiver";
 import { EventSender } from "./event_sender";
-
-/**
- * AudioContext Interface for Real-Time PCM Streaming
- *
- * This interface is defined here for type checking purposes only. The actual
- * implementation is provided by lib/types/common.ts and passed through
- * buildUseChatOptions() configuration.
- *
- * Purpose:
- * - Enable real-time PCM audio playback for AI-generated voice responses
- * - Route audio chunks from backend to Web Audio API AudioWorklet
- * - Support voice mode in BIDI communication
- *
- * Note: The extended version here includes onComplete callback for audio metadata,
- * which is optional and not present in the base AudioContextValue type.
- */
-interface AudioContextValue {
-  voiceChannel: {
-    isPlaying: boolean;
-    chunkCount: number;
-    sendChunk: (chunk: {
-      content: string; // Base64-encoded PCM data
-      sampleRate: number; // Sample rate in Hz (e.g., 24000)
-      channels: number; // Number of audio channels (1 = mono, 2 = stereo)
-      bitDepth: number; // Bits per sample (e.g., 16)
-    }) => void;
-    reset: () => void;
-    onComplete?: (metadata: {
-      chunks: number; // Total number of audio chunks processed
-      bytes: number; // Total bytes of audio data
-      sampleRate: number; // Sample rate used
-      duration: number; // Total audio duration in seconds
-    }) => void;
-  };
-  isReady: boolean;
-  error: string | null;
-}
 
 /**
  * Client-to-Server Event Protocol
@@ -87,7 +51,7 @@ interface AudioContextValue {
 /**
  * WebSocket Transport Configuration
  *
- * Configuration options for WebSocketChatTransport initialization.
+ * Configuration options for WebSocketChatTransportFromAISDKv6 initialization.
  *
  * @property url - WebSocket URL (e.g., ws://localhost:8000/live or wss://example.com/live)
  *                 HTTP/HTTPS URLs will be automatically converted to WS/WSS
@@ -108,7 +72,7 @@ export interface WebSocketChatTransportConfig {
 /**
  * WebSocket Chat Transport - Bidirectional AI SDK v6 Transport
  *
- * Implements AI SDK v6 ChatTransport interface using WebSocket for bidirectional
+ * Implements AI SDK v6 ChatTransportFromAISDKv6 interface using WebSocket for bidirectional
  * real-time communication with ADK backend. This transport enables:
  *
  * Core Features:
@@ -119,7 +83,7 @@ export interface WebSocketChatTransportConfig {
  *
  * Architecture:
  * - Uses EventSender for outgoing messages (converts to ADK protocol events)
- * - Uses EventReceiver for incoming messages (converts from SSE format to UIMessageChunk)
+ * - Uses EventReceiver for incoming messages (converts from SSE format to UIMessageChunkFromAISDKv6)
  * - Maintains single WebSocket connection throughout session
  * - Automatically handles connection lifecycle (open, close, error, reconnect)
  *
@@ -135,9 +99,9 @@ export interface WebSocketChatTransportConfig {
  * - EventSender: Outgoing message handling
  * - EventReceiver: Incoming message handling
  *
- * @implements {ChatTransport<UIMessage>} AI SDK v6 ChatTransport interface
+ * @implements {ChatTransportFromAISDKv6<UIMessageFromAISDKv6>} AI SDK v6 ChatTransportFromAISDKv6 interface
  */
-export class WebSocketChatTransport implements ChatTransport<UIMessage> {
+export class WebSocketChatTransport implements ChatTransportFromAISDKv6 {
   private config: WebSocketChatTransportConfig;
   private ws: WebSocket | null = null;
 
@@ -150,7 +114,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
 
   // Controller lifecycle management
   // Tracks current ReadableStream controller to prevent orphaning on handler override
-  private currentController: ReadableStreamDefaultController<UIMessageChunk> | null =
+  private currentController: ReadableStreamDefaultController<UIMessageChunkFromAISDKv6> | null =
     null;
 
   // PCM audio parameters (used for bridging EventReceiver → external AudioContext)
@@ -268,17 +232,17 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
 
   /**
    * Send messages and return stream of UI message chunks.
-   * Required by ChatTransport interface.
+   * Required by ChatTransportFromAISDKv6 interface.
    */
   async sendMessages(
     options: {
       trigger: "submit-message" | "regenerate-message";
       chatId: string;
       messageId: string | undefined;
-      messages: UIMessage[];
+      messages: UIMessageFromAISDKv6[];
       abortSignal: AbortSignal | undefined;
-    } & ChatRequestOptions,
-  ): Promise<ReadableStream<UIMessageChunk>> {
+    } & ChatRequestOptionsFromAISDKv6,
+  ): Promise<ReadableStream<UIMessageChunkFromAISDKv6>> {
     console.log("[WS Transport] sendMessages() called:", {
       trigger: options.trigger,
       messageCount: options.messages.length,
@@ -287,7 +251,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
 
     const { url, timeout } = this.config;
 
-    return new ReadableStream<UIMessageChunk>({
+    return new ReadableStream<UIMessageChunkFromAISDKv6>({
       start: async (controller) => {
         try {
           // Check if we can reuse existing connection
@@ -422,7 +386,9 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
             // Update message handler for stream (use appropriate controller)
             // If reusing controller (Phase 12), keep using existing one
             // If new stream, use new controller
-            const activeController = doneReceived ? controller : this.currentController!;
+            const activeController = doneReceived
+              ? controller
+              : this.currentController!;
 
             if (this.ws) {
               this.ws.onmessage = (event) => {
@@ -456,7 +422,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
           }
 
           // Send messages to backend using structured event format
-          // Format matches AI SDK v6 HttpChatTransport (SSE mode) exactly
+          // Format matches AI SDK v6 HttpChatTransportFromAISDKv6 (SSE mode) exactly
           this.eventSender.sendMessages({
             chatId: options.chatId,
             messages: options.messages,
@@ -478,7 +444,7 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
 
   private _handleWebSocketMessage(
     data: string,
-    controller: ReadableStreamDefaultController<UIMessageChunk>,
+    controller: ReadableStreamDefaultController<UIMessageChunkFromAISDKv6>,
   ): void {
     // Delegate to EventReceiver
     this.eventReceiver.handleMessage(data, controller);
@@ -489,8 +455,8 @@ export class WebSocketChatTransport implements ChatTransport<UIMessage> {
    * WebSocket connections are stateful, reconnection requires new connection.
    */
   async reconnectToStream(
-    _options: { chatId: string } & ChatRequestOptions,
-  ): Promise<ReadableStream<UIMessageChunk> | null> {
+    _options: { chatId: string } & ChatRequestOptionsFromAISDKv6,
+  ): Promise<ReadableStream<UIMessageChunkFromAISDKv6> | null> {
     // WebSocket connections cannot be reconnected to specific streams
     // Client needs to establish new connection
     return null;

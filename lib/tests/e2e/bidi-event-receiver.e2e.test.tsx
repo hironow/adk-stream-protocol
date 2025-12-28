@@ -12,7 +12,6 @@
  * @vitest-environment jsdom
  */
 
-import type { UIMessage } from "@ai-sdk/react";
 import { useChat } from "@ai-sdk/react";
 import { renderHook, waitFor } from "@testing-library/react";
 import { setupServer } from "msw/node";
@@ -22,6 +21,7 @@ import {
   createBidiWebSocketLink,
   createCustomHandler,
 } from "@/lib/tests/helpers/bidi-ws-handlers";
+import type { UIMessageFromAISDKv6 } from "@/lib/utils";
 
 /**
  * MSW server for WebSocket mocking
@@ -105,7 +105,7 @@ describe("BIDI EventReceiver - E2E Tests", () => {
 
       const { useChatOptions } = buildUseChatOptions({
         mode: "adk-bidi",
-        initialMessages: [] as UIMessage[],
+        initialMessages: [] as UIMessageFromAISDKv6[],
         audioContext: mockAudioContext,
       });
 
@@ -167,7 +167,7 @@ describe("BIDI EventReceiver - E2E Tests", () => {
 
       const { useChatOptions } = buildUseChatOptions({
         mode: "adk-bidi",
-        initialMessages: [] as UIMessage[],
+        initialMessages: [] as UIMessageFromAISDKv6[],
         audioContext: mockAudioContext,
       });
 
@@ -242,7 +242,7 @@ describe("BIDI EventReceiver - E2E Tests", () => {
 
       const { useChatOptions } = buildUseChatOptions({
         mode: "adk-bidi",
-        initialMessages: [] as UIMessage[],
+        initialMessages: [] as UIMessageFromAISDKv6[],
         latencyCallback: mockLatencyCallback,
       });
 
@@ -302,7 +302,7 @@ describe("BIDI EventReceiver - E2E Tests", () => {
 
       const { useChatOptions } = buildUseChatOptions({
         mode: "adk-bidi",
-        initialMessages: [] as UIMessage[],
+        initialMessages: [] as UIMessageFromAISDKv6[],
       });
 
       const { result } = renderHook(() => useChat(useChatOptions));
@@ -363,7 +363,7 @@ describe("BIDI EventReceiver - E2E Tests", () => {
 
       const { useChatOptions } = buildUseChatOptions({
         mode: "adk-bidi",
-        initialMessages: [] as UIMessage[],
+        initialMessages: [] as UIMessageFromAISDKv6[],
       });
 
       const { result } = renderHook(() => useChat(useChatOptions));
@@ -425,7 +425,7 @@ describe("BIDI EventReceiver - E2E Tests", () => {
 
       const { useChatOptions } = buildUseChatOptions({
         mode: "adk-bidi",
-        initialMessages: [] as UIMessage[],
+        initialMessages: [] as UIMessageFromAISDKv6[],
       });
 
       const { result } = renderHook(() => useChat(useChatOptions));

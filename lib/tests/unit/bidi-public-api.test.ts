@@ -5,17 +5,17 @@
  * All tests use only the public API, not internal implementation details.
  */
 
-import type { UIMessage } from "ai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildUseChatOptions,
-  type ChatTransport,
+  type ChatTransportFromAISDKv6,
   type SendAutomaticallyWhenOptions,
   sendAutomaticallyWhen,
   type TransportConfig,
   type UseChatConfig,
   type UseChatOptions,
 } from "../../bidi";
+import type { UIMessageFromAISDKv6 } from "../../utils";
 
 // Mock WebSocket
 class MockWebSocket {
@@ -142,13 +142,15 @@ describe("lib/bidi Public API", () => {
 
   describe("sendAutomaticallyWhen", () => {
     it.each<{
-      messages: UIMessage[];
+      messages: UIMessageFromAISDKv6[];
       expected: boolean;
       name: string;
     }>([
       {
         name: "returns false when last message is user message",
-        messages: [{ id: "1", role: "user", content: "Hello" }] as UIMessage[],
+        messages: [
+          { id: "1", role: "user", content: "Hello" },
+        ] as UIMessageFromAISDKv6[],
         expected: false,
       },
       {
@@ -256,7 +258,7 @@ describe("lib/bidi Public API", () => {
     });
   });
 
-  describe("ChatTransport (WebSocketChatTransport)", () => {
+  describe("ChatTransportFromAISDKv6 (WebSocketChatTransport)", () => {
     it.each<{
       config: TransportConfig;
       name: string;
@@ -336,7 +338,7 @@ describe("lib/bidi Public API", () => {
       expect(sendAutomaticallyWhen).toBeDefined();
 
       // Type aliases should work
-      const transport: ChatTransport = {} as any;
+      const transport: ChatTransportFromAISDKv6 = {} as any;
       expect(transport).toBeDefined();
     });
   });
@@ -347,7 +349,7 @@ describe("lib/bidi Public API", () => {
       const config: UseChatConfig = {
         initialMessages: [
           { id: "1", role: "user", content: "Hello" },
-        ] as UIMessage[],
+        ] as UIMessageFromAISDKv6[],
       };
 
       // when

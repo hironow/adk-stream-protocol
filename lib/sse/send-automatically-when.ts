@@ -10,21 +10,27 @@
  * - Same detection logic as BIDI but different transport mechanism
  */
 
-import type { UIMessage } from "@ai-sdk/react";
-import { isTextUIPart, isToolUIPart } from "ai";
 import {
-  TOOL_STATE_APPROVAL_REQUESTED,
-  TOOL_STATE_APPROVAL_RESPONDED,
-  TOOL_STATE_OUTPUT_AVAILABLE,
-  TOOL_STATE_OUTPUT_ERROR,
-} from "@/lib/constants";
+  isApprovalRequestedTool,
+  isApprovalRespondedTool,
+  isOutputAvailableTool,
+  isOutputErrorTool,
+  isTextUIPartFromAISDKv6,
+  isToolUIPartFromAISDKv6,
+  type UIMessageFromAISDKv6,
+} from "@/lib/utils";
 
 /**
  * Options for sendAutomaticallyWhen function
  */
 export interface SendAutomaticallyWhenOptions {
-  messages: UIMessage[];
+  messages: UIMessageFromAISDKv6[];
 }
+
+// Track which approval states we've already triggered sends for
+// Key: messageId + sorted list of approved tool call IDs
+// This prevents infinite loops where sendAutomaticallyWhen returns true repeatedly
+const sentApprovalStates = new Set<string>();
 
 /**
  * SSE Mode: Automatically send when adk_request_confirmation completes OR tool output added
@@ -134,23 +140,49 @@ export function sendAutomaticallyWhen({
   messages,
 }: SendAutomaticallyWhenOptions): boolean {
   try {
+    console.log("[SSE sendAutomaticallyWhen] ═══ CALLED ═══");
     const lastMessage = messages[messages.length - 1];
     if (!lastMessage) return false;
 
-    if (lastMessage?.role !== "assistant") return false;
+    if (lastMessage?.role !== "assistant") {
+      console.log(
+        "[SSE sendAutomaticallyWhen] Last message role is not assistant:",
+        lastMessage?.role,
+      );
+      return false;
+    }
 
     // AI SDK v6 stores tool invocations in the `parts` array
     // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
     const parts = (lastMessage as any).parts || [];
+    console.log("[SSE sendAutomaticallyWhen] Checking parts:", parts.length);
 
     // Early check: If backend has responded with text, don't send again
     // This prevents infinite loops where tool output triggers sends after backend responds
     const hasTextPart = parts.some(
       // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
-      (part: any) => isTextUIPart(part),
+      (part: any) => isTextUIPartFromAISDKv6(part),
     );
 
     if (hasTextPart) {
+      console.log("[SSE sendAutomaticallyWhen] Has text part, returning false");
+
+      // Clear approval state tracking for this message since backend has responded
+      // This allows future approvals in new messages to work correctly
+      const messageId = (lastMessage as any).id || "unknown";
+      const keysToDelete = Array.from(sentApprovalStates).filter((key) =>
+        key.startsWith(`${messageId}:`),
+      );
+      for (const key of keysToDelete) {
+        sentApprovalStates.delete(key);
+      }
+      if (keysToDelete.length > 0) {
+        console.log(
+          "[SSE sendAutomaticallyWhen] Cleared approval states:",
+          keysToDelete,
+        );
+      }
+
       return false;
     }
 
@@ -159,25 +191,66 @@ export function sendAutomaticallyWhen({
     // to "approval-requested", and addToolApprovalResponse() updates it to "approval-responded"
     const hasApprovedTool = parts.some(
       // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
-      (part: any) =>
-        isToolUIPart(part) && part.state === TOOL_STATE_APPROVAL_RESPONDED,
+      (part: any) => isApprovalRespondedTool(part),
     );
 
     if (!hasApprovedTool) {
+      console.log(
+        "[SSE sendAutomaticallyWhen] No approved tool found, returning false",
+      );
       // No approved tool found - user hasn't responded to approval request yet
       return false;
     }
+
+    console.log("[SSE sendAutomaticallyWhen] Has approved tool");
 
     // SSE-specific: Check for pending approval requests (approval-requested)
     // In SSE mode, multiple tools can be waiting for approval in the same message
     // If there's a pending approval request, wait for user response before sending
     const hasPendingApproval = parts.some(
       // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
-      (part: any) =>
-        isToolUIPart(part) && part.state === TOOL_STATE_APPROVAL_REQUESTED,
+      (part: any) => isApprovalRequestedTool(part),
     );
 
     if (hasPendingApproval) {
+      console.log(
+        "[SSE sendAutomaticallyWhen] Has pending approval, returning false",
+      );
+      console.log(
+        "[SSE sendAutomaticallyWhen] Parts states:",
+        parts.map((p: any) => ({
+          type: p.type,
+          state: p.state,
+          toolCallId: p.toolCallId,
+        })),
+      );
+      return false;
+    }
+
+    console.log(
+      "[SSE sendAutomaticallyWhen] No pending approvals. Parts:",
+      parts.map((p: any) => ({
+        type: p.type,
+        state: p.state,
+        toolCallId: p.toolCallId,
+      })),
+    );
+
+    // Generate unique key for this approval state
+    // Key = messageId + sorted approved tool IDs
+    const messageId = (lastMessage as any).id || "unknown";
+    const approvedToolIds = parts
+      .filter((p: any) => isApprovalRespondedTool(p))
+      .map((p: any) => p.toolCallId)
+      .sort()
+      .join(",");
+    const approvalStateKey = `${messageId}:${approvedToolIds}`;
+
+    // Check if we've already triggered a send for this exact approval state
+    if (sentApprovalStates.has(approvalStateKey)) {
+      console.log(
+        "[SSE sendAutomaticallyWhen] Already sent for this approval state, returning false to prevent loop",
+      );
       return false;
     }
 
@@ -200,17 +273,15 @@ export function sendAutomaticallyWhen({
     // Find all tool parts in the message
     const toolParts = parts.filter(
       // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
-      (part: any) => isToolUIPart(part),
+      (part: any) => isToolUIPartFromAISDKv6(part),
     );
 
     // Check if any tool has ERRORED (backend responded with error)
     // Note: output-available state is handled by Frontend Execute check below
     for (const toolPart of toolParts) {
-      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
-      const toolState = (toolPart as any).state;
-
       // Only check for error states - output-available could be from addToolOutput
-      if (toolState === TOOL_STATE_OUTPUT_ERROR) {
+      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+      if (isOutputErrorTool(toolPart as any)) {
         return false;
       }
 
@@ -227,17 +298,28 @@ export function sendAutomaticallyWhen({
     // This check is AFTER "tools completed" check to prevent false positives
     const hasToolOutputFromAddToolOutput = parts.some(
       // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
-      (part: any) =>
-        isToolUIPart(part) &&
-        part.state === TOOL_STATE_OUTPUT_AVAILABLE &&
-        part.output !== undefined,
+      (part: any) => isOutputAvailableTool(part) && part.output !== undefined,
     );
 
     if (hasToolOutputFromAddToolOutput) {
+      console.log(
+        "[SSE sendAutomaticallyWhen] Has tool output from addToolOutput, returning true",
+      );
       return true;
     }
 
     // First time confirmation completed - send to backend via HTTP
+    console.log(
+      "[SSE sendAutomaticallyWhen] All checks passed, returning true to trigger send",
+    );
+    console.log(
+      "[SSE sendAutomaticallyWhen] Recording approval state:",
+      approvalStateKey,
+    );
+
+    // Record this approval state so we don't send again for the same state
+    sentApprovalStates.add(approvalStateKey);
+
     return true;
   } catch (error) {
     // Prevent infinite request loops by returning false on error

@@ -12,10 +12,10 @@
 
 import { useChat } from "@ai-sdk/react";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import type { UIMessage } from "ai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildUseChatOptions } from "@/lib/build-use-chat-options";
 import { MockWebSocket } from "@/lib/tests/shared-mocks";
+import type { UIMessageFromAISDKv6 } from "@/lib/utils";
 
 describe("Chat Component - Message History Preservation (P4-T9)", () => {
   let originalWebSocket: typeof WebSocket;
@@ -33,7 +33,7 @@ describe("Chat Component - Message History Preservation (P4-T9)", () => {
   describe("initialMessages prop", () => {
     it("should pass initialMessages to buildUseChatOptions", () => {
       // Given: Initial messages from parent component
-      const initialMessages: UIMessage[] = [
+      const initialMessages: UIMessageFromAISDKv6[] = [
         {
           id: "msg-1",
           role: "user",
@@ -59,7 +59,7 @@ describe("Chat Component - Message History Preservation (P4-T9)", () => {
 
     it("should preserve message history across hook re-initialization", () => {
       // Given: Initial messages
-      const initialMessages: UIMessage[] = [
+      const initialMessages: UIMessageFromAISDKv6[] = [
         {
           id: "msg-1",
           role: "user",
@@ -82,7 +82,7 @@ describe("Chat Component - Message History Preservation (P4-T9)", () => {
 
     it("should work with empty initialMessages", () => {
       // Given: Empty initial messages
-      const initialMessages: UIMessage[] = [];
+      const initialMessages: UIMessageFromAISDKv6[] = [];
 
       // When: Building options
       const options = buildUseChatOptions({
@@ -102,7 +102,7 @@ describe("Chat Component - Message History Preservation (P4-T9)", () => {
     it("should call onMessagesChange when messages update", async () => {
       // Given: A mock callback to track message changes
       const onMessagesChange = vi.fn();
-      const initialMessages: UIMessage[] = [];
+      const initialMessages: UIMessageFromAISDKv6[] = [];
 
       const options = buildUseChatOptions({
         mode: "adk-bidi",
@@ -143,12 +143,12 @@ describe("Chat Component - Message History Preservation (P4-T9)", () => {
 
     it("should sync messages from child to parent state", async () => {
       // Given: Parent component state management pattern
-      let parentMessages: UIMessage[] = [];
-      const onMessagesChange = vi.fn((messages: UIMessage[]) => {
+      let parentMessages: UIMessageFromAISDKv6[] = [];
+      const onMessagesChange = vi.fn((messages: UIMessageFromAISDKv6[]) => {
         parentMessages = messages;
       });
 
-      const initialMessages: UIMessage[] = [
+      const initialMessages: UIMessageFromAISDKv6[] = [
         {
           id: "msg-1",
           role: "user",
@@ -186,12 +186,12 @@ describe("Chat Component - Message History Preservation (P4-T9)", () => {
 
     it("should handle rapid message updates without losing state", () => {
       // Given: Parent-child state sync setup with multiple message updates
-      const messageUpdates: UIMessage[][] = [];
-      const onMessagesChange = vi.fn((messages: UIMessage[]) => {
+      const messageUpdates: UIMessageFromAISDKv6[][] = [];
+      const onMessagesChange = vi.fn((messages: UIMessageFromAISDKv6[]) => {
         messageUpdates.push([...messages]);
       });
 
-      const initialMessages: UIMessage[] = [
+      const initialMessages: UIMessageFromAISDKv6[] = [
         {
           id: "msg-1",
           role: "user",
@@ -240,7 +240,7 @@ describe("Chat Component - Message History Preservation (P4-T9)", () => {
   describe("Clear History functionality", () => {
     it("should clear messages when parent sets initialMessages to empty", () => {
       // Given: Chat with existing messages
-      const existingMessages: UIMessage[] = [
+      const existingMessages: UIMessageFromAISDKv6[] = [
         {
           id: "msg-1",
           role: "user",
@@ -294,7 +294,7 @@ describe("Chat Component - Message History Preservation (P4-T9)", () => {
     it("should notify parent of cleared messages via onMessagesChange", () => {
       // Given: Parent callback tracking messages
       const messageSpy = vi.fn();
-      const initialMessages: UIMessage[] = [
+      const initialMessages: UIMessageFromAISDKv6[] = [
         {
           id: "msg-1",
           role: "user",
@@ -346,7 +346,7 @@ describe("Chat Component - Message History Preservation (P4-T9)", () => {
   describe("Mode switching with message preservation", () => {
     it("should preserve messages when switching modes (key={mode} remount)", () => {
       // Given: Messages from previous mode
-      const existingMessages: UIMessage[] = [
+      const existingMessages: UIMessageFromAISDKv6[] = [
         {
           id: "msg-1",
           role: "user",
@@ -392,7 +392,7 @@ describe("Chat Component - Message History Preservation (P4-T9)", () => {
 
     it("should preserve messages when switching modes (integration scenario)", async () => {
       // Given: Messages from previous mode
-      const existingMessages: UIMessage[] = [
+      const existingMessages: UIMessageFromAISDKv6[] = [
         {
           id: "msg-1",
           role: "user",
@@ -421,7 +421,7 @@ describe("Chat Component - Message History Preservation (P4-T9)", () => {
 
     it("should support clearing messages between modes", () => {
       // Given: Parent component clears messages (simulating Clear History button)
-      const clearedMessages: UIMessage[] = [];
+      const clearedMessages: UIMessageFromAISDKv6[] = [];
 
       // When: Re-initializing with cleared messages
       const options = buildUseChatOptions({
@@ -438,7 +438,7 @@ describe("Chat Component - Message History Preservation (P4-T9)", () => {
 
     it("should handle mode switch with key={mode} and different message states", () => {
       // Given: Different message states for different modes
-      const messages1: UIMessage[] = [
+      const messages1: UIMessageFromAISDKv6[] = [
         {
           id: "msg-1",
           role: "user",
@@ -446,7 +446,7 @@ describe("Chat Component - Message History Preservation (P4-T9)", () => {
         },
       ];
 
-      const messages2: UIMessage[] = [
+      const messages2: UIMessageFromAISDKv6[] = [
         {
           id: "msg-2",
           role: "user",
@@ -491,7 +491,7 @@ describe("Chat Component - Message History Preservation (P4-T9)", () => {
   describe("All modes support message preservation", () => {
     it("should preserve messages in Gemini mode", () => {
       // Given: Messages from parent state
-      const initialMessages: UIMessage[] = [
+      const initialMessages: UIMessageFromAISDKv6[] = [
         {
           id: "msg-1",
           role: "user",
@@ -513,7 +513,7 @@ describe("Chat Component - Message History Preservation (P4-T9)", () => {
 
     it("should preserve messages in ADK SSE mode", () => {
       // Given: Messages from parent state
-      const initialMessages: UIMessage[] = [
+      const initialMessages: UIMessageFromAISDKv6[] = [
         {
           id: "msg-1",
           role: "user",
@@ -536,7 +536,7 @@ describe("Chat Component - Message History Preservation (P4-T9)", () => {
 
     it("should preserve messages in ADK BIDI mode", () => {
       // Given: Messages from parent state
-      const initialMessages: UIMessage[] = [
+      const initialMessages: UIMessageFromAISDKv6[] = [
         {
           id: "msg-1",
           role: "user",

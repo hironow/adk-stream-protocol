@@ -13,12 +13,11 @@
  */
 
 import { render, screen } from "@testing-library/react";
-import type { UIMessage } from "ai";
 import { describe, expect, it, vi } from "vitest";
 import { MessageComponent } from "@/components/message";
-
 // Mock AudioContext
 import { createMockAudioContext } from "@/lib/tests/shared-mocks";
+import type { UIMessageFromAISDKv6 } from "@/lib/utils";
 
 vi.mock("@/lib/audio-context", () => ({
   useAudio: () => createMockAudioContext(),
@@ -28,7 +27,7 @@ describe("Message Component Integration", () => {
   describe("Message Type Rendering", () => {
     it("should render text message parts", () => {
       // Given: Message with text part
-      const message: UIMessage = {
+      const message: UIMessageFromAISDKv6 = {
         id: "msg-1",
         role: "user",
         parts: [
@@ -48,7 +47,7 @@ describe("Message Component Integration", () => {
 
     it("should render assistant text message", () => {
       // Given: Assistant message with text
-      const message: UIMessage = {
+      const message: UIMessageFromAISDKv6 = {
         id: "msg-1",
         role: "assistant",
         parts: [
@@ -68,7 +67,7 @@ describe("Message Component Integration", () => {
 
     it("should render image message parts", () => {
       // Given: Message with image part
-      const message: UIMessage = {
+      const message: UIMessageFromAISDKv6 = {
         id: "msg-1",
         role: "user",
         parts: [
@@ -95,7 +94,7 @@ describe("Message Component Integration", () => {
 
     it("should render tool invocation parts", () => {
       // Given: Message with tool part (AI SDK v6 format: type="tool-{toolName}")
-      const message: UIMessage = {
+      const message: UIMessageFromAISDKv6 = {
         id: "msg-1",
         role: "assistant",
         parts: [
@@ -119,7 +118,7 @@ describe("Message Component Integration", () => {
 
     it("should render mixed message parts in order", () => {
       // Given: Message with multiple parts [text, tool]
-      const message: UIMessage = {
+      const message: UIMessageFromAISDKv6 = {
         id: "msg-1",
         role: "assistant",
         parts: [
@@ -150,7 +149,7 @@ describe("Message Component Integration", () => {
 
     it("should render multiple tool invocations", () => {
       // Given: Message with 2 tool invocations
-      const message: UIMessage = {
+      const message: UIMessageFromAISDKv6 = {
         id: "msg-1",
         role: "assistant",
         parts: [
@@ -196,7 +195,7 @@ describe("Message Component Integration", () => {
             totalTokens: 30,
           },
         },
-      } as UIMessage;
+      } as UIMessageFromAISDKv6;
 
       // When: Render component
       render(<MessageComponent message={message} />);
@@ -221,7 +220,7 @@ describe("Message Component Integration", () => {
             },
           ],
         },
-      } as UIMessage;
+      } as UIMessageFromAISDKv6;
 
       // When: Render component
       render(<MessageComponent message={message} />);
@@ -234,7 +233,7 @@ describe("Message Component Integration", () => {
   describe("Empty and Edge Cases", () => {
     it("should handle empty text message", () => {
       // Given: Message with empty text
-      const message: UIMessage = {
+      const message: UIMessageFromAISDKv6 = {
         id: "msg-1",
         role: "user",
         parts: [
@@ -255,7 +254,7 @@ describe("Message Component Integration", () => {
 
     it("should handle message with no parts", () => {
       // Given: Message with empty parts array
-      const message: UIMessage = {
+      const message: UIMessageFromAISDKv6 = {
         id: "msg-1",
         role: "assistant",
         parts: [],
@@ -270,7 +269,7 @@ describe("Message Component Integration", () => {
 
     it("should handle streaming message (partial text)", () => {
       // Given: Message being streamed (partial text)
-      const message: UIMessage = {
+      const message: UIMessageFromAISDKv6 = {
         id: "msg-1",
         role: "assistant",
         parts: [
@@ -292,7 +291,7 @@ describe("Message Component Integration", () => {
   describe("Tool Approval Integration", () => {
     it("should pass addToolApprovalResponse to tool invocations", () => {
       // Given: Message with tool requiring approval
-      const message: UIMessage = {
+      const message: UIMessageFromAISDKv6 = {
         id: "msg-1",
         role: "assistant",
         parts: [
@@ -330,7 +329,7 @@ describe("Message Component Integration", () => {
   describe("Role-based Rendering", () => {
     it("should render user messages differently from assistant messages", () => {
       // Given: User message
-      const userMessage: UIMessage = {
+      const userMessage: UIMessageFromAISDKv6 = {
         id: "user-1",
         role: "user",
         parts: [{ type: "text", text: "User question" }],
@@ -342,7 +341,7 @@ describe("Message Component Integration", () => {
       );
 
       // Given: Assistant message
-      const assistantMessage: UIMessage = {
+      const assistantMessage: UIMessageFromAISDKv6 = {
         id: "assistant-1",
         role: "assistant",
         parts: [{ type: "text", text: "Assistant response" }],

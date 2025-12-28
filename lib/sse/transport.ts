@@ -1,14 +1,14 @@
 /**
  * SSE Chat Transport for AI SDK v6
  *
- * SSE (Server-Sent Events) mode uses AI SDK's built-in DefaultChatTransport
+ * SSE (Server-Sent Events) mode uses AI SDK's built-in DefaultChatTransportFromAISDKv6
  * which handles HTTP-based streaming via the native fetch API.
  *
  * Architecture: AI SDK v6 Data Stream Protocol over HTTP
  * =======================================================
  * - Frontend sends HTTP POST request with messages
  * - Backend responds with text/event-stream (SSE format)
- * - DefaultChatTransport parses SSE events automatically
+ * - DefaultChatTransportFromAISDKv6 parses SSE events automatically
  * - UIMessageChunk events are forwarded to useChat hook
  *
  * Key Differences from BIDI Mode:
@@ -26,10 +26,11 @@
  * Responsibilities:
  * - Type definitions for SSE mode configuration
  * - Helper functions for SSE transport setup
- * - Re-export DefaultChatTransport for consistency
+ * - Re-export DefaultChatTransportFromAISDKv6 for consistency
  */
 
 import { DefaultChatTransport } from "ai";
+import type { DefaultChatTransportFromAISDKv6 } from "../utils";
 
 /**
  * SSE transport configuration
@@ -49,11 +50,11 @@ export interface SseTransportConfig {
 /**
  * Create SSE transport for AI SDK v6
  *
- * Creates a DefaultChatTransport configured for ADK SSE mode.
+ * Creates a DefaultChatTransportFromAISDKv6 configured for ADK SSE mode.
  * This is a thin wrapper for consistency with BIDI transport creation.
  *
  * @param config - SSE transport configuration
- * @returns DefaultChatTransport instance
+ * @returns DefaultChatTransportFromAISDKv6 instance
  *
  * @example
  * ```typescript
@@ -66,7 +67,9 @@ export interface SseTransportConfig {
  * });
  * ```
  */
-export function createSseTransport(config: SseTransportConfig) {
+export function createSseTransport(
+  config: SseTransportConfig,
+): DefaultChatTransportFromAISDKv6 {
   return new DefaultChatTransport({
     api: config.api,
     prepareSendMessagesRequest: config.prepareSendMessagesRequest,

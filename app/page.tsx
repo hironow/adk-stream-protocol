@@ -1,16 +1,16 @@
 "use client";
 
-import type { UIMessage } from "ai";
 import { useState } from "react";
 import { Chat } from "@/components/chat";
 import { AudioProvider } from "@/lib/audio-context";
 import type { BackendMode } from "@/lib/build-use-chat-options";
 import { chunkLogger } from "@/lib/chunk_logs";
+import type { UIMessageFromAISDKv6 } from "@/lib/utils";
 
 export default function ChatPage() {
   const [mode, setMode] = useState<BackendMode>("gemini");
   // Message history preservation across mode switches
-  const [messages, setMessages] = useState<UIMessage[]>([]);
+  const [messages, setMessages] = useState<UIMessageFromAISDKv6[]>([]);
 
   return (
     <AudioProvider>

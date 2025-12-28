@@ -10,8 +10,8 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AudioChunk } from "../../audio-recorder";
-import type { Mode } from "../../types";
 import { useAudioRecorder } from "../../use-audio-recorder";
+import type { Mode } from "../../utils";
 
 // Mock AudioRecorder class
 let mockAudioRecorder: {

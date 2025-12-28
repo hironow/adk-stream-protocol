@@ -15,16 +15,16 @@
 
 import { useChat } from "@ai-sdk/react";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import type { UIMessage } from "ai";
-import { isTextUIPart } from "ai";
 import { HttpResponse, http } from "msw";
 import { describe, expect, it } from "vitest";
-import {
-  TOOL_STATE_APPROVAL_REQUESTED,
-  TOOL_STATE_APPROVAL_RESPONDED,
-  TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
-} from "../../constants";
 import { buildUseChatOptions } from "../../sse";
+import type { UIMessageFromAISDKv6 } from "../../utils";
+import {
+  isApprovalRequestedTool,
+  isApprovalRequestPart,
+  isApprovalRespondedTool,
+  isTextUIPartFromAISDKv6,
+} from "../../utils";
 import {
   createAdkConfirmationRequest,
   createTextResponse,
@@ -32,13 +32,13 @@ import {
 } from "../helpers";
 
 /**
- * Helper function to extract text content from UIMessage parts
+ * Helper function to extract text content from UIMessageFromAISDKv6 parts
  */
-function getMessageText(message: UIMessage | undefined): string {
+function getMessageText(message: UIMessageFromAISDKv6 | undefined): string {
   if (!message) return "";
   return message.parts
     .filter((part): part is { type: "text"; text: string } =>
-      isTextUIPart(part),
+      isTextUIPartFromAISDKv6(part),
     )
     .map((part) => part.text)
     .join("");
@@ -81,7 +81,7 @@ describe("SSE Mode - Frontend Execute Pattern", () => {
           // Request 3: Should contain tool output from frontend
           if (requestCount === 3) {
             // Verify frontend sent tool output via addToolOutput()
-            const messages = payload.messages as UIMessage[];
+            const messages = payload.messages as UIMessageFromAISDKv6[];
             const lastMessage = messages[messages.length - 1];
 
             // Check for tool part with output-available state (from addToolOutput)
@@ -128,11 +128,7 @@ describe("SSE Mode - Frontend Execute Pattern", () => {
             result.current.messages[result.current.messages.length - 1];
           return (
             lastMessage?.role === "assistant" &&
-            lastMessage.parts.some(
-              (part: any) =>
-                part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
-                part.state === TOOL_STATE_APPROVAL_REQUESTED,
-            )
+            lastMessage.parts.some((part: any) => isApprovalRequestedTool(part))
           );
         },
         { timeout: 3000 },
@@ -141,8 +137,8 @@ describe("SSE Mode - Frontend Execute Pattern", () => {
       // User approves confirmation
       const confirmationMessage =
         result.current.messages[result.current.messages.length - 1];
-      const confirmationPart = confirmationMessage.parts.find(
-        (part: any) => part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+      const confirmationPart = confirmationMessage.parts.find((part: any) =>
+        isApprovalRequestPart(part),
       ) as any;
 
       await act(async () => {
@@ -157,10 +153,10 @@ describe("SSE Mode - Frontend Execute Pattern", () => {
         () => {
           const msg =
             result.current.messages[result.current.messages.length - 1];
-          const part = msg.parts.find(
-            (p: any) => p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+          const part = msg.parts.find((p: any) =>
+            isApprovalRequestPart(p),
           ) as any;
-          expect(part?.state).toBe(TOOL_STATE_APPROVAL_RESPONDED);
+          expect(part?.state).toBe("approval-responded");
         },
         { timeout: 3000 },
       );
@@ -254,20 +250,14 @@ describe("SSE Mode - Frontend Execute Pattern", () => {
         () => {
           const msg =
             result.current.messages[result.current.messages.length - 1];
-          return msg?.parts?.some(
-            (p: any) =>
-              p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
-              p.state === TOOL_STATE_APPROVAL_REQUESTED,
-          );
+          return msg?.parts?.some((p: any) => isApprovalRequestedTool(p));
         },
         { timeout: 3000 },
       );
 
       // Approve
       const msg = result.current.messages[result.current.messages.length - 1];
-      const part = msg.parts.find(
-        (p: any) => p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
-      ) as any;
+      const part = msg.parts.find((p: any) => isApprovalRequestPart(p)) as any;
 
       await act(async () => {
         result.current.addToolApprovalResponse({
@@ -281,10 +271,10 @@ describe("SSE Mode - Frontend Execute Pattern", () => {
         () => {
           const msg =
             result.current.messages[result.current.messages.length - 1];
-          const confirmationPart = msg.parts.find(
-            (p: any) => p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+          const confirmationPart = msg.parts.find((p: any) =>
+            isApprovalRequestPart(p),
           ) as any;
-          expect(confirmationPart?.state).toBe(TOOL_STATE_APPROVAL_RESPONDED);
+          expect(confirmationPart?.state).toBe("approval-responded");
         },
         { timeout: 3000 },
       );
@@ -371,20 +361,14 @@ describe("SSE Mode - Frontend Execute Pattern", () => {
         () => {
           const msg =
             result.current.messages[result.current.messages.length - 1];
-          return msg?.parts?.some(
-            (p: any) =>
-              p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
-              p.state === TOOL_STATE_APPROVAL_REQUESTED,
-          );
+          return msg?.parts?.some((p: any) => isApprovalRequestedTool(p));
         },
         { timeout: 3000 },
       );
 
       // Deny
       const msg = result.current.messages[result.current.messages.length - 1];
-      const part = msg.parts.find(
-        (p: any) => p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
-      ) as any;
+      const part = msg.parts.find((p: any) => isApprovalRequestPart(p)) as any;
 
       await act(async () => {
         result.current.addToolApprovalResponse({

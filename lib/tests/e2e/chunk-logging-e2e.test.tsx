@@ -18,11 +18,11 @@
 
 import { useChat } from "@ai-sdk/react";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import type { UIMessage } from "ai";
-import { isTextUIPart } from "ai";
 import { afterEach, describe, expect, it } from "vitest";
 import { buildUseChatOptions } from "../../bidi";
 import { chunkLogger } from "../../chunk_logs";
+import type { UIMessageFromAISDKv6 } from "../../utils";
+import { isTextUIPartFromAISDKv6 } from "../../utils";
 import {
   createBidiWebSocketLink,
   createCustomHandler,
@@ -31,13 +31,13 @@ import {
 } from "../helpers";
 
 /**
- * Helper function to extract text content from UIMessage parts
+ * Helper function to extract text content from UIMessageFromAISDKv6 parts
  */
-function getMessageText(message: UIMessage | undefined): string {
+function getMessageText(message: UIMessageFromAISDKv6 | undefined): string {
   if (!message) return "";
   return message.parts
     .filter((part): part is { type: "text"; text: string } =>
-      isTextUIPart(part),
+      isTextUIPartFromAISDKv6(part),
     )
     .map((part) => part.text)
     .join("");

@@ -34,7 +34,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AudioChunk } from "@/lib/audio-recorder";
-import type { Mode } from "@/lib/types";
+import type { Mode } from "@/lib/utils";
 
 interface UseAudioRecorderOptions {
   mode: Mode;

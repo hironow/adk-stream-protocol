@@ -5,7 +5,6 @@
  * All tests use only the public API, not internal implementation details.
  */
 
-import type { ChatRequestOptions, UIMessage, UIMessageChunk } from "ai";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   type ChunkLogEntry,
@@ -16,6 +15,11 @@ import {
   type Mode,
   type PlaybackMode,
 } from "../../chunk_logs";
+import type {
+  ChatRequestOptionsFromAISDKv6,
+  UIMessageChunkFromAISDKv6,
+  UIMessageFromAISDKv6,
+} from "../../utils";
 
 describe("lib/chunk_logs Public API", () => {
   describe("ChunkPlayer - JSONL Parsing", () => {
@@ -180,7 +184,7 @@ describe("lib/chunk_logs Public API", () => {
       };
 
       const transport = new ChunkLoggingTransport(mockDelegate as any, mode);
-      const messages: UIMessage[] = [];
+      const messages: UIMessageFromAISDKv6[] = [];
       const requestOptions = {
         trigger: "submit-message" as const,
         chatId: "test-chat",
@@ -192,7 +196,7 @@ describe("lib/chunk_logs Public API", () => {
       // when
       const result = await transport.sendMessages(requestOptions);
       const reader = result.getReader();
-      const chunks: UIMessageChunk[] = [];
+      const chunks: UIMessageChunkFromAISDKv6[] = [];
 
       while (true) {
         const { done, value } = await reader.read();
@@ -226,13 +230,13 @@ describe("lib/chunk_logs Public API", () => {
       const transport = ChunkPlayerTransport.fromFixture(
         "/fixtures/test.jsonl",
       );
-      const messages: UIMessage[] = [];
-      const options: ChatRequestOptions = {};
+      const messages: UIMessageFromAISDKv6[] = [];
+      const options: ChatRequestOptionsFromAISDKv6 = {};
 
       // when
       const result = await transport.sendMessages(messages, options);
       const reader = result.getReader();
-      const chunks: UIMessageChunk[] = [];
+      const chunks: UIMessageChunkFromAISDKv6[] = [];
 
       while (true) {
         const { done, value } = await reader.read();

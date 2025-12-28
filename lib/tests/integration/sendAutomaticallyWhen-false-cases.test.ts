@@ -5,17 +5,17 @@
  * Ensures no edge case can cause unwanted auto-submission.
  */
 
-import type { UIMessage } from "ai";
 import { describe, expect, it } from "vitest";
 import { sendAutomaticallyWhen as bidiSendAuto } from "../../bidi";
 import { sendAutomaticallyWhen as sseSendAuto } from "../../sse";
+import type { UIMessageFromAISDKv6 } from "../../utils";
 
 describe("sendAutomaticallyWhen - Comprehensive False Cases", () => {
   describe("BIDI Mode - All False Conditions", () => {
     describe("Empty or Invalid Message Arrays", () => {
       it("returns false when messages array is empty", () => {
         // given
-        const messages: UIMessage[] = [];
+        const messages: UIMessageFromAISDKv6[] = [];
 
         // when
         const result = bidiSendAuto({ messages });
@@ -50,7 +50,7 @@ describe("sendAutomaticallyWhen - Comprehensive False Cases", () => {
     describe("Last Message Role Conditions", () => {
       it("returns false when last message role is 'user'", () => {
         // given
-        const messages: UIMessage[] = [
+        const messages: UIMessageFromAISDKv6[] = [
           { id: "1", role: "user", content: "Hello" },
         ];
 
@@ -63,7 +63,7 @@ describe("sendAutomaticallyWhen - Comprehensive False Cases", () => {
 
       it("returns false when last message role is 'system'", () => {
         // given
-        const messages: UIMessage[] = [
+        const messages: UIMessageFromAISDKv6[] = [
           { id: "1", role: "system", content: "System message" } as any,
         ];
 
@@ -76,7 +76,9 @@ describe("sendAutomaticallyWhen - Comprehensive False Cases", () => {
 
       it("returns false when last message has no role", () => {
         // given
-        const messages: UIMessage[] = [{ id: "1", content: "No role" } as any];
+        const messages: UIMessageFromAISDKv6[] = [
+          { id: "1", content: "No role" } as any,
+        ];
 
         // when
         const result = bidiSendAuto({ messages });
@@ -87,7 +89,7 @@ describe("sendAutomaticallyWhen - Comprehensive False Cases", () => {
 
       it("returns false when last message is undefined", () => {
         // given
-        const messages: UIMessage[] = [undefined as any];
+        const messages: UIMessageFromAISDKv6[] = [undefined as any];
 
         // when
         const result = bidiSendAuto({ messages });
@@ -100,7 +102,7 @@ describe("sendAutomaticallyWhen - Comprehensive False Cases", () => {
     describe("Parts Array Conditions", () => {
       it("returns false when parts array is missing", () => {
         // given
-        const messages: UIMessage[] = [
+        const messages: UIMessageFromAISDKv6[] = [
           {
             id: "1",
             role: "assistant",
@@ -117,7 +119,7 @@ describe("sendAutomaticallyWhen - Comprehensive False Cases", () => {
 
       it("returns false when parts array is empty", () => {
         // given
-        const messages: UIMessage[] = [
+        const messages: UIMessageFromAISDKv6[] = [
           {
             id: "1",
             role: "assistant",
@@ -135,7 +137,7 @@ describe("sendAutomaticallyWhen - Comprehensive False Cases", () => {
 
       it("returns false when parts is null", () => {
         // given
-        const messages: UIMessage[] = [
+        const messages: UIMessageFromAISDKv6[] = [
           {
             id: "1",
             role: "assistant",
@@ -155,7 +157,7 @@ describe("sendAutomaticallyWhen - Comprehensive False Cases", () => {
     describe("Confirmation Part Conditions", () => {
       it("returns false when no confirmation part exists", () => {
         // given
-        const messages: UIMessage[] = [
+        const messages: UIMessageFromAISDKv6[] = [
           {
             id: "1",
             role: "assistant",
@@ -178,7 +180,7 @@ describe("sendAutomaticallyWhen - Comprehensive False Cases", () => {
 
       it("returns false when confirmation part state is 'partial'", () => {
         // given
-        const messages: UIMessage[] = [
+        const messages: UIMessageFromAISDKv6[] = [
           {
             id: "1",
             role: "assistant",
@@ -202,7 +204,7 @@ describe("sendAutomaticallyWhen - Comprehensive False Cases", () => {
 
       it("returns false when confirmation part state is 'call'", () => {
         // given
-        const messages: UIMessage[] = [
+        const messages: UIMessageFromAISDKv6[] = [
           {
             id: "1",
             role: "assistant",
@@ -226,7 +228,7 @@ describe("sendAutomaticallyWhen - Comprehensive False Cases", () => {
 
       it("returns false when confirmation part has no state field", () => {
         // given
-        const messages: UIMessage[] = [
+        const messages: UIMessageFromAISDKv6[] = [
           {
             id: "1",
             role: "assistant",
@@ -250,7 +252,7 @@ describe("sendAutomaticallyWhen - Comprehensive False Cases", () => {
 
       it("returns false when part type is similar but not exact match", () => {
         // given
-        const messages: UIMessage[] = [
+        const messages: UIMessageFromAISDKv6[] = [
           {
             id: "1",
             role: "assistant",
@@ -276,7 +278,7 @@ describe("sendAutomaticallyWhen - Comprehensive False Cases", () => {
     describe("Other Tool States - Backend Already Responded", () => {
       it("returns false when other tool state is 'output-available'", () => {
         // given
-        const messages: UIMessage[] = [
+        const messages: UIMessageFromAISDKv6[] = [
           {
             id: "1",
             role: "assistant",
@@ -307,7 +309,7 @@ describe("sendAutomaticallyWhen - Comprehensive False Cases", () => {
 
       it("returns false when other tool state is 'output-error'", () => {
         // given
-        const messages: UIMessage[] = [
+        const messages: UIMessageFromAISDKv6[] = [
           {
             id: "1",
             role: "assistant",
@@ -338,7 +340,7 @@ describe("sendAutomaticallyWhen - Comprehensive False Cases", () => {
 
       it("returns false when other tool has error field", () => {
         // given
-        const messages: UIMessage[] = [
+        const messages: UIMessageFromAISDKv6[] = [
           {
             id: "1",
             role: "assistant",
@@ -371,7 +373,7 @@ describe("sendAutomaticallyWhen - Comprehensive False Cases", () => {
     describe("Multiple Other Tools Edge Cases", () => {
       it("returns false when ANY of multiple other tools is complete", () => {
         // given
-        const messages: UIMessage[] = [
+        const messages: UIMessageFromAISDKv6[] = [
           {
             id: "1",
             role: "assistant",
@@ -407,7 +409,7 @@ describe("sendAutomaticallyWhen - Comprehensive False Cases", () => {
 
       it("returns false when first tool in loop has error", () => {
         // given
-        const messages: UIMessage[] = [
+        const messages: UIMessageFromAISDKv6[] = [
           {
             id: "1",
             role: "assistant",
@@ -445,7 +447,7 @@ describe("sendAutomaticallyWhen - Comprehensive False Cases", () => {
     describe("Mixed Content Edge Cases", () => {
       it("returns false when confirmation exists but backend also sent text", () => {
         // given
-        const messages: UIMessage[] = [
+        const messages: UIMessageFromAISDKv6[] = [
           {
             id: "1",
             role: "assistant",
@@ -480,7 +482,7 @@ describe("sendAutomaticallyWhen - Comprehensive False Cases", () => {
 
       it("returns false when parts contain non-tool items only", () => {
         // given
-        const messages: UIMessage[] = [
+        const messages: UIMessageFromAISDKv6[] = [
           {
             id: "1",
             role: "assistant",
@@ -614,7 +616,7 @@ describe("sendAutomaticallyWhen - Comprehensive False Cases", () => {
 
   describe("Cross-Mode Consistency", () => {
     it("BIDI and SSE return same result for identical input (false case)", () => {
-      const messages: UIMessage[] = [
+      const messages: UIMessageFromAISDKv6[] = [
         {
           id: "1",
           role: "assistant",
@@ -645,7 +647,7 @@ describe("sendAutomaticallyWhen - Comprehensive False Cases", () => {
     });
 
     it("BIDI and SSE return same result for user message", () => {
-      const messages: UIMessage[] = [
+      const messages: UIMessageFromAISDKv6[] = [
         { id: "1", role: "user", content: "Test" },
       ];
 
@@ -654,7 +656,7 @@ describe("sendAutomaticallyWhen - Comprehensive False Cases", () => {
     });
 
     it("BIDI and SSE return same result for empty array", () => {
-      const messages: UIMessage[] = [];
+      const messages: UIMessageFromAISDKv6[] = [];
 
       expect(bidiSendAuto({ messages })).toBe(false);
       expect(sseSendAuto({ messages })).toBe(false);

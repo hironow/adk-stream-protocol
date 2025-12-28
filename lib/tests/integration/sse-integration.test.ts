@@ -5,17 +5,14 @@
  * Verifies request payloads, response handling, and confirmation flow.
  */
 
-import type { UIMessage, UIMessageChunk } from "ai";
 import { http } from "msw";
 import { describe, expect, it } from "vitest";
-import {
-  TOOL_CHUNK_TYPE_INPUT_AVAILABLE,
-  TOOL_CHUNK_TYPE_INPUT_START,
-  TOOL_NAME_ADK_REQUEST_CONFIRMATION,
-  TOOL_STATE_APPROVAL_RESPONDED,
-  TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
-} from "../../constants";
+import { isApprovalRequestPart, isApprovalRespondedTool } from "@/lib/utils";
 import { buildUseChatOptions } from "../../sse";
+import type {
+  UIMessageChunkFromAISDKv6,
+  UIMessageFromAISDKv6,
+} from "../../utils";
 import {
   createAdkConfirmationRequest,
   createTextResponse,
@@ -44,12 +41,12 @@ describe("lib/sse Integration Tests", () => {
         apiEndpoint: "http://localhost/api/chat",
       });
 
-      const messages: UIMessage[] = [
+      const messages: UIMessageFromAISDKv6[] = [
         {
           id: "1",
           role: "user",
           parts: [{ type: "text", text: "Test message" }],
-        } as UIMessage,
+        } as UIMessageFromAISDKv6,
       ];
 
       // when
@@ -62,7 +59,7 @@ describe("lib/sse Integration Tests", () => {
       });
 
       const reader = result.getReader();
-      const chunks: UIMessageChunk[] = [];
+      const chunks: UIMessageChunkFromAISDKv6[] = [];
 
       while (true) {
         const { done, value } = await reader.read();
@@ -134,12 +131,12 @@ describe("lib/sse Integration Tests", () => {
         ...(adkBackendUrl && { adkBackendUrl }),
       });
 
-      const messages: UIMessage[] = [
+      const messages: UIMessageFromAISDKv6[] = [
         {
           id: "1",
           role: "user",
           parts: [{ type: "text", text: "Test ADK" }],
-        } as UIMessage,
+        } as UIMessageFromAISDKv6,
       ];
 
       // when
@@ -152,7 +149,7 @@ describe("lib/sse Integration Tests", () => {
       });
 
       const reader = result.getReader();
-      const chunks: UIMessageChunk[] = [];
+      const chunks: UIMessageChunkFromAISDKv6[] = [];
 
       while (true) {
         const { done, value } = await reader.read();
@@ -202,12 +199,12 @@ describe("lib/sse Integration Tests", () => {
         initialMessages: [],
       });
 
-      const messages: UIMessage[] = [
+      const messages: UIMessageFromAISDKv6[] = [
         {
           id: "1",
           role: "user",
           parts: [{ type: "text", text: "Do dangerous operation" }],
-        } as UIMessage,
+        } as UIMessageFromAISDKv6,
       ];
 
       // when
@@ -220,7 +217,7 @@ describe("lib/sse Integration Tests", () => {
       });
 
       const reader = result.getReader();
-      const chunks: UIMessageChunk[] = [];
+      const chunks: UIMessageChunkFromAISDKv6[] = [];
 
       while (true) {
         const { done, value } = await reader.read();
@@ -232,22 +229,22 @@ describe("lib/sse Integration Tests", () => {
       // AI SDK v6: tool chunks should include tool-input-start and tool-input-available
       const confirmationChunks = chunks.filter(
         (c) =>
-          (c.type === TOOL_CHUNK_TYPE_INPUT_START ||
-            c.type === TOOL_CHUNK_TYPE_INPUT_AVAILABLE) &&
+          (c.type === "tool-input-start" ||
+            c.type === "tool-input-available") &&
           "toolName" in c &&
-          c.toolName === TOOL_NAME_ADK_REQUEST_CONFIRMATION,
+          c.toolName === "dangerous_operation",
       );
 
       expect(confirmationChunks).toHaveLength(2); // start + available
 
       const startChunk = confirmationChunks.find(
-        (c) => c.type === TOOL_CHUNK_TYPE_INPUT_START,
+        (c) => c.type === "tool-input-start",
       );
       expect(startChunk).toBeDefined();
       expect(startChunk).toHaveProperty("toolCallId", "call-1");
 
       const availableChunk = confirmationChunks.find(
-        (c) => c.type === TOOL_CHUNK_TYPE_INPUT_AVAILABLE,
+        (c) => c.type === "tool-input-available",
       );
       expect(availableChunk).toBeDefined();
       expect(availableChunk).toHaveProperty("toolCallId", "call-1");
@@ -256,15 +253,15 @@ describe("lib/sse Integration Tests", () => {
 
     it("sendAutomaticallyWhen detects confirmation completion", async () => {
       // given - AI SDK v6 approval flow uses "approval-responded" state
-      const messages: UIMessage[] = [
+      const messages: UIMessageFromAISDKv6[] = [
         {
           id: "1",
           role: "assistant",
           content: "",
           parts: [
             {
-              type: TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
-              state: TOOL_STATE_APPROVAL_RESPONDED,
+              type: "tool-approval-request",
+              state: "approval-responded",
               toolCallId: "call-1",
               input: {
                 originalFunctionCall: {
@@ -298,15 +295,15 @@ describe("lib/sse Integration Tests", () => {
 
     it("sendAutomaticallyWhen detects confirmation denial", async () => {
       // given - AI SDK v6 denial flow uses "approval-responded" state with approved: false
-      const messages: UIMessage[] = [
+      const messages: UIMessageFromAISDKv6[] = [
         {
           id: "1",
           role: "assistant",
           content: "",
           parts: [
             {
-              type: TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
-              state: TOOL_STATE_APPROVAL_RESPONDED,
+              type: "tool-approval-request",
+              state: "approval-responded",
               toolCallId: "call-1",
               input: {
                 originalFunctionCall: {

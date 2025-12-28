@@ -15,35 +15,19 @@
 
 import { useChat } from "@ai-sdk/react";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import type { UIMessage } from "ai";
-import { isTextUIPart } from "ai";
 import { HttpResponse, http } from "msw";
-import { describe, expect, it } from "vitest";
-import {
-  TOOL_STATE_APPROVAL_REQUESTED,
-  TOOL_STATE_APPROVAL_RESPONDED,
-  TOOL_STATE_INPUT_AVAILABLE,
-  TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
-} from "../../constants";
+import { describe, expect, it, vi } from "vitest";
 import { buildUseChatOptions, type Mode, type UseChatConfig } from "../../sse";
+import { isApprovalRequestPart, type UIMessageFromAISDKv6 } from "../../utils";
 import {
   createAdkConfirmationRequest,
+  createSendAutoSpy,
   createTextResponse,
+  findAllConfirmationParts,
+  findConfirmationPart,
+  getMessageText,
   setupMswServer,
 } from "../helpers";
-
-/**
- * Helper function to extract text content from UIMessage parts
- */
-function getMessageText(message: UIMessage | undefined): string {
-  if (!message) return "";
-  return message.parts
-    .filter((part): part is { type: "text"; text: string } =>
-      isTextUIPart(part),
-    )
-    .map((part) => part.text)
-    .join("");
-}
 
 // Create MSW server for HTTP interception with standard lifecycle
 const server = setupMswServer();
@@ -86,7 +70,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
 
       // Configure SSE mode with ALL available options
       const mode: Mode = "adk-sse";
-      const initialMessages: UIMessage[] = [];
+      const initialMessages: UIMessageFromAISDKv6[] = [];
       const adkBackendUrl = "http://localhost:8000";
       const forceNewInstance = false;
 
@@ -118,11 +102,11 @@ describe("SSE Mode with useChat - E2E Tests", () => {
         () => {
           const lastMessage = result.current.messages.at(-1);
           expect(lastMessage?.role).toBe("assistant");
-          const confirmationPart = lastMessage?.parts?.find(
-            (p: any) => p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+          const confirmationPart = lastMessage?.parts?.find((p: any) =>
+            isApprovalRequestPart(p),
           );
           expect(confirmationPart).toBeDefined();
-          expect(confirmationPart?.state).toBe(TOOL_STATE_APPROVAL_REQUESTED);
+          expect(confirmationPart?.state).toBe("approval-requested");
         },
         { timeout: 3000 },
       );
@@ -130,8 +114,8 @@ describe("SSE Mode with useChat - E2E Tests", () => {
       // Simulate user clicking Approve
       await act(async () => {
         const lastMessage = result.current.messages.at(-1);
-        const confirmationPart = lastMessage?.parts?.find(
-          (p: any) => p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+        const confirmationPart = lastMessage?.parts?.find((p: any) =>
+          isApprovalRequestPart(p),
         );
         result.current.addToolApprovalResponse({
           id: confirmationPart?.toolCallId,
@@ -143,14 +127,14 @@ describe("SSE Mode with useChat - E2E Tests", () => {
       await waitFor(
         () => {
           const lastMessage = result.current.messages.at(-1);
-          const confirmationPart = lastMessage?.parts?.find(
-            (p: any) => p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+          const confirmationPart = lastMessage?.parts?.find((p: any) =>
+            isApprovalRequestPart(p),
           );
           console.log(
             "[Test] After approval, confirmation part:",
             JSON.stringify(confirmationPart, null, 2),
           );
-          expect(confirmationPart?.state).not.toBe(TOOL_STATE_INPUT_AVAILABLE);
+          expect(confirmationPart?.state).not.toBe("input-available");
         },
         { timeout: 1000 },
       );
@@ -196,8 +180,8 @@ describe("SSE Mode with useChat - E2E Tests", () => {
             // Should include confirmation approval response
             parts: expect.arrayContaining([
               expect.objectContaining({
-                type: TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
-                state: TOOL_STATE_APPROVAL_RESPONDED,
+                type: "tool-approval-request",
+                state: "approval-responded",
                 approval: expect.objectContaining({
                   approved: true,
                 }),
@@ -282,9 +266,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
           const hasConfirmation = (payload as any).messages?.some(
             (msg: any) =>
               msg.role === "assistant" &&
-              msg.parts?.some(
-                (part: any) => part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
-              ),
+              msg.parts?.some((part: any) => isApprovalRequestPart(part)),
           );
 
           if (!confirmationReceived) {
@@ -333,9 +315,9 @@ describe("SSE Mode with useChat - E2E Tests", () => {
           expect(lastMessage?.parts).toEqual(
             expect.arrayContaining([
               expect.objectContaining({
-                type: TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+                type: "tool-approval-request",
                 toolCallId: "call-456",
-                state: TOOL_STATE_APPROVAL_REQUESTED,
+                state: "approval-requested",
               }),
             ]),
           );
@@ -346,8 +328,8 @@ describe("SSE Mode with useChat - E2E Tests", () => {
       // Simulate user approval
       await act(async () => {
         const lastMessage = result.current.messages.at(-1);
-        const confirmationPart = lastMessage?.parts?.find(
-          (p: any) => p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+        const confirmationPart = lastMessage?.parts?.find((p: any) =>
+          isApprovalRequestPart(p),
         );
         result.current.addToolApprovalResponse({
           id: confirmationPart?.toolCallId,
@@ -487,25 +469,24 @@ describe("SSE Mode with useChat - E2E Tests", () => {
         .flatMap((msg: any) => msg.parts || [])
         .filter(
           (p: any) =>
-            p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
-            p.state === TOOL_STATE_APPROVAL_RESPONDED,
+            isApprovalRequestPart(p) && "approval-responded" === p.state,
         );
       expect(confirmationParts.length).toBeGreaterThanOrEqual(2);
     });
 
     it("should preserve message history during confirmation flow", async () => {
       // Given: Initial conversation with history
-      const initialMessages: UIMessage[] = [
+      const initialMessages: UIMessageFromAISDKv6[] = [
         {
           id: "msg-1",
           role: "user",
           parts: [{ type: "text", text: "Previous message" }],
-        } as UIMessage,
+        } as UIMessageFromAISDKv6,
         {
           id: "msg-2",
           role: "assistant",
           parts: [{ type: "text", text: "Previous response" }],
-        } as UIMessage,
+        } as UIMessageFromAISDKv6,
       ];
 
       let capturedPayload: any = null;
@@ -604,8 +585,8 @@ describe("SSE Mode with useChat - E2E Tests", () => {
         () => {
           const lastMessage = result.current.messages.at(-1);
           expect(lastMessage?.role).toBe("assistant");
-          const confirmationPart = lastMessage?.parts?.find(
-            (p: any) => p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+          const confirmationPart = lastMessage?.parts?.find((p: any) =>
+            isApprovalRequestPart(p),
           );
           expect(confirmationPart).toBeDefined();
         },
@@ -615,8 +596,8 @@ describe("SSE Mode with useChat - E2E Tests", () => {
       // Approve confirmation (which will trigger error response)
       await act(async () => {
         const lastMessage = result.current.messages.at(-1);
-        const confirmationPart = lastMessage?.parts?.find(
-          (p: any) => p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+        const confirmationPart = lastMessage?.parts?.find((p: any) =>
+          isApprovalRequestPart(p),
         );
         result.current.addToolApprovalResponse({
           id: confirmationPart?.toolCallId,
@@ -651,7 +632,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
               msg.role === "assistant" &&
               msg.parts?.some(
                 (part: any) =>
-                  part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
+                  isApprovalRequestPart(part) &&
                   part.approval?.approved === false,
               ),
           );
@@ -699,11 +680,11 @@ describe("SSE Mode with useChat - E2E Tests", () => {
         () => {
           const lastMessage = result.current.messages.at(-1);
           expect(lastMessage?.role).toBe("assistant");
-          const confirmationPart = lastMessage?.parts?.find(
-            (p: any) => p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+          const confirmationPart = lastMessage?.parts?.find((p: any) =>
+            isApprovalRequestPart(p),
           );
           expect(confirmationPart).toBeDefined();
-          expect(confirmationPart?.state).toBe(TOOL_STATE_APPROVAL_REQUESTED);
+          expect(confirmationPart?.state).toBe("approval-requested");
         },
         { timeout: 3000 },
       );
@@ -711,8 +692,8 @@ describe("SSE Mode with useChat - E2E Tests", () => {
       // Simulate user denying the approval
       await act(async () => {
         const lastMessage = result.current.messages.at(-1);
-        const confirmationPart = lastMessage?.parts?.find(
-          (p: any) => p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+        const confirmationPart = lastMessage?.parts?.find((p: any) =>
+          isApprovalRequestPart(p),
         );
         result.current.addToolApprovalResponse({
           id: confirmationPart?.toolCallId,
@@ -736,6 +717,272 @@ describe("SSE Mode with useChat - E2E Tests", () => {
           const lastMessage = result.current.messages.at(-1);
           expect(getMessageText(lastMessage)).toContain(
             "Operation cancelled as per your request",
+          );
+        },
+        { timeout: 3000 },
+      );
+    });
+  });
+
+  describe("Test 3: Tool Approval Request Verification (Single Approval)", () => {
+    it("should call sendAutomaticallyWhen after single tool approval", async () => {
+      // Given: Setup spy wrapper around sendAutomaticallyWhen
+      const { useChatOptions } = buildUseChatOptions({
+        mode: "adk-sse" as Mode,
+        initialMessages: [] as UIMessageFromAISDKv6[],
+        adkBackendUrl: "http://localhost:8000",
+      });
+
+      const sendAutoSpy = createSendAutoSpy(
+        useChatOptions.sendAutomaticallyWhen!,
+      );
+      const optionsWithSpy = {
+        ...useChatOptions,
+        sendAutomaticallyWhen: sendAutoSpy,
+      };
+
+      // Setup MSW to send confirmation request
+      let requestCount = 0;
+      server.use(
+        http.post("http://localhost:8000/stream", async ({ request }) => {
+          requestCount++;
+          const payload = await request.json();
+
+          // First request: Return confirmation request
+          if (requestCount === 1) {
+            return createAdkConfirmationRequest({
+              toolCallId: "spy-call-123",
+              originalFunctionCall: {
+                id: "spy-orig-123",
+                name: "spy_test_operation",
+                args: { test: "spy-data" },
+              },
+            });
+          }
+
+          // Second request (after confirmation): Return final response
+          if (requestCount === 2) {
+            return createTextResponse("Operation", " completed!");
+          }
+
+          return HttpResponse.text("Unexpected request", {
+            status: 500,
+          }) as any;
+        }),
+      );
+
+      const { result } = renderHook(() => useChat(optionsWithSpy));
+
+      // When: User submits message and receives confirmation
+      await act(async () => {
+        result.current.sendMessage({ text: "Request confirmation" });
+      });
+
+      await waitFor(
+        () => {
+          const lastMessage = result.current.messages.at(-1);
+          const confirmationPart = findConfirmationPart(lastMessage);
+          expect(confirmationPart).toBeDefined();
+          expect(confirmationPart?.state).toBe("approval-requested");
+        },
+        { timeout: 3000 },
+      );
+
+      // Clear any previous spy calls from initial renders
+      sendAutoSpy.mockClear();
+
+      // When: User approves the confirmation
+      await act(async () => {
+        const lastMessage = result.current.messages.at(-1);
+        const confirmationPart = findConfirmationPart(lastMessage);
+        result.current.addToolApprovalResponse({
+          id: confirmationPart?.toolCallId,
+          approved: true,
+        });
+      });
+
+      // Then: Verify sendAutomaticallyWhen was called
+      await waitFor(
+        () => {
+          expect(sendAutoSpy).toHaveBeenCalled();
+        },
+        { timeout: 3000 },
+      );
+
+      // Verify it was called with correct parameters
+      expect(sendAutoSpy.mock.calls.length).toBeGreaterThan(0);
+      const lastCall =
+        sendAutoSpy.mock.calls[sendAutoSpy.mock.calls.length - 1];
+      expect(lastCall[0]).toHaveProperty("messages");
+      expect(Array.isArray(lastCall[0].messages)).toBe(true);
+      expect(lastCall[0].messages.length).toBeGreaterThan(0);
+
+      // Verify the messages array includes the approval response
+      const messagesParam = lastCall[0].messages;
+      const hasApprovalResponse = messagesParam.some((msg: any) =>
+        msg.parts?.some(
+          (p: any) =>
+            isApprovalRequestPart(p) && "approval-responded" === p.state,
+        ),
+      );
+      expect(hasApprovalResponse).toBe(true);
+
+      // Verify that the automatic send actually happened
+      await waitFor(
+        () => {
+          expect(requestCount).toBe(2);
+        },
+        { timeout: 3000 },
+      );
+    });
+  });
+
+  describe("Test 4: Tool Approval Request Verification (Multiple Approvals)", () => {
+    it("should handle two sequential tool approvals correctly", async () => {
+      // Given: Setup spy wrapper around sendAutomaticallyWhen
+      const { useChatOptions } = buildUseChatOptions({
+        mode: "adk-sse" as Mode,
+        initialMessages: [] as UIMessageFromAISDKv6[],
+        adkBackendUrl: "http://localhost:8000",
+      });
+
+      const sendAutoSpy = createSendAutoSpy(
+        useChatOptions.sendAutomaticallyWhen!,
+      );
+      const optionsWithSpy = {
+        ...useChatOptions,
+        sendAutomaticallyWhen: sendAutoSpy,
+      };
+
+      // Setup MSW to handle multiple confirmations
+      let requestCount = 0;
+      server.use(
+        http.post("http://localhost:8000/stream", async ({ request }) => {
+          requestCount++;
+          const payload = await request.json();
+
+          // First request: Return first confirmation
+          if (requestCount === 1) {
+            return createAdkConfirmationRequest({
+              toolCallId: "first-call",
+              originalFunctionCall: {
+                id: "first-orig",
+                name: "first_operation",
+                args: { action: "first" },
+              },
+            });
+          }
+
+          // Second request (after first approval): Return second confirmation
+          if (requestCount === 2) {
+            return createAdkConfirmationRequest({
+              toolCallId: "second-call",
+              originalFunctionCall: {
+                id: "second-orig",
+                name: "second_operation",
+                args: { action: "second" },
+              },
+            });
+          }
+
+          // Third request (after second approval): Return final response
+          if (requestCount === 3) {
+            return createTextResponse("Both operations", " completed!");
+          }
+
+          return HttpResponse.text("Unexpected request", {
+            status: 500,
+          }) as any;
+        }),
+      );
+
+      const { result } = renderHook(() => useChat(optionsWithSpy));
+
+      // When: User submits message and receives first confirmation
+      await act(async () => {
+        result.current.sendMessage({ text: "Request two operations" });
+      });
+
+      await waitFor(
+        () => {
+          const lastMessage = result.current.messages.at(-1);
+          const confirmationPart = findConfirmationPart(lastMessage);
+          expect(confirmationPart).toBeDefined();
+          expect(confirmationPart?.state).toBe("approval-requested");
+        },
+        { timeout: 3000 },
+      );
+
+      sendAutoSpy.mockClear();
+
+      // Approve first confirmation
+      await act(async () => {
+        const lastMessage = result.current.messages.at(-1);
+        const confirmationPart = findConfirmationPart(lastMessage);
+        result.current.addToolApprovalResponse({
+          id: confirmationPart?.toolCallId,
+          approved: true,
+        });
+      });
+
+      // Wait for sendAutomaticallyWhen to be called for first approval
+      await waitFor(
+        () => {
+          expect(sendAutoSpy).toHaveBeenCalled();
+        },
+        { timeout: 3000 },
+      );
+
+      // Wait for second confirmation
+      await waitFor(
+        () => {
+          const lastMessage = result.current.messages.at(-1);
+          const confirmations = findAllConfirmationParts(lastMessage);
+          const secondConf = confirmations.find(
+            (c: any) => c.toolCallId === "second-call",
+          );
+          expect(secondConf).toBeDefined();
+        },
+        { timeout: 3000 },
+      );
+
+      sendAutoSpy.mockClear();
+
+      // Approve second confirmation
+      await act(async () => {
+        const lastMessage = result.current.messages.at(-1);
+        const confirmations = findAllConfirmationParts(lastMessage);
+        const secondConfirmation = confirmations.find(
+          (c: any) => c.toolCallId === "second-call",
+        );
+        result.current.addToolApprovalResponse({
+          id: secondConfirmation?.toolCallId,
+          approved: true,
+        });
+      });
+
+      // Verify sendAutomaticallyWhen was called for second approval
+      await waitFor(
+        () => {
+          expect(sendAutoSpy).toHaveBeenCalled();
+        },
+        { timeout: 3000 },
+      );
+
+      // Verify that three requests were made (initial + 2 approvals)
+      await waitFor(
+        () => {
+          expect(requestCount).toBe(3);
+        },
+        { timeout: 3000 },
+      );
+
+      // Verify final response
+      await waitFor(
+        () => {
+          const lastMessage = result.current.messages.at(-1);
+          expect(getMessageText(lastMessage)).toContain(
+            "Both operations completed!",
           );
         },
         { timeout: 3000 },

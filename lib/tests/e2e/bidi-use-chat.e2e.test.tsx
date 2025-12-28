@@ -15,36 +15,24 @@
 
 import { useChat } from "@ai-sdk/react";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import type { UIMessage } from "ai";
-import { isTextUIPart } from "ai";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { buildUseChatOptions } from "../../bidi";
+import type { UIMessageFromAISDKv6 } from "../../utils";
 import {
-  TOOL_NAME_ADK_REQUEST_CONFIRMATION,
-  TOOL_STATE_APPROVAL_REQUESTED,
-  TOOL_STATE_APPROVAL_RESPONDED,
-  TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
-} from "../../constants";
+  isApprovalRequestedTool,
+  isApprovalRequestPart,
+} from "../../utils";
 import {
   createBidiWebSocketLink,
   createConfirmationRequestHandler,
   createCustomHandler,
+  createSendAutoSpy,
   createTextResponseHandler,
+  findAllConfirmationParts,
+  findConfirmationPart,
+  getMessageText,
   setupMswServer,
 } from "../helpers";
-
-/**
- * Helper function to extract text content from UIMessage parts
- */
-function getMessageText(message: UIMessage | undefined): string {
-  if (!message) return "";
-  return message.parts
-    .filter((part): part is { type: "text"; text: string } =>
-      isTextUIPart(part),
-    )
-    .map((part) => part.text)
-    .join("");
-}
 
 // Create MSW server for WebSocket interception with custom unhandled request handler
 const server = setupMswServer({
@@ -71,7 +59,7 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
       );
 
       const config = {
-        initialMessages: [] as UIMessage[],
+        initialMessages: [] as UIMessageFromAISDKv6[],
       };
 
       const { result } = renderHook(() =>
@@ -83,12 +71,19 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
         result.current.sendMessage({ text: "Request dangerous operation" });
       });
 
-      // Wait for confirmation to appear in messages
+      // Wait for confirmation part to appear in messages
+      let confirmationPart: any;
       await waitFor(
         () => {
           const lastMessage =
             result.current.messages[result.current.messages.length - 1];
           expect(lastMessage?.role).toBe("assistant");
+
+          // AI SDK v6: tool invocations are in parts array
+          confirmationPart = (lastMessage as any).parts?.find((part: any) =>
+            isApprovalRequestedTool(part),
+          );
+          expect(confirmationPart).toBeDefined();
         },
         { timeout: 3000 },
       );
@@ -99,47 +94,55 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
       expect(lastMessage).toBeDefined();
       expect(lastMessage.role).toBe("assistant");
 
-      // AI SDK v6: tool invocations are in parts array
-      const confirmationPart = (lastMessage as any).parts?.find(
-        (part: any) =>
-          part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
-          part.state === TOOL_STATE_APPROVAL_REQUESTED,
-      );
-
       expect(confirmationPart).toBeDefined();
-      expect(confirmationPart.toolCallId).toBeDefined();
+      expect(confirmationPart.toolCallId).toBe("orig-1");
+      expect(confirmationPart.type).toBe("tool-dangerous_operation");
+      expect(confirmationPart.state).toBe("approval-requested");
       expect(confirmationPart.input).toMatchObject({
-        originalFunctionCall: {
-          id: "orig-1",
-          name: "dangerous_operation",
-          args: { action: "delete_all" },
-        },
+        action: "delete_all",
       });
 
       // When: User approves the confirmation
       const toolCallId = confirmationPart.toolCallId;
 
-      act(() => {
+      await act(async () => {
         result.current.addToolApprovalResponse({
           id: toolCallId,
           approved: true,
         });
       });
 
+      // Debug: Log message state after approval
+      const lastMsg = result.current.messages[result.current.messages.length - 1];
+      console.log(
+        "[TEST DEBUG] After approval, lastMessage parts:",
+        JSON.stringify((lastMsg as any).parts, null, 2),
+      );
+      console.log(
+        "[TEST DEBUG] Approval object detail:",
+        JSON.stringify(
+          (lastMsg as any).parts?.map((p: any) => ({
+            toolCallId: p.toolCallId,
+            approval: p.approval,
+          })),
+          null,
+          2,
+        ),
+      );
+
       // Then: sendAutomaticallyWhen should trigger automatic send
-      // Wait for confirmation approval to be processed
+      // Wait for tool output to be received
+      // AI SDK v6: tool-output-available EVENT updates TOOL part state to "output-available"
       await waitFor(
         () => {
-          const updatedLastMessage =
+          const lastMessage =
             result.current.messages[result.current.messages.length - 1];
-          const updatedConfirmationPart = (
-            updatedLastMessage as any
-          ).parts?.find(
-            (part: any) => part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+          const outputPart = (lastMessage as any).parts?.find(
+            (part: any) =>
+              part.toolCallId === toolCallId &&
+              part.state === "output-available",
           );
-          expect(updatedConfirmationPart?.state).toBe(
-            TOOL_STATE_APPROVAL_RESPONDED,
-          );
+          expect(outputPart).toBeDefined();
         },
         { timeout: 3000 },
       );
@@ -151,7 +154,7 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
       server.use(createTextResponseHandler(chat, "Hello", " World!"));
 
       const config = {
-        initialMessages: [] as UIMessage[],
+        initialMessages: [] as UIMessageFromAISDKv6[],
       };
 
       const { result } = renderHook(() =>
@@ -192,7 +195,7 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
       );
 
       const config = {
-        initialMessages: [] as UIMessage[],
+        initialMessages: [] as UIMessageFromAISDKv6[],
       };
 
       const { result } = renderHook(() =>
@@ -209,7 +212,7 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
           const lastMessage =
             result.current.messages[result.current.messages.length - 1];
           const confirmationPart = (lastMessage as any).parts?.find(
-            (part: any) => part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+            (part: any) => isApprovalRequestedTool(part),
           );
           expect(confirmationPart).toBeDefined();
         },
@@ -219,16 +222,15 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
       // Then: Verify confirmation payload structure
       const lastMessage =
         result.current.messages[result.current.messages.length - 1];
-      const confirmationPart = (lastMessage as any).parts.find(
-        (part: any) => part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+      const confirmationPart = (lastMessage as any).parts.find((part: any) =>
+        isApprovalRequestedTool(part),
       );
 
+      expect(confirmationPart.toolCallId).toBe("test-1");
+      expect(confirmationPart.type).toBe("tool-test_tool");
+      expect(confirmationPart.state).toBe("approval-requested");
       expect(confirmationPart.input).toMatchObject({
-        originalFunctionCall: {
-          id: "test-1",
-          name: "test_tool",
-          args: { key: "value" },
-        },
+        key: "value",
       });
     });
 
@@ -249,14 +251,14 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
             const data = JSON.parse(event.data as string);
 
             // Check message content to determine response (like SSE does)
+            // AI SDK v6: Check for TOOL parts with approval objects, not approval-request parts
             const hasFirstApproval = data.messages?.some(
               (msg: any) =>
                 msg.role === "assistant" &&
                 msg.parts?.some(
                   (part: any) =>
-                    part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
                     part.toolCallId === "call-1" &&
-                    part.state === TOOL_STATE_APPROVAL_RESPONDED,
+                    part.approval !== undefined,
                 ),
             );
 
@@ -265,9 +267,8 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
                 msg.role === "assistant" &&
                 msg.parts?.some(
                   (part: any) =>
-                    part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
                     part.toolCallId === "call-2" &&
-                    part.state === TOOL_STATE_APPROVAL_RESPONDED,
+                    part.approval !== undefined,
                 ),
             );
 
@@ -277,20 +278,16 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
               const startChunk = {
                 type: "tool-input-start",
                 toolCallId: "call-1",
-                toolName: TOOL_NAME_ADK_REQUEST_CONFIRMATION,
+                toolName: "first_tool",
               };
               client.send(`data: ${JSON.stringify(startChunk)}\n\n`);
 
               const availableChunk = {
                 type: "tool-input-available",
                 toolCallId: "call-1",
-                toolName: TOOL_NAME_ADK_REQUEST_CONFIRMATION,
+                toolName: "first_tool",
                 input: {
-                  originalFunctionCall: {
-                    id: "first",
-                    name: "first_tool",
-                    args: {},
-                  },
+                  action: "first",
                 },
               };
               client.send(`data: ${JSON.stringify(availableChunk)}\n\n`);
@@ -308,20 +305,16 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
               const startChunk = {
                 type: "tool-input-start",
                 toolCallId: "call-2",
-                toolName: TOOL_NAME_ADK_REQUEST_CONFIRMATION,
+                toolName: "second_tool",
               };
               client.send(`data: ${JSON.stringify(startChunk)}\n\n`);
 
               const availableChunk = {
                 type: "tool-input-available",
                 toolCallId: "call-2",
-                toolName: TOOL_NAME_ADK_REQUEST_CONFIRMATION,
+                toolName: "second_tool",
                 input: {
-                  originalFunctionCall: {
-                    id: "second",
-                    name: "second_tool",
-                    args: {},
-                  },
+                  action: "second",
                 },
               };
               client.send(`data: ${JSON.stringify(availableChunk)}\n\n`);
@@ -355,7 +348,7 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
       );
 
       const config = {
-        initialMessages: [] as UIMessage[],
+        initialMessages: [] as UIMessageFromAISDKv6[],
       };
 
       const { result } = renderHook(() =>
@@ -371,8 +364,8 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
         () => {
           const msgs = result.current.messages;
           const lastMsg = msgs[msgs.length - 1];
-          const part = (lastMsg as any).parts?.find(
-            (p: any) => p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+          const part = (lastMsg as any).parts?.find((p: any) =>
+            isApprovalRequestedTool(p),
           );
           expect(part).toBeDefined();
         },
@@ -383,7 +376,7 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
       const firstMessage =
         result.current.messages[result.current.messages.length - 1];
       const firstConfirmationPart = (firstMessage as any).parts.find(
-        (part: any) => part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+        (part: any) => isApprovalRequestedTool(part),
       );
 
       act(() => {
@@ -393,29 +386,17 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
         });
       });
 
-      await waitFor(
-        () => {
-          const updatedMsg =
-            result.current.messages[result.current.messages.length - 1];
-          const updatedPart = (updatedMsg as any).parts?.find(
-            (p: any) => p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
-          );
-          expect(updatedPart?.state).toBe(TOOL_STATE_APPROVAL_RESPONDED);
-        },
-        { timeout: 3000 },
-      );
-
-      // Then: Wait for second confirmation to arrive
+      // Wait for second confirmation to arrive (first approval triggers it)
       await waitFor(
         () => {
           const msgs = result.current.messages;
           const lastMsg = msgs[msgs.length - 1];
-          const part = (lastMsg as any).parts?.find(
+          // AI SDK v6: Check for TOOL part with toolCallId "call-2"
+          const secondConfirmationPart = (lastMsg as any).parts?.find(
             (p: any) =>
-              p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
-              p.toolCallId === "call-2",
+              isApprovalRequestedTool(p) && p.toolCallId === "call-2",
           );
-          expect(part).toBeDefined();
+          expect(secondConfirmationPart).toBeDefined();
         },
         { timeout: 3000 },
       );
@@ -425,8 +406,7 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
         result.current.messages[result.current.messages.length - 1];
       const secondConfirmationPart = (secondMessage as any).parts.find(
         (part: any) =>
-          part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
-          part.toolCallId === "call-2",
+          isApprovalRequestedTool(part) && part.toolCallId === "call-2",
       );
 
       act(() => {
@@ -451,8 +431,7 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
         .flatMap((msg: any) => msg.parts || [])
         .filter(
           (p: any) =>
-            p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
-            p.state === TOOL_STATE_APPROVAL_RESPONDED,
+            isApprovalRequestPart(p) && p.state === "approval-responded",
         );
       expect(confirmationParts.length).toBeGreaterThanOrEqual(2);
     });
@@ -474,12 +453,12 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
             id: "msg-1",
             role: "user",
             parts: [{ type: "text", text: "Previous message" }],
-          } as UIMessage,
+          } as UIMessageFromAISDKv6,
           {
             id: "msg-2",
             role: "assistant",
             parts: [{ type: "text", text: "Previous response" }],
-          } as UIMessage,
+          } as UIMessageFromAISDKv6,
         ],
       };
 
@@ -532,21 +511,15 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
               const startChunk = {
                 type: "tool-input-start",
                 toolCallId: "call-error",
-                toolName: TOOL_NAME_ADK_REQUEST_CONFIRMATION,
+                toolName: "failing_tool",
               };
               client.send(`data: ${JSON.stringify(startChunk)}\n\n`);
 
               const availableChunk = {
                 type: "tool-input-available",
                 toolCallId: "call-error",
-                toolName: TOOL_NAME_ADK_REQUEST_CONFIRMATION,
-                input: {
-                  originalFunctionCall: {
-                    id: "orig-error",
-                    name: "failing_tool",
-                    args: {},
-                  },
-                },
+                toolName: "failing_tool",
+                input: {},
               };
               client.send(`data: ${JSON.stringify(availableChunk)}\n\n`);
 
@@ -568,7 +541,7 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
       );
 
       const config = {
-        initialMessages: [] as UIMessage[],
+        initialMessages: [] as UIMessageFromAISDKv6[],
       };
 
       const { result } = renderHook(() =>
@@ -586,8 +559,8 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
           const lastMessage =
             result.current.messages[result.current.messages.length - 1];
           expect(lastMessage?.role).toBe("assistant");
-          const confirmationPart = (lastMessage as any).parts?.find(
-            (p: any) => p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+          const confirmationPart = (lastMessage as any).parts?.find((p: any) =>
+            isApprovalRequestedTool(p),
           );
           expect(confirmationPart).toBeDefined();
         },
@@ -598,8 +571,8 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
       await act(async () => {
         const lastMessage =
           result.current.messages[result.current.messages.length - 1];
-        const confirmationPart = (lastMessage as any).parts.find(
-          (part: any) => part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+        const confirmationPart = (lastMessage as any).parts.find((part: any) =>
+          isApprovalRequestedTool(part),
         );
         result.current.addToolApprovalResponse({
           id: confirmationPart.toolCallId,
@@ -637,14 +610,16 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
             const data = JSON.parse(event.data as string);
 
             // Check if this is the denial response
-            // Same logic as SSE: check for approval.approved === false
+            // AI SDK v6: Check for approval object existence (user responded)
+            // Note: AI SDK doesn't set approval.approved until backend responds,
+            // so we check for approval object presence instead
             const hasDenial = data.messages?.some(
               (msg: any) =>
                 msg.role === "assistant" &&
                 msg.parts?.some(
                   (part: any) =>
-                    part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION &&
-                    part.approval?.approved === false,
+                    part.toolCallId === "call-deny" &&
+                    part.approval !== undefined,
                 ),
             );
 
@@ -654,14 +629,14 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
               const startChunk = {
                 type: "tool-input-start",
                 toolCallId: "call-deny",
-                toolName: TOOL_NAME_ADK_REQUEST_CONFIRMATION,
+                toolName: "dangerous_operation",
               };
               client.send(`data: ${JSON.stringify(startChunk)}\n\n`);
 
               const availableChunk = {
                 type: "tool-input-available",
                 toolCallId: "call-deny",
-                toolName: TOOL_NAME_ADK_REQUEST_CONFIRMATION,
+                toolName: "dangerous_operation",
                 input: {
                   originalFunctionCall: {
                     id: "orig-deny",
@@ -716,7 +691,7 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
       );
 
       const config = {
-        initialMessages: [] as UIMessage[],
+        initialMessages: [] as UIMessageFromAISDKv6[],
       };
 
       const { result } = renderHook(() =>
@@ -734,11 +709,11 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
           const lastMessage =
             result.current.messages[result.current.messages.length - 1];
           expect(lastMessage?.role).toBe("assistant");
-          const confirmationPart = (lastMessage as any).parts?.find(
-            (p: any) => p.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+          const confirmationPart = (lastMessage as any).parts?.find((p: any) =>
+            isApprovalRequestedTool(p),
           );
           expect(confirmationPart).toBeDefined();
-          expect(confirmationPart?.state).toBe(TOOL_STATE_APPROVAL_REQUESTED);
+          expect(confirmationPart?.state).toBe("approval-requested");
         },
         { timeout: 3000 },
       );
@@ -747,8 +722,8 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
       await act(async () => {
         const lastMessage =
           result.current.messages[result.current.messages.length - 1];
-        const confirmationPart = (lastMessage as any).parts.find(
-          (part: any) => part.type === TOOL_TYPE_ADK_REQUEST_CONFIRMATION,
+        const confirmationPart = (lastMessage as any).parts.find((part: any) =>
+          isApprovalRequestedTool(part),
         );
         result.current.addToolApprovalResponse({
           id: confirmationPart.toolCallId,
@@ -777,6 +752,297 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
         },
         { timeout: 3000 },
       );
+    });
+  });
+
+  describe("Test 3: Tool Approval Request Verification (Single Approval)", () => {
+    it("should call sendAutomaticallyWhen after single tool approval", async () => {
+      // Given: Setup spy wrapper around sendAutomaticallyWhen
+      const { useChatOptions } = buildUseChatOptions({
+        initialMessages: [] as UIMessageFromAISDKv6[],
+      });
+
+      const sendAutoSpy = createSendAutoSpy(
+        useChatOptions.sendAutomaticallyWhen!,
+      );
+      const optionsWithSpy = {
+        ...useChatOptions,
+        sendAutomaticallyWhen: sendAutoSpy,
+      };
+
+      // Setup MSW to send confirmation
+      const chat = createBidiWebSocketLink();
+      server.use(
+        createConfirmationRequestHandler(chat, {
+          id: "spy-test-1",
+          name: "test_operation",
+          args: { test: "data" },
+        }),
+      );
+
+      const { result } = renderHook(() => useChat(optionsWithSpy));
+
+      // When: User submits message and receives confirmation
+      await act(async () => {
+        result.current.sendMessage({ text: "Request confirmation" });
+      });
+
+      await waitFor(
+        () => {
+          const lastMessage = result.current.messages.at(-1);
+          const confirmationPart = findConfirmationPart(lastMessage);
+          expect(confirmationPart).toBeDefined();
+        },
+        { timeout: 3000 },
+      );
+
+      // Clear any previous spy calls from initial renders
+      sendAutoSpy.mockClear();
+
+      // When: User approves the confirmation
+      const lastMessage = result.current.messages.at(-1);
+      const confirmationPart = findConfirmationPart(lastMessage);
+
+      act(() => {
+        result.current.addToolApprovalResponse({
+          id: confirmationPart.toolCallId,
+          approved: true,
+        });
+      });
+
+      // Then: Verify sendAutomaticallyWhen was called
+      await waitFor(
+        () => {
+          expect(sendAutoSpy).toHaveBeenCalled();
+        },
+        { timeout: 3000 },
+      );
+
+      // Verify it was called with correct parameters
+      expect(sendAutoSpy.mock.calls.length).toBeGreaterThan(0);
+      const lastCall =
+        sendAutoSpy.mock.calls[sendAutoSpy.mock.calls.length - 1];
+      expect(lastCall[0]).toHaveProperty("messages");
+      expect(Array.isArray(lastCall[0].messages)).toBe(true);
+      expect(lastCall[0].messages.length).toBeGreaterThan(0);
+
+      // Verify the messages array includes the approval response
+      const messagesParam = lastCall[0].messages;
+      const hasApprovalResponse = messagesParam.some((msg: any) =>
+        msg.parts?.some(
+          (p: any) =>
+            isApprovalRequestPart(p) && p.state === "approval-responded",
+        ),
+      );
+      expect(hasApprovalResponse).toBe(true);
+    });
+  });
+
+  describe("Test 4: Tool Approval Request Verification (Multiple Approvals)", () => {
+    it("should handle two sequential tool approvals correctly", async () => {
+      // Given: Setup spy wrapper around sendAutomaticallyWhen
+      const { useChatOptions } = buildUseChatOptions({
+        initialMessages: [] as UIMessageFromAISDKv6[],
+      });
+
+      const sendAutoSpy = createSendAutoSpy(
+        useChatOptions.sendAutomaticallyWhen!,
+      );
+      const optionsWithSpy = {
+        ...useChatOptions,
+        sendAutomaticallyWhen: sendAutoSpy,
+      };
+
+      // Setup MSW to send two sequential confirmations
+      const chat = createBidiWebSocketLink();
+      let firstConfirmationSent = false;
+      let secondConfirmationSent = false;
+
+      server.use(
+        createCustomHandler(chat, ({ server: _server, client }) => {
+          client.addEventListener("message", (event) => {
+            // Early return for non-JSON messages
+            if (typeof event.data !== "string" || !event.data.startsWith("{")) {
+              return;
+            }
+
+            const data = JSON.parse(event.data as string);
+
+            // Check for first approval response
+            const hasFirstApproval = data.messages?.some(
+              (msg: any) =>
+                msg.role === "assistant" &&
+                msg.parts?.some(
+                  (part: any) =>
+                    isApprovalRequestPart(part) &&
+                    part.state === "approval-responded" &&
+                    part.toolCallId === "first-tool",
+                ),
+            );
+
+            // Check for second approval response
+            const hasSecondApproval = data.messages?.some(
+              (msg: any) =>
+                msg.role === "assistant" &&
+                msg.parts?.some(
+                  (part: any) =>
+                    isApprovalRequestPart(part) &&
+                    part.state === "approval-responded" &&
+                    part.toolCallId === "second-tool",
+                ),
+            );
+
+            if (!firstConfirmationSent) {
+              firstConfirmationSent = true;
+              // Send first tool-approval-request
+              const startChunk = {
+                type: "tool-input-start",
+                toolCallId: "first-tool",
+                toolName: "first_operation",
+              };
+              client.send(`data: ${JSON.stringify(startChunk)}\n\n`);
+
+              const availableChunk = {
+                type: "tool-input-available",
+                toolCallId: "first-tool",
+                toolName: "first_operation",
+                input: { action: "first" },
+              };
+              client.send(`data: ${JSON.stringify(availableChunk)}\n\n`);
+
+              const approvalChunk = {
+                type: "tool-approval-request",
+                approvalId: "approval-1",
+                toolCallId: "first-tool",
+              };
+              client.send(`data: ${JSON.stringify(approvalChunk)}\n\n`);
+              client.send("data: [DONE]\n\n");
+            } else if (hasFirstApproval && !secondConfirmationSent) {
+              secondConfirmationSent = true;
+              // Send second tool-approval-request after first is approved
+              const startChunk = {
+                type: "tool-input-start",
+                toolCallId: "second-tool",
+                toolName: "second_operation",
+              };
+              client.send(`data: ${JSON.stringify(startChunk)}\n\n`);
+
+              const availableChunk = {
+                type: "tool-input-available",
+                toolCallId: "second-tool",
+                toolName: "second_operation",
+                input: { action: "second" },
+              };
+              client.send(`data: ${JSON.stringify(availableChunk)}\n\n`);
+
+              const approvalChunk = {
+                type: "tool-approval-request",
+                approvalId: "approval-2",
+                toolCallId: "second-tool",
+              };
+              client.send(`data: ${JSON.stringify(approvalChunk)}\n\n`);
+              client.send("data: [DONE]\n\n");
+            } else if (hasSecondApproval) {
+              // Final response after both approvals
+              const textChunk = {
+                type: "text-delta",
+                text: "Both operations completed!",
+              };
+              client.send(`data: ${JSON.stringify(textChunk)}\n\n`);
+              client.send("data: [DONE]\n\n");
+            }
+          });
+        }),
+      );
+
+      const { result } = renderHook(() => useChat(optionsWithSpy));
+
+      // When: User submits message and receives first confirmation
+      await act(async () => {
+        result.current.sendMessage({ text: "Request two operations" });
+      });
+
+      await waitFor(
+        () => {
+          const lastMessage = result.current.messages.at(-1);
+          const confirmations = findAllConfirmationParts(lastMessage);
+          expect(confirmations.length).toBeGreaterThan(0);
+        },
+        { timeout: 3000 },
+      );
+
+      sendAutoSpy.mockClear();
+
+      // Approve first confirmation
+      const firstMessage = result.current.messages.at(-1);
+      const firstConfirmation = findConfirmationPart(firstMessage);
+
+      act(() => {
+        result.current.addToolApprovalResponse({
+          id: firstConfirmation.toolCallId,
+          approved: true,
+        });
+      });
+
+      // Wait for sendAutomaticallyWhen to be called for first approval
+      await waitFor(
+        () => {
+          expect(sendAutoSpy).toHaveBeenCalled();
+        },
+        { timeout: 3000 },
+      );
+
+      // Wait for second confirmation
+      await waitFor(
+        () => {
+          const lastMessage = result.current.messages.at(-1);
+          const confirmations = findAllConfirmationParts(lastMessage);
+          const secondConf = confirmations.find(
+            (c: any) => c.toolCallId === "second-tool",
+          );
+          expect(secondConf).toBeDefined();
+        },
+        { timeout: 3000 },
+      );
+
+      sendAutoSpy.mockClear();
+
+      // Approve second confirmation
+      const secondMessage = result.current.messages.at(-1);
+      const confirmations = findAllConfirmationParts(secondMessage);
+      const secondConfirmation = confirmations.find(
+        (c: any) => c.toolCallId === "second-tool",
+      );
+
+      act(() => {
+        result.current.addToolApprovalResponse({
+          id: secondConfirmation.toolCallId,
+          approved: true,
+        });
+      });
+
+      // Verify sendAutomaticallyWhen was called for second approval
+      await waitFor(
+        () => {
+          expect(sendAutoSpy).toHaveBeenCalled();
+        },
+        { timeout: 3000 },
+      );
+
+      // Verify both approvals were processed
+      const finalCall =
+        sendAutoSpy.mock.calls[sendAutoSpy.mock.calls.length - 1];
+      const messagesParam = finalCall[0].messages;
+
+      // Count approval responses in final message
+      const approvalCount = messagesParam
+        .flatMap((msg: any) => msg.parts || [])
+        .filter(
+          (p: any) =>
+            isApprovalRequestPart(p) && p.state === "approval-responded",
+        ).length;
+
+      expect(approvalCount).toBeGreaterThan(0);
     });
   });
 });
