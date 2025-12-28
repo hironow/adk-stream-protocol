@@ -233,44 +233,113 @@ export function Chat({
         Skip to main content
       </a>
       {audioContext.needsUserActivation && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "rgba(0, 0, 0, 0.8)",
-            zIndex: 2000,
-          }}
-        >
-          <button
-            type="button"
-            onClick={async () => {
-              await audioContext.activate();
-            }}
-            aria-label="Enable audio features for voice and background music"
+        <>
+          {/* Subtle backdrop */}
+          <div
             style={{
-              padding: "1rem 2rem",
-              background: "#0070f3",
-              border: "none",
-              borderRadius: "8px",
-              fontSize: "1rem",
-              fontWeight: 600,
-              color: "#fff",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: "rgba(0, 0, 0, 0.3)",
+              zIndex: 999,
+              pointerEvents: "none",
+            }}
+          />
+          {/* Permission prompt banner */}
+          <div
+            role="dialog"
+            aria-labelledby="audio-permission-title"
+            aria-modal="true"
+            style={{
+              position: "fixed",
+              top: "2rem",
+              left: "50%",
+              transform: "translateX(-50%)",
+              maxWidth: "400px",
+              width: "calc(100% - 2rem)",
+              background: "#ffffff",
+              borderRadius: "12px",
+              padding: "1.5rem",
+              boxShadow:
+                "0 10px 25px rgba(0, 0, 0, 0.15), 0 4px 6px rgba(0, 0, 0, 0.1)",
+              zIndex: 1000,
             }}
           >
-            <span aria-hidden="true">🔊</span>
-            <span>Enable Audio</span>
-          </button>
-        </div>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "1rem",
+                alignItems: "center",
+                textAlign: "center",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "2rem",
+                  lineHeight: 1,
+                }}
+                aria-hidden="true"
+              >
+                🔊
+              </div>
+              <div>
+                <h2
+                  id="audio-permission-title"
+                  style={{
+                    margin: 0,
+                    fontSize: "1.125rem",
+                    fontWeight: 600,
+                    color: "#1a1a1a",
+                    marginBottom: "0.5rem",
+                  }}
+                >
+                  Enable Audio Features
+                </h2>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: "0.875rem",
+                    color: "#666",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  Voice chat and background music require your permission to
+                  play audio
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  await audioContext.activate();
+                }}
+                aria-label="Enable audio features for voice and background music"
+                style={{
+                  width: "100%",
+                  padding: "0.875rem 1.5rem",
+                  background: "#0070f3",
+                  border: "none",
+                  borderRadius: "8px",
+                  fontSize: "0.9375rem",
+                  fontWeight: 600,
+                  color: "#fff",
+                  cursor: "pointer",
+                  transition: "background 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "#0051cc";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "#0070f3";
+                }}
+              >
+                Enable Audio
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {/* BGM Switch Button (upper left) */}
