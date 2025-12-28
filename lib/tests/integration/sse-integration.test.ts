@@ -7,7 +7,6 @@
 
 import { http } from "msw";
 import { describe, expect, it } from "vitest";
-import { isApprovalRequestPart, isApprovalRespondedTool } from "@/lib/utils";
 import { buildUseChatOptions } from "../../sse";
 import type {
   UIMessageChunkFromAISDKv6,

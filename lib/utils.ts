@@ -173,27 +173,6 @@ export function isOutputErrorTool(
   return isToolUIPartFromAISDKv6(part) && part.state === "output-error";
 }
 
-/**
- * Type guard for tool with input available
- */
-export function isInputAvailableTool(
-  part: UIMessagePartFromAISDKv6,
-): part is Extract<UIMessagePartFromAISDKv6, { state: "input-available" }> {
-  return isToolUIPartFromAISDKv6(part) && part.state === "input-available";
-}
-
-/**
- * Type guard for tool approval request part
- *
- * Checks if a message part is a tool-approval-request type.
- * This is an ADK-specific extension to AI SDK v6.
- */
-export function isApprovalRequestPart(
-  part: UIMessagePartFromAISDKv6,
-): part is UIMessagePartFromAISDKv6 & { type: "tool-approval-request" } {
-  return "type" in part && part.type === "tool-approval-request";
-}
-
 // ============================================================================
 // Common Type Definitions
 // ============================================================================
@@ -205,14 +184,6 @@ export function isApprovalRequestPart(
  * Each mode uses different transport mechanisms and protocols.
  */
 export type Mode = "gemini" | "adk-sse" | "adk-bidi";
-
-/**
- * SSE-Specific Backend Modes
- *
- * Subset of Mode that only includes Server-Sent Events based transports.
- * Used for type safety in SSE transport configuration.
- */
-export type SseMode = "gemini" | "adk-sse";
 
 /**
  * Data Flow Direction

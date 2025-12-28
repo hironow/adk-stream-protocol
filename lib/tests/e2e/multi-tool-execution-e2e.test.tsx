@@ -256,7 +256,7 @@ describe("Multi-Tool Execution E2E Tests", () => {
 
       await act(async () => {
         result.current.addToolApprovalResponse({
-          id: confirmationTool1.toolCallId,
+          id: confirmationTool1.approval.id, // ← Use approval.id, NOT toolCallId!
           approved: true,
         });
       });
@@ -295,7 +295,7 @@ describe("Multi-Tool Execution E2E Tests", () => {
 
       await act(async () => {
         result.current.addToolApprovalResponse({
-          id: confirmationTool2.toolCallId,
+          id: confirmationTool2.approval.id, // ← Use approval.id, NOT toolCallId!
           approved: true,
         });
       });
@@ -525,7 +525,7 @@ describe("Multi-Tool Execution E2E Tests", () => {
 
       await act(async () => {
         result.current.addToolApprovalResponse({
-          id: tool1.toolCallId,
+          id: tool1.approval.id, // ← Use approval.id, NOT toolCallId!
           approved: true,
         });
       });
@@ -561,7 +561,7 @@ describe("Multi-Tool Execution E2E Tests", () => {
 
       await act(async () => {
         result.current.addToolApprovalResponse({
-          id: tool2.toolCallId,
+          id: tool2.approval.id, // ← Use approval.id, NOT toolCallId!
           approved: false, // Deny this one
         });
       });

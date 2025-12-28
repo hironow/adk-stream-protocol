@@ -339,6 +339,21 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
 
             const data = JSON.parse(event.data as string);
 
+            // Debug: Log all messages structure
+            console.log("[MSW Handler] Message structure:", {
+              messageCount: data.messages?.length,
+              messages: data.messages?.map((m: any) => ({
+                role: m.role,
+                id: m.id,
+                partsCount: m.parts?.length,
+                parts: m.parts?.map((p: any) => ({
+                  type: p.type,
+                  state: p.state,
+                  toolCallId: p.toolCallId,
+                })),
+              })),
+            });
+
             // Check if this is approval response
             const hasApprovalResponse = data.messages?.some(
               (msg: any) =>
@@ -358,6 +373,11 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
                     part.state === "output-available",
                 ),
             );
+
+            console.log("[MSW Handler] Detection results:", {
+              hasApprovalResponse,
+              hasToolOutput,
+            });
 
             if (hasToolOutput) {
               // Frontend sent tool-result
@@ -380,7 +400,9 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
               );
               client.send("data: [DONE]\n\n");
             } else if (hasApprovalResponse) {
-              // Wait for tool-result
+              // Approval received, send [DONE] to complete this turn
+              // Tool output will come in next message
+              client.send("data: [DONE]\n\n");
               return;
             } else {
               // Send original tool chunks first
@@ -439,8 +461,9 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
                 })}\n\n`,
               );
 
-              // Phase 12 BLOCKING: Don't send [DONE] yet - tool is awaiting approval
-              // [DONE] will be sent after final AI response (when tool output is received)
+              // Send [DONE] to complete this stream
+              // Approval response will come in a separate message
+              client.send("data: [DONE]\n\n");
             }
           });
         }),
@@ -480,7 +503,7 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
 
       await act(async () => {
         result.current.addToolApprovalResponse({
-          id: part.toolCallId,
+          id: part.approval.id, // ← Use approval.id, NOT toolCallId!
           approved: true,
         });
       });
@@ -658,7 +681,7 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
 
       await act(async () => {
         result.current.addToolApprovalResponse({
-          id: part.toolCallId,
+          id: part.approval.id, // ← Use approval.id, NOT toolCallId!
           approved: false,
         });
       });
@@ -745,6 +768,9 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
                   'data: {"type": "tool-approval-request", "toolCallId": "alice-tool-id", "approvalId": "alice-approval-id"}\n\n',
                 );
 
+                // Send [DONE] to complete Turn 1
+                client.send("data: [DONE]\n\n");
+
                 aliceApprovalReceived = true;
                 return;
               }
@@ -780,6 +806,9 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
                 client.send(
                   'data: {"type": "tool-approval-request", "toolCallId": "bob-tool-id", "approvalId": "bob-approval-id"}\n\n',
                 );
+
+                // Send [DONE] to complete Turn 2
+                client.send("data: [DONE]\n\n");
 
                 bobApprovalReceived = true;
                 return;

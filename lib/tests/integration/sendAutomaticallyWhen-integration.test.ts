@@ -64,45 +64,65 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
       expect(shouldSend).toBe(false); // MUST be false to prevent infinite loop
     });
 
-    it("CRITICAL: returns true only on FIRST confirmation completion", () => {
-      // Scenario: Two-phase tracking - User just confirmed, backend hasn't responded yet
-      // Expected: First call returns FALSE (Phase 1), Second call returns TRUE (Phase 2)
+    it("CRITICAL: detects state change from approval-requested to approval-responded", () => {
+      // AI SDK v6: When user calls addToolApprovalResponse() with correct approval.id,
+      // state changes from "approval-requested" to "approval-responded" immediately
       //
-      // AI SDK v6: Original tool stays in approval-requested state until backend responds
+      // Expected: approval-requested → false, approval-responded → true
 
-      const messagesFirstConfirmation: UIMessageFromAISDKv6[] = [
+      // when: Tool waiting for approval (state="approval-requested")
+      const messagesWaiting: UIMessageFromAISDKv6[] = [
         {
           id: "1",
           role: "assistant",
           content: "",
           parts: [
             {
-              // AI SDK v6: Original tool in approval-requested state (not approval-responded)
               type: "tool-search",
-              state: "approval-requested", // State remains approval-requested
+              state: "approval-requested", // User hasn't responded yet
               toolCallId: "orig-1",
               toolName: "search",
               input: {},
               approval: {
-                id: "approval-1", // User has responded
+                id: "approval-1", // Approval request exists, but no user response yet
               },
             },
-            // No output yet - backend hasn't responded
           ],
         } as any,
       ];
 
-      // when: First call (Phase 1 - approval event just arrived)
-      const firstCall = bidiSendAuto({ messages: messagesFirstConfirmation });
+      const firstCall = bidiSendAuto({ messages: messagesWaiting });
 
       // then: Should return false (wait for user to respond)
       expect(firstCall).toBe(false);
 
-      // when: Second call (Phase 2 - user has responded via addToolApprovalResponse)
-      const secondCall = bidiSendAuto({ messages: messagesFirstConfirmation });
+      // when: User approved (state changed to "approval-responded")
+      const messagesApproved: UIMessageFromAISDKv6[] = [
+        {
+          id: "1",
+          role: "assistant",
+          content: "",
+          parts: [
+            {
+              type: "tool-search",
+              state: "approval-responded", // ← State changed after addToolApprovalResponse
+              toolCallId: "orig-1",
+              toolName: "search",
+              input: {},
+              approval: {
+                id: "approval-1",
+                approved: true, // ← User's decision
+                reason: undefined,
+              },
+            },
+          ],
+        } as any,
+      ];
+
+      const secondCall = bidiSendAuto({ messages: messagesApproved });
 
       // then: Should return true (send approval to backend)
-      expect(secondCall).toBe(true); // OK to send once on second call
+      expect(secondCall).toBe(true);
     });
 
     it("CRITICAL: returns false when tool has error state to prevent infinite loop", () => {
@@ -211,45 +231,65 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
       expect(shouldSend).toBe(false); // MUST prevent infinite loop
     });
 
-    it("CRITICAL: returns true only on FIRST confirmation completion", () => {
-      // Scenario: Two-phase tracking - User just confirmed, backend hasn't responded yet
-      // Expected: First call returns FALSE (Phase 1), Second call returns TRUE (Phase 2)
+    it("CRITICAL: detects state change from approval-requested to approval-responded", () => {
+      // AI SDK v6: When user calls addToolApprovalResponse() with correct approval.id,
+      // state changes from "approval-requested" to "approval-responded" immediately
       //
-      // AI SDK v6: Original tool stays in approval-requested state until backend responds
+      // Expected: approval-requested → false, approval-responded → true
 
-      const messagesFirstConfirmation: UIMessageFromAISDKv6[] = [
+      // when: Tool waiting for approval (state="approval-requested")
+      const messagesWaiting: UIMessageFromAISDKv6[] = [
         {
           id: "1",
           role: "assistant",
           content: "",
           parts: [
             {
-              // AI SDK v6: Original tool in approval-requested state (not approval-responded)
               type: "tool-delete_file",
-              state: "approval-requested", // State remains approval-requested
+              state: "approval-requested", // User hasn't responded yet
               toolCallId: "orig-1",
               toolName: "delete_file",
               input: {},
               approval: {
-                id: "approval-1", // User has responded
+                id: "approval-1", // Approval request exists, but no user response yet
               },
             },
-            // No output yet - backend hasn't responded
           ],
         } as any,
       ];
 
-      // when: First call (Phase 1 - approval event just arrived)
-      const firstCall = sseSendAuto({ messages: messagesFirstConfirmation });
+      const firstCall = sseSendAuto({ messages: messagesWaiting });
 
       // then: Should return false (wait for user to respond)
       expect(firstCall).toBe(false);
 
-      // when: Second call (Phase 2 - user has responded via addToolApprovalResponse)
-      const secondCall = sseSendAuto({ messages: messagesFirstConfirmation });
+      // when: User approved (state changed to "approval-responded")
+      const messagesApproved: UIMessageFromAISDKv6[] = [
+        {
+          id: "1",
+          role: "assistant",
+          content: "",
+          parts: [
+            {
+              type: "tool-delete_file",
+              state: "approval-responded", // ← State changed after addToolApprovalResponse
+              toolCallId: "orig-1",
+              toolName: "delete_file",
+              input: {},
+              approval: {
+                id: "approval-1",
+                approved: true, // ← User's decision
+                reason: undefined,
+              },
+            },
+          ],
+        } as any,
+      ];
+
+      const secondCall = sseSendAuto({ messages: messagesApproved });
 
       // then: Should return true (send approval to backend)
-      expect(secondCall).toBe(true); // OK to send once on second call
+      expect(secondCall).toBe(true);
     });
 
     it("CRITICAL: returns false when tool has error state", () => {
@@ -298,25 +338,21 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
   describe("Multiple Tools in Single Message", () => {
     describe("SSE Mode - Multiple Approvals", () => {
       it("returns true when ALL tools are approved (parallel approvals)", () => {
-        // Scenario: User approved ALL 2 tools in single message
-        // Expected: First call FALSE (Phase 1), Second call TRUE (Phase 2)
+        // AI SDK v6: When user calls addToolApprovalResponse() with correct approval.id,
+        // state changes from "approval-requested" to "approval-responded" immediately
         //
-        // AI SDK v6: Tools stay in approval-requested state with approval object until backend responds
-        // - Backend sends 2 tool-approval-requests
-        // - User approves both (approval objects added)
-        // - Both tools still in approval-requested state
-        // - Use two-phase tracking
+        // Expected: ALL tools in approval-responded → true
 
-        const messagesWithAllApproved: UIMessageFromAISDKv6[] = [
+        // when: Both tools waiting for approval (state="approval-requested")
+        const messagesWaiting: UIMessageFromAISDKv6[] = [
           {
             id: "1",
             role: "assistant",
             content: "",
             parts: [
               {
-                // First tool: approved (AI SDK v6: state stays approval-requested)
                 type: "tool-process_payment",
-                state: "approval-requested",
+                state: "approval-requested", // User hasn't responded yet
                 toolCallId: "payment-1",
                 toolName: "process_payment",
                 input: { recipient: "Alice", amount: 30 },
@@ -325,9 +361,8 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
                 },
               },
               {
-                // Second tool: approved (AI SDK v6: state stays approval-requested)
                 type: "tool-process_payment",
-                state: "approval-requested",
+                state: "approval-requested", // User hasn't responded yet
                 toolCallId: "payment-2",
                 toolName: "process_payment",
                 input: { recipient: "Bob", amount: 40 },
@@ -339,14 +374,47 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
           } as any,
         ];
 
-        // when: First call (Phase 1)
-        const firstCall = sseSendAuto({ messages: messagesWithAllApproved });
+        const firstCall = sseSendAuto({ messages: messagesWaiting });
 
-        // then: Should return false (event just arrived)
+        // then: Should return false (both still waiting)
         expect(firstCall).toBe(false);
 
-        // when: Second call (Phase 2)
-        const secondCall = sseSendAuto({ messages: messagesWithAllApproved });
+        // when: Both tools approved (both states changed to "approval-responded")
+        const messagesAllApproved: UIMessageFromAISDKv6[] = [
+          {
+            id: "1",
+            role: "assistant",
+            content: "",
+            parts: [
+              {
+                type: "tool-process_payment",
+                state: "approval-responded", // ← State changed
+                toolCallId: "payment-1",
+                toolName: "process_payment",
+                input: { recipient: "Alice", amount: 30 },
+                approval: {
+                  id: "approval-1",
+                  approved: true,
+                  reason: undefined,
+                },
+              },
+              {
+                type: "tool-process_payment",
+                state: "approval-responded", // ← State changed
+                toolCallId: "payment-2",
+                toolName: "process_payment",
+                input: { recipient: "Bob", amount: 40 },
+                approval: {
+                  id: "approval-2",
+                  approved: true,
+                  reason: undefined,
+                },
+              },
+            ],
+          } as any,
+        ];
+
+        const secondCall = sseSendAuto({ messages: messagesAllApproved });
 
         // then: Should return true (send both approvals to backend)
         expect(secondCall).toBe(true);
@@ -458,14 +526,16 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
 
     describe("BIDI Mode - Multiple Approvals", () => {
       it("returns true when ALL tools are approved (parallel approvals)", () => {
-        // BIDI mode: Same as SSE for parallel approvals with two-phase tracking
-        // Expected: First call FALSE (Phase 1), Second call TRUE (Phase 2)
+        // BIDI mode: Same as SSE - state changes from "approval-requested" to "approval-responded"
         //
-        // AI SDK v6: Tools stay in approval-requested state with approval object until backend responds
+        // AI SDK v6: When user calls addToolApprovalResponse() with correct approval.id,
+        // state changes immediately
+        //
         // Note: BIDI typically uses sequential execution (ADR 0003),
         // but this tests the parallel case if it occurs
 
-        const messagesWithAllApproved: UIMessageFromAISDKv6[] = [
+        // when: Both tools waiting for approval
+        const messagesWaiting: UIMessageFromAISDKv6[] = [
           {
             id: "1",
             role: "assistant",
@@ -473,7 +543,7 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
             parts: [
               {
                 type: "tool-process_payment",
-                state: "approval-requested",
+                state: "approval-requested", // User hasn't responded yet
                 toolCallId: "payment-1",
                 toolName: "process_payment",
                 input: { recipient: "Alice", amount: 30 },
@@ -483,7 +553,7 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
               },
               {
                 type: "tool-process_payment",
-                state: "approval-requested",
+                state: "approval-requested", // User hasn't responded yet
                 toolCallId: "payment-2",
                 toolName: "process_payment",
                 input: { recipient: "Bob", amount: 40 },
@@ -495,14 +565,47 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
           } as any,
         ];
 
-        // when: First call (Phase 1)
-        const firstCall = bidiSendAuto({ messages: messagesWithAllApproved });
+        const firstCall = bidiSendAuto({ messages: messagesWaiting });
 
-        // then: Should return false (event just arrived)
+        // then: Should return false (both still waiting)
         expect(firstCall).toBe(false);
 
-        // when: Second call (Phase 2)
-        const secondCall = bidiSendAuto({ messages: messagesWithAllApproved });
+        // when: Both tools approved (both states changed to "approval-responded")
+        const messagesAllApproved: UIMessageFromAISDKv6[] = [
+          {
+            id: "1",
+            role: "assistant",
+            content: "",
+            parts: [
+              {
+                type: "tool-process_payment",
+                state: "approval-responded", // ← State changed
+                toolCallId: "payment-1",
+                toolName: "process_payment",
+                input: { recipient: "Alice", amount: 30 },
+                approval: {
+                  id: "approval-1",
+                  approved: true,
+                  reason: undefined,
+                },
+              },
+              {
+                type: "tool-process_payment",
+                state: "approval-responded", // ← State changed
+                toolCallId: "payment-2",
+                toolName: "process_payment",
+                input: { recipient: "Bob", amount: 40 },
+                approval: {
+                  id: "approval-2",
+                  approved: true,
+                  reason: undefined,
+                },
+              },
+            ],
+          } as any,
+        ];
+
+        const secondCall = bidiSendAuto({ messages: messagesAllApproved });
 
         // then: Should return true (send both approvals)
         expect(secondCall).toBe(true);
@@ -640,8 +743,8 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
 
       expect(bidiSendAuto({ messages: turn1AfterResponse })).toBe(false);
 
-      // Turn 2: New confirmation request (AI SDK v6: state stays approval-requested)
-      const turn2FirstConfirmation: UIMessageFromAISDKv6[] = [
+      // Turn 2: New confirmation request - waiting for user approval
+      const turn2Waiting: UIMessageFromAISDKv6[] = [
         ...turn1AfterResponse,
         {
           id: "msg-3",
@@ -654,9 +757,8 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
           content: "",
           parts: [
             {
-              // AI SDK v6: Original delete_file tool stays in approval-requested
               type: "tool-delete_file",
-              state: "approval-requested",
+              state: "approval-requested", // User hasn't responded yet
               toolCallId: "orig-2",
               toolName: "delete_file",
               input: {},
@@ -664,14 +766,44 @@ describe("sendAutomaticallyWhen - Infinite Loop Prevention", () => {
                 id: "approval-2",
               },
             },
-            // No backend response yet
           ],
         } as any,
       ];
 
-      // Two-phase tracking: first call returns false, second call returns true
-      expect(bidiSendAuto({ messages: turn2FirstConfirmation })).toBe(false);
-      expect(bidiSendAuto({ messages: turn2FirstConfirmation })).toBe(true);
+      // Should return false (waiting for user approval)
+      expect(bidiSendAuto({ messages: turn2Waiting })).toBe(false);
+
+      // Turn 2: User approved (state changed to approval-responded)
+      const turn2Approved: UIMessageFromAISDKv6[] = [
+        ...turn1AfterResponse,
+        {
+          id: "msg-3",
+          role: "user",
+          content: "Delete the file",
+        },
+        {
+          id: "msg-4",
+          role: "assistant",
+          content: "",
+          parts: [
+            {
+              type: "tool-delete_file",
+              state: "approval-responded", // ← State changed
+              toolCallId: "orig-2",
+              toolName: "delete_file",
+              input: {},
+              approval: {
+                id: "approval-2",
+                approved: true,
+                reason: undefined,
+              },
+            },
+          ],
+        } as any,
+      ];
+
+      // Should return true (send approval to backend)
+      expect(bidiSendAuto({ messages: turn2Approved })).toBe(true);
 
       // Turn 2: After backend responds
       const turn2AfterResponse: UIMessageFromAISDKv6[] = [

@@ -193,9 +193,11 @@ describe("useChat Integration", () => {
         adkBackendUrl: "http://localhost:8000",
       });
 
-      // AI SDK v6: Original tool stays in approval-requested state with approval object
-      // Uses two-phase tracking to distinguish event arrival from user response
-      const messagesAfterApproval: UIMessageFromAISDKv6[] = [
+      // AI SDK v6: State changes from "approval-requested" to "approval-responded"
+      // when user calls addToolApprovalResponse() with correct approval.id
+
+      // when: Tool waiting for approval
+      const messagesWaiting: UIMessageFromAISDKv6[] = [
         {
           id: "msg-1",
           role: "user" as const,
@@ -206,33 +208,56 @@ describe("useChat Integration", () => {
           role: "assistant" as const,
           parts: [
             {
-              // AI SDK v6: Original tool type, not adk_request_confirmation
               type: "tool-web_search" as any,
-              state: "approval-requested" as any, // Stays in this state
+              state: "approval-requested" as any, // User hasn't responded yet
               toolCallId: "orig-1",
               toolName: "web_search",
               input: { query: "latest AI news" },
               approval: {
-                id: "approval-1", // User has responded
+                id: "approval-1",
               },
             },
           ],
         },
       ];
 
-      // When: Call sendAutomaticallyWhen - two-phase tracking
       const sendAutomaticallyWhen =
         options.useChatOptions.sendAutomaticallyWhen!;
 
-      // Phase 1: Event just arrived
       const firstCall = sendAutomaticallyWhen({
-        messages: messagesAfterApproval,
+        messages: messagesWaiting,
       });
       expect(firstCall).toBe(false);
 
-      // Phase 2: User has responded
+      // when: User approved (state changed to approval-responded)
+      const messagesApproved: UIMessageFromAISDKv6[] = [
+        {
+          id: "msg-1",
+          role: "user" as const,
+          parts: [{ type: "text" as const, text: "Search for latest AI news" }],
+        },
+        {
+          id: "msg-2",
+          role: "assistant" as const,
+          parts: [
+            {
+              type: "tool-web_search" as any,
+              state: "approval-responded" as any, // ← State changed
+              toolCallId: "orig-1",
+              toolName: "web_search",
+              input: { query: "latest AI news" },
+              approval: {
+                id: "approval-1",
+                approved: true,
+                reason: undefined,
+              },
+            },
+          ],
+        },
+      ];
+
       const secondCall = sendAutomaticallyWhen({
-        messages: messagesAfterApproval,
+        messages: messagesApproved,
       });
       expect(secondCall).toBe(true);
 
@@ -331,11 +356,12 @@ describe("useChat Integration", () => {
       const sendAutomaticallyWhen =
         options.useChatOptions.sendAutomaticallyWhen!;
 
-      // Scenario 1: Only approval completed - two-phase tracking
-      // AI SDK v6: Original tool in approval-requested state with approval object
-      const messagesAfterApprovalOnly: UIMessageFromAISDKv6[] = [
+      // Scenario 1: Approval completed - state changes from approval-requested to approval-responded
+      // AI SDK v6: State changes when user calls addToolApprovalResponse() with correct approval.id
+
+      const messagesWaiting: UIMessageFromAISDKv6[] = [
         {
-          id: "msg-3", // Different ID to avoid state pollution
+          id: "msg-3",
           role: "user" as const,
           parts: [{ type: "text" as const, text: "Get my location" }],
         },
@@ -345,7 +371,7 @@ describe("useChat Integration", () => {
           parts: [
             {
               type: "tool-get_location" as any,
-              state: "approval-requested" as any,
+              state: "approval-requested" as any, // User hasn't responded yet
               toolCallId: "orig-3",
               toolName: "get_location",
               input: {},
@@ -355,15 +381,39 @@ describe("useChat Integration", () => {
         },
       ];
 
-      // Phase 1: Event just arrived
       const firstCall = sendAutomaticallyWhen({
-        messages: messagesAfterApprovalOnly,
+        messages: messagesWaiting,
       });
       expect(firstCall).toBe(false);
 
-      // Phase 2: User has responded
+      const messagesApproved: UIMessageFromAISDKv6[] = [
+        {
+          id: "msg-3",
+          role: "user" as const,
+          parts: [{ type: "text" as const, text: "Get my location" }],
+        },
+        {
+          id: "msg-4",
+          role: "assistant" as const,
+          parts: [
+            {
+              type: "tool-get_location" as any,
+              state: "approval-responded" as any, // ← State changed
+              toolCallId: "orig-3",
+              toolName: "get_location",
+              input: {},
+              approval: {
+                id: "approval-3",
+                approved: true,
+                reason: undefined,
+              },
+            },
+          ],
+        },
+      ];
+
       const secondCall = sendAutomaticallyWhen({
-        messages: messagesAfterApprovalOnly,
+        messages: messagesApproved,
       });
       expect(secondCall).toBe(true);
 
@@ -492,11 +542,13 @@ describe("useChat Integration", () => {
       const sendAutomaticallyWhen =
         options.useChatOptions.sendAutomaticallyWhen!;
 
-      // AI SDK v6: Denial works same as approval - approval object added, two-phase tracking
-      // The actual approval/denial decision is sent via addToolApprovalResponse
-      const messagesAfterDenial: UIMessageFromAISDKv6[] = [
+      // AI SDK v6: Denial works same as approval - state changes from approval-requested to approval-responded
+      // The actual approval/denial decision (approved: false) is included in the approval object
+
+      // when: Tool waiting for approval
+      const messagesWaiting: UIMessageFromAISDKv6[] = [
         {
-          id: "msg-7", // Different ID to avoid state pollution
+          id: "msg-7",
           role: "user" as const,
           parts: [{ type: "text" as const, text: "Change BGM" }],
         },
@@ -505,30 +557,53 @@ describe("useChat Integration", () => {
           role: "assistant" as const,
           parts: [
             {
-              // AI SDK v6: Original tool type, not tool-adk_request_confirmation
               type: "tool-change_bgm" as any,
-              state: "approval-requested" as any, // Stays in this state
+              state: "approval-requested" as any, // User hasn't responded yet
               toolCallId: "orig-5",
               toolName: "change_bgm",
               input: { track_name: "lofi" },
               approval: {
-                id: "approval-5", // User has responded with denial
-                // Note: approved/denied decision is in the message sent via addToolApprovalResponse
+                id: "approval-5",
               },
             },
           ],
         },
       ];
 
-      // Phase 1: Event just arrived
       const firstCall = sendAutomaticallyWhen({
-        messages: messagesAfterDenial,
+        messages: messagesWaiting,
       });
       expect(firstCall).toBe(false);
 
-      // Phase 2: User has responded with denial
+      // when: User denied (state changed to approval-responded with approved: false)
+      const messagesDenied: UIMessageFromAISDKv6[] = [
+        {
+          id: "msg-7",
+          role: "user" as const,
+          parts: [{ type: "text" as const, text: "Change BGM" }],
+        },
+        {
+          id: "msg-8",
+          role: "assistant" as const,
+          parts: [
+            {
+              type: "tool-change_bgm" as any,
+              state: "approval-responded" as any, // ← State changed
+              toolCallId: "orig-5",
+              toolName: "change_bgm",
+              input: { track_name: "lofi" },
+              approval: {
+                id: "approval-5",
+                approved: false, // ← User denied
+                reason: undefined,
+              },
+            },
+          ],
+        },
+      ];
+
       const secondCall = sendAutomaticallyWhen({
-        messages: messagesAfterDenial,
+        messages: messagesDenied,
       });
       expect(secondCall).toBe(true);
 

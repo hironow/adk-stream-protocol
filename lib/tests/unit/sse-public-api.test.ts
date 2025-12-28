@@ -235,9 +235,12 @@ describe("lib/sse Public API", () => {
       expect(result).toBe(false);
     });
 
-    it("implements two-phase approval tracking (Phase 1 → false, Phase 2 → true)", () => {
-      // given: Message with tool approval request (approval object exists)
-      const messages = [
+    it("detects state change from approval-requested to approval-responded", () => {
+      // AI SDK v6: When user calls addToolApprovalResponse() with correct approval.id,
+      // state changes from "approval-requested" to "approval-responded" immediately
+
+      // given: Message with tool approval request (state="approval-requested")
+      const messagesWaiting = [
         {
           id: "msg-1",
           role: "assistant",
@@ -247,20 +250,41 @@ describe("lib/sse Public API", () => {
               state: "approval-requested",
               toolCallId: "tool-1",
               input: { query: "test" },
-              approval: { id: "approval-1" },
+              approval: { id: "approval-1" }, // User hasn't responded yet
             },
           ],
         },
       ] as any;
 
-      // when: First call (Phase 1 - event just arrived)
-      const firstResult = sendAutomaticallyWhen({ messages });
+      // when: User hasn't approved yet
+      const firstResult = sendAutomaticallyWhen({ messages: messagesWaiting });
 
       // then: Should return false (wait for user to respond)
       expect(firstResult).toBe(false);
 
-      // when: Second call (Phase 2 - user has responded)
-      const secondResult = sendAutomaticallyWhen({ messages });
+      // given: Message after user approval (state changed to "approval-responded")
+      const messagesApproved = [
+        {
+          id: "msg-1",
+          role: "assistant",
+          parts: [
+            {
+              type: "tool-search",
+              state: "approval-responded", // ← State changed after addToolApprovalResponse
+              toolCallId: "tool-1",
+              input: { query: "test" },
+              approval: {
+                id: "approval-1",
+                approved: true, // ← User's decision
+                reason: undefined,
+              },
+            },
+          ],
+        },
+      ] as any;
+
+      // when: User has approved (state is now approval-responded)
+      const secondResult = sendAutomaticallyWhen({ messages: messagesApproved });
 
       // then: Should return true (send approval to backend)
       expect(secondResult).toBe(true);

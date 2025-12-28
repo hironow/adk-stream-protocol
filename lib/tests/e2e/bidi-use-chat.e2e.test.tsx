@@ -20,7 +20,6 @@ import { buildUseChatOptions } from "../../bidi";
 import type { UIMessageFromAISDKv6 } from "../../utils";
 import {
   isApprovalRequestedTool,
-  isApprovalRequestPart,
   isToolUIPartFromAISDKv6,
 } from "../../utils";
 import {
@@ -104,11 +103,9 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
       });
 
       // When: User approves the confirmation
-      const toolCallId = confirmationPart.toolCallId;
-
       await act(async () => {
         result.current.addToolApprovalResponse({
-          id: toolCallId,
+          id: confirmationPart.approval.id, // ← Use approval.id, NOT toolCallId!
           approved: true,
         });
       });
@@ -140,7 +137,7 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
             result.current.messages[result.current.messages.length - 1];
           const outputPart = (lastMessage as any).parts?.find(
             (part: any) =>
-              part.toolCallId === toolCallId &&
+              part.toolCallId === confirmationPart.toolCallId &&
               part.state === "output-available",
           );
           expect(outputPart).toBeDefined();
@@ -382,7 +379,7 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
 
       act(() => {
         result.current.addToolApprovalResponse({
-          id: firstConfirmationPart.toolCallId,
+          id: firstConfirmationPart.approval.id, // ← Use approval.id, NOT toolCallId!
           approved: true,
         });
       });
@@ -412,7 +409,7 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
 
       act(() => {
         result.current.addToolApprovalResponse({
-          id: secondConfirmationPart.toolCallId,
+          id: secondConfirmationPart.approval.id, // ← Use approval.id, NOT toolCallId!
           approved: true,
         });
       });
@@ -578,7 +575,7 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
           isApprovalRequestedTool(part),
         );
         result.current.addToolApprovalResponse({
-          id: confirmationPart.toolCallId,
+          id: confirmationPart.approval.id, // ← Use approval.id, NOT toolCallId!
           approved: true,
         });
       });
@@ -729,7 +726,7 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
           isApprovalRequestedTool(part),
         );
         result.current.addToolApprovalResponse({
-          id: confirmationPart.toolCallId,
+          id: confirmationPart.approval.id, // ← Use approval.id, NOT toolCallId!
           approved: false, // ← Denial
           reason: "User rejected the dangerous operation",
         });
@@ -808,7 +805,7 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
 
       act(() => {
         result.current.addToolApprovalResponse({
-          id: confirmationPart.toolCallId,
+          id: confirmationPart.approval.id, // ← Use approval.id, NOT toolCallId!
           approved: true,
         });
       });
@@ -836,7 +833,7 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
         msg.parts?.some(
           (p: any) =>
             isToolUIPartFromAISDKv6(p) &&
-            p.state === "approval-requested" &&
+            p.state === "approval-responded" &&
             p.approval !== undefined,
         ),
       );
@@ -983,7 +980,7 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
 
       act(() => {
         result.current.addToolApprovalResponse({
-          id: firstConfirmation.toolCallId,
+          id: firstConfirmation.approval.id, // ← Use approval.id, NOT toolCallId!
           approved: true,
         });
       });
@@ -1020,7 +1017,7 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
 
       act(() => {
         result.current.addToolApprovalResponse({
-          id: secondConfirmation.toolCallId,
+          id: secondConfirmation.approval.id, // ← Use approval.id, NOT toolCallId!
           approved: true,
         });
       });
@@ -1045,7 +1042,7 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
         .filter(
           (p: any) =>
             isToolUIPartFromAISDKv6(p) &&
-            p.state === "approval-requested" &&
+            p.state === "approval-responded" &&
             p.approval !== undefined,
         ).length;
 

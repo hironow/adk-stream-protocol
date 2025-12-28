@@ -21,7 +21,6 @@ import { buildUseChatOptions } from "../../sse";
 import type { UIMessageFromAISDKv6 } from "../../utils";
 import {
   isApprovalRequestedTool,
-  isApprovalRequestPart,
   isApprovalRespondedTool,
   isTextUIPartFromAISDKv6,
 } from "../../utils";
