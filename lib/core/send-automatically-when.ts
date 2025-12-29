@@ -61,7 +61,9 @@ export function sendAutomaticallyWhenCore(
     parts.forEach((part: any, index: number) => {
       const partType = part.type || "unknown";
       const partState = part.state || "n/a";
-      log(`  Part ${index}: type=${partType}, state=${partState}`);
+      const isToolPart = isToolUIPartFromAISDKv6(part);
+      const partKeys = Object.keys(part).join(",");
+      log(`  Part ${index}: type=${partType}, state=${partState}, isToolPart=${isToolPart}, keys=${partKeys}`);
     });
 
     // ========================================================================
@@ -109,7 +111,39 @@ export function sendAutomaticallyWhenCore(
     }
 
     // ========================================================================
-    // Check 2: User approved any tool? (state = approval-responded)
+    // Check 2: Frontend Execute - Tool output added? (PRIORITY 1)
+    // ========================================================================
+    // Frontend called addToolOutput() → state="output-available" + output set
+    // This is NEW DATA that must be sent to backend.
+    // MUST check BEFORE approval checks to handle Frontend Execute pattern.
+    // IMPORTANT: If text part exists, backend already responded, don't send!
+    const hasToolOutputFromAddToolOutput = parts.some(
+      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+      (part: any) => isOutputAvailableTool(part) && part.output !== undefined,
+    );
+
+    if (hasToolOutputFromAddToolOutput) {
+      // Check if backend already responded with text
+      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+      const hasTextPartInMessage = parts.some((part: any) =>
+        isTextUIPartFromAISDKv6(part),
+      );
+
+      if (hasTextPartInMessage) {
+        log(
+          "Tool output exists but backend already responded with text, returning false",
+        );
+        return false;
+      }
+
+      log(
+        "Tool output from addToolOutput() detected (no backend response yet), returning true",
+      );
+      return true;
+    }
+
+    // ========================================================================
+    // Check 3: User approved any tool? (state = approval-responded)
     // ========================================================================
     // AI SDK v6: addToolApprovalResponse() changes state from
     // "approval-requested" → "approval-responded"
@@ -124,7 +158,7 @@ export function sendAutomaticallyWhenCore(
     log("Has approved tool (approval-responded state)");
 
     // ========================================================================
-    // Check 3: Any tool still waiting for approval? (state = approval-requested)
+    // Check 4: Any tool still waiting for approval? (state = approval-requested)
     // ========================================================================
     // Multiple tools can be pending approval in same message.
     // Wait for user to approve ALL before sending.
@@ -135,22 +169,6 @@ export function sendAutomaticallyWhenCore(
         "Has pending approval (still in approval-requested state), returning false",
       );
       return false;
-    }
-
-    // ========================================================================
-    // Check 4: Frontend Execute - Tool output added? (PRIORITY 1)
-    // ========================================================================
-    // Frontend called addToolOutput() → state="output-available" + output set
-    // This is NEW DATA that must be sent to backend.
-    // MUST check BEFORE infinite loop prevention to allow tool output sends.
-    const hasToolOutputFromAddToolOutput = parts.some(
-      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
-      (part: any) => isOutputAvailableTool(part) && part.output !== undefined,
-    );
-
-    if (hasToolOutputFromAddToolOutput) {
-      log("Tool output from addToolOutput() detected, returning true");
-      return true;
     }
 
     // ========================================================================
