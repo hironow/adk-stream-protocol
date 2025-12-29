@@ -205,6 +205,36 @@ export class EventReceiver {
       return;
     }
 
+    // BIDI BLOCKING Pattern: Send [DONE] after approval request to enable sendAutomaticallyWhen
+    // AI SDK v6 only calls sendAutomaticallyWhen when status != "streaming"
+    // After receiving approval-request, close stream so user's approval can trigger auto-send
+    if ((chunk as UIMessageChunkFromAISDKv6).type === "tool-approval-request") {
+      console.log(
+        "[Event Receiver] Enqueuing approval request, then sending [DONE] to end stream",
+      );
+      controller.enqueue(chunk as UIMessageChunkFromAISDKv6);
+
+      // Send finish chunk to close the stream (but keep WebSocket open for next request)
+      const finishChunk: UIMessageChunkFromAISDKv6 = {
+        type: "finish",
+      };
+      controller.enqueue(finishChunk);
+
+      // Close controller to set status != "streaming"
+      // Note: This closes the stream but NOT the WebSocket connection
+      try {
+        controller.close();
+      } catch (err) {
+        console.warn("[Event Receiver] Controller already closed:", err);
+      }
+
+      // CRITICAL: Mark stream as done so transport creates new controller for approval response
+      // Without this flag, transport reuses the closed controller and backend responses are lost
+      this.doneReceived = true;
+
+      return; // Skip normal enqueue since we already enqueued
+    }
+
     // Special handling for finish event with audio: inject recorded audio BEFORE finish
     if (
       chunk.type === "finish" &&

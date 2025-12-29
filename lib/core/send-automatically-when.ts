@@ -57,32 +57,55 @@ export function sendAutomaticallyWhenCore(
     const parts = (lastMessage as any).parts || [];
     log(`Checking parts: ${parts.length}`);
 
+    // Debug: Log each part's type
+    parts.forEach((part: any, index: number) => {
+      const partType = part.type || "unknown";
+      const partState = part.state || "n/a";
+      log(`  Part ${index}: type=${partType}, state=${partState}`);
+    });
+
     // ========================================================================
     // Check 1: Backend already responded with text? (HIGHEST PRIORITY)
     // ========================================================================
-    // If backend sent AI response text, don't auto-send again.
-    // This prevents infinite loops where completed tools trigger repeated sends.
-    const hasTextPart = parts.some(
+    // EXCEPTION: If approval workflow is in progress, allow sending regardless of text parts
+    // This handles BLOCKING pattern where backend sends reasoning/text before approval
+
+    // First, check if approval workflow is active
+    const hasApprovedTool = parts.some(
       // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
-      (part: any) => isTextUIPartFromAISDKv6(part),
+      (part: any) => isApprovalRespondedTool(part),
+    );
+    const hasPendingApproval = parts.some(
+      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+      (part: any) => isApprovalRequestedTool(part),
     );
 
-    if (hasTextPart) {
-      log("Has text part, returning false");
-
-      // Cleanup: Clear approval tracking for this message
-      const messageId = (lastMessage as any).id || "unknown";
-      const keysToDelete = Array.from(sentApprovalStates).filter((key) =>
-        key.startsWith(`${messageId}:`),
+    // Only check text part if NO approval workflow is active
+    if (!hasApprovedTool && !hasPendingApproval) {
+      const hasTextPart = parts.some(
+        // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+        (part: any) => isTextUIPartFromAISDKv6(part),
       );
-      for (const key of keysToDelete) {
-        sentApprovalStates.delete(key);
-      }
-      if (keysToDelete.length > 0) {
-        log(`Cleared approval states: ${keysToDelete.join(", ")}`);
-      }
 
-      return false;
+      if (hasTextPart) {
+        log("Has text part (no approval workflow), returning false");
+
+        // Cleanup: Clear approval tracking for this message
+        const messageId = (lastMessage as any).id || "unknown";
+        const keysToDelete = Array.from(sentApprovalStates).filter((key) =>
+          key.startsWith(`${messageId}:`),
+        );
+        for (const key of keysToDelete) {
+          sentApprovalStates.delete(key);
+        }
+        if (keysToDelete.length > 0) {
+          log(`Cleared approval states: ${keysToDelete.join(", ")}`);
+        }
+
+        return false;
+      }
+    } else {
+      log(`Approval workflow active (approved=${hasApprovedTool}, pending=${hasPendingApproval}), allowing send despite text parts`);
     }
 
     // ========================================================================
@@ -90,10 +113,7 @@ export function sendAutomaticallyWhenCore(
     // ========================================================================
     // AI SDK v6: addToolApprovalResponse() changes state from
     // "approval-requested" → "approval-responded"
-    const hasApprovedTool = parts.some(
-      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
-      (part: any) => isApprovalRespondedTool(part),
-    );
+    // NOTE: hasApprovedTool already computed above
 
     if (!hasApprovedTool) {
       log(
@@ -108,10 +128,7 @@ export function sendAutomaticallyWhenCore(
     // ========================================================================
     // Multiple tools can be pending approval in same message.
     // Wait for user to approve ALL before sending.
-    const hasPendingApproval = parts.some(
-      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
-      (part: any) => isApprovalRequestedTool(part),
-    );
+    // NOTE: hasPendingApproval already computed in Check 1
 
     if (hasPendingApproval) {
       log(

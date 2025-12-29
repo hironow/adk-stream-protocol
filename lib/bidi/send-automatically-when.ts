@@ -19,7 +19,10 @@ export type { SendAutomaticallyWhenOptions };
 export function sendAutomaticallyWhen(
   options: SendAutomaticallyWhenOptions,
 ): boolean {
-  return sendAutomaticallyWhenCore(options, (message) =>
-    console.log(`[sendAutomaticallyWhen] ${message}`),
+  console.log("[BIDI sendAutomaticallyWhen] ═══ FUNCTION CALLED ═══");
+  const result = sendAutomaticallyWhenCore(options, (message) =>
+    console.log(`[BIDI sendAutomaticallyWhen] ${message}`),
   );
+  console.log(`[BIDI sendAutomaticallyWhen] Returning: ${result}`);
+  return result;
 }
