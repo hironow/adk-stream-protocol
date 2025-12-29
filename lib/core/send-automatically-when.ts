@@ -116,14 +116,15 @@ export function sendAutomaticallyWhenCore(
     // Frontend called addToolOutput() → state="output-available" + output set
     // This is NEW DATA that must be sent to backend.
     // MUST check BEFORE approval checks to handle Frontend Execute pattern.
-    // IMPORTANT: If text part exists, backend already responded, don't send!
+    // IMPORTANT: Only exclusion case where we should NOT auto-send:
+    // - Backend already responded with text part (conversation complete)
     const hasToolOutputFromAddToolOutput = parts.some(
       // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
       (part: any) => isOutputAvailableTool(part) && part.output !== undefined,
     );
 
     if (hasToolOutputFromAddToolOutput) {
-      // Check if backend already responded with text
+      // Check if backend already responded with text (conversation complete)
       // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
       const hasTextPartInMessage = parts.some((part: any) =>
         isTextUIPartFromAISDKv6(part),
@@ -136,10 +137,54 @@ export function sendAutomaticallyWhenCore(
         return false;
       }
 
-      log(
-        "Tool output from addToolOutput() detected (no backend response yet), returning true",
-      );
-      return true;
+      // If approval workflow is active, check if this is Frontend Execute pattern
+      if (hasApprovedTool || hasPendingApproval) {
+        // Check if output and approval are for the SAME tool (Frontend Execute pattern)
+        // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+        const outputToolIds = new Set(
+          parts
+            .filter(
+              (p: any) => isOutputAvailableTool(p) && p.output !== undefined,
+            )
+            .map((p: any) => p.toolCallId),
+        );
+
+        if (hasApprovedTool) {
+          // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+          const approvalToolIds = new Set(
+            parts
+              .filter((p: any) => isApprovalRespondedTool(p))
+              .map((p: any) => p.toolCallId),
+          );
+
+          // Check if any output toolId matches any approval toolId
+          const hasSameToolId = [...outputToolIds].some((id) =>
+            approvalToolIds.has(id),
+          );
+
+          if (hasSameToolId) {
+            // Same tool: Frontend Execute (single tool) → auto-send
+            log(
+              "Tool output and approval for SAME tool detected (Frontend Execute), returning true",
+            );
+            return true;
+          }
+        }
+
+        // Different cases: defer to approval checks
+        // - If pending approval exists: output is old data (backend returned), approval is new
+        // - If approved tool exists but different ID: Multiple Sequential pattern
+        log(
+          `Tool output exists but approval workflow active (approved=${hasApprovedTool}, pending=${hasPendingApproval}), deferring to approval checks`,
+        );
+        // Fall through to Check 3/4
+      } else {
+        // No approval workflow: Pure Frontend Execute (e.g., camera, location without confirmation)
+        log(
+          "Tool output from addToolOutput() detected (no approval workflow), returning true to send to backend",
+        );
+        return true;
+      }
     }
 
     // ========================================================================

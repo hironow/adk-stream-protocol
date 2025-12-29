@@ -196,38 +196,32 @@ describe("SSE Mode - Frontend Execute Pattern", () => {
         });
       });
 
-      // AI SDK v6: addToolOutput adds output locally but doesn't auto-send
-      // Wait for output to be added to message
+      // AI SDK v6: addToolOutput auto-sends (Frontend Execute pattern)
+      // Wait for AI response with location information
       await waitFor(
         () => {
           const lastMessage =
             result.current.messages[result.current.messages.length - 1];
-          return lastMessage.parts.some(
-            (p: any) =>
-              p.toolCallId === "orig-location" && p.state === "output-available",
-          );
+          const text = getMessageText(lastMessage);
+          return text.includes("Tokyo, Japan");
         },
         { timeout: 3000 },
       );
 
       // Then: Verify flow
-      // AI SDK v6: 2 requests with two-phase tracking
+      // AI SDK v6: 3 requests with Frontend Execute pattern
       // 1) initial → confirmation request
       // 2) after approval (two-phase) → approval sent
-      // Note: addToolOutput adds output to message but doesn't auto-send
-      // In real usage, user would manually trigger send or use callback
-      expect(requestCount).toBe(2);
-      expect(toolResultReceived).toBe(false); // addToolOutput doesn't auto-send
+      // 3) after addToolOutput → auto-send tool result (Frontend Execute)
+      // Note: addToolOutput auto-sends when output is added (Frontend Execute pattern)
+      expect(requestCount).toBe(3);
+      expect(toolResultReceived).toBe(true); // addToolOutput auto-sends
 
-      // Verify tool output was added to the message locally
+      // Verify tool output was sent to backend and AI responded
       const finalMessage =
         result.current.messages[result.current.messages.length - 1];
-      const toolOutputPart = finalMessage.parts.find(
-        (p: any) =>
-          p.toolCallId === "orig-location" && p.state === "output-available",
-      );
-      expect(toolOutputPart).toBeDefined();
-      expect(toolOutputPart?.output).toBeDefined();
+      const finalText = getMessageText(finalMessage);
+      expect(finalText).toContain("Tokyo, Japan");
     });
 
     it("should handle frontend execution failure", async () => {
