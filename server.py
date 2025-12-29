@@ -235,10 +235,10 @@ def _process_latest_message(
     # to ADK so it can continue processing.
     if last_message.role == "assistant":
         # Check if this is a tool confirmation response
+        # Note: The tool_name will be the original tool (e.g., process_payment), not adk_request_confirmation
         has_confirmation = last_message.parts is not None and any(
             isinstance(part, ToolUsePart)
-            and part.tool_name == "adk_request_confirmation"
-            and part.state == ToolCallState.OUTPUT_AVAILABLE
+            and part.state == ToolCallState.APPROVAL_RESPONDED
             for part in last_message.parts
         )
 

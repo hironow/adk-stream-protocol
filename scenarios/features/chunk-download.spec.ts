@@ -45,5 +45,7 @@ test("Check if Download Chunks button is visible", async ({ page }) => {
   }
 
   // Take screenshot for debugging
-  await page.screenshot({ path: "test-chunk-download-debug.png" });
+  await page.screenshot({
+    path: "assets/snapshots/scenarios/chunk-download-debug-scenarios-darwin.png",
+  });
 });

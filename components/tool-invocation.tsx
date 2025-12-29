@@ -152,6 +152,7 @@ export function ToolInvocationComponent({
           gap: "0.5rem",
           marginBottom: "0.5rem",
         }}
+        data-testid="tool-invocation-header"
       >
         <div
           style={{
@@ -163,11 +164,14 @@ export function ToolInvocationComponent({
         />
         <span
           style={{ fontWeight: 600, color: getStateColor() }}
-          data-testid="tool-name-debug"
+          data-testid="tool-name"
         >
           {toolName}
         </span>
-        <span style={{ fontSize: "0.875rem", color: "#999" }}>
+        <span
+          style={{ fontSize: "0.875rem", color: "#999" }}
+          data-testid="tool-state"
+        >
           {getStateLabel()}
         </span>
       </div>
@@ -195,6 +199,7 @@ export function ToolInvocationComponent({
             >
               <button
                 type="button"
+                data-testid="tool-approve-button"
                 onClick={async () => {
                   // CRITICAL: Always send approval response first
                   // AI SDK v6's sendAutomaticallyWhen requires BOTH:
@@ -300,6 +305,7 @@ export function ToolInvocationComponent({
               </button>
               <button
                 type="button"
+                data-testid="tool-deny-button"
                 onClick={() => {
                   addToolApprovalResponse?.({
                     id: toolInvocation.approval.id,

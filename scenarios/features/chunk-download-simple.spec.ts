@@ -40,7 +40,9 @@ test("Simple chunk logger download test", async ({ page }) => {
   await waitForAssistantResponse(page, { timeout: 30000 });
 
   // Take screenshot to verify state
-  await page.screenshot({ path: "test-chunk-download-after-message.png" });
+  await page.screenshot({
+    path: "assets/snapshots/scenarios/chunk-download-after-message-scenarios-darwin.png",
+  });
 
   // Check if Download button exists
   const downloadButton = page.getByRole("button", { name: /Download Chunks/i });

@@ -200,7 +200,7 @@ export function MessageComponent({
               );
             }
 
-            // Reasoning/Thinking (Gemini 2.0 feature)
+            // Reasoning (Gemini 2.0 feature)
             if (part.type === "reasoning") {
               return (
                 <details

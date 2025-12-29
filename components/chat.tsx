@@ -436,7 +436,49 @@ export function Chat({
           />
         ))}
         {isLoading && (
-          <div style={{ padding: "1rem", color: "#999" }}>Thinking...</div>
+          <div
+            style={{ padding: "1rem", color: "#999" }}
+            data-testid="thinking-indicator"
+          >
+            <span>Thinking</span>
+            <span
+              style={{
+                display: "inline-block",
+                animation: "wave 1.4s infinite",
+                animationDelay: "0s",
+              }}
+            >
+              .
+            </span>
+            <span
+              style={{
+                display: "inline-block",
+                animation: "wave 1.4s infinite",
+                animationDelay: "0.2s",
+              }}
+            >
+              .
+            </span>
+            <span
+              style={{
+                display: "inline-block",
+                animation: "wave 1.4s infinite",
+                animationDelay: "0.4s",
+              }}
+            >
+              .
+            </span>
+            <style>{`
+              @keyframes wave {
+                0%, 60%, 100% {
+                  transform: translateY(0);
+                }
+                30% {
+                  transform: translateY(-0.3rem);
+                }
+              }
+            `}</style>
+          </div>
         )}
         {error && (
           <div style={{ padding: "1rem", color: "#ef4444" }}>

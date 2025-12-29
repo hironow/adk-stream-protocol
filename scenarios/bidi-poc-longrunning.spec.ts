@@ -10,6 +10,7 @@
  */
 
 import { expect, test } from "@playwright/test";
+import { setupFrontendConsoleLogger } from "./helpers";
 
 test.describe("POC: LongRunningFunctionTool + BIDI", () => {
   test.beforeEach(async ({ page }) => {

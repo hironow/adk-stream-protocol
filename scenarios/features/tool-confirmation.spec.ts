@@ -559,7 +559,7 @@ test.describe("ADK Tool Confirmation - BIDI Mode", () => {
 
       // Then: Should complete without loop
       // Note: Using direct element visibility check instead of waitForAssistantResponse
-      // to avoid race conditions with "Thinking..." indicator
+      // to avoid race conditions with indicator
       const messageLocator = page
         .locator('[data-testid="message-text"]')
         .last();

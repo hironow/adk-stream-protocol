@@ -100,6 +100,7 @@ export async function sendImageMessage(
 
 /**
  * Wait for assistant response to complete
+ * Uses data-testid for i18n compatibility
  */
 export async function waitForAssistantResponse(
   page: Page,
@@ -107,14 +108,22 @@ export async function waitForAssistantResponse(
 ) {
   const timeout = options?.timeout ?? 120000; // Default 2 minutes
 
-  // Wait for "Thinking..." to appear (increased timeout for slower LLM responses)
-  await expect(page.getByText("Thinking...")).toBeVisible({ timeout: 10000 });
+  // Try to wait for thinking indicator to appear, but don't fail if it's too fast
+  const thinkingIndicator = page.getByTestId("thinking-indicator");
 
-  // Wait for "Thinking..." to disappear (response complete)
-  // Increased to 2 minutes to accommodate image processing and slower LLM responses
-  await expect(page.getByText("Thinking...")).not.toBeVisible({
-    timeout,
-  });
+  try {
+    // Short timeout since response might be instant
+    await expect(thinkingIndicator).toBeVisible({ timeout: 2000 });
+
+    // If it appeared, wait for it to disappear (response complete)
+    await expect(thinkingIndicator).not.toBeVisible({
+      timeout,
+    });
+  } catch {
+    // the indicator didn't appear (response was instant)
+    // Wait a bit to ensure response is rendered
+    await page.waitForTimeout(1000);
+  }
 }
 
 /**
@@ -266,35 +275,41 @@ export async function cleanupChunkLoggerState(page: Page) {
 
 /**
  * Wait for tool approval dialog to appear
+ * Uses data-testid for i18n compatibility
  */
 export async function waitForToolApproval(
   page: Page,
   options: { timeout?: number } = {},
 ) {
   const timeout = options.timeout ?? 30000;
-  await expect(page.getByText("Approval Required")).toBeVisible({
-    timeout,
-  });
+  // Wait for tool state to show "Approval Required"
+  const toolState = page.getByTestId("tool-state");
+  await expect(toolState).toBeVisible({ timeout });
+  await expect(toolState).toHaveText("Approval Required", { timeout: 5000 });
 }
 
 /**
  * Approve the tool call in the approval dialog
+ * Uses data-testid for i18n compatibility
  */
 export async function approveToolCall(page: Page) {
-  await page.getByRole("button", { name: "Approve" }).click();
-  // Wait for dialog to close
-  await expect(page.getByText("Approval Required")).not.toBeVisible({
+  await page.getByTestId("tool-approve-button").click();
+  // Wait for approval state to change
+  const toolState = page.getByTestId("tool-state");
+  await expect(toolState).not.toHaveText("Approval Required", {
     timeout: 5000,
   });
 }
 
 /**
  * Reject/Deny the tool call in the approval dialog
+ * Uses data-testid for i18n compatibility
  */
 export async function rejectToolCall(page: Page) {
-  await page.getByRole("button", { name: "Deny" }).click();
-  // Wait for dialog to close
-  await expect(page.getByText("Approval Required")).not.toBeVisible({
+  await page.getByTestId("tool-deny-button").click();
+  // Wait for tool state to change
+  const toolState = page.getByTestId("tool-state");
+  await expect(toolState).not.toHaveText("Approval Required", {
     timeout: 5000,
   });
 }

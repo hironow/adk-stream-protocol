@@ -159,7 +159,7 @@ class TestTextContentConversion:
 
 
 class TestReasoningContentConversion:
-    """Test Category 2: Reasoning / Thinking (reviews.md section 2)"""
+    """Test Category 2: Reasoning (reviews.md section 2)"""
 
     @pytest.mark.parametrize(
         "thought_content,expected_event_types",
