@@ -259,6 +259,64 @@ Frontend E2E tests use baseline fixtures from `fixtures/frontend/`:
 
 ---
 
+## 🎭 Playwright Best Practices
+
+### Selector Priority (MANDATORY)
+
+**❌ PROHIBITED**: Text-based selectors cause strict mode violations and flaky tests
+
+```typescript
+// ❌ NEVER USE - Multiple elements can match, causes timeouts
+await page.locator("text=Thank you").click();
+await expect(page.locator("text=Hello")).toBeVisible();
+
+// ❌ NEVER USE - Same problem with regex
+await page.locator("text=/Hello/").click();
+```
+
+**✅ REQUIRED**: Use semantic, stable selectors in this priority order:
+
+1. **`getByTestId()`** - Most stable, explicit (PREFERRED)
+   ```typescript
+   await page.getByTestId("message-user").click();
+   await expect(page.getByTestId("message-text")).toContainText("Hello");
+   ```
+
+2. **`getByRole()`** - Accessibility-friendly
+   ```typescript
+   await page.getByRole("button", { name: /Submit/i }).click();
+   ```
+
+3. **`getByLabel()`** - For form inputs
+   ```typescript
+   await page.getByLabel("Email").fill("test@example.com");
+   ```
+
+### Critical Lessons Learned
+
+**Issue**: P0 Critical timeout in mode switching test (2025-12-30)
+- **Root Cause**: `locator("text=background music")` matched 2+ elements
+- **Symptom**: 45-second timeout, test failed
+- **Fix**: Changed to `getByTestId("message-user").nth(1).getByTestId("message-text")`
+- **Result**: Test passed immediately (10.4s)
+
+**Conclusion**: Text selectors are the PRIMARY cause of Playwright test failures in this project.
+
+### Enforcement
+
+**Manual Review**: Check all `.spec.ts` files before merge
+**Pattern to grep**: `locator\("text=` or `locator\('text=`
+
+```bash
+# Find all text locators (must return 0 results)
+grep -r 'locator("text=' scenarios/
+grep -r "locator('text=" scenarios/
+```
+
+**Future**: Add custom ESLint rule or pre-commit hook
+
+---
+
 ## 📦 Fixtures
 
 ### Directory Structure

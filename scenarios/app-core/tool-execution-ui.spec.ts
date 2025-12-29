@@ -30,9 +30,11 @@ test.describe("Tool Execution UI (Core)", () => {
     await chatInput.press("Enter");
 
     // Wait for user message to appear
-    await expect(page.locator("text=Search for AI news")).toBeVisible({
-      timeout: 10000,
-    });
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible({ timeout: 10000 });
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "Search for AI news",
+    );
 
     // Then: Tool invocation UI should appear
     // Note: Tool name display depends on component implementation
@@ -57,7 +59,11 @@ test.describe("Tool Execution UI (Core)", () => {
     await chatInput.press("Enter");
 
     // Wait for user message
-    await expect(page.locator("text=Delete all files")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "Delete all files",
+    );
 
     // Then: Approval UI should appear
     // Note: Actual UI depends on component implementation
@@ -79,7 +85,11 @@ test.describe("Tool Execution UI (Core)", () => {
     await chatInput.press("Enter");
 
     // Wait for message to appear
-    await expect(page.locator("text=Search the web")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "Search the web",
+    );
 
     // Wait for tool approval UI or execution
     await page.waitForTimeout(5000);
@@ -122,7 +132,11 @@ test.describe("Tool Execution UI (Core)", () => {
     await chatInput.press("Enter");
 
     // Wait for message to appear
-    await expect(page.locator("text=Change BGM")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "Change BGM",
+    );
 
     // Wait for tool execution
     await page.waitForTimeout(3000);
@@ -146,7 +160,11 @@ test.describe("Tool Execution UI (Core)", () => {
     await chatInput.press("Enter");
 
     // Wait for message
-    await expect(page.locator("text=Research AI news")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "Research AI news",
+    );
 
     // Wait for tool invocations
     await page.waitForTimeout(5000);
@@ -170,7 +188,11 @@ test.describe("Tool Execution UI (Core)", () => {
     await chatInput.press("Enter");
 
     // Wait for user message
-    await expect(page.locator("text=Get current time")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "Get current time",
+    );
 
     // Wait for tool execution
     await page.waitForTimeout(3000);
@@ -180,7 +202,10 @@ test.describe("Tool Execution UI (Core)", () => {
     await geminiButton.click();
 
     // Then: Previous messages and tool results should still be visible
-    await expect(page.locator("text=Get current time")).toBeVisible();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "Get current time",
+    );
 
     // Verify page content is preserved
     const bodyText = await page.textContent("body");
@@ -195,7 +220,11 @@ test.describe("Tool Execution UI (Core)", () => {
     await adkSseButton.click();
     await chatInput.fill("What is the weather?");
     await chatInput.press("Enter");
-    await expect(page.locator("text=What is the weather")).toBeVisible();
+    const firstUserMessage = page.getByTestId("message-user").first();
+    await expect(firstUserMessage).toBeVisible();
+    await expect(firstUserMessage.getByTestId("message-text")).toContainText(
+      "What is the weather",
+    );
     await page.waitForTimeout(3000);
 
     // Test ADK BIDI mode with tool
@@ -204,7 +233,11 @@ test.describe("Tool Execution UI (Core)", () => {
     await page.waitForTimeout(500);
     await chatInput.fill("Play some music");
     await chatInput.press("Enter");
-    await expect(page.locator("text=Play some music")).toBeVisible();
+    const secondUserMessage = page.getByTestId("message-user").nth(1);
+    await expect(secondUserMessage).toBeVisible();
+    await expect(secondUserMessage.getByTestId("message-text")).toContainText(
+      "Play some music",
+    );
     await page.waitForTimeout(3000);
 
     // Then: Both tool executions should complete without errors
@@ -224,7 +257,11 @@ test.describe("Tool Execution UI (Core)", () => {
     await chatInput.press("Enter");
 
     // Wait for message
-    await expect(page.locator("text=Change background music")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "Change background music",
+    );
 
     // Wait for tool invocation UI
     await page.waitForTimeout(3000);
@@ -246,7 +283,11 @@ test.describe("Tool Execution UI (Core)", () => {
     await chatInput.press("Enter");
 
     // Wait for message
-    await expect(page.locator("text=Analyze this data")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "Analyze this data",
+    );
 
     // Then: Some loading or execution indicator should appear
     // Check for common loading indicators

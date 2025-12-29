@@ -29,9 +29,11 @@ test.describe("Tool Approval Basic (Smoke)", () => {
     await chatInput.press("Enter");
 
     // Wait for user message to appear
-    await expect(page.locator("text=Search for AI news")).toBeVisible({
-      timeout: 10000,
-    });
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible({ timeout: 10000 });
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "Search for AI news",
+    );
 
     // Then: Wait for potential approval UI
     // Note: Actual approval UI depends on backend configuration
@@ -54,7 +56,11 @@ test.describe("Tool Approval Basic (Smoke)", () => {
     await chatInput.press("Enter");
 
     // Wait for message to appear
-    await expect(page.locator("text=current time")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "current time",
+    );
 
     // Wait for tool approval or automatic execution
     await page.waitForTimeout(5000);
@@ -92,7 +98,11 @@ test.describe("Tool Approval Basic (Smoke)", () => {
     await chatInput.press("Enter");
 
     // Wait for message
-    await expect(page.locator("text=Delete")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "Delete",
+    );
 
     // Wait for potential approval UI
     await page.waitForTimeout(5000);
@@ -130,7 +140,11 @@ test.describe("Tool Approval Basic (Smoke)", () => {
     await chatInput.press("Enter");
 
     // Wait for message
-    await expect(page.locator("text=background music")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "background music",
+    );
 
     // Then: Tool should execute automatically without approval UI
     await page.waitForTimeout(3000);
@@ -160,7 +174,11 @@ test.describe("Tool Approval Basic (Smoke)", () => {
     await chatInput.press("Enter");
 
     // Wait for message
-    await expect(page.locator("text=Search for AI news")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "Search for AI news",
+    );
 
     // Wait for tool invocations
     await page.waitForTimeout(8000);
@@ -193,16 +211,24 @@ test.describe("Tool Approval Basic (Smoke)", () => {
     await chatInput.fill("First message without tools");
     await chatInput.press("Enter");
 
-    await expect(
-      page.locator("text=First message without tools"),
-    ).toBeVisible();
+    // Verify first user message appears
+    const firstUserMessage = page.getByTestId("message-user").first();
+    await expect(firstUserMessage).toBeVisible();
+    await expect(firstUserMessage.getByTestId("message-text")).toContainText(
+      "First message without tools",
+    );
     await page.waitForTimeout(2000);
 
     // When: Send message with tool approval
     await chatInput.fill("Get current time");
     await chatInput.press("Enter");
 
-    await expect(page.locator("text=Get current time")).toBeVisible();
+    // Verify second user message appears
+    const secondUserMessage = page.getByTestId("message-user").nth(1);
+    await expect(secondUserMessage).toBeVisible();
+    await expect(secondUserMessage.getByTestId("message-text")).toContainText(
+      "Get current time",
+    );
     await page.waitForTimeout(5000);
 
     // Approve if needed
@@ -219,9 +245,13 @@ test.describe("Tool Approval Basic (Smoke)", () => {
     }
 
     // Then: Both messages should still be visible
-    await expect(
-      page.locator("text=First message without tools"),
-    ).toBeVisible();
-    await expect(page.locator("text=Get current time")).toBeVisible();
+    await expect(firstUserMessage).toBeVisible();
+    await expect(firstUserMessage.getByTestId("message-text")).toContainText(
+      "First message without tools",
+    );
+    await expect(secondUserMessage).toBeVisible();
+    await expect(secondUserMessage.getByTestId("message-text")).toContainText(
+      "Get current time",
+    );
   });
 });

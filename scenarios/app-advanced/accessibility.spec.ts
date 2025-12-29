@@ -81,7 +81,11 @@ test.describe("Accessibility (Advanced)", () => {
     await page.keyboard.press("Enter");
 
     // Then: Message should be sent
-    await expect(page.locator("text=Keyboard test message")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "Keyboard test message",
+    );
   });
 
   test("should have proper ARIA labels on interactive elements", async ({
@@ -169,7 +173,11 @@ test.describe("Accessibility (Advanced)", () => {
     await chatInput.fill("Long running task");
     await chatInput.press("Enter");
 
-    await expect(page.locator("text=Long running task")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "Long running task",
+    );
     await page.waitForTimeout(2000);
 
     // When: Press ESC
@@ -213,7 +221,11 @@ test.describe("Accessibility (Advanced)", () => {
     await chatInput.fill("Screen reader test");
     await chatInput.press("Enter");
 
-    await expect(page.locator("text=Screen reader test")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "Screen reader test",
+    );
     await page.waitForTimeout(1000);
 
     // Then: Message should be in accessible content
@@ -332,7 +344,11 @@ test.describe("Accessibility (Advanced)", () => {
     await chatInput.fill("Interaction test");
     await chatInput.press("Enter");
 
-    await expect(page.locator("text=Interaction test")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "Interaction test",
+    );
     await page.waitForTimeout(2000);
 
     // When: Run accessibility scan after interaction

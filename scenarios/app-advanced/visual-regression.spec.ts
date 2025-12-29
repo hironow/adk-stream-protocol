@@ -79,9 +79,11 @@ test.describe("Visual Regression (Advanced)", () => {
     await chatInput.fill("Test message for visual regression");
     await chatInput.press("Enter");
 
-    await expect(
-      page.locator("text=Test message for visual regression"),
-    ).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "Test message for visual regression",
+    );
     await page.waitForTimeout(3000);
 
     // When: Take screenshot of message area
@@ -227,12 +229,20 @@ test.describe("Visual Regression (Advanced)", () => {
 
     await chatInput.fill("First message");
     await chatInput.press("Enter");
-    await expect(page.locator("text=First message")).toBeVisible();
+    const firstUserMessage = page.getByTestId("message-user").first();
+    await expect(firstUserMessage).toBeVisible();
+    await expect(firstUserMessage.getByTestId("message-text")).toContainText(
+      "First message",
+    );
     await page.waitForTimeout(2000);
 
     await chatInput.fill("Second message");
     await chatInput.press("Enter");
-    await expect(page.locator("text=Second message")).toBeVisible();
+    const secondUserMessage = page.getByTestId("message-user").nth(1);
+    await expect(secondUserMessage).toBeVisible();
+    await expect(secondUserMessage.getByTestId("message-text")).toContainText(
+      "Second message",
+    );
     await page.waitForTimeout(2000);
 
     // When: Take full page screenshot

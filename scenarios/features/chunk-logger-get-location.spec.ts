@@ -25,6 +25,7 @@ import {
   navigateToChat,
   selectBackendMode,
   sendTextMessage,
+  setupFrontendConsoleLogger,
   waitForAssistantResponse,
 } from "../helpers";
 

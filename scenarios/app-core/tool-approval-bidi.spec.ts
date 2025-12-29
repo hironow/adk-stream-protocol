@@ -34,7 +34,11 @@ test.describe("Tool Approval BIDI Mode (Core)", () => {
     await chatInput.press("Enter");
 
     // Wait for message
-    await expect(page.locator("text=background music")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "background music",
+    );
 
     // Wait for potential tool execution
     await page.waitForTimeout(4000);
@@ -61,7 +65,11 @@ test.describe("Tool Approval BIDI Mode (Core)", () => {
     await chatInput.fill("Play some relaxing music");
     await chatInput.press("Enter");
 
-    await expect(page.locator("text=relaxing music")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "relaxing music",
+    );
 
     // Wait for automatic tool execution
     await page.waitForTimeout(4000);
@@ -81,7 +89,11 @@ test.describe("Tool Approval BIDI Mode (Core)", () => {
     await chatInput.fill("Switch to track 2");
     await chatInput.press("Enter");
 
-    await expect(page.locator("text=track 2")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "track 2",
+    );
 
     // Wait for tool execution
     await page.waitForTimeout(3000);
@@ -99,7 +111,11 @@ test.describe("Tool Approval BIDI Mode (Core)", () => {
     await chatInput.fill("Where am I located?");
     await chatInput.press("Enter");
 
-    await expect(page.locator("text=located")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "located",
+    );
 
     // Wait for automatic tool execution
     await page.waitForTimeout(4000);
@@ -119,7 +135,11 @@ test.describe("Tool Approval BIDI Mode (Core)", () => {
     await chatInput.fill("Change music and get my location");
     await chatInput.press("Enter");
 
-    await expect(page.locator("text=Change music")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "Change music",
+    );
 
     // Wait for all tools to execute
     await page.waitForTimeout(6000);
@@ -137,7 +157,11 @@ test.describe("Tool Approval BIDI Mode (Core)", () => {
     await chatInput.fill("Play background music");
     await chatInput.press("Enter");
 
-    await expect(page.locator("text=background music")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "background music",
+    );
 
     // Check for execution indicators quickly
     await page.waitForTimeout(1000);
@@ -158,7 +182,11 @@ test.describe("Tool Approval BIDI Mode (Core)", () => {
     await chatInput.fill("Play invalid track 999");
     await chatInput.press("Enter");
 
-    await expect(page.locator("text=invalid track")).toBeVisible();
+    const firstUserMessage = page.getByTestId("message-user").first();
+    await expect(firstUserMessage).toBeVisible();
+    await expect(firstUserMessage.getByTestId("message-text")).toContainText(
+      "invalid track",
+    );
 
     // Wait for tool execution attempt
     await page.waitForTimeout(4000);
@@ -171,7 +199,11 @@ test.describe("Tool Approval BIDI Mode (Core)", () => {
     // Can send another message
     await chatInput.fill("Play track 1 instead");
     await chatInput.press("Enter");
-    await expect(page.locator("text=track 1 instead")).toBeVisible();
+    const secondUserMessage = page.getByTestId("message-user").nth(1);
+    await expect(secondUserMessage).toBeVisible();
+    await expect(secondUserMessage.getByTestId("message-text")).toContainText(
+      "track 1 instead",
+    );
   });
 
   test("should maintain WebSocket connection during tool execution", async ({
@@ -184,17 +216,29 @@ test.describe("Tool Approval BIDI Mode (Core)", () => {
 
     await chatInput.fill("Change to track 1");
     await chatInput.press("Enter");
-    await expect(page.locator("text=track 1")).toBeVisible();
+    const firstUserMessage = page.getByTestId("message-user").first();
+    await expect(firstUserMessage).toBeVisible();
+    await expect(firstUserMessage.getByTestId("message-text")).toContainText(
+      "track 1",
+    );
     await page.waitForTimeout(3000);
 
     await chatInput.fill("Now change to track 2");
     await chatInput.press("Enter");
-    await expect(page.locator("text=track 2")).toBeVisible();
+    const secondUserMessage = page.getByTestId("message-user").nth(1);
+    await expect(secondUserMessage).toBeVisible();
+    await expect(secondUserMessage.getByTestId("message-text")).toContainText(
+      "track 2",
+    );
     await page.waitForTimeout(3000);
 
     await chatInput.fill("Finally change to track 3");
     await chatInput.press("Enter");
-    await expect(page.locator("text=track 3")).toBeVisible();
+    const thirdUserMessage = page.getByTestId("message-user").nth(2);
+    await expect(thirdUserMessage).toBeVisible();
+    await expect(thirdUserMessage.getByTestId("message-text")).toContainText(
+      "track 3",
+    );
     await page.waitForTimeout(3000);
 
     // Then: All tools should execute via same WebSocket
@@ -239,13 +283,21 @@ test.describe("Tool Approval BIDI Mode (Core)", () => {
     // Message without tool
     await chatInput.fill("Hello, I need help with music");
     await chatInput.press("Enter");
-    await expect(page.locator("text=help with music")).toBeVisible();
+    const firstUserMessage = page.getByTestId("message-user").first();
+    await expect(firstUserMessage).toBeVisible();
+    await expect(firstUserMessage.getByTestId("message-text")).toContainText(
+      "help with music",
+    );
     await page.waitForTimeout(2000);
 
     // Message with tool
     await chatInput.fill("Play some jazz");
     await chatInput.press("Enter");
-    await expect(page.locator("text=jazz")).toBeVisible();
+    const secondUserMessage = page.getByTestId("message-user").nth(1);
+    await expect(secondUserMessage).toBeVisible();
+    await expect(secondUserMessage.getByTestId("message-text")).toContainText(
+      "jazz",
+    );
     await page.waitForTimeout(4000);
 
     // Then: Tool result should be inline
@@ -261,7 +313,11 @@ test.describe("Tool Approval BIDI Mode (Core)", () => {
     await chatInput.fill("Start playing music");
     await chatInput.press("Enter");
 
-    await expect(page.locator("text=playing music")).toBeVisible();
+    const firstUserMessage = page.getByTestId("message-user").first();
+    await expect(firstUserMessage).toBeVisible();
+    await expect(firstUserMessage.getByTestId("message-text")).toContainText(
+      "playing music",
+    );
 
     // When: Press ESC to interrupt (if supported)
     await page.keyboard.press("Escape");
@@ -270,7 +326,11 @@ test.describe("Tool Approval BIDI Mode (Core)", () => {
     // Then: Should be able to send new message
     await chatInput.fill("Actually, stop the music");
     await chatInput.press("Enter");
-    await expect(page.locator("text=stop the music")).toBeVisible();
+    const secondUserMessage = page.getByTestId("message-user").nth(1);
+    await expect(secondUserMessage).toBeVisible();
+    await expect(secondUserMessage.getByTestId("message-text")).toContainText(
+      "stop the music",
+    );
   });
 
   test.skip("should handle audio playback for tool results", async ({

@@ -28,9 +28,11 @@ test.describe("Mode Switching (Smoke)", () => {
     await chatInput.press("Enter");
 
     // Wait for user message to appear
-    await expect(page.locator("text=First message")).toBeVisible({
-      timeout: 10000,
-    });
+    const firstUserMessage = page.getByTestId("message-user").first();
+    await expect(firstUserMessage).toBeVisible({ timeout: 10000 });
+    await expect(firstUserMessage.getByTestId("message-text")).toContainText(
+      "First message",
+    );
 
     // Wait for assistant response to appear
     await page.waitForTimeout(3000); // Give time for response to start
@@ -40,7 +42,10 @@ test.describe("Mode Switching (Smoke)", () => {
     await adkSseButton.click();
 
     // Then: Original message should still be visible
-    await expect(page.locator("text=First message")).toBeVisible();
+    await expect(firstUserMessage).toBeVisible();
+    await expect(firstUserMessage.getByTestId("message-text")).toContainText(
+      "First message",
+    );
 
     // Then: Page content should be preserved (no full reload)
     const bodyText = await page.textContent("body");
@@ -165,7 +170,11 @@ test.describe("Mode Switching (Smoke)", () => {
     await geminiButton.click();
     await chatInput.fill("Test in Gemini");
     await chatInput.press("Enter");
-    await expect(page.locator("text=Test in Gemini")).toBeVisible();
+    const firstUserMessage = page.getByTestId("message-user").first();
+    await expect(firstUserMessage).toBeVisible();
+    await expect(firstUserMessage.getByTestId("message-text")).toContainText(
+      "Test in Gemini",
+    );
 
     // Test ADK SSE mode
     const adkSseButton = page.getByRole("button", { name: /ADK SSE/i });
@@ -173,7 +182,11 @@ test.describe("Mode Switching (Smoke)", () => {
     await page.waitForTimeout(500);
     await chatInput.fill("Test in SSE");
     await chatInput.press("Enter");
-    await expect(page.locator("text=Test in SSE")).toBeVisible();
+    const secondUserMessage = page.getByTestId("message-user").nth(1);
+    await expect(secondUserMessage).toBeVisible();
+    await expect(secondUserMessage.getByTestId("message-text")).toContainText(
+      "Test in SSE",
+    );
 
     // Test ADK BIDI mode
     const adkBidiButton = page.getByRole("button", { name: /ADK BIDI/i });
@@ -181,11 +194,21 @@ test.describe("Mode Switching (Smoke)", () => {
     await page.waitForTimeout(500);
     await chatInput.fill("Test in BIDI");
     await chatInput.press("Enter");
-    await expect(page.locator("text=Test in BIDI")).toBeVisible();
+    const thirdUserMessage = page.getByTestId("message-user").nth(2);
+    await expect(thirdUserMessage).toBeVisible();
+    await expect(thirdUserMessage.getByTestId("message-text")).toContainText(
+      "Test in BIDI",
+    );
 
     // Then: All messages should be visible
-    await expect(page.locator("text=Test in Gemini")).toBeVisible();
-    await expect(page.locator("text=Test in SSE")).toBeVisible();
-    await expect(page.locator("text=Test in BIDI")).toBeVisible();
+    await expect(firstUserMessage.getByTestId("message-text")).toContainText(
+      "Test in Gemini",
+    );
+    await expect(secondUserMessage.getByTestId("message-text")).toContainText(
+      "Test in SSE",
+    );
+    await expect(thirdUserMessage.getByTestId("message-text")).toContainText(
+      "Test in BIDI",
+    );
   });
 });

@@ -29,9 +29,11 @@ test.describe("Error Handling UI (Advanced)", () => {
     await chatInput.fill("Test message for error handling");
     await chatInput.press("Enter");
 
-    await expect(
-      page.locator("text=Test message for error handling"),
-    ).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "Test message for error handling",
+    );
 
     // Wait for response or error
     await page.waitForTimeout(10000);
@@ -52,13 +54,21 @@ test.describe("Error Handling UI (Advanced)", () => {
     // When: Send message that might error
     await chatInput.fill("Message that might fail");
     await chatInput.press("Enter");
-    await expect(page.locator("text=might fail")).toBeVisible();
+    const firstUserMessage = page.getByTestId("message-user").first();
+    await expect(firstUserMessage).toBeVisible();
+    await expect(firstUserMessage.getByTestId("message-text")).toContainText(
+      "might fail",
+    );
     await page.waitForTimeout(5000);
 
     // Then: Can send another message
     await chatInput.fill("Recovery message");
     await chatInput.press("Enter");
-    await expect(page.locator("text=Recovery message")).toBeVisible();
+    const secondUserMessage = page.getByTestId("message-user").nth(1);
+    await expect(secondUserMessage).toBeVisible();
+    await expect(secondUserMessage.getByTestId("message-text")).toContainText(
+      "Recovery message",
+    );
   });
 
   test("should handle tool execution errors gracefully in SSE mode", async ({
@@ -73,7 +83,11 @@ test.describe("Error Handling UI (Advanced)", () => {
     await chatInput.fill("Execute tool that might error");
     await chatInput.press("Enter");
 
-    await expect(page.locator("text=might error")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "might error",
+    );
     await page.waitForTimeout(5000);
 
     // Approve if needed
@@ -104,13 +118,21 @@ test.describe("Error Handling UI (Advanced)", () => {
     await chatInput.fill("Execute frontend tool that might error");
     await chatInput.press("Enter");
 
-    await expect(page.locator("text=might error")).toBeVisible();
+    const firstUserMessage = page.getByTestId("message-user").first();
+    await expect(firstUserMessage).toBeVisible();
+    await expect(firstUserMessage.getByTestId("message-text")).toContainText(
+      "might error",
+    );
     await page.waitForTimeout(5000);
 
     // Then: Can send new message
     await chatInput.fill("Continue after error");
     await chatInput.press("Enter");
-    await expect(page.locator("text=Continue after error")).toBeVisible();
+    const secondUserMessage = page.getByTestId("message-user").nth(1);
+    await expect(secondUserMessage).toBeVisible();
+    await expect(secondUserMessage.getByTestId("message-text")).toContainText(
+      "Continue after error",
+    );
   });
 
   test("should display validation error for invalid input", async ({
@@ -140,7 +162,11 @@ test.describe("Error Handling UI (Advanced)", () => {
     // When: Send message
     await chatInput.fill("Test WebSocket connection");
     await chatInput.press("Enter");
-    await expect(page.locator("text=Test WebSocket connection")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "Test WebSocket connection",
+    );
     await page.waitForTimeout(5000);
 
     // Then: Connection should be established or error shown
@@ -172,7 +198,11 @@ test.describe("Error Handling UI (Advanced)", () => {
     // Can send message
     await chatInput.fill("Message after rapid mode switch");
     await chatInput.press("Enter");
-    await expect(page.locator("text=rapid mode switch")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "rapid mode switch",
+    );
   });
 
   test("should show error for malformed responses", async ({ page }) => {
@@ -185,7 +215,11 @@ test.describe("Error Handling UI (Advanced)", () => {
     await chatInput.fill("Request that might return malformed data");
     await chatInput.press("Enter");
 
-    await expect(page.locator("text=malformed data")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "malformed data",
+    );
     await page.waitForTimeout(10000);
 
     // Then: Error shown or handled gracefully
@@ -203,7 +237,11 @@ test.describe("Error Handling UI (Advanced)", () => {
     await chatInput.fill("Tell me a long story");
     await chatInput.press("Enter");
 
-    await expect(page.locator("text=long story")).toBeVisible();
+    const firstUserMessage = page.getByTestId("message-user").first();
+    await expect(firstUserMessage).toBeVisible();
+    await expect(firstUserMessage.getByTestId("message-text")).toContainText(
+      "long story",
+    );
     await page.waitForTimeout(2000);
 
     // Press ESC to interrupt
@@ -213,7 +251,11 @@ test.describe("Error Handling UI (Advanced)", () => {
     // Then: Can send new message
     await chatInput.fill("New message after interruption");
     await chatInput.press("Enter");
-    await expect(page.locator("text=after interruption")).toBeVisible();
+    const secondUserMessage = page.getByTestId("message-user").nth(1);
+    await expect(secondUserMessage).toBeVisible();
+    await expect(secondUserMessage.getByTestId("message-text")).toContainText(
+      "after interruption",
+    );
   });
 
   test("should handle rate limiting errors", async ({ page }) => {
@@ -244,19 +286,31 @@ test.describe("Error Handling UI (Advanced)", () => {
     // Given: Send successful message
     await chatInput.fill("First successful message");
     await chatInput.press("Enter");
-    await expect(page.locator("text=First successful message")).toBeVisible();
+    const firstUserMessage = page.getByTestId("message-user").first();
+    await expect(firstUserMessage).toBeVisible();
+    await expect(firstUserMessage.getByTestId("message-text")).toContainText(
+      "First successful message",
+    );
     await page.waitForTimeout(3000);
 
     // When: Send message that might error
     await chatInput.fill("Message that might fail");
     await chatInput.press("Enter");
-    await expect(page.locator("text=might fail")).toBeVisible();
+    const secondUserMessage = page.getByTestId("message-user").nth(1);
+    await expect(secondUserMessage).toBeVisible();
+    await expect(secondUserMessage.getByTestId("message-text")).toContainText(
+      "might fail",
+    );
     await page.waitForTimeout(5000);
 
     // Send another successful message
     await chatInput.fill("Second successful message");
     await chatInput.press("Enter");
-    await expect(page.locator("text=Second successful message")).toBeVisible();
+    const thirdUserMessage = page.getByTestId("message-user").nth(2);
+    await expect(thirdUserMessage).toBeVisible();
+    await expect(thirdUserMessage.getByTestId("message-text")).toContainText(
+      "Second successful message",
+    );
 
     // Then: All messages still visible
     const bodyText = await page.textContent("body");
@@ -275,7 +329,11 @@ test.describe("Error Handling UI (Advanced)", () => {
     await chatInput.fill("Execute tool that might fail during execution");
     await chatInput.press("Enter");
 
-    await expect(page.locator("text=might fail")).toBeVisible();
+    const firstUserMessage = page.getByTestId("message-user").first();
+    await expect(firstUserMessage).toBeVisible();
+    await expect(firstUserMessage.getByTestId("message-text")).toContainText(
+      "might fail",
+    );
     await page.waitForTimeout(5000);
 
     // Approve tool
@@ -293,7 +351,11 @@ test.describe("Error Handling UI (Advanced)", () => {
     // Then: Error handled, can continue
     await chatInput.fill("Continue after tool error");
     await chatInput.press("Enter");
-    await expect(page.locator("text=Continue after tool error")).toBeVisible();
+    const secondUserMessage = page.getByTestId("message-user").nth(1);
+    await expect(secondUserMessage).toBeVisible();
+    await expect(secondUserMessage.getByTestId("message-text")).toContainText(
+      "Continue after tool error",
+    );
   });
 
   test("should recover from WebSocket disconnection in BIDI mode", async ({
@@ -308,9 +370,11 @@ test.describe("Error Handling UI (Advanced)", () => {
     // When: Send message
     await chatInput.fill("Message before potential disconnect");
     await chatInput.press("Enter");
-    await expect(
-      page.locator("text=before potential disconnect"),
-    ).toBeVisible();
+    const firstUserMessage = page.getByTestId("message-user").first();
+    await expect(firstUserMessage).toBeVisible();
+    await expect(firstUserMessage.getByTestId("message-text")).toContainText(
+      "before potential disconnect",
+    );
     await page.waitForTimeout(3000);
 
     // Wait to simulate potential disconnection/reconnection
@@ -319,7 +383,11 @@ test.describe("Error Handling UI (Advanced)", () => {
     // Then: Can send new message (reconnected or error handled)
     await chatInput.fill("Message after potential reconnect");
     await chatInput.press("Enter");
-    await expect(page.locator("text=after potential reconnect")).toBeVisible();
+    const secondUserMessage = page.getByTestId("message-user").nth(1);
+    await expect(secondUserMessage).toBeVisible();
+    await expect(secondUserMessage.getByTestId("message-text")).toContainText(
+      "after potential reconnect",
+    );
   });
 
   test("should display user-friendly error messages", async ({ page }) => {
@@ -329,7 +397,11 @@ test.describe("Error Handling UI (Advanced)", () => {
     // When: Trigger various error scenarios
     await chatInput.fill("Trigger error scenario");
     await chatInput.press("Enter");
-    await expect(page.locator("text=error scenario")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "error scenario",
+    );
     await page.waitForTimeout(5000);
 
     // Then: Check for error message elements
@@ -353,7 +425,11 @@ test.describe("Error Handling UI (Advanced)", () => {
     await chatInput.fill("Execute multiple tools that might fail");
     await chatInput.press("Enter");
 
-    await expect(page.locator("text=multiple tools")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "multiple tools",
+    );
     await page.waitForTimeout(6000);
 
     // Approve all if needed

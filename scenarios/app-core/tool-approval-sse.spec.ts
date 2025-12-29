@@ -32,7 +32,11 @@ test.describe("Tool Approval SSE Mode (Core)", () => {
     await chatInput.press("Enter");
 
     // Wait for user message
-    await expect(page.locator("text=Search the web")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "Search the web",
+    );
 
     // Wait for tool invocation
     await page.waitForTimeout(5000);
@@ -51,7 +55,11 @@ test.describe("Tool Approval SSE Mode (Core)", () => {
     await chatInput.fill("Get weather information");
     await chatInput.press("Enter");
 
-    await expect(page.locator("text=weather")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "weather",
+    );
     await page.waitForTimeout(5000);
 
     // When: Click approve button (if visible)
@@ -86,7 +94,11 @@ test.describe("Tool Approval SSE Mode (Core)", () => {
     await chatInput.fill("Delete important files");
     await chatInput.press("Enter");
 
-    await expect(page.locator("text=Delete")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "Delete",
+    );
     await page.waitForTimeout(5000);
 
     // When: Click deny button (if visible)
@@ -118,7 +130,9 @@ test.describe("Tool Approval SSE Mode (Core)", () => {
     await chatInput.fill("What time is it?");
     await chatInput.press("Enter");
 
-    await expect(page.locator("text=time")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText("time");
     await page.waitForTimeout(5000);
 
     // When: Approve tool execution
@@ -154,7 +168,11 @@ test.describe("Tool Approval SSE Mode (Core)", () => {
     );
     await chatInput.press("Enter");
 
-    await expect(page.locator("text=Analyze data")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "Analyze data",
+    );
     await page.waitForTimeout(6000);
 
     // When: Approve any tool invocations
@@ -183,7 +201,11 @@ test.describe("Tool Approval SSE Mode (Core)", () => {
     await chatInput.fill("Perform system maintenance");
     await chatInput.press("Enter");
 
-    await expect(page.locator("text=maintenance")).toBeVisible();
+    const firstUserMessage = page.getByTestId("message-user").first();
+    await expect(firstUserMessage).toBeVisible();
+    await expect(firstUserMessage.getByTestId("message-text")).toContainText(
+      "maintenance",
+    );
     await page.waitForTimeout(5000);
 
     // When: User decides to deny instead of approve
@@ -203,7 +225,11 @@ test.describe("Tool Approval SSE Mode (Core)", () => {
       await chatInput.fill("Actually, never mind");
       await chatInput.press("Enter");
 
-      await expect(page.locator("text=never mind")).toBeVisible();
+      const secondUserMessage = page.getByTestId("message-user").nth(1);
+      await expect(secondUserMessage).toBeVisible();
+      await expect(secondUserMessage.getByTestId("message-text")).toContainText(
+        "never mind",
+      );
     }
   });
 
@@ -213,7 +239,11 @@ test.describe("Tool Approval SSE Mode (Core)", () => {
     await chatInput.fill("Get current location");
     await chatInput.press("Enter");
 
-    await expect(page.locator("text=location")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "location",
+    );
     await page.waitForTimeout(5000);
 
     // When: Approve tool
@@ -247,13 +277,21 @@ test.describe("Tool Approval SSE Mode (Core)", () => {
     // Message 1: No tool
     await chatInput.fill("Hello, how are you?");
     await chatInput.press("Enter");
-    await expect(page.locator("text=Hello, how are you?")).toBeVisible();
+    const firstUserMessage = page.getByTestId("message-user").first();
+    await expect(firstUserMessage).toBeVisible();
+    await expect(firstUserMessage.getByTestId("message-text")).toContainText(
+      "Hello, how are you?",
+    );
     await page.waitForTimeout(2000);
 
     // Message 2: With tool
     await chatInput.fill("Get the time");
     await chatInput.press("Enter");
-    await expect(page.locator("text=Get the time")).toBeVisible();
+    const secondUserMessage = page.getByTestId("message-user").nth(1);
+    await expect(secondUserMessage).toBeVisible();
+    await expect(secondUserMessage.getByTestId("message-text")).toContainText(
+      "Get the time",
+    );
     await page.waitForTimeout(5000);
 
     // Approve if needed
@@ -272,7 +310,11 @@ test.describe("Tool Approval SSE Mode (Core)", () => {
     // Message 3: Another message
     await chatInput.fill("Thank you");
     await chatInput.press("Enter");
-    await expect(page.locator("text=Thank you")).toBeVisible();
+    const thirdUserMessage = page.getByTestId("message-user").nth(2);
+    await expect(thirdUserMessage).toBeVisible();
+    await expect(thirdUserMessage.getByTestId("message-text")).toContainText(
+      "Thank you",
+    );
 
     // Then: All messages should be visible in order
     const bodyText = await page.textContent("body");
@@ -287,7 +329,11 @@ test.describe("Tool Approval SSE Mode (Core)", () => {
     await chatInput.fill("Get time, weather, and location");
     await chatInput.press("Enter");
 
-    await expect(page.locator("text=Get time")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "Get time",
+    );
     await page.waitForTimeout(6000);
 
     // When: Quickly approve all visible tools

@@ -30,7 +30,11 @@ test.describe("Multi-Tool Execution (Advanced)", () => {
     await chatInput.fill("Get my location and change the background music");
     await chatInput.press("Enter");
 
-    await expect(page.locator("text=location")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "location",
+    );
     await page.waitForTimeout(6000);
 
     // Then: Both tools should execute
@@ -52,7 +56,11 @@ test.describe("Multi-Tool Execution (Advanced)", () => {
     );
     await chatInput.press("Enter");
 
-    await expect(page.locator("text=current time")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "current time",
+    );
     await page.waitForTimeout(6000);
 
     // Approve first tool
@@ -89,7 +97,11 @@ test.describe("Multi-Tool Execution (Advanced)", () => {
 
     await chatInput.fill("Search for AI news");
     await chatInput.press("Enter");
-    await expect(page.locator("text=AI news")).toBeVisible();
+    const firstUserMessage = page.getByTestId("message-user").first();
+    await expect(firstUserMessage).toBeVisible();
+    await expect(firstUserMessage.getByTestId("message-text")).toContainText(
+      "AI news",
+    );
     await page.waitForTimeout(5000);
 
     // Approve if needed
@@ -111,7 +123,11 @@ test.describe("Multi-Tool Execution (Advanced)", () => {
 
     await chatInput.fill("Now play some music");
     await chatInput.press("Enter");
-    await expect(page.locator("text=play some music")).toBeVisible();
+    const secondUserMessage = page.getByTestId("message-user").nth(1);
+    await expect(secondUserMessage).toBeVisible();
+    await expect(secondUserMessage.getByTestId("message-text")).toContainText(
+      "play some music",
+    );
     await page.waitForTimeout(3000);
 
     // Then: Both types of tools handled correctly
@@ -134,7 +150,11 @@ test.describe("Multi-Tool Execution (Advanced)", () => {
     );
     await chatInput.press("Enter");
 
-    await expect(page.locator("text=comprehensive information")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "comprehensive information",
+    );
     await page.waitForTimeout(6000);
 
     // Approve if needed
@@ -165,7 +185,11 @@ test.describe("Multi-Tool Execution (Advanced)", () => {
     await chatInput.fill("Perform complex analysis that might take time");
     await chatInput.press("Enter");
 
-    await expect(page.locator("text=complex analysis")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "complex analysis",
+    );
     await page.waitForTimeout(5000);
 
     // Approve if needed
@@ -199,17 +223,29 @@ test.describe("Multi-Tool Execution (Advanced)", () => {
     // Execute tools in specific order
     await chatInput.fill("Tool execution step 1");
     await chatInput.press("Enter");
-    await expect(page.locator("text=step 1")).toBeVisible();
+    const firstMessage = page.getByTestId("message-user").first();
+    await expect(firstMessage).toBeVisible();
+    await expect(firstMessage.getByTestId("message-text")).toContainText(
+      "step 1",
+    );
     await page.waitForTimeout(2000);
 
     await chatInput.fill("Tool execution step 2");
     await chatInput.press("Enter");
-    await expect(page.locator("text=step 2")).toBeVisible();
+    const secondMessage = page.getByTestId("message-user").nth(1);
+    await expect(secondMessage).toBeVisible();
+    await expect(secondMessage.getByTestId("message-text")).toContainText(
+      "step 2",
+    );
     await page.waitForTimeout(2000);
 
     await chatInput.fill("Tool execution step 3");
     await chatInput.press("Enter");
-    await expect(page.locator("text=step 3")).toBeVisible();
+    const thirdMessage = page.getByTestId("message-user").nth(2);
+    await expect(thirdMessage).toBeVisible();
+    await expect(thirdMessage.getByTestId("message-text")).toContainText(
+      "step 3",
+    );
     await page.waitForTimeout(2000);
 
     // Then: All steps visible in order
@@ -232,13 +268,21 @@ test.describe("Multi-Tool Execution (Advanced)", () => {
     const chatInput = page.locator('input[placeholder="Type your message..."]');
     await chatInput.fill("Execute tool 1");
     await chatInput.press("Enter");
-    await expect(page.locator("text=Execute tool 1")).toBeVisible();
+    const firstUserMessage = page.getByTestId("message-user").first();
+    await expect(firstUserMessage).toBeVisible();
+    await expect(firstUserMessage.getByTestId("message-text")).toContainText(
+      "Execute tool 1",
+    );
     await page.waitForTimeout(3000);
 
     // When: Send new message without approving
     await chatInput.fill("Actually, do something else");
     await chatInput.press("Enter");
-    await expect(page.locator("text=something else")).toBeVisible();
+    const secondUserMessage = page.getByTestId("message-user").nth(1);
+    await expect(secondUserMessage).toBeVisible();
+    await expect(secondUserMessage.getByTestId("message-text")).toContainText(
+      "something else",
+    );
 
     // Then: Page should handle gracefully
     const bodyText = await page.textContent("body");
@@ -258,7 +302,11 @@ test.describe("Multi-Tool Execution (Advanced)", () => {
     await chatInput.fill("Get time, location, and search for news");
     await chatInput.press("Enter");
 
-    await expect(page.locator("text=Get time")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "Get time",
+    );
     await page.waitForTimeout(8000);
 
     // Approve all visible approvals
@@ -288,7 +336,11 @@ test.describe("Multi-Tool Execution (Advanced)", () => {
     await chatInput.fill("Start long-running task");
     await chatInput.press("Enter");
 
-    await expect(page.locator("text=long-running")).toBeVisible();
+    const firstUserMessage = page.getByTestId("message-user").first();
+    await expect(firstUserMessage).toBeVisible();
+    await expect(firstUserMessage.getByTestId("message-text")).toContainText(
+      "long-running",
+    );
     await page.waitForTimeout(2000);
 
     // When: Press ESC to interrupt
@@ -298,7 +350,11 @@ test.describe("Multi-Tool Execution (Advanced)", () => {
     // Then: Can send new message
     await chatInput.fill("New task after interruption");
     await chatInput.press("Enter");
-    await expect(page.locator("text=after interruption")).toBeVisible();
+    const secondUserMessage = page.getByTestId("message-user").nth(1);
+    await expect(secondUserMessage).toBeVisible();
+    await expect(secondUserMessage.getByTestId("message-text")).toContainText(
+      "after interruption",
+    );
   });
 
   test("should handle tool execution with network instability", async ({
@@ -312,7 +368,11 @@ test.describe("Multi-Tool Execution (Advanced)", () => {
     await chatInput.fill("Execute network-dependent tool");
     await chatInput.press("Enter");
 
-    await expect(page.locator("text=network-dependent")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "network-dependent",
+    );
     await page.waitForTimeout(5000);
 
     // Approve if needed
@@ -370,7 +430,11 @@ test.describe("Multi-Tool Execution (Advanced)", () => {
     const chatInput = page.locator('input[placeholder="Type your message..."]');
     await chatInput.fill("Start tool in SSE mode");
     await chatInput.press("Enter");
-    await expect(page.locator("text=SSE mode")).toBeVisible();
+    const firstUserMessage = page.getByTestId("message-user").first();
+    await expect(firstUserMessage).toBeVisible();
+    await expect(firstUserMessage.getByTestId("message-text")).toContainText(
+      "SSE mode",
+    );
     await page.waitForTimeout(3000);
 
     // When: Switch mode while tool is pending
@@ -381,7 +445,11 @@ test.describe("Multi-Tool Execution (Advanced)", () => {
     // Then: Can execute new tool in BIDI mode
     await chatInput.fill("New tool in BIDI mode");
     await chatInput.press("Enter");
-    await expect(page.locator("text=BIDI mode")).toBeVisible();
+    const secondUserMessage = page.getByTestId("message-user").nth(1);
+    await expect(secondUserMessage).toBeVisible();
+    await expect(secondUserMessage.getByTestId("message-text")).toContainText(
+      "BIDI mode",
+    );
     await page.waitForTimeout(3000);
 
     // Both messages present

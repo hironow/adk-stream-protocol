@@ -49,7 +49,11 @@ test.describe("Audio and Multimodal (Advanced)", () => {
     await chatInput.fill("Change the background music to relaxing sounds");
     await chatInput.press("Enter");
 
-    await expect(page.locator("text=background music")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "background music",
+    );
     await page.waitForTimeout(4000);
 
     // Then: BGM change tool should execute
@@ -74,7 +78,11 @@ test.describe("Audio and Multimodal (Advanced)", () => {
     // Can still send text messages
     await chatInput.fill("Test message");
     await chatInput.press("Enter");
-    await expect(page.locator("text=Test message")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "Test message",
+    );
   });
 
   test("should display uploaded images in chat", async ({ page }) => {
@@ -97,7 +105,11 @@ test.describe("Audio and Multimodal (Advanced)", () => {
     // Given: Send text message
     await chatInput.fill("Here is some text");
     await chatInput.press("Enter");
-    await expect(page.locator("text=Here is some text")).toBeVisible();
+    const firstUserMessage = page.getByTestId("message-user").first();
+    await expect(firstUserMessage).toBeVisible();
+    await expect(firstUserMessage.getByTestId("message-text")).toContainText(
+      "Here is some text",
+    );
     await page.waitForTimeout(2000);
 
     // Note: Image upload would go here in a real scenario
@@ -105,7 +117,11 @@ test.describe("Audio and Multimodal (Advanced)", () => {
     // Then: Can continue with text messages
     await chatInput.fill("More text after image");
     await chatInput.press("Enter");
-    await expect(page.locator("text=More text after image")).toBeVisible();
+    const secondUserMessage = page.getByTestId("message-user").nth(1);
+    await expect(secondUserMessage).toBeVisible();
+    await expect(secondUserMessage.getByTestId("message-text")).toContainText(
+      "More text after image",
+    );
   });
 
   test("should handle audio completion notifications in BIDI mode", async ({
@@ -120,7 +136,11 @@ test.describe("Audio and Multimodal (Advanced)", () => {
     await chatInput.fill("Tell me a story");
     await chatInput.press("Enter");
 
-    await expect(page.locator("text=Tell me a story")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "Tell me a story",
+    );
     await page.waitForTimeout(5000);
 
     // Then: Audio completion notification might appear
@@ -153,7 +173,11 @@ test.describe("Audio and Multimodal (Advanced)", () => {
     const chatInput = page.locator('input[placeholder="Type your message..."]');
     await chatInput.fill("Play background music");
     await chatInput.press("Enter");
-    await expect(page.locator("text=background music")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "background music",
+    );
     await page.waitForTimeout(3000);
 
     // When: Switch to SSE mode
@@ -164,7 +188,11 @@ test.describe("Audio and Multimodal (Advanced)", () => {
     // Then: Can send messages in new mode
     await chatInput.fill("Message in SSE mode");
     await chatInput.press("Enter");
-    await expect(page.locator("text=SSE mode")).toBeVisible();
+    const secondUserMessage = page.getByTestId("message-user").nth(1);
+    await expect(secondUserMessage).toBeVisible();
+    await expect(secondUserMessage.getByTestId("message-text")).toContainText(
+      "SSE mode",
+    );
 
     // Switch back to BIDI
     await adkBidiButton.click();
@@ -186,12 +214,20 @@ test.describe("Audio and Multimodal (Advanced)", () => {
     // When: Send multiple messages that might have audio
     await chatInput.fill("First audio message");
     await chatInput.press("Enter");
-    await expect(page.locator("text=First audio message")).toBeVisible();
+    const firstUserMessage = page.getByTestId("message-user").first();
+    await expect(firstUserMessage).toBeVisible();
+    await expect(firstUserMessage.getByTestId("message-text")).toContainText(
+      "First audio message",
+    );
     await page.waitForTimeout(3000);
 
     await chatInput.fill("Second audio message");
     await chatInput.press("Enter");
-    await expect(page.locator("text=Second audio message")).toBeVisible();
+    const secondUserMessage = page.getByTestId("message-user").nth(1);
+    await expect(secondUserMessage).toBeVisible();
+    await expect(secondUserMessage.getByTestId("message-text")).toContainText(
+      "Second audio message",
+    );
     await page.waitForTimeout(3000);
 
     // Then: Both messages processed
@@ -212,13 +248,21 @@ test.describe("Audio and Multimodal (Advanced)", () => {
     // When: Request BGM
     await chatInput.fill("Play background music");
     await chatInput.press("Enter");
-    await expect(page.locator("text=background music")).toBeVisible();
+    const firstUserMessage = page.getByTestId("message-user").first();
+    await expect(firstUserMessage).toBeVisible();
+    await expect(firstUserMessage.getByTestId("message-text")).toContainText(
+      "background music",
+    );
     await page.waitForTimeout(3000);
 
     // Request voice response
     await chatInput.fill("Tell me something");
     await chatInput.press("Enter");
-    await expect(page.locator("text=Tell me something")).toBeVisible();
+    const secondUserMessage = page.getByTestId("message-user").nth(1);
+    await expect(secondUserMessage).toBeVisible();
+    await expect(secondUserMessage.getByTestId("message-text")).toContainText(
+      "Tell me something",
+    );
     await page.waitForTimeout(4000);
 
     // Then: Both audio features work
@@ -263,7 +307,11 @@ test.describe("Audio and Multimodal (Advanced)", () => {
     const chatInput = page.locator('input[placeholder="Type your message..."]');
     await chatInput.fill("Start audio playback");
     await chatInput.press("Enter");
-    await expect(page.locator("text=audio playback")).toBeVisible();
+    const firstUserMessage = page.getByTestId("message-user").first();
+    await expect(firstUserMessage).toBeVisible();
+    await expect(firstUserMessage.getByTestId("message-text")).toContainText(
+      "audio playback",
+    );
     await page.waitForTimeout(2000);
 
     // When: Press ESC to interrupt
@@ -273,7 +321,11 @@ test.describe("Audio and Multimodal (Advanced)", () => {
     // Then: Can send new message
     await chatInput.fill("New message after interruption");
     await chatInput.press("Enter");
-    await expect(page.locator("text=after interruption")).toBeVisible();
+    const secondUserMessage = page.getByTestId("message-user").nth(1);
+    await expect(secondUserMessage).toBeVisible();
+    await expect(secondUserMessage.getByTestId("message-text")).toContainText(
+      "after interruption",
+    );
   });
 
   test("should show clear history button when messages exist", async ({
@@ -284,7 +336,11 @@ test.describe("Audio and Multimodal (Advanced)", () => {
     // Given: Send some messages
     await chatInput.fill("First message");
     await chatInput.press("Enter");
-    await expect(page.locator("text=First message")).toBeVisible();
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+    await expect(userMessage.getByTestId("message-text")).toContainText(
+      "First message",
+    );
     await page.waitForTimeout(2000);
 
     // Then: Clear history button should appear
@@ -303,7 +359,11 @@ test.describe("Audio and Multimodal (Advanced)", () => {
     // Text message
     await chatInput.fill("Hello, let me describe an image");
     await chatInput.press("Enter");
-    await expect(page.locator("text=describe an image")).toBeVisible();
+    const firstUserMessage = page.getByTestId("message-user").first();
+    await expect(firstUserMessage).toBeVisible();
+    await expect(firstUserMessage.getByTestId("message-text")).toContainText(
+      "describe an image",
+    );
     await page.waitForTimeout(2000);
 
     // Note: Image upload would happen here
@@ -311,7 +371,11 @@ test.describe("Audio and Multimodal (Advanced)", () => {
     // Follow-up text
     await chatInput.fill("What do you see in the image?");
     await chatInput.press("Enter");
-    await expect(page.locator("text=What do you see")).toBeVisible();
+    const secondUserMessage = page.getByTestId("message-user").nth(1);
+    await expect(secondUserMessage).toBeVisible();
+    await expect(secondUserMessage.getByTestId("message-text")).toContainText(
+      "What do you see",
+    );
     await page.waitForTimeout(3000);
 
     // Then: Conversation flow maintained

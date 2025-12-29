@@ -174,13 +174,18 @@ export async function clearChatHistory(page: Page) {
 
 /**
  * Cleanup all chat state: storage, cookies, and conversation history
+ *
+ * Note: Only clears storage if page is still on app URL to avoid SecurityError
  */
 export async function cleanupChatState(page: Page) {
-  // Clear all browser storage
-  await page.evaluate(() => {
-    localStorage.clear();
-    sessionStorage.clear();
-  });
+  // Clear all browser storage only if page is on valid app URL
+  const currentUrl = page.url();
+  if (currentUrl.startsWith("http://localhost:3000") || currentUrl.startsWith("http://localhost")) {
+    await page.evaluate(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+    });
+  }
   await page.context().clearCookies();
 }
 
@@ -259,11 +264,15 @@ export async function cleanupChunkLoggerState(page: Page) {
   // 1. Clear frontend history and backend sessions
   await clearHistory(page);
 
-  // 2. Clear localStorage to reset frontend chunk logger state
-  await page.evaluate(() => {
-    localStorage.removeItem("CHUNK_LOGGER_ENABLED");
-    localStorage.removeItem("CHUNK_LOGGER_SESSION_ID");
-  });
+  // 2. Clear localStorage only if page is still on app URL
+  // Skip if page navigated to about:blank, error page, etc.
+  const currentUrl = page.url();
+  if (currentUrl.startsWith("http://localhost:3000") || currentUrl.startsWith("http://localhost")) {
+    await page.evaluate(() => {
+      localStorage.removeItem("CHUNK_LOGGER_ENABLED");
+      localStorage.removeItem("CHUNK_LOGGER_SESSION_ID");
+    });
+  }
 
   // 3. Reload page to ensure clean state
   await page.reload();
@@ -338,6 +347,8 @@ export async function createTestImageFixture() {
 /**
  * Enable chunk logger for E2E testing
  * This enables frontend chunk logging via localStorage
+ *
+ * Prerequisites: Page must be navigated to app URL before calling this function
  */
 export async function enableChunkLogger(
   page: Page,
@@ -355,6 +366,8 @@ export async function enableChunkLogger(
 /**
  * Enable chunk player mode for E2E testing
  * This makes the UI use ChunkPlayerTransport to replay pre-recorded chunks
+ *
+ * Prerequisites: Page must be navigated to app URL before calling this function
  */
 export async function enableChunkPlayerMode(page: Page, fixturePath: string) {
   await page.evaluate(
@@ -368,12 +381,18 @@ export async function enableChunkPlayerMode(page: Page, fixturePath: string) {
 
 /**
  * Disable chunk player mode
+ *
+ * Note: Only attempts to clear localStorage if page is still on app URL
+ * to avoid SecurityError when page context is invalid
  */
 export async function disableChunkPlayerMode(page: Page) {
-  await page.evaluate(() => {
-    localStorage.removeItem("E2E_CHUNK_PLAYER_MODE");
-    localStorage.removeItem("E2E_CHUNK_PLAYER_FIXTURE");
-  });
+  const currentUrl = page.url();
+  if (currentUrl.startsWith("http://localhost:3000") || currentUrl.startsWith("http://localhost")) {
+    await page.evaluate(() => {
+      localStorage.removeItem("E2E_CHUNK_PLAYER_MODE");
+      localStorage.removeItem("E2E_CHUNK_PLAYER_FIXTURE");
+    });
+  }
 }
 
 /**

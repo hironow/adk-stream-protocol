@@ -62,9 +62,10 @@ export async function POST(req: Request) {
 
   // AI SDK v6: convertToModelMessages handles UIMessageFromAISDKv6 parts directly
   // No manual conversion needed - it supports text, file, tool(debug only), and other part types
+  // IMPORTANT: convertToModelMessages is async in AI SDK v6 - must await
   const result = streamText({
     model: google("gemini-3-flash-preview"), // Gemini 3 Flash Preview for generateContent API
-    messages: convertToModelMessages(messages), // AI SDK v6 handles UIMessageFromAISDKv6 parts natively
+    messages: await convertToModelMessages(messages), // AI SDK v6 handles UIMessageFromAISDKv6 parts natively
     tools: {
       get_current_time: getCurrentTimeTool,
     },
