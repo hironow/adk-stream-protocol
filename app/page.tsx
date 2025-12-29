@@ -15,8 +15,25 @@ export default function ChatPage() {
   return (
     <AudioProvider>
       <div style={{ height: "100vh", overflow: "hidden" }}>
-        {/* Backend Mode Switcher */}
-        <div
+        {/* Header with visually hidden h1 for accessibility */}
+        <header style={{ position: "absolute", width: "1px", height: "1px", overflow: "hidden" }}>
+          <h1>AI Chat Application</h1>
+        </header>
+
+        {/* Single unified Chat component with mode prop - placed first in DOM for tab order */}
+        {/* buildUseChatOptions() creates appropriate transport based on mode */}
+        {/* P4-T9: Pass initialMessages and onMessagesChange for history preservation */}
+        <Chat
+          key={mode}
+          mode={mode}
+          initialMessages={messages}
+          onMessagesChange={setMessages}
+        />
+
+        {/* Backend Mode Switcher - visually at top-right via position:fixed */}
+        <nav
+          role="navigation"
+          aria-label="Backend mode selection"
           style={{
             position: "fixed",
             top: "1rem",
@@ -47,6 +64,7 @@ export default function ChatPage() {
               onClick={() => {
                 setMode("gemini");
               }}
+              tabIndex={-1}
               style={{
                 padding: "0.5rem 1rem",
                 borderRadius: "4px",
@@ -65,7 +83,7 @@ export default function ChatPage() {
                 style={{
                   fontSize: "0.7rem",
                   marginTop: "0.25rem",
-                  opacity: 0.8,
+                  color: mode === "gemini" ? "#cbd5e1" : "#999",
                 }}
               >
                 Next.js → Gemini (SSE)
@@ -76,6 +94,7 @@ export default function ChatPage() {
               onClick={() => {
                 setMode("adk-sse");
               }}
+              tabIndex={-1}
               style={{
                 padding: "0.5rem 1rem",
                 borderRadius: "4px",
@@ -94,7 +113,7 @@ export default function ChatPage() {
                 style={{
                   fontSize: "0.7rem",
                   marginTop: "0.25rem",
-                  opacity: 0.8,
+                  color: mode === "adk-sse" ? "#cbd5e1" : "#999",
                 }}
               >
                 Frontend → ADK (SSE)
@@ -105,6 +124,7 @@ export default function ChatPage() {
               onClick={() => {
                 setMode("adk-bidi");
               }}
+              tabIndex={-1}
               style={{
                 padding: "0.5rem 1rem",
                 borderRadius: "4px",
@@ -123,7 +143,7 @@ export default function ChatPage() {
                 style={{
                   fontSize: "0.7rem",
                   marginTop: "0.25rem",
-                  opacity: 0.8,
+                  color: mode === "adk-bidi" ? "#cbd5e1" : "#999",
                 }}
               >
                 Frontend ↔ ADK (WS)
@@ -139,6 +159,7 @@ export default function ChatPage() {
                 // TODO: not working?
                 setMessages([]);
               }}
+              tabIndex={-1}
               style={{
                 marginTop: "0.5rem",
                 padding: "0.5rem 1rem",
@@ -164,12 +185,13 @@ export default function ChatPage() {
               onClick={() => {
                 chunkLogger.export();
               }}
+              tabIndex={-1}
               style={{
                 marginTop: "0.5rem",
                 padding: "0.5rem 1rem",
                 borderRadius: "4px",
                 border: "1px solid #333",
-                background: "#289424ff",
+                background: "#1f7a1c",
                 color: "#fff",
                 fontSize: "0.875rem",
                 cursor: "pointer",
@@ -181,17 +203,7 @@ export default function ChatPage() {
               Download Chunks
             </button>
           )}
-        </div>
-
-        {/* Single unified Chat component with mode prop */}
-        {/* buildUseChatOptions() creates appropriate transport based on mode */}
-        {/* P4-T9: Pass initialMessages and onMessagesChange for history preservation */}
-        <Chat
-          key={mode}
-          mode={mode}
-          initialMessages={messages}
-          onMessagesChange={setMessages}
-        />
+        </nav>
       </div>
     </AudioProvider>
   );

@@ -205,9 +205,10 @@ export function Chat({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
-      {/* Skip to main content link - visually hidden but focusable */}
+      {/* Skip to main content link - visually hidden but focusable via screen reader */}
       <a
         href="#main-content"
+        tabIndex={-1}
         style={{
           position: "absolute",
           left: "-9999px",
@@ -325,7 +326,7 @@ export function Chat({
           </div>
       )}
 
-      {/* BGM Switch Button (upper left) */}
+      {/* BGM Switch Button (upper left) - removed from tab order to prioritize chat input */}
       <button
         type="button"
         onClick={() =>
@@ -333,6 +334,7 @@ export function Chat({
             "[Chat] BGM button clicked, should be handled by tool calls",
           )
         }
+        tabIndex={-1}
         aria-label={`Background music track ${audioContext.bgmChannel.currentTrack + 1}`}
         style={{
           position: "fixed",
@@ -534,6 +536,7 @@ export function Chat({
               placeholder="Type your message..."
               disabled={isLoading}
               aria-label="Type your chat message"
+              tabIndex={0}
               style={{
                 width: "100%",
                 padding: "0.5rem",
