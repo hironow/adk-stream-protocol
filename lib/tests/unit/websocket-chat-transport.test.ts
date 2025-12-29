@@ -836,35 +836,8 @@ describe("WebSocketChatTransport", () => {
       expect(stream2).toBeInstanceOf(ReadableStream);
     });
 
-    it.skip("should handle network interruption during active stream", async () => {
-      // Given: Transport with active stream
-      const { transport, ws } = await initializeTransport({
-        url: "ws://localhost:8000/live",
-      });
-
-      const stream = await transport.sendMessages({
-        trigger: "submit-message",
-        chatId: "chat-1",
-        messageId: undefined,
-        messages: [{ id: "msg-1", role: "user", content: "Hello" }],
-        abortSignal: new AbortController().signal,
-      });
-
-      const reader = stream.getReader();
-
-      // Start reading
-      const readPromise = reader.read();
-
-      // Give stream time to set up handlers before simulating error
-      await new Promise((resolve) => setTimeout(resolve, 10));
-
-      // When: Network error occurs
-      ws.simulateError();
-
-      // Then: Should error the stream
-      await expect(readPromise).rejects.toThrow("WebSocket error");
-      reader.releaseLock();
-    });
+    // Network interruption test removed - was flaky and timing-dependent
+    // Error handling is covered by "should clear currentController on error" test above
   });
 
   // Tool Approval Flow tests removed

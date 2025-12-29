@@ -141,8 +141,8 @@ describe("Message Component Integration", () => {
 
       // Then: All parts should be visible
       expect(screen.getByText(/Let me check the weather/i)).toBeTruthy();
-      // Note: output-available state shows debug view
-      expect(screen.getByTestId("tool-name-debug")).toHaveTextContent(
+      // Tool name displayed in header for all states
+      expect(screen.getByTestId("tool-name")).toHaveTextContent(
         "get_weather",
       );
     });
@@ -173,8 +173,8 @@ describe("Message Component Integration", () => {
       // When: Render component
       render(<MessageComponent message={message} />);
 
-      // Then: Both tools should be displayed (output-available = debug view)
-      const toolNames = screen.getAllByTestId("tool-name-debug");
+      // Then: Both tools should be displayed in header
+      const toolNames = screen.getAllByTestId("tool-name");
       expect(toolNames).toHaveLength(2);
       expect(toolNames[0]).toHaveTextContent("get_weather");
       expect(toolNames[1]).toHaveTextContent("web_search");
@@ -290,21 +290,22 @@ describe("Message Component Integration", () => {
 
   describe("Tool Approval Integration", () => {
     it("should pass addToolApprovalResponse to tool invocations", () => {
-      // Given: Message with tool requiring approval
+      // Given: Message with tool requiring approval (ADR 0002 pattern)
       const message: UIMessageFromAISDKv6 = {
         id: "msg-1",
         role: "assistant",
         parts: [
           {
-            type: "tool-adk_request_confirmation" as any,
+            type: "tool-change_bgm" as any,
             toolCallId: "call-1",
+            toolName: "change_bgm",
             state: "approval-requested",
             input: {
-              originalFunctionCall: {
-                id: "orig-1",
-                name: "change_bgm",
-                args: { track_name: "lofi" },
-              },
+              track_name: "lofi",
+            },
+            approval: {
+              id: "approval-1",
+              approved: undefined,
             },
           },
         ],
@@ -320,9 +321,9 @@ describe("Message Component Integration", () => {
         />,
       );
 
-      // Then: Tool invocation should be rendered with callback
-      expect(screen.getByText(/change_bgm/i)).toBeTruthy();
-      expect(screen.getByText(/approve/i)).toBeTruthy();
+      // Then: Tool invocation should be rendered with approval UI
+      expect(screen.getByTestId("tool-name")).toHaveTextContent("change_bgm");
+      expect(screen.getByTestId("tool-approve-button")).toBeInTheDocument();
     });
   });
 
