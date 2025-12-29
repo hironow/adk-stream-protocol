@@ -18,6 +18,7 @@
 import { expect, test } from "@playwright/test";
 import {
   type BackendMode,
+  cleanupChatState,
   getLastMessage,
   getMessageText,
   getTestImagePath,
@@ -54,6 +55,9 @@ test.describe("Backend Equivalence Tests", () => {
         // Given: User navigates to chat and selects backend
         await navigateToChat(page);
         await selectBackendMode(page, backend);
+
+        // Clear any existing chat history
+        await cleanupChatState(page);
       });
 
       test("should handle text-only conversation", async ({ page }) => {
