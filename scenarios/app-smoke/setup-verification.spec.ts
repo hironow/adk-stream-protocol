@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { ChatPage } from "../../helpers/page-objects";
+import { ChatPage } from "../helpers/page-objects";
 
 /**
  * Setup Verification Test

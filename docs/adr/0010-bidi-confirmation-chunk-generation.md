@@ -251,6 +251,7 @@ async def _handle_confirmation_if_needed(self, sse_event: str) -> bool:
 ### 1. Event Order is Critical
 
 **Correct Order**:
+
 ```
 1. tool-input-start (original tool)
 2. tool-input-available (original tool)
@@ -301,6 +302,7 @@ if original_tool_call_id in pending_calls:
 **Target**: `BidiEventSender._handle_confirmation_if_needed()`
 
 **Test Cases**:
+
 1. Non-confirmation tools → Pass through unchanged
 2. Confirmation tool detection → Inject correct chunks
 3. Event ordering → Original before confirmation
@@ -312,10 +314,12 @@ if original_tool_call_id in pending_calls:
 **Target**: End-to-end approval flow
 
 **Baseline Fixtures**:
+
 - `fixtures/frontend/get_location-approved-bidi-baseline.json`
 - `fixtures/frontend/process_payment-approved-bidi-baseline.json`
 
 **Verification**:
+
 ```typescript
 // Check chunk sequence
 expect(chunks[0].toolName).toBe("get_location");
@@ -328,6 +332,7 @@ expect(chunks[1].input.originalFunctionCall.id).toBe(chunks[0].toolCallId);
 **Target**: Real WebSocket communication
 
 **Tests**:
+
 - `tests/e2e/backend_fixture/test_get_location_approved_bidi_baseline.py`
 - `tests/e2e/backend_fixture/test_process_payment_approved_bidi_baseline.py`
 
@@ -336,11 +341,11 @@ expect(chunks[1].input.originalFunctionCall.id).toBe(chunks[0].toolCallId);
 ## Related ADRs
 
 - **ADR 0009**: Phase 12 BLOCKING Mode for Tool Approval Flow
-  - Establishes BLOCKING behavior and ApprovalQueue
-  - This ADR documents chunk generation mechanism for Phase 12
+    - Establishes BLOCKING behavior and ApprovalQueue
+    - This ADR documents chunk generation mechanism for Phase 12
 - **ADR 0003**: SSE vs BIDI Confirmation Protocol Differences
-  - Documents protocol differences between modes
-  - This ADR focuses specifically on BIDI chunk injection
+    - Documents protocol differences between modes
+    - This ADR focuses specifically on BIDI chunk injection
 
 ## Future Considerations
 
@@ -363,15 +368,18 @@ If Google adds native `adk_request_confirmation` generation for BIDI mode:
 ## References
 
 **Implementation**:
+
 - `adk_stream_protocol/bidi_event_sender.py:221-367` - Chunk injection logic
 - `adk_stream_protocol/bidi_event_sender.py:338-349` - Confirmation chunk creation
 - `adk_stream_protocol/confirmation_interceptor.py` - Confirmation execution
 - `adk_stream_protocol/approval_queue.py` - BLOCKING tool coordination
 
 **Tests**:
+
 - `tests/e2e/backend_fixture/test_get_location_approved_bidi_baseline.py` - E2E approval test
 - `lib/tests/integration/transport-done-baseline.test.ts` - Frontend integration tests
 
 **Baseline Fixtures**:
+
 - `fixtures/frontend/get_location-approved-bidi-baseline.json` - BIDI approval baseline
 - `fixtures/frontend/get_location-approved-sse-baseline.json` - SSE comparison baseline

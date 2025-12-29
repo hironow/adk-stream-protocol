@@ -621,14 +621,14 @@ rm -rf .next && pnpm dev  # Clear cache and restart
 
 If you encounter issues not covered here:
 
-1. Check `docs/ARCHITECTURE.md` for detailed technical documentation
+1. Check `docs/spec_ARCHITECTURE.md` for detailed technical documentation
 2. Check `experiments/README.md` for known issues and workarounds
 3. Check the project's issue tracker
 4. Review logs carefully - most errors have helpful messages
 
 ## Next Steps
 
-- **Learn the architecture:** Read `docs/ARCHITECTURE.md` for complete technical details
-- **Explore test coverage:** See `docs/TEST_COVERAGE_AUDIT.md`
+- **Learn the architecture:** Read `docs/spec_ARCHITECTURE.md` for complete technical details
+- **Explore test coverage:** See `docs/testing_COVERAGE_AUDIT.md`
 - **Review experiments:** Check `experiments/README.md` for research notes
-- **Run E2E tests:** Follow `docs/E2E_GUIDE.md` for comprehensive testing
+- **Run E2E tests:** Follow `docs/testing_E2E_GUIDE.md` for comprehensive testing

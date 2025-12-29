@@ -218,7 +218,7 @@ These enhancements maintain the **Connection = Session** principle while improvi
 - **Investigation Document:** `experiments/2025-12-13_per_connection_state_management_investigation.md`
 - **ADK Discussion:** [#2784: Multi-client WebSocket](https://github.com/google/adk-python/discussions/2784)
 - **AI SDK v6 Discussion:** [#5607: WebSocket Support](https://github.com/vercel/ai/discussions/5607)
-- **Implementation:** `server.py` (live_chat function), `docs/ARCHITECTURE.md`
+- **Implementation:** `server.py` (live_chat function), `docs/spec_ARCHITECTURE.md`
 - **Original Specification:** `SPEC.md` (archived after this ADR)
 
 ---

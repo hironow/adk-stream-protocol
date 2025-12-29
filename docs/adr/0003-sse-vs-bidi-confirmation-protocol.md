@@ -267,6 +267,7 @@ Request 2: Both approvals sent together
 ```
 
 **Why This Works**:
+
 - SSE uses `generateContent` API
 - LLM response completes before tool execution
 - All tool calls are generated at once
@@ -306,6 +307,7 @@ Investigation revealed this is **Gemini Live API behavior**, not an ADK or Appro
    - Default behavior is `BLOCKING` (undocumented), not `NON_BLOCKING`
 
 2. **BLOCKING Behavior Prevents Parallel Generation**:
+
    ```python
    # Tool declaration with BLOCKING behavior (default)
    process_payment_declaration = types.FunctionDeclaration.from_callable_with_api_option(
@@ -321,17 +323,20 @@ Investigation revealed this is **Gemini Live API behavior**, not an ADK or Appro
    - This is by design in Live API's streaming execution model
 
 4. **ApprovalQueue Supports Parallel Approvals**:
+
    ```python
    # ApprovalQueue is designed for concurrent requests
    self._active_approvals: dict[str, dict[str, Any]] = {}
    # Multiple tools can await simultaneously
    ```
+
    - ApprovalQueue implementation supports parallel approvals
    - Limitation is in Live API's tool execution, not our code
 
 **Evidence**:
 
 Test output showing sequential behavior:
+
 ```
 Event 5: tool-input-start (Alice payment)
 Event 6: tool-input-available (Alice payment)
@@ -340,6 +345,7 @@ Event 7: tool-approval-request (Alice payment)
 ```
 
 LLM's own reasoning acknowledges sequential execution:
+
 ```
 "I'll sequentially request user approval, as required by the tool."
 ```

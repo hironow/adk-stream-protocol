@@ -2,7 +2,7 @@
 Test utilities for Result type assertions.
 
 Provides helper functions for asserting Ok/Error variants in tests,
-following the pattern recommended in result/README.md.
+following the pattern recommended in docs/RESULT_TYPE_PATTERN.md.
 """
 
 import pytest

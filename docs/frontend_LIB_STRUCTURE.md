@@ -22,6 +22,7 @@ lib/
 ### 🔴 ADK-Dependent Modules
 
 #### lib/bidi/ - ADK BIDI Protocol
+
 **Dependencies**: ADK BIDI WebSocket Protocol, AI SDK v6
 **Purpose**: Bidirectional streaming with ADK backend via WebSocket
 
@@ -33,6 +34,7 @@ lib/
 - `index.ts` - Public API (unified with lib/sse/)
 
 **Public API**:
+
 ```typescript
 import {
   buildUseChatOptions,     // Main entry point
@@ -42,6 +44,7 @@ import {
 ```
 
 #### Audio Modules - ADK BIDI Audio Streaming
+
 **Dependencies**: ADK BIDI Protocol, Web Audio API
 **Purpose**: Real-time PCM audio streaming (16kHz, 16-bit)
 
@@ -52,6 +55,7 @@ import {
 **Usage**: Only with `adk-bidi` mode
 
 #### lib/adk_compat.ts - ADK Tool Utilities
+
 **Dependencies**: ADK Tool Protocol (`adk_request_confirmation`)
 **Purpose**: Backward compatibility utilities for ADK tool handling
 
@@ -60,6 +64,7 @@ import {
 ### 🟡 Partially ADK-Dependent Modules
 
 #### lib/sse/ - SSE Modes
+
 **Dependencies**: AI SDK v6 DefaultChatTransport, (Optional) ADK SSE
 **Purpose**: HTTP streaming for Gemini and ADK SSE modes
 
@@ -71,10 +76,12 @@ import {
 - `index.ts` - Public API (unified with lib/bidi/)
 
 **Modes**:
+
 - `gemini` - Pure AI SDK v6, no ADK dependency
 - `adk-sse` - Uses ADK tool confirmation (`adk_request_confirmation`)
 
 **Public API** (identical to lib/bidi/):
+
 ```typescript
 import {
   buildUseChatOptions,     // Main entry point
@@ -86,6 +93,7 @@ import {
 ### ⚪ ADK-Independent Modules
 
 #### lib/chunk_logs/ - Chunk Logging & Replay
+
 **Dependencies**: AI SDK v6 only
 **Purpose**: Chunk logging, replay, and testing utilities
 
@@ -96,6 +104,7 @@ import {
 - `index.ts` - Public API (unified exports)
 
 **Public API**:
+
 ```typescript
 import {
   chunkLogger,           // Singleton logger instance
@@ -108,10 +117,12 @@ import {
 **Usage**: Works with all modes (adk-bidi, adk-sse, gemini)
 
 #### lib/build-use-chat-options.ts - Mode Dispatcher
+
 **Dependencies**: All modes (bidi, sse, chunk player)
 **Purpose**: Unified entry point for all backend modes
 
 **Usage**:
+
 ```typescript
 import { buildUseChatOptions } from '@/lib/build-use-chat-options';
 
@@ -176,6 +187,7 @@ The `adk_request_confirmation` tool is used in both BIDI and SSE modes:
 **Purpose**: Request user approval before executing sensitive tools
 
 **Flow**:
+
 1. Backend sends `adk_request_confirmation` tool invocation
 2. Frontend shows Approve/Deny buttons
 3. User clicks → `addToolOutput({ tool: "adk_request_confirmation", output: { confirmed: true/false } })`
@@ -183,6 +195,7 @@ The `adk_request_confirmation` tool is used in both BIDI and SSE modes:
 5. Backend receives confirmation and proceeds/cancels original tool
 
 **Implementation**:
+
 - BIDI: `lib/bidi/event_sender.ts` converts to `function_response` event
 - SSE: `lib/sse/event_sender.ts` formats output for HTTP request
 - Detection: Both use identical logic in `send-automatically-when.ts`

@@ -305,7 +305,7 @@ addToolApprovalResponse({ id, approved, reason });
 ## References
 
 - **AI SDK v6 Source**: `node_modules/ai/dist/index.mjs:11342-11363`
-- **Architecture Documentation**: `docs/ARCHITECTURE.md:730-748` (explicit warning about this)
+- **Architecture Documentation**: `docs/spec_ARCHITECTURE.md:730-748` (explicit warning about this)
 - **Integration Tests**: `lib/tests/integration/sse-integration.test.ts:257-340`
 - **Component Tests**: `components/tests/unit/tool-invocation.test.tsx:27-127`
 

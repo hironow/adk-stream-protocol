@@ -3,16 +3,13 @@ import { defineConfig, devices } from "@playwright/test";
 /**
  * Playwright configuration for E2E tests
  *
- * Test Suites:
- * 1. scenarios/ - Event-to-event backend+frontend integration (EXISTING)
- * 2. app/tests/e2e/ - UI-focused user interaction tests (NEW)
+ * Test Suites (all in scenarios/):
+ * 1. scenarios/*.spec.ts - Event-to-event backend+frontend integration
+ * 2. scenarios/app-smoke/ - Tier 1: Fast critical path tests (<5 min)
+ * 3. scenarios/app-core/ - Tier 2: Comprehensive functionality tests (<20 min)
+ * 4. scenarios/app-advanced/ - Tier 3: Edge cases, visual regression, accessibility (<30 min)
  *
- * Test execution tiers (app/tests/e2e/ only):
- * - Tier 1 (Smoke): Fast critical path tests (<5 min)
- * - Tier 2 (Core): Comprehensive functionality tests (<20 min)
- * - Tier 3 (Advanced): Edge cases, visual regression, accessibility (<30 min)
- *
- * See: agents/app_plan.md for full testing strategy
+ * Note: vitest-based tests are in lib/tests/, app/tests/integration/, components/tests/
  */
 export default defineConfig({
   // Run tests in parallel
@@ -26,6 +23,10 @@ export default defineConfig({
 
   // Limit workers on CI for stability
   workers: process.env.CI ? 2 : undefined,
+
+  // Global timeout for entire test run (60 minutes)
+  // CRITICAL: Prevents infinite hangs, ensures test failures are caught
+  globalTimeout: 60 * 60 * 1000, // 60 minutes
 
   // Reporter configuration
   reporter: [
@@ -70,27 +71,37 @@ export default defineConfig({
       name: "scenarios",
       testDir: "./scenarios",
       use: { ...devices["Desktop Chrome"] },
+      // Exclude app-* subdirectories from this project
+      testIgnore: ["**/app-*/**"],
+      // Per-test timeout: 60 seconds (backend interactions can be slower)
+      timeout: 60 * 1000,
     },
 
-    // Project 2: app/tests/e2e/smoke - Tier 1: Fast smoke tests
+    // Project 2: scenarios/app-smoke - Tier 1: Fast smoke tests
     {
       name: "app-e2e-smoke",
-      testDir: "./app/tests/e2e/smoke",
+      testDir: "./scenarios/app-smoke",
       use: { ...devices["Desktop Chrome"] },
+      // Per-test timeout: 30 seconds (smoke tests should be fast)
+      timeout: 30 * 1000,
     },
 
-    // Project 3: app/tests/e2e/core - Tier 2: Core functionality
+    // Project 3: scenarios/app-core - Tier 2: Core functionality
     {
       name: "app-e2e-core",
-      testDir: "./app/tests/e2e/core",
+      testDir: "./scenarios/app-core",
       use: { ...devices["Desktop Chrome"] },
+      // Per-test timeout: 45 seconds (more complex interactions)
+      timeout: 45 * 1000,
     },
 
-    // Project 4: app/tests/e2e/advanced - Tier 3: Advanced tests
+    // Project 4: scenarios/app-advanced - Tier 3: Advanced tests
     {
       name: "app-e2e-advanced",
-      testDir: "./app/tests/e2e/advanced",
+      testDir: "./scenarios/app-advanced",
       use: { ...devices["Desktop Chrome"] },
+      // Per-test timeout: 60 seconds (visual regression, accessibility scans)
+      timeout: 60 * 1000,
     },
 
     // Uncomment for cross-browser testing

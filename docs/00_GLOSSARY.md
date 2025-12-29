@@ -190,30 +190,34 @@ The number of `[DONE]` markers expected in a fixture:
 
 ### Multi-turn Tool Pattern (Approval)
 
-**Turn 1 (Confirmation Request):**
+**Current implementation (ADR-0002):**
+
+**Turn 1 (Approval Request):**
 
 ```
-User message → Tool input → adk_request_confirmation → [DONE]
+User message → Tool with state: "approval-requested" → [DONE]
 ```
 
 **Turn 2 (Approved Execution):**
 
 ```
-User approval → Tool output → AI response → [DONE]
+User approval → Tool execution → AI response → [DONE]
 ```
+
+**Key difference from legacy pattern:** Tools now use `state: "approval-requested"` directly instead of wrapping in `adk_request_confirmation` tool. See ADR-0002 for rationale.
 
 ### Multi-turn Tool Pattern (Denial)
 
-**Turn 1 (Confirmation Request):**
+**Turn 1 (Approval Request):**
 
 ```
-User message → Tool input → adk_request_confirmation → [DONE]
+User message → Tool with state: "approval-requested" → [DONE]
 ```
 
 **Turn 2 (Denied Execution):**
 
 ```
-User denial → Tool output error → AI response → [DONE]
+User denial → Tool denied/error → AI response → [DONE]
 ```
 
 ## Protocol Concepts

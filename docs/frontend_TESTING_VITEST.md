@@ -112,6 +112,7 @@ server.use(
 ```
 
 **提供関数**:
+
 - `createSseStreamResponse(chunks)` - SSE ストリームレスポンスを作成
 - `createTextResponse(...textParts)` - テキストデルタレスポンス
 - `createAdkConfirmationRequest(originalFunctionCall)` - 確認リクエスト
@@ -133,6 +134,7 @@ mockWebSocket.simulateMessage(JSON.stringify(createBidiEndOfTurnEvent()));
 ```
 
 **提供関数**:
+
 - `createBidiMessageEvent(content)` - メッセージイベント
 - `createBidiToolUseEvent(id, name, input)` - ツール使用イベント
 - `createBidiEndOfTurnEvent()` - ターン終了イベント
@@ -184,6 +186,7 @@ mockWs.simulateMessage('...');
 ```
 
 **主要機能**:
+
 - `MockWebSocket` class - WebSocket実装のモック
 - `installMockWebSocket()` - グローバルWebSocketを置き換え
 - `restoreMockWebSocket(original)` - 元のWebSocketに復元
