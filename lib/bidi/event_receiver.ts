@@ -65,6 +65,7 @@ export interface EventReceiverConfig {
  */
 export class EventReceiver {
   private doneReceived = false;
+  private waitingForFinishAfterApproval = false; // Flag for BIDI BLOCKING pattern
   private audioChunkIndex = 0;
   private pcmBuffer: Int16Array[] = [];
 
@@ -105,6 +106,7 @@ export class EventReceiver {
    */
   public reset(): void {
     this.doneReceived = false;
+    this.waitingForFinishAfterApproval = false;
     this.audioChunkIndex = 0;
     this.pcmBuffer = [];
     // this.currentController = null;
@@ -205,20 +207,32 @@ export class EventReceiver {
       return;
     }
 
-    // BIDI BLOCKING Pattern: Send [DONE] after approval request to enable sendAutomaticallyWhen
+    // BIDI BLOCKING Pattern: Wait for finish chunk after approval request
     // AI SDK v6 only calls sendAutomaticallyWhen when status != "streaming"
-    // After receiving approval-request, close stream so user's approval can trigger auto-send
+    // After receiving approval-request, enqueue it and wait for finish chunk to close stream
     if ((chunk as UIMessageChunkFromAISDKv6).type === "tool-approval-request") {
       console.log(
-        "[Event Receiver] Enqueuing approval request, then sending [DONE] to end stream",
+        "[Event Receiver] Enqueuing approval request, waiting for finish chunk to close stream",
       );
       controller.enqueue(chunk as UIMessageChunkFromAISDKv6);
 
-      // Send finish chunk to close the stream (but keep WebSocket open for next request)
-      const finishChunk: UIMessageChunkFromAISDKv6 = {
-        type: "finish",
-      };
-      controller.enqueue(finishChunk);
+      // Flag: Next finish chunk should close the stream
+      this.waitingForFinishAfterApproval = true;
+
+      return; // Skip normal enqueue since we already enqueued
+    }
+
+    // Close stream after finish chunk following approval-request
+    if (
+      this.waitingForFinishAfterApproval &&
+      (chunk as UIMessageChunkFromAISDKv6).type === "finish"
+    ) {
+      console.log(
+        "[Event Receiver] Received finish chunk after approval request, closing stream",
+      );
+
+      // Enqueue the finish chunk with its metadata (from backend)
+      controller.enqueue(chunk as UIMessageChunkFromAISDKv6);
 
       // Close controller to set status != "streaming"
       // Note: This closes the stream but NOT the WebSocket connection
@@ -231,6 +245,9 @@ export class EventReceiver {
       // CRITICAL: Mark stream as done so transport creates new controller for approval response
       // Without this flag, transport reuses the closed controller and backend responses are lost
       this.doneReceived = true;
+
+      // Reset flag
+      this.waitingForFinishAfterApproval = false;
 
       return; // Skip normal enqueue since we already enqueued
     }

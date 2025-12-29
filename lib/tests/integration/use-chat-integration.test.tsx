@@ -266,7 +266,7 @@ describe("useChat Integration", () => {
       // E2E tests verify the complete flow with real AI SDK useChat hook
     });
 
-    it("should verify addToolOutput updates message state but does NOT auto-submit (ADK BIDI)", async () => {
+    it("should verify addToolOutput updates message state and auto-submits (Frontend Execute pattern)", async () => {
       // Given: ADK BIDI mode with initial message containing tool call waiting for output
       const initialMessages: UIMessageFromAISDKv6[] = [
         {
@@ -314,7 +314,7 @@ describe("useChat Integration", () => {
         });
       });
 
-      // Wait a bit to ensure no automatic submission happens
+      // Wait for async state updates and auto-submission
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Then: Message state should be updated
@@ -330,16 +330,14 @@ describe("useChat Integration", () => {
         results: ["AI news 1", "AI news 2"],
       });
 
-      // But: sendMessages should NOT be called automatically
-      // Current sendAutomaticallyWhen (lastAssistantMessageIsCompleteWithApprovalResponses)
-      // only triggers on approval-responded, not on output-available
-      expect(sendMessagesSpy).not.toHaveBeenCalled();
+      // And: sendMessages SHOULD be called automatically (Frontend Execute pattern)
+      // sendAutomaticallyWhen detects output-available with output → auto-sends to backend
+      expect(sendMessagesSpy).toHaveBeenCalled();
 
-      // Note: This verifies current behavior:
+      // Note: This verifies Frontend Execute pattern behavior:
       // - addToolOutput updates message state to "output-available"
-      // - But does NOT trigger automatic resubmission
-      // - This is because sendAutomaticallyWhen is configured for approval flow only
-      // - For tool output without approval, user must manually call submit() or append()
+      // - sendAutomaticallyWhen detects this and returns true
+      // - AI SDK automatically calls sendMessages to send output to backend
     }, 10000); // Increased timeout for WebSocket connection
 
     // Integration Test: Verify sendAutomaticallyWhen logic for Frontend Execute pattern
@@ -444,17 +442,17 @@ describe("useChat Integration", () => {
 
       // When: Call sendAutomaticallyWhen after frontend added output
       // With output-available state, should detect it needs to send output to backend
-      // This is a different signal than approval - it's detecting output was added
+      // This is Frontend Execute pattern - output must be sent to backend
       const shouldAutoSendAfterOutput = sendAutomaticallyWhen({
         messages: messagesAfterOutputAdded,
       });
 
-      // Then: In current implementation, this returns false because:
-      // - Tool is in output-available state (completed from frontend perspective)
+      // Then: Frontend Execute pattern - returns true to auto-send output to backend
+      // - Tool is in output-available state with output (frontend called addToolOutput)
       // - No text part yet (backend hasn't responded)
-      // - For Frontend Execute, the output is sent separately via addToolOutput callback
-      // So sendAutomaticallyWhen returning false is actually correct here
-      expect(shouldAutoSendAfterOutput).toBe(false);
+      // - No approval workflow (approval cycle completed earlier)
+      // → Auto-send to backend so it can process the tool output
+      expect(shouldAutoSendAfterOutput).toBe(true);
 
       // Verify the integration: buildUseChatOptions correctly configured sendAutomaticallyWhen
       // This tests our code (buildUseChatOptions + sendAutomaticallyWhen logic)

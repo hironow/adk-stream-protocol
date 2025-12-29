@@ -84,22 +84,31 @@ describe("BIDI EventReceiver", () => {
 
     it("should parse and enqueue tool-approval-request chunk", () => {
       // given
-      const chunk = {
+      const approvalChunk = {
         type: "tool-approval-request",
         toolCallId: "call-1",
         toolName: "process_payment",
         approvalId: "approval-1",
         input: { amount: 100 },
       };
-      const sseMessage = `data: ${JSON.stringify(chunk)}\n\n`;
+      const finishChunk = {
+        type: "finish",
+        finishReason: "stop",
+      };
+      const approvalMessage = `data: ${JSON.stringify(approvalChunk)}\n\n`;
+      const finishMessage = `data: ${JSON.stringify(finishChunk)}\n\n`;
 
       // when
-      receiver.handleMessage(sseMessage, mockController);
+      receiver.handleMessage(approvalMessage, mockController);
+      receiver.handleMessage(finishMessage, mockController);
 
-      // then - Should enqueue approval request AND finish chunk
+      // then - Should enqueue approval request, then finish chunk from backend
       expect(enqueuedChunks).toHaveLength(2);
-      expect(enqueuedChunks[0]).toEqual(chunk);
-      expect(enqueuedChunks[1]).toEqual({ type: "finish" });
+      expect(enqueuedChunks[0]).toEqual(approvalChunk);
+      expect(enqueuedChunks[1]).toMatchObject({
+        type: "finish",
+        finishReason: "stop",
+      });
     });
 
     it("should handle malformed JSON gracefully", () => {
@@ -161,19 +170,30 @@ describe("BIDI EventReceiver", () => {
         approvalId: "approval-1",
         input: { amount: 100 },
       };
-      const sseMessage = `data: ${JSON.stringify(approvalChunk)}\n\n`;
+      const finishChunk = {
+        type: "finish",
+        finishReason: "stop",
+        messageMetadata: { usage: { totalTokens: 100 } },
+      };
+      const approvalMessage = `data: ${JSON.stringify(approvalChunk)}\n\n`;
+      const finishMessage = `data: ${JSON.stringify(finishChunk)}\n\n`;
 
       // when
-      receiver.handleMessage(sseMessage, mockController);
+      receiver.handleMessage(approvalMessage, mockController);
+      receiver.handleMessage(finishMessage, mockController);
 
-      // then - Should enqueue approval request, finish chunk, and close controller
+      // then - Should enqueue approval request, then finish chunk, and close controller
       expect(enqueuedChunks).toHaveLength(2);
       expect(enqueuedChunks[0].type).toBe("tool-approval-request");
       expect(enqueuedChunks[1].type).toBe("finish");
+      expect(enqueuedChunks[1]).toMatchObject({
+        finishReason: "stop",
+        messageMetadata: { usage: { totalTokens: 100 } },
+      });
       expect(mockController.close).toHaveBeenCalled();
     });
 
-    it("should set doneReceived flag after approval request", () => {
+    it("should set doneReceived flag after approval request and finish", () => {
       // given
       const approvalChunk = {
         type: "tool-approval-request",
@@ -182,10 +202,16 @@ describe("BIDI EventReceiver", () => {
         approvalId: "approval-1",
         input: { amount: 100 },
       };
-      const sseMessage = `data: ${JSON.stringify(approvalChunk)}\n\n`;
+      const finishChunk = {
+        type: "finish",
+        finishReason: "stop",
+      };
+      const approvalMessage = `data: ${JSON.stringify(approvalChunk)}\n\n`;
+      const finishMessage = `data: ${JSON.stringify(finishChunk)}\n\n`;
 
       // when
-      receiver.handleMessage(sseMessage, mockController);
+      receiver.handleMessage(approvalMessage, mockController);
+      receiver.handleMessage(finishMessage, mockController);
 
       // then - CRITICAL: doneReceived must be true for transport to create new controller
       expect(receiver.isDoneReceived()).toBe(true);

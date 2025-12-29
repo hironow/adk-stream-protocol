@@ -23,10 +23,11 @@ import {
 
 export interface SendAutomaticallyWhenOptions {
   messages: UIMessageFromAISDKv6[];
+  mode?: "bidi" | "sse"; // Optional mode for state separation
 }
 
 // Infinite loop prevention: Track approval states already sent
-// Key format: "messageId:toolCallId1,toolCallId2,..."
+// Key format: "mode:messageId:toolCallId1,toolCallId2,..." (mode prefix for BIDI/SSE separation)
 const sentApprovalStates = new Set<string>();
 
 /**
@@ -37,7 +38,7 @@ const sentApprovalStates = new Set<string>();
  * @returns true to trigger sendMessages(), false otherwise
  */
 export function sendAutomaticallyWhenCore(
-  { messages }: SendAutomaticallyWhenOptions,
+  { messages, mode = "unknown" }: SendAutomaticallyWhenOptions,
   log: (message: string) => void,
 ): boolean {
   try {
@@ -92,10 +93,10 @@ export function sendAutomaticallyWhenCore(
       if (hasTextPart) {
         log("Has text part (no approval workflow), returning false");
 
-        // Cleanup: Clear approval tracking for this message
+        // Cleanup: Clear approval tracking for this message (mode-specific)
         const messageId = (lastMessage as any).id || "unknown";
         const keysToDelete = Array.from(sentApprovalStates).filter((key) =>
-          key.startsWith(`${messageId}:`),
+          key.startsWith(`${mode}:${messageId}:`),
         );
         for (const key of keysToDelete) {
           sentApprovalStates.delete(key);
@@ -157,6 +158,9 @@ export function sendAutomaticallyWhenCore(
               .map((p: any) => p.toolCallId),
           );
 
+          log(`Output tool IDs: ${Array.from(outputToolIds).join(", ")}`);
+          log(`Approval tool IDs: ${Array.from(approvalToolIds).join(", ")}`);
+
           // Check if any output toolId matches any approval toolId
           const hasSameToolId = [...outputToolIds].some((id) =>
             approvalToolIds.has(id),
@@ -169,6 +173,8 @@ export function sendAutomaticallyWhenCore(
             );
             return true;
           }
+
+          log(`Tool IDs don't match (output: ${Array.from(outputToolIds).join(",")}, approval: ${Array.from(approvalToolIds).join(",")}), checking for confirmation pattern`);
         }
 
         // Different cases: defer to approval checks
@@ -219,20 +225,28 @@ export function sendAutomaticallyWhenCore(
     // ========================================================================
     // Check 5: Infinite loop prevention - Already sent for this approval state?
     // ========================================================================
-    // Track: messageId + sorted tool IDs to prevent repeated sends for same approval.
+    // Track: mode + messageId + sorted tool IDs to prevent repeated sends for same approval.
+    // Mode prefix ensures BIDI and SSE have separate state spaces.
+    // EXCEPTION: Skip this check if tool output was just added by frontend (Frontend Execute pattern)
+    // In Frontend Execute, output is added AFTER approval, creating a new state that needs sending.
     const messageId = (lastMessage as any).id || "unknown";
     const approvedToolIds = parts
       .filter((p: any) => isApprovalRespondedTool(p))
       .map((p: any) => p.toolCallId)
       .sort()
       .join(",");
-    const approvalStateKey = `${messageId}:${approvedToolIds}`;
+    const approvalStateKey = `${mode}:${messageId}:${approvedToolIds}`;
 
-    if (sentApprovalStates.has(approvalStateKey)) {
+    // Only check for duplicate sends if this is NOT a Frontend Execute pattern with new output
+    if (!hasToolOutputFromAddToolOutput && sentApprovalStates.has(approvalStateKey)) {
       log(
         "Already sent for this approval state, returning false to prevent loop",
       );
       return false;
+    }
+
+    if (hasToolOutputFromAddToolOutput) {
+      log("Frontend Execute: Output added after approval, skipping infinite loop prevention");
     }
 
     // ========================================================================

@@ -4,6 +4,12 @@
 
 このディレクトリには、テスト用のフィクスチャファイルが格納されています。
 
+fixturesの生成実行のためのテストは以下のコマンドで実行できます：
+
+```bash
+uv run pytest tests/e2e/backend_fixture/
+```
+
 ## Directory Structure
 
 ```

@@ -19,7 +19,8 @@ export type { SendAutomaticallyWhenOptions };
 export function sendAutomaticallyWhen(
   options: SendAutomaticallyWhenOptions,
 ): boolean {
-  return sendAutomaticallyWhenCore(options, (message) =>
-    console.log(`[SSE sendAutomaticallyWhen] ${message}`),
+  return sendAutomaticallyWhenCore(
+    { ...options, mode: "sse" },
+    (message) => console.log(`[SSE sendAutomaticallyWhen] ${message}`),
   );
 }
