@@ -336,7 +336,7 @@ async def test_handle_message_event_handles_function_response(mock_process) -> N
 
 @pytest.mark.asyncio
 async def test_handle_interrupt_event_closes_queue() -> None:
-    """handle_interrupt_event() should close LiveRequestQueue."""
+    """handle_interrupt_event() should log interrupt without closing queue (state change only)."""
     # given
     mock_queue = Mock()
     handler = BidiEventReceiver(
@@ -348,16 +348,16 @@ async def test_handle_interrupt_event_closes_queue() -> None:
 
     event = {"type": "interrupt", "reason": "user_abort"}
 
-    # when
+    # when - Should not raise error
     await handler._handle_interrupt_event(event)
 
-    # then
-    mock_queue.close.assert_called_once()
+    # then - Queue should NOT be closed (interrupt is state change only)
+    mock_queue.close.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_handle_interrupt_event_with_default_reason() -> None:
-    """handle_interrupt_event() should handle missing reason field."""
+    """handle_interrupt_event() should handle missing reason field (defaults to 'user_abort')."""
     # given
     mock_queue = Mock()
     handler = BidiEventReceiver(
@@ -369,11 +369,11 @@ async def test_handle_interrupt_event_with_default_reason() -> None:
 
     event = {"type": "interrupt"}  # No reason
 
-    # when
+    # when - Should not raise error
     await handler._handle_interrupt_event(event)
 
-    # then
-    mock_queue.close.assert_called_once()
+    # then - Queue should NOT be closed (interrupt is state change only)
+    mock_queue.close.assert_not_called()
 
 
 # ============================================================
@@ -556,7 +556,7 @@ async def test_handle_tool_result_event_missing_result() -> None:
 @pytest.mark.asyncio
 @patch("adk_stream_protocol.bidi_event_receiver.process_chat_message_for_bidi")
 async def test_event_sequence_message_then_interrupt(mock_process) -> None:
-    """Should handle message event followed by interrupt event."""
+    """Should handle message event followed by interrupt event (interrupt is state change only)."""
     # given
     mock_queue = Mock()
     handler = BidiEventReceiver(
@@ -580,8 +580,8 @@ async def test_event_sequence_message_then_interrupt(mock_process) -> None:
     interrupt_event = {"type": "interrupt"}
     await handler.handle_event(interrupt_event)
 
-    # then - Should close queue
-    mock_queue.close.assert_called_once()
+    # then - Queue should NOT be closed (interrupt is state change only, not connection termination)
+    mock_queue.close.assert_not_called()
 
 
 @pytest.mark.asyncio
