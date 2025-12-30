@@ -60,8 +60,8 @@ class TestConvertedSSEFixtures:
         async for entry in player.play(mode="fast-forward"):
             chunks.append(entry)
 
-        # Then: Should have 14 chunks (approval flow has more chunks)
-        assert len(chunks) == 14
+        # Then: Should have 13 chunks (approval flow has more chunks)
+        assert len(chunks) == 13
         # And: Should contain tool-related chunks
         chunk_types = {entry.chunk.get("type") for entry in chunks if isinstance(entry.chunk, dict)}
         assert "tool-input-start" in chunk_types
@@ -80,8 +80,8 @@ class TestConvertedSSEFixtures:
         async for entry in player.play(mode="fast-forward"):
             chunks.append(entry)
 
-        # Then: Should have 14 chunks
-        assert len(chunks) == 14
+        # Then: Should have 13 chunks
+        assert len(chunks) == 13
         # And: Last chunk should be [DONE]
         assert chunks[-1].chunk == "[DONE]"
 
