@@ -11,11 +11,12 @@ Based on implementation in server.py (FrontendToolDelegate class)
 
 import asyncio
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 
 from adk_stream_protocol import FrontendToolDelegate, change_bgm, get_location
+from adk_stream_protocol.frontend_tool_registry import _REGISTRY, register_delegate
 from adk_stream_protocol.result import Ok
 from tests.utils.mocks import create_mock_frontend_delegate, create_mock_tool_context
 from tests.utils.result_assertions import assert_error, assert_ok
@@ -192,8 +193,11 @@ async def test_change_bgm_uses_delegate_in_bidi_mode() -> None:
     # Create mock ToolContext with delegate
     mock_tool_context = create_mock_tool_context(
         invocation_id="call_789",
-        session_state={"frontend_delegate": mock_delegate},
+        session_state={"frontend_delegate": mock_delegate, "confirmation_delegate": Mock()},
     )
+
+    # Register delegate in registry
+    register_delegate(mock_tool_context.session.id, mock_delegate)
 
     # Call change_bgm with tool_context
     result = await change_bgm(track=1, tool_context=mock_tool_context)
@@ -206,6 +210,9 @@ async def test_change_bgm_uses_delegate_in_bidi_mode() -> None:
 
     # Verify result from delegate
     assert result == {"success": True, "track": 1}
+
+    # Cleanup
+    _REGISTRY.pop(mock_tool_context.session.id, None)
 
 
 @pytest.mark.asyncio
@@ -263,8 +270,11 @@ async def test_change_bgm_delegate_call_count_spy() -> None:
         # Create mock ToolContext
         mock_tool_context = create_mock_tool_context(
             invocation_id="call_spy_test",
-            session_state={"frontend_delegate": delegate},
+            session_state={"frontend_delegate": delegate, "confirmation_delegate": Mock()},
         )
+
+        # Register delegate in registry
+        register_delegate(mock_tool_context.session.id, delegate)
 
         # Start resolution task
         resolve_task = asyncio.create_task(resolve_after_delay())
@@ -284,6 +294,9 @@ async def test_change_bgm_delegate_call_count_spy() -> None:
 
         # Verify result
         assert result == {"success": True, "track": 0}
+
+        # Cleanup
+        _REGISTRY.pop(mock_tool_context.session.id, None)
 
 
 @pytest.mark.asyncio
@@ -327,8 +340,11 @@ async def test_get_location_uses_delegate_in_bidi_mode() -> None:
     # Create mock ToolContext with delegate
     mock_tool_context = create_mock_tool_context(
         invocation_id="call_location_001",
-        session_state={"frontend_delegate": mock_delegate},
+        session_state={"frontend_delegate": mock_delegate, "confirmation_delegate": Mock()},
     )
+
+    # Register delegate in registry
+    register_delegate(mock_tool_context.session.id, mock_delegate)
 
     # Call get_location with tool_context
     result = await get_location(tool_context=mock_tool_context)
@@ -343,6 +359,9 @@ async def test_get_location_uses_delegate_in_bidi_mode() -> None:
     assert result["success"] is True
     assert result["latitude"] == 35.6762
     assert result["longitude"] == 139.6503
+
+    # Cleanup
+    _REGISTRY.pop(mock_tool_context.session.id, None)
 
 
 # Removed: test_get_location_without_delegate_returns_sse_response
@@ -399,8 +418,11 @@ async def test_get_location_delegate_call_count_spy() -> None:
         # Create mock ToolContext
         mock_tool_context = create_mock_tool_context(
             invocation_id="call_location_spy",
-            session_state={"frontend_delegate": delegate},
+            session_state={"frontend_delegate": delegate, "confirmation_delegate": Mock()},
         )
+
+        # Register delegate in registry
+        register_delegate(mock_tool_context.session.id, delegate)
 
         # Start resolution task
         resolve_task = asyncio.create_task(resolve_after_delay())
@@ -423,6 +445,9 @@ async def test_get_location_delegate_call_count_spy() -> None:
         assert result["latitude"] == 35.6762
         assert result["longitude"] == 139.6503
 
+        # Cleanup
+        _REGISTRY.pop(mock_tool_context.session.id, None)
+
 
 # Removed: test_get_location_no_delegate_call_when_sse_mode
 # New implementation requires tool_context (past implementation pattern)
@@ -441,9 +466,11 @@ async def test_get_location_with_none_session_state() -> None:
     result = await get_location(tool_context=mock_tool_context)
 
     # Verify error response
+    # When session_state is None, get_location defaults to SSE mode and looks up delegate in registry
+    # Since delegate isn't registered, it returns "Missing frontend_delegate" error
     assert result["success"] is False
     assert "error" in result
-    assert "session.state" in result["error"]
+    assert ("session.state" in result["error"] or "Missing frontend_delegate" in result["error"])
 
 
 @pytest.mark.asyncio
@@ -468,8 +495,11 @@ async def test_get_location_delegate_not_called_on_error() -> None:
         # Create mock ToolContext
         mock_tool_context = create_mock_tool_context(
             invocation_id="call_location_error",
-            session_state={"frontend_delegate": delegate},
+            session_state={"frontend_delegate": delegate, "confirmation_delegate": Mock()},
         )
+
+        # Register delegate in registry
+        register_delegate(mock_tool_context.session.id, delegate)
 
         # Start rejection task
         reject_task = asyncio.create_task(reject_after_delay())
@@ -487,3 +517,6 @@ async def test_get_location_delegate_not_called_on_error() -> None:
 
         # Verify execute_on_frontend was called EXACTLY ONCE (not retried)
         assert spy.call_count == 1
+
+        # Cleanup
+        _REGISTRY.pop(mock_tool_context.session.id, None)
