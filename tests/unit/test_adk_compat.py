@@ -13,9 +13,18 @@ import pytest
 from adk_stream_protocol import process_chat_message_for_bidi, sync_conversation_history_to_session
 from adk_stream_protocol.adk_compat import (
     _sessions,
+    _synced_message_counts,
     clear_sessions,
     get_or_create_session,
 )
+
+
+@pytest.fixture(autouse=True)
+def clear_synced_counts():
+    """Clear synced message counts before and after each test"""
+    _synced_message_counts.clear()
+    yield
+    _synced_message_counts.clear()
 
 
 @pytest.fixture
@@ -63,7 +72,7 @@ async def test_sync_conversation_history_first_sync(
     assert mock_session_service.append_event.call_count == 4
 
     # Check that synced_message_count was updated
-    assert mock_session.state["synced_message_count"] == 4
+    assert _synced_message_counts[mock_session.id] == 4
 
     # Verify the events were created with correct roles
     calls = mock_session_service.append_event.call_args_list
@@ -85,7 +94,7 @@ async def test_sync_conversation_history_incremental(
         msg.to_adk_content.return_value = MagicMock(role=msg.role)
 
     # Set that we've already synced 2 messages
-    mock_session.state["synced_message_count"] = 2
+    _synced_message_counts[mock_session.id] = 2
 
     # Call the function
     result = await sync_conversation_history_to_session(
@@ -102,7 +111,7 @@ async def test_sync_conversation_history_incremental(
     assert mock_session_service.append_event.call_count == 2
 
     # Check that synced_message_count was updated
-    assert mock_session.state["synced_message_count"] == 4
+    assert _synced_message_counts[mock_session.id] == 4
 
 
 @pytest.mark.asyncio
@@ -140,7 +149,7 @@ async def test_sync_conversation_history_already_synced(
         msg.to_adk_content.return_value = MagicMock(role=msg.role)
 
     # Set that we've already synced all messages except the last
-    mock_session.state["synced_message_count"] = 4
+    _synced_message_counts[mock_session.id] = 4
 
     # Call the function
     result = await sync_conversation_history_to_session(
@@ -157,7 +166,7 @@ async def test_sync_conversation_history_already_synced(
     assert mock_session_service.append_event.call_count == 0
 
     # synced_message_count should remain the same
-    assert mock_session.state["synced_message_count"] == 4
+    assert _synced_message_counts[mock_session.id] == 4
 
 
 @pytest.mark.asyncio
@@ -463,7 +472,7 @@ async def test_sync_conversation_history_with_large_history(mock_session, mock_s
     # Should sync 200 messages (all except the last)
     assert result == 200
     assert mock_session_service.append_event.call_count == 200
-    assert mock_session.state["synced_message_count"] == 200
+    assert _synced_message_counts[mock_session.id] == 200
 
 
 @pytest.mark.asyncio
