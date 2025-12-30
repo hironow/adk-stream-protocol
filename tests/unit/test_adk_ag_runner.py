@@ -65,19 +65,19 @@ def test_agents_have_same_description_and_instruction() -> None:
 
 
 def test_both_agents_have_same_tools() -> None:
-    """Both agents should use COMMON_TOOLS and have the same number of tools."""
+    """Both agents should have the same number of tools (4 tools each)."""
     # when/then
     assert len(adk_ag_runner.sse_agent.tools) == len(adk_ag_runner.bidi_agent.tools)
-    assert len(adk_ag_runner.sse_agent.tools) == len(adk_ag_runner.COMMON_TOOLS)
+    assert len(adk_ag_runner.sse_agent.tools) == 4  # get_weather, process_payment, change_bgm, get_location
 
 
-def test_common_tools_includes_expected_tools() -> None:
-    """COMMON_TOOLS should include all expected tool functions."""
+def test_sse_tools_includes_expected_tools() -> None:
+    """SSE agent tools should include all expected tool functions."""
     # given
     tool_names = []
 
-    # when
-    for tool in adk_ag_runner.COMMON_TOOLS:
+    # when - Extract tool names from SSE agent
+    for tool in adk_ag_runner.sse_agent.tools:
         if isinstance(tool, FunctionTool):
             if hasattr(tool, "func") and hasattr(tool.func, "__name__"):
                 tool_names.append(tool.func.__name__)
@@ -87,12 +87,12 @@ def test_common_tools_includes_expected_tools() -> None:
         elif callable(tool) and hasattr(tool, "__name__"):
             tool_names.append(tool.__name__)
 
-    # then
+    # then - Verify the 4 production tools (no approval_test_tool)
     assert "get_weather" in tool_names
     assert "process_payment" in tool_names
     assert "change_bgm" in tool_names
     assert "get_location" in tool_names
-    assert "approval_test_tool" in tool_names
+    assert len(tool_names) == 4  # Exactly 4 tools
 
 
 def test_both_agents_have_same_confirmation_tools() -> None:
