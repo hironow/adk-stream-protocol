@@ -27,6 +27,7 @@ import {
   rejectToolCall,
   selectBackendMode,
   sendTextMessage,
+  setupFrontendConsoleLogger,
   waitForAssistantResponse,
   waitForToolApproval,
 } from "../helpers";
@@ -49,8 +50,8 @@ test.describe
     test("should process tool output and continue conversation in SSE mode", async ({
       page,
     }) => {
-      // When: User asks AI to change BGM
-      await sendTextMessage(page, "Please change the BGM to track 1");
+      // When: User asks AI to process a payment (approval required)
+      await sendTextMessage(page, "Please send $50 to John");
 
       // Then: Approval dialog appears
       await waitForToolApproval(page);
@@ -68,8 +69,8 @@ test.describe
     });
 
     test("should handle tool rejection in SSE mode", async ({ page }) => {
-      // When: User requests BGM change
-      await sendTextMessage(page, "Please change the BGM to track 0");
+      // When: User requests payment
+      await sendTextMessage(page, "Please send $100 to Alice");
 
       // Then: Approval dialog appears
       await waitForToolApproval(page);
@@ -92,8 +93,8 @@ test.describe
       // This verifies the exact bug we fixed:
       // SSE mode was not processing tool outputs, causing futures to hang forever
 
-      // When: User requests BGM change
-      await sendTextMessage(page, "Please change the BGM to track 1");
+      // When: User requests payment
+      await sendTextMessage(page, "Please send $75 to Bob");
       await waitForToolApproval(page);
       await approveToolCall(page);
 
@@ -110,6 +111,13 @@ test.describe
 test.describe
   .serial("Frontend Delegate Fix - BIDI Mode", () => {
     test.beforeEach(async ({ page }) => {
+      // Setup frontend console logger
+      const sessionId =
+        process.env.NEXT_PUBLIC_CHUNK_LOGGER_SESSION_ID ||
+        process.env.CHUNK_LOGGER_SESSION_ID ||
+        "test";
+      setupFrontendConsoleLogger(page, sessionId);
+
       await navigateToChat(page);
       await selectBackendMode(page, "adk-bidi");
       await clearHistory(page);
@@ -120,8 +128,8 @@ test.describe
     }) => {
       // BIDI mode already worked, but this test ensures no regression
 
-      // When: User asks AI to change BGM
-      await sendTextMessage(page, "Please change the BGM to track 0");
+      // When: User requests payment
+      await sendTextMessage(page, "Please send $30 to Carol");
       await waitForToolApproval(page);
       await approveToolCall(page);
 
@@ -135,8 +143,8 @@ test.describe
     });
 
     test("should handle tool rejection in BIDI mode", async ({ page }) => {
-      // When: User requests BGM change
-      await sendTextMessage(page, "Please change the BGM to track 1");
+      // When: User requests payment
+      await sendTextMessage(page, "Please send $90 to David");
       await waitForToolApproval(page);
       await rejectToolCall(page);
 
@@ -154,7 +162,7 @@ test.describe
     }) => {
       // This ensures BIDI mode still works after our SSE fix
 
-      await sendTextMessage(page, "Please change the BGM to track 0");
+      await sendTextMessage(page, "Please send $45 to Eve");
       await waitForToolApproval(page);
       await approveToolCall(page);
 
@@ -173,14 +181,21 @@ test.describe
     test("should handle tool approval correctly after switching from SSE to BIDI", async ({
       page,
     }) => {
+      // Setup frontend console logger
+      const sessionId =
+        process.env.NEXT_PUBLIC_CHUNK_LOGGER_SESSION_ID ||
+        process.env.CHUNK_LOGGER_SESSION_ID ||
+        "test";
+      setupFrontendConsoleLogger(page, sessionId);
+
       await navigateToChat(page);
 
       // Given: User starts in SSE mode
       await selectBackendMode(page, "adk-sse");
       await clearHistory(page);
 
-      // When: User requests BGM change in SSE mode
-      await sendTextMessage(page, "Please change the BGM to track 1");
+      // When: User requests payment in SSE mode
+      await sendTextMessage(page, "Please send $20 to Frank");
       await waitForToolApproval(page);
       await approveToolCall(page);
       await waitForAssistantResponse(page);
@@ -190,8 +205,8 @@ test.describe
       await selectBackendMode(page, "adk-bidi");
       await clearHistory(page);
 
-      // And: Request another tool action
-      await sendTextMessage(page, "Please change the BGM to track 0");
+      // And: Request another payment
+      await sendTextMessage(page, "Please send $35 to Grace");
       await waitForToolApproval(page);
       await approveToolCall(page);
 
