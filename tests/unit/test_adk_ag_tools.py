@@ -14,6 +14,7 @@ from adk_stream_protocol import (
     get_weather,
     process_payment,
 )
+from adk_stream_protocol.frontend_tool_registry import _REGISTRY, register_delegate
 from adk_stream_protocol.result import Ok
 
 
@@ -223,7 +224,11 @@ class TestGetLocation:
         )
 
         mock_session = MagicMock()
+        mock_session.id = "test-session-123"
         mock_session.state = {"frontend_delegate": mock_delegate}
+
+        # Register delegate in FrontendToolRegistry
+        register_delegate(mock_session.id, mock_delegate)
 
         mock_tool_context = MagicMock()
         mock_tool_context.session = mock_session
@@ -241,6 +246,9 @@ class TestGetLocation:
         assert result["latitude"] == 35.6762
         assert result["longitude"] == 139.6503
         assert result["accuracy"] == 10
+
+        # Cleanup: Remove from registry
+        _REGISTRY.pop(mock_session.id, None)
 
     @pytest.mark.asyncio
     async def test_get_location_with_bidi_delegate_approval_denied(self):
@@ -260,7 +268,11 @@ class TestGetLocation:
         )
 
         mock_session = MagicMock()
+        mock_session.id = "test-session-456"
         mock_session.state = {"frontend_delegate": mock_delegate}
+
+        # Register delegate in FrontendToolRegistry
+        register_delegate(mock_session.id, mock_delegate)
 
         mock_tool_context = MagicMock()
         mock_tool_context.session = mock_session
@@ -273,6 +285,9 @@ class TestGetLocation:
         assert result["success"] is False
         assert "denied" in result["error"].lower()
         assert result["code"] == "PERMISSION_DENIED"
+
+        # Cleanup: Remove from registry
+        _REGISTRY.pop(mock_session.id, None)
 
     @pytest.mark.asyncio
     async def test_get_location_with_context_but_no_delegate_returns_error(self):
@@ -303,13 +318,14 @@ class TestGetLocation:
 class TestProcessPayment:
     """Tests for the process_payment tool."""
 
-    def test_process_payment_successful_transaction(self):
+    @pytest.mark.asyncio
+    async def test_process_payment_successful_transaction(self):
         """Should process valid payment and return transaction details."""
         # given
         mock_tool_context = MagicMock()
 
         # when
-        result = process_payment(
+        result = await process_payment(
             amount=100.0,
             recipient="alice@example.com",
             tool_context=mock_tool_context,
@@ -327,13 +343,14 @@ class TestProcessPayment:
         assert result["transaction_id"].startswith("txn_")
         assert "timestamp" in result
 
-    def test_process_payment_negative_amount_rejected(self):
+    @pytest.mark.asyncio
+    async def test_process_payment_negative_amount_rejected(self):
         """Should reject payment with negative amount."""
         # given
         mock_tool_context = MagicMock()
 
         # when
-        result = process_payment(
+        result = await process_payment(
             amount=-50.0,
             recipient="bob@example.com",
             tool_context=mock_tool_context,
@@ -344,13 +361,14 @@ class TestProcessPayment:
         assert "Invalid amount" in result["error"]
         assert result["transaction_id"] is None
 
-    def test_process_payment_zero_amount_rejected(self):
+    @pytest.mark.asyncio
+    async def test_process_payment_zero_amount_rejected(self):
         """Should reject payment with zero amount."""
         # given
         mock_tool_context = MagicMock()
 
         # when
-        result = process_payment(
+        result = await process_payment(
             amount=0.0,
             recipient="charlie@example.com",
             tool_context=mock_tool_context,
@@ -361,13 +379,14 @@ class TestProcessPayment:
         assert "Invalid amount" in result["error"]
         assert result["transaction_id"] is None
 
-    def test_process_payment_insufficient_funds(self):
+    @pytest.mark.asyncio
+    async def test_process_payment_insufficient_funds(self):
         """Should reject payment when amount exceeds wallet balance."""
         # given
         mock_tool_context = MagicMock()
 
         # when
-        result = process_payment(
+        result = await process_payment(
             amount=1500.0,  # Exceeds mock wallet balance of 1000
             recipient="dave@example.com",
             tool_context=mock_tool_context,
@@ -379,13 +398,14 @@ class TestProcessPayment:
         assert result["transaction_id"] is None
         assert result["wallet_balance"] == 1000.0  # Original balance
 
-    def test_process_payment_exact_balance_amount(self):
+    @pytest.mark.asyncio
+    async def test_process_payment_exact_balance_amount(self):
         """Should process payment when amount equals wallet balance."""
         # given
         mock_tool_context = MagicMock()
 
         # when
-        result = process_payment(
+        result = await process_payment(
             amount=1000.0,  # Exact balance
             recipient="eve@example.com",
             tool_context=mock_tool_context,
@@ -397,13 +417,14 @@ class TestProcessPayment:
         assert result["wallet_balance"] == 0.0  # Balance depleted
         assert result["transaction_id"].startswith("txn_")
 
-    def test_process_payment_with_custom_currency(self):
+    @pytest.mark.asyncio
+    async def test_process_payment_with_custom_currency(self):
         """Should handle custom currency parameter."""
         # given
         mock_tool_context = MagicMock()
 
         # when
-        result = process_payment(
+        result = await process_payment(
             amount=50.0,
             recipient="frank@example.com",
             tool_context=mock_tool_context,
@@ -414,13 +435,14 @@ class TestProcessPayment:
         assert result["success"] is True
         assert result["currency"] == "EUR"
 
-    def test_process_payment_default_currency(self):
+    @pytest.mark.asyncio
+    async def test_process_payment_default_currency(self):
         """Should use USD as default currency."""
         # given
         mock_tool_context = MagicMock()
 
         # when
-        result = process_payment(
+        result = await process_payment(
             amount=25.0,
             recipient="grace@example.com",
             tool_context=mock_tool_context,
@@ -430,13 +452,14 @@ class TestProcessPayment:
         assert result["success"] is True
         assert result["currency"] == "USD"
 
-    def test_process_payment_with_description(self):
+    @pytest.mark.asyncio
+    async def test_process_payment_with_description(self):
         """Should include description in transaction result."""
         # given
         mock_tool_context = MagicMock()
 
         # when
-        result = process_payment(
+        result = await process_payment(
             amount=75.0,
             recipient="henry@example.com",
             tool_context=mock_tool_context,
