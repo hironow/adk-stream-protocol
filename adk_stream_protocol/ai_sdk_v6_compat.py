@@ -41,7 +41,7 @@ from typing import Any, Literal
 from google.genai import types
 from loguru import logger
 from PIL import Image
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 # ============================================================
@@ -331,6 +331,14 @@ class ChatMessage(BaseModel):
         None  # Simple format or Parts array (function_response)
     )
     parts: list[MessagePart] | None = None  # AI SDK v6 format with discriminated union
+
+    @model_validator(mode="after")
+    def validate_content_or_parts(self) -> "ChatMessage":
+        """Ensure at least one of content or parts is provided."""
+        if self.content is None and self.parts is None:
+            msg = "Message must have either 'content' or 'parts'"
+            raise ValueError(msg)
+        return self
 
     def _get_text_content(self) -> str:
         """Extract text content from either format (str, list[Part], or parts field)"""
