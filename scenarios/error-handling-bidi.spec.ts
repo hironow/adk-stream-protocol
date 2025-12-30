@@ -16,7 +16,7 @@ const WS_URL = SERVER_URL.replace("http", "ws");
 test.describe("BIDI Error Handling", () => {
   test("should handle invalid JSON from client gracefully", async () => {
     // given - establish WebSocket connection
-    const ws = new WebSocket(`${WS_URL}/bidi`);
+    const ws = new WebSocket(`${WS_URL}/live`);
 
     // Wait for connection to open
     await new Promise<void>((resolve, reject) => {
@@ -53,7 +53,7 @@ test.describe("BIDI Error Handling", () => {
 
   test("should handle empty string as invalid JSON", async () => {
     // given
-    const ws = new WebSocket(`${WS_URL}/bidi`);
+    const ws = new WebSocket(`${WS_URL}/live`);
 
     await new Promise<void>((resolve, reject) => {
       ws.on("open", () => resolve());
@@ -82,7 +82,7 @@ test.describe("BIDI Error Handling", () => {
 
   test("should handle non-JSON text from client", async () => {
     // given
-    const ws = new WebSocket(`${WS_URL}/bidi`);
+    const ws = new WebSocket(`${WS_URL}/live`);
 
     await new Promise<void>((resolve, reject) => {
       ws.on("open", () => resolve());
@@ -111,7 +111,7 @@ test.describe("BIDI Error Handling", () => {
 
   test("should handle partially valid JSON", async () => {
     // given
-    const ws = new WebSocket(`${WS_URL}/bidi`);
+    const ws = new WebSocket(`${WS_URL}/live`);
 
     await new Promise<void>((resolve, reject) => {
       ws.on("open", () => resolve());
@@ -140,7 +140,7 @@ test.describe("BIDI Error Handling", () => {
 
   test("should handle valid JSON but with unexpected structure gracefully", async () => {
     // given
-    const ws = new WebSocket(`${WS_URL}/bidi`);
+    const ws = new WebSocket(`${WS_URL}/live`);
 
     await new Promise<void>((resolve, reject) => {
       ws.on("open", () => resolve());
@@ -169,7 +169,7 @@ test.describe("BIDI Error Handling", () => {
 
   test("should handle ping-pong with invalid JSON after valid ping", async () => {
     // given
-    const ws = new WebSocket(`${WS_URL}/bidi`);
+    const ws = new WebSocket(`${WS_URL}/live`);
 
     await new Promise<void>((resolve, reject) => {
       ws.on("open", () => resolve());

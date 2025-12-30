@@ -116,15 +116,25 @@ export default defineConfig({
     // },
   ],
 
-  // Run local dev server before starting tests
-  webServer: {
-    command: "pnpm dev",
-    port: 3000,
-    reuseExistingServer: !process.env.CI,
-    timeout: 120000, // 2 minutes to start server
-    stdout: "pipe",
-    stderr: "pipe",
-  },
+  // Run local dev servers (both frontend and backend) before starting tests
+  webServer: [
+    {
+      command: "uv run uvicorn server:app --host 0.0.0.0 --port 8000",
+      port: 8000,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120000, // 2 minutes to start server
+      stdout: "pipe",
+      stderr: "pipe",
+    },
+    {
+      command: "pnpm dev",
+      port: 3000,
+      reuseExistingServer: !process.env.CI,
+      timeout: 120000, // 2 minutes to start server
+      stdout: "pipe",
+      stderr: "pipe",
+    },
+  ],
 
   // Global setup/teardown
   // globalSetup: require.resolve('./app/tests/helpers/global-setup.ts'),
