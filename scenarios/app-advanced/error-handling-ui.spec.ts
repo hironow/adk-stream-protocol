@@ -280,6 +280,85 @@ test.describe("Error Handling UI (Advanced)", () => {
     expect(bodyText).toContain("Rapid message");
   });
 
+  test("should display dedicated rate limit error UI", async ({ page }) => {
+    // Given: Mock API to return rate limit error (429)
+    await page.route("**/api/chat", async (route) => {
+      await route.fulfill({
+        status: 429,
+        contentType: "application/json",
+        body: JSON.stringify({
+          error:
+            "RESOURCE_EXHAUSTED: Quota exceeded for quota metric 'aiplatform.googleapis.com/generate_content_requests' and limit 'GenerateContent requests per minute per region per base model'",
+        }),
+      });
+    });
+
+    // When: Send a message that triggers the rate limit error
+    const chatInput = page.locator('input[placeholder="Type your message..."]');
+    await chatInput.fill("Test rate limit error UI");
+    await chatInput.press("Enter");
+
+    // Wait for user message to appear
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+
+    // Wait for rate limit error UI to appear
+    const rateLimitError = page.getByTestId("rate-limit-error");
+    await expect(rateLimitError).toBeVisible({ timeout: 5000 });
+
+    // Then: Verify rate limit error UI elements
+    await expect(page.getByTestId("rate-limit-error-title")).toContainText(
+      "API Rate Limit Exceeded",
+    );
+    await expect(page.getByTestId("rate-limit-error-message")).toContainText(
+      "exceeded the API rate limit",
+    );
+
+    // Verify technical details are collapsible
+    const technicalDetails = page.getByTestId("rate-limit-error-details");
+    await expect(technicalDetails).not.toBeVisible(); // Should be collapsed by default
+
+    // Expand technical details
+    await page.locator("summary:has-text('Technical Details')").click();
+    await expect(technicalDetails).toBeVisible();
+    await expect(technicalDetails).toContainText("RESOURCE_EXHAUSTED");
+  });
+
+  test("should distinguish rate limit errors from generic errors", async ({
+    page,
+  }) => {
+    // Given: Mock API to return generic error
+    await page.route("**/api/chat", async (route) => {
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({
+          error: "Internal server error",
+        }),
+      });
+    });
+
+    // When: Send a message that triggers generic error
+    const chatInput = page.locator('input[placeholder="Type your message..."]');
+    await chatInput.fill("Test generic error");
+    await chatInput.press("Enter");
+
+    const userMessage = page.getByTestId("message-user").first();
+    await expect(userMessage).toBeVisible();
+
+    // Wait for error to appear
+    await page.waitForTimeout(2000);
+
+    // Then: Should show generic error, not rate limit error UI
+    const rateLimitError = page.getByTestId("rate-limit-error");
+    await expect(rateLimitError).not.toBeVisible();
+
+    // Generic error should be shown instead
+    const genericError = page.getByTestId("generic-error");
+    await expect(genericError).toBeVisible();
+    await expect(genericError).toContainText("Internal server error");
+  });
+
   test("should maintain message history after errors", async ({ page }) => {
     const chatInput = page.locator('input[placeholder="Type your message..."]');
 

@@ -221,6 +221,39 @@ test.describe("Visual Regression (Advanced)", () => {
     }
   });
 
+  test("should maintain consistent rate limit error UI", async ({ page }) => {
+    // Given: Mock API to return rate limit error (429)
+    await page.route("**/api/chat", async (route) => {
+      await route.fulfill({
+        status: 429,
+        contentType: "application/json",
+        body: JSON.stringify({
+          error: "RESOURCE_EXHAUSTED: Quota exceeded for quota metric 'aiplatform.googleapis.com/generate_content_requests' and limit 'GenerateContent requests per minute per region per base model'",
+        }),
+      });
+    });
+
+    // When: Send a message that triggers the rate limit error
+    const chatInput = page.locator('input[placeholder="Type your message..."]');
+    await chatInput.fill("Test rate limit");
+    await chatInput.press("Enter");
+
+    // Wait for error UI to appear
+    const rateLimitError = page.getByTestId("rate-limit-error");
+    await expect(rateLimitError).toBeVisible({ timeout: 5000 });
+
+    // Then: Rate limit error UI should be visually consistent
+    await expect(rateLimitError).toHaveScreenshot("rate-limit-error.png", {
+      maxDiffPixels: 100,
+    });
+
+    // Verify error has expected elements
+    await expect(page.getByTestId("rate-limit-error-title")).toContainText(
+      "API Rate Limit Exceeded",
+    );
+    await expect(page.getByTestId("rate-limit-error-message")).toBeVisible();
+  });
+
   test("should maintain consistent spacing and typography", async ({
     page,
   }) => {

@@ -12,8 +12,8 @@ import { defineConfig, devices } from "@playwright/test";
  * Note: vitest-based tests are in lib/tests/, app/tests/integration/, components/tests/
  */
 export default defineConfig({
-  // Run tests in parallel
-  fullyParallel: true,
+  // Run tests serially to avoid rate limiting and resource conflicts
+  fullyParallel: false,
 
   // Fail the build on CI if you accidentally left test.only in the source code
   forbidOnly: !!process.env.CI,
@@ -21,8 +21,8 @@ export default defineConfig({
   // Retry on CI only
   retries: process.env.CI ? 2 : 0,
 
-  // Limit workers on CI for stability
-  workers: process.env.CI ? 2 : undefined,
+  // Run tests serially (1 worker)
+  workers: 1,
 
   // Global timeout for entire test run (60 minutes)
   // CRITICAL: Prevents infinite hangs, ensures test failures are caught

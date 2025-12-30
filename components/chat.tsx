@@ -3,11 +3,13 @@
 import { useChat } from "@ai-sdk/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MessageComponent } from "@/components/message";
+import { RateLimitError } from "@/components/rate-limit-error";
 import { useAudio } from "@/lib/audio-context";
 import {
   type BackendMode,
   buildUseChatOptions,
 } from "@/lib/build-use-chat-options";
+import { isRateLimitError } from "@/lib/core/error-utils";
 import type { UIMessageFromAISDKv6 } from "@/lib/utils";
 
 interface ChatProps {
@@ -481,9 +483,18 @@ export function Chat({
           </div>
         )}
         {error && (
-          <div style={{ padding: "1rem", color: "#ef4444" }}>
-            Error: {error.message}
-          </div>
+          <>
+            {isRateLimitError(error) ? (
+              <RateLimitError error={error} />
+            ) : (
+              <div
+                data-testid="generic-error"
+                style={{ padding: "1rem", color: "#ef4444" }}
+              >
+                Error: {error.message}
+              </div>
+            )}
+          </>
         )}
       </main>
 
