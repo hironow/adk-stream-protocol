@@ -13,11 +13,12 @@ Based on server.py global frontend_delegate pattern.
 
 import asyncio
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 
 from adk_stream_protocol import change_bgm, get_location
+from adk_stream_protocol.frontend_tool_registry import _REGISTRY, register_delegate
 from server import frontend_delegate
 from tests.utils.mocks import create_mock_tool_context
 
@@ -29,12 +30,14 @@ from tests.utils.mocks import create_mock_tool_context
 
 @pytest.fixture(autouse=True)
 def clear_id_mapper():
-    """Clear ID mapper before and after each test to prevent cross-test contamination."""
+    """Clear ID mapper and registry before and after each test to prevent cross-test contamination."""
     # Clear before test
     frontend_delegate._id_mapper._clear()
+    _REGISTRY.clear()
     yield
     # Clear after test
     frontend_delegate._id_mapper._clear()
+    _REGISTRY.clear()
 
 
 # ============================================================
@@ -64,15 +67,19 @@ async def test_global_delegate_shared_across_sessions() -> None:
     # given: Multiple tool contexts from different sessions
     mock_tool_context_1 = create_mock_tool_context(
         invocation_id="session1_call1",
-        session_state={"frontend_delegate": frontend_delegate},
+        session_state={"frontend_delegate": frontend_delegate, "confirmation_delegate": Mock()},
         session_id="session-1",
     )
 
     mock_tool_context_2 = create_mock_tool_context(
         invocation_id="session2_call2",
-        session_state={"frontend_delegate": frontend_delegate},
+        session_state={"frontend_delegate": frontend_delegate, "confirmation_delegate": Mock()},
         session_id="session-2",
     )
+
+    # Register delegates in registry for both sessions
+    register_delegate("session-1", frontend_delegate)
+    register_delegate("session-2", frontend_delegate)
 
     # when: Start two tool executions from different sessions
     async def execute_tool_1() -> dict[str, Any]:
@@ -122,13 +129,16 @@ async def test_concurrent_tool_execution_with_different_tools() -> None:
     # Create mock tool contexts
     mock_context_bgm = create_mock_tool_context(
         invocation_id="concurrent_bgm",
-        session_state={"frontend_delegate": delegate},
+        session_state={"frontend_delegate": delegate, "confirmation_delegate": Mock()},
     )
 
     mock_context_location = create_mock_tool_context(
         invocation_id="concurrent_location",
-        session_state={"frontend_delegate": delegate},
+        session_state={"frontend_delegate": delegate, "confirmation_delegate": Mock()},
     )
+
+    # Register delegate in registry
+    register_delegate("session-123", delegate)
 
     # when: Start both tools concurrently
     async def execute_bgm() -> dict[str, Any]:
@@ -179,8 +189,11 @@ async def test_tool_timeout_when_future_never_resolved() -> None:
 
     mock_context = create_mock_tool_context(
         invocation_id="timeout_call",
-        session_state={"frontend_delegate": delegate},
+        session_state={"frontend_delegate": delegate, "confirmation_delegate": Mock()},
     )
+
+    # Register delegate in registry
+    register_delegate("session-123", delegate)
 
     # Start tool execution
     async def execute_with_timeout() -> dict[str, Any]:
@@ -211,8 +224,11 @@ async def test_tool_rejection_raises_runtime_error() -> None:
 
     mock_context = create_mock_tool_context(
         invocation_id="reject_call",
-        session_state={"frontend_delegate": delegate},
+        session_state={"frontend_delegate": delegate, "confirmation_delegate": Mock()},
     )
+
+    # Register delegate in registry
+    register_delegate("session-123", delegate)
 
     # Start tool execution
     async def execute_tool() -> dict[str, Any]:
@@ -252,8 +268,11 @@ async def test_spy_execute_on_frontend_called_exactly_once() -> None:
         # Set up mock context
         mock_context = create_mock_tool_context(
             invocation_id="spy_test_call",
-            session_state={"frontend_delegate": delegate},
+            session_state={"frontend_delegate": delegate, "confirmation_delegate": Mock()},
         )
+
+        # Register delegate in registry
+        register_delegate("session-123", delegate)
 
         # Set up resolution
         async def resolve_after_delay() -> None:
@@ -291,8 +310,11 @@ async def test_spy_resolve_tool_result_called_exactly_once() -> None:
     ) as spy:
         mock_context = create_mock_tool_context(
             invocation_id="resolve_spy_call",
-            session_state={"frontend_delegate": delegate},
+            session_state={"frontend_delegate": delegate, "confirmation_delegate": Mock()},
         )
+
+        # Register delegate in registry
+        register_delegate("session-123", delegate)
 
         # Start tool execution
         async def execute_tool() -> dict[str, Any]:
@@ -358,8 +380,11 @@ async def test_dead_code_backend_never_sends_tool_result_events() -> None:
     try:
         mock_context = create_mock_tool_context(
             invocation_id="backend_test",
-            session_state={"frontend_delegate": delegate},
+            session_state={"frontend_delegate": delegate, "confirmation_delegate": Mock()},
         )
+
+        # Register delegate in registry
+        register_delegate("session-123", delegate)
 
         async def execute_tool() -> dict[str, Any]:
             return await change_bgm(track=1, tool_context=mock_context)
@@ -411,7 +436,7 @@ async def test_dead_code_websocket_tool_result_handler_not_triggered() -> None:
     try:
         mock_context = create_mock_tool_context(
             invocation_id="path_test",
-            session_state={"frontend_delegate": delegate},
+            session_state={"frontend_delegate": delegate, "confirmation_delegate": Mock()},
         )
 
         async def execute_tool() -> dict[str, Any]:
@@ -448,8 +473,11 @@ async def test_await_blocks_until_future_resolved() -> None:
 
     mock_context = create_mock_tool_context(
         invocation_id="await_test",
-        session_state={"frontend_delegate": delegate},
+        session_state={"frontend_delegate": delegate, "confirmation_delegate": Mock()},
     )
+
+    # Register delegate in registry
+    register_delegate("session-123", delegate)
 
     # Track execution order
     execution_order = []
