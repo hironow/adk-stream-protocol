@@ -11,6 +11,7 @@ import pytest
 from google.genai import types
 
 from adk_stream_protocol import BidiEventReceiver
+from tests.utils.mocks import create_mock_session
 
 
 # ============================================================
@@ -21,7 +22,7 @@ from adk_stream_protocol import BidiEventReceiver
 def test_bidi_event_handler_initialization() -> None:
     """BidiEventReceiver should store dependencies correctly."""
     # given
-    mock_session = Mock()
+    mock_session = create_mock_session()
     mock_delegate = Mock()
     mock_queue = Mock()
     mock_runner = Mock()
@@ -51,7 +52,7 @@ async def test_handle_event_routes_to_message_handler() -> None:
     """handle_event() should route 'message' events to handle_message_event()."""
     # given
     handler = BidiEventReceiver(
-        session=Mock(),
+        session=create_mock_session(),
         frontend_delegate=Mock(),
         live_request_queue=Mock(),
         bidi_agent_runner=Mock(),
@@ -72,7 +73,7 @@ async def test_handle_event_routes_to_interrupt_handler() -> None:
     """handle_event() should route 'interrupt' events to _handle_interrupt_event()."""
     # given
     handler = BidiEventReceiver(
-        session=Mock(),
+        session=create_mock_session(),
         frontend_delegate=Mock(),
         live_request_queue=Mock(),
         bidi_agent_runner=Mock(),
@@ -93,7 +94,7 @@ async def test_handle_event_routes_to_audio_control_handler() -> None:
     """handle_event() should route 'audio_control' events."""
     # given
     handler = BidiEventReceiver(
-        session=Mock(),
+        session=create_mock_session(),
         frontend_delegate=Mock(),
         live_request_queue=Mock(),
         bidi_agent_runner=Mock(),
@@ -114,7 +115,7 @@ async def test_handle_event_routes_to_audio_chunk_handler() -> None:
     """handle_event() should route 'audio_chunk' events."""
     # given
     handler = BidiEventReceiver(
-        session=Mock(),
+        session=create_mock_session(),
         frontend_delegate=Mock(),
         live_request_queue=Mock(),
         bidi_agent_runner=Mock(),
@@ -135,7 +136,7 @@ async def test_handle_event_routes_to_tool_result_handler() -> None:
     """handle_event() should route 'tool_result' events."""
     # given
     handler = BidiEventReceiver(
-        session=Mock(),
+        session=create_mock_session(),
         frontend_delegate=Mock(),
         live_request_queue=Mock(),
         bidi_agent_runner=Mock(),
@@ -156,7 +157,7 @@ async def test_handle_event_ignores_ping_events() -> None:
     """handle_event() should silently ignore 'ping' events."""
     # given
     handler = BidiEventReceiver(
-        session=Mock(),
+        session=create_mock_session(),
         frontend_delegate=Mock(),
         live_request_queue=Mock(),
         bidi_agent_runner=Mock(),
@@ -173,7 +174,7 @@ async def test_handle_event_logs_warning_for_unknown_type() -> None:
     """handle_event() should log warning for unknown event types."""
     # given
     handler = BidiEventReceiver(
-        session=Mock(),
+        session=create_mock_session(),
         frontend_delegate=Mock(),
         live_request_queue=Mock(),
         bidi_agent_runner=Mock(),
@@ -196,7 +197,7 @@ async def test_handle_event_logs_warning_for_unknown_type() -> None:
 async def test_handle_message_event_syncs_history(mock_process, mock_sync) -> None:
     """handle_message_event() should sync conversation history when messages present."""
     # given
-    mock_session = Mock()
+    mock_session = create_mock_session()
     mock_session.id = "session-123"
     mock_runner = Mock()
     mock_runner.session_service = Mock()
@@ -236,7 +237,7 @@ async def test_handle_message_event_sends_image_blobs(mock_process) -> None:
     # given
     mock_queue = Mock()
     handler = BidiEventReceiver(
-        session=Mock(),
+        session=create_mock_session(),
         frontend_delegate=Mock(),
         live_request_queue=mock_queue,
         bidi_agent_runner=Mock(),
@@ -265,7 +266,7 @@ async def test_handle_message_event_sends_regular_text(mock_process) -> None:
     # given
     mock_queue = Mock()
     handler = BidiEventReceiver(
-        session=Mock(),
+        session=create_mock_session(),
         frontend_delegate=Mock(),
         live_request_queue=mock_queue,
         bidi_agent_runner=Mock(),
@@ -289,7 +290,7 @@ async def test_handle_message_event_sends_regular_text(mock_process) -> None:
 async def test_handle_message_event_handles_function_response(mock_process) -> None:
     """handle_message_event() should handle FunctionResponse via append_event()."""
     # given
-    mock_session = Mock()
+    mock_session = create_mock_session()
     mock_session.id = "session-456"
     mock_session_service = Mock()
     mock_session_service.append_event = AsyncMock()
@@ -339,7 +340,7 @@ async def test_handle_interrupt_event_closes_queue() -> None:
     # given
     mock_queue = Mock()
     handler = BidiEventReceiver(
-        session=Mock(),
+        session=create_mock_session(),
         frontend_delegate=Mock(),
         live_request_queue=mock_queue,
         bidi_agent_runner=Mock(),
@@ -360,7 +361,7 @@ async def test_handle_interrupt_event_with_default_reason() -> None:
     # given
     mock_queue = Mock()
     handler = BidiEventReceiver(
-        session=Mock(),
+        session=create_mock_session(),
         frontend_delegate=Mock(),
         live_request_queue=mock_queue,
         bidi_agent_runner=Mock(),
@@ -385,7 +386,7 @@ async def test_handle_audio_control_event_start() -> None:
     """handle_audio_control_event() should handle 'start' action."""
     # given
     handler = BidiEventReceiver(
-        session=Mock(),
+        session=create_mock_session(),
         frontend_delegate=Mock(),
         live_request_queue=Mock(),
         bidi_agent_runner=Mock(),
@@ -402,7 +403,7 @@ async def test_handle_audio_control_event_stop() -> None:
     """handle_audio_control_event() should handle 'stop' action."""
     # given
     handler = BidiEventReceiver(
-        session=Mock(),
+        session=create_mock_session(),
         frontend_delegate=Mock(),
         live_request_queue=Mock(),
         bidi_agent_runner=Mock(),
@@ -425,7 +426,7 @@ async def test_handle_audio_chunk_event_decodes_and_sends() -> None:
     # given
     mock_queue = Mock()
     handler = BidiEventReceiver(
-        session=Mock(),
+        session=create_mock_session(),
         frontend_delegate=Mock(),
         live_request_queue=mock_queue,
         bidi_agent_runner=Mock(),
@@ -455,7 +456,7 @@ async def test_handle_audio_chunk_event_missing_chunk() -> None:
     # given
     mock_queue = Mock()
     handler = BidiEventReceiver(
-        session=Mock(),
+        session=create_mock_session(),
         frontend_delegate=Mock(),
         live_request_queue=mock_queue,
         bidi_agent_runner=Mock(),
@@ -479,7 +480,7 @@ async def test_handle_tool_result_event_resolves_result() -> None:
     # given
     mock_delegate = Mock()
     handler = BidiEventReceiver(
-        session=Mock(),
+        session=create_mock_session(),
         frontend_delegate=mock_delegate,
         live_request_queue=Mock(),
         bidi_agent_runner=Mock(),
@@ -507,7 +508,7 @@ async def test_handle_tool_result_event_missing_tool_call_id() -> None:
     # given
     mock_delegate = Mock()
     handler = BidiEventReceiver(
-        session=Mock(),
+        session=create_mock_session(),
         frontend_delegate=mock_delegate,
         live_request_queue=Mock(),
         bidi_agent_runner=Mock(),
@@ -530,7 +531,7 @@ async def test_handle_tool_result_event_missing_result() -> None:
     # given
     mock_delegate = Mock()
     handler = BidiEventReceiver(
-        session=Mock(),
+        session=create_mock_session(),
         frontend_delegate=mock_delegate,
         live_request_queue=Mock(),
         bidi_agent_runner=Mock(),
@@ -559,7 +560,7 @@ async def test_event_sequence_message_then_interrupt(mock_process) -> None:
     # given
     mock_queue = Mock()
     handler = BidiEventReceiver(
-        session=Mock(),
+        session=create_mock_session(),
         frontend_delegate=Mock(),
         live_request_queue=mock_queue,
         bidi_agent_runner=Mock(),
@@ -589,7 +590,7 @@ async def test_event_sequence_tool_result_resolves_delegate() -> None:
     # given
     mock_delegate = Mock()
     handler = BidiEventReceiver(
-        session=Mock(),
+        session=create_mock_session(),
         frontend_delegate=mock_delegate,
         live_request_queue=Mock(),
         bidi_agent_runner=Mock(),
@@ -620,7 +621,7 @@ async def test_handle_event_with_none_event_raises_error() -> None:
     """handle_event() should raise error when event is None."""
     # given
     handler = BidiEventReceiver(
-        session=Mock(),
+        session=create_mock_session(),
         frontend_delegate=Mock(),
         live_request_queue=Mock(),
         bidi_agent_runner=Mock(),
@@ -636,7 +637,7 @@ async def test_handle_event_with_non_dict_event_raises_error() -> None:
     """handle_event() should raise error when event is not a dict."""
     # given
     handler = BidiEventReceiver(
-        session=Mock(),
+        session=create_mock_session(),
         frontend_delegate=Mock(),
         live_request_queue=Mock(),
         bidi_agent_runner=Mock(),
@@ -652,7 +653,7 @@ async def test_handle_message_event_with_process_chat_error_raises() -> None:
     """handle_message_event() should propagate process_chat_message_for_bidi errors."""
     # given
     handler = BidiEventReceiver(
-        session=Mock(),
+        session=create_mock_session(),
         frontend_delegate=Mock(),
         live_request_queue=Mock(),
         bidi_agent_runner=Mock(),
@@ -673,7 +674,7 @@ async def test_handle_message_event_with_process_chat_error_raises() -> None:
 async def test_handle_message_event_with_sync_history_error_raises() -> None:
     """handle_message_event() should propagate sync_conversation_history errors."""
     # given
-    mock_session = Mock()
+    mock_session = create_mock_session()
     mock_runner = Mock()
     handler = BidiEventReceiver(
         session=mock_session,
@@ -705,7 +706,7 @@ async def test_handle_message_event_with_send_content_error_raises() -> None:
     mock_queue.send_content = Mock(side_effect=RuntimeError("Queue send failed"))
 
     handler = BidiEventReceiver(
-        session=Mock(),
+        session=create_mock_session(),
         frontend_delegate=Mock(),
         live_request_queue=mock_queue,
         bidi_agent_runner=Mock(),
@@ -734,7 +735,7 @@ async def test_handle_message_event_with_send_realtime_error_raises() -> None:
     mock_queue.send_realtime = Mock(side_effect=RuntimeError("Realtime send failed"))
 
     handler = BidiEventReceiver(
-        session=Mock(),
+        session=create_mock_session(),
         frontend_delegate=Mock(),
         live_request_queue=mock_queue,
         bidi_agent_runner=Mock(),
@@ -761,7 +762,7 @@ async def test_handle_function_response_with_append_event_error_raises() -> None
     mock_runner.session_service = mock_session_service
 
     handler = BidiEventReceiver(
-        session=Mock(),
+        session=create_mock_session(),
         frontend_delegate=Mock(),
         live_request_queue=Mock(),
         bidi_agent_runner=mock_runner,
@@ -789,7 +790,7 @@ async def test_handle_function_response_with_resolve_error_does_not_propagate() 
     mock_runner.session_service = mock_session_service
 
     handler = BidiEventReceiver(
-        session=Mock(),
+        session=create_mock_session(),
         frontend_delegate=mock_delegate,
         live_request_queue=Mock(),
         bidi_agent_runner=mock_runner,
@@ -813,7 +814,7 @@ async def test_handle_audio_chunk_with_send_realtime_error_raises() -> None:
     mock_queue.send_realtime = Mock(side_effect=RuntimeError("Send realtime failed"))
 
     handler = BidiEventReceiver(
-        session=Mock(),
+        session=create_mock_session(),
         frontend_delegate=Mock(),
         live_request_queue=mock_queue,
         bidi_agent_runner=Mock(),
@@ -838,7 +839,7 @@ async def test_handle_tool_result_with_resolve_error_raises() -> None:
     mock_delegate.resolve_tool_result = Mock(side_effect=RuntimeError("Resolve error"))
 
     handler = BidiEventReceiver(
-        session=Mock(),
+        session=create_mock_session(),
         frontend_delegate=mock_delegate,
         live_request_queue=Mock(),
         bidi_agent_runner=Mock(),
@@ -861,7 +862,7 @@ async def test_handle_message_event_with_invalid_messages_format() -> None:
     """handle_message_event() should handle invalid messages format gracefully."""
     # given
     handler = BidiEventReceiver(
-        session=Mock(),
+        session=create_mock_session(),
         frontend_delegate=Mock(),
         live_request_queue=Mock(),
         bidi_agent_runner=Mock(),
