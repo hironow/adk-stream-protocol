@@ -672,7 +672,16 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
         logger.info("[BIDI] upstream_task started")
         while True:
             data = await websocket.receive_text()
-            event = json.loads(data)
+
+            # Parse JSON and handle parse errors
+            try:
+                event = json.loads(data)
+            except json.JSONDecodeError as e:
+                logger.error(f"[BIDI] Invalid JSON received: {e!s}")
+                # Close connection with protocol error code (1002 = protocol error)
+                await websocket.close(code=1002, reason=f"Invalid JSON: {e!s}")
+                break
+
             event_type = event.get("type")
 
             # Handle ping/pong
