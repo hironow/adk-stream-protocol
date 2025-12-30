@@ -55,13 +55,12 @@ export async function selectBackendMode(page: Page, mode: BackendMode) {
     "adk-bidi": "ADK BIDI ⚡",
   };
 
-  await page.getByRole("button", { name: buttonMap[mode] }).click();
+  // Use more specific text matching since buttons have multi-line text
+  const button = page.getByRole("button").filter({ hasText: buttonMap[mode] });
+  await button.click();
 
-  // Wait for mode to be visually selected
-  await expect(page.getByRole("button", { name: buttonMap[mode] })).toHaveCSS(
-    "font-weight",
-    "600",
-  );
+  // Wait for mode to be visually selected (selected button has font-weight: 600)
+  await expect(button).toHaveCSS("font-weight", "600");
 }
 
 /**
@@ -71,6 +70,11 @@ export async function sendTextMessage(page: Page, text: string) {
   const input = page.getByPlaceholder("Type your message...");
   await input.fill(text);
   await page.getByRole("button", { name: "Send" }).click();
+
+  // Wait for the user message to appear on screen
+  // This ensures the Chat component is properly mounted and functional
+  // Use message-sender selector since data-testid="message-text" doesn't reliably exist in DOM
+  await page.locator('main [data-testid="message-sender"]').filter({ hasText: "You" }).first().waitFor({ state: "visible", timeout: 5000 });
 }
 
 /**
@@ -108,6 +112,10 @@ export async function waitForAssistantResponse(
 ) {
   const timeout = options?.timeout ?? 120000; // Default 2 minutes
 
+  // Count assistant messages before sending (look for elements with "Assistant" text)
+  const assistantMessages = page.locator('main [data-testid="message-sender"]').filter({ hasText: "Assistant" });
+  const messagesBefore = await assistantMessages.count();
+
   // Try to wait for thinking indicator to appear, but don't fail if it's too fast
   const thinkingIndicator = page.getByTestId("thinking-indicator");
 
@@ -121,8 +129,8 @@ export async function waitForAssistantResponse(
     });
   } catch {
     // the indicator didn't appear (response was instant)
-    // Wait a bit to ensure response is rendered
-    await page.waitForTimeout(1000);
+    // Wait for a new assistant message to appear instead
+    await expect(assistantMessages).toHaveCount(messagesBefore + 1, { timeout });
   }
 }
 
@@ -130,8 +138,10 @@ export async function waitForAssistantResponse(
  * Get all messages in the chat
  */
 export async function getMessages(page: Page) {
-  // Use data-testid for reliable selection
-  return page.locator('[data-testid^="message-"]').all();
+  // Find messages by looking for message containers
+  // Note: message-sender is nested inside message-header, which is inside the message container
+  // So we need to go up TWO levels: sender -> header -> container
+  return page.locator('main [data-testid="message-sender"]').locator('../..').all();
 }
 
 /**
@@ -139,7 +149,9 @@ export async function getMessages(page: Page) {
  * Uses .last() for more reliable selection instead of array indexing
  */
 export async function getLastMessage(page: Page) {
-  return page.locator('[data-testid^="message-"]').last();
+  // Find the last message by looking for the last message sender element's grandparent (container)
+  // DOM structure: message-sender -> message-header -> message container
+  return page.locator('main [data-testid="message-sender"]').locator('../..').last();
 }
 
 /**
@@ -205,7 +217,10 @@ export async function clearHistory(page: Page) {
   const count = await clearButton.count();
   if (count > 0) {
     await clearButton.click();
-    await page.waitForTimeout(500);
+
+    // Wait for the empty state message to appear
+    // This is more reliable than waiting for message elements to disappear
+    await expect(page.getByText("Start a conversation...")).toBeVisible({ timeout: 5000 });
   }
 
   // Clear backend sessions to prevent conversation history persistence

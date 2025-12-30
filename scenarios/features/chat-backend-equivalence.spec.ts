@@ -18,7 +18,7 @@
 import { expect, test } from "@playwright/test";
 import {
   type BackendMode,
-  cleanupChatState,
+  clearHistory,
   getLastMessage,
   getMessageText,
   getTestImagePath,
@@ -52,12 +52,20 @@ test.describe("Backend Equivalence Tests", () => {
           "test";
         setupFrontendConsoleLogger(page, sessionId);
 
-        // Given: User navigates to chat and selects backend
+        // Given: User navigates to chat and clears history
         await navigateToChat(page);
+
+        // Clear chat history and backend sessions BEFORE selecting backend
+        // This ensures clean state and prevents conversation history leakage
+        await clearHistory(page);
+
+        // Then select backend mode
         await selectBackendMode(page, backend);
 
-        // Clear any existing chat history
-        await cleanupChatState(page);
+        // Wait for Chat component to fully remount after mode change
+        // (Chat component remounts due to key={mode} in app/page.tsx)
+        // Verify message input is ready after remount
+        await page.getByPlaceholder("Type your message...").waitFor({ state: "visible" });
       });
 
       test("should handle text-only conversation", async ({ page }) => {
