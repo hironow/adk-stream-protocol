@@ -20,6 +20,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from adk_stream_protocol import change_bgm, get_location
+from adk_stream_protocol.frontend_tool_registry import _REGISTRY, register_delegate
 from adk_stream_protocol.result import Ok
 from tests.utils.mocks import create_mock_session, create_mock_tool_context
 
@@ -43,6 +44,7 @@ async def test_change_bgm_uses_wrong_id_when_calling_execute_on_frontend() -> No
 
     # Store delegate in session state (this is how BIDI mode works)
     mock_session.state["frontend_delegate"] = mock_delegate
+    mock_session.state["confirmation_delegate"] = Mock()  # Required to trigger BIDI mode
 
     # Create ToolContext with DIFFERENT invocation_id and function_call.id
     invocation_id = "e-3166e920-26d8-4452-9a7e-eb2851d2447f"  # ADK event ID
@@ -51,6 +53,9 @@ async def test_change_bgm_uses_wrong_id_when_calling_execute_on_frontend() -> No
         invocation_id=invocation_id,
         session=mock_session,
     )
+
+    # Register delegate in FrontendToolRegistry
+    register_delegate(mock_session.id, mock_delegate)
 
     # when - call change_bgm()
     await change_bgm(track=1, tool_context=mock_tool_context)
@@ -73,6 +78,9 @@ async def test_change_bgm_uses_wrong_id_when_calling_execute_on_frontend() -> No
     assert call_args.kwargs["tool_name"] == "change_bgm"
     assert call_args.kwargs["args"] == {"track": 1}
 
+    # Cleanup
+    _REGISTRY.pop(mock_session.id, None)
+
 
 @pytest.mark.asyncio
 async def test_get_location_uses_wrong_id_when_calling_execute_on_frontend() -> None:
@@ -90,6 +98,7 @@ async def test_get_location_uses_wrong_id_when_calling_execute_on_frontend() -> 
         return_value=Ok({"latitude": 35.6762, "longitude": 139.6503, "location": "Tokyo"})
     )
     mock_session.state["frontend_delegate"] = mock_delegate
+    mock_session.state["confirmation_delegate"] = Mock()  # Required to trigger BIDI mode
 
     invocation_id = "e-abc123-def456"
 
@@ -97,6 +106,9 @@ async def test_get_location_uses_wrong_id_when_calling_execute_on_frontend() -> 
         invocation_id=invocation_id,
         session=mock_session,
     )
+
+    # Register delegate in FrontendToolRegistry
+    register_delegate(mock_session.id, mock_delegate)
 
     # when
     await get_location(tool_context=mock_tool_context)
@@ -116,6 +128,9 @@ async def test_get_location_uses_wrong_id_when_calling_execute_on_frontend() -> 
     # Verify it passes the correct tool_name
     assert call_args.kwargs["tool_name"] == "get_location"
     assert call_args.kwargs["args"] == {}
+
+    # Cleanup
+    _REGISTRY.pop(mock_session.id, None)
 
 
 @pytest.mark.asyncio
@@ -144,6 +159,7 @@ async def test_frontend_delegate_tools_should_use_id_mapper() -> None:
     mock_delegate.execute_on_frontend = AsyncMock(return_value=Ok({"success": True, "track": 1}))
 
     mock_session.state["frontend_delegate"] = mock_delegate
+    mock_session.state["confirmation_delegate"] = Mock()  # Required to trigger BIDI mode
 
     invocation_id = "e-3166e920-26d8-4452-9a7e-eb2851d2447f"
 
@@ -151,6 +167,9 @@ async def test_frontend_delegate_tools_should_use_id_mapper() -> None:
         invocation_id=invocation_id,
         session=mock_session,
     )
+
+    # Register delegate in FrontendToolRegistry
+    register_delegate(mock_session.id, mock_delegate)
 
     # when
     await change_bgm(track=1, tool_context=mock_tool_context)
@@ -176,3 +195,6 @@ async def test_frontend_delegate_tools_should_use_id_mapper() -> None:
         f"  5. Frontend sends result with same ID\n"
         f"  6. ✅ IDs match → no timeout"
     )
+
+    # Cleanup
+    _REGISTRY.pop(mock_session.id, None)
