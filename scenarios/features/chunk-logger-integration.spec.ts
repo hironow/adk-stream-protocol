@@ -38,8 +38,11 @@ import {
 config({ path: ".env.local" });
 
 // Read session ID from environment variable to match backend
+// Priority: CHUNK_LOGGER_SESSION_ID (backend) > NEXT_PUBLIC_CHUNK_LOGGER_SESSION_ID (frontend) > default
 const SESSION_ID =
-  process.env.NEXT_PUBLIC_CHUNK_LOGGER_SESSION_ID || "e2e-default";
+  process.env.CHUNK_LOGGER_SESSION_ID ||
+  process.env.NEXT_PUBLIC_CHUNK_LOGGER_SESSION_ID ||
+  "e2e-default";
 
 test.describe
   .serial("Chunk Logger Integration Tests", () => {
@@ -47,12 +50,8 @@ test.describe
       // Clear backend chunk logs from previous runs
       clearBackendChunkLogs(SESSION_ID);
 
-      // Setup frontend console logger
-      const sessionId =
-        process.env.NEXT_PUBLIC_CHUNK_LOGGER_SESSION_ID ||
-        process.env.CHUNK_LOGGER_SESSION_ID ||
-        "test";
-      setupFrontendConsoleLogger(page, sessionId);
+      // Setup frontend console logger (use same SESSION_ID as backend)
+      setupFrontendConsoleLogger(page, SESSION_ID);
 
       // Given: User navigates to chat and enables chunk logger
       await navigateToChat(page);
