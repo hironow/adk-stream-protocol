@@ -7,7 +7,7 @@
  * @vitest-environment jsdom
  */
 
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AudioChunk } from "../../audio-recorder";
 import { useAudioRecorder } from "../../use-audio-recorder";
@@ -81,7 +81,9 @@ describe("useAudioRecorder", () => {
       );
 
       const onChunk = vi.fn();
-      await result.current.startRecording(onChunk);
+      await act(async () => {
+        await result.current.startRecording(onChunk);
+      });
 
       await waitFor(() => {
         expect(mockAudioRecorder.initialize).toHaveBeenCalled();
@@ -94,7 +96,9 @@ describe("useAudioRecorder", () => {
       );
 
       const onChunk = vi.fn();
-      await result.current.startRecording(onChunk);
+      await act(async () => {
+        await result.current.startRecording(onChunk);
+      });
 
       await waitFor(() => {
         expect(mockAudioRecorder.start).toHaveBeenCalledWith(onChunk);
@@ -107,7 +111,9 @@ describe("useAudioRecorder", () => {
       );
 
       const onChunk = vi.fn();
-      await result.current.startRecording(onChunk);
+      await act(async () => {
+        await result.current.startRecording(onChunk);
+      });
 
       await waitFor(() => {
         expect(result.current.isRecording).toBe(true);
@@ -120,7 +126,9 @@ describe("useAudioRecorder", () => {
       );
 
       const onChunk = vi.fn();
-      await result.current.startRecording(onChunk);
+      await act(async () => {
+        await result.current.startRecording(onChunk);
+      });
 
       await waitFor(() => {
         expect(result.current.error).toBe(null);
@@ -136,7 +144,9 @@ describe("useAudioRecorder", () => {
       const { result } = renderHook(() => useAudioRecorder({ mode }));
 
       const onChunk = vi.fn();
-      await result.current.startRecording(onChunk);
+      await act(async () => {
+        await result.current.startRecording(onChunk);
+      });
 
       // Verify that recording was not started
       expect(mockAudioRecorder.initialize).not.toHaveBeenCalled();
@@ -154,7 +164,9 @@ describe("useAudioRecorder", () => {
       const onChunk = vi.fn();
 
       // Start recording first time
-      await result.current.startRecording(onChunk);
+      await act(async () => {
+        await result.current.startRecording(onChunk);
+      });
 
       await waitFor(() => {
         expect(result.current.isRecording).toBe(true);
@@ -164,7 +176,9 @@ describe("useAudioRecorder", () => {
       vi.clearAllMocks();
 
       // Try to start again
-      await result.current.startRecording(onChunk);
+      await act(async () => {
+        await result.current.startRecording(onChunk);
+      });
 
       // Verify that initialize/start were not called again
       expect(mockAudioRecorder.initialize).not.toHaveBeenCalled();
@@ -183,7 +197,9 @@ describe("useAudioRecorder", () => {
       );
 
       const onChunk = vi.fn();
-      await result.current.startRecording(onChunk);
+      await act(async () => {
+        await result.current.startRecording(onChunk);
+      });
 
       await waitFor(() => {
         expect(result.current.error).toContain("Initialization failed");
@@ -200,7 +216,9 @@ describe("useAudioRecorder", () => {
       );
 
       const onChunk = vi.fn();
-      await result.current.startRecording(onChunk);
+      await act(async () => {
+        await result.current.startRecording(onChunk);
+      });
 
       await waitFor(() => {
         expect(result.current.error).toContain("Microphone permission denied");
@@ -217,7 +235,9 @@ describe("useAudioRecorder", () => {
       );
 
       const onChunk = vi.fn();
-      await result.current.startRecording(onChunk);
+      await act(async () => {
+        await result.current.startRecording(onChunk);
+      });
 
       await waitFor(() => {
         expect(mockAudioRecorder.close).toHaveBeenCalled();
@@ -234,7 +254,9 @@ describe("useAudioRecorder", () => {
       );
 
       const onChunk = vi.fn();
-      await result.current.startRecording(onChunk);
+      await act(async () => {
+        await result.current.startRecording(onChunk);
+      });
 
       await waitFor(() => {
         expect(result.current.isRecording).toBe(false);
@@ -250,7 +272,9 @@ describe("useAudioRecorder", () => {
 
       // Start recording first
       const onChunk = vi.fn();
-      await result.current.startRecording(onChunk);
+      await act(async () => {
+        await result.current.startRecording(onChunk);
+      });
 
       await waitFor(() => {
         expect(result.current.isRecording).toBe(true);
@@ -260,7 +284,9 @@ describe("useAudioRecorder", () => {
       vi.clearAllMocks();
 
       // Stop recording
-      await result.current.stopRecording();
+      await act(async () => {
+        await result.current.stopRecording();
+      });
 
       await waitFor(() => {
         expect(mockAudioRecorder.close).toHaveBeenCalled();
@@ -274,14 +300,18 @@ describe("useAudioRecorder", () => {
 
       // Start recording
       const onChunk = vi.fn();
-      await result.current.startRecording(onChunk);
+      await act(async () => {
+        await result.current.startRecording(onChunk);
+      });
 
       await waitFor(() => {
         expect(result.current.isRecording).toBe(true);
       });
 
       // Stop recording
-      await result.current.stopRecording();
+      await act(async () => {
+        await result.current.stopRecording();
+      });
 
       await waitFor(() => {
         expect(result.current.isRecording).toBe(false);
@@ -293,7 +323,9 @@ describe("useAudioRecorder", () => {
         useAudioRecorder({ mode: "adk-bidi" }),
       );
 
-      await result.current.stopRecording();
+      await act(async () => {
+        await result.current.stopRecording();
+      });
 
       // Verify that close was not called since there's no recorder
       expect(mockAudioRecorder.close).not.toHaveBeenCalled();
@@ -309,14 +341,18 @@ describe("useAudioRecorder", () => {
 
       // Start recording
       const onChunk = vi.fn();
-      await result.current.startRecording(onChunk);
+      await act(async () => {
+        await result.current.startRecording(onChunk);
+      });
 
       await waitFor(() => {
         expect(result.current.isRecording).toBe(true);
       });
 
       // Stop recording
-      await result.current.stopRecording();
+      await act(async () => {
+        await result.current.stopRecording();
+      });
 
       await waitFor(() => {
         expect(result.current.error).toContain("Close failed");
@@ -332,7 +368,9 @@ describe("useAudioRecorder", () => {
 
       // Start recording
       const onChunk = vi.fn();
-      await result.current.startRecording(onChunk);
+      await act(async () => {
+        await result.current.startRecording(onChunk);
+      });
 
       await waitFor(() => {
         expect(result.current.isRecording).toBe(true);
@@ -369,7 +407,9 @@ describe("useAudioRecorder", () => {
 
       // Start recording
       const chunks: AudioChunk[] = [];
-      await result.current.startRecording((chunk) => chunks.push(chunk));
+      await act(async () => {
+        await result.current.startRecording((chunk) => chunks.push(chunk));
+      });
 
       await waitFor(() => {
         expect(result.current.isRecording).toBe(true);
@@ -378,7 +418,9 @@ describe("useAudioRecorder", () => {
       });
 
       // Stop recording
-      await result.current.stopRecording();
+      await act(async () => {
+        await result.current.stopRecording();
+      });
 
       await waitFor(() => {
         expect(result.current.isRecording).toBe(false);

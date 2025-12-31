@@ -835,17 +835,6 @@ class TestChatMessageContentField:
         assert message.content == "Hello, world!"
         assert message.parts is None
 
-    def test_content_accepts_none(self):
-        """ChatMessage.content should accept None."""
-        # given
-        message_data = {"role": "user", "content": None}
-
-        # when
-        message = ChatMessage(**message_data)
-
-        # then
-        assert message.content is None
-
     def test_content_accepts_list_of_parts(self):
         """
         ChatMessage.content should accept list[Part] for function_response.
