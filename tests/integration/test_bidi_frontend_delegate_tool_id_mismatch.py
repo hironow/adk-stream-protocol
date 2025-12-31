@@ -52,7 +52,6 @@ async def test_bidi_frontend_delegate_tool_should_use_consistent_id() -> None:
         frontend_delegate=frontend_delegate,
         confirmation_tools=confirmation_tools,
         session=mock_session,
-        live_request_queue=mock_live_request_queue,
     )
 
     # ADK FunctionCall event for frontend delegate tool
@@ -140,7 +139,6 @@ async def test_bidi_frontend_delegate_multiple_tools_id_consistency() -> None:
         frontend_delegate=frontend_delegate,
         confirmation_tools=[],  # No confirmation tools
         session=mock_session,
-        live_request_queue=mock_live_request_queue,
     )
 
     # Two FunctionCall events for different frontend delegate tools
@@ -250,7 +248,6 @@ async def test_bidi_vs_sse_frontend_delegate_tool_id_behavior() -> None:
         frontend_delegate=frontend_delegate,
         confirmation_tools=[],
         session=mock_session,
-        live_request_queue=mock_live_request_queue,
     )
 
     fc_id = "function-call-test-123"

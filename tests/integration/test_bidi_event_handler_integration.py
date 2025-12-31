@@ -27,6 +27,7 @@ from tests.utils.bidi import (
     create_mock_bidi_components,
     simulate_pending_tool_call,
 )
+from tests.utils.mocks import create_mock_session
 
 
 # ============================================================
@@ -42,8 +43,7 @@ async def test_level2_message_event_with_real_frontend_delegate() -> None:
     Tests FrontendToolDelegate integration with BidiEventReceiver.
     """
     # given
-    mock_session = Mock()
-    mock_session.id = "session-123"
+    mock_session = create_mock_session(session_id="session-123")
     mock_session_service = Mock()
     mock_session_service.append_event = AsyncMock()
     mock_runner = Mock()
@@ -136,8 +136,7 @@ async def test_level2_confirmation_flow_with_real_delegate() -> None:
     Simulates user approval through FrontendToolDelegate.
     """
     # given
-    mock_session = Mock()
-    mock_session.id = "session-confirm"
+    mock_session = create_mock_session(session_id="session-confirm")
     mock_session_service = Mock()
     mock_session_service.append_event = AsyncMock()
     mock_runner = Mock()
@@ -194,12 +193,13 @@ async def test_level2_confirmation_flow_with_real_delegate() -> None:
 @pytest.mark.asyncio
 async def test_level3_interrupt_event_with_real_queue() -> None:
     """
-    Level 3: Use real LiveRequestQueue behavior (close operation).
+    Level 3: Test interrupt event handling behavior.
 
-    Tests interrupt handling with actual queue closing.
+    Per ADK documentation: Interrupt is a conversation state change, not connection termination.
+    LiveRequestQueue should remain open after interrupt.
     """
     # given
-    mock_session = Mock()
+    mock_session = create_mock_session()
     mock_runner = Mock()
 
     # Real FrontendToolDelegate
@@ -221,8 +221,8 @@ async def test_level3_interrupt_event_with_real_queue() -> None:
     # when
     await handler._handle_interrupt_event(event)
 
-    # then
-    mock_queue.close.assert_called_once()
+    # then - queue should NOT be closed (interrupt is state change only)
+    mock_queue.close.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -233,7 +233,7 @@ async def test_level3_audio_chunk_with_real_blob_creation() -> None:
     Tests audio chunk handling with actual ADK Blob instantiation.
     """
     # given
-    mock_session = Mock()
+    mock_session = create_mock_session()
     mock_runner = Mock()
     frontend_delegate = FrontendToolDelegate()
 
@@ -279,8 +279,7 @@ async def test_level4_complete_message_flow() -> None:
     Real: FrontendToolDelegate, ADKVercelIDMapper, Message processing
     """
     # given
-    mock_session = Mock()
-    mock_session.id = "session-complete"
+    mock_session = create_mock_session(session_id="session-complete")
     mock_session_service = Mock()
     mock_session_service.append_event = AsyncMock()
     mock_runner = Mock()
@@ -326,8 +325,7 @@ async def test_level4_sequential_events() -> None:
     Simulates realistic event sequence: message → tool_result → message
     """
     # given
-    mock_session = Mock()
-    mock_session.id = "session-seq"
+    mock_session = create_mock_session(session_id="session-seq")
     mock_session_service = Mock()
     mock_session_service.append_event = AsyncMock()
     mock_runner = Mock()
@@ -402,7 +400,7 @@ async def test_level2_missing_tool_result_with_real_delegate() -> None:
     When tool_result arrives for non-existent request.
     """
     # given
-    mock_session = Mock()
+    mock_session = create_mock_session()
     mock_queue = Mock()
     mock_runner = Mock()
 
@@ -438,7 +436,7 @@ async def test_level3_malformed_audio_chunk() -> None:
     Level 3: Test malformed audio chunk handling with real Blob creation.
     """
     # given
-    mock_session = Mock()
+    mock_session = create_mock_session()
     mock_runner = Mock()
     frontend_delegate = FrontendToolDelegate()
     mock_queue = Mock()

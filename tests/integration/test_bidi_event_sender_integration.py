@@ -49,7 +49,6 @@ async def test_level2_real_frontend_delegate_id_mapping() -> None:
         frontend_delegate=frontend_delegate,
         confirmation_tools=[],
         session=mock_session,
-        live_request_queue=mock_live_request_queue,
     )
 
     # SSE event with tool-input-available
@@ -83,7 +82,6 @@ async def test_level2_real_frontend_delegate_multiple_tools() -> None:
         frontend_delegate=frontend_delegate,
         confirmation_tools=[],
         session=mock_session,
-        live_request_queue=mock_live_request_queue,
     )
 
     # when - send multiple tool-input-available events
@@ -128,7 +126,6 @@ async def test_level3_websocket_disconnect_during_send() -> None:
         frontend_delegate=frontend_delegate,
         confirmation_tools=[],
         session=mock_session,
-        live_request_queue=mock_live_request_queue,
     )
 
     async def mock_live_events():
@@ -143,7 +140,6 @@ async def test_level3_websocket_disconnect_during_send() -> None:
 
     # when - WebSocketDisconnect should be caught gracefully
     with (
-        patch("adk_stream_protocol.bidi_event_sender.ToolConfirmationInterceptor"),
         patch(
             "adk_stream_protocol.bidi_event_sender.stream_adk_to_ai_sdk",
             side_effect=lambda *args, **kwargs: mock_stream(),
@@ -183,7 +179,6 @@ async def test_level4_complete_event_stream_with_confirmation_tools() -> None:
         frontend_delegate=frontend_delegate,
         confirmation_tools=confirmation_tools,
         session=mock_session,
-        live_request_queue=mock_live_request_queue,
     )
 
     async def mock_live_events():
@@ -210,8 +205,8 @@ async def test_level4_complete_event_stream_with_confirmation_tools() -> None:
         # ID mapping should be registered
         assert id_mapper.resolve_tool_result("payment-456") == "process_payment"
 
-        # Confirmation tools should be set on sender
-        assert sender._confirmation_tools == confirmation_tools
+        # Confirmation tools should be set on sender (as a set)
+        assert sender._confirmation_tools == set(confirmation_tools)
 
 
 @pytest.mark.asyncio
@@ -232,7 +227,6 @@ async def test_level4_mixed_event_types() -> None:
         frontend_delegate=frontend_delegate,
         confirmation_tools=[],
         session=mock_session,
-        live_request_queue=mock_live_request_queue,
     )
 
     async def mock_live_events():
@@ -247,7 +241,6 @@ async def test_level4_mixed_event_types() -> None:
 
     # when
     with (
-        patch("adk_stream_protocol.bidi_event_sender.ToolConfirmationInterceptor"),
         patch(
             "adk_stream_protocol.bidi_event_sender.stream_adk_to_ai_sdk",
             side_effect=lambda *args, **kwargs: mock_stream(),
@@ -287,7 +280,6 @@ async def test_level2_skips_id_mapping_with_none_frontend_delegate() -> None:
         frontend_delegate=None,  # type: ignore
         confirmation_tools=[],
         session=mock_session,
-        live_request_queue=mock_live_request_queue,
     )
 
     sse_event = (

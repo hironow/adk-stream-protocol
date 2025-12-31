@@ -61,7 +61,6 @@ async def test_bidi_confirmation_should_send_tool_input_events_for_original_tool
         frontend_delegate=frontend_delegate,
         confirmation_tools=confirmation_tools,
         session=mock_session,
-        live_request_queue=mock_live_request_queue,
     )
 
     # ADK FunctionCall event (this is what triggers confirmation)
@@ -143,7 +142,6 @@ async def test_bidi_confirmation_event_sequence() -> None:
         frontend_delegate=frontend_delegate,
         confirmation_tools=confirmation_tools,
         session=mock_session,
-        live_request_queue=mock_live_request_queue,
     )
 
     # Create FunctionCall event
