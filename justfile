@@ -94,68 +94,10 @@ md-lint:
     @{{MARKDOWNLINT}} --fix "docs/**/*.md" "README.md" "experiments/**/*.md" "!node_modules/**" "!agents/**"
 
 
-[group("testing")]
-test-server-unit:
-    uv run pytest tests/unit/
-
-[group("testing")]
-test-server-integration:
-    uv run pytest tests/integration/
-
-[group("testing")]
-test-server-e2e:
-    uv run pytest tests/e2e/
-
-# Run server-side tests (pytest)
-[group("testing")]
-test-server-all: test-server-unit test-server-integration test-server-e2e
-
-[group("testing")]
-test-frontend-lib:
-    pnpm run test:lib
-
-[group("testing")]
-test-frontend-app:
-    pnpm run test:app
-
-[group("testing")]
-test-frontend-components:
-    pnpm run test:components
-
-[group("testing")]
-test-frontend-e2e:
-    pnpm run test:e2e
-
-# Run frontend tests (Vitest)
-[group("testing")]
-test-frontend-all: test-frontend-lib test-frontend-app test-frontend-components test-frontend-e2e
-
-# Run E2E tests (Playwright) - uses existing servers if running
-[group("testing")]
-test-e2e:
-    pnpm run test:e2e
-
-# Run E2E baseline tests (Playwright) - tools only with timeouts
-[group("testing-baseline")]
-test-baseline-e2e:
-    @echo "Running E2E baseline tests..."
-    pnpm exec playwright test scenarios/tools/ --project=chromium --workers=1 --timeout=120000 --global-timeout=600000
-
-# Run E2E tests with clean server restart - guarantees fresh servers
-[group("testing")]
-test-e2e-clean: clean-port
-    @echo "Playwright will start fresh servers automatically..."
-    @echo "Running E2E tests..."
-    pnpm run test:e2e
-
 # Install Playwright browsers
 [group("setup")]
 install-browsers:
     pnpm exec playwright install chromium
-
-# Run all tests
-[group("testing")]
-test-all: test-server-all test-frontend-all test-e2e
 
 # Run all Python checks
 [group("development")]
@@ -267,3 +209,56 @@ kill:
 [group("hardercleaner")]
 delete-all: delete-gen delete-logs
     @echo "All cleaning tasks completed."
+
+
+# ============================================================================
+# Unified Test Runner (scripts/run-tests.sh)
+# ============================================================================
+
+# Run fast tests only (no external dependencies - parallel execution)
+[group("testing-unified")]
+test-fast:
+    @echo "Running fast tests (no dependencies, parallel)..."
+    ./scripts/run-tests.sh --no-deps
+
+# Run tests requiring backend server
+[group("testing-unified")]
+test-with-backend:
+    @echo "Running tests with backend dependencies..."
+    ./scripts/run-tests.sh --no-deps --backend-only
+
+# Run full stack tests (backend + frontend + browser)
+[group("testing-unified")]
+test-full-stack:
+    @echo "Running full stack tests (sequential, requires servers)..."
+    ./scripts/run-tests.sh --full
+
+# Run all tests (unified test runner)
+[group("testing-unified")]
+test-unified-all:
+    @echo "Running all tests through unified runner..."
+    ./scripts/run-tests.sh --all
+
+# Run only unit tests across all frameworks
+[group("testing-unified")]
+test-unified-unit:
+    @echo "Running all unit tests..."
+    ./scripts/run-tests.sh --unit
+
+# Run only integration tests across all frameworks
+[group("testing-unified")]
+test-unified-integration:
+    @echo "Running all integration tests..."
+    ./scripts/run-tests.sh --integration
+
+# Run only E2E tests (pytest + playwright)
+[group("testing-unified")]
+test-unified-e2e:
+    @echo "Running all E2E tests..."
+    ./scripts/run-tests.sh --e2e
+
+# Show what tests would run (dry-run)
+[group("testing-unified")]
+test-dry-run:
+    @echo "Dry run - showing test execution plan..."
+    ./scripts/run-tests.sh --all --dry-run

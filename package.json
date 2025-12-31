@@ -7,17 +7,7 @@
     "build": "next build",
     "start": "next start -p 3000",
     "lint": "biome check --write .",
-    "format": "biome format --write .",
-    "test:lib": "vitest run lib/",
-    "test:app": "vitest run app/",
-    "test:components": "vitest run components/",
-    "test:e2e": "playwright test --global-timeout=600000",
-    "test:e2e:scenarios": "playwright test --project=scenarios --global-timeout=600000",
-    "test:e2e:app": "playwright test --project=app-e2e-smoke --project=app-e2e-core --project=app-e2e-advanced",
-    "test:e2e:app:smoke": "playwright test --project=app-e2e-smoke",
-    "test:e2e:app:core": "playwright test --project=app-e2e-core",
-    "test:e2e:app:advanced": "playwright test --project=app-e2e-advanced",
-    "test:e2e:ui": "playwright test --ui"
+    "format": "biome format --write ."
   },
   "keywords": [],
   "author": "hironow",
