@@ -15,13 +15,10 @@
 
 import { useChat } from "@ai-sdk/react";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { buildUseChatOptions } from "../../bidi";
 import type { UIMessageFromAISDKv6 } from "../../utils";
-import {
-  isApprovalRequestedTool,
-  isToolUIPartFromAISDKv6,
-} from "../../utils";
+import { isApprovalRequestedTool, isToolUIPartFromAISDKv6 } from "../../utils";
 import {
   createBidiWebSocketLink,
   createConfirmationRequestHandler,
@@ -111,7 +108,8 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
       });
 
       // Debug: Log message state after approval
-      const lastMsg = result.current.messages[result.current.messages.length - 1];
+      const lastMsg =
+        result.current.messages[result.current.messages.length - 1];
       console.log(
         "[TEST DEBUG] After approval, lastMessage parts:",
         JSON.stringify((lastMsg as any).parts, null, 2),
@@ -255,8 +253,7 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
                 msg.role === "assistant" &&
                 msg.parts?.some(
                   (part: any) =>
-                    part.toolCallId === "call-1" &&
-                    part.approval !== undefined,
+                    part.toolCallId === "call-1" && part.approval !== undefined,
                 ),
             );
 
@@ -265,8 +262,7 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
                 msg.role === "assistant" &&
                 msg.parts?.some(
                   (part: any) =>
-                    part.toolCallId === "call-2" &&
-                    part.approval !== undefined,
+                    part.toolCallId === "call-2" && part.approval !== undefined,
                 ),
             );
 
@@ -391,8 +387,7 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
           const lastMsg = msgs[msgs.length - 1];
           // AI SDK v6: Check for TOOL part with toolCallId "call-2"
           const secondConfirmationPart = (lastMsg as any).parts?.find(
-            (p: any) =>
-              isApprovalRequestedTool(p) && p.toolCallId === "call-2",
+            (p: any) => isApprovalRequestedTool(p) && p.toolCallId === "call-2",
           );
           expect(secondConfirmationPart).toBeDefined();
         },
@@ -878,7 +873,8 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
                 msg.role === "assistant" &&
                 msg.parts?.some(
                   (part: any) =>
-                    part.toolCallId === "first-tool" && part.approval !== undefined,
+                    part.toolCallId === "first-tool" &&
+                    part.approval !== undefined,
                 ),
             );
 
@@ -889,7 +885,8 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
                 msg.role === "assistant" &&
                 msg.parts?.some(
                   (part: any) =>
-                    part.toolCallId === "second-tool" && part.approval !== undefined,
+                    part.toolCallId === "second-tool" &&
+                    part.approval !== undefined,
                 ),
             );
 

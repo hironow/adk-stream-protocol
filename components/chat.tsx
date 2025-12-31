@@ -53,15 +53,10 @@ export function Chat({
     [mode],
   );
 
-  const {
-    messages,
-    sendMessage,
-    status,
-    error,
-    addToolApprovalResponse,
-  } = useChat({
-    ...useChatOptions,
-  });
+  const { messages, sendMessage, status, error, addToolApprovalResponse } =
+    useChat({
+      ...useChatOptions,
+    });
 
   // DEBUG: Log messages array changes to understand sendAutomaticallyWhen behavior
   useEffect(() => {
@@ -254,78 +249,78 @@ export function Chat({
             zIndex: 1000,
           }}
         >
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "1rem",
+              alignItems: "center",
+              textAlign: "center",
+            }}
+          >
             <div
               style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "1rem",
-                alignItems: "center",
-                textAlign: "center",
+                fontSize: "2rem",
+                lineHeight: 1,
+              }}
+              aria-hidden="true"
+            >
+              🔊
+            </div>
+            <div>
+              <h2
+                id="audio-permission-title"
+                style={{
+                  margin: 0,
+                  fontSize: "1.125rem",
+                  fontWeight: 600,
+                  color: "#1a1a1a",
+                  marginBottom: "0.5rem",
+                }}
+              >
+                Enable Audio Features
+              </h2>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "0.875rem",
+                  color: "#666",
+                  lineHeight: 1.5,
+                }}
+              >
+                Voice chat and background music require your permission to play
+                audio
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={async () => {
+                await audioContext.activate();
+              }}
+              aria-label="Enable audio features for voice and background music"
+              style={{
+                width: "100%",
+                padding: "0.875rem 1.5rem",
+                background: "#0070f3",
+                border: "none",
+                borderRadius: "8px",
+                fontSize: "0.9375rem",
+                fontWeight: 600,
+                color: "#fff",
+                cursor: "pointer",
+                transition: "background 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "#0051cc";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "#0070f3";
               }}
             >
-              <div
-                style={{
-                  fontSize: "2rem",
-                  lineHeight: 1,
-                }}
-                aria-hidden="true"
-              >
-                🔊
-              </div>
-              <div>
-                <h2
-                  id="audio-permission-title"
-                  style={{
-                    margin: 0,
-                    fontSize: "1.125rem",
-                    fontWeight: 600,
-                    color: "#1a1a1a",
-                    marginBottom: "0.5rem",
-                  }}
-                >
-                  Enable Audio Features
-                </h2>
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: "0.875rem",
-                    color: "#666",
-                    lineHeight: 1.5,
-                  }}
-                >
-                  Voice chat and background music require your permission to
-                  play audio
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={async () => {
-                  await audioContext.activate();
-                }}
-                aria-label="Enable audio features for voice and background music"
-                style={{
-                  width: "100%",
-                  padding: "0.875rem 1.5rem",
-                  background: "#0070f3",
-                  border: "none",
-                  borderRadius: "8px",
-                  fontSize: "0.9375rem",
-                  fontWeight: 600,
-                  color: "#fff",
-                  cursor: "pointer",
-                  transition: "background 0.2s ease",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "#0051cc";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "#0070f3";
-                }}
-              >
-                Enable Audio
-              </button>
-            </div>
+              Enable Audio
+            </button>
           </div>
+        </div>
       )}
 
       {/* BGM Switch Button (upper left) - removed from tab order to prioritize chat input */}
@@ -482,20 +477,17 @@ export function Chat({
             `}</style>
           </div>
         )}
-        {error && (
-          <>
-            {isRateLimitError(error) ? (
-              <RateLimitError error={error} />
-            ) : (
-              <div
-                data-testid="generic-error"
-                style={{ padding: "1rem", color: "#ef4444" }}
-              >
-                Error: {error.message}
-              </div>
-            )}
-          </>
-        )}
+        {error &&
+          (isRateLimitError(error) ? (
+            <RateLimitError error={error} />
+          ) : (
+            <div
+              data-testid="generic-error"
+              style={{ padding: "1rem", color: "#ef4444" }}
+            >
+              Error: {error.message}
+            </div>
+          ))}
       </main>
 
       <form

@@ -14,14 +14,10 @@
 
 import { useChat } from "@ai-sdk/react";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { HttpResponse, http } from "msw";
+import { http } from "msw";
 import { describe, expect, it } from "vitest";
 import { buildUseChatOptions } from "../../sse";
-import type { UIMessageFromAISDKv6 } from "../../utils";
-import {
-  createAdkConfirmationRequest,
-  setupMswServer,
-} from "../helpers";
+import { createAdkConfirmationRequest, setupMswServer } from "../helpers";
 
 // Create MSW server for HTTP interception
 const server = setupMswServer();
@@ -61,8 +57,7 @@ describe("AI SDK v6 Approval State Verification", () => {
         const lastMessage =
           result.current.messages[result.current.messages.length - 1];
         return (
-          lastMessage?.role === "assistant" &&
-          lastMessage.parts.length > 0
+          lastMessage?.role === "assistant" && lastMessage.parts.length > 0
         );
       },
       { timeout: 3000 },
@@ -85,7 +80,7 @@ describe("AI SDK v6 Approval State Verification", () => {
     // User approves - use the ACTUAL approval.id, not toolCallId
     await act(async () => {
       result.current.addToolApprovalResponse({
-        id: actualApprovalId,  // ← Use approval.id, NOT toolCallId!
+        id: actualApprovalId, // ← Use approval.id, NOT toolCallId!
         approved: true,
         reason: "Test reason",
       });
@@ -110,13 +105,18 @@ describe("AI SDK v6 Approval State Verification", () => {
     console.log("\n=== CHECKPOINT 2: After addToolApprovalResponse ===");
     console.log("Tool part:", JSON.stringify(toolPartAfter, null, 2));
     console.log("State:", (toolPartAfter as any).state);
-    console.log("Approval object:", JSON.stringify((toolPartAfter as any).approval, null, 2));
+    console.log(
+      "Approval object:",
+      JSON.stringify((toolPartAfter as any).approval, null, 2),
+    );
 
     // VERIFICATION: Compare with DeepWiki documentation
     console.log("\n=== VERIFICATION ===");
     console.log("Expected per DeepWiki:");
     console.log("  - state: 'approval-responded'");
-    console.log("  - approval: {id: 'orig-test', approved: true, reason: 'Test reason'}");
+    console.log(
+      "  - approval: {id: 'orig-test', approved: true, reason: 'Test reason'}",
+    );
     console.log("\nActual:");
     console.log("  - state:", (toolPartAfter as any).state);
     console.log("  - approval:", (toolPartAfter as any).approval);

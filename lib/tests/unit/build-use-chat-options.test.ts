@@ -17,7 +17,6 @@ import {
   buildUseChatOptions,
 } from "../../build-use-chat-options";
 import { ChunkLoggingTransport } from "../../chunk_logs";
-import type { UIMessageFromAISDKv6FromAISDKv6 } from "../../utils";
 
 // Mock WebSocket for transport testing
 class MockWebSocket {

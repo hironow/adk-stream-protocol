@@ -15,111 +15,111 @@
   },
   "output": {
     "rawEvents": [
-      "data: {\"type\": \"start\", \"messageId\": \"618761ce-b8b7-4422-8091-3afe86c40925\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-67ce3f25-da29-4a78-9c52-c32036ec96cd\", \"toolName\": \"process_payment\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-67ce3f25-da29-4a78-9c52-c32036ec96cd\", \"toolName\": \"process_payment\", \"input\": {\"recipient\": \"Alice\", \"currency\": \"USD\", \"amount\": 30}}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-ec19cdcf-522e-4384-b2f2-22296d2cbaec\", \"toolName\": \"process_payment\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-ec19cdcf-522e-4384-b2f2-22296d2cbaec\", \"toolName\": \"process_payment\", \"input\": {\"recipient\": \"Bob\", \"currency\": \"USD\", \"amount\": 40}}\n\n",
-      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"adk-67ce3f25-da29-4a78-9c52-c32036ec96cd\", \"approvalId\": \"adk-4fd11740-e316-4cd5-a4f8-821886d52613\"}\n\n",
-      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"adk-ec19cdcf-522e-4384-b2f2-22296d2cbaec\", \"approvalId\": \"adk-e0b91a3a-7aac-486e-a50b-d6fe6fa6feb6\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1328, \"completionTokens\": 54, \"totalTokens\": 1503}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"b70d8c70-a545-46d0-9be8-de1e8f76886c\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-1e1251d6-1674-4324-b990-1aad32d5791b\", \"toolName\": \"process_payment\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-1e1251d6-1674-4324-b990-1aad32d5791b\", \"toolName\": \"process_payment\", \"input\": {\"amount\": 30, \"currency\": \"USD\", \"recipient\": \"Alice\"}}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-13371ea0-0eca-477c-ad94-bdb642bd7446\", \"toolName\": \"process_payment\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-13371ea0-0eca-477c-ad94-bdb642bd7446\", \"toolName\": \"process_payment\", \"input\": {\"currency\": \"USD\", \"recipient\": \"Bob\", \"amount\": 40}}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"adk-1e1251d6-1674-4324-b990-1aad32d5791b\", \"approvalId\": \"adk-9a73f1ef-c216-4f8f-a610-34aa3496a2e1\"}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"adk-13371ea0-0eca-477c-ad94-bdb642bd7446\", \"approvalId\": \"adk-8a9fdcad-aaec-4064-956f-07a0e11b3369\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 2215, \"completionTokens\": 54, \"totalTokens\": 2316}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
       "data: [DONE]\n\n",
-      "data: {\"type\": \"start\", \"messageId\": \"ad910692-f835-4432-a731-3cfeb42c0f94\"}\n\n",
-      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"adk-67ce3f25-da29-4a78-9c52-c32036ec96cd\", \"output\": {\"success\": true, \"transaction_id\": \"txn_90d586b3d81d\", \"amount\": 30, \"currency\": \"USD\", \"recipient\": \"Alice\", \"description\": \"\", \"wallet_balance\": 970.0, \"timestamp\": \"2025-12-28T05:43:30.243108+00:00\"}}\n\n",
-      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"adk-ec19cdcf-522e-4384-b2f2-22296d2cbaec\", \"output\": {\"success\": true, \"transaction_id\": \"txn_d789031c1c0b\", \"amount\": 40, \"currency\": \"USD\", \"recipient\": \"Bob\", \"description\": \"\", \"wallet_balance\": 960.0, \"timestamp\": \"2025-12-28T05:43:30.243379+00:00\"}}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"35ebcb41-664f-4434-8fd0-48c99bb66c52\"}\n\n",
+      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"adk-1e1251d6-1674-4324-b990-1aad32d5791b\", \"output\": {\"success\": true, \"transaction_id\": \"txn_473222778257\", \"amount\": 30, \"currency\": \"USD\", \"recipient\": \"Alice\", \"description\": \"\", \"wallet_balance\": 970.0, \"timestamp\": \"2025-12-30T19:54:22.206605+00:00\"}}\n\n",
+      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"adk-13371ea0-0eca-477c-ad94-bdb642bd7446\", \"output\": {\"success\": true, \"transaction_id\": \"txn_2df6909c74a1\", \"amount\": 40, \"currency\": \"USD\", \"recipient\": \"Bob\", \"description\": \"\", \"wallet_balance\": 960.0, \"timestamp\": \"2025-12-30T19:54:22.206918+00:00\"}}\n\n",
       "data: {\"type\": \"text-start\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"Alice\\u3055\\u3093\\u306b30\\u30c9\\u30eb\\u3001Bob\\u3055\\u3093\\u306b40\\u30c9\\u30eb\\u306e\\u9001\\u91d1\\u304c\\u5b8c\\u4e86\\u3057\\u307e\\u3057\\u305f\\u3002\\n\\u73fe\\u5728\\u306e\\u30a6\\u30a9\\u30ec\\u30c3\\u30c8\\u6b8b\\u9ad8\\u306f\\u3001Alice\\u3055\\u3093\\u3078\\u306e\\u9001\\u91d1\\u5f8c\\u3067970\\u30c9\\u30eb\\u3001Bob\\u3055\\u3093\\u3078\\u306e\\u9001\\u91d1\\u5f8c\\u3067960\\u30c9\\u30eb\\u3068\\u306a\\u3063\\u3066\\u3044\\u307e\\u3059\\u3002\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"Alice\\u3078\\u306e30\\u30c9\\u30eb\\u306e\\u9001\\u91d1\\u3068\\u3001Bob\\u3078\\u306e40\\u30c9\\u30eb\\u306e\\u9001\\u91d1\\u304c\\u305d\\u308c\\u305e\\u308c\\u5b8c\\u4e86\\u3057\\u307e\\u3057\\u305f\\u3002\"}\n\n",
       "data: {\"type\": \"text-end\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1701, \"completionTokens\": 51, \"totalTokens\": 1752}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 2513, \"completionTokens\": 23, \"totalTokens\": 2536}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
       {
         "type": "start",
-        "messageId": "618761ce-b8b7-4422-8091-3afe86c40925"
+        "messageId": "b70d8c70-a545-46d0-9be8-de1e8f76886c"
       },
       {
         "type": "tool-input-start",
-        "toolCallId": "adk-67ce3f25-da29-4a78-9c52-c32036ec96cd",
+        "toolCallId": "adk-1e1251d6-1674-4324-b990-1aad32d5791b",
         "toolName": "process_payment"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "adk-67ce3f25-da29-4a78-9c52-c32036ec96cd",
+        "toolCallId": "adk-1e1251d6-1674-4324-b990-1aad32d5791b",
         "toolName": "process_payment",
         "input": {
-          "recipient": "Alice",
+          "amount": 30,
           "currency": "USD",
-          "amount": 30
+          "recipient": "Alice"
         }
       },
       {
         "type": "tool-input-start",
-        "toolCallId": "adk-ec19cdcf-522e-4384-b2f2-22296d2cbaec",
+        "toolCallId": "adk-13371ea0-0eca-477c-ad94-bdb642bd7446",
         "toolName": "process_payment"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "adk-ec19cdcf-522e-4384-b2f2-22296d2cbaec",
+        "toolCallId": "adk-13371ea0-0eca-477c-ad94-bdb642bd7446",
         "toolName": "process_payment",
         "input": {
-          "recipient": "Bob",
           "currency": "USD",
+          "recipient": "Bob",
           "amount": 40
         }
       },
       {
         "type": "tool-approval-request",
-        "toolCallId": "adk-67ce3f25-da29-4a78-9c52-c32036ec96cd",
-        "approvalId": "adk-4fd11740-e316-4cd5-a4f8-821886d52613"
+        "toolCallId": "adk-1e1251d6-1674-4324-b990-1aad32d5791b",
+        "approvalId": "adk-9a73f1ef-c216-4f8f-a610-34aa3496a2e1"
       },
       {
         "type": "tool-approval-request",
-        "toolCallId": "adk-ec19cdcf-522e-4384-b2f2-22296d2cbaec",
-        "approvalId": "adk-e0b91a3a-7aac-486e-a50b-d6fe6fa6feb6"
+        "toolCallId": "adk-13371ea0-0eca-477c-ad94-bdb642bd7446",
+        "approvalId": "adk-8a9fdcad-aaec-4064-956f-07a0e11b3369"
       },
       {
         "type": "finish",
         "finishReason": "stop",
         "messageMetadata": {
           "usage": {
-            "promptTokens": 1328,
+            "promptTokens": 2215,
             "completionTokens": 54,
-            "totalTokens": 1503
+            "totalTokens": 2316
           },
           "modelVersion": "gemini-3-flash-preview"
         }
       },
       {
         "type": "start",
-        "messageId": "ad910692-f835-4432-a731-3cfeb42c0f94"
+        "messageId": "35ebcb41-664f-4434-8fd0-48c99bb66c52"
       },
       {
         "type": "tool-output-available",
-        "toolCallId": "adk-67ce3f25-da29-4a78-9c52-c32036ec96cd",
+        "toolCallId": "adk-1e1251d6-1674-4324-b990-1aad32d5791b",
         "output": {
           "success": true,
-          "transaction_id": "txn_90d586b3d81d",
+          "transaction_id": "txn_473222778257",
           "amount": 30,
           "currency": "USD",
           "recipient": "Alice",
           "description": "",
           "wallet_balance": 970.0,
-          "timestamp": "2025-12-28T05:43:30.243108+00:00"
+          "timestamp": "2025-12-30T19:54:22.206605+00:00"
         }
       },
       {
         "type": "tool-output-available",
-        "toolCallId": "adk-ec19cdcf-522e-4384-b2f2-22296d2cbaec",
+        "toolCallId": "adk-13371ea0-0eca-477c-ad94-bdb642bd7446",
         "output": {
           "success": true,
-          "transaction_id": "txn_d789031c1c0b",
+          "transaction_id": "txn_2df6909c74a1",
           "amount": 40,
           "currency": "USD",
           "recipient": "Bob",
           "description": "",
           "wallet_balance": 960.0,
-          "timestamp": "2025-12-28T05:43:30.243379+00:00"
+          "timestamp": "2025-12-30T19:54:22.206918+00:00"
         }
       },
       {
@@ -129,7 +129,7 @@
       {
         "type": "text-delta",
         "id": "0",
-        "delta": "Aliceさんに30ドル、Bobさんに40ドルの送金が完了しました。\n現在のウォレット残高は、Aliceさんへの送金後で970ドル、Bobさんへの送金後で960ドルとなっています。"
+        "delta": "Aliceへの30ドルの送金と、Bobへの40ドルの送金がそれぞれ完了しました。"
       },
       {
         "type": "text-end",
@@ -140,9 +140,9 @@
         "finishReason": "stop",
         "messageMetadata": {
           "usage": {
-            "promptTokens": 1701,
-            "completionTokens": 51,
-            "totalTokens": 1752
+            "promptTokens": 2513,
+            "completionTokens": 23,
+            "totalTokens": 2536
           },
           "modelVersion": "gemini-3-flash-preview"
         }

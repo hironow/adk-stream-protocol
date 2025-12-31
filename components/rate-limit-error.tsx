@@ -3,7 +3,6 @@
  * Displays a user-friendly UI when API rate limit is exceeded
  */
 
-import React from "react";
 import { getRetryAfter } from "../lib/core/error-utils";
 
 export interface RateLimitErrorProps {

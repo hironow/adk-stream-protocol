@@ -51,7 +51,9 @@ describe("Tool Invocation Component Integration", () => {
       );
 
       // Then: Approval UI should be visible
-      expect(screen.getByText(/This tool requires your approval to execute/i)).toBeTruthy();
+      expect(
+        screen.getByText(/This tool requires your approval to execute/i),
+      ).toBeTruthy();
       expect(screen.getByTestId("tool-approve-button")).toBeInTheDocument();
       expect(screen.getByTestId("tool-deny-button")).toBeInTheDocument();
     });
@@ -161,7 +163,9 @@ describe("Tool Invocation Component Integration", () => {
       // Then: Approve and Deny buttons should be visible
       expect(screen.getByTestId("tool-approve-button")).toBeInTheDocument();
       expect(screen.getByTestId("tool-deny-button")).toBeInTheDocument();
-      expect(screen.getByTestId("tool-state")).toHaveTextContent("Approval Required");
+      expect(screen.getByTestId("tool-state")).toHaveTextContent(
+        "Approval Required",
+      );
     });
 
     it("should show approval-responded state with approved", () => {
@@ -190,7 +194,9 @@ describe("Tool Invocation Component Integration", () => {
 
       // Then: Tool name and state should be displayed
       expect(screen.getByTestId("tool-name")).toHaveTextContent("change_bgm");
-      expect(screen.getByTestId("tool-state")).toHaveTextContent("Processing Approval...");
+      expect(screen.getByTestId("tool-state")).toHaveTextContent(
+        "Processing Approval...",
+      );
     });
 
     it("should show approval-responded state with denied", () => {
@@ -219,7 +225,9 @@ describe("Tool Invocation Component Integration", () => {
 
       // Then: Tool name and state should be displayed
       expect(screen.getByTestId("tool-name")).toHaveTextContent("delete_files");
-      expect(screen.getByTestId("tool-state")).toHaveTextContent("Processing Approval...");
+      expect(screen.getByTestId("tool-state")).toHaveTextContent(
+        "Processing Approval...",
+      );
     });
 
     it("should handle long-running tool state (input-available)", () => {

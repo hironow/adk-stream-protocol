@@ -6,8 +6,8 @@
  */
 
 import {
-  sendAutomaticallyWhenCore,
   type SendAutomaticallyWhenOptions,
+  sendAutomaticallyWhenCore,
 } from "@/lib/core/send-automatically-when";
 
 export type { SendAutomaticallyWhenOptions };

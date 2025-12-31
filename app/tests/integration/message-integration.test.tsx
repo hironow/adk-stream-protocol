@@ -142,9 +142,7 @@ describe("Message Component Integration", () => {
       // Then: All parts should be visible
       expect(screen.getByText(/Let me check the weather/i)).toBeTruthy();
       // Tool name displayed in header for all states
-      expect(screen.getByTestId("tool-name")).toHaveTextContent(
-        "get_weather",
-      );
+      expect(screen.getByTestId("tool-name")).toHaveTextContent("get_weather");
     });
 
     it("should render multiple tool invocations", () => {

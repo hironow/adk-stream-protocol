@@ -16,7 +16,14 @@ export default function ChatPage() {
     <AudioProvider>
       <div style={{ height: "100vh", overflow: "hidden" }}>
         {/* Header with visually hidden h1 for accessibility */}
-        <header style={{ position: "absolute", width: "1px", height: "1px", overflow: "hidden" }}>
+        <header
+          style={{
+            position: "absolute",
+            width: "1px",
+            height: "1px",
+            overflow: "hidden",
+          }}
+        >
           <h1>AI Chat Application</h1>
         </header>
 
@@ -32,7 +39,6 @@ export default function ChatPage() {
 
         {/* Backend Mode Switcher - visually at top-right via position:fixed */}
         <nav
-          role="navigation"
           aria-label="Backend mode selection"
           style={{
             position: "fixed",

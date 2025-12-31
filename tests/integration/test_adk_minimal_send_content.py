@@ -12,6 +12,7 @@ Test approach:
 
 from dotenv import load_dotenv
 
+
 # Load environment variables BEFORE any ADK imports
 load_dotenv(".env.local")
 
@@ -42,7 +43,6 @@ def long_running_tool_returns_dict(task: str) -> dict:
 def long_running_tool_returns_none(task: str) -> None:
     """Long running tool that returns None (ADK pattern)."""
     logger.info(f"[long_running_tool_returns_none] Called with task: {task}")
-    return None
 
 
 @pytest.mark.asyncio
@@ -482,7 +482,7 @@ async def test_hypothesis_1_same_tool_call_id_twice() -> None:
 
         try:
             await asyncio.wait_for(collect_turn2(), timeout=10.0)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.error("[HYPOTHESIS-1-T2] ✗ Timeout after 10 seconds")
 
         logger.info(f"[HYPOTHESIS-1-T2] Received {len(turn2_events)} events")
@@ -635,7 +635,7 @@ async def test_hypothesis_1_success_different_id_works() -> None:
 
         try:
             await asyncio.wait_for(collect_turn2(), timeout=10.0)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.error("[HYPOTHESIS-1-SUCCESS-T2] ✗ Timeout after 10 seconds")
 
         logger.info(f"[HYPOTHESIS-1-SUCCESS-T2] Received {len(turn2_events)} events")
@@ -813,7 +813,7 @@ async def test_hypothesis_3_direct_live_api_send_tool_response() -> None:
 
             try:
                 await asyncio.wait_for(collect_turn2(), timeout=10.0)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.error(
                     f"[HYPOTHESIS-3-T2] ✗ Timeout after 10 seconds - received {len(turn2_events)} events"
                 )

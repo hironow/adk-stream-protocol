@@ -10,7 +10,7 @@
  * - Error handling for disconnected WebSocket
  */
 
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EventSender } from "../../bidi/event_sender";
 import type { UIMessageFromAISDKv6 } from "../../utils";
 

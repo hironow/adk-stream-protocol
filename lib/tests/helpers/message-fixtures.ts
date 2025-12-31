@@ -3,8 +3,6 @@
  * Provides reusable message objects for tests
  */
 
-import type { UIMessageFromAISDKv6FromAISDKv6 } from "../../utils";
-
 /**
  * Creates a basic text message
  */

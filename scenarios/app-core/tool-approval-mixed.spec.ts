@@ -91,7 +91,9 @@ test.describe("Tool Approval Mixed Scenarios (Core)", () => {
 
     const firstUserMessage = page.getByTestId("message-user").first();
     await expect(firstUserMessage).toBeVisible();
-    await expect(firstUserMessage.getByTestId("message-text")).toContainText("music");
+    await expect(firstUserMessage.getByTestId("message-text")).toContainText(
+      "music",
+    );
     await page.waitForTimeout(3000);
 
     // When: Switch to SSE mode
@@ -105,7 +107,9 @@ test.describe("Tool Approval Mixed Scenarios (Core)", () => {
 
     const secondUserMessage = page.getByTestId("message-user").nth(1);
     await expect(secondUserMessage).toBeVisible();
-    await expect(secondUserMessage.getByTestId("message-text")).toContainText("Search for information");
+    await expect(secondUserMessage.getByTestId("message-text")).toContainText(
+      "Search for information",
+    );
     await page.waitForTimeout(5000);
 
     // Then: May show approval UI in SSE mode
@@ -127,7 +131,9 @@ test.describe("Tool Approval Mixed Scenarios (Core)", () => {
 
     const firstUserMessage = page.getByTestId("message-user").first();
     await expect(firstUserMessage).toBeVisible();
-    await expect(firstUserMessage.getByTestId("message-text")).toContainText("Gemini mode");
+    await expect(firstUserMessage.getByTestId("message-text")).toContainText(
+      "Gemini mode",
+    );
     await page.waitForTimeout(2000);
 
     // SSE mode with tool
@@ -139,7 +145,9 @@ test.describe("Tool Approval Mixed Scenarios (Core)", () => {
 
     const secondUserMessage = page.getByTestId("message-user").nth(1);
     await expect(secondUserMessage).toBeVisible();
-    await expect(secondUserMessage.getByTestId("message-text")).toContainText("time in SSE");
+    await expect(secondUserMessage.getByTestId("message-text")).toContainText(
+      "time in SSE",
+    );
     await page.waitForTimeout(5000);
 
     // Approve if needed
@@ -164,7 +172,9 @@ test.describe("Tool Approval Mixed Scenarios (Core)", () => {
 
     const thirdUserMessage = page.getByTestId("message-user").nth(2);
     await expect(thirdUserMessage).toBeVisible();
-    await expect(thirdUserMessage.getByTestId("message-text")).toContainText("music in BIDI");
+    await expect(thirdUserMessage.getByTestId("message-text")).toContainText(
+      "music in BIDI",
+    );
     await page.waitForTimeout(3000);
 
     // Then: All messages preserved
@@ -186,7 +196,9 @@ test.describe("Tool Approval Mixed Scenarios (Core)", () => {
 
     const firstUserMessage = page.getByTestId("message-user").first();
     await expect(firstUserMessage).toBeVisible();
-    await expect(firstUserMessage.getByTestId("message-text")).toContainText("tool execution");
+    await expect(firstUserMessage.getByTestId("message-text")).toContainText(
+      "tool execution",
+    );
     await page.waitForTimeout(3000);
 
     // When: Switch mode while approval is pending
@@ -201,7 +213,9 @@ test.describe("Tool Approval Mixed Scenarios (Core)", () => {
 
     const secondUserMessage = page.getByTestId("message-user").nth(1);
     await expect(secondUserMessage).toBeVisible();
-    await expect(secondUserMessage.getByTestId("message-text")).toContainText("New message in BIDI");
+    await expect(secondUserMessage.getByTestId("message-text")).toContainText(
+      "New message in BIDI",
+    );
   });
 
   test("should handle tool execution across Gemini, SSE, and BIDI modes", async ({
@@ -217,7 +231,9 @@ test.describe("Tool Approval Mixed Scenarios (Core)", () => {
 
     const firstUserMessage = page.getByTestId("message-user").first();
     await expect(firstUserMessage).toBeVisible();
-    await expect(firstUserMessage.getByTestId("message-text")).toContainText("Simple question in Gemini");
+    await expect(firstUserMessage.getByTestId("message-text")).toContainText(
+      "Simple question in Gemini",
+    );
     await page.waitForTimeout(2000);
 
     // Test SSE mode (with approval)
@@ -229,7 +245,9 @@ test.describe("Tool Approval Mixed Scenarios (Core)", () => {
 
     const secondUserMessage = page.getByTestId("message-user").nth(1);
     await expect(secondUserMessage).toBeVisible();
-    await expect(secondUserMessage.getByTestId("message-text")).toContainText("Tool in SSE");
+    await expect(secondUserMessage.getByTestId("message-text")).toContainText(
+      "Tool in SSE",
+    );
     await page.waitForTimeout(5000);
 
     // Approve if needed
@@ -253,7 +271,9 @@ test.describe("Tool Approval Mixed Scenarios (Core)", () => {
 
     const thirdUserMessage = page.getByTestId("message-user").nth(2);
     await expect(thirdUserMessage).toBeVisible();
-    await expect(thirdUserMessage.getByTestId("message-text")).toContainText("Tool in BIDI");
+    await expect(thirdUserMessage.getByTestId("message-text")).toContainText(
+      "Tool in BIDI",
+    );
     await page.waitForTimeout(3000);
 
     // Then: All modes handled correctly
@@ -275,7 +295,9 @@ test.describe("Tool Approval Mixed Scenarios (Core)", () => {
 
     const firstUserMessage = page.getByTestId("message-user").first();
     await expect(firstUserMessage).toBeVisible();
-    await expect(firstUserMessage.getByTestId("message-text")).toContainText("First tool");
+    await expect(firstUserMessage.getByTestId("message-text")).toContainText(
+      "First tool",
+    );
     await page.waitForTimeout(5000);
 
     const firstApprove = await page
@@ -295,7 +317,9 @@ test.describe("Tool Approval Mixed Scenarios (Core)", () => {
 
     const secondUserMessage = page.getByTestId("message-user").nth(1);
     await expect(secondUserMessage).toBeVisible();
-    await expect(secondUserMessage.getByTestId("message-text")).toContainText("Second tool");
+    await expect(secondUserMessage.getByTestId("message-text")).toContainText(
+      "Second tool",
+    );
     await page.waitForTimeout(5000);
 
     const denyButton = await page
@@ -391,7 +415,9 @@ test.describe("Tool Approval Mixed Scenarios (Core)", () => {
 
     const firstUserMessage = page.getByTestId("message-user").first();
     await expect(firstUserMessage).toBeVisible();
-    await expect(firstUserMessage.getByTestId("message-text")).toContainText("Long running");
+    await expect(firstUserMessage.getByTestId("message-text")).toContainText(
+      "Long running",
+    );
     await page.waitForTimeout(2000);
 
     // When: Switch mode quickly
@@ -408,7 +434,9 @@ test.describe("Tool Approval Mixed Scenarios (Core)", () => {
 
     const secondUserMessage = page.getByTestId("message-user").nth(1);
     await expect(secondUserMessage).toBeVisible();
-    await expect(secondUserMessage.getByTestId("message-text")).toContainText("after switch");
+    await expect(secondUserMessage.getByTestId("message-text")).toContainText(
+      "after switch",
+    );
   });
 
   test("should maintain separate tool execution contexts per mode", async ({
@@ -424,7 +452,9 @@ test.describe("Tool Approval Mixed Scenarios (Core)", () => {
 
     const firstUserMessage = page.getByTestId("message-user").first();
     await expect(firstUserMessage).toBeVisible();
-    await expect(firstUserMessage.getByTestId("message-text")).toContainText("SSE tool");
+    await expect(firstUserMessage.getByTestId("message-text")).toContainText(
+      "SSE tool",
+    );
     await page.waitForTimeout(5000);
 
     // Approve if needed
@@ -448,7 +478,9 @@ test.describe("Tool Approval Mixed Scenarios (Core)", () => {
 
     const secondUserMessage = page.getByTestId("message-user").nth(1);
     await expect(secondUserMessage).toBeVisible();
-    await expect(secondUserMessage.getByTestId("message-text")).toContainText("BIDI tool");
+    await expect(secondUserMessage.getByTestId("message-text")).toContainText(
+      "BIDI tool",
+    );
     await page.waitForTimeout(3000);
 
     // Then: Both executions completed in their respective contexts

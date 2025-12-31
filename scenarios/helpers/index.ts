@@ -74,7 +74,11 @@ export async function sendTextMessage(page: Page, text: string) {
   // Wait for the user message to appear on screen
   // This ensures the Chat component is properly mounted and functional
   // Use message-sender selector since data-testid="message-text" doesn't reliably exist in DOM
-  await page.locator('main [data-testid="message-sender"]').filter({ hasText: "You" }).first().waitFor({ state: "visible", timeout: 5000 });
+  await page
+    .locator('main [data-testid="message-sender"]')
+    .filter({ hasText: "You" })
+    .first()
+    .waitFor({ state: "visible", timeout: 5000 });
 }
 
 /**
@@ -113,7 +117,9 @@ export async function waitForAssistantResponse(
   const timeout = options?.timeout ?? 120000; // Default 2 minutes
 
   // Count assistant messages before sending (look for elements with "Assistant" text)
-  const assistantMessages = page.locator('main [data-testid="message-sender"]').filter({ hasText: "Assistant" });
+  const assistantMessages = page
+    .locator('main [data-testid="message-sender"]')
+    .filter({ hasText: "Assistant" });
   const messagesBefore = await assistantMessages.count();
 
   // Try to wait for thinking indicator to appear, but don't fail if it's too fast
@@ -130,7 +136,9 @@ export async function waitForAssistantResponse(
   } catch {
     // the indicator didn't appear (response was instant)
     // Wait for a new assistant message to appear instead
-    await expect(assistantMessages).toHaveCount(messagesBefore + 1, { timeout });
+    await expect(assistantMessages).toHaveCount(messagesBefore + 1, {
+      timeout,
+    });
   }
 }
 
@@ -141,7 +149,10 @@ export async function getMessages(page: Page) {
   // Find messages by looking for message containers
   // Note: message-sender is nested inside message-header, which is inside the message container
   // So we need to go up TWO levels: sender -> header -> container
-  return page.locator('main [data-testid="message-sender"]').locator('../..').all();
+  return page
+    .locator('main [data-testid="message-sender"]')
+    .locator("../..")
+    .all();
 }
 
 /**
@@ -151,7 +162,10 @@ export async function getMessages(page: Page) {
 export async function getLastMessage(page: Page) {
   // Find the last message by looking for the last message sender element's grandparent (container)
   // DOM structure: message-sender -> message-header -> message container
-  return page.locator('main [data-testid="message-sender"]').locator('../..').last();
+  return page
+    .locator('main [data-testid="message-sender"]')
+    .locator("../..")
+    .last();
 }
 
 /**
@@ -192,7 +206,10 @@ export async function clearChatHistory(page: Page) {
 export async function cleanupChatState(page: Page) {
   // Clear all browser storage only if page is on valid app URL
   const currentUrl = page.url();
-  if (currentUrl.startsWith("http://localhost:3000") || currentUrl.startsWith("http://localhost")) {
+  if (
+    currentUrl.startsWith("http://localhost:3000") ||
+    currentUrl.startsWith("http://localhost")
+  ) {
     await page.evaluate(() => {
       localStorage.clear();
       sessionStorage.clear();
@@ -220,7 +237,9 @@ export async function clearHistory(page: Page) {
 
     // Wait for the empty state message to appear
     // This is more reliable than waiting for message elements to disappear
-    await expect(page.getByText("Start a conversation...")).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText("Start a conversation...")).toBeVisible({
+      timeout: 5000,
+    });
   }
 
   // Clear backend sessions to prevent conversation history persistence
@@ -282,7 +301,10 @@ export async function cleanupChunkLoggerState(page: Page) {
   // 2. Clear localStorage only if page is still on app URL
   // Skip if page navigated to about:blank, error page, etc.
   const currentUrl = page.url();
-  if (currentUrl.startsWith("http://localhost:3000") || currentUrl.startsWith("http://localhost")) {
+  if (
+    currentUrl.startsWith("http://localhost:3000") ||
+    currentUrl.startsWith("http://localhost")
+  ) {
     await page.evaluate(() => {
       localStorage.removeItem("CHUNK_LOGGER_ENABLED");
       localStorage.removeItem("CHUNK_LOGGER_SESSION_ID");
@@ -402,7 +424,10 @@ export async function enableChunkPlayerMode(page: Page, fixturePath: string) {
  */
 export async function disableChunkPlayerMode(page: Page) {
   const currentUrl = page.url();
-  if (currentUrl.startsWith("http://localhost:3000") || currentUrl.startsWith("http://localhost")) {
+  if (
+    currentUrl.startsWith("http://localhost:3000") ||
+    currentUrl.startsWith("http://localhost")
+  ) {
     await page.evaluate(() => {
       localStorage.removeItem("E2E_CHUNK_PLAYER_MODE");
       localStorage.removeItem("E2E_CHUNK_PLAYER_FIXTURE");

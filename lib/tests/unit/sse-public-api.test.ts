@@ -284,7 +284,9 @@ describe("lib/sse Public API", () => {
       ] as any;
 
       // when: User has approved (state is now approval-responded)
-      const secondResult = sendAutomaticallyWhen({ messages: messagesApproved });
+      const secondResult = sendAutomaticallyWhen({
+        messages: messagesApproved,
+      });
 
       // then: Should return true (send approval to backend)
       expect(secondResult).toBe(true);

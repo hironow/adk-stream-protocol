@@ -12,7 +12,7 @@ import asyncio
 import logging
 import time
 import uuid
-from typing import Any, Optional
+from typing import Any
 
 import pytest
 from dotenv import load_dotenv
@@ -64,7 +64,7 @@ class DeferredApprovalPlugin(BasePlugin):
         tool: BaseTool,
         tool_args: dict[str, Any],
         tool_context: ToolContext,
-    ) -> Optional[dict]:
+    ) -> dict | None:
         """
         Intercept test_approval_tool calls and send pending FunctionResponse with will_continue=True.
 
@@ -182,7 +182,7 @@ async def test_approval_tool_blocking(message: str, tool_context: ToolContext) -
         dict: Final result after approval (approved or denied)
     """
     logger.info(f"[test_approval_tool_blocking] Called with message: {message}")
-    logger.info(f"[test_approval_tool_blocking] Tool will now WAIT for approval...")
+    logger.info("[test_approval_tool_blocking] Tool will now WAIT for approval...")
 
     tool_call_id = tool_context.function_call_id
 
@@ -219,7 +219,7 @@ async def test_approval_tool_blocking(message: str, tool_context: ToolContext) -
                 "message": f"User denied the operation for '{message}'",
             }
 
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.error("[test_approval_tool_blocking] ❌ Timeout waiting for approval")
         return {
             "status": "timeout",
@@ -379,7 +379,7 @@ async def deferred_tool_execution(
             logger.info("=" * 60)
             logger.info(f"[DeferredExec] ✗ DENIED - Tool execution rejected: {tool_name}")
             logger.info(f"[DeferredExec] Tool call ID: {tool_call_id}")
-            logger.info(f"[DeferredExec] User explicitly rejected this operation")
+            logger.info("[DeferredExec] User explicitly rejected this operation")
             logger.info("=" * 60)
 
             result = {
@@ -396,7 +396,7 @@ async def deferred_tool_execution(
         # 3. Send actual result via LiveRequestQueue
         send_time = time.time()
         logger.info("=" * 80)
-        logger.info(f"[DeferredExec] >>> SENDING FINAL RESULT via send_content() <<<")
+        logger.info("[DeferredExec] >>> SENDING FINAL RESULT via send_content() <<<")
         logger.info(f"[DeferredExec] Tool call ID: {tool_call_id}")
         logger.info(f"[DeferredExec] Result: {result}")
         logger.info(f"[DeferredExec] Timestamp: {send_time}")

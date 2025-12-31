@@ -466,8 +466,8 @@ class StreamProtocolConverter:
                 # If finished=True and text matches accumulated, skip (duplicate summary)
                 if finished and transcription.text == self._output_transcription_accumulated:
                     logger.info(
-                        f"[OUTPUT TRANSCRIPTION] Filtering duplicate final summary "
-                        f"(finished=True, matches accumulated text)"
+                        "[OUTPUT TRANSCRIPTION] Filtering duplicate final summary "
+                        "(finished=True, matches accumulated text)"
                     )
                     # Send text-end and skip text-delta
                     yield self.format_sse_event(
@@ -1094,7 +1094,7 @@ async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912, PLR0915
         logger.error(f"[stream_adk_to_ai_sdk] Traceback:\n{traceback.format_exc()}")
         error_list.append(e)
     finally:
-        logger.info(f"[FINALIZE] Entering finally block")
+        logger.info("[FINALIZE] Entering finally block")
         # Send final events with all collected metadata
         # Extract last values from lists (most recent)
         error = error_list[-1] if len(error_list) > 0 else None

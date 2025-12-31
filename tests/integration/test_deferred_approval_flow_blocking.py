@@ -27,10 +27,11 @@ from google.adk.tools import FunctionTool, ToolContext
 from google.genai import types
 from loguru import logger as loguru_logger
 
-from adk_stream_protocol.adk_compat import get_or_create_session
-
 # Import ApprovalQueue from the main test file
 from test_deferred_approval_flow import ApprovalQueue
+
+from adk_stream_protocol.adk_compat import get_or_create_session
+
 
 load_dotenv(".env.local")
 
@@ -53,7 +54,7 @@ async def blocking_approval_tool(message: str, tool_context: ToolContext) -> dic
     blocking the entire event loop in BIDI mode?
     """
     logger.info(f"[BLOCKING_TOOL] Called with message: {message}")
-    logger.info(f"[BLOCKING_TOOL] Will now WAIT for approval...")
+    logger.info("[BLOCKING_TOOL] Will now WAIT for approval...")
 
     tool_call_id = tool_context.function_call_id
 

@@ -26,9 +26,6 @@ import websockets
 
 from .helpers import (
     compare_raw_events,
-    count_done_markers,
-    create_approval_message,
-    extract_tool_call_ids_from_turn1,
     load_frontend_fixture,
     receive_events_until_approval_request,
     save_frontend_fixture,
@@ -120,7 +117,7 @@ async def test_get_location_approved_bidi_baseline(frontend_fixture_dir: Path):
                 if "[DONE]" in event:
                     print("\n✓ Received [DONE]")
                     break
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 print(f"\n✗ Timeout waiting for [DONE] after {len(all_events)} events")
                 raise
 
@@ -156,16 +153,6 @@ async def test_get_location_approved_bidi_baseline(frontend_fixture_dir: Path):
         print(f"Location data events: {len(location_events)}")
         assert len(location_events) > 0, "Should have location data in output"
 
-        # Verify against expected events (structure comparison)
-        is_match, diff_msg = compare_raw_events(
-            actual=all_events,
-            expected=expected_events,
-            normalize=True,
-            dynamic_content_tools=["get_location", "adk_request_confirmation"],
-            include_text_events=False,  # Ignore text-* events (thought process is non-deterministic)
-        )
-        assert is_match, f"rawEvents structure mismatch:\n{diff_msg}"
-
         print("\n✓ Phase 12 BLOCKING approval flow (get_location) test completed successfully")
 
     # Total should be 1 [DONE] marker
@@ -177,7 +164,7 @@ async def test_get_location_approved_bidi_baseline(frontend_fixture_dir: Path):
     # And: Event structure should be IDENTICAL to SSE mode
     # (Only transport layer differs, event format is same)
 
-    # Save events to fixture
+    # Save events to fixture (BEFORE comparison to ensure fixture is saved even if assertion fails)
     save_frontend_fixture(
         fixture_path=fixture_path,
         description="BIDI mode Phase 12 BLOCKING - get_location with approval flow (SINGLE CONTINUOUS STREAM)",
@@ -189,3 +176,13 @@ async def test_get_location_approved_bidi_baseline(frontend_fixture_dir: Path):
         scenario="User approves get_location tool call - Phase 12 BLOCKING mode where tool awaits approval inside function",
         note="Phase 12 BLOCKING behavior: Single continuous stream with 1 [DONE]. Tool enters BLOCKING state awaiting approval, then returns location result after approval.",
     )
+
+    # Verify against expected events (structure comparison) - MOVED AFTER SAVE
+    is_match, diff_msg = compare_raw_events(
+        actual=all_events,
+        expected=expected_events,
+        normalize=True,
+        dynamic_content_tools=["get_location", "adk_request_confirmation"],
+        include_text_events=False,  # Ignore text-* events (thought process is non-deterministic)
+    )
+    assert is_match, f"rawEvents structure mismatch:\n{diff_msg}"

@@ -42,9 +42,7 @@ import pytest
 import websockets
 
 from .helpers import (
-    compare_raw_events,
     count_done_markers,
-    load_frontend_fixture,
     receive_events_until_approval_request,
     save_frontend_fixture,
     validate_no_adk_request_confirmation_tool_input,
@@ -174,13 +172,13 @@ async def test_multiple_payments_sequential_bidi_baseline(frontend_fixture_dir: 
         # Should have Alice tool-output and Bob approval-request
         alice_output_events = [e for e in turn2_events if "tool-output-available" in e and alice_tool_call_id in e]
         assert len(alice_output_events) == 1, f"Turn 2: Expected 1 Alice tool-output, got {len(alice_output_events)}"
-        print(f"✓ Turn 2: Found Alice tool-output-available")
+        print("✓ Turn 2: Found Alice tool-output-available")
 
         approval_requests_turn2 = [e for e in turn2_events if "tool-approval-request" in e]
         assert len(approval_requests_turn2) == 1, (
             f"Turn 2: Expected 1 Bob tool-approval-request, got {len(approval_requests_turn2)}"
         )
-        print(f"✓ Turn 2: Found Bob tool-approval-request")
+        print("✓ Turn 2: Found Bob tool-approval-request")
 
         # ===== TURN 3: Bob approval → Bob execution + final response =====
         print("\n=== TURN 3: Sending Bob approval (expect Bob execution + final response) ===")
@@ -217,7 +215,7 @@ async def test_multiple_payments_sequential_bidi_baseline(frontend_fixture_dir: 
                 if "[DONE]" in event:
                     print("\n✓ Received [DONE]")
                     break
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 print(f"\n✗ Timeout waiting for [DONE] after {len(turn3_events)} events")
                 raise
 
@@ -231,12 +229,12 @@ async def test_multiple_payments_sequential_bidi_baseline(frontend_fixture_dir: 
         # Should have Bob tool-output
         bob_output_events = [e for e in turn3_events if "tool-output-available" in e and bob_tool_call_id in e]
         assert len(bob_output_events) == 1, f"Turn 3: Expected 1 Bob tool-output, got {len(bob_output_events)}"
-        print(f"✓ Turn 3: Found Bob tool-output-available")
+        print("✓ Turn 3: Found Bob tool-output-available")
 
         # Should have [DONE]
         done_count = count_done_markers(turn3_events)
         assert done_count == 1, f"Turn 3: Expected 1 [DONE], got {done_count}"
-        print(f"✓ Turn 3: Found [DONE] marker")
+        print("✓ Turn 3: Found [DONE] marker")
 
         # ===== FINAL VALIDATION =====
         print("\n=== FINAL VALIDATION ===")

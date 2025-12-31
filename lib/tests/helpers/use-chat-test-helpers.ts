@@ -10,10 +10,7 @@
 
 import { vi } from "vitest";
 import type { UIMessageFromAISDKv6 } from "../../utils";
-import {
-  isApprovalRequestedTool,
-  isTextUIPartFromAISDKv6,
-} from "../../utils";
+import { isApprovalRequestedTool, isTextUIPartFromAISDKv6 } from "../../utils";
 
 /**
  * Extract text content from UIMessageFromAISDKv6 parts
@@ -58,9 +55,7 @@ export function findConfirmationPart(
   message: UIMessageFromAISDKv6 | undefined,
 ): any {
   if (!message) return undefined;
-  return (message as any).parts?.find((p: any) =>
-    isApprovalRequestedTool(p),
-  );
+  return (message as any).parts?.find((p: any) => isApprovalRequestedTool(p));
 }
 
 /**
@@ -81,8 +76,7 @@ export function findAllConfirmationParts(
 ): any[] {
   if (!message) return [];
   return (
-    (message as any).parts?.filter((p: any) => isApprovalRequestedTool(p)) ||
-    []
+    (message as any).parts?.filter((p: any) => isApprovalRequestedTool(p)) || []
   );
 }
 

@@ -14,7 +14,6 @@ Responsibilities:
 Counterpart: BidiEventReceiver handles upstream (WebSocket → ADK) direction.
 """
 
-import json
 import uuid
 from collections.abc import AsyncIterable
 from typing import Any
@@ -138,8 +137,6 @@ class BidiEventSender:
 
                 # Log SSE output (after ADK conversion) - skip audio events
                 if sse_event.startswith("data:") and "DONE" not in sse_event:
-                    from .utils import _parse_sse_event_data
-                    from .result import Ok
 
                     match _parse_sse_event_data(sse_event):
                         case Ok(event_data):
@@ -312,11 +309,24 @@ class BidiEventSender:
                         await self._send_sse_event(sse_event)
 
                         # Generate unique ID for confirmation tool call
+                        # TODO: custom- とかにしたほうがいいかもしれない。injected-confirmation- とか
                         confirmation_id = f"adk-{uuid.uuid4()}"
 
                         logger.info(
-                            f"[BIDI Phase 5] Injecting tool-approval-request for {tool_name}"
+                            f"[BIDI Phase 5] Injecting approval step for {tool_name}"
                         )
+
+                        # ADR 0011: Inject start-step to begin approval step
+                        # This marks the beginning of the approval pending step
+                        start_step_sse = 'data: {"type":"start-step"}\n\n'
+                        try:
+                            await self._ws.send_text(start_step_sse)
+                            logger.info("[BIDI Phase 5] ✓ Sent start-step before tool-approval-request")
+                        except Exception as e:
+                            logger.error(
+                                f"[BIDI Phase 5] ✗ Failed to send start-step: {e!s}"
+                            )
+                            raise
 
                         # Send tool-approval-request (AI SDK v6 standard event)
                         # Do NOT send tool-input-* events for adk_request_confirmation
@@ -332,6 +342,18 @@ class BidiEventSender:
                         except Exception as e:
                             logger.error(
                                 f"[BIDI Phase 5] ✗ Failed to send tool-approval-request: {e!s}"
+                            )
+                            raise
+
+                        # ADR 0011: Inject finish-step to complete approval step
+                        # This closes the stream, allowing frontend sendAutomaticallyWhen to be called
+                        finish_step_sse = 'data: {"type":"finish-step"}\n\n'
+                        try:
+                            await self._ws.send_text(finish_step_sse)
+                            logger.info("[BIDI Phase 5] ✓ Sent finish-step after tool-approval-request")
+                        except Exception as e:
+                            logger.error(
+                                f"[BIDI Phase 5] ✗ Failed to send finish-step: {e!s}"
                             )
                             raise
 

@@ -33,12 +33,8 @@ from pathlib import Path
 import pytest
 
 from .helpers import (
-    compare_raw_events,
     count_done_markers,
-    create_approval_message,
     create_assistant_message_from_turn1,
-    extract_tool_call_ids_from_turn1,
-    load_frontend_fixture,
     save_frontend_fixture,
     send_sse_request,
     validate_no_adk_request_confirmation_tool_input,

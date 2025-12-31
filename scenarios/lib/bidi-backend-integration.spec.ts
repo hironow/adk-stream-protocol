@@ -61,7 +61,9 @@ test.describe("BIDI Backend Integration - Approval Flow", () => {
     console.log("[Test] Waiting for approval request...");
 
     // Should receive approval request
-    await expect(page.getByRole("button", { name: "Approve" }).first()).toBeVisible({
+    await expect(
+      page.getByRole("button", { name: "Approve" }).first(),
+    ).toBeVisible({
       timeout: 15000,
     });
 
@@ -88,7 +90,9 @@ test.describe("BIDI Backend Integration - Approval Flow", () => {
     await sendTextMessage(page, "太郎さんに100ドル送金してください");
 
     console.log("[Test] Waiting for approval request...");
-    await expect(page.getByRole("button", { name: "Deny" }).first()).toBeVisible({
+    await expect(
+      page.getByRole("button", { name: "Deny" }).first(),
+    ).toBeVisible({
       timeout: 15000,
     });
 

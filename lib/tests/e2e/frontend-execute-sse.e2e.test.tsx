@@ -281,7 +281,9 @@ describe("SSE Mode - Frontend Execute Pattern", () => {
 
       // Approve - AI SDK v6: Find original tool part
       const msg = result.current.messages[result.current.messages.length - 1];
-      const part = msg.parts.find((p: any) => isApprovalRequestedTool(p)) as any;
+      const part = msg.parts.find((p: any) =>
+        isApprovalRequestedTool(p),
+      ) as any;
 
       await act(async () => {
         result.current.addToolApprovalResponse({
@@ -393,7 +395,9 @@ describe("SSE Mode - Frontend Execute Pattern", () => {
 
       // Deny - AI SDK v6: Find original tool part
       const msg = result.current.messages[result.current.messages.length - 1];
-      const part = msg.parts.find((p: any) => isApprovalRequestedTool(p)) as any;
+      const part = msg.parts.find((p: any) =>
+        isApprovalRequestedTool(p),
+      ) as any;
 
       await act(async () => {
         result.current.addToolApprovalResponse({

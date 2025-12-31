@@ -65,7 +65,7 @@ export interface EventReceiverConfig {
  */
 export class EventReceiver {
   private doneReceived = false;
-  private waitingForFinishAfterApproval = false; // Flag for BIDI BLOCKING pattern
+  private waitingForFinishStepAfterApproval = false; // Flag for BIDI BLOCKING pattern (ADR 0011)
   private audioChunkIndex = 0;
   private pcmBuffer: Int16Array[] = [];
 
@@ -181,7 +181,7 @@ export class EventReceiver {
 
     // Debug logging for ALL events with recipient info
     const eventType = (chunk as any).type;
-    const toolName = (chunk as any).toolName;
+    const _toolName = (chunk as any).toolName;
     const toolCallId = (chunk as any).toolCallId;
     const input = (chunk as any).input;
     const approvalId = (chunk as any).approvalId;
@@ -207,31 +207,31 @@ export class EventReceiver {
       return;
     }
 
-    // BIDI BLOCKING Pattern: Wait for finish chunk after approval request
+    // BIDI BLOCKING Pattern: Wait for finish-step chunk after approval request (ADR 0011)
     // AI SDK v6 only calls sendAutomaticallyWhen when status != "streaming"
-    // After receiving approval-request, enqueue it and wait for finish chunk to close stream
+    // After receiving approval-request, enqueue it and wait for finish-step chunk to close stream
     if ((chunk as UIMessageChunkFromAISDKv6).type === "tool-approval-request") {
       console.log(
-        "[Event Receiver] Enqueuing approval request, waiting for finish chunk to close stream",
+        "[Event Receiver] Enqueuing approval request, waiting for finish-step to close stream",
       );
       controller.enqueue(chunk as UIMessageChunkFromAISDKv6);
 
-      // Flag: Next finish chunk should close the stream
-      this.waitingForFinishAfterApproval = true;
+      // Flag: Next finish-step chunk should close the stream
+      this.waitingForFinishStepAfterApproval = true;
 
       return; // Skip normal enqueue since we already enqueued
     }
 
-    // Close stream after finish chunk following approval-request
+    // Close stream after finish-step chunk following approval-request (ADR 0011)
     if (
-      this.waitingForFinishAfterApproval &&
-      (chunk as UIMessageChunkFromAISDKv6).type === "finish"
+      this.waitingForFinishStepAfterApproval &&
+      (chunk as UIMessageChunkFromAISDKv6).type === "finish-step"
     ) {
       console.log(
-        "[Event Receiver] Received finish chunk after approval request, closing stream",
+        "[Event Receiver] Received finish-step after approval request, closing stream",
       );
 
-      // Enqueue the finish chunk with its metadata (from backend)
+      // Enqueue the finish-step chunk
       controller.enqueue(chunk as UIMessageChunkFromAISDKv6);
 
       // Close controller to set status != "streaming"
@@ -247,7 +247,7 @@ export class EventReceiver {
       this.doneReceived = true;
 
       // Reset flag
-      this.waitingForFinishAfterApproval = false;
+      this.waitingForFinishStepAfterApproval = false;
 
       return; // Skip normal enqueue since we already enqueued
     }

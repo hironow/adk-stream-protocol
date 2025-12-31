@@ -277,17 +277,20 @@ await page.locator("text=/Hello/").click();
 **✅ REQUIRED**: Use semantic, stable selectors in this priority order:
 
 1. **`getByTestId()`** - Most stable, explicit (PREFERRED)
+
    ```typescript
    await page.getByTestId("message-user").click();
    await expect(page.getByTestId("message-text")).toContainText("Hello");
    ```
 
 2. **`getByRole()`** - Accessibility-friendly
+
    ```typescript
    await page.getByRole("button", { name: /Submit/i }).click();
    ```
 
 3. **`getByLabel()`** - For form inputs
+
    ```typescript
    await page.getByLabel("Email").fill("test@example.com");
    ```
@@ -295,6 +298,7 @@ await page.locator("text=/Hello/").click();
 ### Critical Lessons Learned
 
 **Issue**: P0 Critical timeout in mode switching test (2025-12-30)
+
 - **Root Cause**: `locator("text=background music")` matched 2+ elements
 - **Symptom**: 45-second timeout, test failed
 - **Fix**: Changed to `getByTestId("message-user").nth(1).getByTestId("message-text")`

@@ -209,9 +209,7 @@ export function createConfirmationRequestHandler(
 
       // Second message (after approval): Send final response
       if (messageCount === 2) {
-        console.log(
-          "[MSW WebSocket] Second message - sending final response",
-        );
+        console.log("[MSW WebSocket] Second message - sending final response");
         console.log(
           "[MSW WebSocket] Message data:",
           JSON.stringify(data, null, 2),

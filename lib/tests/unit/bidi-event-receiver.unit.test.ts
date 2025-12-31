@@ -8,7 +8,7 @@
  * - State management (reset, isDoneReceived)
  */
 
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EventReceiver } from "../../bidi/event_receiver";
 import type { UIMessageChunkFromAISDKv6 } from "../../utils";
 
@@ -170,30 +170,25 @@ describe("BIDI EventReceiver", () => {
         approvalId: "approval-1",
         input: { amount: 100 },
       };
-      const finishChunk = {
-        type: "finish",
-        finishReason: "stop",
-        messageMetadata: { usage: { totalTokens: 100 } },
+      // ADR 0011: EventReceiver now waits for finish-step (not finish) after approval request
+      const finishStepChunk = {
+        type: "finish-step",
       };
       const approvalMessage = `data: ${JSON.stringify(approvalChunk)}\n\n`;
-      const finishMessage = `data: ${JSON.stringify(finishChunk)}\n\n`;
+      const finishStepMessage = `data: ${JSON.stringify(finishStepChunk)}\n\n`;
 
       // when
       receiver.handleMessage(approvalMessage, mockController);
-      receiver.handleMessage(finishMessage, mockController);
+      receiver.handleMessage(finishStepMessage, mockController);
 
-      // then - Should enqueue approval request, then finish chunk, and close controller
+      // then - Should enqueue approval request, then finish-step chunk, and close controller
       expect(enqueuedChunks).toHaveLength(2);
       expect(enqueuedChunks[0].type).toBe("tool-approval-request");
-      expect(enqueuedChunks[1].type).toBe("finish");
-      expect(enqueuedChunks[1]).toMatchObject({
-        finishReason: "stop",
-        messageMetadata: { usage: { totalTokens: 100 } },
-      });
+      expect(enqueuedChunks[1].type).toBe("finish-step");
       expect(mockController.close).toHaveBeenCalled();
     });
 
-    it("should set doneReceived flag after approval request and finish", () => {
+    it("should set doneReceived flag after approval request and finish-step", () => {
       // given
       const approvalChunk = {
         type: "tool-approval-request",
@@ -202,16 +197,16 @@ describe("BIDI EventReceiver", () => {
         approvalId: "approval-1",
         input: { amount: 100 },
       };
-      const finishChunk = {
-        type: "finish",
-        finishReason: "stop",
+      // ADR 0011: EventReceiver now waits for finish-step (not finish) after approval request
+      const finishStepChunk = {
+        type: "finish-step",
       };
       const approvalMessage = `data: ${JSON.stringify(approvalChunk)}\n\n`;
-      const finishMessage = `data: ${JSON.stringify(finishChunk)}\n\n`;
+      const finishStepMessage = `data: ${JSON.stringify(finishStepChunk)}\n\n`;
 
       // when
       receiver.handleMessage(approvalMessage, mockController);
-      receiver.handleMessage(finishMessage, mockController);
+      receiver.handleMessage(finishStepMessage, mockController);
 
       // then - CRITICAL: doneReceived must be true for transport to create new controller
       expect(receiver.isDoneReceived()).toBe(true);

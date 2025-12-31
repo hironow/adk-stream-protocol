@@ -18,6 +18,7 @@ without WebSocket, frontend, or other E2E complexities.
 
 from dotenv import load_dotenv
 
+
 # Load environment variables from .env.local BEFORE any ADK imports
 # This ensures ADK can read GOOGLE_API_KEY at initialization
 load_dotenv(".env.local")
@@ -32,7 +33,7 @@ from google.genai import types
 from loguru import logger
 
 from adk_stream_protocol import get_or_create_session
-from adk_stream_protocol.adk_ag_runner import BIDI_CONFIRMATION_TOOLS, bidi_agent_runner
+from adk_stream_protocol.adk_ag_runner import bidi_agent_runner
 
 
 @pytest.mark.asyncio
@@ -229,7 +230,7 @@ async def test_long_running_tool_send_content_integration() -> None:
         # Wait for Turn 2 events with 10-second timeout
         try:
             await asyncio.wait_for(collect_turn2_events(), timeout=10.0)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.error(
                 f"[TEST-TURN2] ✗ Timeout after 10 seconds - only received {turn2_event_count} events"
             )

@@ -6,8 +6,8 @@
  */
 
 import {
-  sendAutomaticallyWhenCore,
   type SendAutomaticallyWhenOptions,
+  sendAutomaticallyWhenCore,
 } from "@/lib/core/send-automatically-when";
 
 export type { SendAutomaticallyWhenOptions };
@@ -19,8 +19,7 @@ export type { SendAutomaticallyWhenOptions };
 export function sendAutomaticallyWhen(
   options: SendAutomaticallyWhenOptions,
 ): boolean {
-  return sendAutomaticallyWhenCore(
-    { ...options, mode: "sse" },
-    (message) => console.log(`[SSE sendAutomaticallyWhen] ${message}`),
+  return sendAutomaticallyWhenCore({ ...options, mode: "sse" }, (message) =>
+    console.log(`[SSE sendAutomaticallyWhen] ${message}`),
   );
 }

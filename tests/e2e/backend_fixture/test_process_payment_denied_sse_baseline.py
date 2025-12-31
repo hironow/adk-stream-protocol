@@ -25,7 +25,6 @@ from pathlib import Path
 import pytest
 
 from .helpers import (
-    save_frontend_fixture,
     compare_raw_events,
     count_done_markers,
     create_assistant_message_from_turn1,

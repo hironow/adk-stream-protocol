@@ -28,6 +28,7 @@ from loguru import logger as loguru_logger
 
 from adk_stream_protocol.adk_compat import get_or_create_session
 
+
 load_dotenv(".env.local")
 
 # Enable ADK debug logging
@@ -72,7 +73,7 @@ async def live_queue_experiment_tool(message: str, tool_context: ToolContext) ->
         logger.info("[EXPERIMENT_TOOL] ❌ No live_request_queue in session")
 
     # Check what else is in the context
-    logger.info(f"[EXPERIMENT_TOOL] Other ToolContext fields:")
+    logger.info("[EXPERIMENT_TOOL] Other ToolContext fields:")
     for attr in dir(tool_context):
         if not attr.startswith("_"):
             try:
@@ -251,7 +252,7 @@ async def test_live_request_queue_during_blocking():
                             tool_completed = True
                             func_resp = part.function_response
                             logger.info("=" * 80)
-                            logger.info(f"[TEST] FunctionResponse received")
+                            logger.info("[TEST] FunctionResponse received")
                             logger.info(f"[TEST] Response data: {func_resp.response}")
                             logger.info("=" * 80)
 

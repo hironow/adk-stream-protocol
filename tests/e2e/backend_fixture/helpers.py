@@ -114,7 +114,7 @@ async def receive_events_until_approval_request(
                     # Look for tool-approval-request (AI SDK v6 standard)
                     if event_data.get("type") == "tool-approval-request":
                         confirmation_id = event_data.get("approvalId")
-                        print(f"\n✓ Found tool-approval-request:")
+                        print("\n✓ Found tool-approval-request:")
                         print(f"  approvalId: {confirmation_id}")
                         # IMPORTANT: Don't wait for [DONE], break immediately
                         break
@@ -128,7 +128,7 @@ async def receive_events_until_approval_request(
                 except json.JSONDecodeError:
                     pass
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             print(f"\n✗ Timeout waiting for tool-approval-request after {len(all_events)} events")
             raise
 
@@ -1141,7 +1141,7 @@ def validate_no_adk_request_confirmation_tool_input(
     if forbidden_events:
         return (
             False,
-            f"Found forbidden adk_request_confirmation tool-input events:\n"
+            "Found forbidden adk_request_confirmation tool-input events:\n"
             + "\n".join(forbidden_events)
             + "\n\nAccording to ADR 0002, adk_request_confirmation is internal and should be hidden. "
             + "Only tool-approval-request events should be exposed to frontend.",

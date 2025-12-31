@@ -25,10 +25,6 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { buildUseChatOptions } from "../../bidi";
 import {
-  isApprovalRequestedTool,
-  isApprovalRespondedTool,
-} from "../../utils";
-import {
   createBidiWebSocketLink,
   createCustomHandler,
 } from "../helpers/bidi-ws-handlers";
@@ -100,9 +96,7 @@ describe("Process Payment Double Execution - BIDI Mode", () => {
                 "[Test Mock Server] Turn 1: Sending Alice approval request",
               );
 
-              client.send(
-                'data: {"type": "start", "messageId": "msg-1"}\n\n',
-              );
+              client.send('data: {"type": "start", "messageId": "msg-1"}\n\n');
               client.send(
                 'data: {"type": "tool-input-start", "toolCallId": "alice-payment", "toolName": "process_payment"}\n\n',
               );
@@ -207,7 +201,8 @@ describe("Process Payment Double Execution - BIDI Mode", () => {
     // Then: Wait for Alice approval request
     await waitFor(
       () => {
-        const lastMsg = result.current.messages[result.current.messages.length - 1];
+        const lastMsg =
+          result.current.messages[result.current.messages.length - 1];
         const aliceTool = lastMsg?.parts?.find(
           (p: any) =>
             p.type === "tool-process_payment" && p.input?.recipient === "Alice",
@@ -238,7 +233,8 @@ describe("Process Payment Double Execution - BIDI Mode", () => {
     // Then: Wait for Bob approval request
     await waitFor(
       () => {
-        const lastMsg = result.current.messages[result.current.messages.length - 1];
+        const lastMsg =
+          result.current.messages[result.current.messages.length - 1];
         const bobTool = lastMsg?.parts?.find(
           (p: any) =>
             p.type === "tool-process_payment" && p.input?.recipient === "Bob",

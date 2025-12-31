@@ -60,7 +60,8 @@ export default defineConfig({
     // Snapshot configuration - centralize all snapshots in assets/snapshots/
     // Example: assets/snapshots/{projectName}/{arg}-{projectName}-{platform}.png
     toHaveScreenshot: {
-      pathTemplate: "assets/snapshots/{projectName}/{arg}-{projectName}-{platform}{ext}",
+      pathTemplate:
+        "assets/snapshots/{projectName}/{arg}-{projectName}-{platform}{ext}",
     },
   },
 

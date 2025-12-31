@@ -4,17 +4,12 @@ Unit tests for adk_ag_runner module.
 Tests agent configuration, tool setup, and confirmation tool extraction.
 """
 
-from collections.abc import Callable
-from typing import Any
-from unittest.mock import MagicMock, Mock
 
-import pytest
 from google.adk.agents import Agent
 from google.adk.tools.function_tool import FunctionTool
 from google.adk.tools.long_running_tool import LongRunningFunctionTool
 
 from adk_stream_protocol import adk_ag_runner
-from tests.utils.mocks import create_mock_agent
 
 
 # ============================================================

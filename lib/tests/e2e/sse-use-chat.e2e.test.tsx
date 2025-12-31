@@ -16,7 +16,7 @@
 import { useChat } from "@ai-sdk/react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { buildUseChatOptions, type Mode, type UseChatConfig } from "../../sse";
 import {
   isApprovalRequestedTool,
@@ -489,9 +489,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
       const confirmationParts = allMessages
         .flatMap((msg: any) => msg.parts || [])
         .filter(
-          (p: any) =>
-            isToolUIPartFromAISDKv6(p) &&
-            isApprovalRespondedTool(p),
+          (p: any) => isToolUIPartFromAISDKv6(p) && isApprovalRespondedTool(p),
         );
       expect(confirmationParts.length).toBeGreaterThanOrEqual(2);
     });
@@ -755,7 +753,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
       server.use(
         http.post("http://localhost:8000/stream", async ({ request }) => {
           requestCount++;
-          const payload = await request.json();
+          const _payload = await request.json();
 
           // First request: Return confirmation request
           if (requestCount === 1) {
@@ -831,9 +829,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
       const messagesParam = lastCall[0].messages;
       const hasApprovalResponse = messagesParam.some((msg: any) =>
         msg.parts?.some(
-          (p: any) =>
-            isToolUIPartFromAISDKv6(p) &&
-            isApprovalRespondedTool(p),
+          (p: any) => isToolUIPartFromAISDKv6(p) && isApprovalRespondedTool(p),
         ),
       );
       expect(hasApprovalResponse).toBe(true);
@@ -870,7 +866,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
       server.use(
         http.post("http://localhost:8000/stream", async ({ request }) => {
           requestCount++;
-          const payload = await request.json();
+          const _payload = await request.json();
 
           // First request: Return first confirmation
           if (requestCount === 1) {

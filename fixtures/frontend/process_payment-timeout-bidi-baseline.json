@@ -20,29 +20,35 @@
   },
   "output": {
     "rawEvents": [
-      "data: {\"type\": \"start\", \"messageId\": \"cb9fc1ed-07f5-404d-b959-329c305bd9be\"}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"e8b13d43-6592-4ffc-988d-d1bf710b5fc6\"}\n\n",
       "data: {\"type\": \"reasoning-start\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Examining Payment Processing**\\n\\nI'm zeroing in on the `process_payment` tool. It seems ideally suited for this. Based on the user's input, I've extracted the key information: an amount of $100 (in USD) and the recipient, Alice. I'm preparing to invoke `process_payment` with these parameters.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Initiating Payment Processing**\\n\\nI've identified the `process_payment` tool as the correct one for the user's request. It requires amount and recipient, with currency and description being optional. Based on the input, I'll execute `process_payment(amount=100, recipient='Alice', currency='USD')`. The tool's server-side nature and blocking behavior are noted, but I'll let the system handle those complexities.\\n\\n\\n\"}\n\n",
       "data: {\"type\": \"reasoning-end\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-11335121233242397771\", \"toolName\": \"process_payment\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-11335121233242397771\", \"toolName\": \"process_payment\", \"input\": {\"currency\": \"USD\", \"recipient\": \"Alice\", \"amount\": 100}}\n\n",
-      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-11335121233242397771\", \"approvalId\": \"adk-305db98e-7902-4755-b64a-dfb1040a879c\"}\n\n",
-      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"function-call-11335121233242397771\", \"errorText\": \"Approval request timed out\"}\n\n",
-      "data: {\"type\": \"text-start\", \"id\": \"cb9fc1ed-07f5-404d-b959-329c305bd9be_output_text\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"cb9fc1ed-07f5-404d-b959-329c305bd9be_output_text\", \"delta\": \"Payment to\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"cb9fc1ed-07f5-404d-b959-329c305bd9be_output_text\", \"delta\": \" Alice\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"cb9fc1ed-07f5-404d-b959-329c305bd9be_output_text\", \"delta\": \" was\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"cb9fc1ed-07f5-404d-b959-329c305bd9be_output_text\", \"delta\": \" not\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"cb9fc1ed-07f5-404d-b959-329c305bd9be_output_text\", \"delta\": \" approved\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"cb9fc1ed-07f5-404d-b959-329c305bd9be_output_text\", \"delta\": \" in time.\"}\n\n",
-      "data: {\"type\": \"text-end\", \"id\": \"cb9fc1ed-07f5-404d-b959-329c305bd9be_output_text\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1498, \"completionTokens\": null, \"totalTokens\": 1558}, \"audio\": {\"chunks\": 31, \"bytes\": 103680, \"sampleRate\": 24000, \"duration\": 2.16}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-15958808463421820504\", \"toolName\": \"process_payment\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-15958808463421820504\", \"toolName\": \"process_payment\", \"input\": {\"amount\": 100, \"currency\": \"USD\", \"recipient\": \"Alice\"}}\n\n",
+      "data: {\"type\":\"start-step\"}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-15958808463421820504\", \"approvalId\": \"adk-98b5b876-7fe3-4682-a098-291160bd6fb7\"}\n\n",
+      "data: {\"type\":\"finish-step\"}\n\n",
+      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"function-call-15958808463421820504\", \"errorText\": \"Approval request timed out\"}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"e8b13d43-6592-4ffc-988d-d1bf710b5fc6_output_text\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e8b13d43-6592-4ffc-988d-d1bf710b5fc6_output_text\", \"delta\": \"Payment to\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e8b13d43-6592-4ffc-988d-d1bf710b5fc6_output_text\", \"delta\": \" Alice\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e8b13d43-6592-4ffc-988d-d1bf710b5fc6_output_text\", \"delta\": \" for $100\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e8b13d43-6592-4ffc-988d-d1bf710b5fc6_output_text\", \"delta\": \" did not\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e8b13d43-6592-4ffc-988d-d1bf710b5fc6_output_text\", \"delta\": \" go through\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e8b13d43-6592-4ffc-988d-d1bf710b5fc6_output_text\", \"delta\": \" because\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e8b13d43-6592-4ffc-988d-d1bf710b5fc6_output_text\", \"delta\": \" the approval\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e8b13d43-6592-4ffc-988d-d1bf710b5fc6_output_text\", \"delta\": \" request\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e8b13d43-6592-4ffc-988d-d1bf710b5fc6_output_text\", \"delta\": \" timed\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e8b13d43-6592-4ffc-988d-d1bf710b5fc6_output_text\", \"delta\": \" out.\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"e8b13d43-6592-4ffc-988d-d1bf710b5fc6_output_text\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1577, \"completionTokens\": null, \"totalTokens\": 1692}, \"audio\": {\"chunks\": 87, \"bytes\": 211200, \"sampleRate\": 24000, \"duration\": 4.4}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
       {
         "type": "start",
-        "messageId": "cb9fc1ed-07f5-404d-b959-329c305bd9be"
+        "messageId": "e8b13d43-6592-4ffc-988d-d1bf710b5fc6"
       },
       {
         "type": "reasoning-start",
@@ -51,7 +57,7 @@
       {
         "type": "reasoning-delta",
         "id": "0",
-        "delta": "**Examining Payment Processing**\n\nI'm zeroing in on the `process_payment` tool. It seems ideally suited for this. Based on the user's input, I've extracted the key information: an amount of $100 (in USD) and the recipient, Alice. I'm preparing to invoke `process_payment` with these parameters.\n\n\n"
+        "delta": "**Initiating Payment Processing**\n\nI've identified the `process_payment` tool as the correct one for the user's request. It requires amount and recipient, with currency and description being optional. Based on the input, I'll execute `process_payment(amount=100, recipient='Alice', currency='USD')`. The tool's server-side nature and blocking behavior are noted, but I'll let the system handle those complexities.\n\n\n"
       },
       {
         "type": "reasoning-end",
@@ -59,81 +65,107 @@
       },
       {
         "type": "tool-input-start",
-        "toolCallId": "function-call-11335121233242397771",
+        "toolCallId": "function-call-15958808463421820504",
         "toolName": "process_payment"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "function-call-11335121233242397771",
+        "toolCallId": "function-call-15958808463421820504",
         "toolName": "process_payment",
         "input": {
+          "amount": 100,
           "currency": "USD",
-          "recipient": "Alice",
-          "amount": 100
+          "recipient": "Alice"
         }
       },
       {
+        "type": "start-step"
+      },
+      {
         "type": "tool-approval-request",
-        "toolCallId": "function-call-11335121233242397771",
-        "approvalId": "adk-305db98e-7902-4755-b64a-dfb1040a879c"
+        "toolCallId": "function-call-15958808463421820504",
+        "approvalId": "adk-98b5b876-7fe3-4682-a098-291160bd6fb7"
+      },
+      {
+        "type": "finish-step"
       },
       {
         "type": "tool-output-error",
-        "toolCallId": "function-call-11335121233242397771",
+        "toolCallId": "function-call-15958808463421820504",
         "errorText": "Approval request timed out"
       },
       {
         "type": "text-start",
-        "id": "cb9fc1ed-07f5-404d-b959-329c305bd9be_output_text"
+        "id": "e8b13d43-6592-4ffc-988d-d1bf710b5fc6_output_text"
       },
       {
         "type": "text-delta",
-        "id": "cb9fc1ed-07f5-404d-b959-329c305bd9be_output_text",
+        "id": "e8b13d43-6592-4ffc-988d-d1bf710b5fc6_output_text",
         "delta": "Payment to"
       },
       {
         "type": "text-delta",
-        "id": "cb9fc1ed-07f5-404d-b959-329c305bd9be_output_text",
+        "id": "e8b13d43-6592-4ffc-988d-d1bf710b5fc6_output_text",
         "delta": " Alice"
       },
       {
         "type": "text-delta",
-        "id": "cb9fc1ed-07f5-404d-b959-329c305bd9be_output_text",
-        "delta": " was"
+        "id": "e8b13d43-6592-4ffc-988d-d1bf710b5fc6_output_text",
+        "delta": " for $100"
       },
       {
         "type": "text-delta",
-        "id": "cb9fc1ed-07f5-404d-b959-329c305bd9be_output_text",
-        "delta": " not"
+        "id": "e8b13d43-6592-4ffc-988d-d1bf710b5fc6_output_text",
+        "delta": " did not"
       },
       {
         "type": "text-delta",
-        "id": "cb9fc1ed-07f5-404d-b959-329c305bd9be_output_text",
-        "delta": " approved"
+        "id": "e8b13d43-6592-4ffc-988d-d1bf710b5fc6_output_text",
+        "delta": " go through"
       },
       {
         "type": "text-delta",
-        "id": "cb9fc1ed-07f5-404d-b959-329c305bd9be_output_text",
-        "delta": " in time."
+        "id": "e8b13d43-6592-4ffc-988d-d1bf710b5fc6_output_text",
+        "delta": " because"
+      },
+      {
+        "type": "text-delta",
+        "id": "e8b13d43-6592-4ffc-988d-d1bf710b5fc6_output_text",
+        "delta": " the approval"
+      },
+      {
+        "type": "text-delta",
+        "id": "e8b13d43-6592-4ffc-988d-d1bf710b5fc6_output_text",
+        "delta": " request"
+      },
+      {
+        "type": "text-delta",
+        "id": "e8b13d43-6592-4ffc-988d-d1bf710b5fc6_output_text",
+        "delta": " timed"
+      },
+      {
+        "type": "text-delta",
+        "id": "e8b13d43-6592-4ffc-988d-d1bf710b5fc6_output_text",
+        "delta": " out."
       },
       {
         "type": "text-end",
-        "id": "cb9fc1ed-07f5-404d-b959-329c305bd9be_output_text"
+        "id": "e8b13d43-6592-4ffc-988d-d1bf710b5fc6_output_text"
       },
       {
         "type": "finish",
         "finishReason": "stop",
         "messageMetadata": {
           "usage": {
-            "promptTokens": 1498,
+            "promptTokens": 1577,
             "completionTokens": null,
-            "totalTokens": 1558
+            "totalTokens": 1692
           },
           "audio": {
-            "chunks": 31,
-            "bytes": 103680,
+            "chunks": 87,
+            "bytes": 211200,
             "sampleRate": 24000,
-            "duration": 2.16
+            "duration": 4.4
           },
           "modelVersion": "gemini-2.5-flash-native-audio-preview-12-2025"
         }

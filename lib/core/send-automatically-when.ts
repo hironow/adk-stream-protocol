@@ -64,7 +64,9 @@ export function sendAutomaticallyWhenCore(
       const partState = part.state || "n/a";
       const isToolPart = isToolUIPartFromAISDKv6(part);
       const partKeys = Object.keys(part).join(",");
-      log(`  Part ${index}: type=${partType}, state=${partState}, isToolPart=${isToolPart}, keys=${partKeys}`);
+      log(
+        `  Part ${index}: type=${partType}, state=${partState}, isToolPart=${isToolPart}, keys=${partKeys}`,
+      );
     });
 
     // ========================================================================
@@ -108,7 +110,9 @@ export function sendAutomaticallyWhenCore(
         return false;
       }
     } else {
-      log(`Approval workflow active (approved=${hasApprovedTool}, pending=${hasPendingApproval}), allowing send despite text parts`);
+      log(
+        `Approval workflow active (approved=${hasApprovedTool}, pending=${hasPendingApproval}), allowing send despite text parts`,
+      );
     }
 
     // ========================================================================
@@ -174,7 +178,9 @@ export function sendAutomaticallyWhenCore(
             return true;
           }
 
-          log(`Tool IDs don't match (output: ${Array.from(outputToolIds).join(",")}, approval: ${Array.from(approvalToolIds).join(",")}), checking for confirmation pattern`);
+          log(
+            `Tool IDs don't match (output: ${Array.from(outputToolIds).join(",")}, approval: ${Array.from(approvalToolIds).join(",")}), checking for confirmation pattern`,
+          );
         }
 
         // Different cases: defer to approval checks
@@ -238,7 +244,10 @@ export function sendAutomaticallyWhenCore(
     const approvalStateKey = `${mode}:${messageId}:${approvedToolIds}`;
 
     // Only check for duplicate sends if this is NOT a Frontend Execute pattern with new output
-    if (!hasToolOutputFromAddToolOutput && sentApprovalStates.has(approvalStateKey)) {
+    if (
+      !hasToolOutputFromAddToolOutput &&
+      sentApprovalStates.has(approvalStateKey)
+    ) {
       log(
         "Already sent for this approval state, returning false to prevent loop",
       );
@@ -246,7 +255,9 @@ export function sendAutomaticallyWhenCore(
     }
 
     if (hasToolOutputFromAddToolOutput) {
-      log("Frontend Execute: Output added after approval, skipping infinite loop prevention");
+      log(
+        "Frontend Execute: Output added after approval, skipping infinite loop prevention",
+      );
     }
 
     // ========================================================================

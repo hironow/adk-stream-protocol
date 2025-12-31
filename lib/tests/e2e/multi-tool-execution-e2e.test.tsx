@@ -21,12 +21,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { buildUseChatOptions } from "../../bidi";
 import type { UIMessageFromAISDKv6 } from "../../utils";
-import {
-  isApprovalRequestedTool,
-  isApprovalRespondedTool,
-  isTextUIPartFromAISDKv6,
-  isToolUIPartFromAISDKv6,
-} from "../../utils";
+import { isApprovalRequestedTool, isTextUIPartFromAISDKv6 } from "../../utils";
 import {
   createBidiWebSocketLink,
   createCustomHandler,
@@ -73,7 +68,8 @@ describe("Multi-Tool Execution E2E Tests", () => {
                 msg.role === "assistant" &&
                 msg.parts?.some(
                   (part: any) =>
-                    part.toolCallId === "call-tool1" && part.approval !== undefined,
+                    part.toolCallId === "call-tool1" &&
+                    part.approval !== undefined,
                 ),
             );
 
@@ -83,7 +79,8 @@ describe("Multi-Tool Execution E2E Tests", () => {
                 msg.role === "assistant" &&
                 msg.parts?.some(
                   (part: any) =>
-                    part.toolCallId === "call-tool2" && part.approval !== undefined,
+                    part.toolCallId === "call-tool2" &&
+                    part.approval !== undefined,
                 ),
             );
 
@@ -350,7 +347,8 @@ describe("Multi-Tool Execution E2E Tests", () => {
                 msg.role === "assistant" &&
                 msg.parts?.some(
                   (part: any) =>
-                    part.toolCallId === "call-tool1" && part.approval !== undefined,
+                    part.toolCallId === "call-tool1" &&
+                    part.approval !== undefined,
                 ),
             );
 
@@ -360,7 +358,8 @@ describe("Multi-Tool Execution E2E Tests", () => {
                 msg.role === "assistant" &&
                 msg.parts?.some(
                   (part: any) =>
-                    part.toolCallId === "call-tool2" && part.approval !== undefined,
+                    part.toolCallId === "call-tool2" &&
+                    part.approval !== undefined,
                 ),
             );
 
@@ -503,7 +502,8 @@ describe("Multi-Tool Execution E2E Tests", () => {
             lastMessage?.role === "assistant" &&
             lastMessage.parts.some(
               (part) =>
-                isApprovalRequestedTool(part) && part.toolCallId === "call-tool1",
+                isApprovalRequestedTool(part) &&
+                part.toolCallId === "call-tool1",
             )
           );
         },
@@ -539,7 +539,8 @@ describe("Multi-Tool Execution E2E Tests", () => {
             lastMessage?.role === "assistant" &&
             lastMessage.parts.some(
               (part) =>
-                isApprovalRequestedTool(part) && part.toolCallId === "call-tool2",
+                isApprovalRequestedTool(part) &&
+                part.toolCallId === "call-tool2",
             )
           );
         },

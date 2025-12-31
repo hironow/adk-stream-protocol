@@ -107,7 +107,7 @@ async def test_get_location_denied_bidi_baseline(frontend_fixture_dir: Path):
                 if "[DONE]" in event:
                     print("\n✓ Received [DONE]")
                     break
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 print(f"\n✗ Timeout waiting for [DONE] after {len(all_events)} events")
                 raise
 
@@ -138,16 +138,6 @@ async def test_get_location_denied_bidi_baseline(frontend_fixture_dir: Path):
         print(f"Tool output events: {len(tool_output_events)}")
         assert len(tool_output_events) > 0, "Should have tool output event"
 
-        # Verify against expected events (structure comparison)
-        is_match, diff_msg = compare_raw_events(
-            actual=all_events,
-            expected=expected_events,
-            normalize=True,
-            dynamic_content_tools=["get_location", "adk_request_confirmation"],
-            include_text_events=False,  # Ignore text-* events (thought process is non-deterministic)
-        )
-        assert is_match, f"rawEvents structure mismatch:\n{diff_msg}"
-
         print("\n✓ Phase 12 BLOCKING denial flow (get_location) test completed successfully")
 
     # Total should be 1 [DONE] marker
@@ -156,7 +146,7 @@ async def test_get_location_denied_bidi_baseline(frontend_fixture_dir: Path):
         f"Total [DONE] count mismatch: actual={total_done_count}, expected={expected_done_count}"
     )
 
-    # Save events to fixture
+    # Save events to fixture (BEFORE comparison to ensure fixture is saved even if assertion fails)
     save_frontend_fixture(
         fixture_path=fixture_path,
         description="BIDI mode Phase 12 BLOCKING - get_location with denial flow (SINGLE CONTINUOUS STREAM)",
@@ -168,3 +158,13 @@ async def test_get_location_denied_bidi_baseline(frontend_fixture_dir: Path):
         scenario="User denies get_location tool call - Phase 12 BLOCKING mode where tool awaits approval inside function",
         note="Phase 12 BLOCKING behavior: Single continuous stream with 1 [DONE]. Tool enters BLOCKING state awaiting approval, then returns error after denial.",
     )
+
+    # Verify against expected events (structure comparison) - MOVED AFTER SAVE
+    is_match, diff_msg = compare_raw_events(
+        actual=all_events,
+        expected=expected_events,
+        normalize=True,
+        dynamic_content_tools=["get_location", "adk_request_confirmation"],
+        include_text_events=False,  # Ignore text-* events (thought process is non-deterministic)
+    )
+    assert is_match, f"rawEvents structure mismatch:\n{diff_msg}"

@@ -65,7 +65,9 @@ test.describe("Backend Equivalence Tests", () => {
         // Wait for Chat component to fully remount after mode change
         // (Chat component remounts due to key={mode} in app/page.tsx)
         // Verify message input is ready after remount
-        await page.getByPlaceholder("Type your message...").waitFor({ state: "visible" });
+        await page
+          .getByPlaceholder("Type your message...")
+          .waitFor({ state: "visible" });
       });
 
       test("should handle text-only conversation", async ({ page }) => {
@@ -176,37 +178,36 @@ test.describe("Backend Equivalence Tests", () => {
     });
   });
 
-  test.skip(
-    "Gemini Direct and ADK SSE should produce equivalent responses",
-    async ({ page }) => {
-      // Gemini Direct mode is limited to schema validation only
-      // Response equivalence testing is not within its scope
-      // This test verifies that both backends handle the same input similarly
-      // We don't expect identical responses, but both should succeed
+  test.skip("Gemini Direct and ADK SSE should produce equivalent responses", async ({
+    page,
+  }) => {
+    // Gemini Direct mode is limited to schema validation only
+    // Response equivalence testing is not within its scope
+    // This test verifies that both backends handle the same input similarly
+    // We don't expect identical responses, but both should succeed
 
-      const testMessage = "こんにちは、元気ですか？";
+    const testMessage = "こんにちは、元気ですか？";
 
-      // Test Gemini Direct
-      await navigateToChat(page);
-      await selectBackendMode(page, "gemini");
-      await sendTextMessage(page, testMessage);
-      await waitForAssistantResponse(page);
+    // Test Gemini Direct
+    await navigateToChat(page);
+    await selectBackendMode(page, "gemini");
+    await sendTextMessage(page, testMessage);
+    await waitForAssistantResponse(page);
 
-      const geminiResponse = await getMessageText(await getLastMessage(page));
-      expect(geminiResponse.length).toBeGreaterThan(0);
+    const geminiResponse = await getMessageText(await getLastMessage(page));
+    expect(geminiResponse.length).toBeGreaterThan(0);
 
-      // Clear and test ADK SSE
-      await page.reload();
-      await navigateToChat(page);
-      await selectBackendMode(page, "adk-sse");
-      await sendTextMessage(page, testMessage);
-      await waitForAssistantResponse(page);
+    // Clear and test ADK SSE
+    await page.reload();
+    await navigateToChat(page);
+    await selectBackendMode(page, "adk-sse");
+    await sendTextMessage(page, testMessage);
+    await waitForAssistantResponse(page);
 
-      const adkResponse = await getMessageText(await getLastMessage(page));
-      expect(adkResponse.length).toBeGreaterThan(0);
+    const adkResponse = await getMessageText(await getLastMessage(page));
+    expect(adkResponse.length).toBeGreaterThan(0);
 
-      // Both backends should provide valid responses
-      // (We don't compare exact text as LLM responses vary)
-    },
-  );
+    // Both backends should provide valid responses
+    // (We don't compare exact text as LLM responses vary)
+  });
 });

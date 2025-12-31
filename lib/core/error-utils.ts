@@ -24,7 +24,9 @@ export function isRateLimitError(error: Error | unknown): boolean {
   if (!error) return false;
 
   const errorMessage =
-    error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+    error instanceof Error
+      ? error.message.toLowerCase()
+      : String(error).toLowerCase();
 
   // Check for common rate limit indicators
   const rateLimitIndicators = [
@@ -52,7 +54,9 @@ export function classifyError(error: Error | unknown): ErrorType {
   }
 
   const errorMessage =
-    error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+    error instanceof Error
+      ? error.message.toLowerCase()
+      : String(error).toLowerCase();
 
   if (
     errorMessage.includes("network") ||
@@ -88,11 +92,12 @@ export function classifyError(error: Error | unknown): ErrorType {
 export function getRetryAfter(error: Error | unknown): number | null {
   if (!error) return null;
 
-  const errorMessage =
-    error instanceof Error ? error.message : String(error);
+  const errorMessage = error instanceof Error ? error.message : String(error);
 
   // Try to extract retry-after from error message
-  const retryMatch = errorMessage.match(/retry.*?(\d+)\s*(second|minute|hour)/i);
+  const retryMatch = errorMessage.match(
+    /retry.*?(\d+)\s*(second|minute|hour)/i,
+  );
   if (retryMatch) {
     const value = parseInt(retryMatch[1], 10);
     const unit = retryMatch[2].toLowerCase();

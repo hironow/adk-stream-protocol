@@ -228,7 +228,8 @@ test.describe("Visual Regression (Advanced)", () => {
         status: 429,
         contentType: "application/json",
         body: JSON.stringify({
-          error: "RESOURCE_EXHAUSTED: Quota exceeded for quota metric 'aiplatform.googleapis.com/generate_content_requests' and limit 'GenerateContent requests per minute per region per base model'",
+          error:
+            "RESOURCE_EXHAUSTED: Quota exceeded for quota metric 'aiplatform.googleapis.com/generate_content_requests' and limit 'GenerateContent requests per minute per region per base model'",
         }),
       });
     });

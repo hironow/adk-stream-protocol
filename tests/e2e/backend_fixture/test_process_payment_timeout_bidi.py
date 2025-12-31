@@ -84,7 +84,7 @@ async def test_process_payment_timeout_bidi():
                         if event_data.get("type") == "tool-approval-request":
                             approval_id = event_data.get("approvalId")
                             original_tool_call_id = event_data.get("toolCallId")
-                            print(f"\n✓ Found tool-approval-request:")
+                            print("\n✓ Found tool-approval-request:")
                             print(f"  approvalId: {approval_id}")
                             print(f"  toolCallId: {original_tool_call_id}")
                             print("\n⏳ Waiting for timeout (30s)... NOT sending approval/denial")
@@ -92,7 +92,7 @@ async def test_process_payment_timeout_bidi():
                     except json.JSONDecodeError:
                         pass
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 print(
                     f"\n✗ Timeout waiting for tool-approval-request after {len(all_events)} events"
                 )
@@ -115,7 +115,7 @@ async def test_process_payment_timeout_bidi():
                 if "[DONE]" in event:
                     print("\n✓ Received [DONE]")
                     break
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 print(f"\n✗ Timeout waiting for [DONE] after {len(all_events)} events")
                 print("This might indicate the tool didn't timeout properly")
                 raise
