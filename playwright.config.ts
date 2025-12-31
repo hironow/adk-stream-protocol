@@ -1,4 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
+import { config as loadEnv } from "dotenv";
+
+// Load .env.local for webServer environment variables
+// This ensures CHUNK_LOGGER_ENABLED and other env vars are available to backend server
+loadEnv({ path: ".env.local" });
 
 /**
  * Playwright configuration for E2E tests
@@ -126,6 +131,8 @@ export default defineConfig({
       timeout: 120000, // 2 minutes to start server
       stdout: "pipe",
       stderr: "pipe",
+      // Pass environment variables from .env.local to backend server
+      env: process.env,
     },
     {
       command: "pnpm dev",
@@ -134,6 +141,8 @@ export default defineConfig({
       timeout: 120000, // 2 minutes to start server
       stdout: "pipe",
       stderr: "pipe",
+      // Pass environment variables from .env.local to frontend server
+      env: process.env,
     },
   ],
 
