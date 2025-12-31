@@ -6,7 +6,12 @@
  * 2. Backend SSE events (chunk_logs/{session_id}/backend-sse-event.jsonl)
  * 3. Frontend events (chunk_logs/frontend/{test-name}-{session_id}.jsonl)
  *
- * Tests 4 tool scenarios × 2 approval patterns (Approve/Deny) = 8 test cases
+ * Tests 4 tools with various scenarios:
+ * - process_payment: 8 test cases (approval required - various patterns)
+ * - get_location: 2 test cases (APPROVE + DENY)
+ * - get_weather: 1 test case (no approval required)
+ * - change_bgm: 1 test case (no approval required)
+ * Total: 12 test cases
  *
  * Per CLAUDE.md guidelines:
  * - Uses real backend servers (no mocks)
@@ -525,5 +530,161 @@ test.describe
       expect(analysis.isConsistent).toBe(true);
       expect(analysis.errors).toHaveLength(0);
       expect(paymentCalls.length).toBeGreaterThanOrEqual(3);
+    });
+
+    /**
+     * Tool: get_location - APPROVE
+     */
+    test("should maintain log consistency when approving location request", async ({
+      page,
+    }) => {
+      // Given: Backend is ready with chunk logger enabled
+
+      // When: User requests location
+      await sendTextMessage(page, "私の位置を教えて");
+
+      // Then: Approval UI appears
+      await expect(
+        page.getByRole("button", { name: "Approve" }).first(),
+      ).toBeVisible({
+        timeout: 30000,
+      });
+
+      // When: User approves
+      await page.getByRole("button", { name: "Approve" }).first().click();
+
+      // Then: Wait for completion
+      await waitForAssistantResponse(page, { timeout: 45000 });
+
+      // Download frontend chunk logs
+      const frontendLogPath = await downloadFrontendChunkLogs(
+        page,
+        "approve-location",
+      );
+      expect(frontendLogPath).not.toBeNull();
+
+      // Analyze consistency across all 3 log files
+      const analysis = await analyzeChunkLogConsistency(
+        SESSION_ID,
+        frontendLogPath!,
+      );
+
+      // Then: All 3 logs should be consistent
+      expect(analysis.backendAdkExists).toBe(true);
+      expect(analysis.backendSseExists).toBe(true);
+      expect(analysis.frontendExists).toBe(true);
+      expect(analysis.isConsistent).toBe(true);
+    });
+
+    /**
+     * Tool: get_location - DENY
+     */
+    test("should maintain log consistency when denying location request", async ({
+      page,
+    }) => {
+      // Given: Backend is ready with chunk logger enabled
+
+      // When: User requests location
+      await sendTextMessage(page, "私の現在地は？");
+
+      // Then: Approval UI appears
+      await expect(
+        page.getByRole("button", { name: "Deny" }).first(),
+      ).toBeVisible({
+        timeout: 30000,
+      });
+
+      // When: User denies
+      await page.getByRole("button", { name: "Deny" }).first().click();
+
+      // Then: Wait for completion
+      await waitForAssistantResponse(page, { timeout: 45000 });
+
+      // Download frontend chunk logs
+      const frontendLogPath = await downloadFrontendChunkLogs(
+        page,
+        "deny-location",
+      );
+      expect(frontendLogPath).not.toBeNull();
+
+      // Analyze consistency across all 3 log files
+      const analysis = await analyzeChunkLogConsistency(
+        SESSION_ID,
+        frontendLogPath!,
+      );
+
+      // Then: All 3 logs should be consistent
+      expect(analysis.backendAdkExists).toBe(true);
+      expect(analysis.backendSseExists).toBe(true);
+      expect(analysis.frontendExists).toBe(true);
+      expect(analysis.isConsistent).toBe(true);
+    });
+
+    /**
+     * Tool: get_weather - Basic execution (no approval required)
+     */
+    test("should maintain log consistency when requesting weather", async ({
+      page,
+    }) => {
+      // Given: Backend is ready with chunk logger enabled
+
+      // When: User requests weather
+      await sendTextMessage(page, "東京の天気を教えてください");
+
+      // Then: Wait for completion (no approval UI should appear)
+      await waitForAssistantResponse(page, { timeout: 45000 });
+
+      // Download frontend chunk logs
+      const frontendLogPath = await downloadFrontendChunkLogs(
+        page,
+        "weather-request",
+      );
+      expect(frontendLogPath).not.toBeNull();
+
+      // Analyze consistency across all 3 log files
+      const analysis = await analyzeChunkLogConsistency(
+        SESSION_ID,
+        frontendLogPath!,
+      );
+
+      // Then: All 3 logs should be consistent
+      expect(analysis.backendAdkExists).toBe(true);
+      expect(analysis.backendSseExists).toBe(true);
+      expect(analysis.frontendExists).toBe(true);
+      expect(analysis.isConsistent).toBe(true);
+    });
+
+    /**
+     * Tool: change_bgm - Basic execution (no approval required)
+     */
+    test("should maintain log consistency when changing BGM", async ({
+      page,
+    }) => {
+      // Given: Backend is ready with chunk logger enabled
+
+      // When: User requests BGM change
+      await sendTextMessage(page, "BGMをトラック2に変更して");
+
+      // Then: Wait for completion (no approval UI should appear)
+      await waitForAssistantResponse(page, { timeout: 45000 });
+
+      // Download frontend chunk logs
+      const frontendLogPath = await downloadFrontendChunkLogs(
+        page,
+        "bgm-change",
+      );
+      expect(frontendLogPath).not.toBeNull();
+
+      // Analyze consistency across all 3 log files
+      const analysis = await analyzeChunkLogConsistency(
+        SESSION_ID,
+        frontendLogPath!,
+      );
+
+      // Then: All 3 logs should be consistent
+      expect(analysis.backendAdkExists).toBe(true);
+      expect(analysis.backendSseExists).toBe(true);
+      expect(analysis.frontendExists).toBe(true);
+      expect(analysis.isConsistent).toBe(true);
     });
   });
