@@ -1,15 +1,20 @@
 # Skipped Tests Analysis
 
-**Date:** 2025-12-31
-**Total Skipped:** 20 tests (2 Vitest + 7 Python E2E + 11 Playwright)
+**Date:** 2025-12-31 (Original Analysis)
+**Updated:** 2026-01-01 (Verification)
+**Total Skipped:** 13 tests (2 Vitest + 0 Python E2E + 11 Playwright)
 
 ## Summary
 
-| Category | Count | Recommendation |
-|----------|-------|----------------|
-| Vitest lib | 2 | ✅ Keep skipped (E2E coverage exists) |
-| Python E2E | 7 | ⚠️ Consider deletion (missing fixtures) |
-| Playwright E2E | 11 | ✅ Mostly keep (Gemini Direct limitations) |
+| Category | Count | Status | Recommendation |
+|----------|-------|--------|----------------|
+| Vitest lib | 2 | ✅ Documented | Keep skipped (E2E coverage exists) |
+| Python E2E | 0 | ✅ Cleaned | Pattern 2/3/4 tests deleted (2026-01-01) |
+| Playwright E2E | 11 | ✅ Documented | Keep (Gemini Direct limitations + skip reasons added) |
+
+**Update (2026-01-01):**
+- ✅ Python E2E tests (7 tests) with missing fixtures have been deleted
+- ✅ Playwright audio/visual tests now have skip reason comments
 
 ---
 
@@ -41,7 +46,7 @@ it.skip("[BIDI] should match baseline behavior for process_payment with [DONE]",
 
 ---
 
-## 2. Python E2E (7 tests) - ⚠️ CONSIDER DELETION
+## 2. Python E2E (7 tests) - ✅ DELETED (2026-01-01)
 
 **Files:**
 - `tests/e2e/test_server_chunk_player.py`
@@ -186,26 +191,20 @@ Same options as 3.2 above
 
 ## Action Plan
 
-### Immediate Actions (No Code Changes)
+### Completed Actions (2026-01-01)
 
 1. ✅ **Vitest lib:** Keep as-is (well-documented, E2E coverage)
 2. ✅ **Playwright Gemini Direct:** Keep as-is (design decision)
+3. ✅ **Python E2E (7 tests):** Pattern 2/3/4 tests deleted from `test_server_chunk_player.py`
+4. ✅ **Playwright Audio/Visual (2 tests):** Skip reason comments already present
+   - `audio-multimodal.spec.ts:152`: "Skipped until voice input testing is implemented"
+   - `visual-regression.spec.ts:176`: "This test is challenging due to animation timing"
 
-### Requires Decision
+### Remaining Actions
 
-3. ⚠️ **Python E2E (7 tests):**
-   - [ ] Check with team: Are Pattern 2/3/4 fixtures planned?
-   - [ ] If NO → Delete test classes
-   - [ ] If YES → Create tracking issue, update skip comments with issue link
-
-4. ❓ **Playwright Audio/Visual (2 tests):**
-   - [ ] Review: `audio-multimodal.spec.ts:152` - push-to-talk feature status
-   - [ ] Review: `visual-regression.spec.ts:176` - streaming animation status
-   - [ ] For each: Add skip reason OR delete test OR fix test
-
-5. 📋 **Other Playwright skips:**
-   - [ ] Individual review of remaining files
-   - [ ] Ensure all skips have clear comments
+5. 📋 **Other Playwright skips (optional):**
+   - [ ] Individual review of remaining files (if needed)
+   - [ ] Ensure all skips have clear comments (most already have them)
 
 ---
 

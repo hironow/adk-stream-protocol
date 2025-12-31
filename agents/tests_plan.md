@@ -807,7 +807,69 @@ We have too many E2E and Scenario tests relative to Unit/Integration tests.
 
 ### Phase 5: Test Pyramid Rebalancing (Ongoing)
 
-**Priority: LOW** ✅
+**Priority: LOW** ✅ **Phase 5.1 & 5.2 COMPLETED (2026-01-01)**
+
+**Status Update:**
+- Phase 5.1 (Scenario Consolidation): ✅ COMPLETED (2026-01-01)
+- Phase 5.2 (Python E2E Review): ✅ COMPLETED (2026-01-01)
+- Phase 5.3 (Unit Test Addition): Deferred to ongoing work
+
+**Detailed Analysis:** See `agents/phase5_analysis.md` for comprehensive report
+
+#### Phase 5.1: Scenario Consolidation ✅
+
+**Completed Actions:**
+
+1. **Playwright Scenario Consolidation:**
+   - [x] Consolidated chunk-logger tests: 4 → 1 file (saved 3 test files)
+     - Merged: `chunk-logger-change-bgm.spec.ts`, `chunk-logger-get-location.spec.ts`, `chunk-logger-get-weather.spec.ts`
+     - Target: `chunk-logger-integration.spec.ts` (now 12 tests total)
+   - [x] Merged chunk-download tests: 2 → 1 file (saved 1 test file)
+     - Removed debug-only test, kept functional test
+   - [x] Reviewed tool SSE/BIDI variants (8 files) - DECISION: KEEP SEPARATE
+     - Rationale: Protocol compatibility testing, failure isolation
+   - [x] Reviewed error-handling tests (3 files) - DECISION: KEEP SEPARATE
+     - Rationale: Different layers (SSE protocol, BIDI protocol, UI)
+   - [x] Reviewed tool-approval tests (5 files) - DECISION: KEEP SEPARATE
+     - Rationale: Test pyramid structure (Smoke/Core/Features)
+
+**Results:**
+- **Tests Consolidated:** 4 files (chunk-logger: 3, chunk-download: 1)
+- **Tests Reviewed and Kept:** 16 files (intentional organization, not duplication)
+- **Playwright Count:** 39 → 35 tests (-4 tests, -10%)
+
+**Key Finding:**
+Many apparent "duplicates" were actually well-designed test organization for protocol compatibility, layer separation, and test pyramid structure.
+
+**Actual Effort:** 1 day (2026-01-01)
+
+#### Phase 5.2: Python E2E Review ✅
+
+**Completed Actions:**
+
+1. **Python E2E Analysis:**
+   - [x] Listed all `tests/e2e/` files - 28 Python files found
+   - [x] Analyzed test purposes and coverage
+     - backend_fixture/ tests (19 files): Backend protocol correctness, fixture generation
+     - Protocol validation tests (3 files): WebSocket/HTTP endpoint structure
+     - Fixture consistency tests (2 files): Conversion script correctness
+   - [x] Identified redundancies vs Playwright scenarios - NO REDUNDANCY FOUND
+     - Python E2E: Backend protocol correctness, rawEvents validation
+     - Playwright: Frontend integration, user experience
+     - Verdict: Completely different test layers, no overlap
+
+**Results:**
+- **Python E2E Count:** 26 tests (maintained, no consolidation)
+- **Decision:** NO CONSOLIDATION - All tests serve distinct purposes
+
+**Key Finding:**
+Python E2E tests complement (not duplicate) Playwright scenarios. They serve fundamentally different purposes:
+- Python: Backend API protocol correctness
+- Playwright: Frontend integration and user experience
+
+**Actual Effort:** 0.5 days (2026-01-01)
+
+#### Phase 5.3: Unit Test Addition (Deferred to Ongoing Work)
 
 1. **Add Unit Tests:**
    - [ ] Component behavior tests (target: +30 tests)
@@ -820,11 +882,17 @@ We have too many E2E and Scenario tests relative to Unit/Integration tests.
    - [ ] Target: Reduce E2E count by 20
 
 3. **Reduce Scenario Duplication:**
-   - [ ] Identify redundant scenarios
-   - [ ] Combine similar tests
-   - [ ] Target: Reduce scenario count by 10
+   - [x] Identified redundant scenarios - 4 test files consolidated ✅
+   - [x] Combined similar tests (chunk-logger, chunk-download) ✅
+   - [ ] Further consolidation opportunities limited (analyzed 16 additional files)
+   - **Progress:** 4 of 10 targeted reductions (40% complete)
 
-**Estimated Effort:** 4-6 weeks (ongoing)
+**Overall Progress (Phase 5.1 + 5.2):**
+- **Before:** E2E: 65 tests (26 Python + 39 Playwright)
+- **After:** E2E: 61 tests (26 Python + 35 Playwright) **[-4 tests, -6%]**
+- **Test Pyramid Ratio:** 41:40:65 → 41:40:61 (still inverted, but improved)
+
+**Estimated Effort for Phase 5.3:** 4-6 weeks (ongoing, deferred to future work)
 
 ---
 
