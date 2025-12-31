@@ -1,7 +1,58 @@
 # Phase 5: Test Pyramid Rebalancing - Analysis Report
 
 **Date:** 2026-01-01
-**Status:** 🟡 In Progress
+**Status:** 🟢 Phase 5.1 & 5.2 Complete | 🟡 Phase 5.3 Deferred
+
+---
+
+## Executive Summary
+
+### 🎯 Objectives
+- **Goal**: Rebalance inverted test pyramid (reduce E2E tests, increase unit tests)
+- **Target Ratio**: Unit:Integration:E2E = 90:40:30 (from current 41:40:65)
+- **Focus**: Consolidate redundant E2E tests while maintaining coverage
+
+### 📊 Results
+
+**Phase 5.1 - Playwright Scenario Consolidation:**
+- ✅ **4 test files consolidated** (chunk-logger: 3 files, chunk-download: 1 file)
+- ✅ **16 test files reviewed and kept** (intentional organization, not duplication)
+- ✅ **Playwright tests reduced**: 39 → 35 (-4 tests, -10%)
+
+**Phase 5.2 - Python E2E Review:**
+- ✅ **28 Python E2E files analyzed** (26 test files + helpers)
+- ✅ **NO CONSOLIDATION** - All tests serve distinct purposes
+- ✅ **Key finding**: Python E2E tests complement Playwright scenarios (different layers)
+
+**Overall Progress:**
+- **Before**: E2E: 65 tests (26 Python + 39 Playwright)
+- **After**: E2E: 61 tests (26 Python + 35 Playwright) **[-4 tests, -6%]**
+- **Test Pyramid Ratio**: 41:40:65 → 41:40:61 (still inverted, but improved)
+
+### 🔍 Key Insights
+
+1. **Many "duplicates" were intentional organization**:
+   - Tool SSE/BIDI variants: Protocol compatibility testing (keep 8 files)
+   - Error-handling tests: Different layers - SSE/BIDI/UI (keep 3 files)
+   - Tool-approval tests: Test pyramid structure - Smoke/Core/Features (keep 5 files)
+
+2. **Python vs Playwright testing serves different purposes**:
+   - **Python E2E**: Backend protocol correctness, rawEvents validation, fixture generation
+   - **Playwright E2E**: Frontend integration, user experience, visual rendering
+   - **Verdict**: No redundancy exists between the two test suites
+
+3. **Limited consolidation potential identified**:
+   - Only 4 tests were truly redundant (chunk-logger variants, chunk-download debug test)
+   - Most apparent "duplicates" were well-designed test organization
+   - Further E2E reduction would require removing valuable test coverage
+
+### 📋 Next Steps
+
+**Phase 5.3 - Unit Test Addition** (Deferred to ongoing work):
+- Target: +30 component behavior tests
+- Target: +20 utility function tests
+- Target: +10 state management tests
+- **Note**: Long-term goal to achieve proper test pyramid ratio (90:40:30)
 
 ---
 
@@ -309,9 +360,29 @@ Need to analyze:
 
 ### Phase 5.2: Python E2E Review
 
-- [ ] List all tests/e2e/ files
-- [ ] Identify redundancies
-- [ ] Consolidate tests
+- [x] List all tests/e2e/ files - **28 Python files found**
+  - `backend_fixture/` subdirectory: 23 files (19 tests + helpers.py + __init__ files)
+  - Root `tests/e2e/`: 5 test files
+- [x] Analyze test purposes - **DECISION: KEEP ALL**
+  - **backend_fixture/ tests (19 files)**: Backend protocol correctness
+    - Test real backend API endpoints against frontend baseline fixtures
+    - Validate `rawEvents` structure (non-deterministic AI responses)
+    - Dual purpose: Fixture generation + Backend validation
+    - Coverage: 4 tools × (SSE + BIDI) × multiple scenarios
+  - **Protocol validation tests (3 files)**:
+    - `test_websocket_bidi_validation.py`: WebSocket /live endpoint structure
+    - `test_server_structure_validation.py`: HTTP /stream endpoint structure
+    - `test_server_chunk_player.py`: ChunkPlayer behavior
+  - **Fixture consistency tests (2 files)**:
+    - `test_converted_fixture_consistency.py`: Conversion script correctness
+    - `test_converted_frontend_fixtures.py`: Frontend fixture validation
+- [x] Identify redundancies - **NO REDUNDANCY FOUND**
+  - **vs Playwright scenarios:** Completely different test layers
+    - Playwright: Frontend + Backend + Browser integration (user experience)
+    - Python E2E: Backend protocol correctness (event stream structure)
+  - **Rationale:** Protocol tests are critical for ensuring backend API correctness
+  - **Value:** Fixture generation, protocol validation, conversion verification
+- **Decision:** NO CONSOLIDATION - All 26 Python E2E tests should be maintained
 
 ### Phase 5.3: Unit Test Addition (Ongoing)
 
