@@ -141,6 +141,11 @@ sse_agent = Agent(
     description=AGENT_DESCRIPTION,
     instruction=AGENT_INSTRUCTION,
     tools=SSE_TOOLS,  # type: ignore[arg-type]
+    generate_content_config=types.GenerateContentConfig(
+        http_options=types.HttpOptions(
+            timeout=300_000,  # 5 minutes (300 seconds) - maximum allowed by Google API
+        ),
+    ),
 )
 
 # BIDI Agent: Uses Live API model for bidirectional streaming
@@ -153,6 +158,11 @@ bidi_agent = Agent(
     description=AGENT_DESCRIPTION,
     instruction=AGENT_INSTRUCTION,
     tools=BIDI_TOOLS,  # type: ignore[arg-type]
+    generate_content_config=types.GenerateContentConfig(
+        http_options=types.HttpOptions(
+            timeout=300_000,  # 5 minutes (300 seconds) - maximum allowed by Google API
+        ),
+    ),
 )
 
 # Initialize Apps with ResumabilityConfig for tool confirmation support
