@@ -166,7 +166,7 @@ test.describe("Systematic Mode/Model Testing (P4-T4.4)", () => {
     // Start in Gemini Direct
     await selectBackendMode(page, "gemini");
     await sendTextMessage(page, "Message 1 in Gemini Direct");
-    await waitForResponse(page);
+    await waitForAssistantResponse(page);
 
     const messagesAfterGemini = await getMessages(page);
     const countAfterGemini = messagesAfterGemini.length;
@@ -181,7 +181,7 @@ test.describe("Systematic Mode/Model Testing (P4-T4.4)", () => {
 
     // Send message in ADK SSE
     await sendTextMessage(page, "Message 2 in ADK SSE");
-    await waitForResponse(page);
+    await waitForAssistantResponse(page);
 
     const messagesAfterSSE = await getMessages(page);
     const countAfterSSE = messagesAfterSSE.length;
@@ -196,7 +196,7 @@ test.describe("Systematic Mode/Model Testing (P4-T4.4)", () => {
 
     // Send message in ADK BIDI
     await sendTextMessage(page, "Message 3 in ADK BIDI");
-    await waitForResponse(page);
+    await waitForAssistantResponse(page);
 
     // Final verification
     const finalMessages = await getMessages(page);
@@ -335,7 +335,7 @@ test.describe("Systematic Mode/Model Testing (P4-T4.4)", () => {
 
     // Test that context is still maintained
     await sendTextMessage(page, "How many messages have we exchanged?");
-    await waitForResponse(page);
+    await waitForAssistantResponse(page);
 
     const finalMessages = await getMessages(page);
     const lastMessage = finalMessages[finalMessages.length - 1];

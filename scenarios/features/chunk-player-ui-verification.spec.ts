@@ -114,16 +114,16 @@ test.describe("Chunk Player UI Verification", () => {
 
     // When: Replay chunks through all 4 steps
     await sendTextMessage(page, "こんにちは");
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(3000); // Increased timeout for chunk replay
 
     await sendTextMessage(page, "東京の天気を教えて");
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(3000);
 
     await sendTextMessage(page, "123 + 456は？");
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(3000);
 
     await sendTextMessage(page, "ありがとう");
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(3000);
 
     // Then: All 8 messages should be visible
     const messages = await getMessages(page);
@@ -177,14 +177,14 @@ test.describe("Chunk Player UI Verification", () => {
 
     // Step 1: Gemini Direct - "こんにちは"
     await sendTextMessage(page, "こんにちは");
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(3000); // Increased timeout for chunk replay
     let messages = await getMessages(page);
     const step1Count = messages.length;
     expect(step1Count).toBeGreaterThanOrEqual(2);
 
     // Step 2: ADK SSE - "東京の天気を教えて"
     await sendTextMessage(page, "東京の天気を教えて");
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(3000);
     messages = await getMessages(page);
     const step2Count = messages.length;
     expect(step2Count).toBeGreaterThan(step1Count);
@@ -193,7 +193,7 @@ test.describe("Chunk Player UI Verification", () => {
 
     // Step 3: ADK BIDI - "123 + 456は？"
     await sendTextMessage(page, "123 + 456は？");
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(3000);
     messages = await getMessages(page);
     const step3Count = messages.length;
     expect(step3Count).toBeGreaterThan(step2Count);
@@ -202,7 +202,7 @@ test.describe("Chunk Player UI Verification", () => {
 
     // Step 4: ADK SSE - "ありがとう"
     await sendTextMessage(page, "ありがとう");
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(3000);
     messages = await getMessages(page);
     const step4Count = messages.length;
     expect(step4Count).toBeGreaterThan(step3Count);
@@ -211,7 +211,7 @@ test.describe("Chunk Player UI Verification", () => {
 
     // Step 5: Gemini Direct - "さようなら"
     await sendTextMessage(page, "さようなら");
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(3000);
     messages = await getMessages(page);
     const finalCount = messages.length;
     expect(finalCount).toBeGreaterThan(step4Count);

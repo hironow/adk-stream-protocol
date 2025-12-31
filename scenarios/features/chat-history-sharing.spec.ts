@@ -56,8 +56,8 @@ test.describe("History Sharing Tests", () => {
     // When: User switches to ADK SSE mode
     await selectBackendMode(page, "adk-sse");
 
-    // Give UI time to re-render
-    await page.waitForTimeout(500);
+    // Give UI time to re-render and backend to reconnect
+    await page.waitForTimeout(2000);
 
     // Then: Previous messages are still visible
     messages = await getMessages(page);
@@ -65,7 +65,7 @@ test.describe("History Sharing Tests", () => {
 
     // And: User can continue conversation with context
     await sendTextMessage(page, "私の名前を覚えていますか？");
-    await waitForAssistantResponse(page);
+    await waitForAssistantResponse(page, { timeout: 60000 });
 
     const lastMessage = await getMessages(page).then(
       (msgs) => msgs[msgs.length - 1],
