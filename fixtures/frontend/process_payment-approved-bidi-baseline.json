@@ -16,29 +16,28 @@
   },
   "output": {
     "rawEvents": [
-      "data: {\"type\": \"start\", \"messageId\": \"e56acce7-3100-4b14-9dc0-970d3a175842\"}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"60b84a54-f99f-453c-a4a2-273fec004833\"}\n\n",
       "data: {\"type\": \"reasoning-start\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Reviewing Payment Options**\\n\\nI've identified the `process_payment` tool as suitable for sending $200 to \\\"\\u6b21\\u90ce\\u3055\\u3093.\\\"  I realized I need to set the `amount`, `recipient`, and confirm that the default `currency` (USD) is correct. I now believe I should call it with `process_payment(amount=200, recipient='\\u6b21\\u90ce\\u3055\\u3093', currency='USD')`.  I noted that the tool may require confirmation.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Analyzing Payment Processing**\\n\\nI've homed in on using the `process_payment` tool to handle the user's request to send $200 to \\\"\\u6b21\\u90ce\\u3055\\u3093\\\". I've determined the necessary parameters: `amount` (200), `recipient` (\\\"\\u6b21\\u90ce\\u3055\\u3093\\\"), and `currency` (\\\"USD\\\"). The next step is calling the tool with these details. I'm aware this requires approval, which will be handled by the system based on the execution mode (SSE or BIDI).\\n\\n\\n\"}\n\n",
       "data: {\"type\": \"reasoning-end\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-14945864000009848660\", \"toolName\": \"process_payment\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-14945864000009848660\", \"toolName\": \"process_payment\", \"input\": {\"recipient\": \"\\u6b21\\u90ce\\u3055\\u3093\", \"currency\": \"USD\", \"amount\": 200}}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-15851320410271597140\", \"toolName\": \"process_payment\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-15851320410271597140\", \"toolName\": \"process_payment\", \"input\": {\"recipient\": \"\\u6b21\\u90ce\\u3055\\u3093\", \"amount\": 200, \"currency\": \"USD\"}}\n\n",
       "data: {\"type\":\"start-step\"}\n\n",
-      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-14945864000009848660\", \"approvalId\": \"adk-37423cca-e3fa-42c3-8430-bf2fae730240\"}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-15851320410271597140\", \"approvalId\": \"adk-edceee35-168d-4d9b-8975-ad9eea5a738a\"}\n\n",
       "data: {\"type\":\"finish-step\"}\n\n",
-      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"function-call-14945864000009848660\", \"output\": {\"success\": true, \"transaction_id\": \"txn_04b3bc435577\", \"amount\": 200, \"currency\": \"USD\", \"recipient\": \"\\u6b21\\u90ce\\u3055\\u3093\", \"description\": \"\", \"wallet_balance\": 800.0, \"timestamp\": \"2025-12-30T19:54:32.008526+00:00\"}}\n\n",
-      "data: {\"type\": \"text-start\", \"id\": \"e56acce7-3100-4b14-9dc0-970d3a175842_output_text\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"e56acce7-3100-4b14-9dc0-970d3a175842_output_text\", \"delta\": \"\\u6b21\\u90ce\\u3055\\u3093\\u306b200\\u30c9\\u30eb\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"e56acce7-3100-4b14-9dc0-970d3a175842_output_text\", \"delta\": \"\\u306e\\u9001\\u91d1\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"e56acce7-3100-4b14-9dc0-970d3a175842_output_text\", \"delta\": \"\\u304c\\u5b8c\\u4e86\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"e56acce7-3100-4b14-9dc0-970d3a175842_output_text\", \"delta\": \"\\u3057\\u307e\\u3057\\u305f\\u3002\"}\n\n",
-      "data: {\"type\": \"text-end\", \"id\": \"e56acce7-3100-4b14-9dc0-970d3a175842_output_text\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1636, \"completionTokens\": null, \"totalTokens\": 1714}, \"audio\": {\"chunks\": 49, \"bytes\": 138240, \"sampleRate\": 24000, \"duration\": 2.88}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
+      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"function-call-15851320410271597140\", \"output\": {\"success\": true, \"transaction_id\": \"txn_ae9f9349f960\", \"amount\": 200, \"currency\": \"USD\", \"recipient\": \"\\u6b21\\u90ce\\u3055\\u3093\", \"description\": \"\", \"wallet_balance\": 800.0, \"timestamp\": \"2025-12-31T08:03:25.596064+00:00\"}}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"60b84a54-f99f-453c-a4a2-273fec004833_output_text\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"60b84a54-f99f-453c-a4a2-273fec004833_output_text\", \"delta\": \"\\u6b21\\u90ce\\u3055\\u3093\\u306b200\\u30c9\\u30eb\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"60b84a54-f99f-453c-a4a2-273fec004833_output_text\", \"delta\": \"\\u3092\\u9001\\u91d1\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"60b84a54-f99f-453c-a4a2-273fec004833_output_text\", \"delta\": \"\\u3057\\u307e\\u3057\\u305f\\u3002\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"60b84a54-f99f-453c-a4a2-273fec004833_output_text\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1655, \"completionTokens\": null, \"totalTokens\": 1715}, \"audio\": {\"chunks\": 31, \"bytes\": 103680, \"sampleRate\": 24000, \"duration\": 2.16}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
       {
         "type": "start",
-        "messageId": "e56acce7-3100-4b14-9dc0-970d3a175842"
+        "messageId": "60b84a54-f99f-453c-a4a2-273fec004833"
       },
       {
         "type": "reasoning-start",
@@ -47,7 +46,7 @@
       {
         "type": "reasoning-delta",
         "id": "0",
-        "delta": "**Reviewing Payment Options**\n\nI've identified the `process_payment` tool as suitable for sending $200 to \"次郎さん.\"  I realized I need to set the `amount`, `recipient`, and confirm that the default `currency` (USD) is correct. I now believe I should call it with `process_payment(amount=200, recipient='次郎さん', currency='USD')`.  I noted that the tool may require confirmation.\n\n\n"
+        "delta": "**Analyzing Payment Processing**\n\nI've homed in on using the `process_payment` tool to handle the user's request to send $200 to \"次郎さん\". I've determined the necessary parameters: `amount` (200), `recipient` (\"次郎さん\"), and `currency` (\"USD\"). The next step is calling the tool with these details. I'm aware this requires approval, which will be handled by the system based on the execution mode (SSE or BIDI).\n\n\n"
       },
       {
         "type": "reasoning-end",
@@ -55,17 +54,17 @@
       },
       {
         "type": "tool-input-start",
-        "toolCallId": "function-call-14945864000009848660",
+        "toolCallId": "function-call-15851320410271597140",
         "toolName": "process_payment"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "function-call-14945864000009848660",
+        "toolCallId": "function-call-15851320410271597140",
         "toolName": "process_payment",
         "input": {
           "recipient": "次郎さん",
-          "currency": "USD",
-          "amount": 200
+          "amount": 200,
+          "currency": "USD"
         }
       },
       {
@@ -73,68 +72,63 @@
       },
       {
         "type": "tool-approval-request",
-        "toolCallId": "function-call-14945864000009848660",
-        "approvalId": "adk-37423cca-e3fa-42c3-8430-bf2fae730240"
+        "toolCallId": "function-call-15851320410271597140",
+        "approvalId": "adk-edceee35-168d-4d9b-8975-ad9eea5a738a"
       },
       {
         "type": "finish-step"
       },
       {
         "type": "tool-output-available",
-        "toolCallId": "function-call-14945864000009848660",
+        "toolCallId": "function-call-15851320410271597140",
         "output": {
           "success": true,
-          "transaction_id": "txn_04b3bc435577",
+          "transaction_id": "txn_ae9f9349f960",
           "amount": 200,
           "currency": "USD",
           "recipient": "次郎さん",
           "description": "",
           "wallet_balance": 800.0,
-          "timestamp": "2025-12-30T19:54:32.008526+00:00"
+          "timestamp": "2025-12-31T08:03:25.596064+00:00"
         }
       },
       {
         "type": "text-start",
-        "id": "e56acce7-3100-4b14-9dc0-970d3a175842_output_text"
+        "id": "60b84a54-f99f-453c-a4a2-273fec004833_output_text"
       },
       {
         "type": "text-delta",
-        "id": "e56acce7-3100-4b14-9dc0-970d3a175842_output_text",
+        "id": "60b84a54-f99f-453c-a4a2-273fec004833_output_text",
         "delta": "次郎さんに200ドル"
       },
       {
         "type": "text-delta",
-        "id": "e56acce7-3100-4b14-9dc0-970d3a175842_output_text",
-        "delta": "の送金"
+        "id": "60b84a54-f99f-453c-a4a2-273fec004833_output_text",
+        "delta": "を送金"
       },
       {
         "type": "text-delta",
-        "id": "e56acce7-3100-4b14-9dc0-970d3a175842_output_text",
-        "delta": "が完了"
-      },
-      {
-        "type": "text-delta",
-        "id": "e56acce7-3100-4b14-9dc0-970d3a175842_output_text",
+        "id": "60b84a54-f99f-453c-a4a2-273fec004833_output_text",
         "delta": "しました。"
       },
       {
         "type": "text-end",
-        "id": "e56acce7-3100-4b14-9dc0-970d3a175842_output_text"
+        "id": "60b84a54-f99f-453c-a4a2-273fec004833_output_text"
       },
       {
         "type": "finish",
         "finishReason": "stop",
         "messageMetadata": {
           "usage": {
-            "promptTokens": 1636,
+            "promptTokens": 1655,
             "completionTokens": null,
-            "totalTokens": 1714
+            "totalTokens": 1715
           },
           "audio": {
-            "chunks": 49,
-            "bytes": 138240,
+            "chunks": 31,
+            "bytes": 103680,
             "sampleRate": 24000,
-            "duration": 2.88
+            "duration": 2.16
           },
           "modelVersion": "gemini-2.5-flash-native-audio-preview-12-2025"
         }

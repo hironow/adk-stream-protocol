@@ -27,7 +27,7 @@ import {
   createBidiWebSocketLink,
   createCustomHandler,
 } from "../helpers/bidi-ws-handlers";
-import { createMswServer } from "../mocks/msw-server";
+import { createMswServer } from "../shared-mocks/msw-server";
 
 /**
  * Helper function to extract text content from UIMessageFromAISDKv6 parts

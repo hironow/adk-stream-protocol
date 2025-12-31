@@ -16,29 +16,29 @@
   },
   "output": {
     "rawEvents": [
-      "data: {\"type\": \"start\", \"messageId\": \"e8a4ac73-cd2a-4354-8402-dfb29dd40224\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-9376de26-43d2-4156-95db-8a3161f4601b\", \"toolName\": \"change_bgm\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-9376de26-43d2-4156-95db-8a3161f4601b\", \"toolName\": \"change_bgm\", \"input\": {\"track\": 1}}\n\n",
-      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"adk-9376de26-43d2-4156-95db-8a3161f4601b\", \"output\": {\"success\": true, \"track\": 1, \"message\": \"BGM change to track 1 initiated (frontend handles execution)\"}}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"f2c8d503-819a-4304-b2b3-9bb74fc51b38\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-a7b03df1-f366-4083-b72b-74222d9c77e3\", \"toolName\": \"change_bgm\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-a7b03df1-f366-4083-b72b-74222d9c77e3\", \"toolName\": \"change_bgm\", \"input\": {\"track\": 1}}\n\n",
+      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"adk-a7b03df1-f366-4083-b72b-74222d9c77e3\", \"output\": {\"success\": true, \"track\": 1, \"message\": \"BGM change to track 1 initiated (frontend handles execution)\"}}\n\n",
       "data: {\"type\": \"text-start\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"\\u30c8\\u30e9\\u30c3\\u30af1\\u306b\\u5909\\u66f4\\u3057\\u307e\\u3057\\u305f\\u3002\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"\\u80cc\\u666f\\u97f3\\u697d\\u3092\\u30c8\\u30e9\\u30c3\\u30af1\\u306b\\u5909\\u66f4\\u3057\\u307e\\u3057\\u305f\\u3002\"}\n\n",
       "data: {\"type\": \"text-end\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1921, \"completionTokens\": 5, \"totalTokens\": 1926}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1026, \"completionTokens\": 8, \"totalTokens\": 1034}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
       {
         "type": "start",
-        "messageId": "e8a4ac73-cd2a-4354-8402-dfb29dd40224"
+        "messageId": "f2c8d503-819a-4304-b2b3-9bb74fc51b38"
       },
       {
         "type": "tool-input-start",
-        "toolCallId": "adk-9376de26-43d2-4156-95db-8a3161f4601b",
+        "toolCallId": "adk-a7b03df1-f366-4083-b72b-74222d9c77e3",
         "toolName": "change_bgm"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "adk-9376de26-43d2-4156-95db-8a3161f4601b",
+        "toolCallId": "adk-a7b03df1-f366-4083-b72b-74222d9c77e3",
         "toolName": "change_bgm",
         "input": {
           "track": 1
@@ -46,7 +46,7 @@
       },
       {
         "type": "tool-output-available",
-        "toolCallId": "adk-9376de26-43d2-4156-95db-8a3161f4601b",
+        "toolCallId": "adk-a7b03df1-f366-4083-b72b-74222d9c77e3",
         "output": {
           "success": true,
           "track": 1,
@@ -60,7 +60,7 @@
       {
         "type": "text-delta",
         "id": "0",
-        "delta": "トラック1に変更しました。"
+        "delta": "背景音楽をトラック1に変更しました。"
       },
       {
         "type": "text-end",
@@ -71,9 +71,9 @@
         "finishReason": "stop",
         "messageMetadata": {
           "usage": {
-            "promptTokens": 1921,
-            "completionTokens": 5,
-            "totalTokens": 1926
+            "promptTokens": 1026,
+            "completionTokens": 8,
+            "totalTokens": 1034
           },
           "modelVersion": "gemini-3-flash-preview"
         }

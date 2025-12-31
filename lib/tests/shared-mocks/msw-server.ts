@@ -14,7 +14,7 @@ import { setupServer } from "msw/node";
  *
  * @example
  * ```typescript
- * import { createMswServer } from '@/lib/tests/mocks/msw-server';
+ * import { createMswServer } from '@/lib/tests/shared-mocks/msw-server';
  *
  * const server = createMswServer();
  *

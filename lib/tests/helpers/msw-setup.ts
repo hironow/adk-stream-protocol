@@ -12,7 +12,7 @@
  */
 
 import { afterAll, afterEach, beforeAll } from "vitest";
-import { createMswServer } from "../mocks/msw-server";
+import { createMswServer } from "../shared-mocks/msw-server";
 
 /**
  * Setup MSW server with standard lifecycle hooks.

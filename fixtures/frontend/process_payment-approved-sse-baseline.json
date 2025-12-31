@@ -16,73 +16,74 @@
   },
   "output": {
     "rawEvents": [
-      "data: {\"type\": \"start\", \"messageId\": \"be24e2ec-3846-4658-bf26-7a49b2d50df2\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-e31a3095-94d1-4a79-916c-1dca8892caf0\", \"toolName\": \"process_payment\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-e31a3095-94d1-4a79-916c-1dca8892caf0\", \"toolName\": \"process_payment\", \"input\": {\"amount\": 50, \"currency\": \"USD\", \"recipient\": \"Hanako\"}}\n\n",
-      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"adk-e31a3095-94d1-4a79-916c-1dca8892caf0\", \"approvalId\": \"adk-98f19e8e-d93a-48ee-b781-3e716f506771\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 2500, \"completionTokens\": 28, \"totalTokens\": 2528}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"c425fddc-7572-4e49-ab33-d419e1442b47\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-55864625-834d-431f-8ed7-cda24d100cb4\", \"toolName\": \"process_payment\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-55864625-834d-431f-8ed7-cda24d100cb4\", \"toolName\": \"process_payment\", \"input\": {\"amount\": 50, \"recipient\": \"Hanako\", \"currency\": \"USD\", \"description\": \"Payment to Hanako\"}}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"adk-55864625-834d-431f-8ed7-cda24d100cb4\", \"approvalId\": \"adk-b374b63c-a798-4ceb-a6b1-2a54b6948b27\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1689, \"completionTokens\": 37, \"totalTokens\": 1726}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
       "data: [DONE]\n\n",
-      "data: {\"type\": \"start\", \"messageId\": \"d90dfef0-ba93-43bb-984a-717b17294a2d\"}\n\n",
-      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"adk-e31a3095-94d1-4a79-916c-1dca8892caf0\", \"output\": {\"success\": true, \"transaction_id\": \"txn_acdac64ca0ba\", \"amount\": 50, \"currency\": \"USD\", \"recipient\": \"Hanako\", \"description\": \"\", \"wallet_balance\": 950.0, \"timestamp\": \"2025-12-30T19:54:37.192375+00:00\"}}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"d06dc2d8-5621-4d07-8a4a-b3505cb002a4\"}\n\n",
+      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"adk-55864625-834d-431f-8ed7-cda24d100cb4\", \"output\": {\"success\": true, \"transaction_id\": \"txn_515dbbfbed6d\", \"amount\": 50, \"currency\": \"USD\", \"recipient\": \"Hanako\", \"description\": \"Payment to Hanako\", \"wallet_balance\": 950.0, \"timestamp\": \"2025-12-31T08:03:30.179443+00:00\"}}\n\n",
       "data: {\"type\": \"text-start\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"Hanako\\u3055\\u3093\\u3078\\u306e50\\u30c9\\u30eb\\u306e\\u9001\\u91d1\\u304c\\u5b8c\\u4e86\\u3057\\u307e\\u3057\\u305f\\u3002\\u73fe\\u5728\\u306e\\u30a6\\u30a9\\u30ec\\u30c3\\u30c8\\u6b8b\\u9ad8\\u306f950\\u30c9\\u30eb\\u3067\\u3059\\u3002\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"Hanako\\u3055\\u3093\\u3078\\u306e50\\u30c9\\u30eb\\u306e\\u9001\\u91d1\\u304c\\u5b8c\\u4e86\\u3057\\u307e\\u3057\\u305f\\u3002\\n\\u9001\\u91d1ID\\u306f `txn_515dbbfbed6d` \\u3067\\u3001\\u73fe\\u5728\\u306e\\u30a6\\u30a9\\u30ec\\u30c3\\u30c8\\u6b8b\\u9ad8\\u306f950\\u30c9\\u30eb\\u3067\\u3059\\u3002\"}\n\n",
       "data: {\"type\": \"text-end\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 2624, \"completionTokens\": 26, \"totalTokens\": 2650}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1827, \"completionTokens\": 45, \"totalTokens\": 1872}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
       {
         "type": "start",
-        "messageId": "be24e2ec-3846-4658-bf26-7a49b2d50df2"
+        "messageId": "c425fddc-7572-4e49-ab33-d419e1442b47"
       },
       {
         "type": "tool-input-start",
-        "toolCallId": "adk-e31a3095-94d1-4a79-916c-1dca8892caf0",
+        "toolCallId": "adk-55864625-834d-431f-8ed7-cda24d100cb4",
         "toolName": "process_payment"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "adk-e31a3095-94d1-4a79-916c-1dca8892caf0",
+        "toolCallId": "adk-55864625-834d-431f-8ed7-cda24d100cb4",
         "toolName": "process_payment",
         "input": {
           "amount": 50,
+          "recipient": "Hanako",
           "currency": "USD",
-          "recipient": "Hanako"
+          "description": "Payment to Hanako"
         }
       },
       {
         "type": "tool-approval-request",
-        "toolCallId": "adk-e31a3095-94d1-4a79-916c-1dca8892caf0",
-        "approvalId": "adk-98f19e8e-d93a-48ee-b781-3e716f506771"
+        "toolCallId": "adk-55864625-834d-431f-8ed7-cda24d100cb4",
+        "approvalId": "adk-b374b63c-a798-4ceb-a6b1-2a54b6948b27"
       },
       {
         "type": "finish",
         "finishReason": "stop",
         "messageMetadata": {
           "usage": {
-            "promptTokens": 2500,
-            "completionTokens": 28,
-            "totalTokens": 2528
+            "promptTokens": 1689,
+            "completionTokens": 37,
+            "totalTokens": 1726
           },
           "modelVersion": "gemini-3-flash-preview"
         }
       },
       {
         "type": "start",
-        "messageId": "d90dfef0-ba93-43bb-984a-717b17294a2d"
+        "messageId": "d06dc2d8-5621-4d07-8a4a-b3505cb002a4"
       },
       {
         "type": "tool-output-available",
-        "toolCallId": "adk-e31a3095-94d1-4a79-916c-1dca8892caf0",
+        "toolCallId": "adk-55864625-834d-431f-8ed7-cda24d100cb4",
         "output": {
           "success": true,
-          "transaction_id": "txn_acdac64ca0ba",
+          "transaction_id": "txn_515dbbfbed6d",
           "amount": 50,
           "currency": "USD",
           "recipient": "Hanako",
-          "description": "",
+          "description": "Payment to Hanako",
           "wallet_balance": 950.0,
-          "timestamp": "2025-12-30T19:54:37.192375+00:00"
+          "timestamp": "2025-12-31T08:03:30.179443+00:00"
         }
       },
       {
@@ -92,7 +93,7 @@
       {
         "type": "text-delta",
         "id": "0",
-        "delta": "Hanakoさんへの50ドルの送金が完了しました。現在のウォレット残高は950ドルです。"
+        "delta": "Hanakoさんへの50ドルの送金が完了しました。\n送金IDは `txn_515dbbfbed6d` で、現在のウォレット残高は950ドルです。"
       },
       {
         "type": "text-end",
@@ -103,9 +104,9 @@
         "finishReason": "stop",
         "messageMetadata": {
           "usage": {
-            "promptTokens": 2624,
-            "completionTokens": 26,
-            "totalTokens": 2650
+            "promptTokens": 1827,
+            "completionTokens": 45,
+            "totalTokens": 1872
           },
           "modelVersion": "gemini-3-flash-preview"
         }

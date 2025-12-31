@@ -28,7 +28,7 @@ import {
   createBidiWebSocketLink,
   createCustomHandler,
 } from "../helpers/bidi-ws-handlers";
-import { createMswServer } from "../mocks/msw-server";
+import { createMswServer } from "../shared-mocks/msw-server";
 
 // Helper to extract text from message
 function getMessageText(message: any): string {

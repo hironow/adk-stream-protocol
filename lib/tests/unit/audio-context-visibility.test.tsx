@@ -14,7 +14,7 @@ import {
   vi,
 } from "vitest";
 import { AudioProvider, useAudio } from "../../audio-context";
-import { server } from "../mocks/server";
+import { server } from "../shared-mocks/server";
 
 describe("AudioContext - Tab Visibility Handling", () => {
   let mockAudioContext: any;
