@@ -16,60 +16,60 @@
   },
   "output": {
     "rawEvents": [
-      "data: {\"type\": \"start\", \"messageId\": \"97c0ea62-6226-4ec8-9299-33a5dcfe6158\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-6414fffb-b9f5-42d8-9784-dd412c5ec5d4\", \"toolName\": \"get_location\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-6414fffb-b9f5-42d8-9784-dd412c5ec5d4\", \"toolName\": \"get_location\", \"input\": {}}\n\n",
-      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"adk-6414fffb-b9f5-42d8-9784-dd412c5ec5d4\", \"approvalId\": \"adk-b90646e1-6e61-479c-a345-90ae9726e7a4\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1139, \"completionTokens\": 10, \"totalTokens\": 1149}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"a4a49879-9add-4f8b-a2dc-43201e35b9ab\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-78463abe-95c7-48df-83cb-2f94ce8cbe0f\", \"toolName\": \"get_location\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-78463abe-95c7-48df-83cb-2f94ce8cbe0f\", \"toolName\": \"get_location\", \"input\": {}}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"adk-78463abe-95c7-48df-83cb-2f94ce8cbe0f\", \"approvalId\": \"adk-caa711e3-a28f-4b91-912a-4504ed52e00a\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1143, \"completionTokens\": 10, \"totalTokens\": 1285}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
       "data: [DONE]\n\n",
-      "data: {\"type\": \"start\", \"messageId\": \"a54c3a9e-a93d-4730-af3c-88c2cf13d84c\"}\n\n",
-      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"adk-6414fffb-b9f5-42d8-9784-dd412c5ec5d4\", \"errorText\": \"This tool call is rejected.\"}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"24aeefa9-209d-40d6-89e1-01d7a59617b4\"}\n\n",
+      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"adk-78463abe-95c7-48df-83cb-2f94ce8cbe0f\", \"errorText\": \"This tool call is rejected.\"}\n\n",
       "data: {\"type\": \"text-start\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"\\u7533\\u3057\\u8a33\\u3042\\u308a\\u307e\\u305b\\u3093\\u304c\\u3001\\u4f4d\\u7f6e\\u60c5\\u5831\\u306e\\u53d6\\u5f97\\u304c\\u62d2\\u5426\\u3055\\u308c\\u307e\\u3057\\u305f\\u3002\\u4f4d\\u7f6e\\u60c5\\u5831\\u3092\\u5171\\u6709\\u3059\\u308b\\u306b\\u306f\\u3001\\u30d6\\u30e9\\u30a6\\u30b6\\u3067\\u306e\\u8a31\\u53ef\\u304c\\u5fc5\\u8981\\u3067\\u3059\\u3002\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"\\u4f4d\\u7f6e\\u60c5\\u5831\\u306e\\u53d6\\u5f97\\u304c\\u62d2\\u5426\\u3055\\u308c\\u307e\\u3057\\u305f\\u3002\\u4f4d\\u7f6e\\u60c5\\u5831\\u3092\\u53d6\\u5f97\\u3059\\u308b\\u306b\\u306f\\u3001\\u627f\\u8a8d\\u304c\\u5fc5\\u8981\\u3067\\u3059\\u3002\"}\n\n",
       "data: {\"type\": \"text-end\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1168, \"completionTokens\": 24, \"totalTokens\": 1192}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1304, \"completionTokens\": 16, \"totalTokens\": 1320}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
       {
         "type": "start",
-        "messageId": "97c0ea62-6226-4ec8-9299-33a5dcfe6158"
+        "messageId": "a4a49879-9add-4f8b-a2dc-43201e35b9ab"
       },
       {
         "type": "tool-input-start",
-        "toolCallId": "adk-6414fffb-b9f5-42d8-9784-dd412c5ec5d4",
+        "toolCallId": "adk-78463abe-95c7-48df-83cb-2f94ce8cbe0f",
         "toolName": "get_location"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "adk-6414fffb-b9f5-42d8-9784-dd412c5ec5d4",
+        "toolCallId": "adk-78463abe-95c7-48df-83cb-2f94ce8cbe0f",
         "toolName": "get_location",
         "input": {}
       },
       {
         "type": "tool-approval-request",
-        "toolCallId": "adk-6414fffb-b9f5-42d8-9784-dd412c5ec5d4",
-        "approvalId": "adk-b90646e1-6e61-479c-a345-90ae9726e7a4"
+        "toolCallId": "adk-78463abe-95c7-48df-83cb-2f94ce8cbe0f",
+        "approvalId": "adk-caa711e3-a28f-4b91-912a-4504ed52e00a"
       },
       {
         "type": "finish",
         "finishReason": "stop",
         "messageMetadata": {
           "usage": {
-            "promptTokens": 1139,
+            "promptTokens": 1143,
             "completionTokens": 10,
-            "totalTokens": 1149
+            "totalTokens": 1285
           },
           "modelVersion": "gemini-3-flash-preview"
         }
       },
       {
         "type": "start",
-        "messageId": "a54c3a9e-a93d-4730-af3c-88c2cf13d84c"
+        "messageId": "24aeefa9-209d-40d6-89e1-01d7a59617b4"
       },
       {
         "type": "tool-output-error",
-        "toolCallId": "adk-6414fffb-b9f5-42d8-9784-dd412c5ec5d4",
+        "toolCallId": "adk-78463abe-95c7-48df-83cb-2f94ce8cbe0f",
         "errorText": "This tool call is rejected."
       },
       {
@@ -79,7 +79,7 @@
       {
         "type": "text-delta",
         "id": "0",
-        "delta": "申し訳ありませんが、位置情報の取得が拒否されました。位置情報を共有するには、ブラウザでの許可が必要です。"
+        "delta": "位置情報の取得が拒否されました。位置情報を取得するには、承認が必要です。"
       },
       {
         "type": "text-end",
@@ -90,9 +90,9 @@
         "finishReason": "stop",
         "messageMetadata": {
           "usage": {
-            "promptTokens": 1168,
-            "completionTokens": 24,
-            "totalTokens": 1192
+            "promptTokens": 1304,
+            "completionTokens": 16,
+            "totalTokens": 1320
           },
           "modelVersion": "gemini-3-flash-preview"
         }

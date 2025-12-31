@@ -16,28 +16,31 @@
   },
   "output": {
     "rawEvents": [
-      "data: {\"type\": \"start\", \"messageId\": \"60b84a54-f99f-453c-a4a2-273fec004833\"}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"672098fc-1034-4b04-8445-dce5ce23d61c\"}\n\n",
       "data: {\"type\": \"reasoning-start\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Analyzing Payment Processing**\\n\\nI've homed in on using the `process_payment` tool to handle the user's request to send $200 to \\\"\\u6b21\\u90ce\\u3055\\u3093\\\". I've determined the necessary parameters: `amount` (200), `recipient` (\\\"\\u6b21\\u90ce\\u3055\\u3093\\\"), and `currency` (\\\"USD\\\"). The next step is calling the tool with these details. I'm aware this requires approval, which will be handled by the system based on the execution mode (SSE or BIDI).\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Executing Payment Transfer**\\n\\nI'm ready to proceed with the payment. I've configured the `process_payment` tool with the parameters as requested: $200, recipient \\\"\\u6b21\\u90ce\\u3055\\u3093\\\", and the default currency of USD. It looks like the ADK will handle approval automatically in this SSE context, so I anticipate the function to execute without additional input.\\n\\n\\n\"}\n\n",
       "data: {\"type\": \"reasoning-end\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-15851320410271597140\", \"toolName\": \"process_payment\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-15851320410271597140\", \"toolName\": \"process_payment\", \"input\": {\"recipient\": \"\\u6b21\\u90ce\\u3055\\u3093\", \"amount\": 200, \"currency\": \"USD\"}}\n\n",
+      "data: {\"type\": \"reasoning-start\", \"id\": \"1\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"1\", \"delta\": \"**Processing the Payment Request**\\n\\nI'm now fully prepared to initiate the payment transfer. Based on the user's explicit instructions, the `process_payment` tool is configured. The specified amount is set to $200, the recipient is accurately set to \\\"\\u6b21\\u90ce\\u3055\\u3093,\\\" and the currency defaults to USD, as desired. Given the SSE context, I anticipate the payment to proceed directly, without any need for additional authorization as the ADK handles it. I'm ready to trigger the function.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-end\", \"id\": \"1\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-3585280858373175570\", \"toolName\": \"process_payment\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-3585280858373175570\", \"toolName\": \"process_payment\", \"input\": {\"recipient\": \"\\u6b21\\u90ce\\u3055\\u3093\", \"amount\": 200}}\n\n",
       "data: {\"type\":\"start-step\"}\n\n",
-      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-15851320410271597140\", \"approvalId\": \"adk-edceee35-168d-4d9b-8975-ad9eea5a738a\"}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-3585280858373175570\", \"approvalId\": \"adk-0cc493c8-0b18-4afd-8e59-d10cdb8bf31e\"}\n\n",
       "data: {\"type\":\"finish-step\"}\n\n",
-      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"function-call-15851320410271597140\", \"output\": {\"success\": true, \"transaction_id\": \"txn_ae9f9349f960\", \"amount\": 200, \"currency\": \"USD\", \"recipient\": \"\\u6b21\\u90ce\\u3055\\u3093\", \"description\": \"\", \"wallet_balance\": 800.0, \"timestamp\": \"2025-12-31T08:03:25.596064+00:00\"}}\n\n",
-      "data: {\"type\": \"text-start\", \"id\": \"60b84a54-f99f-453c-a4a2-273fec004833_output_text\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"60b84a54-f99f-453c-a4a2-273fec004833_output_text\", \"delta\": \"\\u6b21\\u90ce\\u3055\\u3093\\u306b200\\u30c9\\u30eb\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"60b84a54-f99f-453c-a4a2-273fec004833_output_text\", \"delta\": \"\\u3092\\u9001\\u91d1\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"60b84a54-f99f-453c-a4a2-273fec004833_output_text\", \"delta\": \"\\u3057\\u307e\\u3057\\u305f\\u3002\"}\n\n",
-      "data: {\"type\": \"text-end\", \"id\": \"60b84a54-f99f-453c-a4a2-273fec004833_output_text\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1655, \"completionTokens\": null, \"totalTokens\": 1715}, \"audio\": {\"chunks\": 31, \"bytes\": 103680, \"sampleRate\": 24000, \"duration\": 2.16}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
+      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"function-call-3585280858373175570\", \"output\": {\"success\": true, \"transaction_id\": \"txn_789df502cb53\", \"amount\": 200, \"currency\": \"USD\", \"recipient\": \"\\u6b21\\u90ce\\u3055\\u3093\", \"description\": \"\", \"wallet_balance\": 800.0, \"timestamp\": \"2025-12-31T14:11:11.704585+00:00\"}}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"672098fc-1034-4b04-8445-dce5ce23d61c_output_text\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"672098fc-1034-4b04-8445-dce5ce23d61c_output_text\", \"delta\": \"\\u6b21\\u90ce\\u3055\\u3093\\u306b200\\u30c9\\u30eb\\u306e\\u9001\\u91d1\\u51e6\\u7406\\u304c\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"672098fc-1034-4b04-8445-dce5ce23d61c_output_text\", \"delta\": \"\\u5b8c\\u4e86\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"672098fc-1034-4b04-8445-dce5ce23d61c_output_text\", \"delta\": \"\\u3057\\u307e\\u3057\\u305f\\u3002\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"672098fc-1034-4b04-8445-dce5ce23d61c_output_text\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1620, \"completionTokens\": null, \"totalTokens\": 1695}, \"audio\": {\"chunks\": 49, \"bytes\": 138240, \"sampleRate\": 24000, \"duration\": 2.88}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
       {
         "type": "start",
-        "messageId": "60b84a54-f99f-453c-a4a2-273fec004833"
+        "messageId": "672098fc-1034-4b04-8445-dce5ce23d61c"
       },
       {
         "type": "reasoning-start",
@@ -46,25 +49,37 @@
       {
         "type": "reasoning-delta",
         "id": "0",
-        "delta": "**Analyzing Payment Processing**\n\nI've homed in on using the `process_payment` tool to handle the user's request to send $200 to \"次郎さん\". I've determined the necessary parameters: `amount` (200), `recipient` (\"次郎さん\"), and `currency` (\"USD\"). The next step is calling the tool with these details. I'm aware this requires approval, which will be handled by the system based on the execution mode (SSE or BIDI).\n\n\n"
+        "delta": "**Executing Payment Transfer**\n\nI'm ready to proceed with the payment. I've configured the `process_payment` tool with the parameters as requested: $200, recipient \"次郎さん\", and the default currency of USD. It looks like the ADK will handle approval automatically in this SSE context, so I anticipate the function to execute without additional input.\n\n\n"
       },
       {
         "type": "reasoning-end",
         "id": "0"
       },
       {
+        "type": "reasoning-start",
+        "id": "1"
+      },
+      {
+        "type": "reasoning-delta",
+        "id": "1",
+        "delta": "**Processing the Payment Request**\n\nI'm now fully prepared to initiate the payment transfer. Based on the user's explicit instructions, the `process_payment` tool is configured. The specified amount is set to $200, the recipient is accurately set to \"次郎さん,\" and the currency defaults to USD, as desired. Given the SSE context, I anticipate the payment to proceed directly, without any need for additional authorization as the ADK handles it. I'm ready to trigger the function.\n\n\n"
+      },
+      {
+        "type": "reasoning-end",
+        "id": "1"
+      },
+      {
         "type": "tool-input-start",
-        "toolCallId": "function-call-15851320410271597140",
+        "toolCallId": "function-call-3585280858373175570",
         "toolName": "process_payment"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "function-call-15851320410271597140",
+        "toolCallId": "function-call-3585280858373175570",
         "toolName": "process_payment",
         "input": {
           "recipient": "次郎さん",
-          "amount": 200,
-          "currency": "USD"
+          "amount": 200
         }
       },
       {
@@ -72,63 +87,63 @@
       },
       {
         "type": "tool-approval-request",
-        "toolCallId": "function-call-15851320410271597140",
-        "approvalId": "adk-edceee35-168d-4d9b-8975-ad9eea5a738a"
+        "toolCallId": "function-call-3585280858373175570",
+        "approvalId": "adk-0cc493c8-0b18-4afd-8e59-d10cdb8bf31e"
       },
       {
         "type": "finish-step"
       },
       {
         "type": "tool-output-available",
-        "toolCallId": "function-call-15851320410271597140",
+        "toolCallId": "function-call-3585280858373175570",
         "output": {
           "success": true,
-          "transaction_id": "txn_ae9f9349f960",
+          "transaction_id": "txn_789df502cb53",
           "amount": 200,
           "currency": "USD",
           "recipient": "次郎さん",
           "description": "",
           "wallet_balance": 800.0,
-          "timestamp": "2025-12-31T08:03:25.596064+00:00"
+          "timestamp": "2025-12-31T14:11:11.704585+00:00"
         }
       },
       {
         "type": "text-start",
-        "id": "60b84a54-f99f-453c-a4a2-273fec004833_output_text"
+        "id": "672098fc-1034-4b04-8445-dce5ce23d61c_output_text"
       },
       {
         "type": "text-delta",
-        "id": "60b84a54-f99f-453c-a4a2-273fec004833_output_text",
-        "delta": "次郎さんに200ドル"
+        "id": "672098fc-1034-4b04-8445-dce5ce23d61c_output_text",
+        "delta": "次郎さんに200ドルの送金処理が"
       },
       {
         "type": "text-delta",
-        "id": "60b84a54-f99f-453c-a4a2-273fec004833_output_text",
-        "delta": "を送金"
+        "id": "672098fc-1034-4b04-8445-dce5ce23d61c_output_text",
+        "delta": "完了"
       },
       {
         "type": "text-delta",
-        "id": "60b84a54-f99f-453c-a4a2-273fec004833_output_text",
+        "id": "672098fc-1034-4b04-8445-dce5ce23d61c_output_text",
         "delta": "しました。"
       },
       {
         "type": "text-end",
-        "id": "60b84a54-f99f-453c-a4a2-273fec004833_output_text"
+        "id": "672098fc-1034-4b04-8445-dce5ce23d61c_output_text"
       },
       {
         "type": "finish",
         "finishReason": "stop",
         "messageMetadata": {
           "usage": {
-            "promptTokens": 1655,
+            "promptTokens": 1620,
             "completionTokens": null,
-            "totalTokens": 1715
+            "totalTokens": 1695
           },
           "audio": {
-            "chunks": 31,
-            "bytes": 103680,
+            "chunks": 49,
+            "bytes": 138240,
             "sampleRate": 24000,
-            "duration": 2.16
+            "duration": 2.88
           },
           "modelVersion": "gemini-2.5-flash-native-audio-preview-12-2025"
         }

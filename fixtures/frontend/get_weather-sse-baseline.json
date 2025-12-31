@@ -16,29 +16,29 @@
   },
   "output": {
     "rawEvents": [
-      "data: {\"type\": \"start\", \"messageId\": \"cb364800-43d9-43d1-a142-d2fc6f62d635\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-fbac076c-71da-480b-a115-3fe3877dc15c\", \"toolName\": \"get_weather\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-fbac076c-71da-480b-a115-3fe3877dc15c\", \"toolName\": \"get_weather\", \"input\": {\"location\": \"Tokyo\"}}\n\n",
-      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"adk-fbac076c-71da-480b-a115-3fe3877dc15c\", \"output\": {\"temperature\": 10.2, \"condition\": \"Clouds\", \"description\": \"broken clouds\", \"humidity\": 44, \"feels_like\": 8.4, \"wind_speed\": 4.12, \"cached\": true}}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"89100d22-f6af-4308-bab3-63de5c0e72f3\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-c714fc8a-e7ff-4bcb-9783-956a3bf29ebc\", \"toolName\": \"get_weather\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-c714fc8a-e7ff-4bcb-9783-956a3bf29ebc\", \"toolName\": \"get_weather\", \"input\": {\"location\": \"Tokyo\"}}\n\n",
+      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"adk-c714fc8a-e7ff-4bcb-9783-956a3bf29ebc\", \"output\": {\"temperature\": 10.2, \"condition\": \"Clouds\", \"description\": \"broken clouds\", \"humidity\": 44, \"feels_like\": 8.4, \"wind_speed\": 4.12, \"cached\": true}}\n\n",
       "data: {\"type\": \"text-start\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"\\u73fe\\u5728\\u306e\\u6771\\u4eac\\u306e\\u5929\\u6c17\\u306f\\u66c7\\u308a\\u3067\\u3001\\u6c17\\u6e29\\u306f10.2\\u5ea6\\uff08\\u4f53\\u611f\\u6e29\\u5ea68.4\\u5ea6\\uff09\\u3067\\u3059\\u3002\\u6e7f\\u5ea6\\u306f44\\uff05\\u3001\\u98a8\\u901f\\u306f4.12m/s\\u3068\\u306a\\u3063\\u3066\\u3044\\u307e\\u3059\\u3002\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"\\u6771\\u4eac\\u306e\\u73fe\\u5728\\u306e\\u5929\\u6c17\\u306f\\u66c7\\u308a\\uff08broken clouds\\uff09\\u3067\\u3001\\u6c17\\u6e29\\u306f10.2\\u5ea6\\uff08\\u4f53\\u611f\\u6e29\\u5ea68.4\\u5ea6\\uff09\\u3067\\u3059\\u3002\\u6e7f\\u5ea6\\u306f44%\\u3001\\u98a8\\u901f\\u306f4.12m/s\\u3067\\u3059\\u3002\"}\n\n",
       "data: {\"type\": \"text-end\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1269, \"completionTokens\": 44, \"totalTokens\": 1313}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1306, \"completionTokens\": 48, \"totalTokens\": 1354}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
       {
         "type": "start",
-        "messageId": "cb364800-43d9-43d1-a142-d2fc6f62d635"
+        "messageId": "89100d22-f6af-4308-bab3-63de5c0e72f3"
       },
       {
         "type": "tool-input-start",
-        "toolCallId": "adk-fbac076c-71da-480b-a115-3fe3877dc15c",
+        "toolCallId": "adk-c714fc8a-e7ff-4bcb-9783-956a3bf29ebc",
         "toolName": "get_weather"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "adk-fbac076c-71da-480b-a115-3fe3877dc15c",
+        "toolCallId": "adk-c714fc8a-e7ff-4bcb-9783-956a3bf29ebc",
         "toolName": "get_weather",
         "input": {
           "location": "Tokyo"
@@ -46,7 +46,7 @@
       },
       {
         "type": "tool-output-available",
-        "toolCallId": "adk-fbac076c-71da-480b-a115-3fe3877dc15c",
+        "toolCallId": "adk-c714fc8a-e7ff-4bcb-9783-956a3bf29ebc",
         "output": {
           "temperature": 10.2,
           "condition": "Clouds",
@@ -64,7 +64,7 @@
       {
         "type": "text-delta",
         "id": "0",
-        "delta": "現在の東京の天気は曇りで、気温は10.2度（体感温度8.4度）です。湿度は44％、風速は4.12m/sとなっています。"
+        "delta": "東京の現在の天気は曇り（broken clouds）で、気温は10.2度（体感温度8.4度）です。湿度は44%、風速は4.12m/sです。"
       },
       {
         "type": "text-end",
@@ -75,9 +75,9 @@
         "finishReason": "stop",
         "messageMetadata": {
           "usage": {
-            "promptTokens": 1269,
-            "completionTokens": 44,
-            "totalTokens": 1313
+            "promptTokens": 1306,
+            "completionTokens": 48,
+            "totalTokens": 1354
           },
           "modelVersion": "gemini-3-flash-preview"
         }

@@ -125,7 +125,8 @@
       "Bash(pnpm exec playwright:*)",
       "Bash(pnpm playwright test:*)",
       "Bash(pnpm test:e2e:lib:*)",
-      "Bash(pnpm run test:components)"
+      "Bash(pnpm run test:components)",
+      "Bash(ls:*)"
     ],
     "deny": [
       "Read(.env.keys)",
