@@ -99,12 +99,14 @@ export function buildUseChatOptions({
     : "http://localhost:8000",
   forceNewInstance = false,
   audioContext,
+  apiEndpoint,
 }: {
   mode: Mode;
   initialMessages: UIMessageFromAISDKv6[];
   adkBackendUrl?: string;
   forceNewInstance?: boolean;
   audioContext?: AudioContextValue;
+  apiEndpoint?: string;
 }): UseChatOptionsWithTransport {
   // E2E Test Mode Detection: Check localStorage for ChunkPlayerTransport mode
   // This allows E2E tests to replay pre-recorded responses deterministically
@@ -176,6 +178,7 @@ export function buildUseChatOptions({
         initialMessages,
         adkBackendUrl,
         forceNewInstance,
+        apiEndpoint,
       });
 
     case "gemini":
@@ -183,6 +186,7 @@ export function buildUseChatOptions({
         mode: "gemini",
         initialMessages,
         forceNewInstance,
+        apiEndpoint,
       });
 
     default: {

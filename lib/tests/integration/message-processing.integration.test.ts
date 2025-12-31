@@ -29,9 +29,17 @@ const server = setupMswServer();
 describe("Message Processing Integration Tests", () => {
   describe("Basic Message Send/Receive", () => {
     it.each([
-      { mode: "gemini" as const, endpoint: "http://localhost/api/chat" },
-      { mode: "adk-sse" as const, endpoint: "http://localhost:8000/stream" },
-    ])("$mode: should handle text message correctly", async ({ mode, endpoint }) => {
+      {
+        mode: "gemini" as const,
+        endpoint: "http://localhost/api/chat",
+        config: { apiEndpoint: "http://localhost/api/chat" },
+      },
+      {
+        mode: "adk-sse" as const,
+        endpoint: "http://localhost:8000/stream",
+        config: {},
+      },
+    ])("$mode: should handle text message correctly", async ({ mode, endpoint, config }) => {
       // given
       let capturedPayload: unknown = null;
 
@@ -45,7 +53,7 @@ describe("Message Processing Integration Tests", () => {
       const { useChatOptions } = buildUseChatOptions({
         mode,
         initialMessages: [],
-        ...(mode === "gemini" && { apiEndpoint: "http://localhost/api/chat" }),
+        ...config,
       });
 
       const messages: UIMessageFromAISDKv6[] = [
@@ -102,9 +110,17 @@ describe("Message Processing Integration Tests", () => {
 
   describe("Multi-turn Conversation", () => {
     it.each([
-      { mode: "gemini" as const, endpoint: "http://localhost/api/chat" },
-      { mode: "adk-sse" as const, endpoint: "http://localhost:8000/stream" },
-    ])("$mode: should send conversation history", async ({ mode, endpoint }) => {
+      {
+        mode: "gemini" as const,
+        endpoint: "http://localhost/api/chat",
+        config: { apiEndpoint: "http://localhost/api/chat" },
+      },
+      {
+        mode: "adk-sse" as const,
+        endpoint: "http://localhost:8000/stream",
+        config: {},
+      },
+    ])("$mode: should send conversation history", async ({ mode, endpoint, config }) => {
       // given
       let capturedPayload: unknown = null;
 
@@ -118,7 +134,7 @@ describe("Message Processing Integration Tests", () => {
       const { useChatOptions } = buildUseChatOptions({
         mode,
         initialMessages: [],
-        ...(mode === "gemini" && { apiEndpoint: "http://localhost/api/chat" }),
+        ...config,
       });
 
       // Multi-turn conversation
@@ -186,9 +202,17 @@ describe("Message Processing Integration Tests", () => {
 
   describe("Empty and Edge Cases", () => {
     it.each([
-      { mode: "gemini" as const, endpoint: "http://localhost/api/chat" },
-      { mode: "adk-sse" as const, endpoint: "http://localhost:8000/stream" },
-    ])("$mode: should handle empty assistant response", async ({ mode, endpoint }) => {
+      {
+        mode: "gemini" as const,
+        endpoint: "http://localhost/api/chat",
+        config: { apiEndpoint: "http://localhost/api/chat" },
+      },
+      {
+        mode: "adk-sse" as const,
+        endpoint: "http://localhost:8000/stream",
+        config: {},
+      },
+    ])("$mode: should handle empty assistant response", async ({ mode, endpoint, config }) => {
       // given
       server.use(
         http.post(endpoint, async () => {
@@ -199,7 +223,7 @@ describe("Message Processing Integration Tests", () => {
       const { useChatOptions } = buildUseChatOptions({
         mode,
         initialMessages: [],
-        ...(mode === "gemini" && { apiEndpoint: "http://localhost/api/chat" }),
+        ...config,
       });
 
       const messages: UIMessageFromAISDKv6[] = [
@@ -233,9 +257,17 @@ describe("Message Processing Integration Tests", () => {
     });
 
     it.each([
-      { mode: "gemini" as const, endpoint: "http://localhost/api/chat" },
-      { mode: "adk-sse" as const, endpoint: "http://localhost:8000/stream" },
-    ])("$mode: should handle whitespace-only messages", async ({ mode, endpoint }) => {
+      {
+        mode: "gemini" as const,
+        endpoint: "http://localhost/api/chat",
+        config: { apiEndpoint: "http://localhost/api/chat" },
+      },
+      {
+        mode: "adk-sse" as const,
+        endpoint: "http://localhost:8000/stream",
+        config: {},
+      },
+    ])("$mode: should handle whitespace-only messages", async ({ mode, endpoint, config }) => {
       // given
       let capturedPayload: unknown = null;
 
@@ -249,7 +281,7 @@ describe("Message Processing Integration Tests", () => {
       const { useChatOptions } = buildUseChatOptions({
         mode,
         initialMessages: [],
-        ...(mode === "gemini" && { apiEndpoint: "http://localhost/api/chat" }),
+        ...config,
       });
 
       const messages: UIMessageFromAISDKv6[] = [
@@ -291,9 +323,17 @@ describe("Message Processing Integration Tests", () => {
 
   describe("Response Chunking", () => {
     it.each([
-      { mode: "gemini" as const, endpoint: "http://localhost/api/chat" },
-      { mode: "adk-sse" as const, endpoint: "http://localhost:8000/stream" },
-    ])("$mode: should correctly stream multi-chunk response", async ({ mode, endpoint }) => {
+      {
+        mode: "gemini" as const,
+        endpoint: "http://localhost/api/chat",
+        config: { apiEndpoint: "http://localhost/api/chat" },
+      },
+      {
+        mode: "adk-sse" as const,
+        endpoint: "http://localhost:8000/stream",
+        config: {},
+      },
+    ])("$mode: should correctly stream multi-chunk response", async ({ mode, endpoint, config }) => {
       // given
       server.use(
         http.post(endpoint, async () => {
@@ -304,7 +344,7 @@ describe("Message Processing Integration Tests", () => {
       const { useChatOptions } = buildUseChatOptions({
         mode,
         initialMessages: [],
-        ...(mode === "gemini" && { apiEndpoint: "http://localhost/api/chat" }),
+        ...config,
       });
 
       const messages: UIMessageFromAISDKv6[] = [

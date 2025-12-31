@@ -134,7 +134,7 @@ export function buildBidiUseChatOptions({
   // while reusing the same instance for the same endpoint across re-renders
   const endpointHash = wsUrl.replace(/[^a-zA-Z0-9]/g, "-");
   const chatId = forceNewInstance
-    ? `chat-adk-bidi-${endpointHash}-${Date.now()}`
+    ? `chat-adk-bidi-${endpointHash}-${crypto.randomUUID()}`
     : `chat-adk-bidi-${endpointHash}`;
 
   // Create WebSocket transport with optional audio context for voice mode

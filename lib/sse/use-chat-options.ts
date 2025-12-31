@@ -120,7 +120,7 @@ export function buildSseUseChatOptions({
   // This ensures a new Chat instance is created when the endpoint changes
   const endpointHash = endpoint.replace(/[^a-zA-Z0-9]/g, "-");
   const chatId = forceNewInstance
-    ? `chat-${mode}-${endpointHash}-${Date.now()}`
+    ? `chat-${mode}-${endpointHash}-${crypto.randomUUID()}`
     : `chat-${mode}-${endpointHash}`;
 
   // WORKAROUND: Use prepareSendMessagesRequest to override endpoint
