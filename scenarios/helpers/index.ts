@@ -241,7 +241,7 @@ export async function clearHistory(page: Page) {
       await expect(page.getByText("Start a conversation...")).toBeVisible({
         timeout: 10000,
       });
-    } catch (error) {
+    } catch (_error) {
       console.warn(
         'Empty state message "Start a conversation..." not found after clearing history. This may be expected if the UI changed.',
       );
@@ -661,6 +661,7 @@ export async function analyzeChunkLogConsistency(
   frontendEvents: number;
   backendAdkExists: boolean;
   backendSseExists: boolean;
+  frontendExists: boolean;
   toolCalls: Array<{
     toolCallId: string;
     toolName: string;
@@ -776,7 +777,15 @@ export async function analyzeChunkLogConsistency(
   }));
 
   // Check consistency
+  // Skip adk_request_confirmation - it's an internal tool intentionally filtered from SSE/Frontend
+  // Per ADR 0002: adk_request_confirmation only appears in Backend ADK events,
+  // but is converted to tool-approval-request in SSE (not tool-input-*)
   for (const toolCall of toolCalls) {
+    // Skip internal tools that are intentionally not exposed to SSE/Frontend
+    if (toolCall.toolName === "adk_request_confirmation") {
+      continue;
+    }
+
     if (!toolCall.foundInBackendAdk) {
       errors.push(
         `Tool call ${toolCall.toolCallId} (${toolCall.toolName}) missing in backend ADK events`,
@@ -794,12 +803,15 @@ export async function analyzeChunkLogConsistency(
     }
   }
 
+  const frontendExists = fs.existsSync(frontendLogPath);
+
   return {
     backendAdkEvents: backendAdkEvents.length,
     backendSseEvents: backendSseEvents.length,
     frontendEvents: frontendEvents.length,
     backendAdkExists,
     backendSseExists,
+    frontendExists,
     toolCalls,
     isConsistent: errors.length === 0,
     errors,
