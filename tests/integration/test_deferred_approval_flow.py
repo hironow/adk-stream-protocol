@@ -66,7 +66,7 @@ class DeferredApprovalPlugin(BasePlugin):
         tool_context: ToolContext,
     ) -> dict | None:
         """
-        Intercept test_approval_tool calls and send pending FunctionResponse with will_continue=True.
+        Intercept approval_test_tool calls and send pending FunctionResponse with will_continue=True.
 
         Returns pending dict to skip actual tool execution.
         """
@@ -75,11 +75,11 @@ class DeferredApprovalPlugin(BasePlugin):
         )
         logger.info(f"[Plugin] before_tool_callback triggered for tool: {tool.name}")
 
-        if tool.name != "test_approval_tool":
-            logger.info("[Plugin] Not test_approval_tool, returning None for normal execution")
+        if tool.name != "approval_test_tool":
+            logger.info("[Plugin] Not approval_test_tool, returning None for normal execution")
             return None  # Normal execution for other tools
 
-        logger.info("[Plugin] MATCHED test_approval_tool! Intercepting...")
+        logger.info("[Plugin] MATCHED approval_test_tool! Intercepting...")
 
         # Access InvocationContext to get LiveRequestQueue
         invocation_context = tool_context._invocation_context  # type: ignore
@@ -145,7 +145,7 @@ class DeferredApprovalPlugin(BasePlugin):
         }
 
 
-def test_approval_tool(message: str) -> dict:
+def approval_test_tool(message: str) -> dict:
     """
     Minimal test tool that requires approval.
 
@@ -158,7 +158,7 @@ def test_approval_tool(message: str) -> dict:
     Returns:
         dict: Pending status indicating approval is required
     """
-    logger.info(f"[test_approval_tool] Called with message: {message}")
+    logger.info(f"[approval_test_tool] Called with message: {message}")
     # Return pending status - LongRunningFunctionTool will handle this
     return {
         "status": "pending",
@@ -167,7 +167,7 @@ def test_approval_tool(message: str) -> dict:
     }
 
 
-async def test_approval_tool_blocking(message: str, tool_context: ToolContext) -> dict:
+async def approval_test_tool_blocking(message: str, tool_context: ToolContext) -> dict:
     """
     EXPERIMENT: BLOCKING mode tool that waits for approval inside the function.
 
@@ -181,8 +181,8 @@ async def test_approval_tool_blocking(message: str, tool_context: ToolContext) -
     Returns:
         dict: Final result after approval (approved or denied)
     """
-    logger.info(f"[test_approval_tool_blocking] Called with message: {message}")
-    logger.info("[test_approval_tool_blocking] Tool will now WAIT for approval...")
+    logger.info(f"[approval_test_tool_blocking] Called with message: {message}")
+    logger.info("[approval_test_tool_blocking] Tool will now WAIT for approval...")
 
     tool_call_id = tool_context.function_call_id
 
@@ -190,7 +190,7 @@ async def test_approval_tool_blocking(message: str, tool_context: ToolContext) -
     approval_queue = tool_context.session.state.get("approval_queue")
 
     if not approval_queue:
-        logger.error("[test_approval_tool_blocking] No approval_queue in session state!")
+        logger.error("[approval_test_tool_blocking] No approval_queue in session state!")
         return {
             "status": "error",
             "message": "approval_queue not configured",
@@ -198,14 +198,14 @@ async def test_approval_tool_blocking(message: str, tool_context: ToolContext) -
 
     # Register this tool call for approval
     approval_queue.request_approval(
-        tool_call_id, "test_approval_tool_blocking", {"message": message}
+        tool_call_id, "approval_test_tool_blocking", {"message": message}
     )
-    logger.info(f"[test_approval_tool_blocking] Registered approval request for {tool_call_id}")
+    logger.info(f"[approval_test_tool_blocking] Registered approval request for {tool_call_id}")
 
     # ⭐ KEY EXPERIMENT: await inside BLOCKING tool function
     try:
         approval_result = await approval_queue.wait_for_approval(tool_call_id, timeout=10.0)
-        logger.info(f"[test_approval_tool_blocking] ✓ Approval received: {approval_result}")
+        logger.info(f"[approval_test_tool_blocking] ✓ Approval received: {approval_result}")
 
         if approval_result.approved:
             return {
@@ -220,7 +220,7 @@ async def test_approval_tool_blocking(message: str, tool_context: ToolContext) -
             }
 
     except TimeoutError:
-        logger.error("[test_approval_tool_blocking] ❌ Timeout waiting for approval")
+        logger.error("[approval_test_tool_blocking] ❌ Timeout waiting for approval")
         return {
             "status": "timeout",
             "message": "Approval request timed out",
@@ -230,20 +230,20 @@ async def test_approval_tool_blocking(message: str, tool_context: ToolContext) -
 # Create FunctionDeclaration with NON_BLOCKING behavior using from_callable_with_api_option
 # This allows will_continue field to work properly
 test_approval_declaration_non_blocking = types.FunctionDeclaration.from_callable_with_api_option(
-    callable=test_approval_tool,
+    callable=approval_test_tool,
     api_option="GEMINI_API",
     behavior=types.Behavior.NON_BLOCKING,  # Enable multi-response pattern
 )
 
 # EXPERIMENT: Create BLOCKING version to test if tool can await inside
 test_approval_declaration_blocking = types.FunctionDeclaration.from_callable_with_api_option(
-    callable=test_approval_tool,
+    callable=approval_test_tool,
     api_option="GEMINI_API",
     behavior=types.Behavior.BLOCKING,  # Tool can block and wait for approval
 )
 
 # Wrap tool with FunctionTool using the custom declaration
-TEST_APPROVAL_TOOL = FunctionTool(test_approval_tool)
+TEST_APPROVAL_TOOL = FunctionTool(approval_test_tool)
 # Override the declaration with our NON_BLOCKING version
 TEST_APPROVAL_TOOL._declaration = test_approval_declaration_non_blocking
 # TEMPORARILY DISABLED: Testing if is_long_running interferes with plugin callbacks
@@ -256,7 +256,7 @@ test_agent = Agent(
     description="Minimal test agent for deferred approval flow testing",
     instruction=(
         "You are a test assistant. When the user asks you to process a message, "
-        "call the test_approval_tool function. You MUST use the tool - do not just describe what you would do."
+        "call the approval_test_tool function. You MUST use the tool - do not just describe what you would do."
     ),
     tools=[TEST_APPROVAL_TOOL],  # type: ignore[list-item]
 )
@@ -356,7 +356,7 @@ async def deferred_tool_execution(
             logger.info("=" * 60)
 
             # Execute actual processing (not the pending-status-returning tool function)
-            if tool_name == "test_approval_tool":
+            if tool_name == "approval_test_tool":
                 message_to_process = args.get("message", "")
                 result = {
                     "success": True,
@@ -472,7 +472,7 @@ async def test_deferred_approval_flow_approved():
         description="Fresh test agent for deferred approval flow testing with plugin",
         instruction=(
             "You are a test assistant. When the user asks you to process a message, "
-            "call the test_approval_tool function. You MUST use the tool - do not just describe what you would do."
+            "call the approval_test_tool function. You MUST use the tool - do not just describe what you would do."
         ),
         tools=[TEST_APPROVAL_TOOL],  # type: ignore[list-item]
     )
@@ -532,7 +532,7 @@ async def test_deferred_approval_flow_approved():
         # - Then sends final FunctionResponse with will_continue=False after approval
         #
         # Test Strategy:
-        # - Plugin's before_tool_callback intercepts test_approval_tool
+        # - Plugin's before_tool_callback intercepts approval_test_tool
         # - Sends pending response immediately
         # - Deferred execution task sends final result after approval
 

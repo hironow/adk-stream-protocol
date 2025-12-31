@@ -169,43 +169,9 @@ class TestServerOutputStructure:
             expected_structure = extract_structure(expected)
             assert actual_structure == expected_structure, f"Event {i} structure mismatch"
 
-    @pytest.mark.skip(
-        reason="Multi-turn approval flow requires complete message history - tested in complete match tests"
-    )
-    def test_get_location_approved_sse_structure_matches_baseline(self):
-        """Server output structure for get_location approval should match baseline."""
-        # Given: Frontend baseline fixture with approval flow
-        frontend_fixture = load_frontend_fixture("get_location-approved-sse-baseline.json")
-
-        # When: Send request to server
-        with TestClient(app) as client:
-            response = client.post(
-                "/stream",
-                json={
-                    "messages": frontend_fixture["input"]["messages"],
-                    "mode": "adk-sse",
-                },
-                headers={"Accept": "text/event-stream"},
-            )
-
-        # Then: Response should be successful
-        assert response.status_code == 200
-
-        # And: Parse chunks
-        actual_chunks = parse_sse_to_chunks(response.text)
-        expected_chunks = frontend_fixture["output"]["expectedChunks"]
-        actual_chunks_without_done = [c for c in actual_chunks if c.get("type") != "DONE"]
-
-        # And: Structures should match (excluding DONE)
-        assert len(actual_chunks_without_done) == len(expected_chunks)
-        for i, (actual, expected) in enumerate(
-            zip(actual_chunks_without_done, expected_chunks, strict=False)
-        ):
-            actual_structure = extract_structure(actual)
-            expected_structure = extract_structure(expected)
-            assert actual_structure == expected_structure, (
-                f"Event {i} structure mismatch in approval flow"
-            )
+    # test_get_location_approved_sse_structure_matches_baseline removed
+    # Reason: Multi-turn approval flow requires complete message history
+    # This is better tested in complete match tests, not structure-only tests
 
 
 class TestEventSequencePatterns:
