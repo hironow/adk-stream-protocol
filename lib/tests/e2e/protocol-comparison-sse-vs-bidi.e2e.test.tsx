@@ -9,13 +9,18 @@
  * - Response flow: Backend → Frontend (unidirectional)
  *
  * BIDI Protocol:
- * - Tool approval: Frontend calls addToolApprovalResponse() → sends user message with tool-result
- * - Tool execution: Backend receives user message → executes tool → returns tool-output-available
+ * - Tool approval: Frontend calls addToolApprovalResponse() → updates assistant message state
+ * - sendAutomaticallyWhen detects approval-responded → triggers message send
+ * - Tool execution: Backend receives updated messages → executes tool → returns tool-output-available
  * - Response flow: Backend ↔ Frontend (bidirectional)
  *
  * Key Difference:
  * - SSE: addToolOutput() is a direct API call
- * - BIDI: addToolApprovalResponse() creates a user message with tool-result parts
+ * - BIDI: addToolApprovalResponse() updates assistant message state, sendAutomaticallyWhen triggers send
+ *
+ * NOTE: In both protocols, addToolApprovalResponse() modifies the existing ASSISTANT
+ * message's tool part state from "approval-requested" to "approval-responded".
+ * No new user message is created - the role remains "assistant".
  *
  * This test verifies both protocols handle the same scenario correctly
  * but with different message structures.
@@ -153,7 +158,7 @@ describe("Protocol Comparison: SSE vs BIDI (ADR 0003)", () => {
     expect(result.current.messages).toBeDefined();
   });
 
-  it("BIDI Protocol: Creates user message with tool-result parts for approval", async () => {
+  it("BIDI Protocol: Updates assistant message state for approval", async () => {
     // Given: BIDI mode backend
     const chat = createBidiWebSocketLink();
     let approvalMessageReceived = false;
@@ -194,28 +199,39 @@ describe("Protocol Comparison: SSE vs BIDI (ADR 0003)", () => {
             return;
           }
 
-          // Turn 2: Approval response as USER MESSAGE (BIDI protocol)
+          // Turn 2: Approval response - assistant message with updated state (BIDI protocol)
+          // NOTE: addToolApprovalResponse() updates the EXISTING assistant message's
+          // tool part state, it does NOT create a new user message
           if (
             msg.type === "message" &&
             msg.messages &&
-            msg.messages[msg.messages.length - 1].parts?.some(
-              (p: any) =>
-                p.type === "tool-process_payment" &&
-                p.state === "approval-responded" &&
-                p.approval?.id === "approval-1",
+            msg.messages.some((m: any) =>
+              m.parts?.some(
+                (p: any) =>
+                  p.type === "tool-process_payment" &&
+                  p.state === "approval-responded" &&
+                  p.approval?.id === "approval-1",
+              ),
             )
           ) {
             console.log(
-              "[BIDI Mock Server] ✓ Received approval as USER MESSAGE (BIDI protocol)",
+              "[BIDI Mock Server] ✓ Received approval in updated assistant message (BIDI protocol)",
             );
             approvalMessageReceived = true;
 
-            // Verify message structure
-            const lastMessage = msg.messages[msg.messages.length - 1];
-            expect(lastMessage.role).toBe("user"); // BIDI: approval is a user message
-            expect(lastMessage.parts).toBeDefined();
+            // Verify message structure - find the message with the approval
+            const approvalMsg = msg.messages.find((m: any) =>
+              m.parts?.some(
+                (p: any) =>
+                  p.type === "tool-process_payment" &&
+                  p.state === "approval-responded",
+              ),
+            );
+            // BIDI: approval updates the existing assistant message, not a new user message
+            expect(approvalMsg.role).toBe("assistant");
+            expect(approvalMsg.parts).toBeDefined();
             expect(
-              lastMessage.parts.some(
+              approvalMsg.parts.some(
                 (p: any) =>
                   p.type === "tool-process_payment" &&
                   p.state === "approval-responded",
@@ -223,7 +239,7 @@ describe("Protocol Comparison: SSE vs BIDI (ADR 0003)", () => {
             ).toBe(true);
 
             console.log(
-              "[BIDI Mock Server] ✓ Verified: approval sent as user message with tool-result parts",
+              "[BIDI Mock Server] ✓ Verified: approval updated assistant message state",
             );
 
             // Send final response
@@ -280,8 +296,6 @@ describe("Protocol Comparison: SSE vs BIDI (ADR 0003)", () => {
       (p: any) => p.type === "tool-process_payment",
     );
 
-    const messageCountBefore = result.current.messages.length;
-
     await act(async () => {
       result.current.addToolApprovalResponse({
         id: tool?.approval?.id,
@@ -289,58 +303,75 @@ describe("Protocol Comparison: SSE vs BIDI (ADR 0003)", () => {
       });
     });
 
-    // Verify BIDI protocol: approval creates a new user message
+    // Verify BIDI protocol: approval updates existing assistant message state
+    // Wait for the state to change from approval-requested (either to approval-responded
+    // or to output-available if the backend responds quickly)
     await waitFor(
       () => {
-        return result.current.messages.length > messageCountBefore;
+        const lastMsg =
+          result.current.messages[result.current.messages.length - 1];
+        const tool = lastMsg?.parts?.find(
+          (p: any) => p.type === "tool-process_payment",
+        );
+        // State progresses: approval-requested → approval-responded → output-available
+        return (
+          tool?.state === "approval-responded" ||
+          tool?.state === "output-available"
+        );
       },
       { timeout: 2000 },
     );
 
     console.log(
-      "[BIDI Protocol] ✓ New user message created (BIDI protocol difference)",
+      "[BIDI Protocol] ✓ Assistant message state updated after approval",
     );
 
+    // Find the message with the tool - state may have advanced to output-available
     const approvalMessage = result.current.messages.find((msg) =>
       msg.parts?.some(
         (p: any) =>
           p.type === "tool-process_payment" &&
-          p.state === "approval-responded",
+          (p.state === "approval-responded" || p.state === "output-available"),
       ),
     );
     expect(approvalMessage).toBeDefined();
-    expect(approvalMessage?.role).toBe("user");
+    // BIDI: approval updates the existing assistant message, not a new user message
+    expect(approvalMessage?.role).toBe("assistant");
 
     console.log(
-      "[BIDI Protocol] ✓ Approval message has role='user' with tool-result parts",
+      "[BIDI Protocol] ✓ Approval message has role='assistant' with updated tool state",
     );
 
     // Wait for backend to confirm receipt
     await waitFor(() => approvalMessageReceived, { timeout: 5000 });
 
     console.log(
-      "[BIDI Protocol] ✅ PASSED - Verified bidirectional user message protocol",
+      "[BIDI Protocol] ✅ PASSED - Verified bidirectional message state update protocol",
     );
   });
 
-  it("Protocol Comparison Summary: SSE API call vs BIDI user message", () => {
+  it("Protocol Comparison Summary: SSE API call vs BIDI message state update", () => {
     /**
      * Protocol Difference Summary:
      *
      * SSE Protocol (Unidirectional):
      * - addToolApprovalResponse() → HTTP POST /stream
-     * - No user message created
+     * - Updates existing assistant message's tool state
      * - Backend receives approval via API call
      * - Response: Backend → Frontend
      *
      * BIDI Protocol (Bidirectional):
-     * - addToolApprovalResponse() → Creates user message with tool-result
-     * - User message sent via WebSocket
-     * - Backend receives approval as user message
+     * - addToolApprovalResponse() → Updates assistant message state
+     * - sendAutomaticallyWhen detects approval-responded → triggers WebSocket send
+     * - Backend receives updated messages (with assistant message containing approved tool)
      * - Response: Backend ↔ Frontend (bidirectional)
      *
+     * KEY INSIGHT: In BOTH protocols, addToolApprovalResponse() modifies the
+     * existing ASSISTANT message's tool part state. No new user message is created.
+     * The message role remains "assistant" in both cases.
+     *
      * This test file demonstrates both protocols handle the same
-     * approval scenario but with fundamentally different message structures.
+     * approval scenario by updating the assistant message state.
      */
     expect(true).toBe(true); // Summary test - no execution needed
   });
