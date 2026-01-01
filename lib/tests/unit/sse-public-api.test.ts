@@ -62,7 +62,9 @@ describe("lib/sse Public API", () => {
       {
         name: "creates options with forced new instance",
         config: { mode: "gemini", initialMessages: [], forceNewInstance: true },
-        expectedChatId: /^chat-gemini--api-chat-\d+$/,
+        // UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+        expectedChatId:
+          /^chat-gemini--api-chat-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
         expectSendAuto: false,
       },
     ])("$name", ({ config, expectedChatId, expectSendAuto }) => {

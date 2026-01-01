@@ -93,7 +93,9 @@ describe("lib/bidi Public API", () => {
       {
         name: "creates options with forced new instance",
         config: { initialMessages: [], forceNewInstance: true },
-        expectedChatId: /^chat-adk-bidi-ws---localhost-8000-live-\d+$/,
+        // UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+        expectedChatId:
+          /^chat-adk-bidi-ws---localhost-8000-live-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
       },
     ])("$name", ({ config, expectedChatId }) => {
       // when
