@@ -1,8 +1,8 @@
 # Project Status Report - 2026-01-01
 
 **Date:** 2026-01-01
-**Updated:** 2026-01-02 (Fail 0 Achieved)
-**Status:** 🟢 All Major Phases Complete | ✅ Fail 0 Achieved
+**Updated:** 2026-01-02 (Vitest Fail 0 Achieved)
+**Status:** 🟢 All Major Phases Complete | ✅ Vitest Fail 0 Achieved
 
 ---
 
@@ -15,6 +15,11 @@ Phase 1-5.3 まで全て完了し、包括的なテストカバレッジと明�
 - 147 passed, 0 failed, 19 skipped
 - フレイキーなテストは `.skip` でマーク（理由をコメントで明記）
 
+**🎉 2026-01-02: Vitest で fail 0 を達成！**
+- 701 passed, 0 failed, 2 skipped
+- Protocol comparison test fixed (ADR 0003 BIDI behavior clarification)
+- UUID regex expectations fixed for forceNewInstance tests
+
 ### 🎯 Key Achievements
 
 1. **✅ Multi-Approval Testing (Phase 1)**: Backend E2E 6/6, Frontend E2E 2/2, Playwright 6/6 完了
@@ -24,9 +29,12 @@ Phase 1-5.3 まで全て完了し、包括的なテストカバレッジと明�
 5. **✅ Test Pyramid Rebalancing (Phase 5)**:
    - Phase 5.1 & 5.2: Scenario consolidation 完了
    - Phase 5.3: Integration test creation (+52 tests) 完了
-6. **✅ Fail 0 Achievement (2026-01-02)**:
+6. **✅ Playwright Fail 0 Achievement (2026-01-02)**:
    - Chunk-logger file handle issue fixed
    - Flaky tests properly skipped with documentation
+7. **✅ Vitest Fail 0 Achievement (2026-01-02)**:
+   - Protocol comparison test fixed (expected "user" role but "assistant" is correct)
+   - UUID regex patterns fixed for forceNewInstance tests
 
 ### 📊 Test Statistics
 
@@ -48,6 +56,11 @@ Phase 1-5.3 まで全て完了し、包括的なテストカバレッジと明�
 - Before: 20 tests (2 Vitest + 7 Python E2E + 11 Playwright)
 - After: 13 tests (2 Vitest + 0 Python E2E + 11 Playwright)
 - **Reduction**: -7 tests (Python E2E fixture-less tests deleted)
+
+**Current Test Counts (2026-01-02):**
+- Vitest: 701 passed, 0 failed, 2 skipped
+- Playwright Scenarios: 147 passed, 0 failed, 19 skipped
+- Python pytest (unit/integration): 334 passed, 0 failed
 
 ---
 

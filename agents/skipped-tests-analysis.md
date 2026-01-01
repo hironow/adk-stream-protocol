@@ -14,10 +14,13 @@
 
 **Update (2026-01-02):**
 - ✅ Achieved fail 0 for Playwright scenarios (147 passed, 0 failed)
+- ✅ Achieved fail 0 for Vitest (701 passed, 0 failed, 2 skipped)
 - ✅ Added 3 new skipped tests for flaky/non-deterministic behavior:
   - `visual-regression.spec.ts:79` - AI response non-deterministic
   - `visual-regression.spec.ts:264` - AI response non-deterministic
   - `multi-tool-execution.spec.ts:398` - BIDI WebSocket init timing
+- ✅ Fixed protocol comparison test (incorrect role expectation "user" → "assistant")
+- ✅ Fixed UUID regex for forceNewInstance tests in bidi/sse public API tests
 
 **Update (2026-01-01):**
 - ✅ Python E2E tests (7 tests) with missing fixtures have been deleted
