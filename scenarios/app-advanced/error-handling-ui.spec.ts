@@ -90,16 +90,19 @@ test.describe("Error Handling UI (Advanced)", () => {
     );
     await page.waitForTimeout(5000);
 
-    // Approve if needed
-    const approveButton = await page
-      .locator('button:has-text("Approve"), button:has-text("approve")')
-      .count();
-    if (approveButton > 0) {
-      await page
+    // Approve if needed - use try/catch to handle race condition
+    // where button may disappear between visibility check and click
+    try {
+      const approveButton = page
         .locator('button:has-text("Approve"), button:has-text("approve")')
-        .first()
-        .click();
-      await page.waitForTimeout(5000);
+        .first();
+      if (await approveButton.isVisible()) {
+        await approveButton.click({ timeout: 5000 });
+        await page.waitForTimeout(5000);
+      }
+    } catch {
+      // Button may have disappeared - this is OK for error handling test
+      console.log("Approve button not available or already handled");
     }
 
     // Then: Error handled, can continue
