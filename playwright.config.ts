@@ -132,7 +132,7 @@ export default defineConfig({
       stdout: "pipe",
       stderr: "pipe",
       // Pass environment variables from .env.local to backend server
-      env: process.env,
+      env: process.env as any,
     },
     {
       command: "pnpm dev",
@@ -142,7 +142,7 @@ export default defineConfig({
       stdout: "pipe",
       stderr: "pipe",
       // Pass environment variables from .env.local to frontend server
-      env: process.env,
+      env: process.env as any,
     },
   ],
 

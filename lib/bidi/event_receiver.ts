@@ -106,7 +106,7 @@ export class EventReceiver {
    */
   public reset(): void {
     this.doneReceived = false;
-    this.waitingForFinishAfterApproval = false;
+    this.waitingForFinishStepAfterApproval = false;
     this.audioChunkIndex = 0;
     this.pcmBuffer = [];
     // this.currentController = null;
@@ -196,9 +196,9 @@ export class EventReceiver {
     }
 
     // Additional debug logging for specific event types
-    if (chunk.type === "tool-approval-request") {
+    if ((chunk as any).type === "tool-approval-request") {
       console.log(
-        `[Event Receiver]   └─ APPROVAL REQUEST for ${recipient}: approvalId=${chunk.approvalId}, toolCallId=${chunk.toolCallId}`,
+        `[Event Receiver]   └─ APPROVAL REQUEST for ${recipient}: approvalId=${(chunk as any).approvalId}, toolCallId=${(chunk as any).toolCallId}`,
       );
     }
 
@@ -254,8 +254,8 @@ export class EventReceiver {
 
     // Special handling for finish event with audio: inject recorded audio BEFORE finish
     if (
-      chunk.type === "finish" &&
-      chunk.messageMetadata?.audio &&
+      (chunk as any).type === "finish" &&
+      (chunk as any).messageMetadata?.audio &&
       this.pcmBuffer.length > 0
     ) {
       this.injectRecordedAudio(controller);
@@ -272,7 +272,7 @@ export class EventReceiver {
         err.code === "ERR_INVALID_STATE"
       ) {
         console.warn(
-          `[Event Receiver] Controller already closed, skipping chunk: ${chunk.type}`,
+          `[Event Receiver] Controller already closed, skipping chunk: ${(chunk as any).type}`,
         );
         return;
       }
@@ -350,7 +350,7 @@ export class EventReceiver {
     // SPECIAL HANDLING: PCM audio chunks (ADK BIDI mode)
     if (chunk.type === "data-pcm") {
       console.info("[Audio Stream] Received PCM audio chunk");
-      this.handlePCMAudioChunk(chunk);
+      this.handlePCMAudioChunk(chunk as PCMAudioChunk);
       return true; // Skip standard enqueue
     }
 

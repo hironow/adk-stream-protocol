@@ -8,7 +8,6 @@ export default defineConfig({
     setupFiles: ["./vitest.setup.ts"],
     // Suppress console output during tests to reduce noise
     silent: false, // Set to true to completely suppress console output
-    logLevel: "error", // Only show errors, suppress log/warn/info
     exclude: [
       "**/node_modules/**",
       "**/dist/**",

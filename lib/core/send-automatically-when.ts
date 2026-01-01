@@ -23,7 +23,7 @@ import {
 
 export interface SendAutomaticallyWhenOptions {
   messages: UIMessageFromAISDKv6[];
-  mode?: "bidi" | "sse"; // Optional mode for state separation
+  mode?: "bidi" | "sse" | "unknown"; // Optional mode for state separation
 }
 
 // Infinite loop prevention: Track approval states already sent
