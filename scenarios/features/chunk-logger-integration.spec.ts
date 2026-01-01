@@ -47,14 +47,16 @@ const SESSION_ID =
 test.describe
   .serial("Chunk Logger Integration Tests", () => {
     test.beforeEach(async ({ page }) => {
+      // Given: User navigates to chat first (needed for API requests)
+      await navigateToChat(page);
+
       // Clear backend chunk logs from previous runs
-      clearBackendChunkLogs(SESSION_ID);
+      // IMPORTANT: This calls /clear-sessions to close file handles BEFORE deleting files
+      // Without this, writes go to "ghost" file descriptors (deleted but open inodes)
+      await clearBackendChunkLogs(page, SESSION_ID);
 
       // Setup frontend console logger (use same SESSION_ID as backend)
       setupFrontendConsoleLogger(page, SESSION_ID);
-
-      // Given: User navigates to chat and enables chunk logger
-      await navigateToChat(page);
 
       // Enable chunk logger with dedicated session ID
       await enableChunkLogger(page, SESSION_ID);

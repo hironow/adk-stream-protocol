@@ -264,10 +264,10 @@ export async function clearHistory(page: Page) {
 }
 
 /**
- * Clear backend chunk log files for a specific session
- * This ensures tests start with clean backend logs
+ * Internal: Delete chunk log files from disk
+ * Does NOT close backend file handles - use clearBackendChunkLogs() instead
  */
-export function clearBackendChunkLogs(sessionId: string) {
+function deleteChunkLogFiles(sessionId: string) {
   // Clear backend logs in chunk_logs/{sessionId}/
   const backendLogDir = path.join(process.cwd(), "chunk_logs", sessionId);
 
@@ -295,6 +295,37 @@ export function clearBackendChunkLogs(sessionId: string) {
       }
     }
   }
+}
+
+/**
+ * Clear backend chunk log files for a specific session
+ * This ensures tests start with clean backend logs
+ *
+ * IMPORTANT: Must call /clear-sessions BEFORE deleting files to close
+ * cached file handles. Otherwise the backend continues writing to
+ * deleted file descriptors (invisible on disk).
+ *
+ * @param page - Playwright page for making API requests
+ * @param sessionId - Session ID for log files
+ */
+export async function clearBackendChunkLogs(page: Page, sessionId: string) {
+  // Step 1: Close backend file handles via /clear-sessions endpoint
+  // This is CRITICAL - without this, file handles remain open after deletion
+  // and writes go to "ghost" file descriptors (deleted but open inodes)
+  try {
+    await page.request.post("http://localhost:8000/clear-sessions");
+    // Give the server a moment to actually close the handles
+    await page.waitForTimeout(100);
+  } catch (error) {
+    console.warn(
+      "Failed to call /clear-sessions before clearing logs:",
+      error,
+    );
+    // Continue anyway - files may still be deleted, but handles may leak
+  }
+
+  // Step 2: Delete the files from disk
+  deleteChunkLogFiles(sessionId);
 }
 
 /**
