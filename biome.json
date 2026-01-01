@@ -15,7 +15,7 @@
       "!!**/output",
       "!!**/preprocessed",
       "!!**/public/**/*.js",
-      "!!**/e2e/fixtures/**/*.js",
+      "!!**/scenarios/fixtures/**/*.js",
       "!!**/pnpm-lock.yaml"
     ]
   },

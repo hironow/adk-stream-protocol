@@ -12,6 +12,7 @@ Verify that `scripts/check-coverage.py` analyzes the correct files for ADK field
 ### 1. Event Field Analysis → `stream_protocol.py` + `server.py`
 
 **Targets**:
+
 - `stream_protocol.py` (ADK → AI SDK v6 protocol conversion)
 - `server.py` (SSE endpoint and WebSocket handler)
 
@@ -20,6 +21,7 @@ Verify that `scripts/check-coverage.py` analyzes the correct files for ADK field
 **Verification Result**: ✅ **CORRECT** (Updated 2025-12-14)
 
 **Evidence**:
+
 ```bash
 $ grep -r "hasattr(event" --include="*.py" . | grep -v ".venv" | grep -v "__pycache__"
 # Results: stream_protocol.py and server.py access event fields
@@ -28,6 +30,7 @@ $ grep -r "hasattr(event" --include="*.py" . | grep -v ".venv" | grep -v "__pyca
 **Pattern Examples Found**:
 
 **stream_protocol.py**:
+
 - `hasattr(event, "error_code")` (line 181)
 - `hasattr(event, "content")` (line 184)
 - `hasattr(event, "turn_complete")` (line 185)
@@ -35,6 +38,7 @@ $ grep -r "hasattr(event" --include="*.py" . | grep -v ".venv" | grep -v "__pyca
 - `hasattr(event, "grounding_metadata")` (line 744)
 
 **server.py**:
+
 - `hasattr(part, "text")` and `part.text` (line 480)
 - Used in `stream_agent_chat_simple()` to collect final response text
 
@@ -50,17 +54,20 @@ $ grep -r "hasattr(event" --include="*.py" . | grep -v ".venv" | grep -v "__pyca
 **Verification Result**: ✅ **CORRECT**
 
 **Evidence**:
+
 ```bash
 $ grep -r "chunk\.type ===" --include="*.ts" --include="*.tsx" lib/
 # Result: Only websocket-chat-transport.ts checks event types
 ```
 
 **Pattern Examples Found**:
+
 - `chunk.type === "finish"` (lines 120, 376)
 - `chunk.type === "data-pcm"` (line 218)
 - Switch cases for custom events
 
 **Conclusion**: `lib/websocket-chat-transport.ts` is the **only** frontend file that explicitly checks AI SDK event types. This is correct because:
+
 - Standard events (text-*, tool-*, etc.) are delegated to `useChat`
 - Only custom events need explicit handling in the transport layer
 
@@ -73,6 +80,7 @@ $ grep -r "chunk\.type ===" --include="*.ts" --include="*.tsx" lib/
 #### `ai_sdk_v6_compat.py` - ❌ Excluded
 
 **Reason**: Performs **reverse conversion** (AI SDK v6 → ADK)
+
 - Reads AI SDK v6 Part fields: `part.text`, `part.data`, `part.media_type`, `part.filename`, `part.url`
 - Reads AI SDK v6 ToolUsePart fields: `part.tool_call_id`, `part.state`, `part.approval`, `part.output`
 - **Creates** ADK Part objects: `types.Part(text=...)`, `types.Part(inline_data=...)`
@@ -82,6 +90,7 @@ $ grep -r "chunk\.type ===" --include="*.ts" --include="*.tsx" lib/
 #### `tool_delegate.py` - ❌ Not Analyzed
 
 **Reason**: Does not access ADK Event/Part fields
+
 - Only manages tool call state with `tool_call_id` and `result` dicts
 - No direct ADK Event/Part field access
 
@@ -92,11 +101,13 @@ $ grep -r "chunk\.type ===" --include="*.ts" --include="*.tsx" lib/
 ### 4. Other Frontend Files Do Not Directly Handle Events
 
 **Files Checked**:
+
 - `components/message.tsx`: Processes **message parts** after conversion by `useChat` (not raw events)
 - `lib/audio-context.tsx`: Handles **AudioWorklet messages** (not AI SDK events)
 - `lib/build-use-chat-options.ts`: Configures useChat transport (no event handling)
 
 **Evidence**:
+
 ```bash
 $ grep -n "chunk\|event\|streamPart" components/message.tsx
 # Result: Only documentation comments referencing events, no actual event type checking
@@ -141,6 +152,7 @@ UI Components: message.tsx, audio-context.tsx
 ```
 
 Legend / 凡例:
+
 - Backend: バックエンド
 - Frontend: フロントエンド
 - React Hooks: Reactフック
@@ -171,6 +183,7 @@ just check-coverage-validate
 
 **Verified by**: Claude Code
 **Verification Method**:
+
 1. Grep search for event field access patterns
 2. Grep search for event type checking patterns
 3. Manual code review of related files
@@ -203,8 +216,9 @@ just check-coverage-validate
    - After: ✅ PASSED (all warnings resolved)
 
 **Updated Files**:
+
 - `scripts/check-coverage.py`:
-  - ADKAnalyzer now accepts multiple file paths
-  - Default targets: `stream_protocol.py`, `server.py`
-  - Improved regex patterns for accurate field detection
-  - Added file list to coverage report output
+    - ADKAnalyzer now accepts multiple file paths
+    - Default targets: `stream_protocol.py`, `server.py`
+    - Improved regex patterns for accurate field detection
+    - Added file list to coverage report output

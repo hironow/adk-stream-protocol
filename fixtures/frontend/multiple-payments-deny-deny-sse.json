@@ -1,0 +1,136 @@
+{
+  "description": "SSE mode baseline - Parallel process_payment with BOTH DENIED (Alice denied, Bob denied)",
+  "mode": "sse",
+  "source": "Backend E2E test capture",
+  "scenario": "User requests two parallel payments (Alice 30ドル, Bob 40ドル) in single message - both denied. Tests all-denied approval handling.",
+  "note": "This fixture captures deny×deny pattern: (1) Initial request with 2 tool-approval-requests [DONE], (2) Both denied with 2 tool executions (both errors) [DONE]. Verifies backend and AI correctly handle case where all approvals are denied.",
+  "input": {
+    "messages": [
+      {
+        "role": "user",
+        "content": "Aliceに30ドル、Bobに40ドル送金してください"
+      }
+    ],
+    "trigger": "submit-message"
+  },
+  "output": {
+    "rawEvents": [
+      "data: {\"type\": \"start\", \"messageId\": \"6b45e7d2-119f-43e9-a0ca-4f906444cb72\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-ad8f4073-d844-49d3-889e-f63d5d5d2799\", \"toolName\": \"process_payment\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-ad8f4073-d844-49d3-889e-f63d5d5d2799\", \"toolName\": \"process_payment\", \"input\": {\"recipient\": \"Alice\", \"currency\": \"USD\", \"amount\": 30}}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-79f44b94-13fd-46b0-95e4-2be300148ec9\", \"toolName\": \"process_payment\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-79f44b94-13fd-46b0-95e4-2be300148ec9\", \"toolName\": \"process_payment\", \"input\": {\"amount\": 40, \"recipient\": \"Bob\", \"currency\": \"USD\"}}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"adk-ad8f4073-d844-49d3-889e-f63d5d5d2799\", \"approvalId\": \"adk-43cc4dac-a808-4946-a52d-863a37ed64db\"}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"adk-79f44b94-13fd-46b0-95e4-2be300148ec9\", \"approvalId\": \"adk-aca1a4e5-1c11-4887-beb3-a0fb22a20156\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 2059, \"completionTokens\": 54, \"totalTokens\": 2144}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: [DONE]\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"2f1f4ead-1ce4-4dc3-b0ae-1580a18583c6\"}\n\n",
+      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"adk-ad8f4073-d844-49d3-889e-f63d5d5d2799\", \"errorText\": \"This tool call is rejected.\"}\n\n",
+      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"adk-79f44b94-13fd-46b0-95e4-2be300148ec9\", \"errorText\": \"This tool call is rejected.\"}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"0\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"Alice\\u3078\\u306e30\\u30c9\\u30eb\\u306e\\u9001\\u91d1\\u3068\\u3001Bob\\u3078\\u306e40\\u30c9\\u30eb\\u306e\\u9001\\u91d1\\u306f\\u3001\\u3044\\u305a\\u308c\\u3082\\u627f\\u8a8d\\u3055\\u308c\\u306a\\u304b\\u3063\\u305f\\u305f\\u3081\\u5b9f\\u884c\\u3055\\u308c\\u307e\\u305b\\u3093\\u3067\\u3057\\u305f\\u3002\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"0\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 2180, \"completionTokens\": 30, \"totalTokens\": 2210}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: [DONE]\n\n"
+    ],
+    "expectedChunks": [
+      {
+        "type": "start",
+        "messageId": "6b45e7d2-119f-43e9-a0ca-4f906444cb72"
+      },
+      {
+        "type": "tool-input-start",
+        "toolCallId": "adk-ad8f4073-d844-49d3-889e-f63d5d5d2799",
+        "toolName": "process_payment"
+      },
+      {
+        "type": "tool-input-available",
+        "toolCallId": "adk-ad8f4073-d844-49d3-889e-f63d5d5d2799",
+        "toolName": "process_payment",
+        "input": {
+          "recipient": "Alice",
+          "currency": "USD",
+          "amount": 30
+        }
+      },
+      {
+        "type": "tool-input-start",
+        "toolCallId": "adk-79f44b94-13fd-46b0-95e4-2be300148ec9",
+        "toolName": "process_payment"
+      },
+      {
+        "type": "tool-input-available",
+        "toolCallId": "adk-79f44b94-13fd-46b0-95e4-2be300148ec9",
+        "toolName": "process_payment",
+        "input": {
+          "amount": 40,
+          "recipient": "Bob",
+          "currency": "USD"
+        }
+      },
+      {
+        "type": "tool-approval-request",
+        "toolCallId": "adk-ad8f4073-d844-49d3-889e-f63d5d5d2799",
+        "approvalId": "adk-43cc4dac-a808-4946-a52d-863a37ed64db"
+      },
+      {
+        "type": "tool-approval-request",
+        "toolCallId": "adk-79f44b94-13fd-46b0-95e4-2be300148ec9",
+        "approvalId": "adk-aca1a4e5-1c11-4887-beb3-a0fb22a20156"
+      },
+      {
+        "type": "finish",
+        "finishReason": "stop",
+        "messageMetadata": {
+          "usage": {
+            "promptTokens": 2059,
+            "completionTokens": 54,
+            "totalTokens": 2144
+          },
+          "modelVersion": "gemini-3-flash-preview"
+        }
+      },
+      {
+        "type": "start",
+        "messageId": "2f1f4ead-1ce4-4dc3-b0ae-1580a18583c6"
+      },
+      {
+        "type": "tool-output-error",
+        "toolCallId": "adk-ad8f4073-d844-49d3-889e-f63d5d5d2799",
+        "errorText": "This tool call is rejected."
+      },
+      {
+        "type": "tool-output-error",
+        "toolCallId": "adk-79f44b94-13fd-46b0-95e4-2be300148ec9",
+        "errorText": "This tool call is rejected."
+      },
+      {
+        "type": "text-start",
+        "id": "0"
+      },
+      {
+        "type": "text-delta",
+        "id": "0",
+        "delta": "Aliceへの30ドルの送金と、Bobへの40ドルの送金は、いずれも承認されなかったため実行されませんでした。"
+      },
+      {
+        "type": "text-end",
+        "id": "0"
+      },
+      {
+        "type": "finish",
+        "finishReason": "stop",
+        "messageMetadata": {
+          "usage": {
+            "promptTokens": 2180,
+            "completionTokens": 30,
+            "totalTokens": 2210
+          },
+          "modelVersion": "gemini-3-flash-preview"
+        }
+      }
+    ],
+    "expectedDoneCount": 2,
+    "expectedStreamCompletion": true
+  }
+}

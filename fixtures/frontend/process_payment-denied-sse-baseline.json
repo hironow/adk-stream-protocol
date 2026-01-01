@@ -1,0 +1,109 @@
+{
+  "description": "SSE mode baseline - process_payment with denial flow (MULTI-REQUEST: confirmation + rejection)",
+  "mode": "sse",
+  "source": "Backend E2E test capture",
+  "scenario": "User denies process_payment tool call - complete flow from confirmation request to rejection",
+  "note": "This fixture captures TWO separate HTTP requests: (1) Initial request ending with confirmation [DONE], (2) Denial response ending with rejection [DONE].",
+  "input": {
+    "messages": [
+      {
+        "id": "msg-1",
+        "role": "user",
+        "content": "次郎さんに200ドル送金してください"
+      }
+    ],
+    "trigger": "submit-message"
+  },
+  "output": {
+    "rawEvents": [
+      "data: {\"type\": \"start\", \"messageId\": \"3b22027d-284c-4cb3-9df8-0a7cbb4641ff\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-36c8db33-818d-46a4-b770-3d577d8f9fc1\", \"toolName\": \"process_payment\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-36c8db33-818d-46a4-b770-3d577d8f9fc1\", \"toolName\": \"process_payment\", \"input\": {\"currency\": \"USD\", \"description\": \"Payment to Jiro\", \"recipient\": \"\\u6b21\\u90ce\", \"amount\": 200}}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"adk-36c8db33-818d-46a4-b770-3d577d8f9fc1\", \"approvalId\": \"adk-0640a074-c783-478b-84ea-a5126db20d95\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1884, \"completionTokens\": 38, \"totalTokens\": 1922}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: [DONE]\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"8906ab39-5524-40f3-9bc0-7804cdf33652\"}\n\n",
+      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"adk-36c8db33-818d-46a4-b770-3d577d8f9fc1\", \"errorText\": \"This tool call is rejected.\"}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"0\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"\\u7533\\u3057\\u8a33\\u3042\\u308a\\u307e\\u305b\\u3093\\u304c\\u3001\\u6b21\\u90ce\\u3055\\u3093\\u3078\\u306e\\u9001\\u91d1\\u30ea\\u30af\\u30a8\\u30b9\\u30c8\\u306f\\u62d2\\u5426\\u3055\\u308c\\u307e\\u3057\\u305f\\u3002\\u9001\\u91d1\\u3092\\u5b8c\\u4e86\\u3059\\u308b\\u306b\\u306f\\u627f\\u8a8d\\u304c\\u5fc5\\u8981\\u3067\\u3059\\u3002\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"0\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1941, \"completionTokens\": 25, \"totalTokens\": 1966}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: [DONE]\n\n"
+    ],
+    "expectedChunks": [
+      {
+        "type": "start",
+        "messageId": "3b22027d-284c-4cb3-9df8-0a7cbb4641ff"
+      },
+      {
+        "type": "tool-input-start",
+        "toolCallId": "adk-36c8db33-818d-46a4-b770-3d577d8f9fc1",
+        "toolName": "process_payment"
+      },
+      {
+        "type": "tool-input-available",
+        "toolCallId": "adk-36c8db33-818d-46a4-b770-3d577d8f9fc1",
+        "toolName": "process_payment",
+        "input": {
+          "currency": "USD",
+          "description": "Payment to Jiro",
+          "recipient": "次郎",
+          "amount": 200
+        }
+      },
+      {
+        "type": "tool-approval-request",
+        "toolCallId": "adk-36c8db33-818d-46a4-b770-3d577d8f9fc1",
+        "approvalId": "adk-0640a074-c783-478b-84ea-a5126db20d95"
+      },
+      {
+        "type": "finish",
+        "finishReason": "stop",
+        "messageMetadata": {
+          "usage": {
+            "promptTokens": 1884,
+            "completionTokens": 38,
+            "totalTokens": 1922
+          },
+          "modelVersion": "gemini-3-flash-preview"
+        }
+      },
+      {
+        "type": "start",
+        "messageId": "8906ab39-5524-40f3-9bc0-7804cdf33652"
+      },
+      {
+        "type": "tool-output-error",
+        "toolCallId": "adk-36c8db33-818d-46a4-b770-3d577d8f9fc1",
+        "errorText": "This tool call is rejected."
+      },
+      {
+        "type": "text-start",
+        "id": "0"
+      },
+      {
+        "type": "text-delta",
+        "id": "0",
+        "delta": "申し訳ありませんが、次郎さんへの送金リクエストは拒否されました。送金を完了するには承認が必要です。"
+      },
+      {
+        "type": "text-end",
+        "id": "0"
+      },
+      {
+        "type": "finish",
+        "finishReason": "stop",
+        "messageMetadata": {
+          "usage": {
+            "promptTokens": 1941,
+            "completionTokens": 25,
+            "totalTokens": 1966
+          },
+          "modelVersion": "gemini-3-flash-preview"
+        }
+      }
+    ],
+    "expectedDoneCount": 2,
+    "expectedStreamCompletion": true
+  }
+}

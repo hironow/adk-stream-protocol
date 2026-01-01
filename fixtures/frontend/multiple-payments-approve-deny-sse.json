@@ -1,0 +1,145 @@
+{
+  "description": "SSE mode baseline - Parallel process_payment with MIXED approval (Alice approved, Bob denied)",
+  "mode": "sse",
+  "source": "Backend E2E test capture",
+  "scenario": "User requests two parallel payments (Alice 30ドル, Bob 40ドル) in single message - Alice approved, Bob denied. Tests mixed approval handling.",
+  "note": "This fixture captures approve×deny pattern: (1) Initial request with 2 tool-approval-requests [DONE], (2) Alice approved + Bob denied with 2 tool executions (1 success + 1 error) [DONE]. Verifies backend and AI correctly handle mixed approval scenarios.",
+  "input": {
+    "messages": [
+      {
+        "role": "user",
+        "content": "Aliceに30ドル、Bobに40ドル送金してください"
+      }
+    ],
+    "trigger": "submit-message"
+  },
+  "output": {
+    "rawEvents": [
+      "data: {\"type\": \"start\", \"messageId\": \"e61175e9-0b99-4fba-a15c-78fa1e493531\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-c9d46a43-4991-42e1-9855-cb587ace01eb\", \"toolName\": \"process_payment\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-c9d46a43-4991-42e1-9855-cb587ace01eb\", \"toolName\": \"process_payment\", \"input\": {\"recipient\": \"Alice\", \"amount\": 30, \"currency\": \"USD\"}}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-b9e4ccd8-8d7d-40c0-b822-20ae1a825ee6\", \"toolName\": \"process_payment\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-b9e4ccd8-8d7d-40c0-b822-20ae1a825ee6\", \"toolName\": \"process_payment\", \"input\": {\"recipient\": \"Bob\", \"amount\": 40, \"currency\": \"USD\"}}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"adk-c9d46a43-4991-42e1-9855-cb587ace01eb\", \"approvalId\": \"adk-04200ba5-6d97-4953-89d8-34e723d273f9\"}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"adk-b9e4ccd8-8d7d-40c0-b822-20ae1a825ee6\", \"approvalId\": \"adk-efb3af13-fa02-483f-8b3d-2e95aa56aab7\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1593, \"completionTokens\": 54, \"totalTokens\": 1647}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: [DONE]\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"8f1bc0a4-e0be-4538-bb8a-be44ce081773\"}\n\n",
+      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"adk-c9d46a43-4991-42e1-9855-cb587ace01eb\", \"output\": {\"success\": true, \"transaction_id\": \"txn_3d2ef36fcd31\", \"amount\": 30, \"currency\": \"USD\", \"recipient\": \"Alice\", \"description\": \"\", \"wallet_balance\": 970.0, \"timestamp\": \"2025-12-31T14:25:11.141874+00:00\"}}\n\n",
+      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"adk-b9e4ccd8-8d7d-40c0-b822-20ae1a825ee6\", \"errorText\": \"This tool call is rejected.\"}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"0\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"Alice\\u3078\\u306e30\\u30c9\\u30eb\\u306e\\u9001\\u91d1\\u304c\\u5b8c\\u4e86\\u3057\\u307e\\u3057\\u305f\\uff08\\u53d6\\u5f15ID: txn_3d2ef36fcd31\\uff09\\u3002Bob\\u3078\\u306e40\\u30c9\\u30eb\\u306e\\u9001\\u91d1\\u306b\\u3064\\u3044\\u3066\\u306f\\u3001\\u627f\\u8a8d\\u304c\\u5f97\\u3089\\u308c\\u306a\\u304b\\u3063\\u305f\\u305f\\u3081\\u5b9f\\u884c\\u3055\\u308c\\u307e\\u305b\\u3093\\u3067\\u3057\\u305f\\u3002\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"0\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1762, \"completionTokens\": 47, \"totalTokens\": 1809}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: [DONE]\n\n"
+    ],
+    "expectedChunks": [
+      {
+        "type": "start",
+        "messageId": "e61175e9-0b99-4fba-a15c-78fa1e493531"
+      },
+      {
+        "type": "tool-input-start",
+        "toolCallId": "adk-c9d46a43-4991-42e1-9855-cb587ace01eb",
+        "toolName": "process_payment"
+      },
+      {
+        "type": "tool-input-available",
+        "toolCallId": "adk-c9d46a43-4991-42e1-9855-cb587ace01eb",
+        "toolName": "process_payment",
+        "input": {
+          "recipient": "Alice",
+          "amount": 30,
+          "currency": "USD"
+        }
+      },
+      {
+        "type": "tool-input-start",
+        "toolCallId": "adk-b9e4ccd8-8d7d-40c0-b822-20ae1a825ee6",
+        "toolName": "process_payment"
+      },
+      {
+        "type": "tool-input-available",
+        "toolCallId": "adk-b9e4ccd8-8d7d-40c0-b822-20ae1a825ee6",
+        "toolName": "process_payment",
+        "input": {
+          "recipient": "Bob",
+          "amount": 40,
+          "currency": "USD"
+        }
+      },
+      {
+        "type": "tool-approval-request",
+        "toolCallId": "adk-c9d46a43-4991-42e1-9855-cb587ace01eb",
+        "approvalId": "adk-04200ba5-6d97-4953-89d8-34e723d273f9"
+      },
+      {
+        "type": "tool-approval-request",
+        "toolCallId": "adk-b9e4ccd8-8d7d-40c0-b822-20ae1a825ee6",
+        "approvalId": "adk-efb3af13-fa02-483f-8b3d-2e95aa56aab7"
+      },
+      {
+        "type": "finish",
+        "finishReason": "stop",
+        "messageMetadata": {
+          "usage": {
+            "promptTokens": 1593,
+            "completionTokens": 54,
+            "totalTokens": 1647
+          },
+          "modelVersion": "gemini-3-flash-preview"
+        }
+      },
+      {
+        "type": "start",
+        "messageId": "8f1bc0a4-e0be-4538-bb8a-be44ce081773"
+      },
+      {
+        "type": "tool-output-available",
+        "toolCallId": "adk-c9d46a43-4991-42e1-9855-cb587ace01eb",
+        "output": {
+          "success": true,
+          "transaction_id": "txn_3d2ef36fcd31",
+          "amount": 30,
+          "currency": "USD",
+          "recipient": "Alice",
+          "description": "",
+          "wallet_balance": 970.0,
+          "timestamp": "2025-12-31T14:25:11.141874+00:00"
+        }
+      },
+      {
+        "type": "tool-output-error",
+        "toolCallId": "adk-b9e4ccd8-8d7d-40c0-b822-20ae1a825ee6",
+        "errorText": "This tool call is rejected."
+      },
+      {
+        "type": "text-start",
+        "id": "0"
+      },
+      {
+        "type": "text-delta",
+        "id": "0",
+        "delta": "Aliceへの30ドルの送金が完了しました（取引ID: txn_3d2ef36fcd31）。Bobへの40ドルの送金については、承認が得られなかったため実行されませんでした。"
+      },
+      {
+        "type": "text-end",
+        "id": "0"
+      },
+      {
+        "type": "finish",
+        "finishReason": "stop",
+        "messageMetadata": {
+          "usage": {
+            "promptTokens": 1762,
+            "completionTokens": 47,
+            "totalTokens": 1809
+          },
+          "modelVersion": "gemini-3-flash-preview"
+        }
+      }
+    ],
+    "expectedDoneCount": 2,
+    "expectedStreamCompletion": true
+  }
+}

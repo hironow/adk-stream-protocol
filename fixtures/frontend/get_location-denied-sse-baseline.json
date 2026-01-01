@@ -1,0 +1,104 @@
+{
+  "description": "SSE mode baseline - get_location with denial flow (MULTI-REQUEST: confirmation + rejection)",
+  "mode": "sse",
+  "source": "Backend E2E test capture",
+  "scenario": "User denies get_location tool call - complete flow from confirmation request to rejection",
+  "note": "This fixture captures TWO separate HTTP requests: (1) Initial request ending with confirmation [DONE], (2) Denial response ending with rejection [DONE].",
+  "input": {
+    "messages": [
+      {
+        "id": "msg-1",
+        "role": "user",
+        "content": "現在地を教えて"
+      }
+    ],
+    "trigger": "submit-message"
+  },
+  "output": {
+    "rawEvents": [
+      "data: {\"type\": \"start\", \"messageId\": \"a4a49879-9add-4f8b-a2dc-43201e35b9ab\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-78463abe-95c7-48df-83cb-2f94ce8cbe0f\", \"toolName\": \"get_location\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-78463abe-95c7-48df-83cb-2f94ce8cbe0f\", \"toolName\": \"get_location\", \"input\": {}}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"adk-78463abe-95c7-48df-83cb-2f94ce8cbe0f\", \"approvalId\": \"adk-caa711e3-a28f-4b91-912a-4504ed52e00a\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1143, \"completionTokens\": 10, \"totalTokens\": 1285}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: [DONE]\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"24aeefa9-209d-40d6-89e1-01d7a59617b4\"}\n\n",
+      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"adk-78463abe-95c7-48df-83cb-2f94ce8cbe0f\", \"errorText\": \"This tool call is rejected.\"}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"0\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"\\u4f4d\\u7f6e\\u60c5\\u5831\\u306e\\u53d6\\u5f97\\u304c\\u62d2\\u5426\\u3055\\u308c\\u307e\\u3057\\u305f\\u3002\\u4f4d\\u7f6e\\u60c5\\u5831\\u3092\\u53d6\\u5f97\\u3059\\u308b\\u306b\\u306f\\u3001\\u627f\\u8a8d\\u304c\\u5fc5\\u8981\\u3067\\u3059\\u3002\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"0\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1304, \"completionTokens\": 16, \"totalTokens\": 1320}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: [DONE]\n\n"
+    ],
+    "expectedChunks": [
+      {
+        "type": "start",
+        "messageId": "a4a49879-9add-4f8b-a2dc-43201e35b9ab"
+      },
+      {
+        "type": "tool-input-start",
+        "toolCallId": "adk-78463abe-95c7-48df-83cb-2f94ce8cbe0f",
+        "toolName": "get_location"
+      },
+      {
+        "type": "tool-input-available",
+        "toolCallId": "adk-78463abe-95c7-48df-83cb-2f94ce8cbe0f",
+        "toolName": "get_location",
+        "input": {}
+      },
+      {
+        "type": "tool-approval-request",
+        "toolCallId": "adk-78463abe-95c7-48df-83cb-2f94ce8cbe0f",
+        "approvalId": "adk-caa711e3-a28f-4b91-912a-4504ed52e00a"
+      },
+      {
+        "type": "finish",
+        "finishReason": "stop",
+        "messageMetadata": {
+          "usage": {
+            "promptTokens": 1143,
+            "completionTokens": 10,
+            "totalTokens": 1285
+          },
+          "modelVersion": "gemini-3-flash-preview"
+        }
+      },
+      {
+        "type": "start",
+        "messageId": "24aeefa9-209d-40d6-89e1-01d7a59617b4"
+      },
+      {
+        "type": "tool-output-error",
+        "toolCallId": "adk-78463abe-95c7-48df-83cb-2f94ce8cbe0f",
+        "errorText": "This tool call is rejected."
+      },
+      {
+        "type": "text-start",
+        "id": "0"
+      },
+      {
+        "type": "text-delta",
+        "id": "0",
+        "delta": "位置情報の取得が拒否されました。位置情報を取得するには、承認が必要です。"
+      },
+      {
+        "type": "text-end",
+        "id": "0"
+      },
+      {
+        "type": "finish",
+        "finishReason": "stop",
+        "messageMetadata": {
+          "usage": {
+            "promptTokens": 1304,
+            "completionTokens": 16,
+            "totalTokens": 1320
+          },
+          "modelVersion": "gemini-3-flash-preview"
+        }
+      }
+    ],
+    "expectedDoneCount": 2,
+    "expectedStreamCompletion": true
+  }
+}

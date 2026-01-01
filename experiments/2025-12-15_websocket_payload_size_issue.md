@@ -86,8 +86,8 @@ Large tool outputs (e.g., file contents, API responses) accumulate in message hi
 ### Server Limitations (uvicorn/FastAPI)
 
 - Default uvicorn WebSocket settings:
-  - No explicit max message size by default
-  - Depends on underlying WebSocket library (websockets)
+    - No explicit max message size by default
+    - Depends on underlying WebSocket library (websockets)
 - websockets library default: 1MB max message size
 - Can be configured via `max_size` parameter
 
@@ -314,19 +314,22 @@ Research and implement proper uvicorn/FastAPI WebSocket configuration.
 ### Changes Made (2025-12-15)
 
 1. **Added Size Constants (lib/websocket-chat-transport.ts:178-180)**
+
 ```typescript
 private static readonly MAX_MESSAGES_TO_SEND = 50; // Configurable limit
 private static readonly WARN_SIZE_KB = 100; // Warn if message > 100KB
 private static readonly ERROR_SIZE_MB = 5; // Error if message > 5MB
 ```
 
-2. **Implemented Size Checking and Logging (lines 224-273)**
+1. **Implemented Size Checking and Logging (lines 224-273)**
+
 - Calculate message size in bytes/KB/MB
 - Log warning for messages > 100KB
 - Log error for messages > 5MB
 - Show message details (count, preview) for large payloads
 
-3. **Added Message History Truncation (lines 505-520)**
+1. **Added Message History Truncation (lines 505-520)**
+
 - Automatically limit to last 50 messages
 - Log truncation info when limiting occurs
 - Preserve most recent context while reducing payload
@@ -334,6 +337,7 @@ private static readonly ERROR_SIZE_MB = 5; // Error if message > 5MB
 ### Test Results
 
 **Manual Testing:**
+
 - ✅ Size calculation works correctly
 - ✅ Warning logs appear for messages > 100KB
 - ✅ Error logs appear for messages > 5MB
@@ -341,15 +345,18 @@ private static readonly ERROR_SIZE_MB = 5; // Error if message > 5MB
 - ✅ Truncation info logged with counts
 
 **Remaining TypeScript Errors:**
+
 - Existing test files have unrelated type errors (UIMessage.content property)
 - New implementation code compiles without errors
 
 ## Testing Phase Complete (2025-12-15)
 
 ### Test Implementation
+
 Successfully added comprehensive test suite in `lib/websocket-chat-transport-payload.test.ts`:
 
 **8 Tests Covering:**
+
 1. ✅ Message history truncation when exceeding 50 messages limit
 2. ✅ No truncation when within 50 messages limit
 3. ✅ Size warning for messages > 100KB but < 1MB
@@ -360,6 +367,7 @@ Successfully added comprehensive test suite in `lib/websocket-chat-transport-pay
 8. ✅ Truncation handles complex message content with parts
 
 ### Implementation Challenges Resolved
+
 - Properly mocked WebSocket with numeric readyState constants
 - Handled async stream consumption in tests
 - Fixed stream reader lifecycle management

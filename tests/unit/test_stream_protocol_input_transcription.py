@@ -17,16 +17,13 @@ AI SDK v6 Protocol mapping (TBD):
 RED phase: These tests will fail until implementation is added.
 """
 
-from __future__ import annotations
-
 from typing import Any
-from unittest.mock import Mock
 
 import pytest
-from google.adk.events import Event
 
-from stream_protocol import StreamProtocolConverter
+from adk_stream_protocol import StreamProtocolConverter
 from tests.utils import MockTranscription, parse_sse_event
+from tests.utils.mocks import create_custom_event
 
 
 class TestInputTranscription:
@@ -73,20 +70,20 @@ class TestInputTranscription:
         # given: ADK Event with input_transcription (user audio input)
         converter = StreamProtocolConverter()
 
-        mock_event = Mock(spec=Event)
-        mock_event.error_code = None
-        mock_event.content = None  # No content, only transcription
-        mock_event.turn_complete = False
-        mock_event.input_transcription = MockTranscription(
-            text=transcription_data["text"],
-            finished=transcription_data["finished"],
+        mock_event = create_custom_event(
+            content=None,  # No content, only transcription
+            turn_complete=False,
+            input_transcription=MockTranscription(
+                text=transcription_data["text"],
+                finished=transcription_data["finished"],
+            ),
+            output_transcription=None,
+            error_code=None,
         )
-        # output_transcription should NOT be set
-        mock_event.output_transcription = None
 
         # when: Convert event to AI SDK format
         events = []
-        async for sse_event in converter.convert_event(mock_event):
+        async for sse_event in converter._convert_event(mock_event):
             events.append(sse_event)
 
         # then: Should generate expected event types
@@ -121,33 +118,36 @@ class TestInputTranscription:
         converter = StreamProtocolConverter()
 
         # Chunk 1: "京都の" (not finished)
-        mock_event1 = Mock(spec=Event)
-        mock_event1.error_code = None
-        mock_event1.content = None
-        mock_event1.turn_complete = False
-        mock_event1.input_transcription = MockTranscription("京都の", finished=False)
-        mock_event1.output_transcription = None
+        mock_event1 = create_custom_event(
+            content=None,
+            turn_complete=False,
+            input_transcription=MockTranscription("京都の", finished=False),
+            output_transcription=None,
+            error_code=None,
+        )
 
         # Chunk 2: "天気は" (not finished)
-        mock_event2 = Mock(spec=Event)
-        mock_event2.error_code = None
-        mock_event2.content = None
-        mock_event2.turn_complete = False
-        mock_event2.input_transcription = MockTranscription("天気は", finished=False)
-        mock_event2.output_transcription = None
+        mock_event2 = create_custom_event(
+            content=None,
+            turn_complete=False,
+            input_transcription=MockTranscription("天気は", finished=False),
+            output_transcription=None,
+            error_code=None,
+        )
 
         # Chunk 3: "？" (finished)
-        mock_event3 = Mock(spec=Event)
-        mock_event3.error_code = None
-        mock_event3.content = None
-        mock_event3.turn_complete = False
-        mock_event3.input_transcription = MockTranscription("？", finished=True)
-        mock_event3.output_transcription = None
+        mock_event3 = create_custom_event(
+            content=None,
+            turn_complete=False,
+            input_transcription=MockTranscription("？", finished=True),
+            output_transcription=None,
+            error_code=None,
+        )
 
         # when: Convert all events
         all_events = []
         for mock_event in [mock_event1, mock_event2, mock_event3]:
-            async for sse_event in converter.convert_event(mock_event):
+            async for sse_event in converter._convert_event(mock_event):
                 all_events.append(sse_event)
 
         # then: Should generate text-start, 3 deltas, text-end
@@ -199,26 +199,28 @@ class TestInputTranscription:
         # given: Multiple events with DIFFERENT mock event.id values
         converter = StreamProtocolConverter()
 
-        mock_event1 = Mock(spec=Event)
-        mock_event1.id = "event-001"  # Different ID
-        mock_event1.error_code = None
-        mock_event1.content = None
-        mock_event1.turn_complete = False
-        mock_event1.input_transcription = MockTranscription("First", finished=False)
-        mock_event1.output_transcription = None
+        mock_event1 = create_custom_event(
+            content=None,
+            turn_complete=False,
+            input_transcription=MockTranscription("First", finished=False),
+            output_transcription=None,
+            error_code=None,
+            id="event-001",  # Different ID
+        )
 
-        mock_event2 = Mock(spec=Event)
-        mock_event2.id = "event-002"  # Different ID
-        mock_event2.error_code = None
-        mock_event2.content = None
-        mock_event2.turn_complete = False
-        mock_event2.input_transcription = MockTranscription("Second", finished=True)
-        mock_event2.output_transcription = None
+        mock_event2 = create_custom_event(
+            content=None,
+            turn_complete=False,
+            input_transcription=MockTranscription("Second", finished=True),
+            output_transcription=None,
+            error_code=None,
+            id="event-002",  # Different ID
+        )
 
         # when: Convert events with DIFFERENT event.id values
         all_events = []
         for mock_event in [mock_event1, mock_event2]:
-            async for sse_event in converter.convert_event(mock_event):
+            async for sse_event in converter._convert_event(mock_event):
                 all_events.append(sse_event)
 
         # then: Text block ID MUST be the same despite different event.id
@@ -250,17 +252,18 @@ class TestInputTranscription:
         # given: Event without input_transcription
         converter = StreamProtocolConverter()
 
-        mock_event = Mock(spec=Event)
-        mock_event.error_code = None
-        mock_event.content = None
-        mock_event.turn_complete = False
-        # No transcription fields
-        mock_event.input_transcription = None
-        mock_event.output_transcription = None
+        mock_event = create_custom_event(
+            content=None,
+            turn_complete=False,
+            # No transcription fields
+            input_transcription=None,
+            output_transcription=None,
+            error_code=None,
+        )
 
         # when: Convert event
         events = []
-        async for sse_event in converter.convert_event(mock_event):
+        async for sse_event in converter._convert_event(mock_event):
             events.append(sse_event)
 
         # then: Should not generate any transcription events (text-start/delta/end)

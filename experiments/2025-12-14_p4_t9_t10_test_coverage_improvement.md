@@ -5,6 +5,7 @@
 **Status:** 🟢 Complete
 
 **Latest Update:** 2025-12-14 21:24 JST
+
 - ✅ P4-T9: 11 tests → 15 tests (4 additional tests added)
 - ✅ P4-T10: 5 tests → 7 tests (2 additional tests added)
 - ✅ Coverage analysis complete (`/private/tmp/test_coverage_analysis.md`)
@@ -19,16 +20,19 @@
 **Implementation:** 2025-12-14 (Session 3 - P4-T9 Message History Implementation)
 
 **Feature:**
+
 - Parent state management pattern (`app/page.tsx`)
 - `initialMessages` and `onMessagesChange` props in Chat component
 - Message history preservation across mode switches (key={mode} remount)
 - Clear History button functionality
 
 **Initial Test Coverage (Session 3):**
+
 - 11 tests created in `components/chat.test.tsx`
 - Basic functionality covered
 
 **Coverage Gap Identified:**
+
 - Missing Clear History button interaction tests
 - Missing key={mode} remount verification
 - Missing edge cases
@@ -38,15 +42,18 @@
 **Implementation:** 2025-12-14 (Session 3 - P4-T10 Controller Lifecycle Fix)
 
 **Feature:**
+
 - Explicit controller tracking to prevent ReadableStream orphaning
 - Close previous controller on connection reuse
 - Clear controller on [DONE] and error scenarios
 
 **Initial Test Coverage (Session 3):**
+
 - 5 tests created in `lib/websocket-chat-transport.test.ts`
 - Core lifecycle scenarios covered
 
 **Coverage Gap Identified:**
+
 - Missing WebSocket event handler tests (onerror, onclose)
 - [DONE] test used manual simulation instead of actual message flow
 - Missing integration scenarios
@@ -67,6 +74,7 @@
 ### Analysis Methodology
 
 Created comprehensive coverage analysis document:
+
 - **File:** `/private/tmp/test_coverage_analysis.md`
 - **Approach:** Map implementation points to test cases
 - **Metrics:** Code coverage % + Functional coverage %
@@ -74,6 +82,7 @@ Created comprehensive coverage analysis document:
 ### P4-T10: Controller Lifecycle Management
 
 **Implementation Points (6 locations):**
+
 1. Line 401: Initial connection - `currentController = controller`
 2. Line 424-435: Connection reuse - Close previous controller (try-catch)
 3. Line 439: Connection reuse - Set new `currentController`
@@ -111,6 +120,7 @@ Created comprehensive coverage analysis document:
 **Implementation Points (8 locations):**
 
 **app/page.tsx:**
+
 1. Line 12: `const [messages, setMessages] = useState<UIMessage[]>([]);`
 2. Line 139-140: Clear History button - `setMessages([])`
 3. Line 166: `<Chat initialMessages={messages} />`
@@ -161,11 +171,13 @@ Created comprehensive coverage analysis document:
 Based on analysis, prioritized gaps:
 
 **P4-T10 (Controller Lifecycle):**
+
 1. 🔴 WebSocket onerror → currentController clear
 2. 🔴 WebSocket onclose → controller.close()
 3. 🟡 Real [DONE] message processing flow
 
 **P4-T9 (Message History):**
+
 1. 🔴 Clear History button click → messages = []
 2. 🟡 key={mode} remount → initialMessages preservation
 
@@ -180,6 +192,7 @@ Based on analysis, prioritized gaps:
 **Test:** "should handle WebSocket onerror event"
 
 **Scenario:**
+
 ```typescript
 // Given: Active WebSocket connection with stream
 const transport = new WebSocketChatTransport({ url: "ws://localhost:8000/live" });
@@ -201,6 +214,7 @@ expect(stopPingSpy).toHaveBeenCalled();
 ```
 
 **Coverage:**
+
 - ✅ WebSocket onerror handler (Line 407-411)
 - ✅ Controller error path
 - ✅ stopPing() cleanup
@@ -213,6 +227,7 @@ expect(stopPingSpy).toHaveBeenCalled();
 **Test:** "should handle WebSocket onclose event"
 
 **Scenario:**
+
 ```typescript
 // Given: Active WebSocket connection with stream
 const transport = new WebSocketChatTransport({ url: "ws://localhost:8000/live" });
@@ -235,6 +250,7 @@ expect(stopPingSpy).toHaveBeenCalled();
 ```
 
 **Coverage:**
+
 - ✅ WebSocket onclose handler (Line 413-417)
 - ✅ Controller close path
 - ✅ stopPing() cleanup
@@ -245,10 +261,12 @@ expect(stopPingSpy).toHaveBeenCalled();
 **File:** `lib/websocket-chat-transport.test.ts:1921-1979` (modified)
 
 **Changes:**
+
 - **Before:** Manual simulation (`controller.close()` + `currentController = null`)
 - **After:** Actual SSE message flow (`ws.simulateMessage({ type: "sse", data: "data: [DONE]\n\n" })`)
 
 **Updated MockWebSocket helper:**
+
 ```typescript
 // lib/websocket-chat-transport.test.ts:48-65
 simulateMessage(data: any): void {
@@ -265,6 +283,7 @@ simulateMessage(data: any): void {
 ```
 
 **Test scenario:**
+
 ```typescript
 // When: Send actual [DONE] message (SSE format)
 ws.simulateMessage({ type: "sse", data: "data: [DONE]\n\n" });
@@ -277,6 +296,7 @@ expect((transport as any).currentController).toBeNull();
 ```
 
 **Coverage:**
+
 - ✅ Real SSE message parsing path
 - ✅ [DONE] detection in handleWebSocketMessage()
 - ✅ Stream closure on [DONE]
@@ -291,6 +311,7 @@ expect((transport as any).currentController).toBeNull();
 **Test:** "should clear messages when parent sets initialMessages to empty"
 
 **Scenario:**
+
 ```typescript
 // Given: Chat with existing messages
 const existingMessages: UIMessage[] = [
@@ -316,6 +337,7 @@ expect(result.current.messages).toEqual([]);
 ```
 
 **Coverage:**
+
 - ✅ Parent state clearing (app/page.tsx:139-140 logic)
 - ✅ initialMessages prop propagation on re-render
 - ✅ Empty array handling
@@ -327,6 +349,7 @@ expect(result.current.messages).toEqual([]);
 **Test:** "should notify parent of cleared messages via onMessagesChange"
 
 **Scenario:**
+
 ```typescript
 // Given: Chat with onMessagesChange callback
 const onMessagesChange = vi.fn();
@@ -360,6 +383,7 @@ await vi.waitFor(() => {
 ```
 
 **Coverage:**
+
 - ✅ onMessagesChange callback on clear
 - ✅ Parent notification mechanism (components/chat.tsx:49-53)
 - ✅ Bidirectional state sync
@@ -371,6 +395,7 @@ await vi.waitFor(() => {
 **Test:** "should preserve messages when switching modes (key={mode} remount)"
 
 **Scenario:**
+
 ```typescript
 const existingMessages: UIMessage[] = [
   { id: "1", role: "user", content: "Message in mode 1" },
@@ -404,6 +429,7 @@ expect(result.current.messages).toEqual(existingMessages);
 ```
 
 **Coverage:**
+
 - ✅ key={mode} remount behavior (app/page.tsx:163)
 - ✅ initialMessages preservation across remount
 - ✅ Mode compatibility (all 3 modes use UIMessage[])
@@ -415,6 +441,7 @@ expect(result.current.messages).toEqual(existingMessages);
 **Test:** "should handle mode switch with key={mode} and different message states"
 
 **Scenario:**
+
 ```typescript
 // Start with empty messages in Gemini mode
 const { result, rerender } = renderHook(
@@ -442,6 +469,7 @@ expect(result.current.messages).toEqual(newMessages);
 ```
 
 **Coverage:**
+
 - ✅ Multiple mode switches
 - ✅ State transitions (empty → populated → preserved)
 - ✅ All 3 mode combinations
@@ -453,11 +481,13 @@ expect(result.current.messages).toEqual(newMessages);
 ### Test Execution
 
 **Command:**
+
 ```bash
 pnpm exec vitest run
 ```
 
 **Results:**
+
 ```
 ✓ lib/websocket-chat-transport.test.ts (56 tests | 2 skipped)
 ✓ components/chat.test.tsx (15 tests)
@@ -479,10 +509,12 @@ Duration    3.13s
 **Final Test Count:** 7 tests (+2 from initial 5)
 
 **Coverage Achieved:**
+
 - Code Coverage: 100% (6/6 implementation points)
 - Functional Coverage: 95% (all critical paths + edge cases)
 
 **Tests:**
+
 1. ✅ should set currentController on new connection
 2. ✅ should close previous controller when reusing connection
 3. ✅ should clear currentController on [DONE] message (improved)
@@ -492,6 +524,7 @@ Duration    3.13s
 7. ✅ **NEW:** should handle WebSocket onclose event
 
 **Remaining Gaps (Low Priority):**
+
 - Integration scenarios (multi-step error recovery)
 - These are covered indirectly by E2E tests
 
@@ -500,10 +533,12 @@ Duration    3.13s
 **Final Test Count:** 15 tests (+4 from initial 11)
 
 **Coverage Achieved:**
+
 - Code Coverage: 100% (8/8 implementation points)
 - Functional Coverage: 95% (all user interactions + mode switches)
 
 **Tests:**
+
 1. ✅ should pass initialMessages to buildUseChatOptions
 2. ✅ should preserve message history across hook re-initialization
 3. ✅ should work with empty initialMessages
@@ -521,6 +556,7 @@ Duration    3.13s
 15. ✅ **NEW:** should handle mode switch with key={mode} and different message states
 
 **Remaining Gaps (Low Priority):**
+
 - Parent component (app/page.tsx) dedicated tests
 - These would be redundant with E2E tests
 
@@ -531,11 +567,13 @@ Duration    3.13s
 ### Overall Results
 
 **P4-T10:**
+
 - Initial: 5 tests, 83% code coverage, 70% functional coverage
 - Final: 7 tests, 100% code coverage, 95% functional coverage
 - **Status:** ✅ Production Ready
 
 **P4-T9:**
+
 - Initial: 11 tests, 88% code coverage, 80% functional coverage
 - Final: 15 tests, 100% code coverage, 95% functional coverage
 - **Status:** ✅ Production Ready
@@ -563,6 +601,7 @@ Duration    3.13s
 ### Code Changes Required
 
 **MockWebSocket Enhancement:**
+
 ```typescript
 // lib/websocket-chat-transport.test.ts:48-65
 simulateMessage(data: any): void {
@@ -579,6 +618,7 @@ simulateMessage(data: any): void {
 ```
 
 **No Production Code Changes:**
+
 - All tests added without modifying implementation
 - Validates correctness of existing P4-T9 and P4-T10 implementations
 
@@ -623,16 +663,19 @@ simulateMessage(data: any): void {
 ### Priority Classification Framework
 
 **🔴 High Priority:**
+
 - Critical error paths (onerror, onclose)
 - User-facing interactions (button clicks)
 - Data loss scenarios
 
 **🟡 Medium Priority:**
+
 - Real flow validation (vs manual simulation)
 - Edge cases with user impact
 - Behavior verification (remount, state sync)
 
 **🟢 Low Priority:**
+
 - Integration scenarios (covered by E2E)
 - Parent component logic (redundant with integration tests)
 - Nice-to-have validations
@@ -668,21 +711,25 @@ simulateMessage(data: any): void {
 ## References
 
 ### Documentation
+
 - **Coverage Analysis:** `/private/tmp/test_coverage_analysis.md`
 - **P4-T9 Implementation:** Session 3 (2025-12-14)
 - **P4-T10 Implementation:** Session 3 (2025-12-14)
 
 ### Test Files
+
 - `lib/websocket-chat-transport.test.ts` (56 tests, 2 skipped)
 - `components/chat.test.tsx` (15 tests)
 - `lib/build-use-chat-options.test.ts` (19 tests)
 - `lib/transport-integration.test.ts` (16 tests)
 
 ### Implementation Files
+
 - `lib/websocket-chat-transport.ts` (P4-T10)
 - `components/chat.tsx` (P4-T9)
 - `app/page.tsx` (P4-T9 parent state)
 
 ### Related Tasks
+
 - **agents/tasks.md:** P4-T9, P4-T10
 - **TEMP_FAQ.md:** Q13 (Mode Switching), Q14 (Controller Lifecycle)

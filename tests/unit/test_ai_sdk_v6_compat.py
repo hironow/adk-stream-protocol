@@ -12,7 +12,7 @@ from unittest.mock import patch
 import pytest
 from pydantic import ValidationError
 
-from ai_sdk_v6_compat import (
+from adk_stream_protocol import (
     ChatMessage,
     GenericPart,
     StepPart,
@@ -45,6 +45,8 @@ class TestProcessChatMessageForBidi:
 
     def test_message_with_image(self):
         """Should separate image blobs from text parts."""
+        from unittest.mock import MagicMock
+
         # given
         image_data = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
         message_data = {
@@ -64,9 +66,21 @@ class TestProcessChatMessageForBidi:
             ]
         }
 
-        # when
-        with patch("ai_sdk_v6_compat.base64.b64decode") as mock_decode:
+        # when - mock both base64 decoding and PIL Image.open
+        with (
+            patch("adk_stream_protocol.ai_sdk_v6_compat.base64.b64decode") as mock_decode,
+            patch("adk_stream_protocol.ai_sdk_v6_compat.Image.open") as mock_image_open,
+        ):
             mock_decode.return_value = b"fake_image_data"
+
+            # Mock PIL Image object with size and format attributes
+            mock_img = MagicMock()
+            mock_img.size = (1, 1)  # 1x1 pixel
+            mock_img.format = "PNG"
+            mock_img.__enter__ = MagicMock(return_value=mock_img)
+            mock_img.__exit__ = MagicMock(return_value=False)
+            mock_image_open.return_value = mock_img
+
             image_blobs, text_content = process_chat_message_for_bidi(message_data)
 
         # then
@@ -90,9 +104,7 @@ class TestProcessChatMessageForBidi:
         assert text_content is None
 
     def test_process_chat_message_for_bidi_processes_last_message_only(self):
-        """Should process only the last message (spy test for verifying BIDI behavior)."""
-        from unittest.mock import patch
-
+        """Should process only the last message (verifying BIDI behavior)."""
         # given - message data with 3 messages in parts-based format
         message_data = {
             "messages": [
@@ -102,21 +114,14 @@ class TestProcessChatMessageForBidi:
             ]
         }
 
-        # when - spy on ChatMessage to verify it's called for last message only
-        with patch("ai_sdk_v6_compat.ChatMessage", wraps=ChatMessage) as spy_chat_message:
-            image_blobs, text_content = process_chat_message_for_bidi(message_data)
+        # when - process the messages
+        _image_blobs, text_content = process_chat_message_for_bidi(message_data)
 
-            # then - should be called exactly once (for last message only)
-            assert spy_chat_message.call_count == 1, (
-                f"Expected ChatMessage to be called once (for last message), "
-                f"but was called {spy_chat_message.call_count} times"
-            )
-
-            # Verify result - should have content from last user message
-            assert text_content is not None
-            assert text_content.role == "user"
-            assert len(text_content.parts) == 1
-            assert text_content.parts[0].text == "How are you?"
+        # then - should have content from last user message only
+        assert text_content is not None
+        assert text_content.role == "user"
+        assert len(text_content.parts) == 1
+        assert text_content.parts[0].text == "How are you?"
 
 
 class TestToolUsePartValidation:
@@ -804,3 +809,65 @@ class TestInternalChunkHandling:
         assert isinstance(message.parts[0], TextPart)
         assert message.parts[0].type == "text"
         assert message.parts[0].text == "hello"
+
+
+class TestChatMessageContentField:
+    """
+    Tests for ChatMessage.content field type compatibility.
+
+    Edge case discovered during POC Phase 5:
+    - function_response messages use content as list[Part] (AI SDK v6 spec)
+    - ChatMessage.content was typed as str | None (incomplete)
+    - Result: Pydantic validation error in BIDI mode
+
+    Reference: experiments/2025-12-18_poc_phase5_generic_approval_success.md
+    """
+
+    def test_content_accepts_string(self):
+        """ChatMessage.content should accept string (simple text message)."""
+        # given
+        message_data = {"role": "user", "content": "Hello, world!"}
+
+        # when
+        message = ChatMessage(**message_data)
+
+        # then
+        assert message.content == "Hello, world!"
+        assert message.parts is None
+
+    def test_content_accepts_list_of_parts(self):
+        """
+        ChatMessage.content should accept list[Part] for function_response.
+
+        This test captures the edge case bug found in POC Phase 5:
+        - BIDI mode sends function_response with content as list
+        - Example: content=[{"type": "tool-result", "toolCallId": "...", ...}]
+        - Current type: str | None → Pydantic validation error
+        - Expected type: str | list[Part] | None
+
+        BUG: This test WILL FAIL until ChatMessage.content type is fixed.
+        """
+        # given: function_response message from LongRunningFunctionTool
+        message_data = {
+            "role": "user",
+            "content": [
+                {
+                    "type": "tool-result",
+                    "toolCallId": "function-call-123",
+                    "toolName": "approval_test_tool",
+                    "result": {
+                        "approved": True,
+                        "user_message": "User approved approval_test_tool execution",
+                        "timestamp": "2025-12-18T12:10:43.915Z",
+                    },
+                }
+            ],
+        }
+
+        # when
+        message = ChatMessage(**message_data)
+
+        # then
+        assert message.content is not None
+        assert isinstance(message.content, list)
+        assert len(message.content) == 1

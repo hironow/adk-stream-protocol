@@ -25,6 +25,7 @@ When switching from Gemini Direct mode to ADK SSE mode with existing message his
 ### Server-Side Fix (ai_sdk_v6_compat.py)
 
 1. **Added GenericPart class:**
+
 ```python
 class GenericPart(BaseModel):
     """
@@ -39,12 +40,14 @@ class GenericPart(BaseModel):
     model_config = {"extra": "allow"}
 ```
 
-2. **Updated MessagePart union:**
+1. **Updated MessagePart union:**
+
 ```python
 MessagePart = TextPart | ImagePart | FilePart | ToolUsePart | GenericPart
 ```
 
-3. **Added warning logging for unknown types:**
+1. **Added warning logging for unknown types:**
+
 ```python
 if isinstance(part, GenericPart):
     logger.warning(
@@ -64,6 +67,7 @@ if isinstance(part, GenericPart):
 ## Results
 
 ✅ **SUCCESS** - Complete resolution:
+
 - 422 validation errors eliminated
 - Message history properly preserved during mode switching
 - Unknown part types are gracefully handled with warnings

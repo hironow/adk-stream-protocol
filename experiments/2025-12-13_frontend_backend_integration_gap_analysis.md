@@ -27,12 +27,14 @@ See **Implementation Summary** section below for detailed changes.
 **Evidence from Code Review:**
 
 1. **Frontend removed custom tool_result events** (`lib/websocket-chat-transport.ts:131-132, 283-285`):
+
    ```typescript
    // ToolResultEvent removed - use AI SDK v6's standard addToolApprovalResponse flow
    // sendToolResult() removed - use AI SDK v6's standard addToolApprovalResponse flow
    ```
 
 2. **Frontend sends "message" events** (`lib/websocket-chat-transport.ts:424-432`):
+
    ```typescript
    // Send messages to backend using structured event format (P2-T2)
    const event: MessageEvent = {
@@ -46,6 +48,7 @@ See **Implementation Summary** section below for detailed changes.
    ```
 
 3. **Frontend tool rejection flow** (`components/chat.tsx:161-185`):
+
    ```typescript
    // Step 1: Update message state via AI SDK v6
    addToolApprovalResponse({ approved: false, reason: "User denied permission" });
@@ -56,6 +59,7 @@ See **Implementation Summary** section below for detailed changes.
    ```
 
 4. **Backend message handler ignores ToolUsePart** (`server.py:970-1017`):
+
    ```python
    for part in last_msg.parts:
        if isinstance(part, FilePart):
@@ -142,6 +146,7 @@ addToolOutput({ output: { success: false, denied: true } });
 **Location:** `server.py:970-1017`
 
 **Current Implementation:**
+
 ```python
 if event_type == "message":
     message_data = event.get("data", {})
@@ -162,6 +167,7 @@ if event_type == "message":
 ```
 
 **Problem:**
+
 - Only processes `TextPart` and `FilePart`
 - **Ignores `ToolUsePart`** completely
 - Frontend's approval-responded tool-use parts are silently dropped
@@ -204,6 +210,7 @@ for part in last_msg.parts:
 **Location:** `server.py:1069-1102`
 
 **Current Code:**
+
 ```python
 elif event_type == "tool_result":
     result_data = event.get("data", {})
@@ -218,6 +225,7 @@ elif event_type == "tool_result":
 ```
 
 **Problem:**
+
 - This event handler exists but **is NEVER triggered**
 - Frontend sends "message" events, NOT "tool_result" events
 - This handler appears to be dead code from an older design
@@ -233,14 +241,14 @@ elif event_type == "tool_result":
 
 ### ❌ Tests Failing (2/5)
 
-3. **test_stream_protocol_generates_tool_approval_request** - ADK Event structure issue
-4. **test_stream_protocol_tracks_pending_approvals** - ADK Event structure issue
+1. **test_stream_protocol_generates_tool_approval_request** - ADK Event structure issue
+2. **test_stream_protocol_tracks_pending_approvals** - ADK Event structure issue
 
 **Reason:** Test implementation needs correct ADK Event construction. These tests verify that StreamProtocolConverter generates tool-approval-request events correctly.
 
 ### ⏭️ Tests Skipped (1/5)
 
-5. **test_frontend_multiple_tools_mixed_approval_rejection** - Marked as RED
+1. **test_frontend_multiple_tools_mixed_approval_rejection** - Marked as RED
 
 **Reason:** Backend message handler doesn't process tool-use parts yet, so this test can't pass until Gap 1 and Gap 2 are fixed.
 
@@ -319,16 +327,19 @@ elif event_type == "tool_result":
 ### Current Coverage
 
 **Frontend Tests (lib/):**
+
 - ✅ 14 tests in `use-chat-integration.test.tsx`
 - ✅ Covers single tool, multiple tools, approval, rejection scenarios
 - ✅ Confirms approved value doesn't affect auto-submit timing
 
 **Backend Unit Tests (tests/unit/):**
+
 - ✅ 15 tests in `test_tool_approval.py`
 - ✅ Covers event generation, approval request format
 - ❌ **Does NOT test message processing**
 
 **Backend Integration Tests (tests/integration/):**
+
 - ✅ 6 tests in `test_backend_tool_approval.py` (tool_delegate)
 - ⚠️ 5 tests in `test_stream_protocol_tool_approval.py` (2 failed, 1 skipped)
 - ❌ **No end-to-end tests for message handler**
@@ -405,17 +416,20 @@ for part in last_msg.parts:
 ### 🔴 Severity: CRITICAL
 
 **Current State:**
+
 - User approval/rejection is completely ignored
 - Tool execution never completes (Future never resolves)
 - Frontend thinks tool was submitted, backend doesn't process it
 - System appears broken from user perspective
 
 **User Experience Impact:**
+
 - User clicks [Approve] or [Deny] → Nothing happens
 - Tool execution hangs indefinitely
 - No error messages, just silence
 
 **Security Impact:**
+
 - User denies dangerous tool → Backend ignores denial
 - Tool might execute anyway if there's a fallback path
 - Permission system is non-functional
@@ -461,6 +475,7 @@ for part in last_msg.parts:
 - Removed deprecated `experimental_attachments` field
 
 **Key Types:**
+
 ```python
 class ToolCallState(str, Enum):
     CALL = "call"
@@ -517,6 +532,7 @@ def process_tool_use_parts(message: ChatMessage, delegate: FrontendToolDelegate)
 - All 5 integration tests now passing (previously: 2 passed, 2 failed, 1 skipped)
 
 **Test Results:**
+
 ```
 tests/integration/test_stream_protocol_tool_approval.py::test_stream_protocol_generates_tool_approval_request PASSED
 tests/integration/test_stream_protocol_tool_approval.py::test_stream_protocol_tracks_pending_approvals PASSED

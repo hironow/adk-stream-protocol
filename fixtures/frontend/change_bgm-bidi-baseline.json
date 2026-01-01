@@ -1,0 +1,125 @@
+{
+  "description": "BIDI mode baseline - real E2E capture from change_bgm tool call",
+  "mode": "bidi",
+  "source": "Backend E2E test capture",
+  "scenario": "User requests background music change via WebSocket - frontend delegation pattern",
+  "note": "BIDI mode sends events in SSE format over WebSocket. change_bgm is a Frontend Delegation tool executed by browser API.",
+  "input": {
+    "messages": [
+      {
+        "id": "msg-1",
+        "role": "user",
+        "content": "トラック1に変更して"
+      }
+    ],
+    "trigger": "submit-message"
+  },
+  "output": {
+    "rawEvents": [
+      "data: {\"type\": \"start\", \"messageId\": \"8f158b86-2042-4856-8208-25b32172a023\"}\n\n",
+      "data: {\"type\": \"reasoning-start\", \"id\": \"0\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Changing the Music Track**\\n\\nI've successfully identified the user's intent to switch the background music. The Japanese input \\\"\\u30c8\\u30e9\\u30c3\\u30af1\\\" translated flawlessly to the target function's input `track=1`. I'm ready to execute the `change_bgm` command with this parameter.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-end\", \"id\": \"0\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-2314130805083058321\", \"toolName\": \"change_bgm\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-2314130805083058321\", \"toolName\": \"change_bgm\", \"input\": {\"track\": 1}}\n\n",
+      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"function-call-2314130805083058321\", \"output\": {\"success\": true, \"track\": 1, \"message\": \"BGM change to track 1 initiated (frontend handles execution)\"}}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"8f158b86-2042-4856-8208-25b32172a023_output_text\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"8f158b86-2042-4856-8208-25b32172a023_output_text\", \"delta\": \"BGM\\u3092\\u30c8\\u30e9\\u30c3\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"8f158b86-2042-4856-8208-25b32172a023_output_text\", \"delta\": \"\\u30af1\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"8f158b86-2042-4856-8208-25b32172a023_output_text\", \"delta\": \"\\u306b\\u5909\\u66f4\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"8f158b86-2042-4856-8208-25b32172a023_output_text\", \"delta\": \"\\u3057\\u307e\\u3057\\u305f\\u3002\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"8f158b86-2042-4856-8208-25b32172a023_output_text\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1471, \"completionTokens\": null, \"totalTokens\": 1518}, \"audio\": {\"chunks\": 19, \"bytes\": 80640, \"sampleRate\": 24000, \"duration\": 1.68}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
+      "data: [DONE]\n\n"
+    ],
+    "expectedChunks": [
+      {
+        "type": "start",
+        "messageId": "8f158b86-2042-4856-8208-25b32172a023"
+      },
+      {
+        "type": "reasoning-start",
+        "id": "0"
+      },
+      {
+        "type": "reasoning-delta",
+        "id": "0",
+        "delta": "**Changing the Music Track**\n\nI've successfully identified the user's intent to switch the background music. The Japanese input \"トラック1\" translated flawlessly to the target function's input `track=1`. I'm ready to execute the `change_bgm` command with this parameter.\n\n\n"
+      },
+      {
+        "type": "reasoning-end",
+        "id": "0"
+      },
+      {
+        "type": "tool-input-start",
+        "toolCallId": "function-call-2314130805083058321",
+        "toolName": "change_bgm"
+      },
+      {
+        "type": "tool-input-available",
+        "toolCallId": "function-call-2314130805083058321",
+        "toolName": "change_bgm",
+        "input": {
+          "track": 1
+        }
+      },
+      {
+        "type": "tool-output-available",
+        "toolCallId": "function-call-2314130805083058321",
+        "output": {
+          "success": true,
+          "track": 1,
+          "message": "BGM change to track 1 initiated (frontend handles execution)"
+        }
+      },
+      {
+        "type": "text-start",
+        "id": "8f158b86-2042-4856-8208-25b32172a023_output_text"
+      },
+      {
+        "type": "text-delta",
+        "id": "8f158b86-2042-4856-8208-25b32172a023_output_text",
+        "delta": "BGMをトラッ"
+      },
+      {
+        "type": "text-delta",
+        "id": "8f158b86-2042-4856-8208-25b32172a023_output_text",
+        "delta": "ク1"
+      },
+      {
+        "type": "text-delta",
+        "id": "8f158b86-2042-4856-8208-25b32172a023_output_text",
+        "delta": "に変更"
+      },
+      {
+        "type": "text-delta",
+        "id": "8f158b86-2042-4856-8208-25b32172a023_output_text",
+        "delta": "しました。"
+      },
+      {
+        "type": "text-end",
+        "id": "8f158b86-2042-4856-8208-25b32172a023_output_text"
+      },
+      {
+        "type": "finish",
+        "finishReason": "stop",
+        "messageMetadata": {
+          "usage": {
+            "promptTokens": 1471,
+            "completionTokens": null,
+            "totalTokens": 1518
+          },
+          "audio": {
+            "chunks": 19,
+            "bytes": 80640,
+            "sampleRate": 24000,
+            "duration": 1.68
+          },
+          "modelVersion": "gemini-2.5-flash-native-audio-preview-12-2025"
+        }
+      }
+    ],
+    "expectedDoneCount": 1,
+    "expectedStreamCompletion": true
+  }
+}

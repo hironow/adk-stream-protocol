@@ -8,11 +8,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from adk_ag_tools import (
+from adk_stream_protocol import (
     change_bgm,
     get_location,
     get_weather,
+    process_payment,
 )
+from adk_stream_protocol.frontend_tool_registry import _REGISTRY, register_delegate
+from adk_stream_protocol.result import Ok
 
 
 class TestWeatherTool:
@@ -27,7 +30,7 @@ class TestWeatherTool:
         """
         # given: No API key and clean cache directory
         monkeypatch.delenv("OPENWEATHERMAP_API_KEY", raising=False)
-        monkeypatch.setattr("adk_ag_tools.CACHE_DIR", tmp_path / ".cache")
+        monkeypatch.setattr("adk_stream_protocol.adk_ag_tools.CACHE_DIR", tmp_path / ".cache")
 
         # when: Request weather for known city
         result = await get_weather("Tokyo")
@@ -44,7 +47,7 @@ class TestWeatherTool:
         """
         # given: No API key and clean cache directory
         monkeypatch.delenv("OPENWEATHERMAP_API_KEY", raising=False)
-        monkeypatch.setattr("adk_ag_tools.CACHE_DIR", tmp_path / ".cache")
+        monkeypatch.setattr("adk_stream_protocol.adk_ag_tools.CACHE_DIR", tmp_path / ".cache")
 
         # when: Request weather for unknown city
         result = await get_weather("Unknown City")
@@ -62,7 +65,7 @@ class TestWeatherTool:
         """
         # given: Set cache directory to temp path
         cache_dir = tmp_path / ".cache"
-        monkeypatch.setattr("adk_ag_tools.CACHE_DIR", cache_dir)
+        monkeypatch.setattr("adk_stream_protocol.adk_ag_tools.CACHE_DIR", cache_dir)
         monkeypatch.delenv("OPENWEATHERMAP_API_KEY", raising=False)
 
         # when: First call (should save to cache)
@@ -82,14 +85,14 @@ class TestWeatherTool:
         assert result2["condition"] == result1["condition"]
 
     @pytest.mark.asyncio
-    @patch("adk_ag_tools.aiohttp.ClientSession")
+    @patch("adk_stream_protocol.adk_ag_tools.aiohttp.ClientSession")
     async def test_get_weather_with_api_success(self, mock_session_class, monkeypatch, tmp_path):
         """
         Should call OpenWeatherMap API when API key is set.
         """
         # given: API key is set and clean cache directory
         monkeypatch.setenv("OPENWEATHERMAP_API_KEY", "test_api_key")
-        monkeypatch.setattr("adk_ag_tools.CACHE_DIR", tmp_path / ".cache")
+        monkeypatch.setattr("adk_stream_protocol.adk_ag_tools.CACHE_DIR", tmp_path / ".cache")
 
         # Mock API response
         mock_response = MagicMock()
@@ -134,14 +137,14 @@ class TestWeatherTool:
         assert call_args[1]["params"]["appid"] == "test_api_key"
 
     @pytest.mark.asyncio
-    @patch("adk_ag_tools.aiohttp.ClientSession")
+    @patch("adk_stream_protocol.adk_ag_tools.aiohttp.ClientSession")
     async def test_get_weather_api_error(self, mock_session_class, monkeypatch, tmp_path):
         """
         Should handle API errors gracefully.
         """
         # given: API key is set but API returns error, clean cache directory
         monkeypatch.setenv("OPENWEATHERMAP_API_KEY", "test_api_key")
-        monkeypatch.setattr("adk_ag_tools.CACHE_DIR", tmp_path / ".cache")
+        monkeypatch.setattr("adk_stream_protocol.adk_ag_tools.CACHE_DIR", tmp_path / ".cache")
 
         mock_response = MagicMock()
         mock_response.status = 404  # City not found
@@ -203,17 +206,29 @@ class TestGetLocation:
         When user approves, frontend returns location data.
         """
         # given: Mock tool_context with frontend delegate (BIDI mode)
+        from adk_stream_protocol import ADKVercelIDMapper
+
+        mock_id_mapper = ADKVercelIDMapper()
+        mock_id_mapper.register("get_location", "function-call-123")
+
         mock_delegate = AsyncMock()
-        mock_delegate.execute_on_frontend.return_value = {
-            "success": True,
-            "latitude": 35.6762,
-            "longitude": 139.6503,
-            "accuracy": 10,
-            "message": "Location retrieved successfully",
-        }
+        mock_delegate.id_mapper = mock_id_mapper
+        mock_delegate.execute_on_frontend.return_value = Ok(
+            {
+                "success": True,
+                "latitude": 35.6762,
+                "longitude": 139.6503,
+                "accuracy": 10,
+                "message": "Location retrieved successfully",
+            }
+        )
 
         mock_session = MagicMock()
+        mock_session.id = "test-session-123"
         mock_session.state = {"frontend_delegate": mock_delegate}
+
+        # Register delegate in FrontendToolRegistry
+        register_delegate(mock_session.id, mock_delegate)
 
         mock_tool_context = MagicMock()
         mock_tool_context.session = mock_session
@@ -224,7 +239,6 @@ class TestGetLocation:
 
         # then: Should delegate to frontend and return location data
         mock_delegate.execute_on_frontend.assert_called_once_with(
-            tool_call_id="test-invocation-123",
             tool_name="get_location",
             args={},
         )
@@ -232,6 +246,9 @@ class TestGetLocation:
         assert result["latitude"] == 35.6762
         assert result["longitude"] == 139.6503
         assert result["accuracy"] == 10
+
+        # Cleanup: Remove from registry
+        _REGISTRY.pop(mock_session.id, None)
 
     @pytest.mark.asyncio
     async def test_get_location_with_bidi_delegate_approval_denied(self):
@@ -242,14 +259,20 @@ class TestGetLocation:
         """
         # given: Mock tool_context with frontend delegate that returns denial
         mock_delegate = AsyncMock()
-        mock_delegate.execute_on_frontend.return_value = {
-            "success": False,
-            "error": "User denied location access",
-            "code": "PERMISSION_DENIED",
-        }
+        mock_delegate.execute_on_frontend.return_value = Ok(
+            {
+                "success": False,
+                "error": "User denied location access",
+                "code": "PERMISSION_DENIED",
+            }
+        )
 
         mock_session = MagicMock()
+        mock_session.id = "test-session-456"
         mock_session.state = {"frontend_delegate": mock_delegate}
+
+        # Register delegate in FrontendToolRegistry
+        register_delegate(mock_session.id, mock_delegate)
 
         mock_tool_context = MagicMock()
         mock_tool_context.session = mock_session
@@ -262,6 +285,9 @@ class TestGetLocation:
         assert result["success"] is False
         assert "denied" in result["error"].lower()
         assert result["code"] == "PERMISSION_DENIED"
+
+        # Cleanup: Remove from registry
+        _REGISTRY.pop(mock_session.id, None)
 
     @pytest.mark.asyncio
     async def test_get_location_with_context_but_no_delegate_returns_error(self):
@@ -287,3 +313,159 @@ class TestGetLocation:
         assert "error" in result
         # Error message varies depending on mock behavior
         assert "frontend_delegate" in result["error"] or "session.state" in result["error"]
+
+
+class TestProcessPayment:
+    """Tests for the process_payment tool."""
+
+    @pytest.mark.asyncio
+    async def test_process_payment_successful_transaction(self):
+        """Should process valid payment and return transaction details."""
+        # given
+        mock_tool_context = MagicMock()
+
+        # when
+        result = await process_payment(
+            amount=100.0,
+            recipient="alice@example.com",
+            tool_context=mock_tool_context,
+            currency="USD",
+            description="Test payment",
+        )
+
+        # then
+        assert result["success"] is True
+        assert result["amount"] == 100.0
+        assert result["currency"] == "USD"
+        assert result["recipient"] == "alice@example.com"
+        assert result["description"] == "Test payment"
+        assert result["wallet_balance"] == 900.0  # 1000 - 100
+        assert result["transaction_id"].startswith("txn_")
+        assert "timestamp" in result
+
+    @pytest.mark.asyncio
+    async def test_process_payment_negative_amount_rejected(self):
+        """Should reject payment with negative amount."""
+        # given
+        mock_tool_context = MagicMock()
+
+        # when
+        result = await process_payment(
+            amount=-50.0,
+            recipient="bob@example.com",
+            tool_context=mock_tool_context,
+        )
+
+        # then
+        assert result["success"] is False
+        assert "Invalid amount" in result["error"]
+        assert result["transaction_id"] is None
+
+    @pytest.mark.asyncio
+    async def test_process_payment_zero_amount_rejected(self):
+        """Should reject payment with zero amount."""
+        # given
+        mock_tool_context = MagicMock()
+
+        # when
+        result = await process_payment(
+            amount=0.0,
+            recipient="charlie@example.com",
+            tool_context=mock_tool_context,
+        )
+
+        # then
+        assert result["success"] is False
+        assert "Invalid amount" in result["error"]
+        assert result["transaction_id"] is None
+
+    @pytest.mark.asyncio
+    async def test_process_payment_insufficient_funds(self):
+        """Should reject payment when amount exceeds wallet balance."""
+        # given
+        mock_tool_context = MagicMock()
+
+        # when
+        result = await process_payment(
+            amount=1500.0,  # Exceeds mock wallet balance of 1000
+            recipient="dave@example.com",
+            tool_context=mock_tool_context,
+        )
+
+        # then
+        assert result["success"] is False
+        assert "Insufficient funds" in result["error"]
+        assert result["transaction_id"] is None
+        assert result["wallet_balance"] == 1000.0  # Original balance
+
+    @pytest.mark.asyncio
+    async def test_process_payment_exact_balance_amount(self):
+        """Should process payment when amount equals wallet balance."""
+        # given
+        mock_tool_context = MagicMock()
+
+        # when
+        result = await process_payment(
+            amount=1000.0,  # Exact balance
+            recipient="eve@example.com",
+            tool_context=mock_tool_context,
+        )
+
+        # then
+        assert result["success"] is True
+        assert result["amount"] == 1000.0
+        assert result["wallet_balance"] == 0.0  # Balance depleted
+        assert result["transaction_id"].startswith("txn_")
+
+    @pytest.mark.asyncio
+    async def test_process_payment_with_custom_currency(self):
+        """Should handle custom currency parameter."""
+        # given
+        mock_tool_context = MagicMock()
+
+        # when
+        result = await process_payment(
+            amount=50.0,
+            recipient="frank@example.com",
+            tool_context=mock_tool_context,
+            currency="EUR",
+        )
+
+        # then
+        assert result["success"] is True
+        assert result["currency"] == "EUR"
+
+    @pytest.mark.asyncio
+    async def test_process_payment_default_currency(self):
+        """Should use USD as default currency."""
+        # given
+        mock_tool_context = MagicMock()
+
+        # when
+        result = await process_payment(
+            amount=25.0,
+            recipient="grace@example.com",
+            tool_context=mock_tool_context,
+        )
+
+        # then
+        assert result["success"] is True
+        assert result["currency"] == "USD"
+
+    @pytest.mark.asyncio
+    async def test_process_payment_with_description(self):
+        """Should include description in transaction result."""
+        # given
+        mock_tool_context = MagicMock()
+
+        # when
+        result = await process_payment(
+            amount=75.0,
+            recipient="henry@example.com",
+            tool_context=mock_tool_context,
+            description="Payment for services rendered",
+        )
+
+        # then
+        assert result["success"] is True
+        assert result["description"] == "Payment for services rendered"

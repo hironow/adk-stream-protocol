@@ -1,8 +1,15 @@
 /**
  * Audio Context Provider
  *
+ * 🔴 ADK BIDI Mode Only - Not compatible with SSE modes
+ *
  * Manages global AudioWorklet instances for streaming audio playback.
  * Currently supports voice channel (PCM streaming from ADK BIDI mode).
+ *
+ * Dependencies:
+ * - ADK BIDI Protocol (WebSocket PCM streaming)
+ * - Web Audio API (AudioWorklet)
+ * - /public/pcm-player-processor.js (AudioWorklet processor)
  *
  * Architecture:
  * - AudioWorklet for low-latency PCM streaming
@@ -26,14 +33,14 @@ import {
   useState,
 } from "react";
 
-interface PCMChunk {
+export interface PCMChunk {
   content: string; // base64-encoded PCM data
   sampleRate: number;
   channels: number;
   bitDepth: number;
 }
 
-interface AudioMetadata {
+export interface AudioMetadata {
   chunks: number;
   bytes: number;
   sampleRate: number;

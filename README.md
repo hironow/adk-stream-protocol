@@ -1,6 +1,8 @@
 # ADK Stream Protocol
 
-AI SDK v6 and Google ADK integration example demonstrating SSE and WebSocket streaming implementation.
+AI SDK v6 and Google ADK integration demonstrating SSE and WebSocket streaming implementation.
+
+---
 
 ## ⚠️ Development Status
 
@@ -9,18 +11,20 @@ This project is under **active development** and contains experimental features 
 ### Current Status
 
 **✅ Stable Features**
+
 - Gemini Direct mode (AI SDK v6 only)
 - ADK SSE streaming with tool calling
-- Frontend/Backend E2E test infrastructure
+- Complete E2E test infrastructure (Frontend, Backend, Playwright)
 
 **🚧 Experimental Features**
+
 - ADK BIDI (WebSocket) streaming - See known issues below
 
 ### Known Issues
 
 **Critical: ADK BIDI Mode Limitations**
 
-BIDI mode (`run_live()`) has two significant issues that limit production use:
+BIDI mode (`run_live()`) has two significant issues:
 
 1. **Tool Confirmation Not Working** 🔴
    - Tools with `require_confirmation=True` do not trigger approval UI
@@ -34,19 +38,20 @@ BIDI mode (`run_live()`) has two significant issues that limit production use:
    - Status: Under investigation
    - Workaround: Use SSE mode for full tool support
 
-**See:** [docs/BUG-ADK-BIDI-TOOL-CONFIRMATION.md](docs/BUG-ADK-BIDI-TOOL-CONFIRMATION.md) for detailed analysis
-
 **Recent Fixes**
+
 - ✅ Fixed infinite loop in tool confirmation auto-send logic (2025-12-17)
 
-## Project Overview
+---
+
+## 🎯 Project Overview
 
 This project demonstrates the integration between:
 
 - **Frontend**: Next.js 16 with AI SDK v6 beta
 - **Backend**: Google ADK with FastAPI
 
-The project provides **three streaming modes** with real-time mode switching:
+### Three Streaming Modes
 
 1. **Gemini Direct** - Direct Gemini API via AI SDK (stable)
 2. **ADK SSE** - ADK backend with Server-Sent Events (stable)
@@ -54,7 +59,9 @@ The project provides **three streaming modes** with real-time mode switching:
 
 **Key Insight:** All three modes use the same **AI SDK v6 Data Stream Protocol** format, ensuring consistent frontend behavior regardless of backend implementation.
 
-## Key Features
+---
+
+## ✨ Key Features
 
 ### Streaming Modes
 
@@ -79,26 +86,33 @@ The project provides **three streaming modes** with real-time mode switching:
 - **Custom Transport**: `WebSocketChatTransport` for AI SDK v6 WebSocket support
 - **Tool Approval Flow**: Frontend-delegated execution with AI SDK v6 approval APIs
 
-## Tech Stack
+---
+
+## 🛠️ Tech Stack
 
 **Frontend:**
+
 - Next.js 16 (App Router)
 - React 19
 - AI SDK v6 beta (`ai`, `@ai-sdk/react`, `@ai-sdk/google`)
 - TypeScript 5.7
 
 **Backend:**
+
 - Python 3.13
 - Google ADK >=1.20.0
 - FastAPI >=0.115.0
 - Pydantic v2
 
 **Development Tools:**
+
 - pnpm (Node.js packages)
 - uv (Python packages)
 - just (task automation)
 
-## Quick Start
+---
+
+## 🚀 Quick Start
 
 ### Prerequisites
 
@@ -128,14 +142,16 @@ cp .env.example .env.local
 Edit `.env.local`:
 
 **For Gemini Direct:**
-```
+
+```env
 GOOGLE_GENERATIVE_AI_API_KEY=your_api_key_here
 BACKEND_MODE=gemini
 NEXT_PUBLIC_BACKEND_MODE=gemini
 ```
 
 **For ADK SSE/BIDI:**
-```
+
+```env
 GOOGLE_API_KEY=your_api_key_here
 BACKEND_MODE=adk-sse
 NEXT_PUBLIC_BACKEND_MODE=adk-sse
@@ -146,11 +162,13 @@ NEXT_PUBLIC_ADK_BACKEND_URL=http://localhost:8000
 ### Running
 
 **Gemini Direct (frontend only):**
+
 ```bash
 pnpm dev
 ```
 
 **ADK SSE/BIDI (backend + frontend):**
+
 ```bash
 # Run both concurrently:
 just dev
@@ -161,68 +179,108 @@ pnpm dev     # Frontend on :3000
 ```
 
 For all available commands:
+
 ```bash
 just --list
 ```
 
-## Testing
+---
 
-**Python Unit Tests:**
+## 🧪 Testing
+
+**Python Backend Tests:**
+
 ```bash
 just test-python
-# Expected: 231 passed
+# Expected: ~200 passed (unit + integration + e2e)
 ```
 
-**TypeScript Unit Tests:**
+**TypeScript Frontend Tests:**
+
 ```bash
-pnpm run test:lib
-# Expected: 255 passed
+pnpm test:lib
+# Expected: ~565 passed (unit + integration + e2e)
 ```
 
-**End-to-End Tests:**
+**Playwright E2E Tests:**
+
 ```bash
 just test-e2e-clean  # Recommended: clean server restart
 just test-e2e-ui     # Interactive UI mode
 ```
 
 **Code Quality:**
+
 ```bash
 just format  # Format code
 just lint    # Run linters
 just check   # Run type checks
 ```
 
-## Documentation
+---
 
-Comprehensive documentation is available in the `docs/` directory:
+## 📚 Documentation
 
-### Core Documentation
+Complete documentation is available in the `docs/` directory:
 
-- **[Getting Started Guide](docs/GETTING_STARTED.md)** - Detailed setup, usage examples, troubleshooting, AI SDK v6 migration notes
-- **[Architecture Documentation](docs/ARCHITECTURE.md)** - Complete architecture diagrams, protocol flows, tool approval system, multimodal implementation
-- **[Implementation Status](docs/IMPLEMENTATION.md)** - ADK field mapping, AI SDK v6 protocol coverage, feature parity status
+### Quick Start
 
-### Testing & Quality
+- **[Getting Started Guide](docs/00_GETTING_STARTED.md)** - Detailed setup, usage, troubleshooting, AI SDK v6 migration
+- **[Glossary](docs/00_GLOSSARY.md)** - Key terms, concepts, and patterns
 
-- **[E2E Testing Guide](docs/E2E_GUIDE.md)** - Frontend and backend E2E testing, chunk logger/player system, golden file testing
-- **[Test Coverage Audit](docs/TEST_COVERAGE_AUDIT.md)** - Detailed test coverage report, parametrized test status
+### Architecture & Specs
 
-### Technical Notes
+- **[Architecture Overview](docs/spec_ARCHITECTURE.md)** - Complete system architecture
+    - AudioWorklet PCM Streaming
+    - Tool Approval Flow (Frontend Delegation Pattern)
+    - Per-Connection State Management
+    - Multimodal Support Architecture
 
-- **[React Memoization](docs/REACT_MEMOIZATION.md)** - React performance optimization patterns
-- **[Bug Report: ADK BIDI Tool Confirmation](docs/BUG-ADK-BIDI-TOOL-CONFIRMATION.md)** - Known BIDI mode issues analysis
+- **[Protocol Implementation](docs/spec_PROTOCOL.md)** - ADK ↔ AI SDK v6 protocol
+    - Event/Part field mapping
+    - Implementation status
+    - Custom extensions (data-pcm, data-image, etc.)
+
+### Backend (Python)
+
+- **[Result Type Pattern](docs/backend_RESULT_TYPE.md)** - `Ok(value)` / `Error(value)` error handling
+
+### Frontend (TypeScript)
+
+- **[Library Structure](docs/frontend_LIB_STRUCTURE.md)** - `lib/` organization and module dependencies
+- **[React Optimization](docs/frontend_REACT_OPTIMIZATION.md)** - Memoization and performance patterns
+- **[Vitest Tests](docs/frontend_TESTING_VITEST.md)** - `lib/tests/` structure (unit, integration, e2e)
+
+### Testing
+
+- **[Testing Strategy](docs/testing_STRATEGY.md)** - Overall test architecture (pytest, Vitest, Playwright)
+- **[E2E Testing Guide](docs/testing_E2E.md)** - Complete E2E testing documentation
+    - Backend E2E (pytest golden files)
+    - Frontend E2E (Vitest browser tests)
+    - Fixtures management
+    - Chunk Logger debugging
+- **[Coverage Audit](docs/testing_COVERAGE_AUDIT.md)** - Test coverage verification
 
 ### Architecture Decision Records
 
-- **[ADR 0001: Per-Connection State Management](docs/adr/0001-per-connection-state-management.md)**
-- **[ADR 0002: Tool Approval Architecture](docs/adr/0002-tool-approval-architecture.md)**
+- **[ADR-0001](docs/adr/0001-per-connection-state-management.md)** - Per-Connection State Management
+- **[ADR-0002](docs/adr/0002-tool-approval-architecture.md)** - Tool Approval Architecture
+- **[ADR-0003](docs/adr/0003-sse-vs-bidi-confirmation-protocol.md)** - SSE vs BIDI Confirmation Protocol
+- **[ADR-0004](docs/adr/0004-multi-tool-response-timing.md)** - Multi-Tool Response Timing
+- **[ADR-0005](docs/adr/0005-frontend-execute-pattern-and-done-timing.md)** - Frontend Execute Pattern and [DONE] Timing
+- **[ADR-0006](docs/adr/0006-send-automatically-when-decision-logic-order.md)** - sendAutomaticallyWhen Decision Logic Order
+- **[ADR-0007](docs/adr/0007-approval-value-independence-in-auto-submit.md)** - Approval Value Independence
+- **[ADR-0008](docs/adr/0008-sse-mode-pattern-a-only-for-frontend-tools.md)** - SSE Mode Pattern A Only
+- **[ADR-0009](docs/adr/0009-phase12-blocking-mode-for-approval.md)** - Phase 12 Blocking Mode
+- **[ADR-0010](docs/adr/0010-bidi-confirmation-chunk-generation.md)** - BIDI Confirmation Chunk Generation
 
 ### Additional Resources
 
-- **[Experiments](experiments/README.md)** - Research notes, protocol investigations, multimodal support experiments
-- **[E2E Fixtures](tests/fixtures/e2e-chunks/README.md)** - E2E test chunks and recording guide
+- **[Experiments](experiments/README.md)** - Research notes, protocol investigations, multimodal experiments
 
-## Experiments & Research
+---
+
+## 🔬 Experiments & Research
 
 All experiment notes and architectural investigations are documented in `experiments/`:
 
@@ -234,12 +292,20 @@ All experiment notes and architectural investigations are documented in `experim
 
 See [experiments/README.md](experiments/README.md) for the complete experiment index and results.
 
-## License
+---
+
+## 📄 License
 
 MIT License. See LICENSE file for details.
 
-## References
+---
+
+## 🔗 References
 
 - [AI SDK Documentation](https://sdk.vercel.ai/docs)
 - [Google ADK Documentation](https://ai.google.dev/adk)
 - [BGM](https://www.loopbgm.com/)
+
+---
+
+**Last Updated:** 2025-12-29

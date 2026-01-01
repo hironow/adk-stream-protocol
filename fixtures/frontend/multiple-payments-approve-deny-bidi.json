@@ -1,0 +1,294 @@
+{
+  "description": "BIDI SEQUENTIAL - approve×deny (Alice approved, Bob denied)",
+  "mode": "bidi",
+  "source": "Backend E2E test capture",
+  "scenario": "BIDI sequential execution: Turn 1 (Alice request) → Turn 2 (Alice approved) → Turn 3 (Bob denied)",
+  "note": "Tests BIDI sequential execution with mixed approval (approve×deny).",
+  "input": {
+    "messages": [
+      {
+        "role": "user",
+        "content": "Aliceに30ドル、Bobに40ドル送金してください"
+      }
+    ],
+    "trigger": "submit-message"
+  },
+  "output": {
+    "rawEvents": [
+      "data: {\"type\": \"start\", \"messageId\": \"e8405870-705f-4a15-801d-1f38d6d1fa24\"}\n\n",
+      "data: {\"type\": \"reasoning-start\", \"id\": \"0\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Orchestrating Payments Sequentially**\\n\\nI'm currently devising a sequential execution strategy for the payment transactions.  I'll call `process_payment` twice.  First, for Alice's $30, followed by Bob's $40, both in USD.  Each call will wait for explicit user approval before proceeding.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-end\", \"id\": \"0\"}\n\n",
+      "data: {\"type\": \"reasoning-start\", \"id\": \"1\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"1\", \"delta\": \"**Structuring Payment Flows**\\n\\nI've formalized the process into two distinct `process_payment` calls.  First, I'll handle Alice's $30, followed by Bob's $40. Both amounts are in USD, which I've inferred as the default currency.  Each call will wait on explicit approval.  I'm focusing on ensuring the transaction sequence remains clear and compliant with user authorization.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-end\", \"id\": \"1\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-2820951750648728483\", \"toolName\": \"process_payment\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-2820951750648728483\", \"toolName\": \"process_payment\", \"input\": {\"currency\": \"USD\", \"recipient\": \"Alice\", \"amount\": 30}}\n\n",
+      "data: {\"type\":\"start-step\"}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-2820951750648728483\", \"approvalId\": \"adk-0c7c52b1-0f7c-4f31-989c-4b1ddd5b6bc1\"}\n\n",
+      "data: {\"type\":\"finish-step\"}\n\n",
+      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"function-call-2820951750648728483\", \"output\": {\"success\": true, \"transaction_id\": \"txn_1c18798001c3\", \"amount\": 30, \"currency\": \"USD\", \"recipient\": \"Alice\", \"description\": \"\", \"wallet_balance\": 970.0, \"timestamp\": \"2025-12-31T14:25:21.290478+00:00\"}}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-2975994996430128164\", \"toolName\": \"process_payment\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-2975994996430128164\", \"toolName\": \"process_payment\", \"input\": {\"currency\": \"USD\", \"recipient\": \"Bob\", \"amount\": 40}}\n\n",
+      "data: {\"type\":\"start-step\"}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-2975994996430128164\", \"approvalId\": \"adk-f31a68dd-4f11-4e3f-8631-0e25083c0202\"}\n\n",
+      "data: {\"type\":\"finish-step\"}\n\n",
+      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"function-call-2975994996430128164\", \"errorText\": \"User denied the payment\"}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \"Alice\\u3078\\u306e\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \"\\u9001\\u91d1\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \"\\u306f\\u627f\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \"\\u8a8d\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \"\\u3055\\u308c\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \"\\u3066\\u3001\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \"\\u6210\\u529f\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \"\\u3057\\u307e\\u3057\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \"\\u305f\\u3002\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \" Bob\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \"\\u3078\\u306e\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \"\\u9001\\u91d1\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \"\\u306f\\u3001\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \"\\u30e6\\u30fc\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \"\\u30b6\\u30fc\\u306b\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \"\\u62d2\\u5426\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \"\\u3055\\u308c\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \"\\u3066\\u3057\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \"\\u307e\\u3044\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \"\\u307e\\u3057\\u305f\\u3002\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1733, \"completionTokens\": null, \"totalTokens\": 1900}, \"audio\": {\"chunks\": 137, \"bytes\": 307200, \"sampleRate\": 24000, \"duration\": 6.4}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
+      "data: [DONE]\n\n"
+    ],
+    "expectedChunks": [
+      {
+        "type": "start",
+        "messageId": "e8405870-705f-4a15-801d-1f38d6d1fa24"
+      },
+      {
+        "type": "reasoning-start",
+        "id": "0"
+      },
+      {
+        "type": "reasoning-delta",
+        "id": "0",
+        "delta": "**Orchestrating Payments Sequentially**\n\nI'm currently devising a sequential execution strategy for the payment transactions.  I'll call `process_payment` twice.  First, for Alice's $30, followed by Bob's $40, both in USD.  Each call will wait for explicit user approval before proceeding.\n\n\n"
+      },
+      {
+        "type": "reasoning-end",
+        "id": "0"
+      },
+      {
+        "type": "reasoning-start",
+        "id": "1"
+      },
+      {
+        "type": "reasoning-delta",
+        "id": "1",
+        "delta": "**Structuring Payment Flows**\n\nI've formalized the process into two distinct `process_payment` calls.  First, I'll handle Alice's $30, followed by Bob's $40. Both amounts are in USD, which I've inferred as the default currency.  Each call will wait on explicit approval.  I'm focusing on ensuring the transaction sequence remains clear and compliant with user authorization.\n\n\n"
+      },
+      {
+        "type": "reasoning-end",
+        "id": "1"
+      },
+      {
+        "type": "tool-input-start",
+        "toolCallId": "function-call-2820951750648728483",
+        "toolName": "process_payment"
+      },
+      {
+        "type": "tool-input-available",
+        "toolCallId": "function-call-2820951750648728483",
+        "toolName": "process_payment",
+        "input": {
+          "currency": "USD",
+          "recipient": "Alice",
+          "amount": 30
+        }
+      },
+      {
+        "type": "start-step"
+      },
+      {
+        "type": "tool-approval-request",
+        "toolCallId": "function-call-2820951750648728483",
+        "approvalId": "adk-0c7c52b1-0f7c-4f31-989c-4b1ddd5b6bc1"
+      },
+      {
+        "type": "finish-step"
+      },
+      {
+        "type": "tool-output-available",
+        "toolCallId": "function-call-2820951750648728483",
+        "output": {
+          "success": true,
+          "transaction_id": "txn_1c18798001c3",
+          "amount": 30,
+          "currency": "USD",
+          "recipient": "Alice",
+          "description": "",
+          "wallet_balance": 970.0,
+          "timestamp": "2025-12-31T14:25:21.290478+00:00"
+        }
+      },
+      {
+        "type": "tool-input-start",
+        "toolCallId": "function-call-2975994996430128164",
+        "toolName": "process_payment"
+      },
+      {
+        "type": "tool-input-available",
+        "toolCallId": "function-call-2975994996430128164",
+        "toolName": "process_payment",
+        "input": {
+          "currency": "USD",
+          "recipient": "Bob",
+          "amount": 40
+        }
+      },
+      {
+        "type": "start-step"
+      },
+      {
+        "type": "tool-approval-request",
+        "toolCallId": "function-call-2975994996430128164",
+        "approvalId": "adk-f31a68dd-4f11-4e3f-8631-0e25083c0202"
+      },
+      {
+        "type": "finish-step"
+      },
+      {
+        "type": "tool-output-error",
+        "toolCallId": "function-call-2975994996430128164",
+        "errorText": "User denied the payment"
+      },
+      {
+        "type": "text-start",
+        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text"
+      },
+      {
+        "type": "text-delta",
+        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
+        "delta": "Aliceへの"
+      },
+      {
+        "type": "text-delta",
+        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
+        "delta": "送金"
+      },
+      {
+        "type": "text-delta",
+        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
+        "delta": "は承"
+      },
+      {
+        "type": "text-delta",
+        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
+        "delta": "認"
+      },
+      {
+        "type": "text-delta",
+        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
+        "delta": "され"
+      },
+      {
+        "type": "text-delta",
+        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
+        "delta": "て、"
+      },
+      {
+        "type": "text-delta",
+        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
+        "delta": "成功"
+      },
+      {
+        "type": "text-delta",
+        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
+        "delta": "しまし"
+      },
+      {
+        "type": "text-delta",
+        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
+        "delta": "た。"
+      },
+      {
+        "type": "text-delta",
+        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
+        "delta": " Bob"
+      },
+      {
+        "type": "text-delta",
+        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
+        "delta": "への"
+      },
+      {
+        "type": "text-delta",
+        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
+        "delta": "送金"
+      },
+      {
+        "type": "text-delta",
+        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
+        "delta": "は、"
+      },
+      {
+        "type": "text-delta",
+        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
+        "delta": "ユー"
+      },
+      {
+        "type": "text-delta",
+        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
+        "delta": "ザーに"
+      },
+      {
+        "type": "text-delta",
+        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
+        "delta": "拒否"
+      },
+      {
+        "type": "text-delta",
+        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
+        "delta": "され"
+      },
+      {
+        "type": "text-delta",
+        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
+        "delta": "てし"
+      },
+      {
+        "type": "text-delta",
+        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
+        "delta": "まい"
+      },
+      {
+        "type": "text-delta",
+        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
+        "delta": "ました。"
+      },
+      {
+        "type": "text-end",
+        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text"
+      },
+      {
+        "type": "finish",
+        "finishReason": "stop",
+        "messageMetadata": {
+          "usage": {
+            "promptTokens": 1733,
+            "completionTokens": null,
+            "totalTokens": 1900
+          },
+          "audio": {
+            "chunks": 137,
+            "bytes": 307200,
+            "sampleRate": 24000,
+            "duration": 6.4
+          },
+          "modelVersion": "gemini-2.5-flash-native-audio-preview-12-2025"
+        }
+      }
+    ],
+    "expectedDoneCount": 1,
+    "expectedStreamCompletion": true
+  }
+}

@@ -6,16 +6,16 @@ Frontend connects directly to this backend(adk-sse).
 gemini uses direct Gemini API and doesn't require this backend.
 """
 
-from __future__ import annotations
-
 import asyncio
 import json
 import os
 import uuid
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from dotenv import load_dotenv
+
 
 # Load environment variables from .env.local BEFORE any local imports
 # This ensures ChunkLogger reads the correct environment variables
@@ -30,122 +30,31 @@ from google.adk.agents import LiveRequestQueue  # noqa: E402
 from google.adk.agents.run_config import RunConfig, StreamingMode  # noqa: E402
 from google.genai import types  # noqa: E402
 from loguru import logger  # noqa: E402
-from pydantic import BaseModel  # noqa: E402
+from pydantic import BaseModel, field_validator  # noqa: E402
 
-from adk_ag_runner import (  # noqa: E402
+from adk_stream_protocol import (  # noqa: E402  # noqa: E402  # noqa: E402
+    SSE_CONFIRMATION_TOOLS,
+    BidiEventReceiver,
+    BidiEventSender,
+    ChatMessage,
+    FrontendToolDelegate,
+    SseEventStreamer,
+    ToolCallState,
+    ToolConfirmationDelegate,
+    ToolUsePart,
     bidi_agent,
     bidi_agent_runner,
+    chunk_logger,
+    clear_sessions,
+    get_delegate,
+    get_or_create_session,
+    register_delegate,
     sse_agent,
     sse_agent_runner,
 )
-from adk_compat import (  # noqa: E402
-    clear_sessions,
-    get_or_create_session,
-    sync_conversation_history_to_session,
-)
-from ai_sdk_v6_compat import (  # noqa: E402
-    ChatMessage,
-    ToolCallState,
-    ToolUsePart,
-    process_chat_message_for_bidi,
-)
-from stream_protocol import stream_adk_to_ai_sdk  # noqa: E402
-
-# ========== Frontend Tool Delegate ==========
 
 
-class FrontendToolDelegate:
-    """
-    Makes frontend tool execution awaitable using asyncio.Future.
-
-    Pattern:
-        1. Tool calls execute_on_frontend() with tool_call_id
-        2. Future is created and stored in _pending_calls
-        3. Tool awaits the Future (blocks)
-        4. Frontend executes tool and sends result via WebSocket
-        5. WebSocket handler calls resolve_tool_result()
-        6. Future is resolved, tool resumes and returns result
-    """
-
-    def __init__(self) -> None:
-        """Initialize the delegate with empty pending calls dict."""
-        self._pending_calls: dict[str, asyncio.Future[dict[str, Any]]] = {}
-
-    async def execute_on_frontend(
-        self, tool_call_id: str, tool_name: str, args: dict[str, Any]
-    ) -> dict[str, Any]:
-        """
-        Delegate tool execution to frontend and await result.
-
-        Args:
-            tool_call_id: ADK's function_call.id (from ToolContext)
-            tool_name: Name of the tool to execute
-            args: Tool arguments
-
-        Returns:
-            Result dict from frontend execution
-
-        Raises:
-            RuntimeError: If tool result not received within timeout
-        """
-        future: asyncio.Future[dict[str, Any]] = asyncio.Future()
-        self._pending_calls[tool_call_id] = future
-
-        logger.info(
-            f"[FrontendDelegate] Awaiting result for tool_call_id={tool_call_id}, "
-            f"tool={tool_name}, args={args}"
-        )
-
-        # Await frontend result (blocks here until result arrives)
-        result = await future
-
-        logger.info(f"[FrontendDelegate] Received result for tool_call_id={tool_call_id}: {result}")
-
-        return result
-
-    def resolve_tool_result(self, tool_call_id: str, result: dict[str, Any]) -> None:
-        """
-        Resolve a pending tool call with its result.
-
-        Called by WebSocket handler when frontend sends tool_result event.
-
-        Args:
-            tool_call_id: The tool call ID to resolve
-            result: Result dict from frontend execution
-        """
-        if tool_call_id in self._pending_calls:
-            logger.info(
-                f"[FrontendDelegate] Resolving tool_call_id={tool_call_id} with result: {result}"
-            )
-            self._pending_calls[tool_call_id].set_result(result)
-            del self._pending_calls[tool_call_id]
-        else:
-            logger.warning(
-                f"[FrontendDelegate] No pending call found for tool_call_id={tool_call_id}"
-            )
-
-    def reject_tool_call(self, tool_call_id: str, error_message: str) -> None:
-        """
-        Reject a pending tool call with an error.
-
-        Args:
-            tool_call_id: The tool call ID to reject
-            error_message: Error message
-        """
-        if tool_call_id in self._pending_calls:
-            logger.error(
-                f"[FrontendDelegate] Rejecting tool_call_id={tool_call_id} "
-                f"with error: {error_message}"
-            )
-            self._pending_calls[tool_call_id].set_exception(RuntimeError(error_message))
-            del self._pending_calls[tool_call_id]
-        else:
-            logger.warning(
-                f"[FrontendDelegate] No pending call found for tool_call_id={tool_call_id}"
-            )
-
-
-def get_user() -> str:
+def _get_user() -> str:
     """
     Get the current user ID.
 
@@ -178,10 +87,13 @@ def get_user() -> str:
 # Configure file logging
 log_dir = Path("logs")
 log_dir.mkdir(exist_ok=True)
-log_file = log_dir / "server_e2e-2.log"
+# session id or time jst format for uniqueness
+jst_format = "%Y%m%d_%H%M%S"
+jst_time_str = datetime.now(timezone(timedelta(hours=9))).strftime(jst_format)
+log_file = log_dir / f"server_{os.getenv('CHUNK_LOGGER_SESSION_ID', jst_time_str)}.log"
 logger.add(
     log_file,
-    rotation="5 MB",
+    rotation="100 MB",
     retention="7 days",
     level="DEBUG",
     format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} - {message}",
@@ -189,6 +101,13 @@ logger.add(
 
 logger.info("ADK Backend Server starting up...")
 logger.info(f"Logging to: {log_file}")
+
+# Log chunk logger configuration
+chunk_info = chunk_logger.get_info()
+logger.info(f"Chunk Logger: enabled={chunk_info['enabled']}")
+if chunk_info["enabled"]:
+    logger.info(f"Chunk Logger: session_id={chunk_info['session_id']}")
+    logger.info(f"Chunk Logger: output_path={chunk_info['output_path']}")
 
 # Explicitly ensure API key is in os.environ for Google GenAI SDK
 if not os.getenv("GOOGLE_GENERATIVE_AI_API_KEY"):
@@ -201,9 +120,8 @@ use_vertexai = os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "0") == "1"
 
 
 app = FastAPI(
-    title="ADK Data Protocol Server",
-    description="Google ADK backend for AI SDK v6 integration",
-    version="0.1.0",
+    title="ADK Stream Protocol ",
+    description="ADK Backend Server with FastAPI implementing AI SDK v6 Data Stream Protocol",
 )
 
 # CORS middleware for frontend communication
@@ -226,15 +144,40 @@ frontend_delegate = FrontendToolDelegate()
 
 
 class ChatRequest(BaseModel):
-    """Chat request model"""
+    """
+    Chat request model matching AI SDK v6 ChatTransport.sendMessages signature.
+
+    Frontend (AI SDK v6 useChat) sends requests matching the sendMessages interface:
+    {
+      "messages": UIMessage[],           // Full conversation history (required)
+      "chatId": string,                  // Unique chat session ID (optional)
+      "trigger": "submit-message" | "regenerate-message",  // Optional
+      "messageId": string | undefined    // Message to regenerate (optional)
+    }
+
+    Note: AI SDK v6's DefaultChatTransport (SSE mode) may send only messages field.
+    BIDI mode explicitly sends all fields via MessageEvent.
+
+    Validation:
+    - messages array must not be empty
+    - Each message must conform to ChatMessage (UIMessage) schema
+    """
 
     messages: list[ChatMessage]
+    chatId: str | None = None  # Optional - for compatibility with BIDI mode
+    trigger: Literal["submit-message", "regenerate-message"] | None = None
+    messageId: str | None = None
 
+    # Pydantic v2 uses model_config instead of Config class
+    model_config = {"extra": "allow"}  # Allow additional fields for future compatibility
 
-class ChatResponse(BaseModel):
-    """Chat response model"""
-
-    message: str
+    @field_validator("messages")
+    @classmethod
+    def messages_not_empty(cls, v: list[ChatMessage]) -> list[ChatMessage]:
+        """Validate that messages array is not empty"""
+        if not v:
+            raise ValueError("messages array cannot be empty")
+        return v
 
 
 @app.get("/")
@@ -242,7 +185,6 @@ async def root():
     """Root endpoint"""
     return {
         "service": "ADK Data Protocol Server",
-        "version": "0.1.0",
         "status": "running",
     }
 
@@ -261,109 +203,49 @@ async def clear_backend_sessions():
     This endpoint clears the global _sessions dictionary, resetting
     all conversation history and session state. Useful for E2E tests
     that need clean state between test runs.
+
+    Also closes chunk logger file handles to allow tests to delete
+    and recreate log files between test runs.
     """
     logger.info("[/clear-sessions] Clearing all backend sessions")
     clear_sessions()
+
+    # Close chunk logger file handles so tests can delete/recreate log files
+    chunk_logger.close()
+
     return {"status": "success", "message": "All sessions cleared"}
 
 
-@app.post("/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest):
-    """
-    Non-streaming chat endpoint (NOT USED - for reference only)
-
-    Transaction Script Pattern:
-    1. Validate input
-    2. Get or create session
-    3. Create message content
-    4. Run agent and collect response
-    5. Return response
-
-    Current architecture uses /stream endpoint exclusively.
-    This endpoint is kept for reference but not actively used.
-    Use /stream for production.
-    """
-    logger.info(f"[/chat] Received request with {len(request.messages)} messages")
-
-    # 1. Validate input - get the last user message
-    last_message = request.messages[-1].get_text_content() if request.messages else ""
-    if not last_message:
-        return ChatResponse(message="No message provided")
-
-    # 2. Session management
-    # Get user ID (single user mode for demo environment without database)
-    user_id = get_user()
-    app_name = "agents"
-    session = await get_or_create_session(user_id, sse_agent_runner, app_name)
-    logger.info(f"[/chat] Session ID: {session.id}")
-
-    # 3. Create ADK message content from user input
-    message_content = types.Content(role="user", parts=[types.Part(text=last_message)])
-
-    # 4. Run ADK agent and collect response
-    response_text = ""
-    try:
-        async for event in sse_agent_runner.run_async(
-            user_id=user_id,
-            session_id=session.id,
-            new_message=message_content,
-        ):
-            # Collect final response text
-            if event.is_final_response() and event.content and event.content.parts:
-                for part in event.content.parts:
-                    if hasattr(part, "text") and part.text:
-                        response_text += part.text
-
-        # 5. Return collected response
-        response_text = response_text.strip()
-        logger.info(f"[/chat] Response: {response_text[:100]}...")
-        return ChatResponse(message=response_text)
-
-    except Exception as e:
-        logger.error(f"[/chat] Error running ADK agent: {e}")
-        return ChatResponse(message=f"Error: {e!s}")
-
-
-def _create_error_sse_response(error_message: str) -> StreamingResponse:
-    """Create an SSE error response with proper headers."""
-
-    async def error_stream():
-        yield f"data: {json.dumps({'type': 'error', 'error': error_message})}\n\n"
-        yield "data: [DONE]\n\n"
-
-    return StreamingResponse(
-        error_stream(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-        },
-    )
-
-
-def _process_latest_message(last_message: ChatMessage) -> types.Content | None:
+def _process_latest_message(
+    last_message: ChatMessage, session: Any, id_mapper: Any = None, delegate: Any = None
+) -> types.Content | None:
     """
     Process the latest message and convert to ADK Content.
 
     Handle assistant messages with tool confirmations.
     Returns None if message should be skipped.
+
+    Args:
+        last_message: Message to process
+        session: ADK session (for accessing pending_confirmations in Turn 2)
+        id_mapper: Optional ID mapper for resolving tool_call_id → tool_name
     """
     # When user approves adk_request_confirmation, AI SDK sends assistant message back
     # with tool output (not a new user message). We need to send the confirmation
     # to ADK so it can continue processing.
     if last_message.role == "assistant":
         # Check if this is a tool confirmation response
+        # Note: The tool_name will be the original tool (e.g., process_payment), not adk_request_confirmation
         has_confirmation = last_message.parts is not None and any(
             isinstance(part, ToolUsePart)
-            and part.tool_name == "adk_request_confirmation"
-            and part.state == ToolCallState.OUTPUT_AVAILABLE
+            and part.state == ToolCallState.APPROVAL_RESPONDED
             for part in last_message.parts
         )
 
         if has_confirmation:
             # Convert confirmation to ADK content
             # This will be a FunctionResponse that ADK can process
-            message_content = last_message.to_adk_content()
+            message_content = last_message.to_adk_content(id_mapper=id_mapper, delegate=delegate)
             logger.info(f"[/stream] Processing confirmation response: {message_content}")
             return message_content
         else:
@@ -371,19 +253,22 @@ def _process_latest_message(last_message: ChatMessage) -> types.Content | None:
             logger.warning("[/stream] Last message is assistant but has no confirmation")
             return None
     else:
-        # Normal user message processing
-        last_user_message_text = last_message.get_text_content()
-        if not last_user_message_text:
-            logger.warning("[/stream] Last message has no text content")
-            return None
+        # User message processing
+        # Create ADK message content (includes text, images, function responses, etc.)
+        message_content = last_message.to_adk_content(id_mapper=id_mapper, delegate=delegate)
 
-        logger.info(f"[/stream] Processing: {last_user_message_text[:50]}...")
-        # Create ADK message content (includes images and other parts)
-        return last_message.to_adk_content()
+        # Log processing type
+        last_user_message_text = last_message._get_text_content()
+        if last_user_message_text:
+            logger.info(f"[/stream] Processing text: {last_user_message_text[:50]}...")
+        else:
+            logger.info("[/stream] Processing non-text message (function response, etc.)")
+
+        return message_content
 
 
 @app.post("/stream")
-async def stream(request: ChatRequest):
+async def stream(request: ChatRequest):  # noqa: C901, PLR0915
     """
     SSE streaming endpoint
 
@@ -399,70 +284,190 @@ async def stream(request: ChatRequest):
     - Request: UIMessage[] (full message history)
     - Response: SSE stream (text-start, text-delta, text-end, finish)
     """
-    logger.info(f"[/stream] Received request with {len(request.messages)} messages")
+    logger.info("[/stream] ===== API REQUEST RECEIVED =====")
+    logger.info(f"[/stream] Total messages: {len(request.messages)}")
 
-    # Debug logging for message parts
+    # Debug logging for all incoming messages with detailed parts
+    # Note: Pass ID mapper for tool-result part resolution
     for i, msg in enumerate(request.messages):
-        logger.info(f"[/stream] Processing Message {i}: role={msg.role}")
-        try:
-            msg_context = msg.to_adk_content()
-            logger.info(
-                f"[/stream] Message {i}: role={msg_context.role}, "
-                f"parts={len(msg_context.parts) if msg_context.parts else 0}"
-            )
-        except Exception as e:
-            logger.error(f"[/stream] Failed to convert Message {i}: {e}", exc_info=True)
-            return _create_error_sse_response(f"Failed to convert message: {e!s}")
+        logger.info(f"[/stream] --- Message {i} ---")
+        logger.info(f"[/stream] role: {msg.role}")
+
+        msg_context = msg.to_adk_content(
+            id_mapper=frontend_delegate._id_mapper, delegate=frontend_delegate
+        )
+        logger.info(f"[/stream] parts count: {len(msg_context.parts) if msg_context.parts else 0}")
+
+        if msg_context.parts:
+            for j, part in enumerate(msg_context.parts):
+                if part.text:
+                    logger.info(f"[/stream] part[{j}]: text='{part.text[:50]}...'")
+                elif part.function_response:
+                    logger.info(
+                        f"[/stream] part[{j}]: FunctionResponse("
+                        f"id={part.function_response.id}, "
+                        f"name={part.function_response.name}, "
+                        f"response={part.function_response.response})"
+                    )
+                elif part.function_call:
+                    logger.info(
+                        f"[/stream] part[{j}]: FunctionCall("
+                        f"id={part.function_call.id}, "
+                        f"name={part.function_call.name}, "
+                        f"args={part.function_call.args})"
+                    )
+    logger.info("[/stream] ===================================")
 
     # Validate input messages
     if not request.messages:
-        return _create_error_sse_response("No messages provided")
+        raise ValueError("No messages provided in request")
 
     # Create SSE stream generator inline (transaction script pattern)
-    async def generate_sse_stream():
+    async def generate_sse_stream():  # noqa: C901, PLR0912, PLR0915
         # 2. Session management
         # Get user ID (single user mode for demo environment without database)
-        user_id = get_user()
-        session = await get_or_create_session(user_id, sse_agent_runner, "agents")
+        user_id = _get_user()
+        # App-based runner requires app_name to match the App's name
+        session = await get_or_create_session(user_id, sse_agent_runner, "adk_assistant_app_sse")
         logger.info(f"[/stream] Session ID: {session.id}")
 
-        # Use global frontend tool delegate (shared across SSE and BIDI modes)
-        session.state["frontend_delegate"] = frontend_delegate
-        logger.info("[/stream] Global FrontendToolDelegate stored in session.state")
+        # DEBUG: Check session state persistence
+        try:  # nosem: semgrep.forbid-try-except - debug logging, legitimate exception handling
+            events = await sse_agent_runner.session_service.get_events(
+                session=session, after_event_index=0
+            )
+            event_count = len(list(events))
+            logger.info(f"[/stream] Session has {event_count} events in history")
+        except Exception as e:
+            logger.warning(f"[/stream] Could not get session events: {e}")
 
-        # Sync conversation history (BUG-006 FIX)
-        # When switching modes (e.g., Gemini Direct -> ADK SSE), sync history
-        await sync_conversation_history_to_session(
-            session=session,
-            session_service=sse_agent_runner.session_service,
-            messages=request.messages,
-            current_mode="SSE",
+        # Get or create session-specific frontend delegate
+        # Delegate must persist across turns so Futures created in Turn 1 can be resolved in Turn 2
+        # Note: Cannot store in session.state (not serializable - contains asyncio.Future)
+        # Tools access delegate via frontend_tool_registry.get_delegate(session.id)
+        existing_delegate = get_delegate(session.id)
+        if existing_delegate:
+            frontend_delegate = existing_delegate
+            logger.info(
+                f"[/stream] Reusing existing FrontendToolDelegate for session_id={session.id}"
+            )
+        else:
+            frontend_delegate = FrontendToolDelegate()
+            register_delegate(session.id, frontend_delegate)
+            logger.info(f"[/stream] Created new FrontendToolDelegate for session_id={session.id}")
+
+        # Process the latest message (pass ID mapper and delegate for tool-result resolution)
+        message_content = _process_latest_message(
+            request.messages[-1],
+            session,
+            id_mapper=frontend_delegate._id_mapper,
+            delegate=frontend_delegate,
         )
-
-        # Process the latest message
-        message_content = _process_latest_message(request.messages[-1])
         if message_content is None:
             return
+
+        logger.info("[/stream] ===== ADK INPUT (new_message) =====")
+        logger.info(f"[/stream] role: {message_content.role}")
+        logger.info(
+            f"[/stream] parts count: {len(message_content.parts) if message_content.parts else 0}"
+        )
+        if message_content.parts:
+            for i, part in enumerate(message_content.parts):
+                if part.text:
+                    logger.info(f"[/stream] part[{i}]: text='{part.text[:50]}...'")
+                elif part.function_response:
+                    logger.info(
+                        f"[/stream] part[{i}]: FunctionResponse("
+                        f"id={part.function_response.id}, "
+                        f"name={part.function_response.name}, "
+                        f"response={part.function_response.response})"
+                    )
+                elif part.function_call:
+                    logger.info(
+                        f"[/stream] part[{i}]: FunctionCall("
+                        f"id={part.function_call.id}, "
+                        f"name={part.function_call.name}, "
+                        f"args={part.function_call.args})"
+                    )
+        logger.info("[/stream] =======================================")
+
+        # ID変換: confirmation-adk-xxx → adk-xxx (for adk_request_confirmation approval responses)
+        # This converts frontend confirmation IDs back to original ADK tool call IDs
+        if message_content.parts:
+            for part in message_content.parts:
+                if (
+                    hasattr(part, "function_response")
+                    and part.function_response is not None
+                    and part.function_response.name == "adk_request_confirmation"
+                    and part.function_response.id.startswith("confirmation-")
+                ):
+                    original_id = part.function_response.id.replace("confirmation-", "", 1)
+                    logger.info(f"[/stream] ID変換: {part.function_response.id} → {original_id}")
+                    part.function_response.id = original_id
 
         logger.info(
             f"[/stream] Agent model: {sse_agent.model}, "
             f"tools: {[tool.__name__ if callable(tool) else str(tool) for tool in sse_agent.tools]}"
         )
 
+        # Detect if this is Turn 2 (confirmation response) by checking for adk_request_confirmation FunctionResponse
+        is_confirmation_response = False
+        if message_content.parts:
+            for part in message_content.parts:
+                if (
+                    hasattr(part, "function_response")
+                    and part.function_response is not None
+                    and part.function_response.name == "adk_request_confirmation"
+                ):
+                    is_confirmation_response = True
+                    break
+
+        # Get last invocation_id for continuation (ONLY if this is Turn 2)
+        last_invocation_id = None
+        if is_confirmation_response:
+            last_invocation_id = session.state.get("last_invocation_id")
+            if last_invocation_id:
+                logger.info(
+                    f"[/stream] Turn 2: Continuing from invocation_id: {last_invocation_id}"
+                )
+            else:
+                logger.warning("[/stream] Turn 2 detected but no invocation_id found!")
+        # Turn 1: Clear any old invocation_id and start fresh
+        elif "last_invocation_id" in session.state:
+            del session.state["last_invocation_id"]
+            logger.info("[/stream] Turn 1: Cleared old invocation_id, starting new invocation")
+        else:
+            logger.info("[/stream] Turn 1: Starting new invocation")
+
         # Run ADK agent with streaming
+        # Use invocation_id for multi-turn continuation
         event_stream = sse_agent_runner.run_async(
             user_id=user_id,
             session_id=session.id,
             new_message=message_content,
+            invocation_id=last_invocation_id,
         )
 
-        # Convert ADK events to AI SDK format and yield SSE events
-        event_count = 0
-        async for sse_event in stream_adk_to_ai_sdk(event_stream):
-            event_count += 1
+        streamer = SseEventStreamer(
+            frontend_delegate=frontend_delegate,
+            confirmation_tools=SSE_CONFIRMATION_TOOLS,
+            session=session,
+            sse_agent_runner=sse_agent_runner,
+        )
+
+        # Stream events to client (handles conversion, confirmation, ID mapping)
+        async for sse_event in streamer.stream_events(event_stream):
             yield sse_event
 
-        logger.info(f"[/stream] Completed with {event_count} SSE events")
+        # After streaming, save invocation_id from SseEventStreamer for Turn 2 continuation
+        current_invocation_id = getattr(streamer, "_current_invocation_id", None)
+        if current_invocation_id:
+            session.state["last_invocation_id"] = current_invocation_id
+            logger.info(f"[/stream] Saved invocation_id for continuation: {current_invocation_id}")
+        else:
+            logger.warning("[/stream] No invocation_id captured")
+
+        logger.info("[/stream] Completed streaming events")
 
     # Return streaming response
     return StreamingResponse(
@@ -497,7 +502,7 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
 
     2. Server → Client (Downstream):
        - ADK generates: Events from run_live()
-       - stream_adk_to_ai_sdk() converts: ADK events → SSE format
+       - ADK events → SSE format
          (Same converter as /stream endpoint - 100% code reuse!)
        - WebSocket sends: SSE-formatted strings like 'data: {...}\n\n'
        - Client parses: SSE format → UIMessageChunk
@@ -523,7 +528,7 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
     # Create connection-specific session
     # ADK Design: session = connection (prevents concurrent run_live() race conditions)
     # Get user ID (single user mode for demo environment without database)
-    user_id = get_user()
+    user_id = _get_user()
     session = await get_or_create_session(
         user_id,
         bidi_agent_runner,
@@ -532,9 +537,18 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
     )
     logger.info(f"[BIDI] Session created: {session.id}")
 
-    # Use global frontend tool delegate (shared across SSE and BIDI modes)
-    session.state["frontend_delegate"] = frontend_delegate
-    logger.info("[BIDI] Global FrontendToolDelegate stored in session.state")
+    # Get or create session-specific frontend delegate
+    # Delegate must persist across turns so Futures created in Turn 1 can be resolved in Turn 2
+    # Note: Cannot store in session.state (not serializable - contains asyncio.Future)
+    # Tools access delegate via frontend_tool_registry.get_delegate(session.id)
+    existing_delegate = get_delegate(session.id)
+    if existing_delegate:
+        frontend_delegate = existing_delegate
+        logger.info(f"[BIDI] Reusing existing FrontendToolDelegate for session_id={session.id}")
+    else:
+        frontend_delegate = FrontendToolDelegate()
+        register_delegate(session.id, frontend_delegate)
+        logger.info(f"[BIDI] Created new FrontendToolDelegate for session_id={session.id}")
 
     # Create LiveRequestQueue for bidirectional communication
     live_request_queue = LiveRequestQueue()
@@ -593,221 +607,111 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
             ),
         )
 
-    try:
-        # Start ADK BIDI streaming
+    # Tool functions (process_payment, get_location) use this to await user confirmation
+    confirmation_delegate = ToolConfirmationDelegate()
+    session.state["confirmation_delegate"] = confirmation_delegate
+    logger.info("[BIDI] ToolConfirmationDelegate initialized")
+
+    # Set mode flag for tool functions to detect SSE vs BIDI mode
+    session.state["mode"] = "bidi"
+    logger.info("[BIDI] Set session.state['mode'] = 'bidi'")
+
+    # Initialize confirmation_id_mapping for BidiEventSender/Receiver
+    # Maps confirmation_id → original_tool_call_id for approval resolution
+    session.state["confirmation_id_mapping"] = {}
+    logger.info("[BIDI] confirmation_id_mapping dict initialized")
+
+    # Create BidiEventReceiver (upstream: WebSocket → ADK)
+    # Single receiver handles all messages across all turns
+    bidi_event_receiver = BidiEventReceiver(
+        session=session,
+        frontend_delegate=frontend_delegate,
+        live_request_queue=live_request_queue,
+        bidi_agent_runner=bidi_agent_runner,
+    )
+    session.state["bidi_event_receiver"] = bidi_event_receiver
+    logger.info("[BIDI] BidiEventReceiver created (upstream: WebSocket → ADK)")
+
+    # Convert model to string if needed (bidi_agent.model is str | BaseLlm)
+    agent_model_str = (
+        bidi_agent.model if isinstance(bidi_agent.model, str) else str(bidi_agent.model)
+    )
+
+    # Create BidiEventSender for downstream (ADK → WebSocket)
+    bidi_event_sender = BidiEventSender(
+        websocket=websocket,
+        frontend_delegate=frontend_delegate,
+        session=session,
+        agent_model=agent_model_str,  # Pass agent model for modelVersion fallback
+        confirmation_tools=["process_payment", "get_location"],  # Tools requiring user approval
+    )
+    logger.info("[BIDI] BidiEventSender created (downstream: ADK → WebSocket)")
+
+    # Downstream task: Stream ADK events → WebSocket (following official bidi-demo pattern)
+    async def downstream_task():
+        """Receives Events from run_live() and sends to WebSocket."""
+        logger.info("[BIDI] downstream_task started, calling runner.run_live()")
+        logger.info(f"[BIDI] Starting run_live with user_id={user_id}, session_id={session.id}")
+
+        # Single run_live() call handles ALL turns
+        # Turn 1: Initial message via live_request_queue
+        # Turn 2+: Continuation via send_content() on same queue
         live_events = bidi_agent_runner.run_live(
             user_id=user_id,
             session_id=session.id,
             live_request_queue=live_request_queue,
             run_config=run_config,
-            session=session,  # IMPORTANT: Pass the session object explicitly. If not passed, tool_context.state will be empty
+            session=session,
         )
+        await bidi_event_sender.send_events(live_events)
+        logger.info("[BIDI] run_live() generator completed")
 
-        logger.info("[BIDI] ADK live stream started")
+    # Upstream task: Receive WebSocket messages and send to LiveRequestQueue
+    async def upstream_task():
+        """Receives messages from WebSocket and sends to LiveRequestQueue."""
+        logger.info("[BIDI] upstream_task started")
+        while True:
+            data = await websocket.receive_text()
 
-        # Receive messages from WebSocket → send to LiveRequestQueue
-        async def receive_from_client():  # noqa: C901, PLR0912, PLR0915
+            # Parse JSON and handle parse errors
             try:
-                while True:
-                    data = await websocket.receive_text()
-                    # Parse structured event format (P2-T2)
-                    event = json.loads(data)
-                    event_type = event.get("type")
-                    event_version = event.get("version", "1.0")
+                event = json.loads(data)
+            except json.JSONDecodeError as e:
+                logger.error(f"[BIDI] Invalid JSON received: {e!s}")
+                # Close connection with protocol error code (1002 = protocol error)
+                await websocket.close(code=1002, reason=f"Invalid JSON: {e!s}")
+                break
 
-                    # Handle ping/pong for latency monitoring
-                    if event_type == "ping":
-                        await websocket.send_text(
-                            json.dumps(
-                                {
-                                    "type": "pong",
-                                    "timestamp": event.get("timestamp"),
-                                }
-                            )
-                        )
-                        continue
+            event_type = event.get("type")
 
-                    # ignore ping events in logs
-                    logger.info(f"[BIDI] Received event: {event_type} (v{event_version})")
+            # Handle ping/pong
+            if event_type == "ping":
+                await websocket.send_text(
+                    json.dumps({"type": "pong", "timestamp": event.get("timestamp")})
+                )
+                continue
 
-                    # Handle message event (chat messages)
-                    if event_type == "message":
-                        message_data = event.get("data", {})
+            # Get current receiver from session.state
+            receiver = session.state.get("bidi_event_receiver")
+            if receiver:
+                await receiver.handle_event(event)
+            else:
+                logger.warning(f"[BIDI] No receiver available for event: {event_type}")
 
-                        # BUG-006 FIX: Also sync history for BIDI mode
-                        # When switching from Gemini Direct or ADK SSE to BIDI
-                        messages = message_data.get("messages", [])
-                        if messages:
-                            # Convert to ChatMessage objects for sync function
-                            chat_messages = [ChatMessage(**msg) for msg in messages]
-
-                            # Sync conversation history
-                            await sync_conversation_history_to_session(
-                                session=session,
-                                session_service=bidi_agent_runner.session_service,
-                                messages=chat_messages,
-                                current_mode="BIDI",
-                            )
-
-                        # Process AI SDK v6 message format → ADK format
-                        # Separates image blobs from text parts (Live API requirement)
-                        # Tool confirmations handled in ChatMessage.to_adk_content()
-                        image_blobs, text_content = process_chat_message_for_bidi(message_data)
-
-                        # Send to ADK LiveRequestQueue
-                        # Images/videos: send_realtime(blob)
-                        # Text: send_content(content)
-                        for blob in image_blobs:
-                            live_request_queue.send_realtime(blob)
-
-                        if text_content:
-                            live_request_queue.send_content(text_content)
-
-                    # Handle interrupt event
-                    elif event_type == "interrupt":
-                        reason = event.get("reason", "user_abort")
-                        logger.info(f"[BIDI] User interrupted (reason: {reason})")
-                        # Close the request queue to stop AI generation
-                        live_request_queue.close()
-                        # Note: WebSocket stays open for next turn
-
-                    # Handle audio control event
-                    elif event_type == "audio_control":
-                        action = event.get("action")
-                        if action == "start":
-                            logger.info("[BIDI] Audio input started (CMD key pressed)")
-                        elif action == "stop":
-                            logger.info("[BIDI] Audio input stopped (CMD key released, auto-send)")
-                        # Note: Audio chunks are streamed separately via audio_chunk events
-                        # ADK processes the audio in real-time through LiveRequestQueue
-
-                    # Handle audio chunk event
-                    elif event_type == "audio_chunk":
-                        chunk_data = event.get("data", {})
-                        chunk_base64 = chunk_data.get("chunk")
-
-                        if chunk_base64:
-                            import base64
-
-                            # Decode base64 PCM audio data
-                            audio_bytes = base64.b64decode(chunk_base64)
-
-                            # Frontend now sends raw PCM audio via AudioWorklet
-                            # Format: 16-bit signed integer, 16kHz, mono
-                            # This matches ADK Live API requirements
-
-                            # Create audio blob for ADK
-                            # Using audio/pcm mime type (raw PCM from AudioWorklet)
-                            audio_blob = types.Blob(mime_type="audio/pcm", data=audio_bytes)
-                            # Send to ADK via LiveRequestQueue
-                            live_request_queue.send_realtime(audio_blob)
-
-                    # Handle tool_result event
-                    elif event_type == "tool_result":
-                        tool_result_data = event.get("data", {})
-                        tool_call_id = tool_result_data.get("toolCallId")
-                        result = tool_result_data.get("result")
-
-                        if tool_call_id and result:
-                            # Get delegate from session state
-                            delegate = session.state.get("frontend_delegate")
-                            if delegate:
-                                delegate.resolve_tool_result(tool_call_id, result)
-                                logger.info(f"[BIDI] Resolved tool result for {tool_call_id}")
-                            else:
-                                logger.warning("[BIDI] No delegate found in session state")
-                        else:
-                            logger.warning(f"[BIDI] Invalid tool_result event: {event}")
-
-                    # Unknown event type
-                    else:
-                        logger.warning(f"[BIDI] Unknown event type: {event_type}")
-
-            except WebSocketDisconnect:
-                logger.info("[BIDI] Client disconnected")
-                live_request_queue.close()
-            except Exception as e:
-                logger.error(f"[BIDI] Error receiving from client: {e}")
-                live_request_queue.close()
-                raise
-
-        # Task 2: Receive ADK events → send to WebSocket
-        async def send_to_client():
-            try:
-                event_count = 0
-                # IMPORTANT: Protocol conversion happens here!
-                # stream_adk_to_ai_sdk() converts ADK events to AI SDK v6 Data Stream Protocol
-                # Output: SSE-formatted strings like 'data: {"type":"text-delta","text":"..."}\n\n'
-                # This is the SAME converter used in SSE mode (/stream endpoint)
-                # We reuse 100% of the conversion logic - only transport layer differs
-                # WebSocket mode: Send SSE format over WebSocket (instead of HTTP SSE)
-                # ADK native Tool Confirmation Flow via FunctionTool(require_confirmation=True)
-                logger.info("[BIDI] Starting to stream ADK events to WebSocket")
-                async for sse_event in stream_adk_to_ai_sdk(
-                    live_events,
-                    mode="adk-bidi",  # Chunk logger: distinguish from adk-sse mode
-                ):
-                    event_count += 1
-                    # Send SSE-formatted event as WebSocket text message
-                    # Frontend will parse "data: {...}" format and extract UIMessageChunk
-
-                    # [DEBUG] Log all event types to see what's being sent
-                    if sse_event.startswith("data:"):
-                        try:
-                            import json
-
-                            event_data = json.loads(sse_event[5:].strip())  # Remove "data:" prefix
-                            event_type = event_data.get("type", "unknown")
-                            logger.info(f"[BIDI-SEND] Sending event type: {event_type}")
-
-                            # Log tool-approval-request specifically with full data
-                            if event_type == "tool-approval-request":
-                                logger.warning(
-                                    f"[BIDI-SEND] ⚠️ ⚠️ ⚠️  SENDING tool-approval-request: {event_data}"
-                                )
-                        except Exception as e:
-                            logger.debug(f"[BIDI-SEND] Could not parse event data: {e}")
-
-                    await websocket.send_text(sse_event)
-
-                logger.info(f"[BIDI] Sent {event_count} events to client")
-
-            except WebSocketDisconnect:
-                # Client disconnected during streaming - this is expected during page reload
-                pass
-            except ValueError as e:
-                # ADK connection errors (e.g., session resumption errors)
-                # Silently handle expected errors when client disconnects
-                if "Transparent session resumption" not in str(e):
-                    logger.error(f"[BIDI] ADK connection error: {e}")
-            except Exception as e:
-                logger.error(f"[BIDI] Error sending to client: {e}")
-                raise
-
-        # Run both tasks concurrently
-        await asyncio.gather(
-            receive_from_client(),
-            send_to_client(),
-            return_exceptions=True,
-        )
+    try:
+        # Run both tasks concurrently (following official bidi-demo pattern)
+        logger.info("[BIDI] Starting asyncio.gather() for upstream/downstream tasks")
+        await asyncio.gather(upstream_task(), downstream_task())
 
     except WebSocketDisconnect:
-        logger.info("[BIDI] WebSocket connection closed")
+        logger.warning("[BIDI] WebSocket disconnected")
     except Exception as e:
-        logger.error(f"[BIDI] WebSocket error: {e}")
-        try:
-            await websocket.close(code=1011, reason=str(e))
-        except Exception:
-            pass  # Connection might already be closed
+        logger.error(f"[live_chat] Exception: {e!s}")
     finally:
-        # Ensure queue is closed
-        try:
-            live_request_queue.close()
-        except Exception:
-            pass
+        live_request_queue.close()
 
 
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")  # noqa: S104

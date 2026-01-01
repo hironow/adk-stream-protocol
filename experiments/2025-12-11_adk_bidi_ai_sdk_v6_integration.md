@@ -7,27 +7,35 @@
 ## Background
 
 ### Current Implementation
+
 This project currently integrates:
+
 - **Frontend**: Next.js with AI SDK v6 useChat hook
 - **Backend**: ADK (Agent Development Kit) with streaming via SSE (Server-Sent Events)
 - **Communication**: Unidirectional streaming (request → response pattern)
 
 ### ADK BIDI Mode
+
 ADK offers bidirectional streaming (BIDI mode) which enables:
+
 - Low-latency voice and video interactions
 - Real-time interruptions (users can interrupt agent responses)
 - Continuous multimodal inputs (text, audio, video)
 - Powered by Gemini Live API with WebSocket protocol
 
 ### AI SDK v6 useChat
+
 Current useChat implementation:
+
 - Request-response pattern with streaming responses
 - Uses SSE (Server-Sent Events) by default
 - Supports custom transport layers via `ChatTransport` interface
 - Community has built WebSocket transports (proven feasible)
 
 ### Motivation
+
 Real-time voice conversations with AI agents require bidirectional streaming:
+
 - Users need to interrupt agent responses naturally
 - Audio input must stream continuously (not request-based)
 - Tool calling must work in live conversational context
@@ -39,6 +47,7 @@ Real-time voice conversations with AI agents require bidirectional streaming:
 AI SDK v6's useChat can be adapted to work with ADK BIDI mode by implementing a custom WebSocket transport that bridges useChat's message interface with ADK's LiveRequestQueue.
 
 **Sub-hypotheses:**
+
 1. WebSocket transport can replace SSE for bidirectional communication
 2. useChat's message state management can handle continuous bidirectional streams
 3. Tool calling will work in BIDI context through WebSocket messages
@@ -49,6 +58,7 @@ AI SDK v6's useChat can be adapted to work with ADK BIDI mode by implementing a 
 ### Phase 1: Research & Analysis ✅
 
 **Completed Tasks:**
+
 - [x] Research AI SDK v6 transport system architecture
 - [x] Research ADK BIDI streaming and LiveRequestQueue
 - [x] Research Gemini Live API WebSocket protocol
@@ -177,6 +187,7 @@ UI renders response
 ```
 
 Legend / 凡例:
+
 - User Input: ユーザー入力
 - useChat.sendMessage(): AI SDKのメッセージ送信メソッド
 - WebSocketChatTransport: カスタムWebSocketトランスポート層
@@ -196,6 +207,7 @@ Legend / 凡例:
 #### Backend (Python + FastAPI + ADK)
 
 1. **Create WebSocket endpoint** (`/live`)
+
    ```python
    @app.websocket("/live")
    async def live_chat(websocket: WebSocket):
@@ -225,6 +237,7 @@ Legend / 凡例:
    - Return `ReadableStream<UIMessageChunk>`
 
 2. **Update useChat configuration**
+
    ```typescript
    const transport = new WebSocketChatTransport({
      url: 'ws://localhost:8000/live',
@@ -484,12 +497,14 @@ The experiment successfully demonstrated that:
 ### Key Takeaways
 
 **✅ What Worked Well:**
+
 - Architecture design matched implementation reality
 - Existing components reused effectively (stream_protocol.py)
 - Clean separation between transport and application logic
 - UI/UX smooth with no perceived latency
 
 **⚠️ What Needs Improvement:**
+
 - TypeScript type definitions for custom transports
 - Session management and reconnection logic
 - Error handling and retry mechanisms
@@ -500,6 +515,7 @@ The experiment successfully demonstrated that:
 **Current State:** **Proof of Concept** → **Alpha Quality**
 
 **For Production Use, Need:**
+
 1. User-specific session management
 2. WebSocket reconnection with session resumption
 3. Comprehensive error handling
@@ -510,18 +526,21 @@ The experiment successfully demonstrated that:
 ### Next Steps
 
 **Immediate (Phase 3 completion):**
+
 - ✅ Document implementation
 - ✅ Commit to repository
 - [ ] Add unit tests for WebSocketChatTransport
 - [ ] Add integration tests for /live endpoint
 
 **Future (Phase 4 - Audio/Video):**
+
 - [ ] Implement audio input streaming (microphone → LiveRequestQueue)
 - [ ] Implement audio output playback (ADK events → audio player)
 - [ ] Add Voice Activity Detection for interruptions
 - [ ] Test with video streaming
 
 **Long-term:**
+
 - [ ] Production deployment guide
 - [ ] Benchmarking vs other streaming approaches
 - [ ] Community contribution (AI SDK examples repo)

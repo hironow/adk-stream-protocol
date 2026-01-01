@@ -1,0 +1,152 @@
+{
+  "description": "BIDI mode Phase 12 BLOCKING - process_payment with denial flow (SINGLE CONTINUOUS STREAM)",
+  "mode": "bidi",
+  "source": "Backend E2E test capture",
+  "scenario": "User denies process_payment tool call - Phase 12 BLOCKING mode where tool awaits approval inside function",
+  "note": "Phase 12 BLOCKING behavior: Single continuous stream with 1 [DONE]. Tool enters BLOCKING state awaiting approval, then returns error after denial. This is different from Phase 5 where tool returns pending immediately.",
+  "input": {
+    "messages": [
+      {
+        "id": "msg-1",
+        "role": "user",
+        "content": "次郎さんに200ドル送金してください"
+      }
+    ],
+    "trigger": "submit-message"
+  },
+  "output": {
+    "rawEvents": [
+      "data: {\"type\": \"start\", \"messageId\": \"4bb40129-ddc1-42d0-b069-f484a438e98c\"}\n\n",
+      "data: {\"type\": \"reasoning-start\", \"id\": \"0\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Considering the Transaction**\\n\\nOkay, I'm thinking about sending $200 to \\u6b21\\u90ce\\u3055\\u3093. I've decided the `process_payment` tool is the way to go. The amount is set at 200, and the recipient is '\\u6b21\\u90ce\\u3055\\u3093'. Currency will remain as USD by default. I remember in SSE mode, which is the current mode, the ADK will handle approval automatically. I'm ready to proceed.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-end\", \"id\": \"0\"}\n\n",
+      "data: {\"type\": \"reasoning-start\", \"id\": \"1\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"1\", \"delta\": \"**Analyzing the Parameters**\\n\\nI've confirmed the parameters for `process_payment`: $200 to Jiro in USD. The tool definition confirms automatic approval in this mode, so I'm clear to make the call. I'm satisfied this is the correct action to take.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-end\", \"id\": \"1\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-2073593254307203571\", \"toolName\": \"process_payment\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-2073593254307203571\", \"toolName\": \"process_payment\", \"input\": {\"recipient\": \"\\u6b21\\u90ce\\u3055\\u3093\", \"amount\": 200}}\n\n",
+      "data: {\"type\":\"start-step\"}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-2073593254307203571\", \"approvalId\": \"adk-ab4c2b2b-5750-4b80-a5c6-971b2550aefe\"}\n\n",
+      "data: {\"type\":\"finish-step\"}\n\n",
+      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"function-call-2073593254307203571\", \"errorText\": \"User denied the payment\"}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"4bb40129-ddc1-42d0-b069-f484a438e98c_output_text\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"4bb40129-ddc1-42d0-b069-f484a438e98c_output_text\", \"delta\": \"\\u9001\\u91d1\\u3092\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"4bb40129-ddc1-42d0-b069-f484a438e98c_output_text\", \"delta\": \"\\u62d2\\u5426\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"4bb40129-ddc1-42d0-b069-f484a438e98c_output_text\", \"delta\": \"\\u3055\\u308c\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"4bb40129-ddc1-42d0-b069-f484a438e98c_output_text\", \"delta\": \"\\u307e\\u3057\\u305f\\u3002\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"4bb40129-ddc1-42d0-b069-f484a438e98c_output_text\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1546, \"completionTokens\": null, \"totalTokens\": 1589}, \"audio\": {\"chunks\": 19, \"bytes\": 80640, \"sampleRate\": 24000, \"duration\": 1.68}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
+      "data: [DONE]\n\n"
+    ],
+    "expectedChunks": [
+      {
+        "type": "start",
+        "messageId": "4bb40129-ddc1-42d0-b069-f484a438e98c"
+      },
+      {
+        "type": "reasoning-start",
+        "id": "0"
+      },
+      {
+        "type": "reasoning-delta",
+        "id": "0",
+        "delta": "**Considering the Transaction**\n\nOkay, I'm thinking about sending $200 to 次郎さん. I've decided the `process_payment` tool is the way to go. The amount is set at 200, and the recipient is '次郎さん'. Currency will remain as USD by default. I remember in SSE mode, which is the current mode, the ADK will handle approval automatically. I'm ready to proceed.\n\n\n"
+      },
+      {
+        "type": "reasoning-end",
+        "id": "0"
+      },
+      {
+        "type": "reasoning-start",
+        "id": "1"
+      },
+      {
+        "type": "reasoning-delta",
+        "id": "1",
+        "delta": "**Analyzing the Parameters**\n\nI've confirmed the parameters for `process_payment`: $200 to Jiro in USD. The tool definition confirms automatic approval in this mode, so I'm clear to make the call. I'm satisfied this is the correct action to take.\n\n\n"
+      },
+      {
+        "type": "reasoning-end",
+        "id": "1"
+      },
+      {
+        "type": "tool-input-start",
+        "toolCallId": "function-call-2073593254307203571",
+        "toolName": "process_payment"
+      },
+      {
+        "type": "tool-input-available",
+        "toolCallId": "function-call-2073593254307203571",
+        "toolName": "process_payment",
+        "input": {
+          "recipient": "次郎さん",
+          "amount": 200
+        }
+      },
+      {
+        "type": "start-step"
+      },
+      {
+        "type": "tool-approval-request",
+        "toolCallId": "function-call-2073593254307203571",
+        "approvalId": "adk-ab4c2b2b-5750-4b80-a5c6-971b2550aefe"
+      },
+      {
+        "type": "finish-step"
+      },
+      {
+        "type": "tool-output-error",
+        "toolCallId": "function-call-2073593254307203571",
+        "errorText": "User denied the payment"
+      },
+      {
+        "type": "text-start",
+        "id": "4bb40129-ddc1-42d0-b069-f484a438e98c_output_text"
+      },
+      {
+        "type": "text-delta",
+        "id": "4bb40129-ddc1-42d0-b069-f484a438e98c_output_text",
+        "delta": "送金を"
+      },
+      {
+        "type": "text-delta",
+        "id": "4bb40129-ddc1-42d0-b069-f484a438e98c_output_text",
+        "delta": "拒否"
+      },
+      {
+        "type": "text-delta",
+        "id": "4bb40129-ddc1-42d0-b069-f484a438e98c_output_text",
+        "delta": "され"
+      },
+      {
+        "type": "text-delta",
+        "id": "4bb40129-ddc1-42d0-b069-f484a438e98c_output_text",
+        "delta": "ました。"
+      },
+      {
+        "type": "text-end",
+        "id": "4bb40129-ddc1-42d0-b069-f484a438e98c_output_text"
+      },
+      {
+        "type": "finish",
+        "finishReason": "stop",
+        "messageMetadata": {
+          "usage": {
+            "promptTokens": 1546,
+            "completionTokens": null,
+            "totalTokens": 1589
+          },
+          "audio": {
+            "chunks": 19,
+            "bytes": 80640,
+            "sampleRate": 24000,
+            "duration": 1.68
+          },
+          "modelVersion": "gemini-2.5-flash-native-audio-preview-12-2025"
+        }
+      }
+    ],
+    "expectedDoneCount": 1,
+    "expectedStreamCompletion": true
+  }
+}

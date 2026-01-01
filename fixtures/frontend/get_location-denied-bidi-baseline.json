@@ -1,0 +1,209 @@
+{
+  "description": "BIDI mode Phase 12 BLOCKING - get_location with denial flow (SINGLE CONTINUOUS STREAM)",
+  "mode": "bidi",
+  "source": "Backend E2E test capture",
+  "scenario": "User denies get_location tool call - Phase 12 BLOCKING mode where tool awaits approval inside function",
+  "note": "Phase 12 BLOCKING behavior: Single continuous stream with 1 [DONE]. Tool enters BLOCKING state awaiting approval, then returns error after denial.",
+  "input": {
+    "messages": [
+      {
+        "id": "msg-1",
+        "role": "user",
+        "content": "現在地を教えて"
+      }
+    ],
+    "trigger": "submit-message"
+  },
+  "output": {
+    "rawEvents": [
+      "data: {\"type\": \"start\", \"messageId\": \"b39d8c8a-ccfd-4738-8900-01161a3195ed\"}\n\n",
+      "data: {\"type\": \"reasoning-start\", \"id\": \"0\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Identifying the User's Location**\\n\\nI'm now zeroing in on how to fulfill the user's request. It's clear that I need to utilize the `get_location` tool.  Since the tool definition indicates that `tool_context` is automatically handled, I'm ready to call the function with `get_location()`.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-end\", \"id\": \"0\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-6401735937371466162\", \"toolName\": \"get_location\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-6401735937371466162\", \"toolName\": \"get_location\", \"input\": {}}\n\n",
+      "data: {\"type\":\"start-step\"}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-6401735937371466162\", \"approvalId\": \"adk-397f3957-62a9-4cb7-9b24-cf1b4e9f9684\"}\n\n",
+      "data: {\"type\":\"finish-step\"}\n\n",
+      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"function-call-6401735937371466162\", \"errorText\": \"User denied location access\"}\n\n",
+      "data: {\"type\": \"reasoning-start\", \"id\": \"1\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"1\", \"delta\": \"**Informing User of Denial**\\n\\nI've just received the results from the location tool. Unfortunately, the user denied location access. My next step is to communicate this outcome to them, so they understand why their location couldn't be retrieved. I'll provide a clear and concise explanation that avoids technical jargon.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-end\", \"id\": \"1\"}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"b39d8c8a-ccfd-4738-8900-01161a3195ed_output_text\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"b39d8c8a-ccfd-4738-8900-01161a3195ed_output_text\", \"delta\": \"\\u73fe\\u5728\\u5730\\u306e\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"b39d8c8a-ccfd-4738-8900-01161a3195ed_output_text\", \"delta\": \"\\u53d6\\u5f97\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"b39d8c8a-ccfd-4738-8900-01161a3195ed_output_text\", \"delta\": \"\\u8981\\u6c42\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"b39d8c8a-ccfd-4738-8900-01161a3195ed_output_text\", \"delta\": \"\\u304c\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"b39d8c8a-ccfd-4738-8900-01161a3195ed_output_text\", \"delta\": \"\\u62d2\\u5426\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"b39d8c8a-ccfd-4738-8900-01161a3195ed_output_text\", \"delta\": \"\\u3055\\u308c\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"b39d8c8a-ccfd-4738-8900-01161a3195ed_output_text\", \"delta\": \"\\u307e\\u3057\\u305f\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"b39d8c8a-ccfd-4738-8900-01161a3195ed_output_text\", \"delta\": \"\\u3002\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"b39d8c8a-ccfd-4738-8900-01161a3195ed_output_text\", \"delta\": \"\\u4f4d\\u7f6e\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"b39d8c8a-ccfd-4738-8900-01161a3195ed_output_text\", \"delta\": \"\\u60c5\\u5831\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"b39d8c8a-ccfd-4738-8900-01161a3195ed_output_text\", \"delta\": \"\\u306b\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"b39d8c8a-ccfd-4738-8900-01161a3195ed_output_text\", \"delta\": \"\\u30a2\\u30af\\u30bb\\u30b9\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"b39d8c8a-ccfd-4738-8900-01161a3195ed_output_text\", \"delta\": \"\\u3067\\u304d\\u307e\\u305b\\u3093\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"b39d8c8a-ccfd-4738-8900-01161a3195ed_output_text\", \"delta\": \"\\u3067\\u3057\\u305f\\u3002\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"b39d8c8a-ccfd-4738-8900-01161a3195ed_output_text\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1473, \"completionTokens\": null, \"totalTokens\": 1596}, \"audio\": {\"chunks\": 97, \"bytes\": 230400, \"sampleRate\": 24000, \"duration\": 4.8}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
+      "data: [DONE]\n\n"
+    ],
+    "expectedChunks": [
+      {
+        "type": "start",
+        "messageId": "b39d8c8a-ccfd-4738-8900-01161a3195ed"
+      },
+      {
+        "type": "reasoning-start",
+        "id": "0"
+      },
+      {
+        "type": "reasoning-delta",
+        "id": "0",
+        "delta": "**Identifying the User's Location**\n\nI'm now zeroing in on how to fulfill the user's request. It's clear that I need to utilize the `get_location` tool.  Since the tool definition indicates that `tool_context` is automatically handled, I'm ready to call the function with `get_location()`.\n\n\n"
+      },
+      {
+        "type": "reasoning-end",
+        "id": "0"
+      },
+      {
+        "type": "tool-input-start",
+        "toolCallId": "function-call-6401735937371466162",
+        "toolName": "get_location"
+      },
+      {
+        "type": "tool-input-available",
+        "toolCallId": "function-call-6401735937371466162",
+        "toolName": "get_location",
+        "input": {}
+      },
+      {
+        "type": "start-step"
+      },
+      {
+        "type": "tool-approval-request",
+        "toolCallId": "function-call-6401735937371466162",
+        "approvalId": "adk-397f3957-62a9-4cb7-9b24-cf1b4e9f9684"
+      },
+      {
+        "type": "finish-step"
+      },
+      {
+        "type": "tool-output-error",
+        "toolCallId": "function-call-6401735937371466162",
+        "errorText": "User denied location access"
+      },
+      {
+        "type": "reasoning-start",
+        "id": "1"
+      },
+      {
+        "type": "reasoning-delta",
+        "id": "1",
+        "delta": "**Informing User of Denial**\n\nI've just received the results from the location tool. Unfortunately, the user denied location access. My next step is to communicate this outcome to them, so they understand why their location couldn't be retrieved. I'll provide a clear and concise explanation that avoids technical jargon.\n\n\n"
+      },
+      {
+        "type": "reasoning-end",
+        "id": "1"
+      },
+      {
+        "type": "text-start",
+        "id": "b39d8c8a-ccfd-4738-8900-01161a3195ed_output_text"
+      },
+      {
+        "type": "text-delta",
+        "id": "b39d8c8a-ccfd-4738-8900-01161a3195ed_output_text",
+        "delta": "現在地の"
+      },
+      {
+        "type": "text-delta",
+        "id": "b39d8c8a-ccfd-4738-8900-01161a3195ed_output_text",
+        "delta": "取得"
+      },
+      {
+        "type": "text-delta",
+        "id": "b39d8c8a-ccfd-4738-8900-01161a3195ed_output_text",
+        "delta": "要求"
+      },
+      {
+        "type": "text-delta",
+        "id": "b39d8c8a-ccfd-4738-8900-01161a3195ed_output_text",
+        "delta": "が"
+      },
+      {
+        "type": "text-delta",
+        "id": "b39d8c8a-ccfd-4738-8900-01161a3195ed_output_text",
+        "delta": "拒否"
+      },
+      {
+        "type": "text-delta",
+        "id": "b39d8c8a-ccfd-4738-8900-01161a3195ed_output_text",
+        "delta": "され"
+      },
+      {
+        "type": "text-delta",
+        "id": "b39d8c8a-ccfd-4738-8900-01161a3195ed_output_text",
+        "delta": "ました"
+      },
+      {
+        "type": "text-delta",
+        "id": "b39d8c8a-ccfd-4738-8900-01161a3195ed_output_text",
+        "delta": "。"
+      },
+      {
+        "type": "text-delta",
+        "id": "b39d8c8a-ccfd-4738-8900-01161a3195ed_output_text",
+        "delta": "位置"
+      },
+      {
+        "type": "text-delta",
+        "id": "b39d8c8a-ccfd-4738-8900-01161a3195ed_output_text",
+        "delta": "情報"
+      },
+      {
+        "type": "text-delta",
+        "id": "b39d8c8a-ccfd-4738-8900-01161a3195ed_output_text",
+        "delta": "に"
+      },
+      {
+        "type": "text-delta",
+        "id": "b39d8c8a-ccfd-4738-8900-01161a3195ed_output_text",
+        "delta": "アクセス"
+      },
+      {
+        "type": "text-delta",
+        "id": "b39d8c8a-ccfd-4738-8900-01161a3195ed_output_text",
+        "delta": "できません"
+      },
+      {
+        "type": "text-delta",
+        "id": "b39d8c8a-ccfd-4738-8900-01161a3195ed_output_text",
+        "delta": "でした。"
+      },
+      {
+        "type": "text-end",
+        "id": "b39d8c8a-ccfd-4738-8900-01161a3195ed_output_text"
+      },
+      {
+        "type": "finish",
+        "finishReason": "stop",
+        "messageMetadata": {
+          "usage": {
+            "promptTokens": 1473,
+            "completionTokens": null,
+            "totalTokens": 1596
+          },
+          "audio": {
+            "chunks": 97,
+            "bytes": 230400,
+            "sampleRate": 24000,
+            "duration": 4.8
+          },
+          "modelVersion": "gemini-2.5-flash-native-audio-preview-12-2025"
+        }
+      }
+    ],
+    "expectedDoneCount": 1,
+    "expectedStreamCompletion": true
+  }
+}

@@ -11,8 +11,9 @@
 During implementation of `output_transcription` support, we discovered this field **by accident** through debug logging with `pformat()`. This raises concerns about **completeness**: Are there other ADK fields we're not handling?
 
 This document provides a systematic completeness check based on:
+
 1. **ADK Python SDK source code** (`google.adk.events.Event`, `google.genai.types`)
-2. **ADK official documentation** (https://google.github.io/adk-docs/)
+2. **ADK official documentation** (<https://google.github.io/adk-docs/>)
 3. **Gemini API documentation** (ADK wraps Gemini API)
 
 ---
@@ -26,6 +27,7 @@ This section documents **exactly where and how** to find ADK field definitions t
 #### Method 1: ADK Python SDK Source Code (Most Reliable)
 
 **Installation Location**:
+
 ```bash
 # Find ADK installation path
 python -c "import google.adk; print(google.adk.__file__)"
@@ -36,6 +38,7 @@ python -c "import google.genai; print(google.genai.__file__)"
 ```
 
 **Key Files to Inspect**:
+
 1. **Event Structure**: `google/adk/events.py` or `google/adk/events/__init__.py`
    - Class: `Event`
    - Contains all Event-level fields
@@ -49,6 +52,7 @@ python -c "import google.genai; print(google.genai.__file__)"
    - `GroundingMetadata`, `CitationMetadata`, `UsageMetadata`, etc.
 
 **Automated Extraction Script**:
+
 ```python
 import inspect
 from google.adk.events import Event
@@ -75,32 +79,35 @@ print("Part fields:", part_fields.keys())
 #### Method 2: ADK Official Documentation
 
 **Key Documentation Pages**:
-1. **RunConfig Reference**: https://google.github.io/adk-docs/runtime/runconfig/
+
+1. **RunConfig Reference**: <https://google.github.io/adk-docs/runtime/runconfig/>
    - Configuration options for transcription, modalities, etc.
    - Shows which features exist (even if not in Event structure)
 
-2. **Python API Reference**: https://google.github.io/adk-docs/api-reference/python/
+2. **Python API Reference**: <https://google.github.io/adk-docs/api-reference/python/>
    - May not be complete (docs lag behind implementation)
 
-3. **Gemini Live API Docs**: https://ai.google.dev/gemini-api/docs/live
+3. **Gemini Live API Docs**: <https://ai.google.dev/gemini-api/docs/live>
    - ADK wraps Gemini Live API
    - Shows protocol-level features that become Event fields
 
 **Documentation Gaps**:
+
 - Official docs often **lag behind SDK releases**
 - Not all Event fields are documented
 - Example: `output_transcription` was configured via `AudioTranscriptionConfig` but Event field was not explicitly documented
 
 #### Method 3: GitHub Repository Analysis
 
-**ADK Python Repository**: https://github.com/google/adk-python
+**ADK Python Repository**: <https://github.com/google/adk-python>
 
 **What to Monitor**:
-1. **Releases**: https://github.com/google/adk-python/releases
+
+1. **Releases**: <https://github.com/google/adk-python/releases>
    - Check CHANGELOG for new fields
    - Breaking changes that add/remove fields
 
-2. **Issues**: https://github.com/google/adk-python/issues
+2. **Issues**: <https://github.com/google/adk-python/issues>
    - Feature requests may reveal upcoming fields
    - Bug reports may reveal undocumented fields
    - Example: Issue #697 documented transcription handling quirks
@@ -115,6 +122,7 @@ print("Part fields:", part_fields.keys())
 #### Method 4: Runtime Inspection (Our Discovery Method)
 
 **How We Found `output_transcription`**:
+
 ```python
 from pprint import pformat
 
@@ -124,12 +132,14 @@ logger.debug(f"Event attributes:\n{pformat(event_attrs, width=120, depth=3)}")
 ```
 
 **Strategy**:
+
 1. Use `pformat()` to log complete Event structure
 2. Collect logs from various scenarios (audio, text, tools, errors)
 3. Manually inspect for unexpected fields
 4. Compare against known fields
 
 **Limitations**:
+
 - Only finds fields that are **actually populated**
 - Depends on testing various ADK features
 - May miss rarely-used fields
@@ -198,15 +208,15 @@ Transcription(
 
 ### 2. Official Documentation
 
-- **RunConfig**: https://google.github.io/adk-docs/runtime/runconfig/
-  - `input_audio_transcription: AudioTranscriptionConfig()`
-  - `output_audio_transcription: AudioTranscriptionConfig()`
+- **RunConfig**: <https://google.github.io/adk-docs/runtime/runconfig/>
+    - `input_audio_transcription: AudioTranscriptionConfig()`
+    - `output_audio_transcription: AudioTranscriptionConfig()`
 
-- **Python API Reference**: https://google.github.io/adk-docs/api-reference/python/
+- **Python API Reference**: <https://google.github.io/adk-docs/api-reference/python/>
 
-- **GitHub Issue #697**: https://github.com/google/adk-python/issues/697
-  - "Streamline Transcription Handling"
-  - Notes differences in transcription handling between Live API and ADK
+- **GitHub Issue #697**: <https://github.com/google/adk-python/issues/697>
+    - "Streamline Transcription Handling"
+    - Notes differences in transcription handling between Live API and ADK
 
 ---
 
@@ -280,6 +290,7 @@ For reference, here are the event types in AI SDK v6 protocol that we currently 
 | `error` | finalize(error) | Error signaling |
 
 **Missing event types** that AI SDK v6 supports:
+
 - `message-annotations` - For metadata/annotations
 - `data` - For arbitrary data (we use `data-pcm` for audio)
 - `data-stream-part` - For streamed binary data
@@ -293,6 +304,7 @@ For reference, here are the event types in AI SDK v6 protocol that we currently 
 ### What We Learned
 
 1. **Location**: `output_transcription` exists at **Event top-level**, NOT in `Content.parts`
+
    ```python
    # ❌ WRONG - We were only checking content.parts
    for part in event.content.parts:
@@ -327,6 +339,7 @@ For reference, here are the event types in AI SDK v6 protocol that we currently 
 ### Strategy: Test-Based Field Coverage Verification
 
 To prevent missing fields like `output_transcription` in the future, we need **automated checks** that fail when:
+
 1. ADK SDK adds new fields
 2. Our implementation doesn't handle them
 
@@ -335,6 +348,7 @@ To prevent missing fields like `output_transcription` in the future, we need **a
 **Concept**: Automatically extract all Event/Part fields and verify each is documented/implemented.
 
 **Implementation**: `tests/unit/test_field_completeness.py`
+
 ```python
 """
 Test to ensure all ADK Event/Part fields are accounted for.
@@ -383,6 +397,7 @@ def test_part_field_coverage():
 **Concept**: During testing, log all Event fields we see, compare against known list.
 
 **Implementation**: Add to `stream_protocol.py`
+
 ```python
 # Development/debugging mode flag
 DETECT_UNKNOWN_FIELDS = os.getenv("ADK_DETECT_UNKNOWN_FIELDS", "false").lower() == "true"
@@ -408,6 +423,7 @@ async def convert_event(self, event):
 **Concept**: Monitor ADK SDK version, alert on updates.
 
 **Implementation**: `scripts/check_adk_version.py`
+
 ```python
 """Check installed ADK SDK version against known-good version."""
 import google.adk
@@ -427,6 +443,7 @@ if current_version != KNOWN_GOOD_VERSION:
 ### Maintenance Workflow
 
 **When ADK SDK Updates**:
+
 1. ✅ CI fails with "ADK SDK version changed" warning
 2. 🔍 Run field extraction script to get new field list
 3. 📊 Update completeness matrix with new fields
@@ -447,6 +464,7 @@ This section discusses **how to map** each unmapped ADK field to AI SDK v6 proto
 #### 1. `Event.inputTranscription` - User Audio Transcription
 
 **ADK Structure**:
+
 ```python
 event.input_transcription = Transcription(
     text="ユーザーが話した内容",
@@ -459,6 +477,7 @@ event.input_transcription = Transcription(
 **AI SDK v6 Mapping Options**:
 
 **Option A: Custom Event** (Recommended)
+
 ```typescript
 {
   type: "input-transcription-delta",
@@ -466,10 +485,12 @@ event.input_transcription = Transcription(
   finished: true
 }
 ```
+
 - Pros: Clear separation from assistant output
 - Cons: Not part of AI SDK v6 spec (custom extension)
 
 **Option B: message-annotations**
+
 ```typescript
 {
   type: "message-annotations",
@@ -481,10 +502,12 @@ event.input_transcription = Transcription(
   }
 }
 ```
+
 - Pros: Uses standard AI SDK v6 event type
 - Cons: May not be displayed by UI by default
 
 **Option C: Don't Map** (Client Already Has User Input)
+
 - Reasoning: Frontend already knows what user said (sent the audio)
 - Transcription is just confirmation/validation
 - May be useful for accessibility or logging, but not critical for UI
@@ -496,6 +519,7 @@ event.input_transcription = Transcription(
 #### 2. `Event.groundingMetadata` - RAG/Grounding Sources
 
 **ADK Structure**:
+
 ```python
 event.grounding_metadata = GroundingMetadata(
     grounding_chunks=[
@@ -515,6 +539,7 @@ event.grounding_metadata = GroundingMetadata(
 **AI SDK v6 Mapping Options**:
 
 **Option A: message-annotations** (Recommended)
+
 ```typescript
 {
   type: "message-annotations",
@@ -527,16 +552,19 @@ event.grounding_metadata = GroundingMetadata(
   }
 }
 ```
+
 - Pros: Standard AI SDK v6 event type
 - Cons: UI may not render grounding sources by default
 
 **Option B: Custom Event**
+
 ```typescript
 {
   type: "grounding-sources",
   sources: [...]
 }
 ```
+
 - Pros: Clear semantic meaning
 - Cons: Requires custom UI handling
 
@@ -547,6 +575,7 @@ event.grounding_metadata = GroundingMetadata(
 #### 3. `Event.citationMetadata` - Citation Information
 
 **ADK Structure**:
+
 ```python
 event.citation_metadata = CitationMetadata(
     citation_sources=[
@@ -575,6 +604,7 @@ event.citation_metadata = CitationMetadata(
 **Fix Required**: Check in `convert_event()` BEFORE processing content.
 
 **Implementation**:
+
 ```python
 async def convert_event(self, event):
     # Check for errors FIRST (before any other processing)
@@ -602,6 +632,7 @@ async def convert_event(self, event):
 #### 5. `Part.fileData` - File References
 
 **ADK Structure**:
+
 ```python
 part.file_data = FileData(
     mime_type="image/jpeg",
@@ -614,6 +645,7 @@ part.file_data = FileData(
 **AI SDK v6 Mapping Options**:
 
 **Option A: data Event with URL**
+
 ```typescript
 {
   type: "data",
@@ -625,6 +657,7 @@ part.file_data = FileData(
 ```
 
 **Option B: Fetch and Convert to Inline Data**
+
 - Download file from GCS
 - Convert to base64
 - Send as inline data
@@ -640,6 +673,7 @@ part.file_data = FileData(
 **Purpose**: BIDI mode - user interrupted assistant mid-speech.
 
 **AI SDK v6 Mapping**:
+
 - Custom event: `{ type: "interrupted" }`
 - Or extend `finish` event with `interruptedReason`
 
@@ -698,28 +732,28 @@ part.file_data = FileData(
 
 ### Priority 2: High-Value Fields
 
-3. **Event.groundingMetadata**
+1. **Event.groundingMetadata**
    - Grounding sources and attributions
    - Important for RAG/grounded generation transparency
    - Map to `message-annotations` or custom event?
 
-4. **Event.citationMetadata**
+2. **Event.citationMetadata**
    - Citation information
    - Important for academic/research use cases
    - Map to `message-annotations` or custom event?
 
-5. **Part.fileData**
+3. **Part.fileData**
    - File references (images, documents, etc.)
    - Important for multi-modal support
    - Map to... `data` event? (needs investigation)
 
 ### Priority 3: Lower Priority
 
-6. **Event.interrupted**
+1. **Event.interrupted**
    - Interruption signaling for BIDI mode
    - Could map to custom event or `finish` with special reason
 
-7. **Part.videoMetadata**
+2. **Part.videoMetadata**
    - Video-specific metadata
    - Depends on video support needs
 
@@ -778,33 +812,33 @@ part.file_data = FileData(
 
 ### Primary Sources
 
-- **ADK Python SDK**: https://github.com/google/adk-python
-  - Source of truth for Event/Content/Part structure
-  - Check releases for new fields: https://github.com/google/adk-python/releases
+- **ADK Python SDK**: <https://github.com/google/adk-python>
+    - Source of truth for Event/Content/Part structure
+    - Check releases for new fields: <https://github.com/google/adk-python/releases>
 
-- **ADK Documentation**: https://google.github.io/adk-docs/
-  - RunConfig reference: https://google.github.io/adk-docs/runtime/runconfig/
-  - API reference: https://google.github.io/adk-docs/api-reference/python/
+- **ADK Documentation**: <https://google.github.io/adk-docs/>
+    - RunConfig reference: <https://google.github.io/adk-docs/runtime/runconfig/>
+    - API reference: <https://google.github.io/adk-docs/api-reference/python/>
 
-- **AI SDK v6 Protocol**: https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol
-  - Specification for all event types
-  - Field naming conventions
+- **AI SDK v6 Protocol**: <https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol>
+    - Specification for all event types
+    - Field naming conventions
 
 ### Related Issues
 
-- **GitHub Issue #697**: https://github.com/google/adk-python/issues/697
-  - "Streamline Transcription Handling"
-  - Notes ADK vs Live API differences
+- **GitHub Issue #697**: <https://github.com/google/adk-python/issues/697>
+    - "Streamline Transcription Handling"
+    - Notes ADK vs Live API differences
 
 ### Implementation
 
 - **stream_protocol.py**: Current implementation
-  - Lines 242-276: `output_transcription` processing
-  - Lines 512-522: `finalize()` text block cleanup
+    - Lines 242-276: `output_transcription` processing
+    - Lines 512-522: `finalize()` text block cleanup
 
 - **test_output_transcription_real_response.py**: Real data tests
-  - Uses actual Kyoto weather query response
-  - Demonstrates parameterized testing with real ADK data
+    - Uses actual Kyoto weather query response
+    - Demonstrates parameterized testing with real ADK data
 
 ---
 
@@ -817,27 +851,31 @@ part.file_data = FileData(
 We created a unified automated script to analyze actual implementation code instead of relying on hardcoded lists:
 
 **`scripts/check-coverage.py`** (Unified Coverage Checker)
+
 - **Class-based architecture** with clear separation of concerns:
-  - `ADKExtractor`: Extract ADK type definitions from Python SDK using `inspect.signature()`
-  - `AISdkExtractor`: Extract AI SDK v6 event types from TypeScript definitions
-  - `ADKAnalyzer`: Detect ADK field usage in `stream_protocol.py`
-  - `AISdkAnalyzer`: Detect AI SDK event generation/handling in implementation code
-  - `Reporter`: Format and display coverage reports
-  - `CoverageChecker`: Orchestrate all operations
+    - `ADKExtractor`: Extract ADK type definitions from Python SDK using `inspect.signature()`
+    - `AISdkExtractor`: Extract AI SDK v6 event types from TypeScript definitions
+    - `ADKAnalyzer`: Detect ADK field usage in `stream_protocol.py`
+    - `AISdkAnalyzer`: Detect AI SDK event generation/handling in implementation code
+    - `Reporter`: Format and display coverage reports
+    - `CoverageChecker`: Orchestrate all operations
 
 **ADK Coverage Analysis**:
+
 - Analyzes `stream_protocol.py` to detect which ADK fields are actually processed
 - Uses regex pattern matching to find `hasattr(event, "field")` and `event.field` accesses
 - Converts snake_case (Python) to camelCase (ADK type definitions) for comparison
 - Compares detected fields against ADK SDK type signatures extracted via reflection
 
 **AI SDK Coverage Analysis**:
+
 - Analyzes `stream_protocol.py` (backend event generation)
 - Analyzes `lib/websocket-chat-transport.ts` (frontend event handling)
 - Uses regex to find event type strings in code
 - Compares against AI SDK v6 type definitions from `node_modules/ai/dist/index.d.ts`
 
 **Commands**:
+
 ```bash
 # Coverage check with summary
 just check-coverage
@@ -861,6 +899,7 @@ just extract-all-types          # Both ADK and AI SDK types
 #### Event Field Coverage: 5/25 (20.0%)
 
 **✅ Implemented Event Fields**:
+
 - `content` - Core message content
 - `finishReason` - Why generation stopped
 - `outputTranscription` - Native-audio model transcription (added 2025-12-12)
@@ -873,6 +912,7 @@ just extract-all-types          # Both ADK and AI SDK types
 #### Part Field Coverage: 7/12 (58.3%)
 
 **✅ Implemented Part Fields**:
+
 - `codeExecutionResult` - Code execution output
 - `executableCode` - Code to execute
 - `functionCall` - Tool invocation
@@ -891,6 +931,7 @@ just extract-all-types          # Both ADK and AI SDK types
 ### Results: AI SDK v6 Event Coverage (From Code Analysis)
 
 **Analyzed**:
+
 - Backend: `stream_protocol.py` (event generation)
 - Frontend: `lib/websocket-chat-transport.ts` (event handling)
 
@@ -928,16 +969,19 @@ These events are generated by backend but not explicitly handled in our WebSocke
 #### 1. **ADK Field Coverage is Low (32.4%)**
 
 **Critical Missing Fields**:
+
 - `errorCode` / `errorMessage` - Currently only checked in `finalize()`, should be checked in `convert_event()` for immediate error detection
 - `inputTranscription` - User audio transcription (similar to `outputTranscription` but for user input)
 - `groundingMetadata` / `citationMetadata` - RAG/grounded generation sources
 
 **Why Low Coverage is Acceptable**:
+
 - Many fields are **metadata** that don't directly affect streaming (`author`, `id`, `timestamp`, `invocationId`)
 - Some fields are **advanced features** we haven't needed yet (`logprobsResult`, `avgLogprobs`, `cacheMetadata`)
 - Some fields are **ADK-specific** and don't map cleanly to AI SDK v6 (`actions`, `branch`, `longRunningToolIds`)
 
 **Priority for Implementation**:
+
 1. **Critical**: `errorCode`/`errorMessage` immediate detection
 2. **High**: `inputTranscription` (for accessibility), `groundingMetadata`/`citationMetadata` (for RAG)
 3. **Medium**: `fileData` (multi-modal support), `interrupted` (BIDI UX)
@@ -946,6 +990,7 @@ These events are generated by backend but not explicitly handled in our WebSocke
 #### 2. **Part Field Coverage is Better (58.3%)**
 
 We've implemented the **core content types**:
+
 - ✅ Text (`text`)
 - ✅ Tools (`functionCall`, `functionResponse`)
 - ✅ Code (`executableCode`, `codeExecutionResult`)
@@ -953,6 +998,7 @@ We've implemented the **core content types**:
 - ✅ Thinking (`thought`)
 
 **Missing Part fields are specialized**:
+
 - `fileData` - File references (GCS URLs)
 - `videoMetadata` - Video-specific metadata
 - `thoughtSignature` - Thought verification (advanced)
@@ -962,6 +1008,7 @@ We've implemented the **core content types**:
 #### 3. **AI SDK v6 Event Generation is Good (46.7%)**
 
 We generate **all essential streaming events**:
+
 - ✅ Message lifecycle: `start`, `finish`, `error`
 - ✅ Text streaming: `text-start`, `text-delta`, `text-end`
 - ✅ Tool calling: `tool-input-start`, `tool-input-available`, `tool-output-available`
@@ -969,6 +1016,7 @@ We generate **all essential streaming events**:
 - ✅ Audio: `data-audio`, `data-pcm` (custom)
 
 **Not generated events fall into categories**:
+
 - **Multi-step flows**: `start-step`, `finish-step` (ADK doesn't support)
 - **Reasoning**: `reasoning-start/delta/end` (could map from Part.thought)
 - **Tool alternatives**: `tool-call`, `tool-result` (we use different format)
@@ -978,6 +1026,7 @@ We generate **all essential streaming events**:
 #### 4. **Frontend Event Handling is Minimal (16.7%) - This is Correct**
 
 **Why low coverage is expected**:
+
 - AI SDK's `useChat` hook handles most events internally (`start`, `text-delta`, `finish`, `error`)
 - Our WebSocket transport only needs to:
   1. Forward standard events to `useChat` stream
@@ -989,10 +1038,12 @@ We generate **all essential streaming events**:
 #### 5. **Code Analysis Prevents Missing Fields**
 
 **Success Story**:
+
 - `output_transcription` was discovered **by accident** through debug logging
 - With automated code analysis, we can now **systematically detect** which fields we're using
 
 **Benefit**:
+
 - When ADK SDK updates and adds new fields, our coverage scripts will show them as "missing"
 - We can proactively decide whether to implement or document as "not needed"
 - No more accidental discoveries
@@ -1000,10 +1051,12 @@ We generate **all essential streaming events**:
 #### 6. **snake_case vs camelCase Handled**
 
 **Challenge**: ADK Python SDK uses camelCase in type definitions but Python code uses snake_case
+
 - Type definition: `outputTranscription`, `usageMetadata`, `turnComplete`
 - Python code: `output_transcription`, `usage_metadata`, `turn_complete`
 
 **Solution**: Implemented `snake_to_camel()` conversion in coverage script
+
 - Converts detected snake_case field names to camelCase before comparison
 - Now correctly identifies fields like `turnComplete` (was `turn_complete` in code)
 
@@ -1014,6 +1067,7 @@ We generate **all essential streaming events**:
 #### Immediate Actions (Priority 1)
 
 1. **Implement immediate error detection** (stream_protocol.py:180)
+
    ```python
    # Check for errors FIRST before processing content
    if hasattr(event, "error_code") and event.error_code:
@@ -1029,19 +1083,19 @@ We generate **all essential streaming events**:
 
 #### Future Enhancements (Priority 2-3)
 
-3. **Implement `inputTranscription`** (if accessibility is important)
+1. **Implement `inputTranscription`** (if accessibility is important)
    - Similar to `outputTranscription` but for user input
    - Map to custom event or `message-annotations`
 
-4. **Implement `groundingMetadata` / `citationMetadata`** (if RAG is important)
+2. **Implement `groundingMetadata` / `citationMetadata`** (if RAG is important)
    - Map to `message-annotations` event
    - Display sources in UI
 
-5. **Implement `fileData`** (if multi-modal file support needed)
+3. **Implement `fileData`** (if multi-modal file support needed)
    - Map to `data` event with file URL
    - Frontend fetches from GCS
 
-6. **Map `Part.thought` to `reasoning-*` events** (optional)
+4. **Map `Part.thought` to `reasoning-*` events** (optional)
    - Currently maps to custom `thought` event
    - Could also generate `reasoning-start/delta/end` for AI SDK v6 compatibility
 
@@ -1052,107 +1106,107 @@ We generate **all essential streaming events**:
 ### 2025-12-12 (Night) - Google ADK 1.21.0 Upgrade & Field Detection
 
 - **Upgrade**: google-adk 1.20.0 → 1.21.0
-  - google-genai: 1.54.0 → 1.55.0
-  - fastapi: 0.118.3 → 0.123.10
-  - starlette: 0.48.0 → 0.50.0
+    - google-genai: 1.54.0 → 1.55.0
+    - fastapi: 0.118.3 → 0.123.10
+    - starlette: 0.48.0 → 0.50.0
 - **Field Coverage Test Success**: 🎉 Automated detection worked perfectly!
-  - Test detected new field: `interactionId` (Optional[str])
-  - Total Event fields: 25 → 26
-  - Test failed as designed with actionable error message
+    - Test detected new field: `interactionId` (Optional[str])
+    - Total Event fields: 25 → 26
+    - Test failed as designed with actionable error message
 - **New Field Analysis**: `interactionId`
-  - **Purpose**: Related to new Interactions API for state management
-  - **Description**: Allows server-side conversation history management via `previous_interaction_id`
-  - **Classification**: Metadata field (similar to `invocationId`)
-  - **Decision**: Mark as METADATA_EVENT_FIELDS (not user-facing, internal tracking)
-  - **Reference**: [Building agents with the ADK and the new Interactions API](https://developers.googleblog.com/building-agents-with-the-adk-and-the-new-interactions-api/)
+    - **Purpose**: Related to new Interactions API for state management
+    - **Description**: Allows server-side conversation history management via `previous_interaction_id`
+    - **Classification**: Metadata field (similar to `invocationId`)
+    - **Decision**: Mark as METADATA_EVENT_FIELDS (not user-facing, internal tracking)
+    - **Reference**: [Building agents with the ADK and the new Interactions API](https://developers.googleblog.com/building-agents-with-the-adk-and-the-new-interactions-api/)
 - **Impact**:
-  - Field coverage test prevented silent addition of new field
-  - Forced conscious review and classification decision
-  - Updated test_field_coverage.py to include `interactionId` in METADATA_EVENT_FIELDS
+    - Field coverage test prevented silent addition of new field
+    - Forced conscious review and classification decision
+    - Updated test_field_coverage.py to include `interactionId` in METADATA_EVENT_FIELDS
 
 ### 2025-12-12 (Night) - [P2-T4] Field Coverage Testing Implementation
 
 - **Feature**: Automated field coverage testing (`tests/unit/test_field_coverage.py`, 167 lines)
-  - Automatically detects new ADK Event/Part fields when SDK updates
-  - Requires conscious decision for each field: Implement, Document as TODO, or Mark as metadata
-  - Prevents accidental field omissions (example: `outputTranscription` discovered by accident)
+    - Automatically detects new ADK Event/Part fields when SDK updates
+    - Requires conscious decision for each field: Implement, Document as TODO, or Mark as metadata
+    - Prevents accidental field omissions (example: `outputTranscription` discovered by accident)
 - **Test Structure**:
-  - `test_event_field_coverage()`: Validates all Event fields are accounted for
-  - `test_part_field_coverage()`: Validates all Part fields are accounted for
-  - `test_coverage_stats()`: Reports current coverage statistics
+    - `test_event_field_coverage()`: Validates all Event fields are accounted for
+    - `test_part_field_coverage()`: Validates all Part fields are accounted for
+    - `test_coverage_stats()`: Reports current coverage statistics
 - **Field Categories** (Event: 25 fields total):
-  - **IMPLEMENTED_EVENT_FIELDS** (7): content, errorCode, errorMessage, finishReason, outputTranscription, turnComplete, usageMetadata
-  - **DOCUMENTED_EVENT_FIELDS** (4): citationMetadata, groundingMetadata, inputTranscription, interrupted
-  - **METADATA_EVENT_FIELDS** (14): author, id, timestamp, invocationId, branch, actions, etc.
+    - **IMPLEMENTED_EVENT_FIELDS** (7): content, errorCode, errorMessage, finishReason, outputTranscription, turnComplete, usageMetadata
+    - **DOCUMENTED_EVENT_FIELDS** (4): citationMetadata, groundingMetadata, inputTranscription, interrupted
+    - **METADATA_EVENT_FIELDS** (14): author, id, timestamp, invocationId, branch, actions, etc.
 - **Field Categories** (Part: 12 fields total):
-  - **IMPLEMENTED_PART_FIELDS** (7): codeExecutionResult, executableCode, functionCall, functionResponse, inlineData, text, thought
-  - **DOCUMENTED_PART_FIELDS** (2): fileData, videoMetadata
-  - **METADATA_PART_FIELDS** (3): mediaResolution, thoughtSignature, value
+    - **IMPLEMENTED_PART_FIELDS** (7): codeExecutionResult, executableCode, functionCall, functionResponse, inlineData, text, thought
+    - **DOCUMENTED_PART_FIELDS** (2): fileData, videoMetadata
+    - **METADATA_PART_FIELDS** (3): mediaResolution, thoughtSignature, value
 - **Validation**: Tested by temporarily removing "content" field - test correctly failed with actionable error message
 - **Coverage Statistics**:
-  - Event: 7/25 (28.0%)
-  - Part: 7/12 (58.3%)
-  - All fields accounted for: ✅
+    - Event: 7/25 (28.0%)
+    - Part: 7/12 (58.3%)
+    - All fields accounted for: ✅
 - **Impact**:
-  - **Before**: New fields added to ADK SDK without detection
-  - **After**: CI fails immediately when new fields appear, forcing review and decision
+    - **Before**: New fields added to ADK SDK without detection
+    - **After**: CI fails immediately when new fields appear, forcing review and decision
 
 ### 2025-12-12 (Night) - [P2-T3] Immediate Error Detection Implementation
 
 - **Feature**: Implemented `errorCode`/`errorMessage` immediate detection (`stream_protocol.py:121-131`)
-  - Error checking now happens **FIRST** in `convert_event()` before any other processing
-  - Errors are logged with `logger.error()` for visibility
-  - Error event is sent immediately to frontend with proper format: `{"type": "error", "error": {"code": "...", "message": "..."}}`
-  - Processing stops after error event (no start, no content processing)
+    - Error checking now happens **FIRST** in `convert_event()` before any other processing
+    - Errors are logged with `logger.error()` for visibility
+    - Error event is sent immediately to frontend with proper format: `{"type": "error", "error": {"code": "...", "message": "..."}}`
+    - Processing stops after error event (no start, no content processing)
 - **Tests**: Added 3 comprehensive tests (`tests/unit/test_stream_protocol.py`)
-  - `test_error_detection_with_error_code_and_message`: Both errorCode and errorMessage present
-  - `test_error_detection_with_error_code_only`: errorCode only (uses default "Unknown error" message)
-  - `test_no_error_when_error_code_is_none`: Normal processing when no error
-  - All tests pass ✅
+    - `test_error_detection_with_error_code_and_message`: Both errorCode and errorMessage present
+    - `test_error_detection_with_error_code_only`: errorCode only (uses default "Unknown error" message)
+    - `test_no_error_when_error_code_is_none`: Normal processing when no error
+    - All tests pass ✅
 - **TDD Approach**: Followed RED-GREEN cycle
-  - ✅ RED: Wrote failing tests first
-  - ✅ GREEN: Implemented minimal code to pass tests
-  - Code quality: Passed ruff checks
+    - ✅ RED: Wrote failing tests first
+    - ✅ GREEN: Implemented minimal code to pass tests
+    - Code quality: Passed ruff checks
 - **Impact**:
-  - **Before**: Errors were only checked in `finalize()`, detected too late
-  - **After**: Errors detected immediately, users see error messages instantly
-  - ADK Event coverage improved: `errorCode` and `errorMessage` fields now utilized (5/25 → 7/25, 20.0% → 28.0%)
+    - **Before**: Errors were only checked in `finalize()`, detected too late
+    - **After**: Errors detected immediately, users see error messages instantly
+    - ADK Event coverage improved: `errorCode` and `errorMessage` fields now utilized (5/25 → 7/25, 20.0% → 28.0%)
 
 ### 2025-12-12 (Late Evening) - Script Unification
 
 - **Refactoring**: Unified all coverage scripts into single `scripts/check-coverage.py`
-  - **Deleted obsolete scripts**:
-    - `scripts/extract-adk-types.py`
-    - `scripts/extract-ai-sdk-types.ts`
-    - `scripts/check-adk-coverage-from-code.py`
-    - `scripts/check-ai-sdk-coverage-from-code.ts`
-  - **New unified script** (`scripts/check-coverage.py`, 636 lines):
-    - Class-based architecture: Extractors, Analyzers, Reporter, Orchestrator
-    - Multi-mode support: Coverage check (default), Extract-only (adk/ai-sdk/all)
-    - Output formats: Markdown (default), JSON
-    - Single Python script handles both ADK and AI SDK analysis
-  - **Simplified justfile commands**:
-    - `just check-coverage` / `just check-coverage-verbose`
-    - `just extract-adk-types` / `just extract-adk-types-json`
-    - `just extract-ai-sdk-types` / `just extract-all-types`
+    - **Deleted obsolete scripts**:
+        - `scripts/extract-adk-types.py`
+        - `scripts/extract-ai-sdk-types.ts`
+        - `scripts/check-adk-coverage-from-code.py`
+        - `scripts/check-ai-sdk-coverage-from-code.ts`
+    - **New unified script** (`scripts/check-coverage.py`, 636 lines):
+        - Class-based architecture: Extractors, Analyzers, Reporter, Orchestrator
+        - Multi-mode support: Coverage check (default), Extract-only (adk/ai-sdk/all)
+        - Output formats: Markdown (default), JSON
+        - Single Python script handles both ADK and AI SDK analysis
+    - **Simplified justfile commands**:
+        - `just check-coverage` / `just check-coverage-verbose`
+        - `just extract-adk-types` / `just extract-adk-types-json`
+        - `just extract-ai-sdk-types` / `just extract-all-types`
 - **Validation**: Coverage numbers remain identical (confirming correct implementation)
 
 ### 2025-12-12 (Evening)
 
 - **Coverage Analysis**: Automated code-based coverage checking implemented
-  - Created `scripts/check-adk-coverage-from-code.py` (Python)
-  - Created `scripts/check-ai-sdk-coverage-from-code.ts` (TypeScript)
-  - Added justfile commands: `check-adk-coverage-from-code-verbose`, `check-ai-sdk-coverage-from-code-verbose`
+    - Created `scripts/check-adk-coverage-from-code.py` (Python)
+    - Created `scripts/check-ai-sdk-coverage-from-code.ts` (TypeScript)
+    - Added justfile commands: `check-adk-coverage-from-code-verbose`, `check-ai-sdk-coverage-from-code-verbose`
 - **Results**:
-  - ADK Event coverage: 5/25 (20.0%)
-  - ADK Part coverage: 7/12 (58.3%)
-  - AI SDK backend generation: 14/30 (46.7%)
-  - AI SDK frontend handling: 5/30 (16.7%) - expected due to `useChat` internal handling
+    - ADK Event coverage: 5/25 (20.0%)
+    - ADK Part coverage: 7/12 (58.3%)
+    - AI SDK backend generation: 14/30 (46.7%)
+    - AI SDK frontend handling: 5/30 (16.7%) - expected due to `useChat` internal handling
 - **Insights**:
-  - Identified critical missing fields: `errorCode`/`errorMessage` immediate detection
-  - Confirmed custom extensions: `data-pcm`, `ping`
-  - Validated that low frontend coverage is correct (AI SDK handles most events)
-  - Discovered 11 events generated but forwarded to AI SDK (not consumed by custom code)
+    - Identified critical missing fields: `errorCode`/`errorMessage` immediate detection
+    - Confirmed custom extensions: `data-pcm`, `ping`
+    - Validated that low frontend coverage is correct (AI SDK handles most events)
+    - Discovered 11 events generated but forwarded to AI SDK (not consumed by custom code)
 
 ### 2025-12-12 (Late Night) - Phase 2 Coverage Improvements Completed
 
@@ -1161,99 +1215,99 @@ Completed 4 high-priority coverage improvement tasks identified from coverage an
 #### [P2-T5] Tool Error Handling ✅
 
 - **Feature**: Implemented tool execution error detection and proper error events
-  - Added error detection in `_process_function_response()` (`stream_protocol.py:402-425`)
-  - Pattern 1: `success=false` (common in tool implementations)
-  - Pattern 2: `error` field present without `result` field
-  - Generates `tool-output-error` event with `errorText` field
-  - Errors logged with `logger.error()` for debugging
+    - Added error detection in `_process_function_response()` (`stream_protocol.py:402-425`)
+    - Pattern 1: `success=false` (common in tool implementations)
+    - Pattern 2: `error` field present without `result` field
+    - Generates `tool-output-error` event with `errorText` field
+    - Errors logged with `logger.error()` for debugging
 - **Tests**: Added 3 comprehensive tests (`tests/unit/test_stream_protocol.py:800-982`)
-  - `test_tool_execution_error_with_success_false`: Tests success=false pattern
-  - `test_tool_execution_error_with_error_field`: Tests error field pattern
-  - `test_tool_success_response_unchanged`: Ensures success case still works
-  - All tests pass ✅
+    - `test_tool_execution_error_with_success_false`: Tests success=false pattern
+    - `test_tool_execution_error_with_error_field`: Tests error field pattern
+    - `test_tool_success_response_unchanged`: Ensures success case still works
+    - All tests pass ✅
 - **TDD Approach**: Followed RED-GREEN cycle
-  - ✅ RED: Wrote failing tests first
-  - ✅ GREEN: Implemented error detection logic
-  - Code quality: Passed ruff checks
+    - ✅ RED: Wrote failing tests first
+    - ✅ GREEN: Implemented error detection logic
+    - Code quality: Passed ruff checks
 - **Impact**: Users now see tool errors immediately with proper error messages
 
 #### [P2-T6] Unify Image Events to `file` Type ✅
 
 - **Feature**: Changed image output from custom `data-image` to standard AI SDK v6 `file` event
-  - Updated `_process_inline_data_part()` (`stream_protocol.py:511-524`)
-  - **Before**: `{"type": "data-image", "data": {"mediaType": "...", "content": "..."}}`
-  - **After**: `{"type": "file", "url": "data:image/png;base64,...", "mediaType": "image/png"}`
-  - Uses data URL format for inline base64 content
+    - Updated `_process_inline_data_part()` (`stream_protocol.py:511-524`)
+    - **Before**: `{"type": "data-image", "data": {"mediaType": "...", "content": "..."}}`
+    - **After**: `{"type": "file", "url": "data:image/png;base64,...", "mediaType": "image/png"}`
+    - Uses data URL format for inline base64 content
 - **Tests**: Updated 2 existing image tests
-  - Changed assertions to expect `file` event type
-  - Verified data URL format: `data:image/png;base64,...`
-  - All tests pass ✅
+    - Changed assertions to expect `file` event type
+    - Verified data URL format: `data:image/png;base64,...`
+    - All tests pass ✅
 - **Impact**:
-  - Symmetric input/output format (both use `file` event)
-  - Better AI SDK v6 protocol compliance
-  - Simpler frontend handling
+    - Symmetric input/output format (both use `file` event)
+    - Better AI SDK v6 protocol compliance
+    - Simpler frontend handling
 
 #### [P2-T7] Audio Completion Signaling ✅
 
 - **Feature**: Implemented explicit audio streaming completion signal
-  - Uncommented `finalize()` call (`stream_protocol.py:666-669`)
-  - Added audio metadata to `finalize()` method (`stream_protocol.py:582-607`)
-  - Metadata includes: chunks, bytes, sampleRate, duration
-  - Duration calculation: `bytes / (sampleRate * 2)` for PCM16
+    - Uncommented `finalize()` call (`stream_protocol.py:666-669`)
+    - Added audio metadata to `finalize()` method (`stream_protocol.py:582-607`)
+    - Metadata includes: chunks, bytes, sampleRate, duration
+    - Duration calculation: `bytes / (sampleRate * 2)` for PCM16
 - **Tests**: Fixed 3 previously failing tests
-  - `test_complete_stream_flow`: Now receives finish event
-  - `test_stream_with_error`: Finish event sent on error
-  - `test_stream_with_usage_metadata`: Finish event includes metadata
-  - All tests pass ✅
+    - `test_complete_stream_flow`: Now receives finish event
+    - `test_stream_with_error`: Finish event sent on error
+    - `test_stream_with_usage_metadata`: Finish event includes metadata
+    - All tests pass ✅
 - **Impact**:
-  - Frontend receives explicit signal when audio streaming completes
-  - Audio statistics available in `messageMetadata.audio`
-  - Proper stream termination with finish event
+    - Frontend receives explicit signal when audio streaming completes
+    - Audio statistics available in `messageMetadata.audio`
+    - Proper stream termination with finish event
 
 #### [P2-T8] message-metadata Event Implementation ✅
 
 - **Feature**: Forward ADK metadata fields to frontend via `messageMetadata`
-  - Extended `finalize()` signature with 4 new parameters (`stream_protocol.py:532-541`):
-    - `grounding_metadata`: RAG sources, web search results
-    - `citation_metadata`: Citation information
-    - `cache_metadata`: Context cache statistics
-    - `model_version`: Model version string
-  - Implemented metadata extraction logic (`stream_protocol.py:609-655`):
-    - Grounding sources → `metadata["grounding"]["sources"]`
-    - Citations → `metadata["citations"]`
-    - Cache stats → `metadata["cache"]["hits/misses"]`
-    - Model version → `metadata["modelVersion"]`
-  - Updated `stream_adk_to_ai_sdk()` to collect metadata (`stream_protocol.py:689-754`)
+    - Extended `finalize()` signature with 4 new parameters (`stream_protocol.py:532-541`):
+        - `grounding_metadata`: RAG sources, web search results
+        - `citation_metadata`: Citation information
+        - `cache_metadata`: Context cache statistics
+        - `model_version`: Model version string
+    - Implemented metadata extraction logic (`stream_protocol.py:609-655`):
+        - Grounding sources → `metadata["grounding"]["sources"]`
+        - Citations → `metadata["citations"]`
+        - Cache stats → `metadata["cache"]["hits/misses"]`
+        - Model version → `metadata["modelVersion"]`
+    - Updated `stream_adk_to_ai_sdk()` to collect metadata (`stream_protocol.py:689-754`)
 - **Tests**: Added 4 new comprehensive tests (`tests/unit/test_stream_protocol.py:984-1167`)
-  - `test_message_metadata_with_grounding`: Grounding sources extraction
-  - `test_message_metadata_with_citations`: Citation information extraction
-  - `test_message_metadata_with_cache`: Cache statistics extraction
-  - `test_message_metadata_with_model_version`: Model version forwarding
-  - All tests pass ✅
+    - `test_message_metadata_with_grounding`: Grounding sources extraction
+    - `test_message_metadata_with_citations`: Citation information extraction
+    - `test_message_metadata_with_cache`: Cache statistics extraction
+    - `test_message_metadata_with_model_version`: Model version forwarding
+    - All tests pass ✅
 - **TDD Approach**: Followed RED-GREEN-REFACTOR cycle
-  - ✅ RED: Wrote failing tests first
-  - ✅ GREEN: Implemented metadata collection and forwarding
-  - ✅ REFACTOR: Cleaned up unused variables, fixed linting issues
-  - Code quality: Passed ruff checks (All checks passed)
+    - ✅ RED: Wrote failing tests first
+    - ✅ GREEN: Implemented metadata collection and forwarding
+    - ✅ REFACTOR: Cleaned up unused variables, fixed linting issues
+    - Code quality: Passed ruff checks (All checks passed)
 - **Impact**:
-  - Frontend can access grounding sources for RAG transparency
-  - Citations available for attribution display
-  - Cache statistics for performance monitoring
-  - Model version for debugging and telemetry
+    - Frontend can access grounding sources for RAG transparency
+    - Citations available for attribution display
+    - Cache statistics for performance monitoring
+    - Model version for debugging and telemetry
 
 #### Summary
 
 - **Total Tests**: 26 tests passing (added 7 new tests)
 - **Code Quality**: All ruff checks passed
 - **Coverage Improvements**:
-  - Tool error handling: NEW capability
-  - Image events: Better protocol compliance
-  - Audio completion: Explicit signaling
-  - Metadata forwarding: 4 new metadata types
+    - Tool error handling: NEW capability
+    - Image events: Better protocol compliance
+    - Audio completion: Explicit signaling
+    - Metadata forwarding: 4 new metadata types
 - **AI SDK v6 Compliance**: Improved protocol adherence
-  - Standard `file` events for images
-  - Proper `tool-output-error` events
-  - Rich `messageMetadata` in finish events
+    - Standard `file` events for images
+    - Proper `tool-output-error` events
+    - Rich `messageMetadata` in finish events
 
 ### 2025-12-12 (Late Night Part 3) - FinishReason Enum Refactoring + Coverage Automation ✅
 
@@ -1262,12 +1316,14 @@ Completed 4 high-priority coverage improvement tasks identified from coverage an
 #### Refactoring
 
 **Problem**: FinishReason mapping used string literals, making it error-prone:
+
 - `reason_map` used string keys/values ("STOP": "stop")
 - No type safety
 - No autocomplete
 - Risk of typos
 
 **Solution**: Use Enum-based mapping
+
 1. Created `AISdkFinishReason` Enum (`stream_protocol.py:31-45`)
    - Defines AI SDK v6 finish reason values as Enum
    - `STOP`, `LENGTH`, `CONTENT_FILTER`, `TOOL_CALLS`, `ERROR`, `OTHER`
@@ -1346,22 +1402,26 @@ These AI SDK finish reasons are defined but not produced by mapping:
 #### Discovery
 
 Discovered that `google.genai.types.FinishReason` is an actual Python Enum with 17 values:
+
 - Original implementation covered: 8/17 (47%)
 - Missing values: 9 (FINISH_REASON_UNSPECIFIED, IMAGE_*, LANGUAGE, MALFORMED_FUNCTION_CALL, NO_IMAGE, UNEXPECTED_TOOL_CALL)
 
 #### Implementation (TDD Approach)
 
 **Phase 1 (RED)**: Added failing tests
+
 - Extended parameterized test with 9 new FinishReason values (`tests/unit/test_stream_protocol_comprehensive.py:1256-1310`)
 - Added integration test using real `types.FinishReason` enum (`test_finish_reason_with_real_types_finish_reason_enum`)
 - Total: 21 tests (11 existing + 10 new)
 
 **Phase 2 (GREEN)**: Updated implementation
+
 - Completed `reason_map` in `stream_protocol.py:55-80` with all 17 enum values
 - Improved type annotation: `Any` → `types.FinishReason | None`
 - Enhanced documentation with complete mapping table
 
 **Phase 3 (REFACTOR)**: Verified quality
+
 - All 75 unit tests passing ✅ (65 → 75)
 - Ruff checks: All passed ✅
 - 100% FinishReason coverage verified ✅
@@ -1433,6 +1493,7 @@ All 17 FinishReason enum values are handled! ✅
 #### Test Coverage Analysis
 
 Analyzed `stream_protocol.py` public API:
+
 - ✅ `StreamProtocolConverter` class - tested
 - ✅ `StreamProtocolConverter.convert_event()` - tested
 - ✅ `StreamProtocolConverter.finalize()` - tested
@@ -1462,10 +1523,12 @@ Added 11 comprehensive tests covering all mappings:
    - Example: Custom object → lowercase conversion
 
 **Test Results**: All 65 unit tests passing ✅
+
 - 54 existing tests
 - 11 new finish reason mapping tests
 
 **Coverage Verification**:
+
 ```
 === Test Coverage for stream_protocol.py Public API ===
 
@@ -1511,6 +1574,7 @@ Added 4 comprehensive tests covering all scenarios:
 **Phase 2 (GREEN)**: Implementation in `stream_protocol.py`
 
 1. **Separated text block tracking** (lines 135-140):
+
    ```python
    # Track input transcription text blocks (user audio input in BIDI mode)
    self._input_text_block_id: str | None = None
@@ -1574,6 +1638,7 @@ Added 4 comprehensive tests covering all scenarios:
 #### Investigation Summary
 
 **ID Fields Available**:
+
 1. **`event.id`**: `str` (required, default: `""`)
    - Event-level unique identifier
    - Generated by ADK for each Event
@@ -1594,6 +1659,7 @@ Added 4 comprehensive tests covering all scenarios:
 #### Analysis
 
 **Current Implementation**:
+
 ```python
 # StreamProtocolConverter.__init__
 self.message_id = message_id or str(uuid.uuid4())
@@ -1604,6 +1670,7 @@ self._output_text_block_id = f"{self.message_id}_output_text"
 ```
 
 **Potential ADK ID Usage**:
+
 ```python
 # Option 1: Use event.id directly
 self._input_text_block_id = f"{event.id}_input"
@@ -1646,6 +1713,7 @@ self._input_text_block_id = event.id  # If event.id is already unique
 #### Critical Finding: Event ID Changes Per Chunk ❌
 
 **Problem**: Input/output transcription streams across **multiple events**:
+
 ```
 Event 1: input_transcription="京都の" (finished=False) - event.id="evt-001"
 Event 2: input_transcription="天気は" (finished=False) - event.id="evt-002"
@@ -1653,6 +1721,7 @@ Event 3: input_transcription="？" (finished=True) - event.id="evt-003"
 ```
 
 If we use `event.id`, each chunk would get a **different** text block ID:
+
 ```
 text-start: id="evt-001_input"  ❌
 text-delta: id="evt-002_input"  ❌ Different ID!
@@ -1672,6 +1741,7 @@ text-end: id="evt-003_input"
 4. **Converter responsibility** - text block tracking is a protocol conversion concern, not ADK data
 
 **Current Implementation Status**: ✅ **KEEP AS-IS**
+
 - Use converter-generated `message_id` (UUID)
 - Append `_input_text` / `_output_text` suffixes
 - Maintain text block ID stability across multi-event streams
@@ -1679,6 +1749,7 @@ text-end: id="evt-003_input"
 #### Alternative: Use invocationId as Message ID?
 
 **Potential Improvement** (Lower Priority):
+
 ```python
 # StreamProtocolConverter.__init__
 def __init__(self, message_id: str | None = None, invocation_id: str | None = None):
@@ -1687,10 +1758,12 @@ def __init__(self, message_id: str | None = None, invocation_id: str | None = No
 ```
 
 **Benefits**:
+
 - Aligns message ID with ADK invocation tracking
 - More deterministic (same invocationId → same message_id)
 
 **Risks**:
+
 - `invocationId` may be empty string
 - Need to verify `invocationId` is unique per message (not per event)
 - Would need testing with real BIDI sessions
@@ -1702,12 +1775,14 @@ def __init__(self, message_id: str | None = None, invocation_id: str | None = No
 **Objective**: Eliminate duplicate test utility code following DRY principle
 
 **Changes**:
+
 1. Created `tests/utils/sse.py` with shared utilities
 2. Moved `parse_sse_event` from 3 files → 1 centralized location
 3. Moved `MockTranscription` from 2 files → 1 centralized location
 4. Updated all test files to import from `tests.utils`
 
 **Files Modified**:
+
 - `tests/utils/__init__.py` (new)
 - `tests/utils/sse.py` (new)
 - `tests/unit/test_input_transcription.py` (import update)
@@ -1715,6 +1790,7 @@ def __init__(self, message_id: str | None = None, invocation_id: str | None = No
 - `tests/unit/test_stream_protocol_comprehensive.py` (import update)
 
 **Quality**:
+
 - ✅ All 61 tests passing
 - ✅ Ruff checks passed
 - ✅ Follows project structure guidelines
@@ -1730,6 +1806,7 @@ def __init__(self, message_id: str | None = None, invocation_id: str | None = No
 #### Problem Recap
 
 **Critical Requirement**: Text block IDs must be **stable** across multiple events
+
 ```
 Event 1: transcription="京都の" (finished=False) - event.id="evt-001"
 Event 2: transcription="天気は" (finished=False) - event.id="evt-002"
@@ -1742,6 +1819,7 @@ Event 3: transcription="？" (finished=True) - event.id="evt-003"
 #### Tests Added
 
 **1. Enhanced existing multi-chunk tests** (`test_input_transcription.py`, `test_output_transcription.py`):
+
 ```python
 # CRITICAL: Verify ID stability across multiple events
 text_events = [e for e in parsed_events if e["type"] in ["text-start", "text-delta", "text-end"]]
@@ -1754,10 +1832,12 @@ assert len(unique_ids) == 1, (
 ```
 
 **2. New regression guard tests**:
+
 - `test_text_block_id_must_not_use_event_id` (input transcription)
 - `test_text_block_id_must_not_use_event_id` (output transcription)
 
 **Test Characteristics**:
+
 - Explicitly sets **different** `event.id` values (e.g., "event-001", "event-002")
 - Verifies text block ID is the **same** despite different event IDs
 - Comprehensive error messages explaining **why** and **what went wrong**
@@ -1775,6 +1855,7 @@ If you see 2 different text block IDs, event.id is likely being used (WRONG!)
 #### Test Coverage
 
 **Total Unit Tests**: 61 → 63 (2 new regression guards)
+
 - ✅ Input transcription: 4 → 5 tests (+1 regression guard)
 - ✅ Output transcription: 4 → 5 tests (+1 regression guard)
 - ✅ All 63 tests passing
@@ -1783,17 +1864,20 @@ If you see 2 different text block IDs, event.id is likely being used (WRONG!)
 #### Impact
 
 **Protection Added**:
+
 - ❌ Prevents accidental use of `event.id` for text block IDs
 - ❌ Prevents accidental use of `interactionId` (multi-message scope)
 - ✅ Enforces converter-generated `message_id` usage
 - ✅ Clear error messages guide developers to correct implementation
 
 **Developer Experience**:
+
 - Tests fail **immediately** if someone uses wrong ID source
 - Error messages explain **exactly** what's wrong and how to fix it
 - Documentation comments in test code explain **why** the requirement exists
 
 **Files Modified**:
+
 - `tests/unit/test_input_transcription.py` (enhanced + new test)
 - `tests/unit/test_output_transcription.py` (enhanced + new test)
 

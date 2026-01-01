@@ -1,0 +1,85 @@
+{
+  "description": "SSE mode baseline - real E2E capture from change_bgm tool call",
+  "mode": "sse",
+  "source": "Backend E2E test capture",
+  "scenario": "User requests background music change - frontend delegation pattern",
+  "note": "change_bgm is a Frontend Delegation tool. Backend receives result via FrontendToolDelegate and returns tool-output-available.",
+  "input": {
+    "messages": [
+      {
+        "id": "msg-1",
+        "role": "user",
+        "content": "トラック1に変更して"
+      }
+    ],
+    "trigger": "submit-message"
+  },
+  "output": {
+    "rawEvents": [
+      "data: {\"type\": \"start\", \"messageId\": \"fb8b0e64-cc0d-4f54-a6f6-9064317207ac\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-960c6c7f-3f69-4a56-9cac-47d47a6252fd\", \"toolName\": \"change_bgm\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-960c6c7f-3f69-4a56-9cac-47d47a6252fd\", \"toolName\": \"change_bgm\", \"input\": {\"track\": 1}}\n\n",
+      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"adk-960c6c7f-3f69-4a56-9cac-47d47a6252fd\", \"output\": {\"success\": true, \"track\": 1, \"message\": \"BGM change to track 1 initiated (frontend handles execution)\"}}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"0\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"OK\\u3002\\u30c8\\u30e9\\u30c3\\u30af1\\u306b\\u5909\\u66f4\\u3057\\u307e\\u3057\\u305f\\u3002\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"0\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1057, \"completionTokens\": 7, \"totalTokens\": 1064}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: [DONE]\n\n"
+    ],
+    "expectedChunks": [
+      {
+        "type": "start",
+        "messageId": "fb8b0e64-cc0d-4f54-a6f6-9064317207ac"
+      },
+      {
+        "type": "tool-input-start",
+        "toolCallId": "adk-960c6c7f-3f69-4a56-9cac-47d47a6252fd",
+        "toolName": "change_bgm"
+      },
+      {
+        "type": "tool-input-available",
+        "toolCallId": "adk-960c6c7f-3f69-4a56-9cac-47d47a6252fd",
+        "toolName": "change_bgm",
+        "input": {
+          "track": 1
+        }
+      },
+      {
+        "type": "tool-output-available",
+        "toolCallId": "adk-960c6c7f-3f69-4a56-9cac-47d47a6252fd",
+        "output": {
+          "success": true,
+          "track": 1,
+          "message": "BGM change to track 1 initiated (frontend handles execution)"
+        }
+      },
+      {
+        "type": "text-start",
+        "id": "0"
+      },
+      {
+        "type": "text-delta",
+        "id": "0",
+        "delta": "OK。トラック1に変更しました。"
+      },
+      {
+        "type": "text-end",
+        "id": "0"
+      },
+      {
+        "type": "finish",
+        "finishReason": "stop",
+        "messageMetadata": {
+          "usage": {
+            "promptTokens": 1057,
+            "completionTokens": 7,
+            "totalTokens": 1064
+          },
+          "modelVersion": "gemini-3-flash-preview"
+        }
+      }
+    ],
+    "expectedDoneCount": 1,
+    "expectedStreamCompletion": true
+  }
+}

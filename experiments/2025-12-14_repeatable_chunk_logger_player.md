@@ -8,6 +8,7 @@
 ## 目的
 
 手動操作で発生する chunk を JSONL 形式で記録し、再生可能にすることで：
+
 1. **手動操作の自動化** - 記録した chunk を再生して E2E テスト化
 2. **Chunk 変換の検証** - 各変換ポイントでの入出力を記録・比較
 3. **デバッグの効率化** - 問題の再現が容易に
@@ -20,17 +21,20 @@
 ### 現在の3つのモード
 
 #### 1. Gemini Direct
+
 - Frontend: DefaultChatTransport
 - Backend: Next.js API (`app/api/chat/route.ts`)
 - 通信: HTTP POST → SSE response
 
 #### 2. ADK SSE
+
 - Frontend: DefaultChatTransport
 - Backend: FastAPI (`stream_protocol.py`)
 - 通信: HTTP POST → SSE response
 - 変換: ADK Event → AI SDK v6 Data Stream Protocol
 
 #### 3. ADK BIDI
+
 - Frontend: WebSocketChatTransport
 - Backend: FastAPI (`stream_protocol.py`)
 - 通信: WebSocket bidirectional
@@ -78,12 +82,14 @@ useChat (messages, UI)
 ### 現在のデバッグログ
 
 **Backend (Python):**
+
 ```python
 # stream_protocol.py:_format_sse_event()
 logger.debug(f"[ADK→SSE] {event_data}")
 ```
 
 **Frontend (TypeScript):**
+
 ```typescript
 // lib/websocket-chat-transport.ts
 console.debug("[WS→useChat]", chunk);
@@ -97,11 +103,13 @@ console.debug("[WS→Backend]", eventWithTimestamp.type, eventWithTimestamp);
 ### Logger 機構
 
 #### 記録フォーマット: JSONL (JSON Lines)
+
 - 1行 = 1 chunk
 - 各行は完全な JSON オブジェクト
 - ファイル拡張子: `.jsonl`
 
 #### Chunk エントリ構造
+
 ```typescript
 interface ChunkLogEntry {
   // メタデータ
@@ -133,6 +141,7 @@ type LogLocation =
 ```
 
 #### 環境変数による制御
+
 ```bash
 # Backend (Python)
 CHUNK_LOGGER_ENABLED=true
@@ -146,6 +155,7 @@ NEXT_PUBLIC_CHUNK_LOGGER_SESSION_ID=session-2025-12-14-001
 ```
 
 #### ファイル命名規則
+
 ```
 chunk_logs/
   ├─ session-2025-12-14-001/
@@ -160,6 +170,7 @@ chunk_logs/
 ### Player 機構
 
 #### 基本機能
+
 1. **JSONL ファイル読み込み**
    - 指定 session の chunk を読み込み
    - location でフィルタリング可能
@@ -176,6 +187,7 @@ chunk_logs/
 #### Player API 設計
 
 **Backend (Python):**
+
 ```python
 from chunk_player import ChunkPlayer
 
@@ -192,6 +204,7 @@ for chunk in player.play():
 ```
 
 **Frontend (TypeScript):**
+
 ```typescript
 import { ChunkPlayer } from '@/lib/chunk-player';
 
@@ -215,8 +228,10 @@ for await (const chunk of player.play()) {
 ### Backend (Python)
 
 #### Point 1: ADK Event (Input)
+
 **ファイル**: `stream_protocol.py`
 **場所**: ADK SDK からのイベント受信直後
+
 ```python
 async def _handle_adk_event(self, event: GenerateContentResponse):
     # Logger injection
@@ -232,8 +247,10 @@ async def _handle_adk_event(self, event: GenerateContentResponse):
 ```
 
 #### Point 2: SSE Event (Output)
+
 **ファイル**: `stream_protocol.py`
 **場所**: `_format_sse_event()` または `convert_event()`
+
 ```python
 def _format_sse_event(self, event_data: dict) -> str:
     # Logger injection
@@ -252,8 +269,10 @@ def _format_sse_event(self, event_data: dict) -> str:
 ### Frontend (TypeScript)
 
 #### Point 3: Next.js API Response (Gemini Direct)
+
 **ファイル**: `app/api/chat/route.ts`
 **場所**: Gemini response → SSE 変換後
+
 ```typescript
 // Log each chunk before sending
 if (chunkLogger.isEnabled()) {
@@ -266,8 +285,10 @@ if (chunkLogger.isEnabled()) {
 ```
 
 #### Point 4: WebSocket Chunk (ADK BIDI)
+
 **ファイル**: `lib/websocket-chat-transport.ts`
 **場所**: WebSocket message 受信直後
+
 ```typescript
 this.ws.onmessage = (event) => {
   const chunk = JSON.parse(event.data);
@@ -289,8 +310,10 @@ this.ws.onmessage = (event) => {
 ```
 
 #### Point 5: useChat Chunk (共通)
+
 **ファイル**: `lib/websocket-chat-transport.ts` または wrapper
 **場所**: `controller.enqueue(chunk)` 直前
+
 ```typescript
 // Logger injection - final chunk before useChat
 if (chunkLogger.isEnabled()) {
@@ -309,34 +332,38 @@ controller.enqueue(chunk as UIMessageChunk);
 ## 実装計画
 
 ### Phase 1: Backend Logger (Python) ✅ **COMPLETED 2025-12-14**
+
 **目標**: ADK イベントと SSE イベントを記録
 
 **Tasks**:
+
 - [x] `chunk_logger.py` 作成（root に配置、lib/ は TypeScript 用）
-  - [x] `ChunkLogger` クラス実装
-  - [x] JSONL 書き込み機能
-  - [x] 環境変数による有効化
-  - [x] Session ID 管理
+    - [x] `ChunkLogger` クラス実装
+    - [x] JSONL 書き込み機能
+    - [x] 環境変数による有効化
+    - [x] Session ID 管理
 - [x] `stream_protocol.py` に logger 差し込み
-  - [x] ADK event logging (stream_adk_to_ai_sdk, Line ~921-927)
-  - [x] SSE event logging (stream_adk_to_ai_sdk, Line ~854-869)
-  - [x] Final event logging (stream_adk_to_ai_sdk, Line ~915-928)
+    - [x] ADK event logging (stream_adk_to_ai_sdk, Line ~921-927)
+    - [x] SSE event logging (stream_adk_to_ai_sdk, Line ~854-869)
+    - [x] Final event logging (stream_adk_to_ai_sdk, Line ~915-928)
 - [x] Tests (`tests/test_chunk_logger.py`)
-  - [x] Logger が正しく JSONL を生成することを確認
-  - [x] 環境変数で ON/OFF できることを確認
-  - [x] 13 comprehensive tests, all passing
+    - [x] Logger が正しく JSONL を生成することを確認
+    - [x] 環境変数で ON/OFF できることを確認
+    - [x] 13 comprehensive tests, all passing
 
 **Implementation Details**:
+
 - **Injection Point**: `stream_adk_to_ai_sdk()` function
-  - ADK event: Uses `repr(event)` for simple string representation
-  - SSE event: Extracts JSON from SSE string format `"data: {...}\n\n"`
-  - Final event: Same extraction for finalize events
+    - ADK event: Uses `repr(event)` for simple string representation
+    - SSE event: Extracts JSON from SSE string format `"data: {...}\n\n"`
+    - Final event: Same extraction for finalize events
 - **Simplicity**: Moved from `convert_event()` to `stream_adk_to_ai_sdk()` for cleaner code
-  - No complex dict conversion needed
-  - All events pass through single point
-  - Easier to maintain
+    - No complex dict conversion needed
+    - All events pass through single point
+    - Easier to maintain
 
 **Actual Output**:
+
 ```jsonl
 {"timestamp":1702540800000,"session_id":"session-2025-12-14-123456","mode":"adk-sse","location":"backend-adk-event","direction":"in","sequence_number":1,"chunk":"Event(...)","metadata":null}
 {"timestamp":1702540800010,"session_id":"session-2025-12-14-123456","mode":"adk-sse","location":"backend-sse-event","direction":"out","sequence_number":2,"chunk":{"type":"text-delta","textDelta":"Hello"},"metadata":null}
@@ -345,23 +372,26 @@ controller.enqueue(chunk as UIMessageChunk);
 **Commit**: 5dc2d14
 
 ### Phase 2: Frontend Logger (TypeScript) ✅ COMPLETED 2025-12-14
+
 **目標**: Frontend の各ポイントで chunk を記録
 
 **Tasks**:
+
 - [x] `lib/chunk-logger.ts` 作成
-  - [x] `ChunkLogger` クラス実装
-  - [x] Browser での JSONL 保存 (Blob + Download - Option B 採用)
-  - [x] localStorage による有効化 (`CHUNK_LOGGER_ENABLED`, `CHUNK_LOGGER_SESSION_ID`)
+    - [x] `ChunkLogger` クラス実装
+    - [x] Browser での JSONL 保存 (Blob + Download - Option B 採用)
+    - [x] localStorage による有効化 (`CHUNK_LOGGER_ENABLED`, `CHUNK_LOGGER_SESSION_ID`)
 - [x] 各 Transport に logger 差し込み
-  - [x] WebSocketChatTransport (ADK BIDI) - 入出力両方
-  - [x] ChunkLoggingTransport wrapper (ADK SSE + Gemini Direct) - useChat chunk
+    - [x] WebSocketChatTransport (ADK BIDI) - 入出力両方
+    - [x] ChunkLoggingTransport wrapper (ADK SSE + Gemini Direct) - useChat chunk
 - [ ] Tests (Phase 2 実装完了、テストは別途)
-  - [ ] Logger が chunk を記録することを確認
-  - [ ] 各モードで正しい location が記録されることを確認
+    - [ ] Logger が chunk を記録することを確認
+    - [ ] 各モードで正しい location が記録されることを確認
 
 **Implementation Details**:
 
 **ChunkLogger** (`lib/chunk-logger.ts`):
+
 - In-memory chunk storage (`ChunkLogEntry[]`)
 - Session ID auto-generation: `session-YYYY-MM-DD-HHMMSS`
 - Sequence numbering per location
@@ -394,12 +424,14 @@ controller.enqueue(chunk as UIMessageChunk);
    - ADK BIDI mode: Uses `WebSocketChatTransport` directly (already has logging)
 
 **Backend Logger Fix** (User Feedback):
+
 - `stream_protocol.py`: Log raw SSE strings instead of parsing/re-encoding
 - Prevents double-encoding issues in JSONL
 - Before: `json.loads(json_str)` → log → `json.dumps()`
 - After: Log `sse_event` string directly
 
 **Browser での保存方法** (Option B 採用):
+
 - メモリに蓄積 → `export()` で Blob 生成 → 自動ダウンロード
 - ファイル名: `{session_id}.jsonl`
 - 簡単で実装が楽、ユーザーが明示的にエクスポート可能
@@ -407,54 +439,59 @@ controller.enqueue(chunk as UIMessageChunk);
 **Commit**: bd83e26
 
 ### Phase 3: Player 機構 ✅ COMPLETED 2025-12-14
+
 **目標**: 記録した chunk を再生
 
 **Tasks**:
+
 - [x] `chunk_player.py` (Backend)
-  - [x] JSONL 読み込み
-  - [x] AsyncIterator インターフェース (AsyncGenerator)
-  - [x] Timing 制御 (real-time/fast-forward/step)
-  - [x] Statistics API (count, duration, timestamps)
+    - [x] JSONL 読み込み
+    - [x] AsyncIterator インターフェース (AsyncGenerator)
+    - [x] Timing 制御 (real-time/fast-forward/step)
+    - [x] Statistics API (count, duration, timestamps)
 - [x] `lib/chunk-player.ts` (Frontend)
-  - [x] JSONL 読み込み (parseJsonl)
-  - [x] AsyncIterator インターフェース (AsyncGenerator)
-  - [x] Timing 制御 (real-time/fast-forward/step)
-  - [x] Static factory methods (fromFile, fromUrl)
-  - [x] Statistics API
+    - [x] JSONL 読み込み (parseJsonl)
+    - [x] AsyncIterator インターフェース (AsyncGenerator)
+    - [x] Timing 制御 (real-time/fast-forward/step)
+    - [x] Static factory methods (fromFile, fromUrl)
+    - [x] Statistics API
 - [x] Tests
-  - [x] Backend: 8/8 tests passing
-  - [x] Frontend: 10/10 tests passing
-  - [x] Recorded chunks が正しく再生されることを確認
-  - [x] Timing が正しいことを確認
-  - [x] Sequence number ordering
-  - [x] Error handling (file not found, invalid JSON)
+    - [x] Backend: 8/8 tests passing
+    - [x] Frontend: 10/10 tests passing
+    - [x] Recorded chunks が正しく再生されることを確認
+    - [x] Timing が正しいことを確認
+    - [x] Sequence number ordering
+    - [x] Error handling (file not found, invalid JSON)
 - [ ] Mock injection points (後続タスク - Phase 4で実装)
-  - [ ] Backend: ADK event mock
-  - [ ] Frontend: Transport mock
+    - [ ] Backend: ADK event mock
+    - [ ] Frontend: Transport mock
 
 **Implementation Details**:
 
 **Backend ChunkPlayer** (`chunk_player.py`):
+
 - JSONL file読み込み (`session_dir / {location}.jsonl`)
 - `play(mode)` メソッド: AsyncGenerator[ChunkLogEntry, None]
 - Playback modes:
-  - `fast-forward`: 遅延なし、最速再生
-  - `real-time`: timestamp基準でオリジナルのタイミング再現
-  - `step`: 手動ステップ実行（100ms delay）
+    - `fast-forward`: 遅延なし、最速再生
+    - `real-time`: timestamp基準でオリジナルのタイミング再現
+    - `step`: 手動ステップ実行（100ms delay）
 - `get_stats()`: count, duration_ms, first/last timestamp
 - Sequence number自動ソート
 
 **Frontend ChunkPlayer** (`lib/chunk-player.ts`):
+
 - JSONL content文字列をパース
 - Static factory methods:
-  - `fromFile(file: File)`: アップロードされたファイルから
-  - `fromUrl(url: string)`: サーバーからfetch
+    - `fromFile(file: File)`: アップロードされたファイルから
+    - `fromUrl(url: string)`: サーバーからfetch
 - `play(options)` メソッド: AsyncGenerator<ChunkLogEntry>
 - Playback modes: backend と同じ3モード
 - `getStats()`: backend と同じAPI
 - `getEntries()`: 全entryを取得（debugging用）
 
 **Usage Example**:
+
 ```python
 # Backend
 player = ChunkPlayer(
@@ -474,6 +511,7 @@ for await (const entry of player.play({ mode: "real-time" })) {
 ```
 
 **Test Results**:
+
 - Python: 8/8 tests passing ✅
 - Python linting (ruff): All checks passed ✅
 - Python type checking (mypy): Success ✅
@@ -483,40 +521,47 @@ for await (const entry of player.play({ mode: "real-time" })) {
 **Commit**: d3b5797
 
 ### Phase 4: E2E テスト統合 ⬜ 優先度: Low
+
 **目標**: Player を使った E2E テスト作成
 
 **Tasks**:
+
 - [ ] Fixture として chunk logs を保存
-  - [ ] `tests/fixtures/chunk_logs/` ディレクトリ
-  - [ ] 代表的なシナリオの chunk logs
+    - [ ] `tests/fixtures/chunk_logs/` ディレクトリ
+    - [ ] 代表的なシナリオの chunk logs
 - [ ] E2E テストで Player 使用
-  - [ ] Recorded chunks を再生
-  - [ ] UI の動作を検証
+    - [ ] Recorded chunks を再生
+    - [ ] UI の動作を検証
 - [ ] Documentation
-  - [ ] Chunk logger/player の使い方
-  - [ ] 新しい chunk logs の作成方法
+    - [ ] Chunk logger/player の使い方
+    - [ ] 新しい chunk logs の作成方法
 
 ---
 
 ## 期待される効果
 
 ### 1. テスト自動化
+
 - 手動操作 → chunk 記録 → 自動テスト化のサイクル
 - 実際の chunk データで E2E テスト
 
 ### 2. デバッグ効率化
+
 - 問題が発生した chunk を記録
 - 同じ chunk を何度も再生して原因調査
 
 ### 3. 回帰テスト
+
 - 過去の chunk logs を使って新しいバージョンをテスト
 - Chunk 変換ロジックの変更を検証
 
 ### 4. 3モード間の比較
+
 - 同じシナリオでの chunk の違いを比較
 - ADK SSE と ADK BIDI の変換が同じかチェック
 
 ### 5. ドキュメント化
+
 - Chunk の実例を記録として残す
 - 新しい開発者への教材
 
@@ -527,6 +572,7 @@ for await (const entry of player.play({ mode: "real-time" })) {
 ### JSONL vs その他フォーマット
 
 **JSONL の利点**:
+
 - ✅ 1行=1chunk で扱いやすい
 - ✅ Stream 処理に適している
 - ✅ 一部だけ読み込める
@@ -534,10 +580,12 @@ for await (const entry of player.play({ mode: "real-time" })) {
 - ✅ `jq` などのツールで処理可能
 
 **JSONL の欠点**:
+
 - ❌ Binary data (audio) が Base64 になり大きくなる
 - ❌ 大量の chunk で巨大ファイルになる可能性
 
 **代替案**:
+
 - MessagePack: Binary format, 効率的だが人間が読めない
 - SQLite: クエリ可能だが overhead が大きい
 - Protobuf: 効率的だが schema 管理が必要
@@ -547,18 +595,21 @@ for await (const entry of player.play({ mode: "real-time" })) {
 ### Frontend での保存方法
 
 **Option A: IndexedDB**
+
 - ✅ 大量データを保存可能
 - ✅ Offline でも動作
 - ❌ 実装が複雑
 - ❌ Export 機能が必要
 
 **Option B: Blob + Download**
+
 - ✅ 実装がシンプル
 - ✅ ファイルとして直接保存
 - ❌ 大量データで遅い
 - ❌ ブラウザの download limit
 
 **Option C: Backend POST**
+
 - ✅ シンプル
 - ✅ Backend と統合しやすい
 - ❌ Network overhead
@@ -601,6 +652,7 @@ chunk_logger.log_chunk(
 ```
 
 **出力**:
+
 ```
 chunk_logs/
   └─ debug-session-001/
@@ -689,6 +741,7 @@ for await (const entry of player.play({ mode: 'real-time' })) {
 #### シナリオ: Tool call が失敗する問題の調査
 
 **Step 1: 問題を再現して記録**
+
 ```bash
 # Logger を有効化
 export CHUNK_LOGGER_ENABLED=true
@@ -699,6 +752,7 @@ uv run python server.py
 ```
 
 Frontend:
+
 ```typescript
 localStorage.setItem('CHUNK_LOGGER_ENABLED', 'true');
 localStorage.setItem('CHUNK_LOGGER_SESSION_ID', 'tool-call-bug-001');
@@ -708,6 +762,7 @@ chunkLogger.export();
 ```
 
 **Step 2: 記録された chunk を確認**
+
 ```bash
 # Backend chunks
 cat chunk_logs/tool-call-bug-001/backend-adk-event.jsonl | jq '.'
@@ -717,6 +772,7 @@ cat ~/Downloads/tool-call-bug-001.jsonl | jq '.'
 ```
 
 **Step 3: Player で再生して調査**
+
 ```python
 player = ChunkPlayer(
     session_dir="./chunk_logs/tool-call-bug-001",
@@ -730,6 +786,7 @@ async for entry in player.play(mode="step"):
 ```
 
 **Step 4: 修正して再テスト**
+
 ```python
 # 同じ chunk で何度もテスト
 async for entry in player.play(mode="fast-forward"):
@@ -763,32 +820,32 @@ async for entry in player.play(mode="fast-forward"):
 ## 変更履歴
 
 - 2025-12-14 (continued): Frontend build fix & 使用例追加 (commit 70019e0)
-  - 実験ノートに使用例セクション追加（Backend/Frontend/デバッグワークフロー）
-  - Frontend build エラーを修正（TypeScript 型推論の問題）
-  - tool-invocation.tsx: DynamicToolUIPart → any に変更
-  - message.tsx: 型ガードと型アサーションを追加
-  - route.ts: UIMessagePart.text への型ガード追加
-  - build-use-chat-options.ts: PrepareSendMessagesRequest の body フィールド追加
-  - 全ての TypeScript エラー解決、ビルド成功 ✅
+    - 実験ノートに使用例セクション追加（Backend/Frontend/デバッグワークフロー）
+    - Frontend build エラーを修正（TypeScript 型推論の問題）
+    - tool-invocation.tsx: DynamicToolUIPart → any に変更
+    - message.tsx: 型ガードと型アサーションを追加
+    - route.ts: UIMessagePart.text への型ガード追加
+    - build-use-chat-options.ts: PrepareSendMessagesRequest の body フィールド追加
+    - 全ての TypeScript エラー解決、ビルド成功 ✅
 - 2025-12-14 (continued): Phase 3 実装完了 (commit d3b5797)
-  - chunk_player.py 作成（Backend ChunkPlayer, 8 tests passing）
-  - lib/chunk-player.ts 作成（Frontend ChunkPlayer, 10 tests passing）
-  - AsyncGenerator interface による streaming playback
-  - 3つの playback modes: fast-forward, real-time, step
-  - Statistics API: count, duration, timestamps
-  - Static factory methods (fromFile, fromUrl) for frontend
-  - Robust error handling (file not found, invalid JSON)
-  - Automatic sequence number sorting
+    - chunk_player.py 作成（Backend ChunkPlayer, 8 tests passing）
+    - lib/chunk-player.ts 作成（Frontend ChunkPlayer, 10 tests passing）
+    - AsyncGenerator interface による streaming playback
+    - 3つの playback modes: fast-forward, real-time, step
+    - Statistics API: count, duration, timestamps
+    - Static factory methods (fromFile, fromUrl) for frontend
+    - Robust error handling (file not found, invalid JSON)
+    - Automatic sequence number sorting
 - 2025-12-14 (continued): Phase 2 実装完了 (commit bd83e26)
-  - lib/chunk-logger.ts 作成（ChunkLogger class for browser）
-  - lib/chunk-logging-transport.ts 作成（DefaultChatTransport wrapper）
-  - WebSocketChatTransport に logger 差し込み（入出力両方）
-  - build-use-chat-options.ts を更新（ChunkLoggingTransport wrapper 使用）
-  - stream_protocol.py 修正（raw SSE string logging）
-  - Frontend logging: frontend-ws-chunk, frontend-useChat-chunk
-  - Blob + Download での JSONL export 実装
+    - lib/chunk-logger.ts 作成（ChunkLogger class for browser）
+    - lib/chunk-logging-transport.ts 作成（DefaultChatTransport wrapper）
+    - WebSocketChatTransport に logger 差し込み（入出力両方）
+    - build-use-chat-options.ts を更新（ChunkLoggingTransport wrapper 使用）
+    - stream_protocol.py 修正（raw SSE string logging）
+    - Frontend logging: frontend-ws-chunk, frontend-useChat-chunk
+    - Blob + Download での JSONL export 実装
 - 2025-12-14 (03:32): Phase 1 実装完了 (commit 5dc2d14)
-  - chunk_logger.py 作成、13 tests passing
-  - stream_protocol.py に logger 差し込み（stream_adk_to_ai_sdk 関数内）
-  - JSONL format で chunk 記録機能が動作
+    - chunk_logger.py 作成、13 tests passing
+    - stream_protocol.py に logger 差し込み（stream_adk_to_ai_sdk 関数内）
+    - JSONL format で chunk 記録機能が動作
 - 2025-12-14 (01:55): 初版作成、設計完了 (commit 646080a)

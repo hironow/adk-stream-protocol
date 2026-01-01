@@ -2,12 +2,14 @@
 
 **Date:** 2025-12-12
 **Objective:** Investigate two potential issues in ADK BIDI mode:
+
 1. Message history (past conversation) may not be used in subsequent turns
 2. Function calling may not return responses properly
 
 **Status:** ✅ Complete
 
 **Results:**
+
 - Issue 1 (Message History): ❌ **NOT FOUND** - Message history is correctly preserved
 - Issue 2 (Function Calling): ✅ **CONFIRMED** - Final text response is missing after tool execution
 
@@ -16,6 +18,7 @@
 ## Background
 
 During testing of ADK BIDI mode with BGM switching, the following issues were observed:
+
 1. **Message History Issue**: Past conversation context may not be sent/used in subsequent turns
 2. **Function Calling Issue**: When function calling occurs, responses may not be returned properly
 
@@ -26,19 +29,23 @@ These issues could significantly impact the user experience in BIDI mode.
 ## Hypothesis
 
 ### Hypothesis 1: Message History Not Preserved
+
 **Expected Behavior**: Each WebSocket message should include full conversation history (all previous messages)
 **Suspected Issue**: Only the latest user message is being sent, losing conversation context
 
 **Potential Root Causes**:
+
 - Frontend: `messages` array not being sent correctly in WebSocket transport
 - Backend: Message history not being passed to ADK API
 - Protocol: BIDI mode may have different message history handling
 
 ### Hypothesis 2: Function Calling Response Issue
+
 **Expected Behavior**: When function calling occurs, response should be streamed back after tool execution
 **Suspected Issue**: Response stream may end prematurely or tool results may not trigger continuation
 
 **Potential Root Causes**:
+
 - Backend: Tool result handling in BIDI mode may be incomplete
 - Protocol: BIDI mode may require different handling for multi-turn tool interactions
 - Frontend: Tool result may not be sent back to backend correctly
@@ -50,20 +57,25 @@ These issues could significantly impact the user experience in BIDI mode.
 ### Phase 1: Message History Investigation
 
 #### Step 1: Frontend WebSocket Message Inspection
+
 **Location**: `lib/websocket-chat-transport.ts`
 **What to Check**:
+
 - Line 198: `const messageData = JSON.stringify({ messages: options.messages });`
 - Verify `options.messages` contains full history, not just latest message
 - Add console.log to see actual payload sent
 
 **Method**:
+
 ```typescript
 console.log('[WS Transport] Sending messages:', JSON.stringify(options.messages, null, 2));
 ```
 
 #### Step 2: Backend Message Reception Inspection
+
 **Location**: `server.py` `/live` endpoint
 **What to Check**:
+
 - WebSocket receive handler
 - Verify `messages` array is received completely
 - Check how messages are passed to ADK API
@@ -72,20 +84,25 @@ console.log('[WS Transport] Sending messages:', JSON.stringify(options.messages,
 Add logging in `/live` endpoint to print received messages
 
 #### Step 3: ADK API Call Inspection
+
 **Location**: `server.py` BIDI mode handler
 **What to Check**:
+
 - ADK API request payload
 - Verify `history` or `messages` parameter
 - Check ADK documentation for BIDI mode message history handling
 
 #### Step 4: Controlled Test
+
 **Test Scenario**:
+
 1. Send message: "My name is Alice"
 2. Send follow-up: "What is my name?"
 3. Expected: AI should respond "Alice"
 4. Actual: ??? (to be tested)
 
 **Success Criteria**:
+
 - AI correctly recalls information from previous turn
 
 ---
@@ -93,34 +110,43 @@ Add logging in `/live` endpoint to print received messages
 ### Phase 2: Function Calling Investigation
 
 #### Step 1: Tool Definition Inspection
+
 **Location**: `server.py` tool definitions
 **What to Check**:
+
 - Are tools defined in BIDI mode?
 - Tool schema correctness
 - Tool execution handler
 
 #### Step 2: Tool Call Flow Inspection
+
 **Location**: `stream_protocol.py` and `server.py`
 **What to Check**:
+
 - How `tool-input-available` events are converted
 - Whether tool results trigger continuation
 - BIDI mode specific tool handling
 
 #### Step 3: Frontend Tool Callback
+
 **Location**: `lib/websocket-chat-transport.ts`
 **What to Check**:
+
 - Line 331-353: `handleToolCall()` method
 - Verify tool results are sent back via WebSocket
 - Check if backend receives tool results
 
 #### Step 4: Controlled Test
+
 **Test Scenario**:
+
 1. Define simple tool (e.g., get_weather)
 2. Send message: "What's the weather in Tokyo?"
 3. Expected: Tool is called, result is returned, AI responds with formatted answer
 4. Actual: ??? (to be tested)
 
 **Success Criteria**:
+
 - Tool is called correctly
 - Tool result is sent back to backend
 - AI continues with tool result and provides final response
@@ -130,17 +156,20 @@ Add logging in `/live` endpoint to print received messages
 ## Investigation Plan (Execution Order)
 
 ### Quick Diagnostic (5 minutes)
+
 1. Add console.log in `websocket-chat-transport.ts` line 198
 2. Test multi-turn conversation in browser console
 3. Check if message history is present in WebSocket payload
 
 ### Deep Dive: Message History (30 minutes)
+
 1. Add logging in frontend WebSocket transport
 2. Add logging in backend `/live` endpoint
 3. Run controlled test scenario
 4. Analyze logs to trace message flow
 
 ### Deep Dive: Function Calling (30 minutes)
+
 1. Check tool definitions in backend
 2. Add logging for tool call events
 3. Run controlled test scenario with tools
@@ -151,11 +180,13 @@ Add logging in `/live` endpoint to print received messages
 ## Expected Results
 
 ### Message History
+
 - Frontend should send full `messages` array with each request
 - Backend should pass full history to ADK API
 - ADK should maintain conversation context across turns
 
 ### Function Calling
+
 - Tool calls should be detected and executed
 - Tool results should be sent back to backend via WebSocket
 - Backend should continue conversation with tool results
@@ -166,16 +197,19 @@ Add logging in `/live` endpoint to print received messages
 ## Tools and Methods
 
 ### Frontend Investigation
+
 - Chrome DevTools Console
 - Network tab (WebSocket frames)
 - Console.log statements in TypeScript code
 
 ### Backend Investigation
+
 - `loguru` logging in Python
 - Terminal output inspection
 - ADK API request/response logging
 
 ### Test Scenarios
+
 - Multi-turn conversation test
 - Function calling test with simple tool
 - Combined test (multi-turn + function calling)
@@ -185,6 +219,7 @@ Add logging in `/live` endpoint to print received messages
 ## Data Collection
 
 ### Logs to Capture
+
 - [ ] Frontend: WebSocket message payload (sent)
 - [ ] Backend: WebSocket message received
 - [ ] Backend: ADK API request payload
@@ -195,6 +230,7 @@ Add logging in `/live` endpoint to print received messages
 - [ ] Frontend: WebSocket messages received
 
 ### Metrics to Measure
+
 - Message count in each WebSocket payload
 - Tool call success rate
 - Response completion rate with/without tools
@@ -208,6 +244,7 @@ Add logging in `/live` endpoint to print received messages
 #### Diagnostic Logging Added
 
 **Frontend** (`lib/websocket-chat-transport.ts:198-200`):
+
 ```typescript
 console.log("[EXPERIMENT] Sending WebSocket message");
 console.log("[EXPERIMENT] Message count:", options.messages.length);
@@ -215,6 +252,7 @@ console.log("[EXPERIMENT] Messages payload:", JSON.stringify(options.messages, n
 ```
 
 **Backend** (`server.py:809, 829-830`):
+
 ```python
 # Log received message for investigation
 logger.info(f"[EXPERIMENT] Received WebSocket message (raw): {data[:200]}...")
@@ -229,6 +267,7 @@ logger.info(f"[EXPERIMENT] Messages payload: {json.dumps(messages, indent=2, ens
 #### Controlled Test Execution
 
 **Test Scenario**:
+
 1. Turn 1: Send message "私の名前はAliceです" (My name is Alice)
 2. Turn 2: Send follow-up "私の名前は何ですか？" (What is my name?)
 3. Expected: AI should have access to previous conversation context
@@ -236,17 +275,21 @@ logger.info(f"[EXPERIMENT] Messages payload: {json.dumps(messages, indent=2, ens
 **Observed Results**:
 
 **Turn 1** (Timestamp: 2025-12-12 05:27:53.127):
+
 ```
 [EXPERIMENT] Message count: 1
 ```
+
 - Frontend sent: 1 message (user message only)
 - Backend received: 1 message
 - ✅ Correct: Initial turn contains only first user message
 
 **Turn 2** (Timestamp: 2025-12-12 05:29:23.515):
+
 ```
 [EXPERIMENT] Message count: 3
 ```
+
 - Frontend sent: 3 messages (full conversation history)
 - Backend received: 3 messages
   1. User: "私の名前はAliceです"
@@ -257,17 +300,20 @@ logger.info(f"[EXPERIMENT] Messages payload: {json.dumps(messages, indent=2, ens
 #### Analysis
 
 **Hypothesis 1 Status**: ❌ **REJECTED**
+
 - **Hypothesis**: Message history may not be used in subsequent turns
 - **Finding**: Message history IS correctly preserved and sent with each turn
 - **Evidence**: Turn 2 sent 3 messages (full conversation), not just 1 (latest message)
 
 **Technical Validation**:
+
 - ✅ Frontend `useChat` hook correctly maintains `messages` array state
 - ✅ WebSocket transport sends `options.messages` (full history) with each `sendMessages()` call
 - ✅ Backend receives complete message history
 - ✅ ADK BIDI mode receives full conversation context
 
 **Root Cause of Original Concern**:
+
 - The suspected issue was **NOT present** in the implementation
 - WebSocket-based BIDI mode correctly implements multi-turn conversation
 - Message history handling is **identical** to HTTP SSE mode (by design)
@@ -279,6 +325,7 @@ logger.info(f"[EXPERIMENT] Messages payload: {json.dumps(messages, indent=2, ens
 #### Diagnostic Logging Added
 
 **Backend** (`stream_protocol.py:228-230, 269-271`):
+
 ```python
 # [EXPERIMENT] Log tool call for investigation
 logger.info(f"[EXPERIMENT] Tool call detected: {tool_name}")
@@ -292,6 +339,7 @@ logger.info(f"[EXPERIMENT] Tool output: {json.dumps(output, indent=2, ensure_asc
 ```
 
 **Frontend** (`lib/websocket-chat-transport.ts:315-332`):
+
 ```typescript
 // Log tool call events
 if (chunk.type === "tool-input-available") {
@@ -314,6 +362,7 @@ if (chunk.type === "tool-output-available") {
 #### Controlled Test Execution
 
 **Test Scenario**:
+
 1. Send message: "東京の天気はどうですか？" (What's the weather in Tokyo?)
 2. Expected: Tool is called, result is returned, AI responds with formatted answer
 3. Observed: Tool calls executed, but NO final text response
@@ -321,6 +370,7 @@ if (chunk.type === "tool-output-available") {
 **Observed Results**:
 
 **Timeline** (Timestamp: 2025-12-12 10:11):
+
 ```
 10:11:10.340 | Tool call detected: get_weather (call_0)
 10:11:10.340 | Tool arguments: {"location": "東京"}
@@ -340,6 +390,7 @@ if (chunk.type === "tool-output-available") {
 ```
 
 **Critical Findings**:
+
 1. ✅ Tool calling mechanism works: 2 tool calls executed successfully
 2. ✅ Tool outputs are returned to ADK via `tool-output-available` events
 3. ❌ **NO text response generated after tool execution**
@@ -348,21 +399,24 @@ if (chunk.type === "tool-output-available") {
 6. ❌ No `text-delta`, `text-start`, or `text-end` events between tool outputs and finish
 
 **User Observation**: User correctly identified both issues:
+
 - "function callが2度起きているのもおかしくないですか？" (Isn't it strange that function call happens twice?)
 - Initial observation: "function callingが起こった時に返答が返ってこないような挙動をしている" (responses may not be returned when function calling occurs)
 
 #### Analysis
 
 **Hypothesis 2 Status**: ✅ **CONFIRMED**
+
 - **Hypothesis**: When function calling occurs, responses may not be returned properly
 - **Finding**: Function calling executes correctly, BUT final text response is MISSING
 - **Evidence**:
-  - Backend logs show both tool calls and tool outputs were processed
-  - NO text events generated after tool execution
-  - Turn completes immediately after tool outputs (turn_complete event)
-  - completionTokens: None confirms zero text generation
+    - Backend logs show both tool calls and tool outputs were processed
+    - NO text events generated after tool execution
+    - Turn completes immediately after tool outputs (turn_complete event)
+    - completionTokens: None confirms zero text generation
 
 **Technical Validation**:
+
 - ✅ Tools are defined correctly in `bidi_agent` configuration (server.py:256-273)
 - ✅ Tool execution happens successfully (get_weather function executed)
 - ✅ Tool outputs are converted to AI SDK v6 format (tool-output-available events)
@@ -373,12 +427,14 @@ if (chunk.type === "tool-output-available") {
 The issue is NOT in our implementation (frontend, WebSocket transport, or stream protocol converter). The problem is that **Google ADK in BIDI mode (Live API) does not generate a final text response after tool execution**. The model executes tools but then immediately completes the turn without synthesizing a natural language response incorporating the tool results.
 
 This is different from standard HTTP SSE mode behavior where the model would typically:
+
 1. Execute tool(s)
 2. Receive tool output(s)
 3. Generate natural language response incorporating the tool results
 4. Complete turn
 
 In BIDI mode, it appears to:
+
 1. Execute tool(s)
 2. Receive tool output(s)
 3. **Immediately complete turn** ← Missing text generation step
@@ -419,6 +475,7 @@ Function calling in ADK BIDI mode **does NOT generate final text response** afte
 ### Deep Investigation: turn_complete Event Analysis (2025-12-12 10:37)
 
 **User Insight**: "turn_complete は後付けのイベント処理になっているので、これをちゃんと convert_event内での処理にしないといけないかも"
+
 - User correctly identified that `turn_complete` processing happens **after** `convert_event()` processes the event content
 - This architectural issue could cause the final text response (if present in the `turn_complete` event) to be skipped
 
@@ -427,6 +484,7 @@ Function calling in ADK BIDI mode **does NOT generate final text response** afte
 Added detailed logging to track `turn_complete` events:
 
 **Code** (`stream_protocol.py:448-473`):
+
 ```python
 async for event in event_stream:
     is_turn_complete = getattr(event, 'turn_complete', False)
@@ -444,6 +502,7 @@ async for event in event_stream:
 #### Test Execution: 名古屋の天気は？(2025-12-12 10:37)
 
 **Observed ADK Event Sequence**:
+
 ```
 10:37:11.466 | Event with function_call: get_weather(location='名古屋')
 10:37:11.913 | Event with function_response: get_weather -> 404 error
@@ -486,6 +545,7 @@ async for event in event_stream:
 #### Hypothesis: Server-Side vs. Client-Side Tool Execution
 
 **Official Pattern (Suspected)**:
+
 ```
 Client → ADK BIDI
      ↓
@@ -499,6 +559,7 @@ Client receives complete response
 ```
 
 **Our Pattern (Current)**:
+
 ```
 Client → ADK BIDI
      ↓
@@ -516,6 +577,7 @@ ADK completes turn WITHOUT generating text ← ISSUE
 #### Logging Infrastructure Added
 
 File logging now enabled (`server.py:34-44`):
+
 ```python
 log_dir = Path("logs")
 log_dir.mkdir(exist_ok=True)
@@ -537,6 +599,7 @@ User correctly identified: "turn_complete は後付けのイベント処理に�
 The `turn_complete` flag was being checked **AFTER** `convert_event()` processed the event content. This architectural issue could cause any text response in the `turn_complete` event to be skipped.
 
 **Original Architecture** (`stream_protocol.py:502-518`):
+
 ```python
 # Convert and yield event
 async for sse_event in converter.convert_event(event):
@@ -553,6 +616,7 @@ if hasattr(event, "turn_complete") and event.turn_complete:
 **Fix Applied**:
 
 1. **Moved turn_complete handling inside `convert_event()`** (`stream_protocol.py:180-197`):
+
 ```python
 # BIDI mode: Handle turn completion within convert_event
 # This ensures content and turn_complete are processed in correct order
@@ -574,7 +638,8 @@ if hasattr(event, "turn_complete") and event.turn_complete:
         yield final_event
 ```
 
-2. **Simplified outer function** (`stream_protocol.py:506-514`):
+1. **Simplified outer function** (`stream_protocol.py:506-514`):
+
 ```python
 # Convert and yield event
 async for sse_event in converter.convert_event(event):
@@ -591,6 +656,7 @@ if hasattr(event, "turn_complete") and event.turn_complete:
 ```
 
 **Result**:
+
 - ✅ Content and turn_complete are now processed in the correct order
 - ✅ Any text in turn_complete event will not be skipped
 - ✅ Converter still properly resets for next turn
@@ -616,6 +682,7 @@ async for event in event_stream:
 
 **Key Insight**:
 WebSocket BIDI mode maintains connection across turns. The `stream_adk_to_ai_sdk()` iterator's `finally` block is **NEVER reached** during normal operation (only on connection close). Therefore:
+
 - ✅ All turn completion logic MUST be inside `convert_event()`
 - ✅ Converter reset is unnecessary (each turn creates new converter with new message ID)
 - ✅ Finally block should only be for cleanup/logging, not turn finalization
@@ -624,6 +691,7 @@ WebSocket BIDI mode maintains connection across turns. The `stream_adk_to_ai_sdk
 Sent query: "東京の天気を教えて"
 
 **Result**:
+
 ```
 10:57:10.900 | Tool call: get_weather(location="東京")
 10:57:11.156 | Tool execution: 404 error
@@ -633,6 +701,7 @@ Sent query: "東京の天気を教えて"
 ```
 
 **Confirmed**:
+
 - ✅ New architecture works correctly
 - ✅ `convert_event()` handles turn_complete properly
 - ✅ No duplicate finalize() calls
@@ -649,10 +718,12 @@ Sent query: "東京の天気を教えて"
 **User Request**: "tool callの説明文のlocationに英語で指定指示するように記載してくれますか？その後そのログがADKサンプルの想定されるイベントとして出ているかを知りたいですね"
 
 **Background**: Previous tests used Japanese location names which resulted in API 404 errors. User requested:
+
 1. Update tool description to specify English location
 2. Test with English query to see ADK event sequence with successful tool execution
 
 **Tool Description Updated** (`server.py:117`):
+
 ```python
 async def get_weather(location: str) -> dict[str, Any]:
     """
@@ -718,6 +789,7 @@ async def get_weather(location: str) -> dict[str, Any]:
    **ADK native-audio model (`gemini-2.5-flash-native-audio-preview-09-2025`) generates AUDIO responses instead of TEXT responses in BIDI mode.**
 
    The model configuration is:
+
    ```python
    # server.py:780
    if "native-audio" in model_id:
@@ -743,25 +815,30 @@ async def get_weather(location: str) -> dict[str, Any]:
 **Hypothesis 2 Refinement**: ✅ **ROOT CAUSE CONFIRMED**
 
 Original hypothesis:
+
 - "When function calling occurs, responses may not be returned properly"
 
 Refined finding:
+
 - **Function calling WORKS correctly** (tool execution successful)
 - **Responses ARE generated** (654 audio PCM chunks)
 - **Issue**: Native-audio model generates AUDIO responses, not TEXT responses
 - **Missing feature**: ADK does not provide text transcription of its audio responses in BIDI mode
 
 **Expected Behavior** (ADK Official Documentation):
+
 ```
 User (audio) → ADK → Tool call → Tool execution → ADK → Audio response + Text transcription
 ```
 
 **Actual Behavior** (Current Implementation):
+
 ```
 User (audio) → ADK → Tool call → Tool execution → ADK → Audio response (no transcription)
 ```
 
 **Technical Root Cause**:
+
 - Model: `gemini-2.5-flash-native-audio-preview-09-2025`
 - Modality: `AUDIO` (configured in server.py:780-784)
 - Response format: Raw PCM audio chunks (`inline_data` with `mime_type='audio/pcm;rate=24000'`)
@@ -770,11 +847,13 @@ User (audio) → ADK → Tool call → Tool execution → ADK → Audio response
 #### Comparison with Official ADK Sample
 
 ADK official bidi-demo likely:
+
 1. Uses text-only models OR
 2. Has audio→text transcription enabled for model responses OR
 3. UI displays audio responses directly (plays audio instead of showing text)
 
 Our implementation:
+
 1. Uses native-audio model (AUDIO modality)
 2. NO text transcription for model responses (only for user input)
 3. UI expects text but receives only audio PCM data
@@ -782,6 +861,7 @@ Our implementation:
 #### Impact
 
 **Current User Experience**:
+
 - ✅ User speaks → transcription appears in UI (working)
 - ✅ Tool calls execute successfully (working)
 - ❌ **Model's audio response is NOT transcribed to text**
@@ -789,6 +869,7 @@ Our implementation:
 - ⚠️ Audio IS sent to browser (could be played back, but UI doesn't support it)
 
 **Resolution Paths**:
+
 1. **Option A**: Enable text transcription for model audio responses (ADK API feature?)
 2. **Option B**: Switch to text-only model for tool-calling scenarios
 3. **Option C**: Update UI to play audio responses instead of showing text
@@ -816,6 +897,7 @@ run_config = RunConfig(
 ```
 
 **Critical Insight**:
+
 - Configuration was NOT missing
 - **We weren't PROCESSING the transcription data**
 - ADK was sending transcription in Events, but we were ignoring it
@@ -825,6 +907,7 @@ run_config = RunConfig(
 **User Request**: "ここの最初のdebugで深いところまでobjectを知るためにpprint のようなperity printのossを使えないかな？"
 
 **Implementation** (`stream_protocol.py:22, 131-138`):
+
 ```python
 from pprint import pformat
 
@@ -845,6 +928,7 @@ except Exception as e:
 **Test Query**: "What's the weather in Kyoto?" (2025-12-12 11:30)
 
 **Log Evidence** (`logs/server_20251212_112952.log:144-147`):
+
 ```python
 'output_transcription': Transcription(
   finished=False,
@@ -853,11 +937,13 @@ except Exception as e:
 ```
 
 **Critical Finding**:
+
 - `output_transcription` exists at **Event TOP-LEVEL** (not in `content.parts`)
 - Contains `text` (str) and `finished` (bool) fields
 - Generated by native-audio models when configured with `AudioTranscriptionConfig`
 
 **Why We Missed It**:
+
 ```python
 # ❌ WRONG - We were only checking content.parts
 for part in event.content.parts:
@@ -874,6 +960,7 @@ if hasattr(event, "output_transcription") and event.output_transcription:
 **Code Added** (`stream_protocol.py:89-91, 242-276, 515-522`):
 
 **State Tracking**:
+
 ```python
 # Track output transcription text blocks (for native-audio models)
 self._text_block_id: str | None = None
@@ -881,6 +968,7 @@ self._text_block_started = False
 ```
 
 **Event Processing**:
+
 ```python
 # [EXPERIMENT] Output transcription (audio response text from native-audio models)
 # Check event.output_transcription at the top level (not in content.parts)
@@ -917,6 +1005,7 @@ if hasattr(event, "output_transcription") and event.output_transcription:
 ```
 
 **AI SDK v6 Protocol Compliance**:
+
 - Field name: `delta` (NOT `textDelta`)
 - Required `id` field for text block tracking
 - Event sequence: `text-start` → `text-delta`(s) → `text-end`
@@ -930,6 +1019,7 @@ if hasattr(event, "output_transcription") and event.output_transcription:
 **Test Data Source**: Real Kyoto weather query from `logs/server_20251212_112952.log`
 
 **Tests Implemented**:
+
 1. `test_output_transcription_conversion` - Parameterized test with real data (finished=False and finished=True)
 2. `test_output_transcription_multiple_chunks` - Streaming behavior across multiple Events
 3. `test_no_output_transcription` - Events without transcription don't produce text events
@@ -937,6 +1027,7 @@ if hasattr(event, "output_transcription") and event.output_transcription:
 **Result**: ✅ All 4 parameterized tests passing
 
 **Key Test Finding**:
+
 - Converter only sends `start` (message start) event on FIRST Event
 - Subsequent Events in same turn only send content events (text-delta, etc.)
 - Text block ID must be consistent across all chunks
@@ -948,16 +1039,19 @@ if hasattr(event, "output_transcription") and event.output_transcription:
 **Document Created**: `experiments/2025-12-12_adk_field_mapping_completeness.md`
 
 **Primary Information Sources**:
+
 1. **ADK Python SDK Type Signatures**: `google.adk.events.Event`, `google.genai.types.Content`, `google.genai.types.Part`
-2. **ADK Official Documentation**: https://google.github.io/adk-docs/runtime/runconfig/
-3. **GitHub Issues**: https://github.com/google/adk-python/issues/697 (Transcription handling)
+2. **ADK Official Documentation**: <https://google.github.io/adk-docs/runtime/runconfig/>
+3. **GitHub Issues**: <https://github.com/google/adk-python/issues/697> (Transcription handling)
 
 **Completeness Matrix**:
+
 - **Event-level fields**: 25 fields total (6 implemented, 2 partial, 17 missing)
 - **Part-level fields**: 11 fields total (7 implemented, 4 missing)
 - **Priority recommendations**: Critical (errorCode, errorMessage), High (inputTranscription, groundingMetadata, citationMetadata), Low (various metadata fields)
 
 **Key Findings**:
+
 - `output_transcription` was discovered **by accident** through debug logging
 - Systematic approach needed to prevent missing other fields
 - Testing strategy: Use real ADK data as fixtures for parameterized tests
@@ -965,21 +1059,25 @@ if hasattr(event, "output_transcription") and event.output_transcription:
 #### Impact and Resolution
 
 **Problem Resolved**:
+
 - ✅ Native-audio model audio responses now have text transcription visible in UI
 - ✅ Users can see what the AI said (not just hear it)
 - ✅ UI no longer shows "Thinking..." indefinitely after tool execution
 
 **Technical Achievement**:
+
 - Discovered Event-level field through systematic inspection
 - Implemented AI SDK v6 compliant text streaming
 - Created comprehensive test coverage with real ADK data
 - Documented all missing ADK fields for future implementation
 
 **User Experience**:
+
 - **Before**: Audio responses had no text → UI stuck on "Thinking..."
 - **After**: Audio responses transcribed to text → UI shows readable response
 
 **Commit**: b0d3912 (2025-12-12 14:00)
+
 - 5 files changed, +437/-55 lines
 - stream_protocol.py: Added transcription processing
 - tests/unit/test_output_transcription_real_response.py: New test file with 4 tests

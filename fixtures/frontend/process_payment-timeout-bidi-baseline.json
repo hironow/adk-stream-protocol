@@ -1,0 +1,175 @@
+{
+  "description": "BIDI mode Phase 12 BLOCKING - process_payment with timeout flow (SINGLE CONTINUOUS STREAM, user doesn't respond)",
+  "mode": "bidi",
+  "source": "Backend E2E test capture",
+  "scenario": "User receives approval request but doesn't respond - timeout after 30s",
+  "note": "Phase 12 BLOCKING behavior: Single continuous stream with 1 [DONE]. Tool enters BLOCKING state awaiting approval, then times out after 30s and returns error.",
+  "input": {
+    "messages": [
+      {
+        "role": "user",
+        "parts": [
+          {
+            "type": "text",
+            "text": "Process a payment of $100 to Alice"
+          }
+        ]
+      }
+    ],
+    "trigger": "submit-message"
+  },
+  "output": {
+    "rawEvents": [
+      "data: {\"type\": \"start\", \"messageId\": \"a70e6515-e8ab-47d4-893f-5fcd76c05cbf\"}\n\n",
+      "data: {\"type\": \"reasoning-start\", \"id\": \"0\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Considering Payment Options**\\n\\nI've homed in on the `process_payment` tool. It's looking like a great fit, but I still have to figure out how to provide the right parameters. The request specified $100 for Alice. The tool requires an amount, recipient, and currency. Now I just need to make sure I format the tool call correctly, like `process_payment(amount=100, recipient='Alice', currency='USD')`.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-end\", \"id\": \"0\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-1279167579630386787\", \"toolName\": \"process_payment\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-1279167579630386787\", \"toolName\": \"process_payment\", \"input\": {\"amount\": 100, \"recipient\": \"Alice\", \"currency\": \"USD\"}}\n\n",
+      "data: {\"type\":\"start-step\"}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-1279167579630386787\", \"approvalId\": \"adk-57e295de-6b24-42ac-885c-6d58469b1823\"}\n\n",
+      "data: {\"type\":\"finish-step\"}\n\n",
+      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"function-call-1279167579630386787\", \"errorText\": \"Approval request timed out\"}\n\n",
+      "data: {\"type\": \"reasoning-start\", \"id\": \"1\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"1\", \"delta\": \"**Investigating Payment Failure**\\n\\nI've hit a snag with the payment processing. It seems the approval request timed out. This suggests user intervention was needed, but wasn't received within the allotted time. My next step is to inform the user about the timeout and confirm that the payment did not go through.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-end\", \"id\": \"1\"}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"a70e6515-e8ab-47d4-893f-5fcd76c05cbf_output_text\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"a70e6515-e8ab-47d4-893f-5fcd76c05cbf_output_text\", \"delta\": \"Payment approval\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"a70e6515-e8ab-47d4-893f-5fcd76c05cbf_output_text\", \"delta\": \" timed\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"a70e6515-e8ab-47d4-893f-5fcd76c05cbf_output_text\", \"delta\": \" out.\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"a70e6515-e8ab-47d4-893f-5fcd76c05cbf_output_text\", \"delta\": \" The payment\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"a70e6515-e8ab-47d4-893f-5fcd76c05cbf_output_text\", \"delta\": \" was\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"a70e6515-e8ab-47d4-893f-5fcd76c05cbf_output_text\", \"delta\": \" not\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"a70e6515-e8ab-47d4-893f-5fcd76c05cbf_output_text\", \"delta\": \" processed.\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"a70e6515-e8ab-47d4-893f-5fcd76c05cbf_output_text\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1521, \"completionTokens\": null, \"totalTokens\": 1603}, \"audio\": {\"chunks\": 55, \"bytes\": 149760, \"sampleRate\": 24000, \"duration\": 3.12}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
+      "data: [DONE]\n\n"
+    ],
+    "expectedChunks": [
+      {
+        "type": "start",
+        "messageId": "a70e6515-e8ab-47d4-893f-5fcd76c05cbf"
+      },
+      {
+        "type": "reasoning-start",
+        "id": "0"
+      },
+      {
+        "type": "reasoning-delta",
+        "id": "0",
+        "delta": "**Considering Payment Options**\n\nI've homed in on the `process_payment` tool. It's looking like a great fit, but I still have to figure out how to provide the right parameters. The request specified $100 for Alice. The tool requires an amount, recipient, and currency. Now I just need to make sure I format the tool call correctly, like `process_payment(amount=100, recipient='Alice', currency='USD')`.\n\n\n"
+      },
+      {
+        "type": "reasoning-end",
+        "id": "0"
+      },
+      {
+        "type": "tool-input-start",
+        "toolCallId": "function-call-1279167579630386787",
+        "toolName": "process_payment"
+      },
+      {
+        "type": "tool-input-available",
+        "toolCallId": "function-call-1279167579630386787",
+        "toolName": "process_payment",
+        "input": {
+          "amount": 100,
+          "recipient": "Alice",
+          "currency": "USD"
+        }
+      },
+      {
+        "type": "start-step"
+      },
+      {
+        "type": "tool-approval-request",
+        "toolCallId": "function-call-1279167579630386787",
+        "approvalId": "adk-57e295de-6b24-42ac-885c-6d58469b1823"
+      },
+      {
+        "type": "finish-step"
+      },
+      {
+        "type": "tool-output-error",
+        "toolCallId": "function-call-1279167579630386787",
+        "errorText": "Approval request timed out"
+      },
+      {
+        "type": "reasoning-start",
+        "id": "1"
+      },
+      {
+        "type": "reasoning-delta",
+        "id": "1",
+        "delta": "**Investigating Payment Failure**\n\nI've hit a snag with the payment processing. It seems the approval request timed out. This suggests user intervention was needed, but wasn't received within the allotted time. My next step is to inform the user about the timeout and confirm that the payment did not go through.\n\n\n"
+      },
+      {
+        "type": "reasoning-end",
+        "id": "1"
+      },
+      {
+        "type": "text-start",
+        "id": "a70e6515-e8ab-47d4-893f-5fcd76c05cbf_output_text"
+      },
+      {
+        "type": "text-delta",
+        "id": "a70e6515-e8ab-47d4-893f-5fcd76c05cbf_output_text",
+        "delta": "Payment approval"
+      },
+      {
+        "type": "text-delta",
+        "id": "a70e6515-e8ab-47d4-893f-5fcd76c05cbf_output_text",
+        "delta": " timed"
+      },
+      {
+        "type": "text-delta",
+        "id": "a70e6515-e8ab-47d4-893f-5fcd76c05cbf_output_text",
+        "delta": " out."
+      },
+      {
+        "type": "text-delta",
+        "id": "a70e6515-e8ab-47d4-893f-5fcd76c05cbf_output_text",
+        "delta": " The payment"
+      },
+      {
+        "type": "text-delta",
+        "id": "a70e6515-e8ab-47d4-893f-5fcd76c05cbf_output_text",
+        "delta": " was"
+      },
+      {
+        "type": "text-delta",
+        "id": "a70e6515-e8ab-47d4-893f-5fcd76c05cbf_output_text",
+        "delta": " not"
+      },
+      {
+        "type": "text-delta",
+        "id": "a70e6515-e8ab-47d4-893f-5fcd76c05cbf_output_text",
+        "delta": " processed."
+      },
+      {
+        "type": "text-end",
+        "id": "a70e6515-e8ab-47d4-893f-5fcd76c05cbf_output_text"
+      },
+      {
+        "type": "finish",
+        "finishReason": "stop",
+        "messageMetadata": {
+          "usage": {
+            "promptTokens": 1521,
+            "completionTokens": null,
+            "totalTokens": 1603
+          },
+          "audio": {
+            "chunks": 55,
+            "bytes": 149760,
+            "sampleRate": 24000,
+            "duration": 3.12
+          },
+          "modelVersion": "gemini-2.5-flash-native-audio-preview-12-2025"
+        }
+      }
+    ],
+    "expectedDoneCount": 1,
+    "expectedStreamCompletion": true
+  }
+}

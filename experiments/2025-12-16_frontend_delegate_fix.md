@@ -7,11 +7,13 @@
 ## Problem Statement
 
 ### Critical Issue
+
 Frontend delegate pattern **does not work in SSE mode**. Backend tools that call `execute_on_frontend()` await forever because `resolve_tool_result()` is never called.
 
 ### Root Cause Analysis
 
 **SSE Mode Flow (Current - BROKEN)**:
+
 ```
 1. Backend: tool calls execute_on_frontend() → creates Future, awaits
 2. Frontend: receives tool-approval request
@@ -24,6 +26,7 @@ Frontend delegate pattern **does not work in SSE mode**. Backend tools that call
 ```
 
 **BIDI Mode Flow (Current - WORKS)**:
+
 ```
 1. Backend: tool calls execute_on_frontend() → creates Future, awaits
 2. Frontend: receives tool-approval request via WebSocket
@@ -36,6 +39,7 @@ Frontend delegate pattern **does not work in SSE mode**. Backend tools that call
 ### Evidence from Code
 
 #### tool_delegate.py:71-91
+
 ```python
 async def execute_on_frontend(...) -> dict[str, Any]:
     future: asyncio.Future[dict[str, Any]] = asyncio.Future()
@@ -47,6 +51,7 @@ async def execute_on_frontend(...) -> dict[str, Any]:
 ```
 
 #### ai_sdk_v6_compat.py:421-475
+
 ```python
 def process_tool_use_parts(message: ChatMessage, delegate: FrontendToolDelegate) -> bool:
     """
@@ -61,6 +66,7 @@ def process_tool_use_parts(message: ChatMessage, delegate: FrontendToolDelegate)
 ```
 
 #### server.py:240-310 (/stream endpoint)
+
 ```python
 @app.post("/stream")
 async def stream(...):
@@ -125,14 +131,17 @@ async def stream(request: UIMessagesRequest):
 ## Implementation Plan
 
 ### Phase 1: Add Tool Output Processing to SSE Mode ✅
+
 1. Import `process_tool_use_parts` and `ChatMessage` in server.py
 2. Add processing loop before agent run in /stream endpoint
 3. Add debug logging to verify processing
 
 ### Phase 1.5: Fix ToolUsePart Validation ✅
+
 **Root Cause Discovery**: Frontend sends tool parts without `toolName` field, causing Pydantic to classify them as `GenericPart` instead of `ToolUsePart`.
 
 **Evidence from logs (09:38:13)**:
+
 ```
 WARNING | ai_sdk_v6_compat:_process_part:366 - [AI SDK v6] Ignoring internal chunk type: 'tool-change_bgm'
 Full part data: {
@@ -145,6 +154,7 @@ Full part data: {
 ```
 
 **Fix**: Modified `ToolUsePart` in `ai_sdk_v6_compat.py`:
+
 1. Made `tool_name` optional: `tool_name: str | None = Field(default=None, alias="toolName")`
 2. Added `model_post_init()` to derive `tool_name` from `type` field
 3. If `type='tool-change_bgm'`, derives `tool_name='change_bgm'`
@@ -152,12 +162,14 @@ Full part data: {
 **Why this works**: Pydantic can now validate tool parts even without explicit `toolName`, allowing `process_tool_use_parts()` to process them correctly.
 
 ### Phase 2: Test with Minimal Tool
+
 1. Test with existing `change_bgm` tool
 2. Verify logs show `resolve_tool_result` being called
 3. Verify backend doesn't hang
 4. Verify conversation continues normally
 
 ### Phase 3: Verify Both Scenarios
+
 1. Test approve scenario
 2. Test deny scenario
 3. Verify no regressions
@@ -165,11 +177,13 @@ Full part data: {
 ## Expected Results
 
 ### Before Fix
+
 - ❌ Backend hangs after tool approval
 - ❌ No `resolve_tool_result` in logs
 - ❌ Conversation stalls
 
 ### After Fix
+
 - ✅ Backend processes tool output from messages
 - ✅ `resolve_tool_result` called and logged
 - ✅ Future resolves, tool returns result
@@ -195,6 +209,7 @@ Full part data: {
 **Test Scenario**: User requested "Please change the BGM to track 1"
 
 **Observed Behavior**:
+
 1. Tool approval UI displayed correctly
 2. User clicked "Approve"
 3. BGM changed from track 0 to track 1 (UI showed 🎵 BGM 2)
@@ -223,12 +238,14 @@ Full part data: {
 ```
 
 **Key Confirmations**:
+
 - ✅ No `NameError: name 'frontend_delegate' is not defined` (import fix working)
 - ✅ Tool parts correctly identified as `ToolUsePart` with `type='tool-change_bgm'` (validation fix working)
 - ✅ `resolve_tool_result()` called and Future resolved successfully
 - ✅ Full flow completed without hanging
 
 **Files Modified**:
+
 1. `ai_sdk_v6_compat.py:216-228` - Made `tool_name` optional and added auto-derivation from `type` field
 2. `server.py:52` - Added import: `from tool_delegate import FrontendToolDelegate, frontend_delegate`
 

@@ -1,0 +1,156 @@
+{
+  "description": "SSE mode baseline - Parallel process_payment with approval flows (SINGLE REQUEST: 2 tool calls, 2 approvals)",
+  "mode": "sse",
+  "source": "Backend E2E test capture",
+  "scenario": "User requests two parallel payments (Alice 30ドル, Bob 40ドル) in single message - complete flow from dual confirmation requests to dual executions",
+  "note": "This fixture captures TWO separate HTTP requests: (1) Initial request with 2 tool-approval-requests [DONE], (2) Both approval responses with 2 tool executions [DONE]. It serves as documentation of parallel approval flows.",
+  "input": {
+    "messages": [
+      {
+        "role": "user",
+        "content": "Aliceに30ドル、Bobに40ドル送金してください"
+      }
+    ],
+    "trigger": "submit-message"
+  },
+  "output": {
+    "rawEvents": [
+      "data: {\"type\": \"start\", \"messageId\": \"d195aacd-b5ab-4289-8d99-8530f6e42b36\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-dff12fde-fa29-4e2d-8a64-9c5a7045836b\", \"toolName\": \"process_payment\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-dff12fde-fa29-4e2d-8a64-9c5a7045836b\", \"toolName\": \"process_payment\", \"input\": {\"description\": \"Payment to Alice\", \"recipient\": \"Alice\", \"currency\": \"USD\", \"amount\": 30}}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-741de46b-6391-464c-a7f0-1dfa8769e7b8\", \"toolName\": \"process_payment\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-741de46b-6391-464c-a7f0-1dfa8769e7b8\", \"toolName\": \"process_payment\", \"input\": {\"currency\": \"USD\", \"recipient\": \"Bob\", \"amount\": 40, \"description\": \"Payment to Bob\"}}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"adk-dff12fde-fa29-4e2d-8a64-9c5a7045836b\", \"approvalId\": \"adk-9b5fc87e-881c-4aff-b8c8-e1ad938b354a\"}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"adk-741de46b-6391-464c-a7f0-1dfa8769e7b8\", \"approvalId\": \"adk-4a65acf2-2abf-4da2-add5-3c226fdc7f74\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1587, \"completionTokens\": 70, \"totalTokens\": 1755}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: [DONE]\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"6e9bdecc-3089-4224-9ba4-e6b97a8434cd\"}\n\n",
+      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"adk-dff12fde-fa29-4e2d-8a64-9c5a7045836b\", \"output\": {\"success\": true, \"transaction_id\": \"txn_842a69577fec\", \"amount\": 30, \"currency\": \"USD\", \"recipient\": \"Alice\", \"description\": \"Payment to Alice\", \"wallet_balance\": 970.0, \"timestamp\": \"2025-12-31T14:10:53.238844+00:00\"}}\n\n",
+      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"adk-741de46b-6391-464c-a7f0-1dfa8769e7b8\", \"output\": {\"success\": true, \"transaction_id\": \"txn_f4c7ce247c11\", \"amount\": 40, \"currency\": \"USD\", \"recipient\": \"Bob\", \"description\": \"Payment to Bob\", \"wallet_balance\": 960.0, \"timestamp\": \"2025-12-31T14:10:53.239264+00:00\"}}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"0\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"Alice\\u3078\\u306e30\\u30c9\\u30eb\\u306e\\u9001\\u91d1\\uff08\\u53d6\\u5f15ID: txn_842a69577fec\\uff09\\u3068\\u3001Bob\\u3078\\u306e40\\u30c9\\u30eb\\u306e\\u9001\\u91d1\\uff08\\u53d6\\u5f15ID: txn_f4c7ce247c11\\uff09\\u304c\\u3001\\u305d\\u308c\\u305e\\u308c\\u7121\\u4e8b\\u306b\\u5b8c\\u4e86\\u3044\\u305f\\u3057\\u307e\\u3057\\u305f\\u3002\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"0\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1957, \"completionTokens\": 62, \"totalTokens\": 2019}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: [DONE]\n\n"
+    ],
+    "expectedChunks": [
+      {
+        "type": "start",
+        "messageId": "d195aacd-b5ab-4289-8d99-8530f6e42b36"
+      },
+      {
+        "type": "tool-input-start",
+        "toolCallId": "adk-dff12fde-fa29-4e2d-8a64-9c5a7045836b",
+        "toolName": "process_payment"
+      },
+      {
+        "type": "tool-input-available",
+        "toolCallId": "adk-dff12fde-fa29-4e2d-8a64-9c5a7045836b",
+        "toolName": "process_payment",
+        "input": {
+          "description": "Payment to Alice",
+          "recipient": "Alice",
+          "currency": "USD",
+          "amount": 30
+        }
+      },
+      {
+        "type": "tool-input-start",
+        "toolCallId": "adk-741de46b-6391-464c-a7f0-1dfa8769e7b8",
+        "toolName": "process_payment"
+      },
+      {
+        "type": "tool-input-available",
+        "toolCallId": "adk-741de46b-6391-464c-a7f0-1dfa8769e7b8",
+        "toolName": "process_payment",
+        "input": {
+          "currency": "USD",
+          "recipient": "Bob",
+          "amount": 40,
+          "description": "Payment to Bob"
+        }
+      },
+      {
+        "type": "tool-approval-request",
+        "toolCallId": "adk-dff12fde-fa29-4e2d-8a64-9c5a7045836b",
+        "approvalId": "adk-9b5fc87e-881c-4aff-b8c8-e1ad938b354a"
+      },
+      {
+        "type": "tool-approval-request",
+        "toolCallId": "adk-741de46b-6391-464c-a7f0-1dfa8769e7b8",
+        "approvalId": "adk-4a65acf2-2abf-4da2-add5-3c226fdc7f74"
+      },
+      {
+        "type": "finish",
+        "finishReason": "stop",
+        "messageMetadata": {
+          "usage": {
+            "promptTokens": 1587,
+            "completionTokens": 70,
+            "totalTokens": 1755
+          },
+          "modelVersion": "gemini-3-flash-preview"
+        }
+      },
+      {
+        "type": "start",
+        "messageId": "6e9bdecc-3089-4224-9ba4-e6b97a8434cd"
+      },
+      {
+        "type": "tool-output-available",
+        "toolCallId": "adk-dff12fde-fa29-4e2d-8a64-9c5a7045836b",
+        "output": {
+          "success": true,
+          "transaction_id": "txn_842a69577fec",
+          "amount": 30,
+          "currency": "USD",
+          "recipient": "Alice",
+          "description": "Payment to Alice",
+          "wallet_balance": 970.0,
+          "timestamp": "2025-12-31T14:10:53.238844+00:00"
+        }
+      },
+      {
+        "type": "tool-output-available",
+        "toolCallId": "adk-741de46b-6391-464c-a7f0-1dfa8769e7b8",
+        "output": {
+          "success": true,
+          "transaction_id": "txn_f4c7ce247c11",
+          "amount": 40,
+          "currency": "USD",
+          "recipient": "Bob",
+          "description": "Payment to Bob",
+          "wallet_balance": 960.0,
+          "timestamp": "2025-12-31T14:10:53.239264+00:00"
+        }
+      },
+      {
+        "type": "text-start",
+        "id": "0"
+      },
+      {
+        "type": "text-delta",
+        "id": "0",
+        "delta": "Aliceへの30ドルの送金（取引ID: txn_842a69577fec）と、Bobへの40ドルの送金（取引ID: txn_f4c7ce247c11）が、それぞれ無事に完了いたしました。"
+      },
+      {
+        "type": "text-end",
+        "id": "0"
+      },
+      {
+        "type": "finish",
+        "finishReason": "stop",
+        "messageMetadata": {
+          "usage": {
+            "promptTokens": 1957,
+            "completionTokens": 62,
+            "totalTokens": 2019
+          },
+          "modelVersion": "gemini-3-flash-preview"
+        }
+      }
+    ],
+    "expectedDoneCount": 2,
+    "expectedStreamCompletion": true
+  }
+}

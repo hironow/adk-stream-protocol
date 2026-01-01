@@ -70,9 +70,10 @@ private/
 
 logs/
 test-results/
-
+test_chunks/
 playwright-report/
 test-results/*.log
 
 # Chunk logs (debug recording)
+# chunk_logs/ directory is now source code, not ignored
 chunk_logs/

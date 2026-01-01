@@ -1,0 +1,89 @@
+{
+  "description": "SSE mode baseline - get_weather tool call for Tokyo",
+  "mode": "sse",
+  "source": "Backend E2E test capture",
+  "scenario": "User requests weather information for Tokyo - real-time weather data",
+  "note": "get_weather returns real-time weather data, so content is dynamic and may vary between runs.",
+  "input": {
+    "messages": [
+      {
+        "id": "msg-1",
+        "role": "user",
+        "content": "東京の天気を教えて"
+      }
+    ],
+    "trigger": "submit-message"
+  },
+  "output": {
+    "rawEvents": [
+      "data: {\"type\": \"start\", \"messageId\": \"89100d22-f6af-4308-bab3-63de5c0e72f3\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-c714fc8a-e7ff-4bcb-9783-956a3bf29ebc\", \"toolName\": \"get_weather\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-c714fc8a-e7ff-4bcb-9783-956a3bf29ebc\", \"toolName\": \"get_weather\", \"input\": {\"location\": \"Tokyo\"}}\n\n",
+      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"adk-c714fc8a-e7ff-4bcb-9783-956a3bf29ebc\", \"output\": {\"temperature\": 10.2, \"condition\": \"Clouds\", \"description\": \"broken clouds\", \"humidity\": 44, \"feels_like\": 8.4, \"wind_speed\": 4.12, \"cached\": true}}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"0\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"\\u6771\\u4eac\\u306e\\u73fe\\u5728\\u306e\\u5929\\u6c17\\u306f\\u66c7\\u308a\\uff08broken clouds\\uff09\\u3067\\u3001\\u6c17\\u6e29\\u306f10.2\\u5ea6\\uff08\\u4f53\\u611f\\u6e29\\u5ea68.4\\u5ea6\\uff09\\u3067\\u3059\\u3002\\u6e7f\\u5ea6\\u306f44%\\u3001\\u98a8\\u901f\\u306f4.12m/s\\u3067\\u3059\\u3002\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"0\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1306, \"completionTokens\": 48, \"totalTokens\": 1354}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: [DONE]\n\n"
+    ],
+    "expectedChunks": [
+      {
+        "type": "start",
+        "messageId": "89100d22-f6af-4308-bab3-63de5c0e72f3"
+      },
+      {
+        "type": "tool-input-start",
+        "toolCallId": "adk-c714fc8a-e7ff-4bcb-9783-956a3bf29ebc",
+        "toolName": "get_weather"
+      },
+      {
+        "type": "tool-input-available",
+        "toolCallId": "adk-c714fc8a-e7ff-4bcb-9783-956a3bf29ebc",
+        "toolName": "get_weather",
+        "input": {
+          "location": "Tokyo"
+        }
+      },
+      {
+        "type": "tool-output-available",
+        "toolCallId": "adk-c714fc8a-e7ff-4bcb-9783-956a3bf29ebc",
+        "output": {
+          "temperature": 10.2,
+          "condition": "Clouds",
+          "description": "broken clouds",
+          "humidity": 44,
+          "feels_like": 8.4,
+          "wind_speed": 4.12,
+          "cached": true
+        }
+      },
+      {
+        "type": "text-start",
+        "id": "0"
+      },
+      {
+        "type": "text-delta",
+        "id": "0",
+        "delta": "東京の現在の天気は曇り（broken clouds）で、気温は10.2度（体感温度8.4度）です。湿度は44%、風速は4.12m/sです。"
+      },
+      {
+        "type": "text-end",
+        "id": "0"
+      },
+      {
+        "type": "finish",
+        "finishReason": "stop",
+        "messageMetadata": {
+          "usage": {
+            "promptTokens": 1306,
+            "completionTokens": 48,
+            "totalTokens": 1354
+          },
+          "modelVersion": "gemini-3-flash-preview"
+        }
+      }
+    ],
+    "expectedDoneCount": 1,
+    "expectedStreamCompletion": true
+  }
+}

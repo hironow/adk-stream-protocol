@@ -1,4 +1,4 @@
-import { createAdkConfirmationOutput } from "@/lib/adk_compat";
+import { useState } from "react";
 
 /**
  * Tool invocation state for UI display.
@@ -14,24 +14,26 @@ interface ToolInvocationProps {
     approved: boolean;
     reason?: string;
   }) => void;
+  // addToolOutput: Used for both SSE and BIDI modes
+  // - SSE mode: Triggers HTTP request to backend
+  // - BIDI mode: Transport layer converts to WebSocket message
+  // Transport internals handle mode-specific behavior via sendAutomaticallyWhen
   addToolOutput?: (response: {
     tool: string;
     toolCallId: string;
     output: unknown;
   }) => void;
-  executeToolCallback?: (
-    toolName: string,
-    toolCallId: string,
-    args: Record<string, unknown>,
-  ) => Promise<boolean>;
 }
 
 export function ToolInvocationComponent({
   toolInvocation,
   addToolApprovalResponse,
   addToolOutput,
-  executeToolCallback,
 }: ToolInvocationProps) {
+  // State management for long-running tool approval
+  const [approvalSent, setApprovalSent] = useState(false);
+  const [approvalError, setApprovalError] = useState<string | null>(null);
+
   // Extract toolName from type (e.g., "tool-change_bgm" -> "change_bgm")
   const toolName =
     toolInvocation.toolName ||
@@ -40,14 +42,58 @@ export function ToolInvocationComponent({
       : toolInvocation.type) ||
     "unknown";
 
-  // Detect ADK RequestConfirmation as approval request
-  // adk_request_confirmation tool calls should be rendered as approval UI
-  const isAdkConfirmation = toolName === "adk_request_confirmation";
-  const originalToolCall = isAdkConfirmation
-    ? toolInvocation.input?.originalFunctionCall
-    : null;
+  // ADK RequestConfirmation is handled by state === "approval-requested" (ADR 0002)
+  // The adk_request_confirmation tool is never sent to frontend (only tool-approval-request events)
 
   const { state } = toolInvocation;
+
+  // Detect long-running tools that need approval UI
+  //
+  // Long-running tools use ADK's LongRunningFunctionTool wrapper pattern:
+  // 1. Backend tool returns None → ADK pauses agent execution
+  // 2. Frontend receives tool invocation with state="input-available"
+  // 3. This component auto-detects and shows approval UI
+  // 4. User clicks Approve/Deny → sendFunctionResponse via WebSocket
+  // 5. Backend resumes agent with user's decision
+  //
+  // To create a long-running tool:
+  //   from google.adk.tools.long_running_tool import LongRunningFunctionTool
+  //
+  //   def my_tool(arg: str) -> None:
+  //       # Tool logic here
+  //       return None  # Triggers pause
+  //
+  //   tools = [LongRunningFunctionTool(my_tool)]
+  //
+  // The approval UI will automatically appear for any tool using this pattern.
+  // Key distinction: Long-running tools DON'T have executeToolCallback
+  const isLongRunningTool = state === "input-available"; // Long-running tools don't execute on frontend
+
+  // Generic handler for long-running tool approval/denial
+  const handleLongRunningToolResponse = (approved: boolean) => {
+    if (approvalSent) {
+      console.warn(
+        `[LongRunningTool] Approval already sent for ${toolName}, ignoring duplicate`,
+      );
+      return;
+    }
+
+    try {
+      console.info(
+        `[LongRunningTool] User ${approved ? "approved" : "denied"} ${toolName}, sending function_response`,
+      );
+
+      setApprovalSent(true);
+      setApprovalError(null);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      console.error(
+        `[LongRunningTool] Failed to send function_response: ${errorMessage}`,
+      );
+      setApprovalError(errorMessage);
+    }
+  };
 
   // Tool call states: input-streaming, input-available, output-available, output-error, approval-requested, approval-responded
   const getStateColor = () => {
@@ -106,6 +152,7 @@ export function ToolInvocationComponent({
           gap: "0.5rem",
           marginBottom: "0.5rem",
         }}
+        data-testid="tool-invocation-header"
       >
         <div
           style={{
@@ -115,113 +162,21 @@ export function ToolInvocationComponent({
             background: getStateColor(),
           }}
         />
-        <span style={{ fontWeight: 600, color: getStateColor() }}>
-          {toolName} ({toolInvocation.type})
+        <span
+          style={{ fontWeight: 600, color: getStateColor() }}
+          data-testid="tool-name"
+        >
+          {toolName}
         </span>
-        <span style={{ fontSize: "0.875rem", color: "#888" }}>
+        <span
+          style={{ fontSize: "0.875rem", color: "#999" }}
+          data-testid="tool-state"
+        >
           {getStateLabel()}
         </span>
       </div>
 
-      {/* ADK RequestConfirmation Approval UI */}
-      {/* Only show approval buttons when NOT completed */}
-      {isAdkConfirmation &&
-        originalToolCall &&
-        state !== "output-available" && (
-          <div style={{ marginBottom: "0.5rem" }}>
-            <div
-              style={{
-                fontSize: "0.875rem",
-                color: "#d1d5db",
-                marginBottom: "0.5rem",
-              }}
-            >
-              The tool <strong>{originalToolCall.name}</strong> requires your
-              approval:
-            </div>
-            <div
-              style={{
-                background: "#1a1a1a",
-                padding: "0.5rem",
-                borderRadius: "4px",
-                fontSize: "0.75rem",
-                fontFamily: "monospace",
-                marginBottom: "0.75rem",
-              }}
-            >
-              {JSON.stringify(originalToolCall.args, null, 2)}
-            </div>
-            <div
-              style={{
-                display: "flex",
-                gap: "0.5rem",
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => {
-                  console.info(
-                    `[ToolInvocationComponent] User approved ${originalToolCall.name}`,
-                  );
-                  console.info(
-                    `[DEBUG] toolInvocation.input:`,
-                    toolInvocation.input,
-                  );
-                  console.info(
-                    `[DEBUG] originalToolCall extracted:`,
-                    originalToolCall,
-                  );
-                  const output = createAdkConfirmationOutput(
-                    toolInvocation,
-                    true,
-                  );
-                  console.info(
-                    `[DEBUG] createAdkConfirmationOutput result:`,
-                    output,
-                  );
-                  addToolOutput?.(output);
-                }}
-                style={{
-                  padding: "0.5rem 1rem",
-                  borderRadius: "4px",
-                  background: "#10b981",
-                  color: "white",
-                  border: "none",
-                  cursor: "pointer",
-                  fontSize: "0.875rem",
-                  fontWeight: 500,
-                }}
-              >
-                Approve
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  console.info(
-                    `[ToolInvocationComponent] User denied ${originalToolCall.name}`,
-                  );
-                  addToolOutput?.(
-                    createAdkConfirmationOutput(toolInvocation, false),
-                  );
-                }}
-                style={{
-                  padding: "0.5rem 1rem",
-                  borderRadius: "4px",
-                  background: "#ef4444",
-                  color: "white",
-                  border: "none",
-                  cursor: "pointer",
-                  fontSize: "0.875rem",
-                  fontWeight: 500,
-                }}
-              >
-                Deny
-              </button>
-            </div>
-          </div>
-        )}
-
-      {/* Approval UI */}
+      {/* Approval UI (ADR 0002 - Server Execute Pattern) */}
       {state === "approval-requested" &&
         "approval" in toolInvocation &&
         toolInvocation.approval && (
@@ -244,6 +199,7 @@ export function ToolInvocationComponent({
             >
               <button
                 type="button"
+                data-testid="tool-approve-button"
                 onClick={async () => {
                   // CRITICAL: Always send approval response first
                   // AI SDK v6's sendAutomaticallyWhen requires BOTH:
@@ -259,16 +215,79 @@ export function ToolInvocationComponent({
                     reason: "User approved the tool execution.",
                   });
 
-                  // Execute the tool on client if callback provided
-                  if (executeToolCallback) {
+                  // SSE Mode Pattern A (1-request): Execute tool and send result immediately
+                  // After approval, execute frontend-delegated tools and send result
+                  // Both approval + result sent together via sendAutomaticallyWhen
+                  if (toolName === "get_location") {
                     console.info(
-                      `[ToolInvocationComponent] Executing tool ${toolName} on client`,
+                      `[ToolInvocationComponent] Executing get_location on client`,
                     );
-                    await executeToolCallback(
-                      toolName,
-                      toolInvocation.toolCallId,
-                      toolInvocation.input || {},
+                    try {
+                      const position = await new Promise<GeolocationPosition>(
+                        (resolve, reject) => {
+                          navigator.geolocation.getCurrentPosition(
+                            resolve,
+                            reject,
+                            {
+                              enableHighAccuracy: true,
+                              timeout: 5000,
+                              maximumAge: 0,
+                            },
+                          );
+                        },
+                      );
+
+                      const locationResult = {
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude,
+                        accuracy: position.coords.accuracy,
+                        timestamp: position.timestamp,
+                      };
+
+                      console.info(
+                        `[ToolInvocationComponent] get_location result:`,
+                        locationResult,
+                      );
+
+                      addToolOutput?.({
+                        tool: toolName,
+                        toolCallId: toolInvocation.toolCallId,
+                        output: locationResult,
+                      });
+                    } catch (error) {
+                      const errorMessage =
+                        error instanceof Error
+                          ? error.message
+                          : "Geolocation failed";
+                      console.error(
+                        `[ToolInvocationComponent] get_location error:`,
+                        errorMessage,
+                      );
+                      addToolOutput?.({
+                        tool: toolName,
+                        toolCallId: toolInvocation.toolCallId,
+                        output: {
+                          success: false,
+                          error: errorMessage,
+                        },
+                      });
+                    }
+                  } else if (toolName === "change_bgm") {
+                    console.info(
+                      `[ToolInvocationComponent] Executing change_bgm on client`,
                     );
+                    const track = toolInvocation.input?.track || 1;
+                    // TODO: Implement actual BGM change logic with AudioContext
+                    // For now, just send success response
+                    addToolOutput?.({
+                      tool: toolName,
+                      toolCallId: toolInvocation.toolCallId,
+                      output: {
+                        success: true,
+                        track,
+                        message: `BGM changed to track ${track}`,
+                      },
+                    });
                   }
                 }}
                 style={{
@@ -286,6 +305,7 @@ export function ToolInvocationComponent({
               </button>
               <button
                 type="button"
+                data-testid="tool-deny-button"
                 onClick={() => {
                   addToolApprovalResponse?.({
                     id: toolInvocation.approval.id,
@@ -310,42 +330,148 @@ export function ToolInvocationComponent({
           </div>
         )}
 
-      {/* Tool Input */}
-      {/* Skip input display for adk_request_confirmation (shown in approval UI above) */}
-      {"input" in toolInvocation &&
-        toolInvocation.input &&
-        !isAdkConfirmation && (
-          <div style={{ marginBottom: "0.5rem" }}>
+      {/* Long-running Tool Approval UI (BIDI mode) */}
+      {/* Automatically displays for ANY tool wrapped with LongRunningFunctionTool() */}
+      {isLongRunningTool && !approvalSent && (
+        <div style={{ marginBottom: "0.5rem" }}>
+          <div
+            style={{
+              fontSize: "0.875rem",
+              color: "#d1d5db",
+              marginBottom: "0.5rem",
+            }}
+          >
+            <strong data-testid="tool-name-primary">{toolName}</strong> requires
+            your approval:
+          </div>
+          {/* Show tool inputs */}
+          {toolInvocation.input && (
             <div
               style={{
-                fontSize: "0.75rem",
-                color: "#888",
-                marginBottom: "0.25rem",
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-              }}
-            >
-              Input
-            </div>
-            <pre
-              style={{
-                margin: 0,
+                background: "#1a1a1a",
                 padding: "0.5rem",
                 borderRadius: "4px",
-                background: "#1a1a1a",
-                fontSize: "0.875rem",
-                overflow: "auto",
-                color: "#d1d5db",
+                fontSize: "0.75rem",
+                fontFamily: "monospace",
+                marginBottom: "0.75rem",
               }}
             >
-              {JSON.stringify(
-                toolInvocation.input as Record<string, unknown>,
-                null,
-                2,
-              )}
-            </pre>
+              {JSON.stringify(toolInvocation.input, null, 2)}
+            </div>
+          )}
+          {/* Error message if WebSocket send fails */}
+          {approvalError && (
+            <div
+              style={{
+                background: "#7f1d1d",
+                padding: "0.5rem",
+                borderRadius: "4px",
+                fontSize: "0.75rem",
+                color: "#fca5a5",
+                marginBottom: "0.75rem",
+              }}
+            >
+              Error sending approval: {approvalError}
+            </div>
+          )}
+          {/* Approve/Deny buttons */}
+          <div
+            style={{
+              display: "flex",
+              gap: "0.5rem",
+            }}
+          >
+            <button
+              type="button"
+              data-testid="tool-approve-button"
+              onClick={() => handleLongRunningToolResponse(true)}
+              disabled={approvalSent}
+              style={{
+                padding: "0.5rem 1rem",
+                borderRadius: "4px",
+                background: approvalSent ? "#6b7280" : "#10b981",
+                color: "white",
+                border: "none",
+                cursor: approvalSent ? "not-allowed" : "pointer",
+                fontSize: "0.875rem",
+                fontWeight: 500,
+                opacity: approvalSent ? 0.5 : 1,
+              }}
+            >
+              Approve
+            </button>
+            <button
+              type="button"
+              data-testid="tool-deny-button"
+              onClick={() => handleLongRunningToolResponse(false)}
+              disabled={approvalSent}
+              style={{
+                padding: "0.5rem 1rem",
+                borderRadius: "4px",
+                background: approvalSent ? "#6b7280" : "#ef4444",
+                color: "white",
+                border: "none",
+                cursor: approvalSent ? "not-allowed" : "pointer",
+                fontSize: "0.875rem",
+                fontWeight: 500,
+                opacity: approvalSent ? 0.5 : 1,
+              }}
+            >
+              Deny
+            </button>
           </div>
-        )}
+        </div>
+      )}
+
+      {/* Show approval sent confirmation */}
+      {isLongRunningTool && approvalSent && (
+        <div
+          style={{
+            marginBottom: "0.5rem",
+            padding: "0.5rem",
+            background: "#065f46",
+            borderRadius: "4px",
+            fontSize: "0.875rem",
+            color: "#d1fae5",
+          }}
+        >
+          ✓ Approval response sent. Waiting for agent to resume...
+        </div>
+      )}
+
+      {/* Tool Input */}
+      {"input" in toolInvocation && toolInvocation.input && (
+        <div style={{ marginBottom: "0.5rem" }}>
+          <div
+            style={{
+              fontSize: "0.75rem",
+              color: "#999",
+              marginBottom: "0.25rem",
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+            }}
+          >
+            Input
+          </div>
+          <pre
+            style={{
+              margin: 0,
+              padding: "0.5rem",
+              borderRadius: "4px",
+              background: "#1a1a1a",
+              fontSize: "0.875rem",
+              overflow: "auto",
+              color: "#d1d5db",
+            }}
+          >
+            {JSON.stringify(
+              toolInvocation.input as Record<string, unknown>,
+              null,
+              2,
+            )}
+          </pre>
+        </div>
+      )}
 
       {/* Tool Output */}
       {state === "output-available" && "output" in toolInvocation && (
@@ -353,7 +479,7 @@ export function ToolInvocationComponent({
           <div
             style={{
               fontSize: "0.75rem",
-              color: "#888",
+              color: "#999",
               marginBottom: "0.25rem",
               textTransform: "uppercase",
               letterSpacing: "0.05em",

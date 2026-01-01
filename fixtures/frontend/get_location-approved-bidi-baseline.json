@@ -1,0 +1,145 @@
+{
+  "description": "BIDI mode Phase 12 BLOCKING - get_location with approval flow (SINGLE CONTINUOUS STREAM)",
+  "mode": "bidi",
+  "source": "Backend E2E test capture",
+  "scenario": "User approves get_location tool call - Phase 12 BLOCKING mode where tool awaits approval inside function",
+  "note": "Phase 12 BLOCKING behavior: Single continuous stream with 1 [DONE]. Tool enters BLOCKING state awaiting approval, then returns location result after approval.",
+  "input": {
+    "messages": [
+      {
+        "id": "msg-1",
+        "role": "user",
+        "content": "現在地を教えて"
+      }
+    ],
+    "trigger": "submit-message"
+  },
+  "output": {
+    "rawEvents": [
+      "data: {\"type\": \"start\", \"messageId\": \"c2fb59f8-8e55-4f3b-a9be-898b2839dcc2\"}\n\n",
+      "data: {\"type\": \"reasoning-start\", \"id\": \"0\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Confirming User's Location**\\n\\nI've determined that the user's Japanese phrase directly translates to asking for their current location. The `get_location` tool seems perfectly suited for this. Because `tool_context` is automatically injected, I've decided to call the function as simply `get_location()`.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-end\", \"id\": \"0\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-17678527106928127311\", \"toolName\": \"get_location\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-17678527106928127311\", \"toolName\": \"get_location\", \"input\": {}}\n\n",
+      "data: {\"type\":\"start-step\"}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-17678527106928127311\", \"approvalId\": \"adk-bfe3c0e2-916c-4691-af4c-6736fa153fb5\"}\n\n",
+      "data: {\"type\":\"finish-step\"}\n\n",
+      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"function-call-17678527106928127311\", \"output\": {\"latitude\": 35.6762, \"longitude\": 139.6503, \"accuracy\": 20, \"city\": \"Tokyo\", \"country\": \"Japan\"}}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"c2fb59f8-8e55-4f3b-a9be-898b2839dcc2_output_text\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"c2fb59f8-8e55-4f3b-a9be-898b2839dcc2_output_text\", \"delta\": \"\\u73fe\\u5728\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"c2fb59f8-8e55-4f3b-a9be-898b2839dcc2_output_text\", \"delta\": \"\\u306e\\u4f4d\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"c2fb59f8-8e55-4f3b-a9be-898b2839dcc2_output_text\", \"delta\": \"\\u7f6e\\u306f\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"c2fb59f8-8e55-4f3b-a9be-898b2839dcc2_output_text\", \"delta\": \"\\u6771\\u4eac\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"c2fb59f8-8e55-4f3b-a9be-898b2839dcc2_output_text\", \"delta\": \"\\u90fd\\u3067\\u3059\\u3002\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"c2fb59f8-8e55-4f3b-a9be-898b2839dcc2_output_text\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1540, \"completionTokens\": null, \"totalTokens\": 1598}, \"audio\": {\"chunks\": 28, \"bytes\": 97920, \"sampleRate\": 24000, \"duration\": 2.04}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
+      "data: [DONE]\n\n"
+    ],
+    "expectedChunks": [
+      {
+        "type": "start",
+        "messageId": "c2fb59f8-8e55-4f3b-a9be-898b2839dcc2"
+      },
+      {
+        "type": "reasoning-start",
+        "id": "0"
+      },
+      {
+        "type": "reasoning-delta",
+        "id": "0",
+        "delta": "**Confirming User's Location**\n\nI've determined that the user's Japanese phrase directly translates to asking for their current location. The `get_location` tool seems perfectly suited for this. Because `tool_context` is automatically injected, I've decided to call the function as simply `get_location()`.\n\n\n"
+      },
+      {
+        "type": "reasoning-end",
+        "id": "0"
+      },
+      {
+        "type": "tool-input-start",
+        "toolCallId": "function-call-17678527106928127311",
+        "toolName": "get_location"
+      },
+      {
+        "type": "tool-input-available",
+        "toolCallId": "function-call-17678527106928127311",
+        "toolName": "get_location",
+        "input": {}
+      },
+      {
+        "type": "start-step"
+      },
+      {
+        "type": "tool-approval-request",
+        "toolCallId": "function-call-17678527106928127311",
+        "approvalId": "adk-bfe3c0e2-916c-4691-af4c-6736fa153fb5"
+      },
+      {
+        "type": "finish-step"
+      },
+      {
+        "type": "tool-output-available",
+        "toolCallId": "function-call-17678527106928127311",
+        "output": {
+          "latitude": 35.6762,
+          "longitude": 139.6503,
+          "accuracy": 20,
+          "city": "Tokyo",
+          "country": "Japan"
+        }
+      },
+      {
+        "type": "text-start",
+        "id": "c2fb59f8-8e55-4f3b-a9be-898b2839dcc2_output_text"
+      },
+      {
+        "type": "text-delta",
+        "id": "c2fb59f8-8e55-4f3b-a9be-898b2839dcc2_output_text",
+        "delta": "現在"
+      },
+      {
+        "type": "text-delta",
+        "id": "c2fb59f8-8e55-4f3b-a9be-898b2839dcc2_output_text",
+        "delta": "の位"
+      },
+      {
+        "type": "text-delta",
+        "id": "c2fb59f8-8e55-4f3b-a9be-898b2839dcc2_output_text",
+        "delta": "置は"
+      },
+      {
+        "type": "text-delta",
+        "id": "c2fb59f8-8e55-4f3b-a9be-898b2839dcc2_output_text",
+        "delta": "東京"
+      },
+      {
+        "type": "text-delta",
+        "id": "c2fb59f8-8e55-4f3b-a9be-898b2839dcc2_output_text",
+        "delta": "都です。"
+      },
+      {
+        "type": "text-end",
+        "id": "c2fb59f8-8e55-4f3b-a9be-898b2839dcc2_output_text"
+      },
+      {
+        "type": "finish",
+        "finishReason": "stop",
+        "messageMetadata": {
+          "usage": {
+            "promptTokens": 1540,
+            "completionTokens": null,
+            "totalTokens": 1598
+          },
+          "audio": {
+            "chunks": 28,
+            "bytes": 97920,
+            "sampleRate": 24000,
+            "duration": 2.04
+          },
+          "modelVersion": "gemini-2.5-flash-native-audio-preview-12-2025"
+        }
+      }
+    ],
+    "expectedDoneCount": 1,
+    "expectedStreamCompletion": true
+  }
+}

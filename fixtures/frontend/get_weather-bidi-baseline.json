@@ -1,0 +1,135 @@
+{
+  "description": "BIDI mode baseline - get_weather tool call for Tokyo",
+  "mode": "bidi",
+  "source": "Backend E2E test capture",
+  "scenario": "User requests weather information for Tokyo via WebSocket - real-time weather data",
+  "note": "BIDI mode sends events in SSE format over WebSocket. get_weather returns real-time data, content may vary between runs.",
+  "input": {
+    "messages": [
+      {
+        "id": "msg-1",
+        "role": "user",
+        "content": "東京の天気を教えて"
+      }
+    ],
+    "trigger": "submit-message"
+  },
+  "output": {
+    "rawEvents": [
+      "data: {\"type\": \"start\", \"messageId\": \"413a00c7-f674-4c58-a742-13d1d34151b6\"}\n\n",
+      "data: {\"type\": \"reasoning-start\", \"id\": \"0\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Identifying Weather Request**\\n\\nI've determined the user is asking for the weather in Tokyo. The `get_weather` tool seems like the right fit. It requires a location, and \\\"\\u6771\\u4eac\\\" translates to \\\"Tokyo\\\". So, I'll call `get_weather` with the location set to \\\"Tokyo\\\".\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-end\", \"id\": \"0\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-15138357924226897201\", \"toolName\": \"get_weather\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-15138357924226897201\", \"toolName\": \"get_weather\", \"input\": {\"location\": \"Tokyo\"}}\n\n",
+      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"function-call-15138357924226897201\", \"output\": {\"temperature\": 10.2, \"condition\": \"Clouds\", \"description\": \"broken clouds\", \"humidity\": 44, \"feels_like\": 8.4, \"wind_speed\": 4.12, \"cached\": true}}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"413a00c7-f674-4c58-a742-13d1d34151b6_output_text\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"413a00c7-f674-4c58-a742-13d1d34151b6_output_text\", \"delta\": \"\\u6771\\u4eac\\u306f\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"413a00c7-f674-4c58-a742-13d1d34151b6_output_text\", \"delta\": \"\\u66c7\\u308a\\u3067\\u3001\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"413a00c7-f674-4c58-a742-13d1d34151b6_output_text\", \"delta\": \"\\u6c17\\u6e29\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"413a00c7-f674-4c58-a742-13d1d34151b6_output_text\", \"delta\": \"\\u306f10.2\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"413a00c7-f674-4c58-a742-13d1d34151b6_output_text\", \"delta\": \"\\u5ea6\\u3067\\u3059\\u3002\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"413a00c7-f674-4c58-a742-13d1d34151b6_output_text\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1500, \"completionTokens\": null, \"totalTokens\": 1576}, \"audio\": {\"chunks\": 52, \"bytes\": 144000, \"sampleRate\": 24000, \"duration\": 3.0}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
+      "data: [DONE]\n\n"
+    ],
+    "expectedChunks": [
+      {
+        "type": "start",
+        "messageId": "413a00c7-f674-4c58-a742-13d1d34151b6"
+      },
+      {
+        "type": "reasoning-start",
+        "id": "0"
+      },
+      {
+        "type": "reasoning-delta",
+        "id": "0",
+        "delta": "**Identifying Weather Request**\n\nI've determined the user is asking for the weather in Tokyo. The `get_weather` tool seems like the right fit. It requires a location, and \"東京\" translates to \"Tokyo\". So, I'll call `get_weather` with the location set to \"Tokyo\".\n\n\n"
+      },
+      {
+        "type": "reasoning-end",
+        "id": "0"
+      },
+      {
+        "type": "tool-input-start",
+        "toolCallId": "function-call-15138357924226897201",
+        "toolName": "get_weather"
+      },
+      {
+        "type": "tool-input-available",
+        "toolCallId": "function-call-15138357924226897201",
+        "toolName": "get_weather",
+        "input": {
+          "location": "Tokyo"
+        }
+      },
+      {
+        "type": "tool-output-available",
+        "toolCallId": "function-call-15138357924226897201",
+        "output": {
+          "temperature": 10.2,
+          "condition": "Clouds",
+          "description": "broken clouds",
+          "humidity": 44,
+          "feels_like": 8.4,
+          "wind_speed": 4.12,
+          "cached": true
+        }
+      },
+      {
+        "type": "text-start",
+        "id": "413a00c7-f674-4c58-a742-13d1d34151b6_output_text"
+      },
+      {
+        "type": "text-delta",
+        "id": "413a00c7-f674-4c58-a742-13d1d34151b6_output_text",
+        "delta": "東京は"
+      },
+      {
+        "type": "text-delta",
+        "id": "413a00c7-f674-4c58-a742-13d1d34151b6_output_text",
+        "delta": "曇りで、"
+      },
+      {
+        "type": "text-delta",
+        "id": "413a00c7-f674-4c58-a742-13d1d34151b6_output_text",
+        "delta": "気温"
+      },
+      {
+        "type": "text-delta",
+        "id": "413a00c7-f674-4c58-a742-13d1d34151b6_output_text",
+        "delta": "は10.2"
+      },
+      {
+        "type": "text-delta",
+        "id": "413a00c7-f674-4c58-a742-13d1d34151b6_output_text",
+        "delta": "度です。"
+      },
+      {
+        "type": "text-end",
+        "id": "413a00c7-f674-4c58-a742-13d1d34151b6_output_text"
+      },
+      {
+        "type": "finish",
+        "finishReason": "stop",
+        "messageMetadata": {
+          "usage": {
+            "promptTokens": 1500,
+            "completionTokens": null,
+            "totalTokens": 1576
+          },
+          "audio": {
+            "chunks": 52,
+            "bytes": 144000,
+            "sampleRate": 24000,
+            "duration": 3.0
+          },
+          "modelVersion": "gemini-2.5-flash-native-audio-preview-12-2025"
+        }
+      }
+    ],
+    "expectedDoneCount": 1,
+    "expectedStreamCompletion": true
+  }
+}

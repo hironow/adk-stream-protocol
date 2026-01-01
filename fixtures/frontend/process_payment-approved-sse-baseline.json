@@ -1,0 +1,118 @@
+{
+  "description": "SSE mode baseline - process_payment with approval flow (MULTI-REQUEST: confirmation + execution)",
+  "mode": "sse",
+  "source": "Backend E2E test capture",
+  "scenario": "User approves process_payment tool call - complete flow from confirmation request to successful execution",
+  "note": "This fixture captures TWO separate HTTP requests: (1) Initial request ending with confirmation [DONE], (2) Approval response ending with execution [DONE]. It serves as documentation of the complete approval flow.",
+  "input": {
+    "messages": [
+      {
+        "id": "msg-1",
+        "role": "user",
+        "content": "Hanakoさんに50ドル送金して"
+      }
+    ],
+    "trigger": "submit-message"
+  },
+  "output": {
+    "rawEvents": [
+      "data: {\"type\": \"start\", \"messageId\": \"6cf2025b-740a-4751-91ee-6e0396606781\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"adk-cf6c89ce-f89f-49d3-9189-5e48cd049167\", \"toolName\": \"process_payment\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"adk-cf6c89ce-f89f-49d3-9189-5e48cd049167\", \"toolName\": \"process_payment\", \"input\": {\"amount\": 50, \"recipient\": \"Hanako\", \"currency\": \"USD\", \"description\": \"Payment to Hanako\"}}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"adk-cf6c89ce-f89f-49d3-9189-5e48cd049167\", \"approvalId\": \"adk-027bb047-41b6-4dd7-bd46-8f1c33eb9406\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 2339, \"completionTokens\": 37, \"totalTokens\": 2455}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: [DONE]\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"cb3c09c4-99ad-455f-acd1-0d8e5566e42d\"}\n\n",
+      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"adk-cf6c89ce-f89f-49d3-9189-5e48cd049167\", \"output\": {\"success\": true, \"transaction_id\": \"txn_ac901c373a19\", \"amount\": 50, \"currency\": \"USD\", \"recipient\": \"Hanako\", \"description\": \"Payment to Hanako\", \"wallet_balance\": 950.0, \"timestamp\": \"2025-12-31T14:11:17.300170+00:00\"}}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"0\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"0\", \"delta\": \"Hanako\\u3055\\u3093\\u3078\\u306e50\\u30c9\\u30eb\\u306e\\u9001\\u91d1\\u304c\\u5b8c\\u4e86\\u3057\\u307e\\u3057\\u305f\\u3002\\uff08\\u53d6\\u5f15ID: txn_ac901c373a19\\uff09\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"0\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 2559, \"completionTokens\": 31, \"totalTokens\": 2590}, \"modelVersion\": \"gemini-3-flash-preview\"}}\n\n",
+      "data: [DONE]\n\n"
+    ],
+    "expectedChunks": [
+      {
+        "type": "start",
+        "messageId": "6cf2025b-740a-4751-91ee-6e0396606781"
+      },
+      {
+        "type": "tool-input-start",
+        "toolCallId": "adk-cf6c89ce-f89f-49d3-9189-5e48cd049167",
+        "toolName": "process_payment"
+      },
+      {
+        "type": "tool-input-available",
+        "toolCallId": "adk-cf6c89ce-f89f-49d3-9189-5e48cd049167",
+        "toolName": "process_payment",
+        "input": {
+          "amount": 50,
+          "recipient": "Hanako",
+          "currency": "USD",
+          "description": "Payment to Hanako"
+        }
+      },
+      {
+        "type": "tool-approval-request",
+        "toolCallId": "adk-cf6c89ce-f89f-49d3-9189-5e48cd049167",
+        "approvalId": "adk-027bb047-41b6-4dd7-bd46-8f1c33eb9406"
+      },
+      {
+        "type": "finish",
+        "finishReason": "stop",
+        "messageMetadata": {
+          "usage": {
+            "promptTokens": 2339,
+            "completionTokens": 37,
+            "totalTokens": 2455
+          },
+          "modelVersion": "gemini-3-flash-preview"
+        }
+      },
+      {
+        "type": "start",
+        "messageId": "cb3c09c4-99ad-455f-acd1-0d8e5566e42d"
+      },
+      {
+        "type": "tool-output-available",
+        "toolCallId": "adk-cf6c89ce-f89f-49d3-9189-5e48cd049167",
+        "output": {
+          "success": true,
+          "transaction_id": "txn_ac901c373a19",
+          "amount": 50,
+          "currency": "USD",
+          "recipient": "Hanako",
+          "description": "Payment to Hanako",
+          "wallet_balance": 950.0,
+          "timestamp": "2025-12-31T14:11:17.300170+00:00"
+        }
+      },
+      {
+        "type": "text-start",
+        "id": "0"
+      },
+      {
+        "type": "text-delta",
+        "id": "0",
+        "delta": "Hanakoさんへの50ドルの送金が完了しました。（取引ID: txn_ac901c373a19）"
+      },
+      {
+        "type": "text-end",
+        "id": "0"
+      },
+      {
+        "type": "finish",
+        "finishReason": "stop",
+        "messageMetadata": {
+          "usage": {
+            "promptTokens": 2559,
+            "completionTokens": 31,
+            "totalTokens": 2590
+          },
+          "modelVersion": "gemini-3-flash-preview"
+        }
+      }
+    ],
+    "expectedDoneCount": 2,
+    "expectedStreamCompletion": true
+  }
+}

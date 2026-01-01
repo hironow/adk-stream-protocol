@@ -4,26 +4,27 @@ Unit tests for adk_compat module
 This module tests the ADK compatibility functions for session management and history synchronization.
 """
 
+import asyncio
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from adk_stream_protocol import process_chat_message_for_bidi, sync_conversation_history_to_session
+from adk_stream_protocol.adk_compat import (
+    _sessions,
+    _synced_message_counts,
+    clear_sessions,
+    get_or_create_session,
+)
 
-@pytest.fixture
-def mock_session():
-    """Create a mock ADK session"""
-    session = MagicMock()
-    session.state = {}
-    session.events = []
-    return session
 
-
-@pytest.fixture
-def mock_session_service():
-    """Create a mock ADK session service"""
-    service = AsyncMock()
-    return service
+@pytest.fixture(autouse=True)
+def clear_synced_counts():
+    """Clear synced message counts before and after each test"""
+    _synced_message_counts.clear()
+    yield
+    _synced_message_counts.clear()
 
 
 @pytest.fixture
@@ -51,8 +52,6 @@ async def test_sync_conversation_history_first_sync(
     mock_session, mock_session_service, sample_messages
 ):
     """Test syncing conversation history for the first time"""
-    from adk_compat import sync_conversation_history_to_session
-
     # Mock to_adk_content method
     for msg in sample_messages:
         msg.to_adk_content = MagicMock()
@@ -73,7 +72,7 @@ async def test_sync_conversation_history_first_sync(
     assert mock_session_service.append_event.call_count == 4
 
     # Check that synced_message_count was updated
-    assert mock_session.state["synced_message_count"] == 4
+    assert _synced_message_counts[mock_session.id] == 4
 
     # Verify the events were created with correct roles
     calls = mock_session_service.append_event.call_args_list
@@ -88,7 +87,6 @@ async def test_sync_conversation_history_incremental(
     mock_session, mock_session_service, sample_messages
 ):
     """Test syncing only new messages when some are already synced"""
-    from adk_compat import sync_conversation_history_to_session
 
     # Mock to_adk_content method
     for msg in sample_messages:
@@ -96,7 +94,7 @@ async def test_sync_conversation_history_incremental(
         msg.to_adk_content.return_value = MagicMock(role=msg.role)
 
     # Set that we've already synced 2 messages
-    mock_session.state["synced_message_count"] = 2
+    _synced_message_counts[mock_session.id] = 2
 
     # Call the function
     result = await sync_conversation_history_to_session(
@@ -113,14 +111,12 @@ async def test_sync_conversation_history_incremental(
     assert mock_session_service.append_event.call_count == 2
 
     # Check that synced_message_count was updated
-    assert mock_session.state["synced_message_count"] == 4
+    assert _synced_message_counts[mock_session.id] == 4
 
 
 @pytest.mark.asyncio
 async def test_sync_conversation_history_no_messages(mock_session, mock_session_service):
     """Test syncing with no messages"""
-    from adk_compat import sync_conversation_history_to_session
-
     # Call with only one message (which would be the new message)
     msg = MagicMock()
     msg.role = "user"
@@ -147,15 +143,13 @@ async def test_sync_conversation_history_already_synced(
     mock_session, mock_session_service, sample_messages
 ):
     """Test when all messages are already synced"""
-    from adk_compat import sync_conversation_history_to_session
-
     # Mock to_adk_content method
     for msg in sample_messages:
         msg.to_adk_content = MagicMock()
         msg.to_adk_content.return_value = MagicMock(role=msg.role)
 
     # Set that we've already synced all messages except the last
-    mock_session.state["synced_message_count"] = 4
+    _synced_message_counts[mock_session.id] = 4
 
     # Call the function
     result = await sync_conversation_history_to_session(
@@ -172,102 +166,12 @@ async def test_sync_conversation_history_already_synced(
     assert mock_session_service.append_event.call_count == 0
 
     # synced_message_count should remain the same
-    assert mock_session.state["synced_message_count"] == 4
-
-
-def test_detect_mode_switch():
-    """Test mode switch detection"""
-    from adk_compat import detect_mode_switch
-
-    # Test first time (no previous mode)
-    session = MagicMock()
-    session.state = {}
-
-    switched, prev_mode = detect_mode_switch(session, "adk-sse")
-    assert switched is False
-    assert prev_mode == ""
-
-    # Test same mode
-    session.state["current_mode"] = "adk-sse"
-    switched, prev_mode = detect_mode_switch(session, "adk-sse")
-    assert switched is False
-    assert prev_mode == "adk-sse"
-
-    # Test mode switch
-    session.state["current_mode"] = "gemini"
-    switched, prev_mode = detect_mode_switch(session, "adk-sse")
-    assert switched is True
-    assert prev_mode == "gemini"
-
-
-@pytest.mark.asyncio
-async def test_prepare_session_for_mode_switch(mock_session, mock_session_service):
-    """Test preparing session when switching modes"""
-    from adk_compat import prepare_session_for_mode_switch
-
-    # Mock messages
-    messages = []
-    for role, content in [("user", "Test"), ("assistant", "Response")]:
-        msg = MagicMock()
-        msg.role = role
-        msg.content = content
-        msg.to_adk_content = MagicMock(return_value=MagicMock(role=role))
-        messages.append(msg)
-
-    # Test switching from Gemini to ADK SSE
-    with patch("adk_compat.sync_conversation_history_to_session") as mock_sync:
-        mock_sync.return_value = 1  # Return that 1 message was synced
-
-        await prepare_session_for_mode_switch(
-            session=mock_session,
-            session_service=mock_session_service,
-            messages=messages,
-            from_mode="gemini",
-            to_mode="adk-sse",
-        )
-
-        # Should have called sync function
-        mock_sync.assert_called_once()
-
-        # Should have reset the synced count
-        assert mock_session.state["synced_message_count"] == 0
-
-        # Should track current mode
-        assert mock_session.state["current_mode"] == "adk-sse"
-
-
-@pytest.mark.asyncio
-async def test_prepare_session_adk_to_adk_switch(mock_session, mock_session_service):
-    """Test switching between ADK modes (no sync needed)"""
-    from adk_compat import prepare_session_for_mode_switch
-
-    msg = MagicMock()
-    msg.role = "user"
-    msg.content = "Test"
-    msg.to_adk_content = MagicMock(return_value=MagicMock(role="user"))
-    messages = [msg]
-
-    with patch("adk_compat.sync_conversation_history_to_session") as mock_sync:
-        await prepare_session_for_mode_switch(
-            session=mock_session,
-            session_service=mock_session_service,
-            messages=messages,
-            from_mode="adk-sse",
-            to_mode="adk-bidi",
-        )
-
-        # Should NOT have called sync function (history already in ADK)
-        mock_sync.assert_not_called()
-
-        # Should track current mode
-        assert mock_session.state["current_mode"] == "adk-bidi"
+    assert _synced_message_counts[mock_session.id] == 4
 
 
 @pytest.mark.asyncio
 async def test_event_creation_with_unique_ids(mock_session, mock_session_service, sample_messages):
     """Test that events are created with unique invocation IDs"""
-    from adk_compat import sync_conversation_history_to_session
-
     # Mock to_adk_content method
     for msg in sample_messages:
         msg.to_adk_content = MagicMock()
@@ -307,8 +211,6 @@ async def test_event_creation_with_unique_ids(mock_session, mock_session_service
 @pytest.mark.asyncio
 async def test_get_or_create_session_creates_new_session():
     """Test that get_or_create_session creates a new session when needed"""
-    from adk_compat import clear_sessions, get_or_create_session
-
     # Clear any existing sessions
     clear_sessions()
 
@@ -341,8 +243,6 @@ async def test_get_or_create_session_without_connection_signature():
 
     This ensures backward compatibility with existing code.
     """
-    from adk_compat import clear_sessions, get_or_create_session
-
     clear_sessions()
 
     # Mock agent runner with session service
@@ -374,8 +274,6 @@ async def test_get_or_create_session_different_connections_get_different_session
     This ensures connection isolation and prevents race conditions.
     ADK design: Each connection = unique session to avoid concurrent run_live() issues.
     """
-    from adk_compat import clear_sessions, get_or_create_session
-
     clear_sessions()
 
     # Mock agent runner
@@ -411,8 +309,6 @@ async def test_get_or_create_session_different_connections_get_different_session
 @pytest.mark.asyncio
 async def test_get_or_create_session_reuses_existing():
     """Test that get_or_create_session reuses existing sessions"""
-    from adk_compat import clear_sessions, get_or_create_session
-
     # Clear any existing sessions
     clear_sessions()
 
@@ -440,8 +336,6 @@ async def test_get_or_create_session_reuses_existing():
 @pytest.mark.asyncio
 async def test_get_or_create_session_with_connection_signature():
     """Test that connection_signature creates unique sessions"""
-    from adk_compat import clear_sessions, get_or_create_session
-
     # Clear any existing sessions
     clear_sessions()
 
@@ -475,49 +369,25 @@ async def test_get_or_create_session_with_connection_signature():
 
 def test_clear_sessions():
     """Test that clear_sessions removes all sessions"""
-    from adk_compat import _sessions, clear_sessions, get_session_count
-
     # Clear any existing sessions first
     clear_sessions()
-    assert get_session_count() == 0
+    assert len(_sessions) == 0
 
     # Add some test sessions directly
     _sessions["test1"] = MagicMock()
     _sessions["test2"] = MagicMock()
 
-    assert get_session_count() == 2
+    assert len(_sessions) == 2
 
     # Clear sessions
     clear_sessions()
 
-    assert get_session_count() == 0
     assert len(_sessions) == 0
-
-
-def test_get_session_count():
-    """Test that get_session_count returns correct count"""
-    from adk_compat import _sessions, clear_sessions, get_session_count
-
-    # Clear first
-    clear_sessions()
-    assert get_session_count() == 0
-
-    # Add sessions
-    _sessions["test1"] = MagicMock()
-    assert get_session_count() == 1
-
-    _sessions["test2"] = MagicMock()
-    assert get_session_count() == 2
-
-    # Clear again
-    clear_sessions()
 
 
 @pytest.mark.asyncio
 async def test_sync_conversation_history_error_handling(mock_session, mock_session_service):
     """Test that sync_conversation_history handles errors gracefully"""
-    from adk_compat import sync_conversation_history_to_session
-
     # Mock to_adk_content to raise an error
     msg = MagicMock()
     msg.role = "user"
@@ -536,53 +406,8 @@ async def test_sync_conversation_history_error_handling(mock_session, mock_sessi
 
 
 @pytest.mark.asyncio
-async def test_prepare_session_mode_combinations(mock_session, mock_session_service):
-    """Test various mode switch combinations"""
-    from adk_compat import prepare_session_for_mode_switch
-
-    messages = []
-
-    # Test all possible mode combinations
-    mode_pairs = [
-        ("gemini", "adk-sse", True),  # Should sync
-        ("gemini", "adk-bidi", True),  # Should sync
-        ("gemini", "gemini", False),  # Same mode, no sync
-        ("adk-sse", "adk-bidi", False),  # ADK to ADK, no sync
-        ("adk-bidi", "adk-sse", False),  # ADK to ADK, no sync
-        ("adk-sse", "gemini", False),  # Back to Gemini, no sync needed
-    ]
-
-    for from_mode, to_mode, should_sync in mode_pairs:
-        mock_session.state = {}
-
-        with patch("adk_compat.sync_conversation_history_to_session") as mock_sync:
-            mock_sync.return_value = 0
-
-            await prepare_session_for_mode_switch(
-                session=mock_session,
-                session_service=mock_session_service,
-                messages=messages,
-                from_mode=from_mode,
-                to_mode=to_mode,
-            )
-
-            # Check if sync was called based on expected behavior
-            if should_sync:
-                mock_sync.assert_called_once()
-            else:
-                mock_sync.assert_not_called()
-
-            # Should always update current_mode
-            assert mock_session.state["current_mode"] == to_mode
-
-
-@pytest.mark.asyncio
 async def test_get_or_create_session_concurrent_access():
     """Test that concurrent access to the same session is handled correctly"""
-    import asyncio
-
-    from adk_compat import clear_sessions, get_or_create_session
-
     # Clear any existing sessions
     clear_sessions()
 
@@ -614,8 +439,6 @@ async def test_get_or_create_session_concurrent_access():
 @pytest.mark.asyncio
 async def test_sync_conversation_history_with_large_history(mock_session, mock_session_service):
     """Test syncing with a large conversation history"""
-    from adk_compat import sync_conversation_history_to_session
-
     # Create a large conversation history
     messages = []
     for i in range(100):  # 100 message pairs
@@ -649,43 +472,12 @@ async def test_sync_conversation_history_with_large_history(mock_session, mock_s
     # Should sync 200 messages (all except the last)
     assert result == 200
     assert mock_session_service.append_event.call_count == 200
-    assert mock_session.state["synced_message_count"] == 200
-
-
-def test_detect_mode_switch_edge_cases():
-    """Test edge cases for mode switch detection"""
-    from adk_compat import detect_mode_switch
-
-    # Test with None values (first time)
-    session = MagicMock()
-    session.state = {"current_mode": None}
-
-    switched, prev_mode = detect_mode_switch(session, "adk-sse")
-    assert switched is False  # None means first time, not a switch
-    assert prev_mode == ""
-
-    # Test with empty string (not None, so it's a switch)
-    session.state = {"current_mode": ""}
-
-    switched, prev_mode = detect_mode_switch(session, "adk-sse")
-    assert switched is True  # Empty string to something IS a switch
-    assert prev_mode == ""
-
-    # Test case sensitivity (should be exact match)
-    session.state = {"current_mode": "ADK-SSE"}
-
-    switched, prev_mode = detect_mode_switch(session, "adk-sse")
-    assert switched is True  # Different case is a switch
-    assert prev_mode == "ADK-SSE"
+    assert _synced_message_counts[mock_session.id] == 200
 
 
 @pytest.mark.asyncio
 async def test_connection_signature_uniqueness():
     """Test that connection signatures truly create unique sessions"""
-    import uuid
-
-    from adk_compat import clear_sessions, get_or_create_session, get_session_count
-
     # Clear any existing sessions
     clear_sessions()
 
@@ -724,19 +516,12 @@ async def test_connection_signature_uniqueness():
         assert sig in session.id
 
     # Verify we have 5 sessions in storage
-    assert get_session_count() == 5
-
-
-# ========== Integration Spy Tests for E2E Simulation ==========
+    assert len(_sessions) == 5
 
 
 @pytest.mark.asyncio
 async def test_message_conversion_pipeline_call_count():
     """Integration spy test: Verify message conversion pipeline is called correctly (simulates E2E flow)."""
-    from unittest.mock import patch
-
-    from ai_sdk_v6_compat import process_chat_message_for_bidi
-
     # given - simulate frontend sending messages in correct format
     message_data = {
         "messages": [
@@ -766,7 +551,7 @@ async def test_message_conversion_pipeline_call_count():
 
     # when - spy on process_chat_message_for_bidi
     with patch(
-        "ai_sdk_v6_compat.process_chat_message_for_bidi",
+        "adk_stream_protocol.ai_sdk_v6_compat.process_chat_message_for_bidi",
         wraps=process_chat_message_for_bidi,
     ) as spy_process:
         image_blobs, text_content = spy_process(message_data)
@@ -780,17 +565,20 @@ async def test_message_conversion_pipeline_call_count():
         # Verify result correctness
         assert image_blobs == []  # No images in this test
         assert text_content is not None
-        assert text_content.role == "user"  # Function hardcodes role as "user"
-        assert len(text_content.parts) == 1  # Only text part (tool parts are ignored)
-        assert text_content.parts[0].text == "I'll process the payment"
+        assert text_content.role == "user"  # FunctionResponse forces role="user"
+
+        # ADK Protocol: FunctionResponse must be sent ALONE (text parts filtered out)
+        assert len(text_content.parts) == 1  # Only FunctionResponse part
+        assert hasattr(text_content.parts[0], "function_response")
+        assert text_content.parts[0].function_response is not None
+        assert text_content.parts[0].function_response.name == "adk_request_confirmation"
+        assert text_content.parts[0].function_response.id == "call-confirm-1"
+        assert text_content.parts[0].function_response.response == {"confirmed": True}
 
 
 @pytest.mark.asyncio
 async def test_session_send_message_called_for_user_input():
     """Integration spy test: Verify session.send_message is called when user sends message."""
-    from unittest.mock import AsyncMock, MagicMock
-
-    from adk_compat import clear_sessions, get_or_create_session
 
     # given
     clear_sessions()
@@ -813,185 +601,3 @@ async def test_session_send_message_called_for_user_input():
         f"but was called {session.send_message.call_count} times"
     )
     session.send_message.assert_called_once_with("Send 50 dollars to Hanako")
-
-
-# ========== BIDI Confirmation Injection Tests ==========
-# Tests for inject_confirmation_for_bidi() - SSE/BIDI mode unification
-
-
-def test_inject_confirmation_for_bidi_sse_mode_yields_original_only():
-    """
-    SSE mode: Should yield only the original event (ADK already generates confirmation).
-
-    Spy verification: Helper functions should NOT be called in SSE mode.
-    """
-    from adk_compat import inject_confirmation_for_bidi
-
-    # given: process_payment FunctionCall event in SSE mode
-    function_call_event = {
-        "type": "function_call",
-        "function_call": {
-            "id": "call-123",
-            "name": "process_payment",
-            "args": {"amount": 50, "recipient": "Hanako"},
-        },
-        # Metadata indicating confirmation required
-        "actions": {
-            "requested_tool_confirmations": [
-                {
-                    "id": "call-123",
-                    "name": "process_payment",
-                }
-            ]
-        },
-    }
-
-    # when: Process in SSE mode (is_bidi=False)
-    results = list(inject_confirmation_for_bidi(function_call_event, is_bidi=False))
-
-    # then: Should yield only original event (1 event)
-    assert len(results) == 1
-    assert results[0] == function_call_event
-
-
-def test_inject_confirmation_for_bidi_bidi_mode_injects_confirmation():
-    """
-    BIDI mode: Should yield original event + 2 confirmation events.
-
-    Flow: FunctionCall → tool-input-start (confirmation) → tool-input-available (confirmation)
-    """
-    from adk_compat import inject_confirmation_for_bidi
-
-    # given: process_payment FunctionCall event in BIDI mode
-    function_call_event = {
-        "type": "function_call",
-        "function_call": {
-            "id": "call-456",
-            "name": "process_payment",
-            "args": {"amount": 100, "recipient": "Taro"},
-        },
-        # Metadata indicating confirmation required
-        "actions": {
-            "requested_tool_confirmations": [
-                {
-                    "id": "call-456",
-                    "name": "process_payment",
-                }
-            ]
-        },
-    }
-
-    # when: Process in BIDI mode (is_bidi=True)
-    results = list(inject_confirmation_for_bidi(function_call_event, is_bidi=True))
-
-    # then: Should yield 3 events (original + tool-input-start + tool-input-available)
-    assert len(results) == 3
-
-    # Verify event sequence
-    assert results[0] == function_call_event  # Original
-
-    # tool-input-start
-    assert results[1]["type"] == "tool-input-start"
-    assert results[1]["toolName"] == "adk_request_confirmation"
-    assert "toolCallId" in results[1]
-
-    # tool-input-available
-    assert results[2]["type"] == "tool-input-available"
-    assert results[2]["toolName"] == "adk_request_confirmation"
-    assert results[2]["input"]["originalFunctionCall"]["id"] == "call-456"
-    assert results[2]["input"]["originalFunctionCall"]["name"] == "process_payment"
-
-
-def test_inject_confirmation_for_bidi_no_confirmation_required():
-    """
-    BIDI mode: Tool without confirmation should yield only original event.
-
-    Tools like get_weather (no require_confirmation=True) should pass through.
-    """
-    from adk_compat import inject_confirmation_for_bidi
-
-    # given: get_weather FunctionCall (no confirmation required)
-    function_call_event = {
-        "type": "function_call",
-        "function_call": {
-            "id": "call-789",
-            "name": "get_weather",
-            "args": {"location": "Tokyo"},
-        },
-        # No requested_tool_confirmations metadata
-        "actions": {},
-    }
-
-    # when: Process in BIDI mode
-    results = list(inject_confirmation_for_bidi(function_call_event, is_bidi=True))
-
-    # then: Should yield only original event (no injection)
-    assert len(results) == 1
-    assert results[0] == function_call_event
-
-
-def test_inject_confirmation_for_bidi_spy_helper_not_called_in_sse():
-    """
-    Spy test: Verify helper functions are NOT called in SSE mode.
-
-    This ensures SSE mode has zero overhead from injection logic.
-    """
-    from unittest.mock import patch
-
-    from adk_compat import inject_confirmation_for_bidi
-
-    # given: FunctionCall event
-    event = {
-        "type": "function_call",
-        "actions": {"requested_tool_confirmations": [{"id": "x", "name": "process_payment"}]},
-    }
-
-    # when: Process in SSE mode with spies
-    with (
-        patch("adk_compat.generate_confirmation_tool_input_start") as spy_start,
-        patch("adk_compat.generate_confirmation_tool_input_available") as spy_available,
-    ):
-        list(inject_confirmation_for_bidi(event, is_bidi=False))
-
-        # then: Helper functions should NOT be called
-        spy_start.assert_not_called()
-        spy_available.assert_not_called()
-
-
-def test_inject_confirmation_for_bidi_spy_helper_called_in_bidi():
-    """
-    Spy test: Verify helper functions ARE called in BIDI mode with confirmation.
-
-    Ensures injection logic is properly invoked.
-    """
-    from unittest.mock import patch
-
-    from adk_compat import inject_confirmation_for_bidi
-
-    # given: FunctionCall event requiring confirmation
-    event = {
-        "type": "function_call",
-        "function_call": {"id": "call-1", "name": "process_payment", "args": {}},
-        "actions": {"requested_tool_confirmations": [{"id": "call-1", "name": "process_payment"}]},
-    }
-
-    # when: Process in BIDI mode with spies
-    with (
-        patch("adk_compat.generate_confirmation_tool_input_start") as spy_start,
-        patch("adk_compat.generate_confirmation_tool_input_available") as spy_available,
-    ):
-        # Mock return values
-        spy_start.return_value = {
-            "type": "tool-input-start",
-            "toolName": "adk_request_confirmation",
-        }
-        spy_available.return_value = {
-            "type": "tool-input-available",
-            "toolName": "adk_request_confirmation",
-        }
-
-        list(inject_confirmation_for_bidi(event, is_bidi=True))
-
-        # then: Helper functions should be called exactly once
-        spy_start.assert_called_once()
-        spy_available.assert_called_once()

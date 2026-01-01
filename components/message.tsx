@@ -10,14 +10,16 @@
  * All rendering complexity is contained within this component.
  */
 
-import type { UIMessage } from "@ai-sdk/react";
-import type { DynamicToolUIPart } from "ai";
 import { useAudio } from "@/lib/audio-context";
+import type {
+  DynamicToolUIPartFromAISDKv6,
+  UIMessageFromAISDKv6,
+} from "@/lib/utils";
 import { ImageDisplay } from "./image-display";
 import { ToolInvocationComponent } from "./tool-invocation";
 
-// Extended UIMessage with metadata properties
-interface ExtendedUIMessage extends UIMessage {
+// Extended UIMessageFromAISDKv6 with metadata properties
+interface ExtendedUIMessage extends UIMessageFromAISDKv6 {
   status?: string;
   metadata?: {
     usage?: {
@@ -45,55 +47,25 @@ interface ExtendedUIMessage extends UIMessage {
     };
     modelVersion?: string;
   };
-  toolInvocations?: DynamicToolUIPart[];
+  toolInvocations?: DynamicToolUIPartFromAISDKv6[];
 }
 
 interface MessageComponentProps {
-  message: UIMessage;
+  message: UIMessageFromAISDKv6;
   addToolApprovalResponse?: (response: {
     id: string;
     approved: boolean;
     reason?: string;
   }) => void;
-  addToolOutput?: (response: {
-    tool: string;
-    toolCallId: string;
-    output: unknown;
-  }) => void;
-  executeToolCallback?: (
-    toolName: string,
-    toolCallId: string,
-    args: Record<string, unknown>,
-  ) => Promise<boolean>;
 }
 
 export function MessageComponent({
   message,
   addToolApprovalResponse,
-  addToolOutput,
-  executeToolCallback,
 }: MessageComponentProps) {
   const isUser = message.role === "user";
   const audioContext = useAudio();
   const extendedMessage = message as ExtendedUIMessage;
-
-  // Hide empty user messages that are created just for continuation after tool approval
-  // These messages have no content and are just used to trigger the next step
-  // if (isUser) {
-  //   const hasContent = message.content && message.content.length > 0;
-  //   const hasAttachments =
-  //     message.experimental_attachments &&
-  //     message.experimental_attachments.length > 0;
-  //   const hasToolInvocations =
-  //     message.toolInvocations && message.toolInvocations.length > 0;
-
-  //   if (!hasContent && !hasAttachments && !hasToolInvocations) {
-  //     console.debug(
-  //       "[MessageComponent] Hiding empty user message used for continuation",
-  //     );
-  //     return null; // Don't render empty user messages
-  //   }
-  // }
 
   // Check if this assistant message has audio (ADK BIDI mode)
   // Audio is detected by AudioContext chunk count, not message.parts
@@ -141,7 +113,7 @@ export function MessageComponent({
             <span
               style={{
                 fontSize: "0.75rem",
-                color: "#888",
+                color: "#999",
                 fontWeight: "normal",
               }}
             >
@@ -189,7 +161,7 @@ export function MessageComponent({
                     ? "🔊 Playing Audio"
                     : "🔇 Audio Ready"}
                 </span>
-                <span style={{ fontSize: "0.875rem", color: "#888" }}>
+                <span style={{ fontSize: "0.875rem", color: "#999" }}>
                   ({audioContext.voiceChannel.chunkCount} chunks)
                 </span>
               </div>
@@ -209,7 +181,7 @@ export function MessageComponent({
           {/* Handle regular message parts (assistant responses) */}
           {message.parts?.map((part, index) => {
             // Text content
-            // [P3-T1] Live API Transcriptions display here as text-delta events
+            // Live API Transcriptions display here as text-delta events
             // - Input transcription: User audio → text (BIDI mode, ADK Live API)
             // - Output transcription: AI audio → text (native-audio models)
             // Backend converts transcription events to text-start/text-delta/text-end
@@ -228,7 +200,7 @@ export function MessageComponent({
               );
             }
 
-            // Reasoning/Thinking (Gemini 2.0 feature)
+            // Reasoning (Gemini 2.0 feature)
             if (part.type === "reasoning") {
               return (
                 <details
@@ -342,12 +314,14 @@ export function MessageComponent({
                 content: string;
                 mediaType: string;
               };
+              // biome-ignore lint/suspicious/noExplicitAny: Part structure varies
+              const altText = (part as any).alt || "Image from assistant";
               return (
                 <ImageDisplay
                   key={`${message.id}-${index}-${part.type}-data-image`}
                   content={imageData.content}
                   mediaType={imageData.mediaType}
-                  alt="Image from assistant"
+                  alt={altText}
                 />
               );
             }
@@ -358,11 +332,6 @@ export function MessageComponent({
               console.warn(
                 "[MessageComponent] data-pcm in message.parts (should be bypassed to AudioWorklet)",
               );
-              return null;
-            }
-
-            // Legacy audio content (data-audio custom event) - Skip if present
-            if (part.type === "data-audio" && part.data) {
               return null;
             }
 
@@ -380,8 +349,6 @@ export function MessageComponent({
                   key={`${message.id}-${index}-${part.type}-tool-call`}
                   toolInvocation={toolInvocation}
                   addToolApprovalResponse={addToolApprovalResponse}
-                  addToolOutput={addToolOutput}
-                  executeToolCallback={executeToolCallback}
                 />
               );
             }
@@ -396,8 +363,6 @@ export function MessageComponent({
               // Extract tool invocation data from part
               // biome-ignore lint/suspicious/noExplicitAny: Dynamic tool invocation structure
               const toolInvocation: any = {
-                // TODO: このtypeってわざわざ必要？
-                type: "dynamic-tool",
                 toolCallId: part.toolCallId,
                 toolName: part.type.replace("tool-", ""),
                 state: part.state,
@@ -411,22 +376,8 @@ export function MessageComponent({
                   key={part.toolCallId}
                   toolInvocation={toolInvocation}
                   addToolApprovalResponse={addToolApprovalResponse}
-                  addToolOutput={addToolOutput}
-                  executeToolCallback={executeToolCallback}
                 />
               );
-            }
-
-            // Step markers (Gemini 3 Pro feature) - skip or show minimal indicator
-            // Note: step-start/step-end are not in current type definitions but may appear in runtime
-            if (
-              typeof part.type === "string" &&
-              // biome-ignore lint/suspicious/noExplicitAny: Dynamic part type
-              ((part as any).type === "step-start" ||
-                // biome-ignore lint/suspicious/noExplicitAny: Dynamic part type
-                (part as any).type === "step-end")
-            ) {
-              return null; // Don't display step markers
             }
 
             // Unknown part type - debug view
@@ -465,8 +416,6 @@ export function MessageComponent({
               </details>
             );
           })}
-
-          {/* AI SDK v6: All content is in parts array, no content property */}
         </div>
 
         {/* Usage Metadata (if available) */}
@@ -639,8 +588,6 @@ export function MessageComponent({
                   key={`toolInvocation-${toolInvocation.toolCallId}`}
                   toolInvocation={toolInvocation}
                   addToolApprovalResponse={addToolApprovalResponse}
-                  addToolOutput={addToolOutput}
-                  executeToolCallback={executeToolCallback}
                 />
               ))}
             </div>

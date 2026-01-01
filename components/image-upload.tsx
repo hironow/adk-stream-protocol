@@ -8,6 +8,7 @@
 "use client";
 
 import { useState } from "react";
+import { type ImageData, processImageFile } from "@/lib/file-reader-utils";
 
 interface ImageUploadProps {
   /** Callback when image is selected and converted to base64 */
@@ -24,12 +25,7 @@ export function ImageUpload({
   onImageSelect,
   onImageRemove,
 }: ImageUploadProps) {
-  const [selectedImage, setSelectedImage] = useState<{
-    data: string;
-    media_type: string;
-    fileName: string;
-    preview: string; // data URL for preview
-  } | null>(null);
+  const [selectedImage, setSelectedImage] = useState<ImageData | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,58 +39,18 @@ export function ImageUpload({
     setIsProcessing(true);
 
     try {
-      // Validate file type
-      if (!file.type.startsWith("image/")) {
-        throw new Error("Please select an image file");
-      }
+      // Process image file (validate and read)
+      const imageData = await processImageFile(file);
 
-      // Validate supported formats
-      const supportedFormats = ["image/png", "image/jpeg", "image/webp"];
-      if (!supportedFormats.includes(file.type)) {
-        throw new Error(`Unsupported format. Supported: PNG, JPEG, WebP`);
-      }
+      setSelectedImage(imageData);
+      setIsProcessing(false);
 
-      // Validate file size (max 5MB)
-      const maxSize = 5 * 1024 * 1024; // 5MB
-      if (file.size > maxSize) {
-        throw new Error("Image too large (max 5MB)");
-      }
-
-      // Read file and convert to base64
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        if (!result) return;
-
-        // Extract base64 data (remove data URL prefix)
-        // Format: "data:image/png;base64,iVBORw0KGgo..."
-        const base64Data = result.split(",")[1];
-        const dataUrl = result; // Keep for preview
-
-        const imageData = {
-          data: base64Data,
-          media_type: file.type,
-          fileName: file.name,
-          preview: dataUrl,
-        };
-
-        setSelectedImage(imageData);
-        setIsProcessing(false);
-
-        // Notify parent
-        onImageSelect({
-          data: base64Data,
-          media_type: file.type,
-          fileName: file.name,
-        });
-      };
-
-      reader.onerror = () => {
-        setError("Failed to read file");
-        setIsProcessing(false);
-      };
-
-      reader.readAsDataURL(file);
+      // Notify parent
+      onImageSelect({
+        data: imageData.data,
+        media_type: imageData.media_type,
+        fileName: imageData.fileName,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
       setIsProcessing(false);

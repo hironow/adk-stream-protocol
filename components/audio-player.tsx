@@ -16,13 +16,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-
-interface PCMChunk {
-  content: string; // base64-encoded PCM data
-  sampleRate: number;
-  channels: number;
-  bitDepth: number;
-}
+import {
+  AudioWorkletManager,
+  type PCMChunk,
+} from "@/lib/audio-worklet-manager";
 
 interface AudioPlayerProps {
   chunks: PCMChunk[];
@@ -32,35 +29,26 @@ export function AudioPlayer({ chunks }: AudioPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Refs for Web Audio API objects
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const audioWorkletNodeRef = useRef<AudioWorkletNode | null>(null);
+  // Refs for manager and chunk tracking
+  const managerRef = useRef<AudioWorkletManager | null>(null);
   const processedChunksCountRef = useRef(0);
 
-  // Initialize AudioContext and AudioWorklet on first mount
+  // Initialize AudioWorklet manager on first mount
   useEffect(() => {
     let mounted = true;
 
-    const initAudioWorklet = async () => {
+    const initManager = async () => {
       try {
-        // Create AudioContext with 24kHz sample rate (Gemini output format)
-        const audioContext = new AudioContext({ sampleRate: 24000 });
-        audioContextRef.current = audioContext;
+        const manager = new AudioWorkletManager({
+          sampleRate: 24000, // Gemini output format
+          processorUrl: "/pcm-player-processor.js",
+          processorName: "pcm-player-processor",
+        });
 
-        // Load AudioWorklet processor module
-        await audioContext.audioWorklet.addModule("/pcm-player-processor.js");
-
-        // Create AudioWorklet node
-        const audioWorkletNode = new AudioWorkletNode(
-          audioContext,
-          "pcm-player-processor",
-        );
-
-        // Connect to audio destination (speakers)
-        audioWorkletNode.connect(audioContext.destination);
+        await manager.initialize();
 
         if (mounted) {
-          audioWorkletNodeRef.current = audioWorkletNode;
+          managerRef.current = manager;
           console.log("[AudioPlayer] AudioWorklet initialized successfully");
         }
       } catch (err) {
@@ -73,18 +61,14 @@ export function AudioPlayer({ chunks }: AudioPlayerProps) {
       }
     };
 
-    initAudioWorklet();
+    initManager();
 
     // Cleanup on unmount
     return () => {
       mounted = false;
-      if (audioWorkletNodeRef.current) {
-        audioWorkletNodeRef.current.disconnect();
-        audioWorkletNodeRef.current = null;
-      }
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-        audioContextRef.current = null;
+      if (managerRef.current) {
+        managerRef.current.dispose();
+        managerRef.current = null;
       }
     };
   }, []);
@@ -95,11 +79,9 @@ export function AudioPlayer({ chunks }: AudioPlayerProps) {
       return;
     }
 
-    const audioWorkletNode = audioWorkletNodeRef.current;
-    const audioContext = audioContextRef.current;
-
-    if (!audioWorkletNode || !audioContext) {
-      // AudioWorklet not ready yet
+    const manager = managerRef.current;
+    if (!manager) {
+      // Manager not ready yet
       return;
     }
 
@@ -109,46 +91,30 @@ export function AudioPlayer({ chunks }: AudioPlayerProps) {
       return;
     }
 
-    try {
-      // Resume audio context if suspended (browser autoplay policy)
-      if (audioContext.state === "suspended") {
-        audioContext.resume().then(() => {
-          setIsPlaying(true);
-        });
-      } else if (!isPlaying) {
-        setIsPlaying(true);
-      }
+    const processNewChunks = async () => {
+      try {
+        await manager.processChunks(newChunks);
 
-      // Send each new chunk to AudioWorklet
-      for (const chunk of newChunks) {
-        // Decode base64 PCM data
-        const binaryString = atob(chunk.content);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
+        // Update state
+        if (!isPlaying) {
+          setIsPlaying(true);
         }
 
-        // Convert to Int16Array (16-bit PCM)
-        const int16Array = new Int16Array(bytes.buffer);
+        // Update processed count
+        processedChunksCountRef.current = chunks.length;
 
-        // Send to AudioWorklet ring buffer via MessagePort
-        audioWorkletNode.port.postMessage(int16Array.buffer, [
-          int16Array.buffer,
-        ]);
+        console.log(
+          `[AudioPlayer] Sent ${newChunks.length} new chunks to AudioWorklet (total: ${chunks.length})`,
+        );
+      } catch (err) {
+        console.error("[AudioPlayer] Error processing chunks:", err);
+        setError(
+          `Error processing audio: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
+    };
 
-      // Update processed count
-      processedChunksCountRef.current = chunks.length;
-
-      console.log(
-        `[AudioPlayer] Sent ${newChunks.length} new chunks to AudioWorklet (total: ${chunks.length})`,
-      );
-    } catch (err) {
-      console.error("[AudioPlayer] Error processing chunks:", err);
-      setError(
-        `Error processing audio: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
+    processNewChunks();
   }, [chunks, isPlaying]);
 
   // Reset when chunks array is emptied (new turn)
@@ -159,8 +125,8 @@ export function AudioPlayer({ chunks }: AudioPlayerProps) {
       setIsPlaying(false);
 
       // Reset AudioWorklet buffer
-      if (audioWorkletNodeRef.current) {
-        audioWorkletNodeRef.current.port.postMessage({ command: "reset" });
+      if (managerRef.current) {
+        managerRef.current.reset();
       }
     }
   }, [chunks.length]);
@@ -196,7 +162,7 @@ export function AudioPlayer({ chunks }: AudioPlayerProps) {
         <span style={{ fontWeight: 600 }}>
           {isPlaying ? "🔊 Playing Audio" : "🔇 Audio Ready"}
         </span>
-        <span style={{ fontSize: "0.875rem", color: "#888" }}>
+        <span style={{ fontSize: "0.875rem", color: "#999" }}>
           ({chunks.length} chunks)
         </span>
       </div>

@@ -23,11 +23,13 @@ Audio chunks were restarting on every new chunk arrival because HTML5 audio was 
 
 ## Implementation
 
-### Created Files:
+### Created Files
+
 - `/public/pcm-player-processor.js` - AudioWorklet processor with ring buffer
 - Updated `/components/audio-player.tsx` - AudioWorklet-based player component
 
-### Key Changes:
+### Key Changes
+
 1. Ring buffer (180 seconds at 24kHz) for continuous playback
 2. Incremental chunk processing (no restart on new chunks)
 3. Base64 → Int16 → Float32 conversion pipeline
@@ -37,15 +39,18 @@ Audio chunks were restarting on every new chunk arrival because HTML5 audio was 
 **Expected**: Audio plays continuously without restarts
 **Actual**: No audio playback, no AudioPlayer component visible
 
-### Debug Findings:
+### Debug Findings
 
-#### Backend (server.py):
+#### Backend (server.py)
+
 ```
 02:09:15.421 | DEBUG | [ADK→SSE] {'type': 'data-pcm', 'data': {...}}
 ```
+
 ✓ Backend IS generating data-pcm events
 
-#### Frontend Console:
+#### Frontend Console
+
 ```
 [WS→useChat] {"type":"data-pcm","data":{...}}  // ← Chunks received
 [WS Transport] Turn complete, closing stream
@@ -53,22 +58,25 @@ Audio chunks were restarting on every new chunk arrival because HTML5 audio was 
 [MessageComponent] PCM chunks found: 0  // ← No chunks in message.parts!
 ```
 
-#### Message Structure:
+#### Message Structure
+
 ```javascript
 message.parts = ["text"]  // ← Only text, no data-pcm chunks!
 ```
 
 ## Root Cause Identified
 
-### The Problem:
+### The Problem
+
 **PCM chunks arrive AFTER [DONE], causing stream closure error**
 
-### Event Sequence:
+### Event Sequence
+
 1. **Text/tool events** → WebSocket → enqueued ✓
 2. **finish + [DONE]** → WebSocket transport closes stream ✓
 3. **data-pcm events** → WebSocket → ❌ **ERROR: stream already closed**
 
-### Why This Happens:
+### Why This Happens
 
 The WebSocket transport (`lib/websocket-chat-transport.ts:172`) closes the ReadableStream when `[DONE]` arrives:
 
@@ -81,11 +89,13 @@ if (jsonStr === "[DONE]") {
 ```
 
 But the ADK Live API sends audio `inline_data` events AFTER `turn_complete`:
+
 - `turn_complete` triggers `finalize()` which sends `[DONE]`
 - Audio chunks arrive after `turn_complete` in separate events
 - Stream is already closed, so chunks can't be enqueued
 
-### Evidence:
+### Evidence
+
 - Console error: "Cannot enqueue a chunk into a readable stream that is closed"
 - message.parts contains only `["text"]` - no data-pcm chunks
 - Backend logs show data-pcm events ARE being generated
@@ -104,16 +114,18 @@ The AudioWorklet implementation is CORRECT. The issue is NOT with the audio play
 Following the official ADK implementation pattern, PCM chunks now bypass the message structure entirely:
 
 ### Path 1: Low-Latency Audio (Direct to AudioWorklet)
+
 ```
 Backend → WebSocket → WebSocketChatTransport → AudioContext.sendChunk() → AudioWorklet
 ```
 
 ### Path 2: UI Display (Message markers)
+
 ```
 Backend → WebSocket → WebSocketChatTransport → audio-marker → message.parts → UI
 ```
 
-### Files Modified:
+### Files Modified
 
 1. **lib/audio-context.tsx** (NEW)
    - Global AudioProvider wrapping app
@@ -142,7 +154,7 @@ Backend → WebSocket → WebSocketChatTransport → audio-marker → message.pa
    - Displays audio status from AudioContext state
    - No longer expects data-pcm in parts
 
-### Key Design Decisions:
+### Key Design Decisions
 
 - **React Context** for global AudioWorklet management (resource efficiency)
 - **Dual-path routing** for separation of concerns (audio playback vs UI state)
@@ -159,7 +171,7 @@ Backend → WebSocket → WebSocketChatTransport → audio-marker → message.pa
 
 **Objective**: Add WebSocket RTT (Round-Trip Time) monitoring to ensure transport layer reliability
 
-### Implementation:
+### Implementation
 
 Following the user's request for WebSocket health monitoring in BIDI mode, implemented ping/pong latency measurement:
 
@@ -189,7 +201,8 @@ Following the user's request for WebSocket health monitoring in BIDI mode, imple
      - Red (>= 100ms): Warning - potential network issues
    - Pulsing indicator dot for visual feedback
 
-### User Requirements Met:
+### User Requirements Met
+
 - ✅ BIDI mode only
 - ✅ Top center display
 - ✅ Millisecond precision
@@ -198,6 +211,6 @@ Following the user's request for WebSocket health monitoring in BIDI mode, imple
 
 ## References
 
-- ADK Audio Streaming Docs: https://google.github.io/adk-docs/streaming/dev-guide/part5/#handling-audio-events-at-the-client
-- AI SDK v6 Data Stream Protocol: https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol
+- ADK Audio Streaming Docs: <https://google.github.io/adk-docs/streaming/dev-guide/part5/#handling-audio-events-at-the-client>
+- AI SDK v6 Data Stream Protocol: <https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol>
 - WebSocket Transport Implementation: `/lib/websocket-chat-transport.ts:161-207`

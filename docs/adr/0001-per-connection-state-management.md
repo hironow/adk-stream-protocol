@@ -13,6 +13,7 @@ When implementing WebSocket-based bidirectional (BIDI) streaming with Google ADK
 - WebSocket connections are established from each device/tab
 
 This raised critical questions:
+
 1. Should multiple connections share the same ADK session?
 2. How should tool approval requests be routed to the correct device/tab?
 3. Can users continue conversations across devices/tabs?
@@ -22,26 +23,31 @@ This raised critical questions:
 We identified five key scenarios that needed support:
 
 **Scenario 1: Tab Switching - Conversation Continuity**
+
 - User opens Tab 1, starts conversation
 - User opens Tab 2, wants to continue same conversation
 - Expected: Tab 2 sees Tab 1's history
 
 **Scenario 2: Device Switching - Conversation Handoff**
+
 - User starts conversation on PC
 - User switches to iPhone, wants to continue
 - Expected: iPhone sees PC's history
 
 **Scenario 3: Tool Approval - Source Device Routing**
+
 - User has 3 active connections (PC Tab 1, PC Tab 2, iPhone)
 - PC Tab 1 sends message requiring tool approval
 - Expected: Approval request goes to PC Tab 1 only
 
 **Scenario 4: Remote Device Tool Execution** (Future)
+
 - PC asks for location-based weather
 - System routes location request to iPhone (has GPS)
 - iPhone provides location, PC shows weather
 
 **Scenario 5: Multi-Tab - Concurrent Tool Approvals**
+
 - Tab 1 requests BGM change approval
 - Tab 2 requests location access approval
 - Expected: Each tab handles its own approval independently
@@ -66,6 +72,7 @@ runner.run_live(session=session, live_request_queue=queue_2)
 ```
 
 **Result:**
+
 - Data corruption in session state
 - Concurrent modifications without synchronization
 - `session.events` corrupted
@@ -96,6 +103,7 @@ Multi-device/multi-tab scenarios were not considered in ADK's core design.
 We adopt **Option 1: Follow ADK Pattern (Connection = Session)**
 
 **Implementation:**
+
 ```python
 # Generate unique session_id per connection
 connection_signature = str(uuid.uuid4())
@@ -108,6 +116,7 @@ session = await get_or_create_session(
 ```
 
 **Architecture:**
+
 ```
 User Alice
 ├─ PC Tab 1 → connection_signature_1 → session_1 → Independent conversation
@@ -156,6 +165,7 @@ User Alice
 ### Option 2: Custom Session Management (Shared Conversation) - REJECTED
 
 **Approach:**
+
 - Multiple connections share same `session_id`
 - Custom session locking mechanism to prevent race conditions
 - Connection registry to route tool approvals
@@ -173,18 +183,21 @@ User Alice
 ## Implementation Status
 
 **Phase 1: Connection-Specific Session Management** - ✅ **COMPLETED**
+
 - Each WebSocket connection generates unique `connection_signature` (UUID)
 - Session ID format: `session_{user_id}_{connection_signature}`
 - Implemented in `server.py` (live_chat async function)
 - Implementation: `get_or_create_session()` accepts `connection_signature` parameter
 
 **Phase 2: Connection-Specific Tool Delegation** - ✅ **COMPLETED**
+
 - Each connection has isolated `FrontendToolDelegate`
 - Delegate stored in `session.state["temp:delegate"]`
 - Tool approval requests routed to source connection via session state
 - Implemented in `server.py` (live_chat function) and tool functions (`change_bgm`, `get_location`)
 
 **Phase 3: Connection Registry** - ❌ **NOT IMPLEMENTED**
+
 - Global connection registry not yet implemented
 - Connection tracking currently limited to session state
 - Planned for future enhancement (user-level connection tracking)
@@ -205,7 +218,7 @@ These enhancements maintain the **Connection = Session** principle while improvi
 - **Investigation Document:** `experiments/2025-12-13_per_connection_state_management_investigation.md`
 - **ADK Discussion:** [#2784: Multi-client WebSocket](https://github.com/google/adk-python/discussions/2784)
 - **AI SDK v6 Discussion:** [#5607: WebSocket Support](https://github.com/vercel/ai/discussions/5607)
-- **Implementation:** `server.py` (live_chat function), `docs/ARCHITECTURE.md`
+- **Implementation:** `server.py` (live_chat function), `docs/spec_ARCHITECTURE.md`
 - **Original Specification:** `SPEC.md` (archived after this ADR)
 
 ---

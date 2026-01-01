@@ -5,6 +5,7 @@
 **Status:** 🟢 Complete
 
 **Latest Update:** 2025-12-14
+
 - ✅ All IMPLEMENTED Event fields (12/12) have parametrized test coverage
 - ✅ All IMPLEMENTED Part fields (7/7) have parametrized test coverage
 - ✅ Added 12 new parametrized test cases (8 Python + 4 TypeScript)
@@ -17,16 +18,19 @@
 ## Background
 
 After implementing `field_coverage_config.yaml` for tracking ADK field implementation status, we needed to verify that all IMPLEMENTED fields have proper parametrized test coverage to ensure:
+
 1. Field behavior is tested across multiple scenarios
 2. Edge cases are covered
 3. No critical functionality gaps exist
 
 **Key Concern:**
+
 - Some IMPLEMENTED fields had NO dedicated tests (only incidental coverage)
 - `errorCode` and `errorMessage` were IMPLEMENTED but only success path was tested
 - TypeScript tests lacked parametrized testing for messageMetadata fields
 
 **Investigation Goal:**
+
 - Audit all IMPLEMENTED fields for parametrized test coverage
 - Identify critical gaps
 - Implement missing parametrized tests
@@ -50,6 +54,7 @@ After implementing `field_coverage_config.yaml` for tracking ADK field implement
    - `messageMetadata.modelVersion`: Not tested
 
 **Actions Taken:**
+
 - ✅ Added 8 Python parametrized test cases (errorCode/errorMessage: 4, turnComplete: 4)
 - ✅ Added 4 TypeScript parametrized test cases (messageMetadata fields)
 - ✅ Created TEST_COVERAGE_AUDIT.md comprehensive audit report
@@ -113,6 +118,7 @@ After implementing `field_coverage_config.yaml` for tracking ADK field implement
 **File**: `tests/unit/test_stream_protocol_comprehensive.py:693-765`
 
 **Implementation**: stream_protocol.py:181-187
+
 ```python
 # Check for errors FIRST (before any other processing)
 if hasattr(event, "error_code") and event.error_code:
@@ -128,6 +134,7 @@ if hasattr(event, "error_code") and event.error_code:
 ```
 
 **Test Cases** (4 parametrized):
+
 ```python
 @pytest.mark.parametrize(
     "error_code,error_message,expected_code,expected_message",
@@ -148,6 +155,7 @@ def test_adk_error_code_and_message(...)
 **File**: `tests/unit/test_stream_protocol_comprehensive.py:767-863`
 
 **Implementation**: stream_protocol.py:385-399 (BIDI mode)
+
 ```python
 # BIDI mode: Handle turn completion within convert_event
 if hasattr(event, "turn_complete") and event.turn_complete:
@@ -167,6 +175,7 @@ if hasattr(event, "turn_complete") and event.turn_complete:
 ```
 
 **Test Cases** (4 parametrized):
+
 ```python
 @pytest.mark.parametrize(
     "turn_complete,has_usage,has_finish_reason,expect_finish_event",
@@ -187,6 +196,7 @@ def test_turn_complete_field(...)
 **File**: `lib/websocket-chat-transport.test.ts:1433-1516`
 
 **Test Cases** (4 parametrized with `it.each()`):
+
 ```typescript
 it.each([
   {
@@ -269,11 +279,13 @@ All tests passed
 ### 1. Parametrized Testing Best Practices
 
 **Python (pytest.mark.parametrize)**:
+
 - Use descriptive `id` parameter for test case names
 - Group related test cases (success/error paths)
 - Test edge cases (None, empty string, missing attributes)
 
 **TypeScript (it.each)**:
+
 - Vitest supports `it.each()` for parametrized tests
 - Use descriptive field names in test data
 - Test actual backend → frontend data flow
@@ -281,16 +293,19 @@ All tests passed
 ### 2. Critical Field Testing Requirements
 
 **errorCode/errorMessage**:
+
 - Must test error detection BEFORE other processing
 - Must test default "Unknown error" message
 - Must test early termination (return immediately)
 
 **turnComplete (BIDI mode)**:
+
 - Must test with/without metadata (usage, finishReason)
 - Must test turn_complete=False (no finish event)
 - Must test missing turn_complete attribute
 
 **messageMetadata fields**:
+
 - Must test actual backend event format
 - Must verify field forwarding to frontend
 - Must test complex nested structures (grounding sources, citations array)
@@ -312,6 +327,7 @@ All tests passed
 ### TEST_COVERAGE_AUDIT.md
 
 Comprehensive audit report documenting:
+
 - Summary table (Event/Part field coverage)
 - Detailed field-by-field analysis
 - Critical gaps identification
@@ -319,6 +335,7 @@ Comprehensive audit report documenting:
 - Before/after status comparison
 
 **Key Sections**:
+
 - Event Fields Analysis (12 fields)
 - Part Fields Analysis (7 fields)
 - TypeScript/Frontend Test Coverage
@@ -341,12 +358,12 @@ Comprehensive audit report documenting:
 
 ### Documentation Files
 
-3. **TEST_COVERAGE_AUDIT.md** (new file, 243 lines)
+1. **TEST_COVERAGE_AUDIT.md** (new file, 243 lines)
    - Comprehensive field coverage audit
    - Critical gaps identified and resolved
    - Test implementation details
 
-4. **experiments/2025-12-14_adk_field_parametrized_test_coverage.md** (this file)
+2. **experiments/2025-12-14_adk_field_parametrized_test_coverage.md** (this file)
    - Experiment documentation
    - Implementation details
    - Key learnings
@@ -365,11 +382,13 @@ Comprehensive audit report documenting:
 - ✅ Critical gaps resolved (errorCode, errorMessage, turnComplete)
 
 **Impact**:
+
 - 🛡️ **Error handling** now fully tested (detection, default messages, early termination)
 - 🔄 **BIDI turn completion** now fully tested (metadata, missing fields, edge cases)
 - 🌐 **Frontend messageMetadata** now fully tested (grounding, citations, cache, modelVersion)
 
 **Next Steps**:
+
 - ✅ No critical gaps remain
 - 💡 Consider E2E tests for end-to-end field forwarding
 - 💡 Monitor for new IMPLEMENTED fields in field_coverage_config.yaml

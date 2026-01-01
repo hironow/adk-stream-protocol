@@ -1,7 +1,7 @@
 import { google } from "@ai-sdk/google";
-import type { UIMessage } from "ai";
 import { convertToModelMessages, streamText, tool } from "ai";
 import { z } from "zod";
+import type { UIMessageFromAISDKv6 } from "@/lib/utils";
 
 export async function POST(req: Request) {
   const body = await req.json();
@@ -10,7 +10,7 @@ export async function POST(req: Request) {
     JSON.stringify(body, null, 2),
   );
 
-  const { messages }: { messages: UIMessage[] } = body;
+  const { messages }: { messages: UIMessageFromAISDKv6[] } = body;
 
   if (!messages || !Array.isArray(messages)) {
     console.error("[Gemini Direct] Invalid messages:", messages);
@@ -60,11 +60,12 @@ export async function POST(req: Request) {
     },
   });
 
-  // AI SDK v6: convertToModelMessages handles UIMessage parts directly
+  // AI SDK v6: convertToModelMessages handles UIMessageFromAISDKv6 parts directly
   // No manual conversion needed - it supports text, file, tool(debug only), and other part types
+  // IMPORTANT: convertToModelMessages is async in AI SDK v6 - must await
   const result = streamText({
-    model: google("gemini-2.5-flash"), // Stable Gemini 2.5 Flash for generateContent API
-    messages: convertToModelMessages(messages), // AI SDK v6 handles UIMessage parts natively
+    model: google("gemini-3-flash-preview"), // Gemini 3 Flash Preview for generateContent API
+    messages: await convertToModelMessages(messages), // AI SDK v6 handles UIMessageFromAISDKv6 parts natively
     tools: {
       get_current_time: getCurrentTimeTool,
     },

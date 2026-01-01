@@ -1,8 +1,12 @@
 [project]
 name = "adk-stream-protocol"
-version = "0.1.1"
+version = "0.1.2"
 description = "AI SDK v6 and Google ADK integration example demonstrating data stream protocol implementation"
 readme = "README.md"
+authors = [
+    { name = "hironow" },
+]
+license = "MIT"
 requires-python = ">=3.13"
 dependencies = [
     "google-adk==1.21.0",
@@ -13,11 +17,13 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "aiohttp>=3.13.2",
     "pillow>=12.0.0",
+    "websockets>=15.0.1",
 ]
 
 [dependency-groups]
 dev = [
     "mypy>=1.19.0",
+    "pdoc>=16.0.0",
     "pytest>=9.0.2",
     "pytest-asyncio>=1.3.0",
 ]
@@ -34,35 +40,22 @@ exclude = [
 ]
 
 [tool.ruff]
-target-version = "py312"
+target-version = "py313"
 line-length = 100
 
 [tool.ruff.lint]
-# see: https://docs.astral.sh/ruff/rules/
 select = [
-    "FAST", # FastAPI
-    "C90", # mccabe
-    "NPY", # numpy
-    "PD", # pandas
-    "B", # flake8-bugbear
-    "A", # flake8-builtins
-    "DTZ", # flake8-datetimez
-    "T20", # flake8-print
-    "N", # pep8-naming
-    "I",  # isort
-    "E",  # pycodestyle errors
-    "F",  # Pyflakes
-    "PLE", # Pylint errors
-    "PLR", # Pylint refactor
-    "UP", # pyupgrade
-    "FURB", # refurb
-    # "DOC", # pydoclint
-    # "D", # pydocstyle
-    "RUF", # Ruff-specific rules
+    "FAST", "C90", "NPY", "PD", "B", "A", "DTZ", "T20", "N", "I", "E", "F", "PLE", "PLR", "UP", "FURB", "RUF", "TID", "PTH", "S"
 ]
-extend-ignore = ["E501", "RUF001", "RUF002", "RUF003"]
+# E402は"E"に含まれるため削除。他、日本語コメント許容の設定などは維持。
+ignore = ["E501", "RUF001", "RUF002", "RUF003"]
+
+[tool.ruff.lint.isort]
+lines-after-imports = 2
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"__future__".msg = "__future__ is generally prohibited in Python 3.13 and later. Please follow the latest language specifications."
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*.py" = ["PLR2004", "T201"]
-"tests/**/*.py" = ["PLR2004", "T201"]
-"scripts/**/*.py" = ["T201","PLR2004","C901","PLR0912","PLR0915", "PLR0911"]
+"tests/**/*.py" = ["PLR2004", "T201", "S101"]
+"scripts/**/*.py" = ["T201", "PLR2004", "C901", "PLR0912", "PLR0915", "PLR0911"]

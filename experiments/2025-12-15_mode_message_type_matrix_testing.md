@@ -19,11 +19,13 @@
 ### Phase 1: Test Matrix Definition
 
 #### Modes (3)
+
 1. **Gemini Direct** - 直接Gemini APIを使用
 2. **ADK SSE** - Server-Sent Eventsを使用したADKモード
 3. **ADK BIDI** - WebSocket双方向通信を使用したADKモード
 
 #### Message Types (5)
+
 1. **Text** - 通常のテキストメッセージ
 2. **Function Calling** - 自動実行される関数呼び出し
 3. **Tool Approval** - ユーザー承認が必要な関数呼び出し
@@ -54,6 +56,7 @@
 ### Phase 2: Manual Testing with Chrome DevTools MCP
 
 #### Test Setup
+
 1. Start development servers (`pnpm dev` and `uv run python server.py`)
 2. Open Chrome with DevTools
 3. Use Chrome DevTools MCP to interact with the application
@@ -61,6 +64,7 @@
 #### Test Scenarios
 
 ##### Scenario 1: Basic Text Messages
+
 ```
 1. Mode: Gemini Direct
    - Send: "Hello, what's 2+2?"
@@ -76,6 +80,7 @@
 ```
 
 ##### Scenario 2: Function Calling
+
 ```
 1. Mode: ADK SSE
    - Send: "What's the weather in Tokyo?"
@@ -87,6 +92,7 @@
 ```
 
 ##### Scenario 3: Tool Approval Flow
+
 ```
 1. Mode: ADK BIDI
    - Send: Request requiring approval
@@ -99,6 +105,7 @@
 ```
 
 ##### Scenario 4: Image Handling
+
 ```
 1. Mode: Gemini Direct
    - Send: Image + "What's in this image?"
@@ -110,6 +117,7 @@
 ```
 
 ##### Scenario 5: Audio (BIDI only)
+
 ```
 1. Mode: ADK BIDI
    - Send: Text message
@@ -123,12 +131,14 @@
 #### Client-Side Tests (TypeScript/Vitest)
 
 ##### Test File: `lib/mode-switching.test.ts`
+
 - Message history preservation
 - State management during transitions
 - WebSocket lifecycle
 - Audio handling (BIDI only)
 
 ##### Test File: `components/chat-mode-matrix.test.tsx`
+
 - UI state during mode switches
 - Tool approval UI in different modes
 - Audio player visibility (BIDI only)
@@ -136,11 +146,13 @@
 #### Server-Side Tests (Python/pytest)
 
 ##### Test File: `tests/unit/test_mode_message_matrix.py`
+
 - Protocol conversion (ADK ⇔ AI SDK)
 - Session state management
 - Message type validation per mode
 
 ##### Test File: `tests/integration/test_mode_transitions.py`
+
 - End-to-end mode switching
 - WebSocket connection handling
 - SSE stream management
@@ -148,6 +160,7 @@
 ### Phase 4: Edge Cases & Error Handling
 
 #### Critical Edge Cases
+
 1. **Rapid mode switching** - Switch modes while response is streaming
 2. **Concurrent requests** - Send message while switching modes
 3. **Network interruption** - Lose connection during mode switch
@@ -155,6 +168,7 @@
 5. **Mixed content** - Image + function call + approval in single conversation
 
 #### Error Scenarios
+
 1. WebSocket fails to connect (BIDI mode)
 2. SSE stream disconnects unexpectedly
 3. Tool approval timeout
@@ -163,6 +177,7 @@
 ## Expected Results
 
 ### Success Criteria
+
 - [ ] All 15 matrix tests pass without errors
 - [ ] All 6 mode transition tests maintain state correctly
 - [ ] No memory leaks during mode switches
@@ -170,6 +185,7 @@
 - [ ] Message history preserved across all transitions
 
 ### Failure Indicators
+
 - Console errors during mode switch
 - Lost messages or conversation context
 - WebSocket connection not properly closed
@@ -179,6 +195,7 @@
 ## Test Data
 
 ### Sample Messages
+
 ```typescript
 const testMessages = {
   text: "What is the capital of Japan?",
@@ -190,6 +207,7 @@ const testMessages = {
 ```
 
 ### Expected Responses
+
 ```typescript
 const expectedBehaviors = {
   text: { allModes: true, response: "text" },
@@ -216,17 +234,20 @@ const expectedBehaviors = {
 ## Implementation Plan
 
 ### Day 1 (Today)
+
 - [x] Create experiment document
 - [ ] Set up Chrome DevTools MCP testing environment
 - [ ] Complete manual testing for text and function calling (Tests 1-*, 2-*)
 - [ ] Document findings and issues
 
 ### Day 2
+
 - [ ] Complete manual testing for approval, image, audio (Tests 3-*, 4-*, 5-*)
 - [ ] Test all mode transitions (T-1 through T-6)
 - [ ] Identify critical issues in SSE ⇔ BIDI transitions
 
 ### Day 3
+
 - [ ] Implement client-side unit tests
 - [ ] Implement server-side unit tests
 - [ ] Run full test suite and fix failures
@@ -236,21 +257,25 @@ const expectedBehaviors = {
 ### Phase 1 Results: Manual Testing (2025-12-15)
 
 #### Text Messages
+
 - Test 1-1 (Gemini/Text): ✅ Response received, but limited to tool capabilities only
 - Test 1-2 (SSE/Text): ✅ Same limitations as Gemini mode
 - Test 1-3 (BIDI/Text): ✅ Same limitations (general knowledge not available)
 
 #### Function Calling
+
 - Test 2-1 (Gemini/Function): ✅ Calculate function executed automatically
 - Test 2-2 (SSE/Function): ✅ Same as Gemini
 - Test 2-3 (BIDI/Function): ✅ get_weather executed successfully (Tokyo: 9.1°C)
 
 #### Tool Approval
+
 - Test 3-1 (Gemini/Approval): ❓ Not tested
 - Test 3-2 (SSE/Approval): ❓ Not tested
 - Test 3-3 (BIDI/Approval): ❌ **FAILED** - Approval UI doesn't appear
 
 #### Mode Transitions
+
 - T-1 (Gemini → SSE): ✅ Message history preserved
 - T-2 (Gemini → BIDI): ✅ Message history preserved, WebSocket connected
 - T-3 (SSE → Gemini): ✅ History preserved
@@ -259,6 +284,7 @@ const expectedBehaviors = {
 - T-6 (BIDI → Gemini): ✅ Clean disconnection
 
 ### Key Findings
+
 1. **SSE ↔ BIDI transitions work flawlessly** - The critical transitions maintain full message history
 2. **WebSocket management is robust** - Connects/disconnects properly during mode switches
 3. **Function calling works consistently** - All modes execute tools correctly
@@ -266,6 +292,7 @@ const expectedBehaviors = {
 5. **Tool approval broken in BIDI mode** - WebSocket handler doesn't process tool-approval-request events
 
 ### Issues Found
+
 1. **AI Capabilities Limited**: All modes restrict AI to only tool functions (weather, calculate, time)
 2. **Server Restart Required**: Backend server crashed once during SSE testing (recovered)
 3. **WebSocket Latency**: BIDI mode shows 1ms latency indicator (good performance)
@@ -278,6 +305,7 @@ const expectedBehaviors = {
 ## Conclusion
 
 The mode switching functionality is **mostly production ready** with one critical issue. All mode transitions, especially SSE ↔ BIDI, work correctly with no data loss or state corruption. The system successfully:
+
 - Maintains complete message history across all mode transitions
 - Properly manages WebSocket connections in BIDI mode
 - Executes function calls consistently in all modes
@@ -286,6 +314,7 @@ The mode switching functionality is **mostly production ready** with one critica
 **Critical Issue**: Tool approval flow is broken in BIDI mode due to incompatible event format between server and client. The server sends `event: tool-approval-request` but the WebSocket handler only expects `data:` prefixed messages. This prevents approval-required tools (BGM change, location) from working in BIDI mode.
 
 **Other Limitations**:
+
 - AI is restricted to tool functions only (by design for demo environment)
 - ADK Agent doesn't support seed/temperature parameters for deterministic responses
 
@@ -294,12 +323,14 @@ The mode switching functionality is **mostly production ready** with one critica
 ### Issues Found and Fixes Applied
 
 #### BUG-001: SSE Format Mismatch ✅ FIXED
+
 - **Problem**: Server sent `event: tool-approval-request\ndata: {...}`
 - **AI SDK v6 Spec**: Should be `data: {"type":"tool-approval-request",...}` only
 - **Fix**: Updated stream_protocol.py line 509 to use correct format
 - **Result**: Tool approval event now correctly formatted
 
 #### BUG-002: Session State Propagation ⚠️ PARTIALLY FIXED
+
 - **Problem**: Connection-specific client_identifier not available in tool execution context
 - **Root Cause**: ADK's internal session loading doesn't see our state modifications
 - **Attempted Fixes**:
@@ -323,10 +354,12 @@ The core problem is that ADK's `run_live()` creates its own session management i
 ### Investigation: Why tool_context.state is empty
 
 #### BUG-003: Empty tool_context.state ✅ FIXED
+
 - **Problem**: `tool_context.state` was coming through as empty `{}` despite attempts to populate it
 - **Root Cause**: We were modifying `_sessions[session_id].state` AFTER getting the session object
 - **Solution**: Modify `session.state` directly before `run_live()` call
 - **Fix Applied**:
+
   ```python
   # BEFORE (incorrect):
   session = await get_or_create_session(...)
@@ -352,7 +385,7 @@ Based on research using DeepWiki MCP on google/adk-python:
    - ✅ **Confirmed**: Modifications to `session.state` before calling `run_live()` ARE available in `tool_context.state`
    - The `Runner` retrieves session state at the beginning of invocation
    - Any changes made to `session.state` before `run_live()` will be reflected in tools
-   - Reference: https://github.com/google/adk-python/discussions/2784
+   - Reference: <https://github.com/google/adk-python/discussions/2784>
 
 3. **Correct Usage of temp: Prefix**:
    - `temp:` prefix indicates session-specific state that is never persisted
@@ -368,6 +401,7 @@ Based on research using DeepWiki MCP on google/adk-python:
 ### Additional Fixes Applied
 
 #### BUG-004: PCM Data Logging Issue ✅ FIXED
+
 - **Problem**: Large PCM audio data was being logged in full, causing excessive log output
 - **Solution**: Truncate binary content in logs for `data-pcm`, `data-audio`, `data-image` events
 - **Implementation**: Modified `_format_sse_event()` to show only first 50 chars of binary content
@@ -400,10 +434,12 @@ Based on research using DeepWiki MCP on google/adk-python:
 ### UI Improvement: Push-to-Talk Button ✅ COMPLETED
 
 #### BUG-005: Keyboard Push-to-Talk Unreliable
+
 - **Problem**: Cmd key press-and-hold for audio recording had many false triggers
 - **User Feedback**: "cmd 長押しのプッシュto talkだけど誤反応が多いから、UIのボタンにしよう"
 - **Solution**: Replaced keyboard-based Push-to-Talk with a UI button
 - **Implementation**:
+
   ```typescript
   // Removed keyboard event listeners for Cmd key
   // Added mouse/touch event handlers for button press-and-hold
@@ -411,11 +447,13 @@ Based on research using DeepWiki MCP on google/adk-python:
   // Visual feedback: button changes color when recording
   // Text changes from "Hold to Record" to "Recording... (Release to send)"
   ```
+
 - **Result**: Clean UI button implementation with proper visual feedback
 
 ### Testing Results (2025-12-16)
 
 #### Tool Approval Functionality ⚠️ STILL ISSUES
+
 - **Test**: Sent "Please change the BGM to track 2" in BIDI mode
 - **Expected**: Tool approval dialog should appear
 - **Actual**: Tool executes without showing approval dialog
@@ -424,6 +462,7 @@ Based on research using DeepWiki MCP on google/adk-python:
 - **Status**: Backend sends correct events, frontend pendingToolApproval detection may have issues
 
 #### Audio Recording Functionality 🔄 PARTIALLY TESTED
+
 - **UI Button**: Successfully implemented and visible in BIDI mode
 - **Visual Feedback**: Button shows proper recording states
 - **Limitation**: Cannot fully test press-and-hold with Chrome DevTools MCP
