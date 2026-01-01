@@ -37,15 +37,8 @@ test.describe("Multi-Tool Approval Combinations (Advanced)", () => {
 
     await page.goto("http://localhost:3000");
 
-    // Enable chunk logger via localStorage
-    if (process.env.CHUNK_LOGGER_SESSION_ID) {
-      await page.evaluate((sid) => {
-        localStorage.setItem("CHUNK_LOGGER_ENABLED", "true");
-        localStorage.setItem("CHUNK_LOGGER_SESSION_ID", sid);
-      }, process.env.CHUNK_LOGGER_SESSION_ID);
-      // Reload to apply chunk logger settings
-      await page.reload();
-    }
+    // Note: Chunk logger reads session ID from NEXT_PUBLIC_CHUNK_LOGGER_SESSION_ID
+    // environment variable at module load time, not from localStorage
   });
 
   test.afterEach(async ({ page }, testInfo) => {

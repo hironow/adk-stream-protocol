@@ -306,30 +306,19 @@ export async function cleanupChunkLoggerState(page: Page) {
   // 1. Clear frontend history and backend sessions
   await clearHistory(page);
 
-  // 2. Clear localStorage only if page is still on app URL
-  // Skip if page navigated to about:blank, error page, etc.
-  const currentUrl = page.url();
-  if (
-    currentUrl.startsWith("http://localhost:3000") ||
-    currentUrl.startsWith("http://localhost")
-  ) {
-    await page.evaluate(() => {
-      localStorage.removeItem("CHUNK_LOGGER_ENABLED");
-      localStorage.removeItem("CHUNK_LOGGER_SESSION_ID");
-    });
-  }
-
-  // 3. Reload page to ensure clean state
+  // 2. Reload page to ensure clean state
+  // Note: Chunk logger config comes from environment variables, not localStorage
   await page.reload();
   await page.waitForLoadState("networkidle");
 
-  // 4. Give backend time to fully reset
+  // 3. Give backend time to fully reset
   await page.waitForTimeout(1000);
 }
 
 /**
  * Wait for tool approval dialog to appear
  * Uses data-testid for i18n compatibility
+ * Note: When multiple tool calls are on page, filters for "Approval Required" state
  */
 export async function waitForToolApproval(
   page: Page,
@@ -337,19 +326,22 @@ export async function waitForToolApproval(
 ) {
   const timeout = options.timeout ?? 30000;
   // Wait for tool state to show "Approval Required"
-  const toolState = page.getByTestId("tool-state");
-  await expect(toolState).toBeVisible({ timeout });
-  await expect(toolState).toHaveText("Approval Required", { timeout: 5000 });
+  // Use filter to handle cases with multiple tool-state elements (e.g., after mode switching)
+  const toolState = page
+    .getByTestId("tool-state")
+    .filter({ hasText: "Approval Required" });
+  await expect(toolState.first()).toBeVisible({ timeout });
 }
 
 /**
  * Approve the tool call in the approval dialog
  * Uses data-testid for i18n compatibility
+ * Note: Uses .first() to handle multiple tool-state elements
  */
 export async function approveToolCall(page: Page) {
-  await page.getByTestId("tool-approve-button").click();
-  // Wait for approval state to change
-  const toolState = page.getByTestId("tool-state");
+  await page.getByTestId("tool-approve-button").first().click();
+  // Wait for approval state to change - use first visible tool-state
+  const toolState = page.getByTestId("tool-state").first();
   await expect(toolState).not.toHaveText("Approval Required", {
     timeout: 5000,
   });
@@ -358,11 +350,12 @@ export async function approveToolCall(page: Page) {
 /**
  * Reject/Deny the tool call in the approval dialog
  * Uses data-testid for i18n compatibility
+ * Note: Uses .first() to handle multiple tool-state elements
  */
 export async function rejectToolCall(page: Page) {
-  await page.getByTestId("tool-deny-button").click();
-  // Wait for tool state to change
-  const toolState = page.getByTestId("tool-state");
+  await page.getByTestId("tool-deny-button").first().click();
+  // Wait for tool state to change - use first visible tool-state
+  const toolState = page.getByTestId("tool-state").first();
   await expect(toolState).not.toHaveText("Approval Required", {
     timeout: 5000,
   });
@@ -390,22 +383,18 @@ export async function createTestImageFixture() {
 }
 
 /**
- * Enable chunk logger for E2E testing
- * This enables frontend chunk logging via localStorage
+ * @deprecated This function no longer works. The ChunkLogger reads session ID
+ * from NEXT_PUBLIC_CHUNK_LOGGER_SESSION_ID environment variable at module load time,
+ * not from localStorage. Set the environment variable in .env.local instead.
  *
- * Prerequisites: Page must be navigated to app URL before calling this function
+ * This function is kept for backwards compatibility but does nothing.
  */
 export async function enableChunkLogger(
-  page: Page,
-  sessionId: string = "e2e-test",
+  _page: Page,
+  _sessionId: string = "e2e-test",
 ) {
-  await page.evaluate(
-    ({ sid }) => {
-      localStorage.setItem("CHUNK_LOGGER_ENABLED", "true");
-      localStorage.setItem("CHUNK_LOGGER_SESSION_ID", sid);
-    },
-    { sid: sessionId },
-  );
+  // No-op: ChunkLogger reads from process.env.NEXT_PUBLIC_CHUNK_LOGGER_SESSION_ID
+  // at module load time, not from localStorage.
 }
 
 /**
@@ -707,11 +696,18 @@ export async function analyzeChunkLogConsistency(
       const e = event as Record<string, unknown>;
 
       // Backend ADK events - look in chunk string
+      // Note: A single chunk may contain multiple FunctionCall blocks (e.g., multi-recipient payments)
+      // Each FunctionCall has id='adk-...',\n        name='...' pattern
+      // Use matchAll to capture all occurrences, not just the first
       if (source === "backend-adk" && typeof e.chunk === "string") {
-        const toolCallMatch = e.chunk.match(/id='(adk-[^']+)'/);
-        const toolNameMatch = e.chunk.match(/name='([^']+)'/);
-        if (toolCallMatch && toolNameMatch) {
-          toolCalls.set(toolCallMatch[1], toolNameMatch[1]);
+        // Pattern matches FunctionCall id and name that appear consecutively
+        // The id= and name= patterns (without quotes before them) only appear at FunctionCall parameter level
+        // NOT inside args dict which uses 'id': and 'name': patterns
+        const pattern = /id='(adk-[^']+)',\s*\n\s*name='([^']+)'/g;
+        const matches = e.chunk.matchAll(pattern);
+        for (const match of matches) {
+          const [, toolCallId, toolName] = match;
+          toolCalls.set(toolCallId, toolName);
         }
       }
 

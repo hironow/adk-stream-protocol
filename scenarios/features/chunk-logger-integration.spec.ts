@@ -269,10 +269,21 @@ test.describe
         timeout: 30000,
       });
 
-      // When: User denies (click first button if multiple)
-      await page.getByRole("button", { name: "Deny" }).first().click();
+      // When: User denies all payments (click all Deny buttons)
+      // The AI creates one confirmation request per recipient, so we need to deny all
+      // Note: After clicking each button, it disappears, so we always click .first()
+      const denyButtons = page.getByRole("button", { name: "Deny" });
+      const buttonCount = await denyButtons.count();
+      console.log(`[Test] Found ${buttonCount} Deny buttons to click`);
 
-      // Then: Wait for completion
+      // Click all Deny buttons (always click first since buttons disappear after clicking)
+      for (let i = 0; i < buttonCount; i++) {
+        await denyButtons.first().click();
+        // Small delay between clicks to let UI update
+        await page.waitForTimeout(500);
+      }
+
+      // Then: Wait for completion (AI will respond after all denials are processed)
       await waitForAssistantResponse(page, { timeout: 45000 });
 
       // Download and analyze
