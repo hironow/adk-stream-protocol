@@ -69,7 +69,9 @@ describe("Protocol Comparison: SSE vs BIDI (ADR 0003)", () => {
           async start(controller) {
             // Send tool-approval-request
             controller.enqueue(
-              encoder.encode('data: {"type": "start", "messageId": "msg-1"}\n\n'),
+              encoder.encode(
+                'data: {"type": "start", "messageId": "msg-1"}\n\n',
+              ),
             );
             controller.enqueue(
               encoder.encode(
@@ -150,9 +152,7 @@ describe("Protocol Comparison: SSE vs BIDI (ADR 0003)", () => {
     console.log(
       "[SSE Protocol] ✓ Approval sent via addToolApprovalResponse() API call",
     );
-    console.log(
-      "[SSE Protocol] ✓ No new user message created (SSE protocol)",
-    );
+    console.log("[SSE Protocol] ✓ No new user message created (SSE protocol)");
 
     // SSE verification complete
     expect(result.current.messages).toBeDefined();

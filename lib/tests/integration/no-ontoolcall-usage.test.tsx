@@ -41,9 +41,7 @@ describe("ADR 0002: Verify onToolCall is NOT Used", () => {
     console.log(
       "[SSE Mode] ✓ onToolCall is undefined (Server Execute pattern)",
     );
-    console.log(
-      "[SSE Mode] ✓ Tool execution handled by backend, not frontend",
-    );
+    console.log("[SSE Mode] ✓ Tool execution handled by backend, not frontend");
   });
 
   it("BIDI mode: useChatOptions does NOT include onToolCall", () => {

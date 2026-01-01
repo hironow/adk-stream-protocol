@@ -52,70 +52,71 @@ describe("Unicode and Encoding Integration Tests", () => {
         lang: "Korean",
         text: "안녕하세요, 세계! 🌎",
       },
-    ])(
-      "$mode: should correctly encode $lang text",
-      async ({ mode, endpoint, text }) => {
-        // given
-        let capturedPayload: unknown = null;
+    ])("$mode: should correctly encode $lang text", async ({
+      mode,
+      endpoint,
+      text,
+    }) => {
+      // given
+      let capturedPayload: unknown = null;
 
-        server.use(
-          http.post(endpoint, async ({ request }) => {
-            capturedPayload = await request.json();
-            return createTextResponse(text); // Echo back same text
-          }),
-        );
+      server.use(
+        http.post(endpoint, async ({ request }) => {
+          capturedPayload = await request.json();
+          return createTextResponse(text); // Echo back same text
+        }),
+      );
 
-        const { useChatOptions } = buildUseChatOptions({
-          mode,
-          initialMessages: [],
-          ...(mode === "gemini" && { apiEndpoint: "http://localhost/api/chat" }),
-        });
+      const { useChatOptions } = buildUseChatOptions({
+        mode,
+        initialMessages: [],
+        ...(mode === "gemini" && { apiEndpoint: "http://localhost/api/chat" }),
+      });
 
-        const messages: UIMessageFromAISDKv6[] = [
+      const messages: UIMessageFromAISDKv6[] = [
+        {
+          id: "1",
+          role: "user",
+          parts: [{ type: "text", text }],
+        } as UIMessageFromAISDKv6,
+      ];
+
+      // when
+      const result = await useChatOptions.transport.sendMessages({
+        trigger: "submit-message",
+        chatId: useChatOptions.id,
+        messageId: "msg-1",
+        messages,
+        abortSignal: undefined,
+      });
+
+      const reader = result.getReader();
+      const chunks: UIMessageChunkFromAISDKv6[] = [];
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+      }
+
+      // then - verify encoding preserved in request
+      expect(capturedPayload).toMatchObject({
+        messages: [
           {
-            id: "1",
             role: "user",
-            parts: [{ type: "text", text }],
-          } as UIMessageFromAISDKv6,
-        ];
+            parts: expect.arrayContaining([
+              expect.objectContaining({ type: "text", text }),
+            ]),
+          },
+        ],
+      });
 
-        // when
-        const result = await useChatOptions.transport.sendMessages({
-          trigger: "submit-message",
-          chatId: useChatOptions.id,
-          messageId: "msg-1",
-          messages,
-          abortSignal: undefined,
-        });
-
-        const reader = result.getReader();
-        const chunks: UIMessageChunkFromAISDKv6[] = [];
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          chunks.push(value);
-        }
-
-        // then - verify encoding preserved in request
-        expect(capturedPayload).toMatchObject({
-          messages: [
-            {
-              role: "user",
-              parts: expect.arrayContaining([
-                expect.objectContaining({ type: "text", text }),
-              ]),
-            },
-          ],
-        });
-
-        // then - verify encoding preserved in response
-        const textDeltas = chunks.filter((c) => c.type === "text-delta");
-        expect(textDeltas.length).toBeGreaterThanOrEqual(1);
-        const fullText = textDeltas.map((c) => c.delta).join("");
-        expect(fullText).toBe(text);
-      },
-    );
+      // then - verify encoding preserved in response
+      const textDeltas = chunks.filter((c) => c.type === "text-delta");
+      expect(textDeltas.length).toBeGreaterThanOrEqual(1);
+      const fullText = textDeltas.map((c) => c.delta).join("");
+      expect(fullText).toBe(text);
+    });
   });
 
   describe("Emoji Handling", () => {
@@ -196,61 +197,58 @@ describe("Unicode and Encoding Integration Tests", () => {
       { char: "'", description: "single quote", display: "'" },
       { char: "\\", description: "backslash", display: "\\\\" },
       { char: "/", description: "forward slash", display: "/" },
-    ])(
-      "should correctly handle $description ($display)",
-      async ({ char }) => {
-        // given
-        let capturedPayload: unknown = null;
+    ])("should correctly handle $description ($display)", async ({ char }) => {
+      // given
+      let capturedPayload: unknown = null;
 
-        server.use(
-          http.post("http://localhost:8000/stream", async ({ request }) => {
-            capturedPayload = await request.json();
-            return createTextResponse(`Echo: ${char}`);
-          }),
-        );
+      server.use(
+        http.post("http://localhost:8000/stream", async ({ request }) => {
+          capturedPayload = await request.json();
+          return createTextResponse(`Echo: ${char}`);
+        }),
+      );
 
-        const { useChatOptions } = buildUseChatOptions({
-          mode: "adk-sse",
-          initialMessages: [],
-        });
+      const { useChatOptions } = buildUseChatOptions({
+        mode: "adk-sse",
+        initialMessages: [],
+      });
 
-        const text = `Before${char}After`;
-        const messages: UIMessageFromAISDKv6[] = [
+      const text = `Before${char}After`;
+      const messages: UIMessageFromAISDKv6[] = [
+        {
+          id: "1",
+          role: "user",
+          parts: [{ type: "text", text }],
+        } as UIMessageFromAISDKv6,
+      ];
+
+      // when
+      const result = await useChatOptions.transport.sendMessages({
+        trigger: "submit-message",
+        chatId: useChatOptions.id,
+        messageId: "msg-1",
+        messages,
+        abortSignal: undefined,
+      });
+
+      const reader = result.getReader();
+      while (true) {
+        const { done } = await reader.read();
+        if (done) break;
+      }
+
+      // then - special character preserved
+      expect(capturedPayload).toMatchObject({
+        messages: [
           {
-            id: "1",
             role: "user",
-            parts: [{ type: "text", text }],
-          } as UIMessageFromAISDKv6,
-        ];
-
-        // when
-        const result = await useChatOptions.transport.sendMessages({
-          trigger: "submit-message",
-          chatId: useChatOptions.id,
-          messageId: "msg-1",
-          messages,
-          abortSignal: undefined,
-        });
-
-        const reader = result.getReader();
-        while (true) {
-          const { done } = await reader.read();
-          if (done) break;
-        }
-
-        // then - special character preserved
-        expect(capturedPayload).toMatchObject({
-          messages: [
-            {
-              role: "user",
-              parts: expect.arrayContaining([
-                expect.objectContaining({ type: "text", text }),
-              ]),
-            },
-          ],
-        });
-      },
-    );
+            parts: expect.arrayContaining([
+              expect.objectContaining({ type: "text", text }),
+            ]),
+          },
+        ],
+      });
+    });
   });
 
   describe("Mixed Content", () => {

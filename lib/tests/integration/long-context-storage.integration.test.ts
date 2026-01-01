@@ -54,9 +54,21 @@ function createLargeHistory(count: number): UIMessageFromAISDKv6[] {
 describe("Long Context Storage Integration Tests", () => {
   describe("Large Message Arrays", () => {
     it.each([
-      { mode: "gemini" as const, endpoint: "http://localhost/api/chat", config: { apiEndpoint: "http://localhost/api/chat" } },
-      { mode: "adk-sse" as const, endpoint: "http://localhost:8000/stream", config: {} },
-    ])("$mode: should handle 50 messages", async ({ mode, endpoint, config }) => {
+      {
+        mode: "gemini" as const,
+        endpoint: "http://localhost/api/chat",
+        config: { apiEndpoint: "http://localhost/api/chat" },
+      },
+      {
+        mode: "adk-sse" as const,
+        endpoint: "http://localhost:8000/stream",
+        config: {},
+      },
+    ])("$mode: should handle 50 messages", async ({
+      mode,
+      endpoint,
+      config,
+    }) => {
       // given
       let capturedPayload: unknown = null;
 
@@ -105,9 +117,21 @@ describe("Long Context Storage Integration Tests", () => {
     });
 
     it.each([
-      { mode: "gemini" as const, endpoint: "http://localhost/api/chat", config: { apiEndpoint: "http://localhost/api/chat" } },
-      { mode: "adk-sse" as const, endpoint: "http://localhost:8000/stream", config: {} },
-    ])("$mode: should handle 100 messages", async ({ mode, endpoint, config }) => {
+      {
+        mode: "gemini" as const,
+        endpoint: "http://localhost/api/chat",
+        config: { apiEndpoint: "http://localhost/api/chat" },
+      },
+      {
+        mode: "adk-sse" as const,
+        endpoint: "http://localhost:8000/stream",
+        config: {},
+      },
+    ])("$mode: should handle 100 messages", async ({
+      mode,
+      endpoint,
+      config,
+    }) => {
       // given
       let capturedPayload: unknown = null;
 
@@ -194,9 +218,7 @@ describe("Long Context Storage Integration Tests", () => {
       // Verify alternating user/assistant pattern
       for (let i = 0; i < 30; i++) {
         expect(payload.messages[i * 2].role).toBe("user");
-        expect(payload.messages[i * 2].parts[0].text).toBe(
-          `User message ${i}`,
-        );
+        expect(payload.messages[i * 2].parts[0].text).toBe(`User message ${i}`);
 
         expect(payload.messages[i * 2 + 1].role).toBe("assistant");
         expect(payload.messages[i * 2 + 1].parts[0].text).toBe(

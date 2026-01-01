@@ -29,8 +29,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { buildUseChatOptions as buildSseOptions } from "../../sse";
 import { buildUseChatOptions as buildBidiOptions } from "../../bidi";
+import { buildUseChatOptions as buildSseOptions } from "../../sse";
 
 describe("ADR 0008: SSE Pattern A Only Restriction", () => {
   it("Documents Pattern A (Server Execute) vs Pattern B (Frontend Execute)", () => {

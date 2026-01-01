@@ -39,7 +39,11 @@ describe("Message Processing Integration Tests", () => {
         endpoint: "http://localhost:8000/stream",
         config: {},
       },
-    ])("$mode: should handle text message correctly", async ({ mode, endpoint, config }) => {
+    ])("$mode: should handle text message correctly", async ({
+      mode,
+      endpoint,
+      config,
+    }) => {
       // given
       let capturedPayload: unknown = null;
 
@@ -88,7 +92,10 @@ describe("Message Processing Integration Tests", () => {
           {
             role: "user",
             parts: expect.arrayContaining([
-              expect.objectContaining({ type: "text", text: "テストメッセージ" }),
+              expect.objectContaining({
+                type: "text",
+                text: "テストメッセージ",
+              }),
             ]),
           },
         ],
@@ -120,7 +127,11 @@ describe("Message Processing Integration Tests", () => {
         endpoint: "http://localhost:8000/stream",
         config: {},
       },
-    ])("$mode: should send conversation history", async ({ mode, endpoint, config }) => {
+    ])("$mode: should send conversation history", async ({
+      mode,
+      endpoint,
+      config,
+    }) => {
       // given
       let capturedPayload: unknown = null;
 
@@ -212,7 +223,11 @@ describe("Message Processing Integration Tests", () => {
         endpoint: "http://localhost:8000/stream",
         config: {},
       },
-    ])("$mode: should handle empty assistant response", async ({ mode, endpoint, config }) => {
+    ])("$mode: should handle empty assistant response", async ({
+      mode,
+      endpoint,
+      config,
+    }) => {
       // given
       server.use(
         http.post(endpoint, async () => {
@@ -267,7 +282,11 @@ describe("Message Processing Integration Tests", () => {
         endpoint: "http://localhost:8000/stream",
         config: {},
       },
-    ])("$mode: should handle whitespace-only messages", async ({ mode, endpoint, config }) => {
+    ])("$mode: should handle whitespace-only messages", async ({
+      mode,
+      endpoint,
+      config,
+    }) => {
       // given
       let capturedPayload: unknown = null;
 
@@ -333,7 +352,11 @@ describe("Message Processing Integration Tests", () => {
         endpoint: "http://localhost:8000/stream",
         config: {},
       },
-    ])("$mode: should correctly stream multi-chunk response", async ({ mode, endpoint, config }) => {
+    ])("$mode: should correctly stream multi-chunk response", async ({
+      mode,
+      endpoint,
+      config,
+    }) => {
       // given
       server.use(
         http.post(endpoint, async () => {

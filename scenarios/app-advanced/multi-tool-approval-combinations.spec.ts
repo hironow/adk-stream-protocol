@@ -44,10 +44,7 @@ test.describe("Multi-Tool Approval Combinations (Advanced)", () => {
   test.afterEach(async ({ page }, testInfo) => {
     // Download frontend chunk logs after each test
     const testName = testInfo.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
-    await downloadFrontendChunkLogs(
-      page,
-      `multi-tool-approval-${testName}`,
-    );
+    await downloadFrontendChunkLogs(page, `multi-tool-approval-${testName}`);
   });
 
   test("SSE Mode: Approve×Approve - Both payments approved", async ({
@@ -66,14 +63,19 @@ test.describe("Multi-Tool Approval Combinations (Advanced)", () => {
     });
 
     // When: Request multiple payments in one message
-    console.log("[Approve×Approve SSE] Requesting payments to Alice and Bob...");
-    await sendTextMessage(page, "Aliceさんに30ドル、Bobさんに40ドル送金してください");
+    console.log(
+      "[Approve×Approve SSE] Requesting payments to Alice and Bob...",
+    );
+    await sendTextMessage(
+      page,
+      "Aliceさんに30ドル、Bobさんに40ドル送金してください",
+    );
 
     // Then: Wait for approval UI for both payments
     console.log("[Approve×Approve SSE] Waiting for approval buttons...");
-    await expect(
-      page.getByRole("button", { name: "Approve" }),
-    ).toHaveCount(2, { timeout: 10000 });
+    await expect(page.getByRole("button", { name: "Approve" })).toHaveCount(2, {
+      timeout: 10000,
+    });
 
     // Approve both payments (click .first() twice, as DOM updates after first click)
     requestCount = 0;
@@ -90,9 +92,9 @@ test.describe("Multi-Tool Approval Combinations (Advanced)", () => {
 
     // Verify both payments succeeded in assistant message
     console.log("[Approve×Approve SSE] Verifying success messages...");
-    await expect(
-      page.getByText(/完了|completed|success/i).last(),
-    ).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText(/完了|completed|success/i).last()).toBeVisible({
+      timeout: 5000,
+    });
 
     // Verify no infinite loop
     await page.waitForTimeout(2000);
@@ -119,16 +121,19 @@ test.describe("Multi-Tool Approval Combinations (Advanced)", () => {
 
     // When: Request multiple payments
     console.log("[Approve×Deny SSE] Requesting payments to Alice and Bob...");
-    await sendTextMessage(page, "Aliceさんに30ドル、Bobさんに40ドル送金してください");
+    await sendTextMessage(
+      page,
+      "Aliceさんに30ドル、Bobさんに40ドル送金してください",
+    );
 
     // Then: Wait for approval UI
     console.log("[Approve×Deny SSE] Waiting for approval/deny buttons...");
-    await expect(
-      page.getByRole("button", { name: "Approve" }),
-    ).toHaveCount(2, { timeout: 10000 });
-    await expect(
-      page.getByRole("button", { name: "Deny" }),
-    ).toHaveCount(2, { timeout: 10000 });
+    await expect(page.getByRole("button", { name: "Approve" })).toHaveCount(2, {
+      timeout: 10000,
+    });
+    await expect(page.getByRole("button", { name: "Deny" })).toHaveCount(2, {
+      timeout: 10000,
+    });
 
     // Approve first, deny second (DOM updates after first click)
     requestCount = 0;
@@ -145,12 +150,14 @@ test.describe("Multi-Tool Approval Combinations (Advanced)", () => {
 
     // Verify mixed results in assistant response
     console.log("[Approve×Deny SSE] Verifying mixed results...");
-    await expect(
-      page.getByTestId("message-assistant").last(),
-    ).toContainText(/成功|success/i, { timeout: 5000 });
-    await expect(
-      page.getByTestId("message-assistant").last(),
-    ).toContainText(/拒否|denied|rejected/i, { timeout: 5000 });
+    await expect(page.getByTestId("message-assistant").last()).toContainText(
+      /成功|success/i,
+      { timeout: 5000 },
+    );
+    await expect(page.getByTestId("message-assistant").last()).toContainText(
+      /拒否|denied|rejected/i,
+      { timeout: 5000 },
+    );
 
     // Verify no infinite loop
     await page.waitForTimeout(2000);
@@ -177,16 +184,19 @@ test.describe("Multi-Tool Approval Combinations (Advanced)", () => {
 
     // When: Request multiple payments
     console.log("[Deny×Approve SSE] Requesting payments to Alice and Bob...");
-    await sendTextMessage(page, "Aliceさんに30ドル、Bobさんに40ドル送金してください");
+    await sendTextMessage(
+      page,
+      "Aliceさんに30ドル、Bobさんに40ドル送金してください",
+    );
 
     // Then: Wait for approval UI
     console.log("[Deny×Approve SSE] Waiting for approval/deny buttons...");
-    await expect(
-      page.getByRole("button", { name: "Approve" }),
-    ).toHaveCount(2, { timeout: 10000 });
-    await expect(
-      page.getByRole("button", { name: "Deny" }),
-    ).toHaveCount(2, { timeout: 10000 });
+    await expect(page.getByRole("button", { name: "Approve" })).toHaveCount(2, {
+      timeout: 10000,
+    });
+    await expect(page.getByRole("button", { name: "Deny" })).toHaveCount(2, {
+      timeout: 10000,
+    });
 
     // Deny first, approve second (DOM updates after first click)
     requestCount = 0;
@@ -203,12 +213,14 @@ test.describe("Multi-Tool Approval Combinations (Advanced)", () => {
 
     // Verify mixed results in assistant response
     console.log("[Deny×Approve SSE] Verifying mixed results...");
-    await expect(
-      page.getByTestId("message-assistant").last(),
-    ).toContainText(/拒否|denied|rejected/i, { timeout: 5000 });
-    await expect(
-      page.getByTestId("message-assistant").last(),
-    ).toContainText(/成功|success/i, { timeout: 5000 });
+    await expect(page.getByTestId("message-assistant").last()).toContainText(
+      /拒否|denied|rejected/i,
+      { timeout: 5000 },
+    );
+    await expect(page.getByTestId("message-assistant").last()).toContainText(
+      /成功|success/i,
+      { timeout: 5000 },
+    );
 
     // Verify no infinite loop
     await page.waitForTimeout(2000);
@@ -245,13 +257,16 @@ test.describe("Multi-Tool Approval Combinations (Advanced)", () => {
 
     // When: Request multiple payments
     console.log("[Deny×Deny SSE] Requesting payments to Alice and Bob...");
-    await sendTextMessage(page, "Aliceさんに30ドル、Bobさんに40ドル送金してください");
+    await sendTextMessage(
+      page,
+      "Aliceさんに30ドル、Bobさんに40ドル送金してください",
+    );
 
     // Then: Wait for approval UI
     console.log("[Deny×Deny SSE] Waiting for deny buttons...");
-    await expect(
-      page.getByRole("button", { name: "Deny" }),
-    ).toHaveCount(2, { timeout: 10000 });
+    await expect(page.getByRole("button", { name: "Deny" })).toHaveCount(2, {
+      timeout: 10000,
+    });
 
     // Deny both payments (DOM updates after first click)
     requestCount = 0;
@@ -270,9 +285,10 @@ test.describe("Multi-Tool Approval Combinations (Advanced)", () => {
 
     // Verify both payments denied in assistant response
     console.log("[Deny×Deny SSE] Verifying denial messages...");
-    await expect(
-      page.getByTestId("message-assistant").last(),
-    ).toContainText(/拒否|denied|rejected/i, { timeout: 5000 });
+    await expect(page.getByTestId("message-assistant").last()).toContainText(
+      /拒否|denied|rejected/i,
+      { timeout: 5000 },
+    );
 
     // CRITICAL: Verify no infinite loop
     await page.waitForTimeout(3000);
@@ -300,8 +316,13 @@ test.describe("Multi-Tool Approval Combinations (Advanced)", () => {
     });
 
     // When: Request multiple payments
-    console.log("[Approve×Approve BIDI] Requesting payments to Alice and Bob...");
-    await sendTextMessage(page, "Aliceさんに30ドル、Bobさんに40ドル送金してください");
+    console.log(
+      "[Approve×Approve BIDI] Requesting payments to Alice and Bob...",
+    );
+    await sendTextMessage(
+      page,
+      "Aliceさんに30ドル、Bobさんに40ドル送金してください",
+    );
 
     // Then: Wait for first approval (Alice)
     console.log("[Approve×Approve BIDI] Waiting for Alice approval...");
@@ -329,9 +350,10 @@ test.describe("Multi-Tool Approval Combinations (Advanced)", () => {
 
     // Verify both payments succeeded in assistant response
     console.log("[Approve×Approve BIDI] Verifying success messages...");
-    await expect(
-      page.getByTestId("message-assistant").last(),
-    ).toContainText(/送金|completed/i, { timeout: 5000 });
+    await expect(page.getByTestId("message-assistant").last()).toContainText(
+      /送金|completed/i,
+      { timeout: 5000 },
+    );
 
     // Verify no infinite loop
     await page.waitForTimeout(2000);
@@ -358,7 +380,10 @@ test.describe("Multi-Tool Approval Combinations (Advanced)", () => {
 
     // When: Request multiple payments
     console.log("[Approve×Deny BIDI] Requesting payments to Alice and Bob...");
-    await sendTextMessage(page, "Aliceさんに30ドル、Bobさんに40ドル送金してください");
+    await sendTextMessage(
+      page,
+      "Aliceさんに30ドル、Bobさんに40ドル送金してください",
+    );
 
     // Then: Wait for first approval (Alice)
     console.log("[Approve×Deny BIDI] Waiting for Alice approval...");
@@ -386,12 +411,14 @@ test.describe("Multi-Tool Approval Combinations (Advanced)", () => {
 
     // Verify mixed results in assistant response
     console.log("[Approve×Deny BIDI] Verifying mixed results...");
-    await expect(
-      page.getByTestId("message-assistant").last(),
-    ).toContainText(/送金|success/i, { timeout: 5000 });
-    await expect(
-      page.getByTestId("message-assistant").last(),
-    ).toContainText(/拒否|denied|rejected/i, { timeout: 5000 });
+    await expect(page.getByTestId("message-assistant").last()).toContainText(
+      /送金|success/i,
+      { timeout: 5000 },
+    );
+    await expect(page.getByTestId("message-assistant").last()).toContainText(
+      /拒否|denied|rejected/i,
+      { timeout: 5000 },
+    );
 
     // Verify no infinite loop
     await page.waitForTimeout(2000);
@@ -411,7 +438,10 @@ test.describe("Multi-Tool Approval Combinations (Advanced)", () => {
     console.log(
       "[BIDI Sequential-Only] Requesting payments to Alice and Bob...",
     );
-    await sendTextMessage(page, "Aliceさんに30ドル、Bobさんに40ドル送金してください");
+    await sendTextMessage(
+      page,
+      "Aliceさんに30ドル、Bobさんに40ドル送金してください",
+    );
 
     // Then: Verify ONLY ONE approval button appears initially
     console.log(

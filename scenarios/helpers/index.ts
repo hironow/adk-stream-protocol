@@ -317,10 +317,7 @@ export async function clearBackendChunkLogs(page: Page, sessionId: string) {
     // Give the server a moment to actually close the handles
     await page.waitForTimeout(100);
   } catch (error) {
-    console.warn(
-      "Failed to call /clear-sessions before clearing logs:",
-      error,
-    );
+    console.warn("Failed to call /clear-sessions before clearing logs:", error);
     // Continue anyway - files may still be deleted, but handles may leak
   }
 
