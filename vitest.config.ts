@@ -1,5 +1,10 @@
 import path from "node:path";
+import { config as loadEnv } from "dotenv";
 import { defineConfig } from "vitest/config";
+
+// Load .env.local for environment variables (e.g., CHUNK_LOGGER_SESSION_ID)
+// This ensures consistency across all test frameworks
+loadEnv({ path: ".env.local" });
 
 export default defineConfig({
   test: {
