@@ -262,13 +262,14 @@ curl -N http://localhost:8000/stream \
 Run `just --list` to see all available commands:
 
 ```bash
-just install         # Install all dependencies
-just dev             # Run frontend and backend concurrently
-just server          # Run backend server only
-just test-python     # Run Python unit tests
-just test-e2e-clean  # Run E2E tests with clean server restart
-just lint            # Run linting (Python + TypeScript)
-just fmt             # Format code
+just install              # Install all dependencies
+just dev                  # Run frontend and backend concurrently
+just server               # Run backend server only
+just test-fast            # Run fast tests (no external dependencies)
+just test-unified-e2e     # Run E2E tests (pytest + Playwright)
+just test-unified-all     # Run all tests
+just lint                 # Run linting (Python + TypeScript)
+just format               # Format code
 ```
 
 ## Usage Examples
@@ -498,8 +499,8 @@ The backend server (`server.py`) uses:
 **Key Files:**
 
 - `server.py` - Main FastAPI application
-- `stream_protocol.py` - StreamProtocolConverter (ADK → AI SDK v6)
-- `tools/` - Tool implementations (change_bgm, get_location, etc.)
+- `adk_stream_protocol/stream_protocol.py` - StreamProtocolConverter (ADK → AI SDK v6)
+- `adk_stream_protocol/adk_ag_tools.py` - Tool implementations (change_bgm, get_location, etc.)
 
 **Development Tips:**
 
@@ -520,7 +521,8 @@ The frontend uses:
 
 - `app/page.tsx` - Main chat UI
 - `app/api/chat/route.ts` - Gemini Direct API route
-- `lib/websocket-chat-transport.ts` - Custom WebSocket transport
+- `lib/bidi/transport.ts` - Custom WebSocket transport (BIDI mode)
+- `lib/sse/transport.ts` - SSE transport (ADK SSE / Gemini modes)
 - `components/chat.tsx` - Chat component
 
 **Development Tips:**
@@ -631,4 +633,4 @@ If you encounter issues not covered here:
 - **Learn the architecture:** Read `docs/spec_ARCHITECTURE.md` for complete technical details
 - **Explore test coverage:** See `docs/testing_COVERAGE_AUDIT.md`
 - **Review experiments:** Check `experiments/README.md` for research notes
-- **Run E2E tests:** Follow `docs/testing_E2E_GUIDE.md` for comprehensive testing
+- **Run E2E tests:** Follow `docs/testing_E2E.md` for comprehensive testing

@@ -1,6 +1,6 @@
 # Architecture Documentation
 
-**Last Updated:** 2025-12-24
+**Last Updated:** 2026-01-02
 
 This document describes the key architectural patterns and technical implementations in the ADK AI Data Protocol project.
 
@@ -170,7 +170,7 @@ if (
     # Frontend sends approval back via WebSocket
 ```
 
-**Frontend:** `lib/websocket-chat-transport.ts:handleWebSocketMessage()`
+**Frontend:** `lib/bidi/transport.ts` (WebSocketChatTransport class)
 
 ```typescript
 case "tool-approval": {
@@ -1107,5 +1107,5 @@ Complete test matrix coverage for all conditional logic branches.
 
 ---
 
-**Last Updated:** 2025-12-24
-**Status:** Phase 1-3 Complete, Phase 4 (Video) Future Work
+**Last Updated:** 2026-01-02
+**Status:** Phase 1-3 Complete

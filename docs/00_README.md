@@ -78,6 +78,7 @@ Immutable history of significant architectural decisions:
 - **[ADR-0008](adr/0008-sse-mode-pattern-a-only-for-frontend-tools.md)** - SSE Mode Pattern A Only for Frontend Tools
 - **[ADR-0009](adr/0009-phase12-blocking-mode-for-approval.md)** - Phase 12 Blocking Mode for Approval
 - **[ADR-0010](adr/0010-bidi-confirmation-chunk-generation.md)** - BIDI Confirmation Chunk Generation
+- **[ADR-0011](adr/0011-bidi-approval-deadlock-finish-step-injection.md)** - BIDI Approval Deadlock (Finish Step Injection)
 
 ---
 
@@ -88,4 +89,4 @@ Immutable history of significant architectural decisions:
 - **No Future Plans**: For experimental work and research, see `experiments/README.md`
 - **Stay Synchronized**: When code changes, update docs in the same commit
 
-**Last Documentation Review**: 2025-12-29
+**Last Documentation Review**: 2026-01-02
