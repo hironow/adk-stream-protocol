@@ -128,7 +128,8 @@
       "Bash(pnpm run test:components)",
       "Bash(ls:*)",
       "Bash(wc:*)",
-      "Bash(bun vitest run:*)"
+      "Bash(bun vitest run:*)",
+      "Bash(echo:*)"
     ],
     "deny": [
       "Read(.env.keys)",

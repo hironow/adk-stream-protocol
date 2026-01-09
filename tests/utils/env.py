@@ -5,8 +5,9 @@ including context managers for temporary environment changes.
 """
 
 import os
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any, Iterator
+from typing import Any
 
 
 def get_chunk_logger_enabled(default: bool = False) -> bool:
