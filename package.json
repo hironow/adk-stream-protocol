@@ -2,12 +2,17 @@
   "name": "adk-stream-protocol",
   "version": "1.0.2",
   "description": "AI SDK v6 and Google ADK integration example with data stream protocol",
+  "workspaces": [
+    "."
+  ],
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
     "start": "next start -p 3000",
     "lint": "biome check --write .",
-    "format": "biome format --write ."
+    "format": "biome format --write .",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [],
   "author": "hironow",

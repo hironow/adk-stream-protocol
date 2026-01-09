@@ -15,7 +15,7 @@ PDOC := "uv run pdoc"
 [group("setup")]
 install:
     uv sync
-    pnpm install
+    bun install
 
 # Run Python backend server
 [group("development")]
@@ -32,7 +32,7 @@ pdoc:
 [group("development")]
 frontend:
     @echo "Starting frontend server at http://localhost:3000"
-    pnpm dev
+    bun run dev
 
 # Run both frontend and backend in parallel (requires 'just' with --jobs flag)
 [group("development")]
@@ -75,12 +75,12 @@ typecheck-python:
 # Run linting for frontend (Biome)
 [group("development")]
 lint-frontend:
-    pnpm run lint
+    bun run lint
 
 # Format frontend code (Biome)
 [group("development")]
 format-frontend:
-    pnpm run format
+    bun run format
 
 # Run Semgrep for security/static analysis
 [group("development")]
@@ -97,7 +97,7 @@ md-lint:
 # Install Playwright browsers
 [group("setup")]
 install-browsers:
-    pnpm exec playwright install chromium
+    bunx playwright install chromium
 
 # Run all Python checks
 [group("development")]
@@ -107,7 +107,7 @@ check-python: lint-python typecheck-python
 # Run all TypeScript checks
 [group("development")]
 check-typescript: lint-frontend
-    pnpm exec vitest list
+    bunx vitest list
 
 # Run all checks
 [group("development")]

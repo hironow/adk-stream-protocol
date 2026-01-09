@@ -135,7 +135,7 @@ export default defineConfig({
       env: process.env as any,
     },
     {
-      command: "pnpm dev",
+      command: "bun run dev",
       port: 3000,
       reuseExistingServer: !process.env.CI,
       timeout: 120000, // 2 minutes to start server

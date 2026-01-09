@@ -127,7 +127,8 @@
       "Bash(pnpm test:e2e:lib:*)",
       "Bash(pnpm run test:components)",
       "Bash(ls:*)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(bun vitest run:*)"
     ],
     "deny": [
       "Read(.env.keys)",
