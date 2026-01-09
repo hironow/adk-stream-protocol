@@ -54,7 +54,7 @@ class DeferredApprovalPlugin(BasePlugin):
     2. Final response (will_continue=False) - sent after approval
     """
 
-    def __init__(self, approval_queue: "ApprovalQueue") -> None:
+    def __init__(self, approval_queue: ApprovalQueue) -> None:
         super().__init__(name="deferred_approval_plugin")
         self.approval_queue = approval_queue
 

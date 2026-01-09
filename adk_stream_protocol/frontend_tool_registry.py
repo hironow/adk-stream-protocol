@@ -30,10 +30,10 @@ if TYPE_CHECKING:
 
 
 # Global registry: session_id → FrontendToolDelegate
-_REGISTRY: dict[str, "FrontendToolDelegate"] = {}
+_REGISTRY: dict[str, FrontendToolDelegate] = {}
 
 
-def register_delegate(session_id: str, delegate: "FrontendToolDelegate") -> None:
+def register_delegate(session_id: str, delegate: FrontendToolDelegate) -> None:
     """
     Register a FrontendToolDelegate for a session.
 
@@ -45,7 +45,7 @@ def register_delegate(session_id: str, delegate: "FrontendToolDelegate") -> None
     logger.info(f"[FrontendToolRegistry] Registered delegate for session_id={session_id}")
 
 
-def get_delegate(session_id: str) -> "FrontendToolDelegate | None":
+def get_delegate(session_id: str) -> FrontendToolDelegate | None:
     """
     Lookup FrontendToolDelegate for a session.
 

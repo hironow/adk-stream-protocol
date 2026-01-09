@@ -207,7 +207,7 @@ class ChunkLogger:
             handle.close()
         self._file_handles.clear()
 
-    def __enter__(self) -> "ChunkLogger":
+    def __enter__(self) -> ChunkLogger:
         """Context manager entry."""
         return self
 
