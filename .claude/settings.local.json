@@ -129,7 +129,10 @@
       "Bash(ls:*)",
       "Bash(wc:*)",
       "Bash(bun vitest run:*)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "WebFetch(domain:pypi.org)",
+      "Bash(uv sync:*)",
+      "Bash(uv lock:*)"
     ],
     "deny": [
       "Read(.env.keys)",
