@@ -61,6 +61,11 @@ export async function selectBackendMode(page: Page, mode: BackendMode) {
 
   // Wait for mode to be visually selected (selected button has font-weight: 600)
   await expect(button).toHaveCSS("font-weight", "600");
+
+  // BIDI mode requires WebSocket connection setup - add stabilization wait
+  if (mode === "adk-bidi") {
+    await page.waitForTimeout(1500);
+  }
 }
 
 /**
