@@ -11,8 +11,6 @@ export default defineConfig({
     environment: "node",
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
-    // Disable test isolation to prevent worker cleanup errors with Bun
-    isolate: false,
     // Suppress console output during tests to reduce noise
     silent: false, // Set to true to completely suppress console output
     exclude: [
