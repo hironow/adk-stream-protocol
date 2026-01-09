@@ -197,9 +197,11 @@ async def test_live_request_queue_during_blocking(experiment_runner):
 
         # Start run_live()
         live_events = experiment_runner.run_live(
-            session=session,
+            user_id=user_id,
+            session_id=session.id,
             live_request_queue=live_request_queue,
             run_config=run_config,
+            session=session,  # Still required during migration period
         )
         logger.info(f"[TEST] ✓ Started run_live() with session: {session_id}")
 

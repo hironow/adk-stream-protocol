@@ -552,9 +552,11 @@ async def test_deferred_approval_flow_approved():
 
         # Start run_live() with the created session (use plugin-enabled runner!)
         live_events = test_runner_with_plugin.run_live(
-            session=session,
+            user_id=user_id,
+            session_id=session.id,
             live_request_queue=live_request_queue,
             run_config=run_config,
+            session=session,  # Still required during migration period
         )
         logger.info(f"[TEST] ✓ Started run_live() with session: {session_id}")
 
@@ -746,9 +748,11 @@ async def test_deferred_approval_flow_rejected():
 
         # Start run_live() with the created session
         live_events = test_agent_runner.run_live(
-            session=session,
+            user_id=user_id,
+            session_id=session.id,
             live_request_queue=live_request_queue,
             run_config=run_config,
+            session=session,  # Still required during migration period
         )
         logger.info(f"[TEST] ✓ Started run_live() with session: {session_id}")
 

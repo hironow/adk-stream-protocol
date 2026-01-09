@@ -209,9 +209,11 @@ async def test_blocking_mode_approved():
 
         # Start run_live()
         live_events = test_runner_blocking.run_live(
-            session=session,
+            user_id=user_id,
+            session_id=session.id,
             live_request_queue=live_request_queue,
             run_config=run_config,
+            session=session,  # Still required during migration period
         )
         logger.info(f"[TEST] ✓ Started run_live() with session: {session_id}")
 
@@ -374,9 +376,11 @@ async def test_blocking_mode_denied():
 
         # Start run_live()
         live_events = test_runner_blocking.run_live(
-            session=session,
+            user_id=user_id,
+            session_id=session.id,
             live_request_queue=live_request_queue,
             run_config=run_config,
+            session=session,  # Still required during migration period
         )
         logger.info(f"[TEST] ✓ Started run_live() with session: {session_id}")
 
