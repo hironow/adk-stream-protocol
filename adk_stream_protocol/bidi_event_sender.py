@@ -309,8 +309,8 @@ class BidiEventSender:
                         await self._send_sse_event(sse_event)
 
                         # Generate unique ID for confirmation tool call
-                        # TODO: custom- とかにしたほうがいいかもしれない。injected-confirmation- とか
-                        confirmation_id = f"adk-{uuid.uuid4()}"
+                        # Use "confirm-" prefix to avoid confusion with "adk-" mode names
+                        confirmation_id = f"confirm-{uuid.uuid4()}"
 
                         logger.info(
                             f"[BIDI Phase 5] Injecting approval step for {tool_name}"
