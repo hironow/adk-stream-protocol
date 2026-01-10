@@ -209,13 +209,13 @@ run_no_deps_tests() {
     if [ "$SKIP_TYPESCRIPT" = false ]; then
         if [ "$RUN_UNIT" = true ] || [ "$RUN_ALL" = true ] || [ "$RUN_NO_DEPS" = true ]; then
             execute "lib/tests/ (vitest)" \
-                pnpm vitest run lib/ --reporter=verbose || failed=$((failed + 1))
+                bun vitest run lib/ --reporter=verbose || failed=$((failed + 1))
 
             execute "app/tests/ (vitest)" \
-                pnpm vitest run app/ --reporter=verbose || failed=$((failed + 1))
+                bun vitest run app/ --reporter=verbose || failed=$((failed + 1))
 
             execute "components/tests/ (vitest)" \
-                pnpm vitest run components/ --reporter=verbose || failed=$((failed + 1))
+                bun vitest run components/ --reporter=verbose || failed=$((failed + 1))
         fi
     fi
 
@@ -270,7 +270,7 @@ run_full_stack_tests() {
         if [ "$RUN_E2E" = true ] || [ "$RUN_SCENARIOS" = true ] || [ "$RUN_ALL" = true ] || [ "$RUN_FULL" = true ]; then
             log_warning "Requires: Backend (port 8000) + Frontend (port 3000) servers running"
             execute "scenarios/ (playwright - full E2E)" \
-                pnpm exec playwright test --workers="$workers" --global-timeout=600000 || failed=$((failed + 1))
+                bunx playwright test --workers="$workers" --global-timeout=600000 || failed=$((failed + 1))
         fi
     fi
 

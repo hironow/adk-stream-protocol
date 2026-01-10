@@ -77,3 +77,9 @@ test-results/*.log
 # Chunk logs (debug recording)
 # chunk_logs/ directory is now source code, not ignored
 chunk_logs/
+
+# SQLite databases (ADK session persistence)
+*.db
+*.db-journal
+*.db-shm
+*.db-wal

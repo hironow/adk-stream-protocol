@@ -1,0 +1,6 @@
+[tools]
+bun = "latest"
+dotenvx = "latest"
+just = "latest"
+markdownlint-cli2 = "latest"
+uv = "latest"

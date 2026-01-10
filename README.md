@@ -106,7 +106,7 @@ This project demonstrates the integration between:
 
 **Development Tools:**
 
-- pnpm (Node.js packages)
+- bun (Node.js packages)
 - uv (Python packages)
 - just (task automation)
 
@@ -118,7 +118,7 @@ This project demonstrates the integration between:
 
 - Python 3.13+
 - Node.js 18+
-- pnpm, uv, just
+- bun, uv, just
 
 ### Installation
 
@@ -128,7 +128,7 @@ just install
 
 # Or manually:
 uv sync
-pnpm install
+bun install
 ```
 
 ### Environment Setup
@@ -164,7 +164,7 @@ NEXT_PUBLIC_ADK_BACKEND_URL=http://localhost:8000
 **Gemini Direct (frontend only):**
 
 ```bash
-pnpm dev
+bun dev
 ```
 
 **ADK SSE/BIDI (backend + frontend):**
@@ -175,7 +175,7 @@ just dev
 
 # Or separately:
 just server  # Backend on :8000
-pnpm dev     # Frontend on :3000
+bun dev     # Frontend on :3000
 ```
 
 For all available commands:
@@ -198,7 +198,7 @@ just test-python
 **TypeScript Frontend Tests:**
 
 ```bash
-pnpm test:lib
+bun test:lib
 # Expected: ~565 passed (unit + integration + e2e)
 ```
 

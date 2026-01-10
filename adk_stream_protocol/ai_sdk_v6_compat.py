@@ -333,7 +333,7 @@ class ChatMessage(BaseModel):
     parts: list[MessagePart] | None = None  # AI SDK v6 format with discriminated union
 
     @model_validator(mode="after")
-    def validate_content_or_parts(self) -> "ChatMessage":
+    def validate_content_or_parts(self) -> ChatMessage:
         """Ensure at least one of content or parts is provided."""
         if self.content is None and self.parts is None:
             msg = "Message must have either 'content' or 'parts'"

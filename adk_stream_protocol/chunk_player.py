@@ -179,7 +179,7 @@ class ChunkPlayer:
         }
 
     @classmethod
-    def from_file(cls, file_path: str | Path) -> "ChunkPlayer":
+    def from_file(cls, file_path: str | Path) -> ChunkPlayer:
         """
         Create player from a specific JSONL file.
 

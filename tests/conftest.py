@@ -11,11 +11,13 @@ from unittest.mock import AsyncMock, MagicMock, Mock
 import pytest
 from dotenv import load_dotenv
 
+
 # Load .env.local for environment variables (e.g., CHUNK_LOGGER_SESSION_ID)
 # This ensures consistency across all test frameworks
 load_dotenv(".env.local")
 
-from adk_stream_protocol import ADKVercelIDMapper, FrontendToolDelegate
+
+from adk_stream_protocol import ADKVercelIDMapper, FrontendToolDelegate  # noqa: E402
 
 
 # ============================================================

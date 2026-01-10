@@ -11,7 +11,8 @@ import os
 
 from google.adk.agents import Agent
 from google.adk.apps import App, ResumabilityConfig
-from google.adk.runners import InMemoryRunner
+from google.adk.runners import InMemoryRunner, Runner
+from google.adk.sessions.sqlite_session_service import SqliteSessionService
 from google.adk.tools.function_tool import FunctionTool
 from google.genai import types
 from loguru import logger
@@ -185,8 +186,24 @@ bidi_app = App(
     ),
 )
 
-# Initialize InMemoryRunners with resumable Apps
-sse_agent_runner = InMemoryRunner(app=sse_app)
+# ========== Session Service Configuration ==========
+# SSE mode: SqliteSessionService for persistence
+# BIDI mode: InMemoryRunner (ADK run_live() constraint - DatabaseSessionService not supported)
+#
+# Reference: ADK docs state that run_live() only supports InMemorySessionService
+# See: experiments/2025-12-18_primary_source_research_live_api_longrunning.md
+
+SSE_SESSION_DB_PATH = os.getenv("ADK_SESSION_DB_PATH", "./sessions.db")
+sse_session_service = SqliteSessionService(db_path=SSE_SESSION_DB_PATH)
+logger.info(f"SSE Session Service: SqliteSessionService (db_path={SSE_SESSION_DB_PATH})")
+
+# Initialize Runners with appropriate session services
+# SSE: Runner with SqliteSessionService for persistent sessions
+sse_agent_runner = Runner(
+    app=sse_app,
+    session_service=sse_session_service,
+)
+# BIDI: InMemoryRunner (no custom session service possible, ADK constraint)
 bidi_agent_runner = InMemoryRunner(app=bidi_app)
 
 

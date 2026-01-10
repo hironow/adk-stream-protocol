@@ -127,7 +127,21 @@
       "Bash(pnpm test:e2e:lib:*)",
       "Bash(pnpm run test:components)",
       "Bash(ls:*)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(bun vitest run:*)",
+      "Bash(echo:*)",
+      "WebFetch(domain:pypi.org)",
+      "Bash(uv sync:*)",
+      "Bash(uv lock:*)",
+      "Bash(bun run playwright:*)",
+      "Bash(bun run test:e2e:app:*)",
+      "Bash(bunx playwright test:*)",
+      "Bash(while ps aux)",
+      "Bash(bunx vitest run:*)",
+      "Bash(timeout 60 uv run:*)",
+      "Bash(timeout 5 uv run python:*)",
+      "Bash(bunx biome:*)",
+      "Bash(timeout 60 bun vitest run:*)"
     ],
     "deny": [
       "Read(.env.keys)",

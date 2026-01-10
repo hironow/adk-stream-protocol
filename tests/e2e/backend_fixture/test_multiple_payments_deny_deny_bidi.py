@@ -120,7 +120,10 @@ async def test_multiple_payments_deny_deny_bidi(frontend_fixture_dir: Path):
             try:
                 json_str = event[6:].strip()
                 event_data = json.loads(json_str)
-                if event_data.get("type") == "tool-output-error" and event_data.get("toolCallId") == alice_tool_call_id:
+                if (
+                    event_data.get("type") == "tool-output-error"
+                    and event_data.get("toolCallId") == alice_tool_call_id
+                ):
                     alice_error = event_data.get("errorText", "")
                     print(f"✓ Turn 2: Found Alice tool-output-error: {alice_error}")
                     break
@@ -129,8 +132,9 @@ async def test_multiple_payments_deny_deny_bidi(frontend_fixture_dir: Path):
 
         # Verify Alice was denied
         assert alice_error is not None, "Expected Alice tool-output-error event"
-        assert "denied" in alice_error.lower() or "rejected" in alice_error.lower(), \
+        assert "denied" in alice_error.lower() or "rejected" in alice_error.lower(), (
             f"Alice error should mention denial/rejection: {alice_error}"
+        )
         print(f"✓ Turn 2: Alice denied: {alice_error}")
         print("✓ Turn 2: Alice denied + Bob approval request")
 
@@ -159,7 +163,9 @@ async def test_multiple_payments_deny_deny_bidi(frontend_fixture_dir: Path):
         turn3_events: list[str] = []
         while True:
             try:
-                event = await asyncio.wait_for(websocket.recv(), timeout=10.0)
+                event_raw = await asyncio.wait_for(websocket.recv(), timeout=10.0)
+                # Ensure event is str (websocket.recv() can return bytes or str)
+                event = event_raw.decode("utf-8") if isinstance(event_raw, bytes) else event_raw
                 turn3_events.append(event)
                 all_events.append(event)
 
@@ -177,7 +183,10 @@ async def test_multiple_payments_deny_deny_bidi(frontend_fixture_dir: Path):
             try:
                 json_str = event[6:].strip()
                 event_data = json.loads(json_str)
-                if event_data.get("type") == "tool-output-error" and event_data.get("toolCallId") == bob_tool_call_id:
+                if (
+                    event_data.get("type") == "tool-output-error"
+                    and event_data.get("toolCallId") == bob_tool_call_id
+                ):
                     bob_error = event_data.get("errorText", "")
                     print(f"✓ Turn 3: Found Bob tool-output-error: {bob_error}")
                     break
@@ -186,8 +195,9 @@ async def test_multiple_payments_deny_deny_bidi(frontend_fixture_dir: Path):
 
         # Verify Bob was denied
         assert bob_error is not None, "Expected Bob tool-output-error event"
-        assert "denied" in bob_error.lower() or "rejected" in bob_error.lower(), \
+        assert "denied" in bob_error.lower() or "rejected" in bob_error.lower(), (
             f"Bob error should mention denial/rejection: {bob_error}"
+        )
         print(f"✓ Turn 3: Bob denied: {bob_error}")
 
         done_count = count_done_markers(turn3_events)

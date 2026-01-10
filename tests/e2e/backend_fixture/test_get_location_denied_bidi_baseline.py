@@ -100,7 +100,9 @@ async def test_get_location_denied_bidi_baseline(frontend_fixture_dir: Path):
         print("\n=== Receiving remaining events until [DONE] ===")
         while True:
             try:
-                event = await asyncio.wait_for(websocket.recv(), timeout=10.0)
+                event_raw = await asyncio.wait_for(websocket.recv(), timeout=10.0)
+                # Ensure event is str (websocket.recv() can return bytes or str)
+                event = event_raw.decode("utf-8") if isinstance(event_raw, bytes) else event_raw
                 all_events.append(event)
                 print(f"Event {len(all_events)}: {event.strip()}")
 

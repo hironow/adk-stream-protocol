@@ -54,7 +54,7 @@ class DeferredApprovalPlugin(BasePlugin):
     2. Final response (will_continue=False) - sent after approval
     """
 
-    def __init__(self, approval_queue: "ApprovalQueue") -> None:
+    def __init__(self, approval_queue: ApprovalQueue) -> None:
         super().__init__(name="deferred_approval_plugin")
         self.approval_queue = approval_queue
 
@@ -90,6 +90,7 @@ class DeferredApprovalPlugin(BasePlugin):
             return None
 
         tool_call_id = tool_context.function_call_id
+        assert tool_call_id is not None, "function_call_id must not be None"
 
         # Create pending FunctionResponse with will_continue=True
         pending_func_response = types.FunctionResponse(
@@ -245,7 +246,7 @@ test_approval_declaration_blocking = types.FunctionDeclaration.from_callable_wit
 # Wrap tool with FunctionTool using the custom declaration
 TEST_APPROVAL_TOOL = FunctionTool(approval_test_tool)
 # Override the declaration with our NON_BLOCKING version
-TEST_APPROVAL_TOOL._declaration = test_approval_declaration_non_blocking
+TEST_APPROVAL_TOOL._declaration = test_approval_declaration_non_blocking  # type: ignore[attr-defined]
 # TEMPORARILY DISABLED: Testing if is_long_running interferes with plugin callbacks
 # TEST_APPROVAL_TOOL.is_long_running = True
 
@@ -552,9 +553,11 @@ async def test_deferred_approval_flow_approved():
 
         # Start run_live() with the created session (use plugin-enabled runner!)
         live_events = test_runner_with_plugin.run_live(
-            session=session,
+            user_id=user_id,
+            session_id=session.id,
             live_request_queue=live_request_queue,
             run_config=run_config,
+            session=session,  # Still required during migration period
         )
         logger.info(f"[TEST] ✓ Started run_live() with session: {session_id}")
 
@@ -746,9 +749,11 @@ async def test_deferred_approval_flow_rejected():
 
         # Start run_live() with the created session
         live_events = test_agent_runner.run_live(
-            session=session,
+            user_id=user_id,
+            session_id=session.id,
             live_request_queue=live_request_queue,
             run_config=run_config,
+            session=session,  # Still required during migration period
         )
         logger.info(f"[TEST] ✓ Started run_live() with session: {session_id}")
 

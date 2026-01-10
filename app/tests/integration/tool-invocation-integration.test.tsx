@@ -15,6 +15,12 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ToolInvocationComponent } from "@/components/tool-invocation";
+import { createMockAudioContext } from "@/lib/tests/shared-mocks";
+
+// Mock audio-context for ToolInvocationComponent which uses useAudio hook
+vi.mock("@/lib/audio-context", () => ({
+  useAudio: () => createMockAudioContext(),
+}));
 
 describe("Tool Invocation Component Integration", () => {
   describe("Tool Approval Pattern (ADR 0002)", () => {

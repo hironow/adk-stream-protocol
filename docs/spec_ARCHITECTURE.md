@@ -1,6 +1,6 @@
 # Architecture Documentation
 
-**Last Updated:** 2025-12-24
+**Last Updated:** 2026-01-02
 
 This document describes the key architectural patterns and technical implementations in the ADK AI Data Protocol project.
 
@@ -170,7 +170,7 @@ if (
     # Frontend sends approval back via WebSocket
 ```
 
-**Frontend:** `lib/websocket-chat-transport.ts:handleWebSocketMessage()`
+**Frontend:** `lib/bidi/transport.ts` (WebSocketChatTransport class)
 
 ```typescript
 case "tool-approval": {
@@ -420,7 +420,7 @@ Backend: stream_adk_to_ai_sdk()
     |
     | Convert to SSE format
     v
-SSE: data: {"type":"data-pcm","chunk":"base64...","sampleRate":24000}
+SSE: data: {"type":"data-pcm","data":{"content":"base64...","sampleRate":24000,"channels":1,"bitDepth":16}}
     |
     v
 Frontend: Accumulate PCM chunks
@@ -500,7 +500,7 @@ The project uses AI SDK v6's extensible `data-*` pattern for multimodal content:
 | Event Type | Purpose | Data Format |
 |------------|---------|-------------|
 | `data-image` | Image display | `{ mediaType: "image/png", data: "base64..." }` |
-| `data-pcm` | Audio PCM chunk | `{ chunk: "base64...", sampleRate: 24000 }` |
+| `data-pcm` | Audio PCM chunk | `{ data: { content: "base64...", sampleRate: 24000, channels: 1, bitDepth: 16 } }` |
 | `audio_chunk` | Audio input (WebSocket) | `{ chunk: "base64...", sampleRate: 16000, channels: 1, bitDepth: 16 }` |
 
 ---
@@ -1107,5 +1107,5 @@ Complete test matrix coverage for all conditional logic branches.
 
 ---
 
-**Last Updated:** 2025-12-24
-**Status:** Phase 1-3 Complete, Phase 4 (Video) Future Work
+**Last Updated:** 2026-01-02
+**Status:** Phase 1-3 Complete

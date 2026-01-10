@@ -2,40 +2,45 @@
   "name": "adk-stream-protocol",
   "version": "1.0.2",
   "description": "AI SDK v6 and Google ADK integration example with data stream protocol",
+  "workspaces": [
+    "."
+  ],
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
     "start": "next start -p 3000",
     "lint": "biome check --write .",
-    "format": "biome format --write ."
+    "format": "biome format --write .",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [],
   "author": "hironow",
   "license": "MIT",
   "dependencies": {
-    "@ai-sdk/google": "3.0.1",
-    "@ai-sdk/react": "3.0.3",
+    "@ai-sdk/google": "3.0.6",
+    "@ai-sdk/react": "3.0.26",
     "@valibot/to-json-schema": "^1.5.0",
-    "ai": "6.0.3",
-    "effect": "^3.19.11",
-    "next": "^16.0.10",
+    "ai": "6.0.25",
+    "effect": "^3.19.14",
+    "next": "^16.1.1",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "zod": "^4.1.13"
+    "zod": "^4.3.5"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.0",
-    "@biomejs/biome": "^2.3.8",
+    "@biomejs/biome": "^2.3.11",
     "@playwright/test": "^1.57.0",
     "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.0",
+    "@testing-library/react": "^16.3.1",
     "@testing-library/user-event": "^14.6.1",
-    "@types/node": "^25.0.1",
+    "@types/node": "^25.0.3",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "dotenv": "^17.2.3",
-    "jsdom": "^27.3.0",
-    "msw": "^2.12.4",
+    "jsdom": "^27.4.0",
+    "msw": "^2.12.7",
     "typescript": "^5.9.3",
     "vitest": "^4.0.16"
   }
