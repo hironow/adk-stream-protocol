@@ -50,6 +50,17 @@ TypeScript frontend with AI SDK v6 and React:
 
 ---
 
+## 🌐 External API
+
+For external clients (iOS, Android, third-party integrations):
+
+- **[Server API Reference](external/server-api.md)** - REST/WebSocket API for external clients
+    - SSE streaming (POST /stream)
+    - WebSocket BIDI (/live)
+    - Swift implementation examples
+
+---
+
 ## 🧪 Testing
 
 Comprehensive testing strategy across all layers:

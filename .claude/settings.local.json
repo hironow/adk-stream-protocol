@@ -133,7 +133,10 @@
       "WebFetch(domain:pypi.org)",
       "Bash(uv sync:*)",
       "Bash(uv lock:*)",
-      "Bash(bun run playwright:*)"
+      "Bash(bun run playwright:*)",
+      "Bash(bun run test:e2e:app:*)",
+      "Bash(bunx playwright test:*)",
+      "Bash(while ps aux)"
     ],
     "deny": [
       "Read(.env.keys)",
