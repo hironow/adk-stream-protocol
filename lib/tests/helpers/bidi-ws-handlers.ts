@@ -63,6 +63,17 @@ export function createTextResponseHandler(
     client.addEventListener("message", (event) => {
       console.log("[MSW WebSocket] Received client message:", event.data);
 
+      // Skip ping messages
+      try {
+        const data = JSON.parse(event.data as string);
+        if (data.type === "ping") {
+          console.log("[MSW WebSocket] Skipping ping message");
+          return;
+        }
+      } catch {
+        // Not JSON, continue processing
+      }
+
       // AI SDK v6 expects: text-start, text-delta(s), text-end sequence
       const textId = `text-${Date.now()}`;
 
