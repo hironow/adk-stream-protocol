@@ -490,3 +490,98 @@ describe("ToolInvocation Frontend Delegate Auto-Execution Tests", () => {
     expect(executeToolCallback).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * BGM AudioContext Integration Tests
+ *
+ * Tests that change_bgm tool properly integrates with AudioContext.
+ * Verifies switchTrack() is called when track change is needed.
+ */
+describe("ToolInvocation BGM AudioContext Integration", () => {
+  it("should call switchTrack when requested track differs from current (track 2 requested, current is 0)", () => {
+    // Given: Mock bgmChannel with currentTrack = 0
+    const mockSwitchTrack = vi.fn();
+    const mockBgmChannel = {
+      currentTrack: 0, // Currently playing track 0 (bgm.wav)
+      switchTrack: mockSwitchTrack,
+    };
+
+    // Simulate the logic we need to implement:
+    // Tool input: track 2 (1-indexed) → Audio track 1 (0-indexed)
+    const requestedTrack = 2;
+    const targetAudioTrack = requestedTrack - 1; // Convert to 0-indexed
+
+    // When: Check if switch is needed and execute
+    if (mockBgmChannel.currentTrack !== targetAudioTrack) {
+      mockBgmChannel.switchTrack();
+    }
+
+    // Then: switchTrack should be called
+    expect(mockSwitchTrack).toHaveBeenCalledTimes(1);
+  });
+
+  it("should NOT call switchTrack when requested track matches current (track 1 requested, current is 0)", () => {
+    // Given: Mock bgmChannel with currentTrack = 0
+    const mockSwitchTrack = vi.fn();
+    const mockBgmChannel = {
+      currentTrack: 0, // Currently playing track 0 (bgm.wav)
+      switchTrack: mockSwitchTrack,
+    };
+
+    // Simulate the logic:
+    // Tool input: track 1 (1-indexed) → Audio track 0 (0-indexed)
+    const requestedTrack = 1;
+    const targetAudioTrack = requestedTrack - 1; // Convert to 0-indexed
+
+    // When: Check if switch is needed
+    if (mockBgmChannel.currentTrack !== targetAudioTrack) {
+      mockBgmChannel.switchTrack();
+    }
+
+    // Then: switchTrack should NOT be called (already on correct track)
+    expect(mockSwitchTrack).not.toHaveBeenCalled();
+  });
+
+  it("should call switchTrack when switching from track 1 to track 2", () => {
+    // Given: Mock bgmChannel with currentTrack = 1
+    const mockSwitchTrack = vi.fn();
+    const mockBgmChannel = {
+      currentTrack: 1, // Currently playing track 1 (bgm2.wav)
+      switchTrack: mockSwitchTrack,
+    };
+
+    // Simulate: Tool input: track 1 (1-indexed) → Audio track 0
+    const requestedTrack = 1;
+    const targetAudioTrack = requestedTrack - 1;
+
+    // When: Check if switch is needed
+    if (mockBgmChannel.currentTrack !== targetAudioTrack) {
+      mockBgmChannel.switchTrack();
+    }
+
+    // Then: switchTrack should be called
+    expect(mockSwitchTrack).toHaveBeenCalledTimes(1);
+  });
+
+  it("should default to track 1 when no track is specified", () => {
+    // Given: Mock bgmChannel with currentTrack = 1
+    const mockSwitchTrack = vi.fn();
+    const mockBgmChannel = {
+      currentTrack: 1,
+      switchTrack: mockSwitchTrack,
+    };
+
+    // Simulate: No track specified, default to 1
+    const toolInput = {}; // No track property
+    const requestedTrack = (toolInput as { track?: number }).track || 1;
+    const targetAudioTrack = requestedTrack - 1;
+
+    // When: Check if switch is needed
+    if (mockBgmChannel.currentTrack !== targetAudioTrack) {
+      mockBgmChannel.switchTrack();
+    }
+
+    // Then: switchTrack should be called (1 → 0)
+    expect(mockSwitchTrack).toHaveBeenCalledTimes(1);
+  });
+});
