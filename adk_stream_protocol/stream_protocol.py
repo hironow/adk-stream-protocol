@@ -785,7 +785,6 @@ class StreamProtocolConverter:
             # Send PCM chunk immediately as data-pcm event (AI SDK v6 Stream Protocol)
             base64_content = base64.b64encode(inline_data.data).decode("utf-8")
 
-            # TODO: before: pcm data is plain data, after: dict with metadata
             event = self.format_sse_event(
                 {
                     "type": "data-pcm",

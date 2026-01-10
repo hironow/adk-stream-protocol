@@ -345,7 +345,7 @@ class WebSocketClient {
 
 | Event | Fields | Description |
 |-------|--------|-------------|
-| `data-pcm` | `chunk`, `sampleRate` | 音声PCMデータ (24kHz) |
+| `data-pcm` | `data.content`, `data.sampleRate`, `data.channels`, `data.bitDepth` | 音声PCMデータ (24kHz, 1ch, 16bit) |
 | `data-image` | `data`, `mediaType` | 画像データ |
 | `data-executable-code` | `code`, `language` | コード実行要求 |
 | `data-code-execution-result` | `output` | コード実行結果 |
