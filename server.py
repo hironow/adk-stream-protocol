@@ -21,6 +21,12 @@ from dotenv import load_dotenv
 # This ensures ChunkLogger reads the correct environment variables
 load_dotenv(".env.local")
 
+# Configure logging first (before other imports that use logger)
+# This enables LOG_LEVEL environment variable control
+from adk_stream_protocol.logging_config import configure_logging  # noqa: E402, I001
+
+configure_logging()
+
 # All following imports have
 # ChunkLogger and other modules depend on environment variables being loaded first
 from fastapi import (  # noqa: E402
