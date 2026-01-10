@@ -11,6 +11,8 @@ export default function ChatPage() {
   const [mode, setMode] = useState<BackendMode>("gemini");
   // Message history preservation across mode switches
   const [messages, setMessages] = useState<UIMessageFromAISDKv6[]>([]);
+  // Version counter to force Chat remount on clear
+  const [messagesVersion, setMessagesVersion] = useState(0);
 
   return (
     <AudioProvider>
@@ -31,7 +33,7 @@ export default function ChatPage() {
         {/* buildUseChatOptions() creates appropriate transport based on mode */}
         {/* P4-T9: Pass initialMessages and onMessagesChange for history preservation */}
         <Chat
-          key={mode}
+          key={`${mode}-v${messagesVersion}`}
           mode={mode}
           initialMessages={messages}
           onMessagesChange={setMessages}
@@ -162,8 +164,8 @@ export default function ChatPage() {
             <button
               type="button"
               onClick={() => {
-                // TODO: not working?
                 setMessages([]);
+                setMessagesVersion((v) => v + 1);
               }}
               tabIndex={-1}
               style={{
