@@ -138,7 +138,9 @@
       "Bash(bunx playwright test:*)",
       "Bash(while ps aux)",
       "Bash(bunx vitest run:*)",
-      "Bash(timeout 60 uv run:*)"
+      "Bash(timeout 60 uv run:*)",
+      "Bash(timeout 5 uv run python:*)",
+      "Bash(bunx biome:*)"
     ],
     "deny": [
       "Read(.env.keys)",

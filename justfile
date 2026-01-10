@@ -180,7 +180,7 @@ delete-deps:
 [group("hardercleaner")]
 delete-lock:
     @echo "Cleaning up lock files..."
-    rm -f pnpm-lock.yaml
+    rm -f bun.lock
     rm -f uv.lock
     @echo "Lock files cleaned."
 

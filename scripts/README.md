@@ -186,9 +186,9 @@ just test-server-e2e         # → ./scripts/run-tests.sh --backend-only
 just test-server-all         # → ./scripts/run-tests.sh --all --skip-typescript --skip-playwright
 
 # TypeScript tests
-just test-frontend-lib       # → pnpm run test:lib (direct vitest call)
-just test-frontend-app       # → pnpm run test:app (direct vitest call)
-just test-frontend-components # → pnpm run test:components (direct vitest call)
+just test-frontend-lib       # → bun run test:lib (direct vitest call)
+just test-frontend-app       # → bun run test:app (direct vitest call)
+just test-frontend-components # → bun run test:components (direct vitest call)
 just test-frontend-all       # → ./scripts/run-tests.sh --all --skip-python --skip-playwright
 
 # E2E tests
