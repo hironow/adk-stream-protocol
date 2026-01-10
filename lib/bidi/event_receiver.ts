@@ -25,12 +25,24 @@ export interface AudioContext {
 }
 
 /**
+ * PCM audio format parameters
+ */
+interface PCMFormat {
+  sampleRate: number;
+  channels: number;
+  bitDepth: number;
+}
+
+/**
  * PCM audio chunk structure from ADK BIDI protocol
  */
 interface PCMAudioChunk {
   type: "data-pcm";
   data: {
     content: string; // base64-encoded PCM data
+    sampleRate?: number; // default: 24000 (ADK BIDI default)
+    channels?: number; // default: 1 (mono)
+    bitDepth?: number; // default: 16
   };
 }
 
@@ -68,6 +80,7 @@ export class EventReceiver {
   private waitingForFinishStepAfterApproval = false; // Flag for BIDI BLOCKING pattern (ADR 0011)
   private audioChunkIndex = 0;
   private pcmBuffer: Int16Array[] = [];
+  private pcmFormat: PCMFormat | null = null;
 
   constructor(private config: EventReceiverConfig) {}
 
@@ -362,7 +375,17 @@ export class EventReceiver {
    */
   private handlePCMAudioChunk(chunk: PCMAudioChunk): void {
     try {
-      // TODO: handle chunk data PCM format changes
+      // Extract PCM format with defaults for ADK BIDI standard format
+      const format: PCMFormat = {
+        sampleRate: chunk.data?.sampleRate ?? 24000,
+        channels: chunk.data?.channels ?? 1,
+        bitDepth: chunk.data?.bitDepth ?? 16,
+      };
+      // Store format for WAV conversion (uses first chunk's format)
+      if (!this.pcmFormat) {
+        this.pcmFormat = format;
+      }
+
       if (!chunk.data) {
         console.warn(
           "[Audio Stream] Invalid PCM chunk: missing data field: ",
@@ -481,10 +504,11 @@ export class EventReceiver {
       offset += chunk.length;
     }
 
-    // WAV file parameters (match ADK BIDI output format)
-    const sampleRate = 24000; // 24kHz (ADK BIDI default)
-    const numChannels = 1; // Mono
-    const bitsPerSample = 16; // 16-bit
+    // WAV file parameters (from received PCM format or ADK BIDI defaults)
+    const format = this.pcmFormat ?? { sampleRate: 24000, channels: 1, bitDepth: 16 };
+    const sampleRate = format.sampleRate;
+    const numChannels = format.channels;
+    const bitsPerSample = format.bitDepth;
 
     // Create WAV file buffer
     const wavBuffer = new ArrayBuffer(44 + pcmData.length * 2);

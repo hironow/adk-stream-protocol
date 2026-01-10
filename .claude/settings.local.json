@@ -136,7 +136,8 @@
       "Bash(bun run playwright:*)",
       "Bash(bun run test:e2e:app:*)",
       "Bash(bunx playwright test:*)",
-      "Bash(while ps aux)"
+      "Bash(while ps aux)",
+      "Bash(bunx vitest run:*)"
     ],
     "deny": [
       "Read(.env.keys)",

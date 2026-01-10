@@ -1,6 +1,6 @@
 # 0006. sendAutomaticallyWhen Decision Logic Order
 
-**Date:** 2024-12-24
+**Date:** 2025-12-24
 **Status:** Accepted
 
 ## Context
