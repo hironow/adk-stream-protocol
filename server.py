@@ -12,7 +12,7 @@ import os
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from dotenv import load_dotenv
 
@@ -23,7 +23,14 @@ load_dotenv(".env.local")
 
 # All following imports have
 # ChunkLogger and other modules depend on environment variables being loaded first
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect  # noqa: E402
+from fastapi import (  # noqa: E402
+    Depends,
+    FastAPI,
+    Header,
+    HTTPException,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.responses import StreamingResponse  # noqa: E402
 from google.adk.agents import LiveRequestQueue  # noqa: E402
@@ -54,34 +61,54 @@ from adk_stream_protocol import (  # noqa: E402  # noqa: E402  # noqa: E402
 )
 
 
-def _get_user() -> str:
+# ========== API Key Authentication ==========
+# Simple API key authentication for production environments.
+# Default key is for development only - override with API_KEY env var in production.
+API_KEY = os.getenv("API_KEY", "dev-key-12345")
+
+
+async def verify_api_key(x_api_key: str = Header(None, alias="X-API-Key")) -> str:
     """
-    Get the current user ID.
+    Verify API key from X-API-Key header.
 
-    IMPORTANT: This is a simplified implementation for a demo/development environment.
-    In production, this would:
-    - Extract user ID from JWT token, session cookie, or OAuth token
-    - Query a user database or authentication service
-    - Handle multi-tenancy and user isolation
-
-    Since this backend has no persistence layer (no database), we're using a fixed
-    user ID for all requests. This means:
-    - All requests share the same ADK session
-    - Conversation history persists across page refreshes
-    - This is suitable for single-user demo environments only
+    Args:
+        x_api_key: API key from request header
 
     Returns:
-        str: User ID (currently fixed for demo purposes)
-    """
-    # TODO: In production, implement proper user authentication
-    # Examples:
-    # - return extract_user_from_jwt(request.headers.get("Authorization"))
-    # - return get_user_from_session(request.cookies.get("session_id"))
-    # - return oauth_provider.get_current_user()
+        str: The validated API key
 
-    # For now, return a fixed user ID for the demo environment
-    # This creates a single persistent session for all requests
-    return "demo_user_001"
+    Raises:
+        HTTPException: 401 if API key is missing or invalid
+    """
+    if x_api_key is None:
+        raise HTTPException(status_code=401, detail="Missing API key. Provide X-API-Key header.")
+    if x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+    return x_api_key
+
+
+def _get_user(api_key: str | None = None) -> str:
+    """
+    Get the user ID derived from API key.
+
+    Args:
+        api_key: The validated API key. If None, returns demo user (for backward compatibility).
+
+    Returns:
+        str: User ID derived from API key hash, or "demo_user_001" if no API key.
+
+    Note:
+        User ID is derived using hash for consistent mapping:
+        - Same API key always returns same user ID
+        - Different API keys return different user IDs
+        - Format: "user_{hash % 10000}" (0-9999 range)
+    """
+    if api_key is None:
+        # Backward compatibility: return fixed demo user
+        return "demo_user_001"
+
+    # Derive user ID from API key hash for consistent mapping
+    return f"user_{hash(api_key) % 10000}"
 
 
 # Configure file logging
@@ -164,9 +191,9 @@ class ChatRequest(BaseModel):
     """
 
     messages: list[ChatMessage]
-    chatId: str | None = None  # Optional - for compatibility with BIDI mode
+    chatId: str | None = None  # Optional - for compatibility with BIDI mode  # noqa: N815
     trigger: Literal["submit-message", "regenerate-message"] | None = None
-    messageId: str | None = None
+    messageId: str | None = None  # noqa: N815
 
     # Pydantic v2 uses model_config instead of Config class
     model_config = {"extra": "allow"}  # Allow additional fields for future compatibility
@@ -237,8 +264,7 @@ def _process_latest_message(
         # Check if this is a tool confirmation response
         # Note: The tool_name will be the original tool (e.g., process_payment), not adk_request_confirmation
         has_confirmation = last_message.parts is not None and any(
-            isinstance(part, ToolUsePart)
-            and part.state == ToolCallState.APPROVAL_RESPONDED
+            isinstance(part, ToolUsePart) and part.state == ToolCallState.APPROVAL_RESPONDED
             for part in last_message.parts
         )
 
@@ -268,21 +294,26 @@ def _process_latest_message(
 
 
 @app.post("/stream")
-async def stream(request: ChatRequest):  # noqa: C901, PLR0915
+async def stream(  # noqa: C901, PLR0915
+    request: ChatRequest,
+    api_key: Annotated[str, Depends(verify_api_key)],
+):
     """
-    SSE streaming endpoint
+    SSE streaming endpoint (requires API key authentication).
 
     Transaction Script Pattern:
-    1. Validate input messages
-    2. Get or create session
-    3. Sync conversation history (mode switching support)
-    4. Create ADK message content from latest message
-    5. Run ADK agent in streaming mode
-    6. Convert ADK events to AI SDK format and stream
+    1. Validate API key (via dependency injection)
+    2. Validate input messages
+    3. Get or create session
+    4. Sync conversation history (mode switching support)
+    5. Create ADK message content from latest message
+    6. Run ADK agent in streaming mode
+    7. Convert ADK events to AI SDK format and stream
 
     AI SDK v6 Data Stream Protocol compliant endpoint.
     - Request: UIMessage[] (full message history)
     - Response: SSE stream (text-start, text-delta, text-end, finish)
+    - Header: X-API-Key (required)
     """
     logger.info("[/stream] ===== API REQUEST RECEIVED =====")
     logger.info(f"[/stream] Total messages: {len(request.messages)}")
@@ -325,8 +356,8 @@ async def stream(request: ChatRequest):  # noqa: C901, PLR0915
     # Create SSE stream generator inline (transaction script pattern)
     async def generate_sse_stream():  # noqa: C901, PLR0912, PLR0915
         # 2. Session management
-        # Get user ID (single user mode for demo environment without database)
-        user_id = _get_user()
+        # Get user ID derived from API key (ensures user isolation)
+        user_id = _get_user(api_key)
         # App-based runner requires app_name to match the App's name
         session = await get_or_create_session(user_id, sse_agent_runner, "adk_assistant_app_sse")
         logger.info(f"[/stream] Session ID: {session.id}")

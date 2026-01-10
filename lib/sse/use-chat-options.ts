@@ -123,16 +123,27 @@ export function buildSseUseChatOptions({
     ? `chat-${mode}-${endpointHash}-${crypto.randomUUID()}`
     : `chat-${mode}-${endpointHash}`;
 
-  // WORKAROUND: Use prepareSendMessagesRequest to override endpoint
+  // Get API key from environment variable (for authenticated requests)
+  const apiKey = process.env.NEXT_PUBLIC_API_KEY;
+
+  // WORKAROUND: Use prepareSendMessagesRequest to override endpoint and add auth headers
   // This is the proper extension point in AI SDK v6 for dynamic endpoint routing
   // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 type definition requires body field which breaks functionality
   const prepareSendMessagesRequest = async (options: any) => {
     // IMPORTANT: Don't return `body` field - let AI SDK construct it
     // If we return body: {}, AI SDK will use that empty object instead of building the proper request
     const { body: _body, ...restOptions } = options;
+
+    // Build headers with API key authentication (for ADK SSE mode)
+    const headers = {
+      ...(restOptions.headers || {}),
+      ...(mode === "adk-sse" && apiKey ? { "X-API-Key": apiKey } : {}),
+    };
+
     return {
       ...restOptions,
       api: endpoint, // Override with correct endpoint for this mode
+      headers,
     };
   };
 
