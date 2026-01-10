@@ -113,9 +113,9 @@ The `useChat` hook receives the same `UIMessageChunk` stream regardless of:
 
 Make sure you have the following installed:
 
-- **Python 3.13+** - Required for ADK backend
+- **Python 3.14+** - Required for ADK backend
 - **Node.js 18+** - Required for Next.js frontend
-- **pnpm** - Node.js package manager (install via `npm install -g pnpm`)
+- **bun** - Node.js package manager and runtime (install via `curl -fsSL https://bun.sh/install | bash`)
 - **uv** - Python package manager (install via `curl -LsSf https://astral.sh/uv/install.sh | sh`)
 - **just** - Task runner (install via `cargo install just` or `brew install just`)
 
@@ -141,7 +141,7 @@ If you prefer to install dependencies separately:
 uv sync
 
 # Install Node.js dependencies
-pnpm install
+bun install
 ```
 
 ## Configuration
@@ -198,7 +198,7 @@ This mode requires no backend server - AI SDK v6 connects directly to Gemini API
 
 ```bash
 # Start frontend development server
-pnpm dev
+bun dev
 ```
 
 Visit: <http://localhost:3000>
@@ -232,7 +232,7 @@ just server
 # or: uv run uvicorn server:app --reload --host 0.0.0.0 --port 8000
 
 # Terminal 2: Frontend server
-pnpm dev
+bun dev
 ```
 
 ### Verify Backend is Running
@@ -527,7 +527,7 @@ The frontend uses:
 
 **Development Tips:**
 
-- Use `pnpm dev` for hot reload
+- Use `bun dev` for hot reload (or `just dev` for full stack)
 - Check browser console for client-side errors
 - Check Next.js terminal for server-side errors
 - Clear `.next` cache if changes don't apply
@@ -553,8 +553,8 @@ uv sync  # Reinstall Python dependencies
 **Solution:**
 
 ```bash
-pnpm install  # Reinstall Node.js dependencies
-rm -rf .next && pnpm dev  # Clear cache and restart
+bun install  # Reinstall Node.js dependencies
+rm -rf .next && bun dev  # Clear cache and restart
 ```
 
 #### 3. API Key errors
@@ -597,7 +597,7 @@ rm -rf .next && pnpm dev  # Clear cache and restart
 1. **Clear Next.js cache** if changes don't apply:
 
    ```bash
-   rm -rf .next && pnpm dev
+   rm -rf .next && bun dev
    ```
 
 2. **Check server logs** for actual errors (not just browser console)
@@ -609,7 +609,7 @@ rm -rf .next && pnpm dev  # Clear cache and restart
 5. **Check Python version:**
 
    ```bash
-   python --version  # Should be 3.13+
+   python --version  # Should be 3.14+
    uv run python --version
    ```
 

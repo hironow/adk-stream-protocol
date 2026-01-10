@@ -26,29 +26,29 @@ uv run pytest tests/e2e/
 
 ```bash
 # All frontend tests
-pnpm test:lib
+bun run test:lib
 
 # Specific layer
-pnpm test:lib:unit
-pnpm test:lib:integration
-pnpm test:lib:e2e
+bun run test:lib:unit
+bun run test:lib:integration
+bun run test:lib:e2e
 
 # Component tests
-pnpm test:components
-pnpm test:app
+bun run test:components
+bun run test:app
 ```
 
 **E2E (Playwright)**:
 
 ```bash
 # Full E2E tests
-pnpm test:e2e:app
+bun run test:e2e:app
 
 # Fast smoke tests only
-pnpm test:e2e:app:smoke
+bun run test:e2e:app:smoke
 
 # Interactive UI mode
-pnpm test:e2e:ui
+bun run test:e2e:ui
 ```
 
 ---

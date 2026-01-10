@@ -273,16 +273,16 @@ it('handles WebSocket messages', async () => {
 
 ```bash
 # すべてのユニットテスト
-pnpm exec vitest run lib/tests/unit/
+bunx vitest run lib/tests/unit/
 
 # すべてのインテグレーションテスト
-pnpm exec vitest run lib/tests/integration/
+bunx vitest run lib/tests/integration/
 
 # 特定のテストファイル
-pnpm exec vitest run lib/tests/unit/chunk_logs-public-api.test.ts
+bunx vitest run lib/tests/unit/chunk_logs-public-api.test.ts
 
 # Watch mode
-pnpm exec vitest lib/tests/unit/
+bunx vitest lib/tests/unit/
 ```
 
 ## 注意事項
