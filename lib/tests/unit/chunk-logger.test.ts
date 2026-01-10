@@ -323,7 +323,9 @@ describe("ChunkLogger", () => {
 
       // when - filter by location (client-side filtering)
       const entries = logger.getEntries();
-      const transportEntries = entries.filter((e) => e.location === "transport");
+      const transportEntries = entries.filter(
+        (e) => e.location === "transport",
+      );
       const frontendEntries = entries.filter((e) => e.location === "frontend");
 
       // then
@@ -377,9 +379,13 @@ describe("ChunkLogger", () => {
       // when
       const entries = logger.getEntries();
       // biome-ignore lint/suspicious/noExplicitAny: Test filtering
-      const textDeltas = entries.filter((e) => (e.chunk as any)?.type === "text-delta");
+      const textDeltas = entries.filter(
+        (e) => (e.chunk as any)?.type === "text-delta",
+      );
       // biome-ignore lint/suspicious/noExplicitAny: Test filtering
-      const toolCalls = entries.filter((e) => (e.chunk as any)?.type === "tool-call");
+      const toolCalls = entries.filter(
+        (e) => (e.chunk as any)?.type === "tool-call",
+      );
 
       // then
       expect(textDeltas).toHaveLength(1);

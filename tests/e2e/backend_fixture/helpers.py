@@ -95,7 +95,9 @@ async def receive_events_until_approval_request(
     )
     while True:
         try:
-            event = await asyncio.wait_for(websocket.recv(), timeout=timeout)
+            event_raw = await asyncio.wait_for(websocket.recv(), timeout=timeout)
+            # Ensure event is str (websocket.recv() can return bytes or str)
+            event = event_raw.decode("utf-8") if isinstance(event_raw, bytes) else event_raw
             all_events.append(event)
             print(f"Event {len(all_events)}: {event.strip()}")
 
@@ -351,7 +353,7 @@ def create_tool_result_message(
     }
 
 
-async def send_bidi_request(  # noqa: C901, PLR0912, PLR0915
+async def send_bidi_request(
     messages: list[dict[str, Any]],
     backend_url: str = "ws://localhost:8000/live",
     timeout: float = 30.0,
@@ -577,7 +579,7 @@ def normalize_event(event_str: str) -> str:
         return event_str
 
 
-def validate_event_structure(  # noqa: C901, PLR0911, PLR0912
+def validate_event_structure(
     actual_event: str,
     expected_event: str,
 ) -> tuple[bool, str]:
@@ -719,7 +721,7 @@ def validate_event_structure(  # noqa: C901, PLR0911, PLR0912
         return (False, f"Failed to parse event: {e}")
 
 
-def compare_raw_events(  # noqa: C901, PLR0912, PLR0915
+def compare_raw_events(
     actual: list[str],
     expected: list[str],
     normalize: bool = True,
@@ -1084,7 +1086,7 @@ def validate_tool_approval_request_toolcallid(raw_events: list[str]) -> tuple[bo
             continue
 
     # Validate each approval request
-    for approval_toolcallid, approval_id in approval_requests:
+    for approval_toolcallid, _approval_id in approval_requests:
         # The toolCallId in tool-approval-request should match one of the tool-input-available toolCallIds
         if approval_toolcallid not in tool_call_ids:
             return (

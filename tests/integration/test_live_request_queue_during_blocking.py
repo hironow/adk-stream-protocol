@@ -110,7 +110,7 @@ live_queue_experiment_declaration = types.FunctionDeclaration.from_callable_with
 
 # Create FunctionTool
 LIVE_QUEUE_EXPERIMENT_TOOL = FunctionTool(live_queue_experiment_tool)
-LIVE_QUEUE_EXPERIMENT_TOOL._declaration = live_queue_experiment_declaration
+LIVE_QUEUE_EXPERIMENT_TOOL._declaration = live_queue_experiment_declaration  # type: ignore[attr-defined]
 
 
 @pytest.fixture

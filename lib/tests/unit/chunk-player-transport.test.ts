@@ -3,9 +3,9 @@
  * Tests for transport that replays recorded chunks
  */
 
-import { describe, expect, it, vi, beforeEach } from "vitest";
-import { ChunkPlayerTransport } from "../../chunk_logs/chunk-player-transport";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ChunkPlayer } from "../../chunk_logs/chunk-player";
+import { ChunkPlayerTransport } from "../../chunk_logs/chunk-player-transport";
 
 // Sample JSONL content for testing
 const sampleJsonl = `{"timestamp":1704067200000,"session_id":"test-session","mode":"adk-sse","location":"transport","direction":"out","sequence_number":1,"chunk":{"type":"text-delta","textDelta":"Hello"}}
@@ -168,7 +168,7 @@ not valid json
 
       // when/then - ChunkPlayer constructor throws on invalid JSONL
       expect(() => new ChunkPlayer(malformedJsonl)).toThrow(
-        /Invalid JSONL at line 2/
+        /Invalid JSONL at line 2/,
       );
     });
   });

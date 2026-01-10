@@ -90,6 +90,7 @@ class DeferredApprovalPlugin(BasePlugin):
             return None
 
         tool_call_id = tool_context.function_call_id
+        assert tool_call_id is not None, "function_call_id must not be None"
 
         # Create pending FunctionResponse with will_continue=True
         pending_func_response = types.FunctionResponse(
@@ -245,7 +246,7 @@ test_approval_declaration_blocking = types.FunctionDeclaration.from_callable_wit
 # Wrap tool with FunctionTool using the custom declaration
 TEST_APPROVAL_TOOL = FunctionTool(approval_test_tool)
 # Override the declaration with our NON_BLOCKING version
-TEST_APPROVAL_TOOL._declaration = test_approval_declaration_non_blocking
+TEST_APPROVAL_TOOL._declaration = test_approval_declaration_non_blocking  # type: ignore[attr-defined]
 # TEMPORARILY DISABLED: Testing if is_long_running interferes with plugin callbacks
 # TEST_APPROVAL_TOOL.is_long_running = True
 

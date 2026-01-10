@@ -505,7 +505,11 @@ export class EventReceiver {
     }
 
     // WAV file parameters (from received PCM format or ADK BIDI defaults)
-    const format = this.pcmFormat ?? { sampleRate: 24000, channels: 1, bitDepth: 16 };
+    const format = this.pcmFormat ?? {
+      sampleRate: 24000,
+      channels: 1,
+      bitDepth: 16,
+    };
     const sampleRate = format.sampleRate;
     const numChannels = format.channels;
     const bitsPerSample = format.bitDepth;

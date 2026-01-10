@@ -16,7 +16,8 @@ from dotenv import load_dotenv
 # This ensures consistency across all test frameworks
 load_dotenv(".env.local")
 
-from adk_stream_protocol import ADKVercelIDMapper, FrontendToolDelegate
+
+from adk_stream_protocol import ADKVercelIDMapper, FrontendToolDelegate  # noqa: E402
 
 
 # ============================================================

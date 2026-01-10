@@ -116,9 +116,7 @@ async def test_multiple_payments_approved_sse_baseline(frontend_fixture_dir: Pat
         except (json.JSONDecodeError, KeyError):
             continue
 
-    assert len(tool_call_pairs) == 2, (
-        f"Expected 2 tool call pairs, got {len(tool_call_pairs)}"
-    )
+    assert len(tool_call_pairs) == 2, f"Expected 2 tool call pairs, got {len(tool_call_pairs)}"
 
     # Create assistant message from Turn 1
     assistant_msg = create_assistant_message_from_turn1(turn1_events)

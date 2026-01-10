@@ -470,7 +470,7 @@ async def test_get_location_with_none_session_state() -> None:
     # Since delegate isn't registered, it returns "Missing frontend_delegate" error
     assert result["success"] is False
     assert "error" in result
-    assert ("session.state" in result["error"] or "Missing frontend_delegate" in result["error"])
+    assert "session.state" in result["error"] or "Missing frontend_delegate" in result["error"]
 
 
 @pytest.mark.asyncio

@@ -25,9 +25,9 @@ class TestSseSessionServiceConfiguration:
         from adk_stream_protocol import sse_agent_runner
 
         # then
-        assert isinstance(
-            sse_agent_runner.session_service, SqliteSessionService
-        ), f"Expected SqliteSessionService, got {type(sse_agent_runner.session_service).__name__}"
+        assert isinstance(sse_agent_runner.session_service, SqliteSessionService), (
+            f"Expected SqliteSessionService, got {type(sse_agent_runner.session_service).__name__}"
+        )
 
     def test_sse_session_db_path_has_default(self) -> None:
         """SSE session database path should have a sensible default."""
@@ -54,9 +54,9 @@ class TestBidiSessionServiceConfiguration:
         from adk_stream_protocol import bidi_agent_runner
 
         # then
-        assert isinstance(
-            bidi_agent_runner.session_service, InMemorySessionService
-        ), f"Expected InMemorySessionService, got {type(bidi_agent_runner.session_service).__name__}"
+        assert isinstance(bidi_agent_runner.session_service, InMemorySessionService), (
+            f"Expected InMemorySessionService, got {type(bidi_agent_runner.session_service).__name__}"
+        )
 
 
 class TestSessionServiceIsolation:

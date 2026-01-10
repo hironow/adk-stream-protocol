@@ -7,7 +7,13 @@
  * @vitest-environment jsdom
  */
 
-import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import ChatPage from "@/app/page";
 import {
@@ -98,15 +104,13 @@ describe("Clear History Integration", () => {
       await expect(
         act(async () => {
           fireEvent.click(clearButton);
-        })
+        }),
       ).resolves.not.toThrow();
     });
 
     it("should use messagesVersion in Chat key for proper remounting", async () => {
       // given - verify the implementation pattern
-      mockMessages = [
-        { id: "1", role: "user", content: "Hello" },
-      ];
+      mockMessages = [{ id: "1", role: "user", content: "Hello" }];
 
       // when
       render(<ChatPage />);

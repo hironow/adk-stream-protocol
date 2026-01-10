@@ -114,9 +114,7 @@ async def test_multiple_payments_approve_deny_sse(frontend_fixture_dir: Path):
         except (json.JSONDecodeError, KeyError):
             continue
 
-    assert len(tool_call_pairs) == 2, (
-        f"Expected 2 tool call pairs, got {len(tool_call_pairs)}"
-    )
+    assert len(tool_call_pairs) == 2, f"Expected 2 tool call pairs, got {len(tool_call_pairs)}"
 
     # Create assistant message from Turn 1
     assistant_msg = create_assistant_message_from_turn1(turn1_events)
@@ -177,7 +175,7 @@ async def test_multiple_payments_approve_deny_sse(frontend_fixture_dir: Path):
 
     # Should have 1 tool-output-available (Alice success) + 1 tool-output-error (Bob denied)
     alice_tool_call_id = tool_call_pairs[0][0]  # First tool call (Alice)
-    bob_tool_call_id = tool_call_pairs[1][0]    # Second tool call (Bob)
+    bob_tool_call_id = tool_call_pairs[1][0]  # Second tool call (Bob)
 
     # Find Alice's success output (tool-output-available)
     alice_output = None
@@ -191,12 +189,18 @@ async def test_multiple_payments_approve_deny_sse(frontend_fixture_dir: Path):
             event_data = json.loads(json_str)
 
             # Alice approved → tool-output-available
-            if event_data.get("type") == "tool-output-available" and event_data.get("toolCallId") == alice_tool_call_id:
+            if (
+                event_data.get("type") == "tool-output-available"
+                and event_data.get("toolCallId") == alice_tool_call_id
+            ):
                 alice_output = event_data.get("output", {})
                 print(f"✓ Found Alice tool-output-available: {alice_output}")
 
             # Bob denied → tool-output-error
-            elif event_data.get("type") == "tool-output-error" and event_data.get("toolCallId") == bob_tool_call_id:
+            elif (
+                event_data.get("type") == "tool-output-error"
+                and event_data.get("toolCallId") == bob_tool_call_id
+            ):
                 bob_error = event_data.get("errorText", "")
                 print(f"✓ Found Bob tool-output-error: {bob_error}")
         except (json.JSONDecodeError, KeyError):
@@ -205,13 +209,16 @@ async def test_multiple_payments_approve_deny_sse(frontend_fixture_dir: Path):
     # Verify Alice payment succeeded
     assert alice_output is not None, "Expected Alice tool-output-available event"
     assert alice_output.get("success") is True, "Alice payment should succeed"
-    assert alice_output.get("recipient") == "Alice", f"Alice output recipient mismatch: {alice_output}"
+    assert alice_output.get("recipient") == "Alice", (
+        f"Alice output recipient mismatch: {alice_output}"
+    )
     print(f"✓ Alice payment succeeded: {alice_output}")
 
     # Verify Bob payment was denied
     assert bob_error is not None, "Expected Bob tool-output-error event"
-    assert "denied" in bob_error.lower() or "rejected" in bob_error.lower(), \
+    assert "denied" in bob_error.lower() or "rejected" in bob_error.lower(), (
         f"Bob error should mention denial/rejection: {bob_error}"
+    )
     print(f"✓ Bob payment denied: {bob_error}")
 
     # Verify AI response acknowledges mixed result

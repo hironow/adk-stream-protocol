@@ -711,6 +711,7 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
             data = await websocket.receive_text()
 
             # Parse JSON and handle parse errors
+            # nosemgrep: forbid-try-except - External WebSocket input requires exception handling
             try:
                 event = json.loads(data)
             except json.JSONDecodeError as e:

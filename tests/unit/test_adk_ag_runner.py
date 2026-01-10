@@ -4,7 +4,6 @@ Unit tests for adk_ag_runner module.
 Tests agent configuration, tool setup, and confirmation tool extraction.
 """
 
-
 from google.adk.agents import Agent
 from google.adk.tools.function_tool import FunctionTool
 from google.adk.tools.long_running_tool import LongRunningFunctionTool
@@ -63,7 +62,9 @@ def test_both_agents_have_same_tools() -> None:
     """Both agents should have the same number of tools (4 tools each)."""
     # when/then
     assert len(adk_ag_runner.sse_agent.tools) == len(adk_ag_runner.bidi_agent.tools)
-    assert len(adk_ag_runner.sse_agent.tools) == 4  # get_weather, process_payment, change_bgm, get_location
+    assert (
+        len(adk_ag_runner.sse_agent.tools) == 4
+    )  # get_weather, process_payment, change_bgm, get_location
 
 
 def test_sse_tools_includes_expected_tools() -> None:

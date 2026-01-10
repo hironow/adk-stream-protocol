@@ -57,5 +57,9 @@ lines-after-imports = 2
 "__future__".msg = "__future__ is generally prohibited in Python 3.14 and later. Please follow the latest language specifications."
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["PLR2004", "T201", "S101"]
+# Tests: Allow complexity, magic values, print statements, assertions, unused vars, background tasks
+"tests/**/*.py" = ["PLR2004", "T201", "S101", "C901", "PLR0912", "PLR0915", "PLR0913", "PLR0911", "F841", "RUF006"]
+# Scripts: Allow complexity for automation scripts
 "scripts/**/*.py" = ["T201", "PLR2004", "C901", "PLR0912", "PLR0915", "PLR0911"]
+# Protocol handlers: Complex state machines require higher complexity thresholds
+"adk_stream_protocol/bidi_*.py" = ["C901", "PLR0912", "PLR0915"]

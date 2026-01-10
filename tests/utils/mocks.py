@@ -326,7 +326,7 @@ def create_mock_frontend_delegate(
     return mock_delegate
 
 
-def create_custom_event(  # noqa: PLR0913
+def create_custom_event(
     *,
     content: str | None = None,
     turn_complete: bool | None = None,
