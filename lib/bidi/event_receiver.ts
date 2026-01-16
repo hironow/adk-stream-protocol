@@ -59,6 +59,18 @@ export interface EventReceiverConfig {
    * Callback for handling pong messages (latency monitoring)
    */
   onPong?: (timestamp: number) => void;
+
+  /**
+   * Callback when tool-approval-request is received
+   * Used by transport to start timeout for backend response (ADR 0011 gap fix)
+   */
+  onApprovalRequestReceived?: () => void;
+
+  /**
+   * Callback when finish-step or [DONE] is received after approval-request
+   * Used by transport to clear timeout (ADR 0011 gap fix)
+   */
+  onApprovalStreamClosed?: () => void;
 }
 
 /**
@@ -78,6 +90,7 @@ export interface EventReceiverConfig {
 export class EventReceiver {
   private doneReceived = false;
   private waitingForFinishStepAfterApproval = false; // Flag for BIDI BLOCKING pattern (ADR 0011)
+  // Counter for received audio chunks, used for logging/debugging stream completion statistics
   private audioChunkIndex = 0;
   private pcmBuffer: Int16Array[] = [];
   private pcmFormat: PCMFormat | null = null;
@@ -232,6 +245,9 @@ export class EventReceiver {
       // Flag: Next finish-step chunk should close the stream
       this.waitingForFinishStepAfterApproval = true;
 
+      // Notify transport to start timeout (ADR 0011 gap fix)
+      this.config.onApprovalRequestReceived?.();
+
       return; // Skip normal enqueue since we already enqueued
     }
 
@@ -261,6 +277,9 @@ export class EventReceiver {
 
       // Reset flag
       this.waitingForFinishStepAfterApproval = false;
+
+      // Notify transport to clear timeout (ADR 0011 gap fix)
+      this.config.onApprovalStreamClosed?.();
 
       return; // Skip normal enqueue since we already enqueued
     }

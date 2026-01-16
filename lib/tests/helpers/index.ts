@@ -5,6 +5,7 @@
 
 export * from "./bidi-ws-handlers";
 export * from "./e2e-environment";
+export * from "./event-types";
 export * from "./message-fixtures";
 export * from "./msw-setup";
 export * from "./render-helpers";

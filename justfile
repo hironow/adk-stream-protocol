@@ -3,7 +3,7 @@
 default: help
 
 help:
-    @just --list --unsorted
+    @just --list
 
 
 # Define specific commands
@@ -19,14 +19,14 @@ install:
 
 # Run Python backend server
 [group("development")]
-server:
-    @echo "Starting backend server at http://localhost:8000"
-    uv run uvicorn server:app --reload --host 0.0.0.0 --port 8000
+server port="8000" host="0.0.0.0":
+    @echo "Starting backend server at http://localhost:{{port}}"
+    uv run uvicorn server:app --reload --host {{host}} --port {{port}}
 
 [group("development")]
-pdoc:
-    @echo "Starting pdoc documentation server at http://localhost:8888"
-    {{PDOC}} --port 8888 ./adk_stream_protocol
+pdoc port="8888":
+    @echo "Starting pdoc documentation server at http://localhost:{{port}}"
+    {{PDOC}} --port {{port}} ./adk_stream_protocol
 
 # Run Next.js frontend development server
 [group("development")]
