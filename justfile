@@ -109,9 +109,14 @@ check-python: lint-python typecheck-python
 check-typescript: lint-frontend
     bunx vitest list
 
+# Check ADK agents can be loaded (simulates adk web)
+[group("development")]
+check-agents:
+    uv run python scripts/check_adk_agents.py
+
 # Run all checks
 [group("development")]
-check: check-python check-typescript md-lint
+check: check-python check-typescript md-lint check-agents
     @echo "All checks passed."
 
 # Tail the latest chunk logs (for development debugging)

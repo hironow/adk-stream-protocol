@@ -141,7 +141,9 @@
       "Bash(timeout 60 uv run:*)",
       "Bash(timeout 5 uv run python:*)",
       "Bash(bunx biome:*)",
-      "Bash(timeout 60 bun vitest run:*)"
+      "Bash(timeout 60 bun vitest run:*)",
+      "Bash(gh issue list:*)",
+      "Bash(gh issue view:*)"
     ],
     "deny": [
       "Read(.env.keys)",

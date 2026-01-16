@@ -32,7 +32,7 @@ class TestSseSessionServiceConfiguration:
     def test_sse_session_db_path_has_default(self) -> None:
         """SSE session database path should have a sensible default."""
         # given
-        from adk_stream_protocol.adk_ag_runner import SSE_SESSION_DB_PATH
+        from adk_stream_protocol.ags.runner import SSE_SESSION_DB_PATH
 
         # when
         default_path = SSE_SESSION_DB_PATH

@@ -8,7 +8,7 @@ from google.adk.agents import Agent
 from google.adk.tools.function_tool import FunctionTool
 from google.adk.tools.long_running_tool import LongRunningFunctionTool
 
-from adk_stream_protocol import adk_ag_runner
+from adk_stream_protocol.ags import runner as adk_ag_runner
 
 
 # ============================================================

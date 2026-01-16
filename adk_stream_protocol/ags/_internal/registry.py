@@ -26,7 +26,8 @@ from loguru import logger
 
 
 if TYPE_CHECKING:
-    from .frontend_tool_service import FrontendToolDelegate
+    # Use absolute import for TYPE_CHECKING (only evaluated during static analysis)
+    from adk_stream_protocol.frontend_tool_service import FrontendToolDelegate
 
 
 # Global registry: session_id → FrontendToolDelegate

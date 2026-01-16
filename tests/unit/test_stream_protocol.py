@@ -19,9 +19,9 @@ from google.genai import types
 
 from adk_stream_protocol import (
     StreamProtocolConverter,
-    _map_adk_finish_reason_to_ai_sdk,
     stream_adk_to_ai_sdk,
 )
+from adk_stream_protocol.stream_protocol import _map_adk_finish_reason_to_ai_sdk
 from tests.utils import parse_sse_event
 from tests.utils.mocks import create_custom_event
 

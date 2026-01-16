@@ -23,9 +23,9 @@ from google.adk.sessions import Session
 from google.genai import types
 from loguru import logger
 
-from .adk_ag_tools import _execute_get_location, _execute_process_payment
 from .adk_compat import Event as AdkEvent
 from .adk_compat import sync_conversation_history_to_session
+from .ags.tools import _execute_get_location, _execute_process_payment
 from .ai_sdk_v6_compat import ChatMessage, process_chat_message_for_bidi
 from .approval_queue import ApprovalQueue
 from .frontend_tool_service import FrontendToolDelegate
@@ -72,6 +72,14 @@ class BidiEventReceiver:
         approval_queue = ApprovalQueue()
         session.state["approval_queue"] = approval_queue
         logger.info("[BidiEventReceiver] ✓ ApprovalQueue initialized and stored in session.state")
+
+        # Initialize session state dicts upfront (B2: consistency improvement)
+        # These are used by both BidiEventSender and BidiEventReceiver
+        if "pending_long_running_calls" not in session.state:
+            session.state["pending_long_running_calls"] = {}
+        if "confirmation_id_mapping" not in session.state:
+            session.state["confirmation_id_mapping"] = {}
+        logger.info("[BidiEventReceiver] ✓ Session state dicts initialized")
 
         # Set mode to "bidi" for tool functions to detect mode
         session.state["mode"] = "bidi"

@@ -10,8 +10,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from fastapi import WebSocketDisconnect
 
-from adk_stream_protocol import BidiEventSender
-from adk_stream_protocol.result import Error, Ok
+from adk_stream_protocol import BidiEventSender, Error, Ok
 from tests.utils.mocks import (
     create_mock_live_events,
     create_mock_session,
@@ -454,8 +453,8 @@ async def test_send_sse_event_skips_id_mapping_when_tool_call_id_missing() -> No
 
 
 @pytest.mark.asyncio
-async def test_send_sse_event_with_websocket_send_error_raises() -> None:
-    """_send_sse_event() should propagate websocket.send_text() errors (non-disconnect)."""
+async def test_send_sse_event_with_websocket_send_error_returns_false() -> None:
+    """_send_sse_event() should return False for non-disconnect WebSocket errors (B3: graceful handling)."""
     # given
     mock_websocket = create_mock_websocket()
     mock_websocket.send_text = AsyncMock(side_effect=RuntimeError("WebSocket error"))
@@ -470,8 +469,32 @@ async def test_send_sse_event_with_websocket_send_error_raises() -> None:
 
     sse_event = 'data: {"type":"text-delta","text":"test"}\n\n'
 
-    # when/then
-    with pytest.raises(RuntimeError, match="WebSocket error"):
+    # when
+    result = await sender._send_sse_event(sse_event)
+
+    # then - B3: non-disconnect errors return False instead of raising
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_send_sse_event_with_websocket_disconnect_raises() -> None:
+    """_send_sse_event() should re-raise WebSocketDisconnect (not caught by B3 graceful handling)."""
+    # given
+    mock_websocket = create_mock_websocket()
+    mock_websocket.send_text = AsyncMock(side_effect=WebSocketDisconnect())
+    mock_session = create_mock_session()
+
+    sender = BidiEventSender(
+        websocket=mock_websocket,
+        frontend_delegate=Mock(),
+        confirmation_tools=[],
+        session=mock_session,
+    )
+
+    sse_event = 'data: {"type":"text-delta","text":"test"}\n\n'
+
+    # when/then - WebSocketDisconnect should be re-raised for outer handler
+    with pytest.raises(WebSocketDisconnect):
         await sender._send_sse_event(sse_event)
 
 

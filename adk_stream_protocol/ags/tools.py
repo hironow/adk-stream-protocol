@@ -21,8 +21,13 @@ import aiohttp
 from google.adk.tools.tool_context import ToolContext
 from loguru import logger
 
-from .frontend_tool_registry import get_delegate
-from .result import Error, Ok
+
+# Import from _internal which handles dual-mode compatibility
+# (package mode vs standalone mode for adk web)
+try:
+    from ._internal import Error, Ok, get_delegate
+except ImportError:
+    from _internal import Error, Ok, get_delegate  # type: ignore[no-redef]
 
 
 # ========== Weather Tool Configuration ==========

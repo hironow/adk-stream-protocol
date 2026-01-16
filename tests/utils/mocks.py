@@ -307,15 +307,14 @@ def create_mock_frontend_delegate(
         >>> result = await delegate.execute_on_frontend(tool_name="test", args={})
 
         >>> # With custom result
-        >>> from adk_stream_protocol.result import Ok
+        >>> from adk_stream_protocol import Ok
         >>> delegate = create_mock_frontend_delegate(
         ...     execute_result=Ok({"custom": "data"})
         ... )
     """
     from unittest.mock import AsyncMock
 
-    from adk_stream_protocol import FrontendToolDelegate
-    from adk_stream_protocol.result import Ok
+    from adk_stream_protocol import FrontendToolDelegate, Ok
 
     mock_delegate = Mock(spec=FrontendToolDelegate)
 

@@ -4,7 +4,7 @@ ADK Agent and Runner Configuration
 This module contains:
 - Agent configurations (SSE and BIDI modes)
 - InMemoryRunner initialization
-- Tool imports from adk_ag_tools module
+- Tool imports from tools module
 """
 
 import os
@@ -17,12 +17,18 @@ from google.adk.tools.function_tool import FunctionTool
 from google.genai import types
 from loguru import logger
 
-from .adk_ag_tools import (
-    change_bgm,
-    get_location,
-    get_weather,
-    process_payment,
-)
+
+# Import tools with dual-mode compatibility
+# (package mode vs standalone mode for adk web)
+try:
+    from .tools import change_bgm, get_location, get_weather, process_payment
+except ImportError:
+    from tools import (  # type: ignore[no-redef,attr-defined]
+        change_bgm,
+        get_location,
+        get_weather,
+        process_payment,
+    )
 
 
 # ========== Constants for Agent Configuration ==========

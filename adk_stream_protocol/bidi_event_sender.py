@@ -23,8 +23,8 @@ from fastapi.websockets import WebSocketDisconnect
 from google.adk.sessions import Session
 from loguru import logger
 
+from .ags import Error, Ok
 from .frontend_tool_service import FrontendToolDelegate
-from .result import Error, Ok
 from .stream_protocol import StreamProtocolConverter, stream_adk_to_ai_sdk
 from .utils import _parse_sse_event_data
 
@@ -174,12 +174,15 @@ class BidiEventSender:
             return
         # no except any other exceptions. Let them propagate to caller for handling.
 
-    async def _send_sse_event(self, sse_event: str) -> None:
+    async def _send_sse_event(self, sse_event: str) -> bool:
         """
         Send SSE-formatted event to WebSocket with logging and ID mapping.
 
         Args:
             sse_event: SSE-formatted string like 'data: {...}\\n\\n'
+
+        Returns:
+            True if sent successfully, False if send failed (B3: graceful error handling)
         """
         # Log event types for debugging
         if sse_event.startswith("data:"):
@@ -187,10 +190,12 @@ class BidiEventSender:
             if "DONE" == sse_event.strip()[5:].strip():
                 try:
                     await self._ws.send_text(sse_event)
+                    return True
+                except WebSocketDisconnect:
+                    raise
                 except Exception as e:
                     logger.error(f"[BIDI-SEND] Failed to send [DONE] event: {e!s}")
-                    raise
-                return
+                    return False
 
             match _parse_sse_event_data(sse_event):
                 case Ok(event_data):
@@ -212,13 +217,18 @@ class BidiEventSender:
                                     # ID mapping is optional - log and continue if it fails
                                     logger.debug(f"[BIDI-SEND] {error_msg}")
 
-        # Send to WebSocket with error handling
+        # Send to WebSocket with error handling (B3: log but don't crash for non-disconnect errors)
         try:
             await self._ws.send_text(sse_event)
+            return True
+        except WebSocketDisconnect:
+            # Re-raise disconnect so outer handler in send_events() can catch it
+            # and stop the stream gracefully
+            raise
         except Exception as e:
             logger.error("[BIDI-SEND] ✗ Failed to send event: %s", e)
             logger.error("[BIDI-SEND] Event that failed: %s", sse_event[:200])
-            raise
+            return False
 
     async def _handle_confirmation_if_needed(self, sse_event: str) -> bool:
         """
@@ -242,7 +252,7 @@ class BidiEventSender:
         Returns:
             True if the event should be sent immediately, False if it was deferred and sent later
         """
-        logger.info(f"[BIDI Phase 5] _handle_confirmation_if_needed called with: {sse_event[:100]}")
+        logger.info(f"[BIDI Approval] _handle_confirmation_if_needed called with: {sse_event[:100]}")
 
         # Only process data events (skip DONE, comments, etc.)
         if not sse_event.startswith("data:"):
@@ -268,7 +278,7 @@ class BidiEventSender:
                 ):
                     self._pending_confirmation[tool_call_id] = tool_name
                     logger.info(
-                        f"[BIDI Phase 5] Recorded pending confirmation for {tool_name} (ID: {tool_call_id})"
+                        f"[BIDI Approval] Recorded pending confirmation for {tool_name} (ID: {tool_call_id})"
                     )
                     return True  # Send this event normally
 
@@ -279,7 +289,7 @@ class BidiEventSender:
                         # Get tool_name from pending_confirmation dict
                         tool_name = self._pending_confirmation.pop(tool_call_id)
                         logger.info(
-                            f"[BIDI Phase 5] Detected tool-input-available for {tool_name} (ID: {tool_call_id})"
+                            f"[BIDI Approval] Detected tool-input-available for {tool_name} (ID: {tool_call_id})"
                         )
 
                         # Send original tool-input-available first
@@ -299,7 +309,7 @@ class BidiEventSender:
                             "args": tool_args,
                         }
                         logger.info(
-                            f"[BIDI Phase 5] Saved pending call: id={tool_call_id}, "
+                            f"[BIDI Approval] Saved pending call: id={tool_call_id}, "
                             f"name={tool_name}, args={tool_args}"
                         )
 
@@ -311,7 +321,7 @@ class BidiEventSender:
                         # Use "confirm-" prefix to avoid confusion with "adk-" mode names
                         confirmation_id = f"confirm-{uuid.uuid4()}"
 
-                        logger.info(f"[BIDI Phase 5] Injecting approval step for {tool_name}")
+                        logger.info(f"[BIDI Approval] Injecting approval step for {tool_name}")
 
                         # ADR 0011: Inject start-step to begin approval step
                         # This marks the beginning of the approval pending step
@@ -319,10 +329,10 @@ class BidiEventSender:
                         try:
                             await self._ws.send_text(start_step_sse)
                             logger.info(
-                                "[BIDI Phase 5] ✓ Sent start-step before tool-approval-request"
+                                "[BIDI Approval] ✓ Sent start-step before tool-approval-request"
                             )
                         except Exception as e:
-                            logger.error(f"[BIDI Phase 5] ✗ Failed to send start-step: {e!s}")
+                            logger.error(f"[BIDI Approval] ✗ Failed to send start-step: {e!s}")
                             raise
 
                         # Send tool-approval-request (AI SDK v6 standard event)
@@ -335,10 +345,10 @@ class BidiEventSender:
                         )
                         try:
                             await self._ws.send_text(approval_request_sse)
-                            logger.info("[BIDI Phase 5] ✓ Sent tool-approval-request")
+                            logger.info("[BIDI Approval] ✓ Sent tool-approval-request")
                         except Exception as e:
                             logger.error(
-                                f"[BIDI Phase 5] ✗ Failed to send tool-approval-request: {e!s}"
+                                f"[BIDI Approval] ✗ Failed to send tool-approval-request: {e!s}"
                             )
                             raise
 
@@ -348,10 +358,10 @@ class BidiEventSender:
                         try:
                             await self._ws.send_text(finish_step_sse)
                             logger.info(
-                                "[BIDI Phase 5] ✓ Sent finish-step after tool-approval-request"
+                                "[BIDI Approval] ✓ Sent finish-step after tool-approval-request"
                             )
                         except Exception as e:
-                            logger.error(f"[BIDI Phase 5] ✗ Failed to send finish-step: {e!s}")
+                            logger.error(f"[BIDI Approval] ✗ Failed to send finish-step: {e!s}")
                             raise
 
                         # Save confirmation_id → original_tool_call_id mapping in session.state
@@ -363,7 +373,7 @@ class BidiEventSender:
                             tool_call_id
                         )
                         logger.info(
-                            f"[BIDI Phase 5] Saved confirmation mapping: {confirmation_id} → {tool_call_id} for tool {tool_name}"
+                            f"[BIDI Approval] Saved confirmation mapping: {confirmation_id} → {tool_call_id} for tool {tool_name}"
                         )
 
                         # Return False because we already sent the original event
@@ -376,19 +386,19 @@ class BidiEventSender:
                     # Check if this tool_call_id is in pending_long_running_calls
                     pending_calls = self._session.state.get("pending_long_running_calls", {})
                     logger.info(
-                        f"[BIDI Phase 5] Checking tool-output-available: tool_call_id={tool_call_id}, "
+                        f"[BIDI Approval] Checking tool-output-available: tool_call_id={tool_call_id}, "
                         f"pending_calls={list(pending_calls.keys())}"
                     )
                     if tool_call_id and tool_call_id in pending_calls:
                         tool_name = pending_calls[tool_call_id]["name"]
                         logger.info(
-                            f"[BIDI Phase 5] Skipping tool-output-available for {tool_name} (ID: {tool_call_id}) - "
+                            f"[BIDI Approval] Skipping tool-output-available for {tool_name} (ID: {tool_call_id}) - "
                             "pending status should not be sent to frontend"
                         )
                         return False  # Skip this event
                     else:
                         logger.info(
-                            f"[BIDI Phase 5] NOT skipping tool-output-available (ID: {tool_call_id}) - "
+                            f"[BIDI Approval] NOT skipping tool-output-available (ID: {tool_call_id}) - "
                             f"not in pending_calls or tool_call_id is None"
                         )
 

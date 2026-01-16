@@ -17,8 +17,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from adk_stream_protocol import change_bgm, get_location
-from adk_stream_protocol.frontend_tool_registry import _REGISTRY, register_delegate
+from adk_stream_protocol import change_bgm, get_location, register_delegate
+from adk_stream_protocol.ags._internal import _REGISTRY
 from server import frontend_delegate
 from tests.utils.mocks import create_mock_tool_context
 

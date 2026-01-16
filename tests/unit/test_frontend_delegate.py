@@ -15,9 +15,14 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from adk_stream_protocol import FrontendToolDelegate, change_bgm, get_location
-from adk_stream_protocol.frontend_tool_registry import _REGISTRY, register_delegate
-from adk_stream_protocol.result import Ok
+from adk_stream_protocol import (
+    FrontendToolDelegate,
+    Ok,
+    change_bgm,
+    get_location,
+    register_delegate,
+)
+from adk_stream_protocol.ags._internal import _REGISTRY
 from tests.utils.mocks import create_mock_frontend_delegate, create_mock_tool_context
 from tests.utils.result_assertions import assert_error, assert_ok
 
