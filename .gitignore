@@ -83,3 +83,6 @@ chunk_logs/
 *.db-journal
 *.db-shm
 *.db-wal
+
+# ADK web interface
+.adk/
