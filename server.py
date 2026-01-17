@@ -62,10 +62,12 @@ from adk_stream_protocol import (  # noqa: E402
 )
 
 # Private imports (internal implementation details)
-from adk_stream_protocol.adk_compat import clear_sessions, get_or_create_session  # noqa: E402
-from adk_stream_protocol.ai_sdk_v6_compat import ToolCallState  # noqa: E402
-from adk_stream_protocol.chunk_logger import chunk_logger  # noqa: E402
-from adk_stream_protocol.tool_confirmation_service import ToolConfirmationDelegate  # noqa: E402
+from adk_stream_protocol.adk.adk_compat import clear_sessions, get_or_create_session  # noqa: E402
+from adk_stream_protocol.testing.chunk_logger import chunk_logger  # noqa: E402
+from adk_stream_protocol.protocol.ai_sdk_v6_compat import ToolCallState  # noqa: E402
+from adk_stream_protocol.tools.tool_confirmation_service import (  # noqa: E402
+    ToolConfirmationDelegate,
+)
 
 
 # ========== API Key Authentication ==========

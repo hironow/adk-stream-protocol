@@ -6,7 +6,7 @@ including session cache cleanup to prevent test interference.
 
 import pytest
 
-from adk_stream_protocol.adk_compat import _sessions, _synced_message_counts
+from adk_stream_protocol.adk.adk_compat import _sessions, _synced_message_counts
 
 
 @pytest.fixture(autouse=True)

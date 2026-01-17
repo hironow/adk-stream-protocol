@@ -17,7 +17,7 @@ from adk_stream_protocol import (
     TextPart,
     ToolUsePart,
 )
-from adk_stream_protocol.ai_sdk_v6_compat import (
+from adk_stream_protocol.protocol.ai_sdk_v6_compat import (
     GenericPart,
     StepPart,
     ToolCallState,
@@ -70,8 +70,8 @@ class TestProcessChatMessageForBidi:
 
         # when - mock both base64 decoding and PIL Image.open
         with (
-            patch("adk_stream_protocol.ai_sdk_v6_compat.base64.b64decode") as mock_decode,
-            patch("adk_stream_protocol.ai_sdk_v6_compat.Image.open") as mock_image_open,
+            patch("adk_stream_protocol.protocol.ai_sdk_v6_compat.base64.b64decode") as mock_decode,
+            patch("adk_stream_protocol.protocol.ai_sdk_v6_compat.Image.open") as mock_image_open,
         ):
             mock_decode.return_value = b"fake_image_data"
 

@@ -23,10 +23,13 @@ from fastapi.websockets import WebSocketDisconnect
 from google.adk.sessions import Session
 from loguru import logger
 
-from .ags import Error, Ok
-from .frontend_tool_service import FrontendToolDelegate
-from .stream_protocol import StreamProtocolConverter, stream_adk_to_ai_sdk
-from .utils import _parse_sse_event_data
+from adk_stream_protocol.ags import Error, Ok
+from adk_stream_protocol.protocol.stream_protocol import (
+    StreamProtocolConverter,
+    stream_adk_to_ai_sdk,
+)
+from adk_stream_protocol.tools.frontend_tool_service import FrontendToolDelegate
+from adk_stream_protocol.utils import _parse_sse_event_data
 
 
 class BidiEventSender:

@@ -26,7 +26,7 @@ from google.adk.events import Event
 from google.genai import types
 from loguru import logger
 
-from .chunk_logger import Mode, chunk_logger
+from adk_stream_protocol.testing.chunk_logger import Mode, chunk_logger
 
 
 # Type alias for SSE-formatted event strings

@@ -9,7 +9,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from adk_stream_protocol import ChunkLogger
-from adk_stream_protocol.chunk_logger import chunk_logger
+from adk_stream_protocol.testing.chunk_logger import chunk_logger
 
 
 class TestChunkLoggerEnvironment(unittest.TestCase):
@@ -128,7 +128,7 @@ class TestChunkLoggerEnvironment(unittest.TestCase):
 
         # Mock file operations
         with patch("builtins.open", Mock()) as mock_open:
-            with patch("adk_stream_protocol.chunk_logger.json.dump") as mock_json_dump:
+            with patch("adk_stream_protocol.testing.chunk_logger.json.dump") as mock_json_dump:
                 # Try to log a chunk
                 chunk_logger.log_chunk(
                     location="backend-adk-event",

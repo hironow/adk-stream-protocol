@@ -1,81 +1,104 @@
 """
-Services Layer
+ADK Stream Protocol - Backend service layer for ADK-AI-Data-Protocol.
 
-This package provides the service layer for the ADK-AI-Data-Protocol backend.
-It sits between the Transport Layer (server.py) and Protocol Conversion Layer.
+This package provides protocol conversion between Google ADK and Vercel AI SDK,
+enabling seamless communication between backend agents and frontend applications.
 
-Components:
-    - FrontendToolService: Manages frontend tool execution
+Subpackages:
+    - transport/: Data transfer layer (WebSocket/HTTP event handling)
+    - protocol/: Protocol conversion layer (ADK <-> AI SDK format)
+    - tools/: Tool coordination layer (approval, confirmation, execution)
+    - adk/: ADK integration layer (session management)
+    - ags/: ADK Agents (agent definitions and runners)
+    - testing/: Test utilities (ChunkLogger, ChunkPlayer)
+
+Public API:
+    Transport: BidiEventReceiver, BidiEventSender, SseEventStreamer
+    Protocol: StreamProtocolConverter, ChatMessage, TextPart, ToolUsePart
+    Tools: FrontendToolDelegate
+    Agents: bidi_agent, sse_agent, bidi_agent_runner, sse_agent_runner
+    Testing: ChunkLogger
 """
 
-# Re-export from ags/ subpackage
-from .ags import (
-    BIDI_CONFIRMATION_TOOLS,
-    SSE_CONFIRMATION_TOOLS,
-    Error,
-    Ok,
-    Result,
-    bidi_agent,
-    bidi_agent_runner,
-    change_bgm,
-    get_delegate,
-    get_location,
-    get_weather,
-    process_payment,
-    register_delegate,
-    sse_agent,
-    sse_agent_runner,
-)
-from .ai_sdk_v6_compat import (
+# === Transport Layer ===
+from .transport import BidiEventReceiver, BidiEventSender, SseEventStreamer
+
+# === Protocol Layer ===
+from .protocol import (
     ChatMessage,
+    StreamProtocolConverter,
     TextPart,
     ToolUsePart,
-)
-from .bidi_event_receiver import BidiEventReceiver
-from .bidi_event_sender import BidiEventSender
-from .chunk_logger import ChunkLogger
-from .frontend_tool_service import FrontendToolDelegate
-from .sse_event_streamer import SseEventStreamer
-from .stream_protocol import (
-    StreamProtocolConverter,
     stream_adk_to_ai_sdk,
 )
 
+# === Tools Layer ===
+from .tools import FrontendToolDelegate
+
+# === Agents Layer (from ags/) ===
+from .ags import (
+    # Agent instances
+    bidi_agent,
+    sse_agent,
+    # Agent runners
+    bidi_agent_runner,
+    sse_agent_runner,
+    # Tool functions
+    change_bgm,
+    get_location,
+    get_weather,
+    process_payment,
+    # Delegate registry
+    get_delegate,
+    register_delegate,
+    # Result types
+    Error,
+    Ok,
+    Result,
+    # Constants
+    BIDI_CONFIRMATION_TOOLS,
+    SSE_CONFIRMATION_TOOLS,
+)
+
+# === Testing Utilities ===
+from .testing import ChunkLogger
+
 
 __all__ = [
-    # Public API - Constants
-    "BIDI_CONFIRMATION_TOOLS",
-    "SSE_CONFIRMATION_TOOLS",
-    # Public API - Event Handlers
+    # --- Transport Layer ---
     "BidiEventReceiver",
     "BidiEventSender",
-    # Public API - Data Types
-    "ChatMessage",
-    # Public API - Logging (class only, not instance)
-    "ChunkLogger",
-    "Error",
-    # Public API - Services
-    "FrontendToolDelegate",
-    # Public API - Result Types
-    "Ok",
-    "Result",
     "SseEventStreamer",
-    # Public API - Protocol Conversion
+    # --- Protocol Layer ---
+    "ChatMessage",
     "StreamProtocolConverter",
     "TextPart",
     "ToolUsePart",
-    # Public API - Agents and Runners
+    "stream_adk_to_ai_sdk",
+    # --- Tools Layer ---
+    "FrontendToolDelegate",
+    # --- Agents Layer ---
+    # Agent instances
     "bidi_agent",
+    "sse_agent",
+    # Agent runners
     "bidi_agent_runner",
-    # Public API - Tools
+    "sse_agent_runner",
+    # Tool functions
     "change_bgm",
-    # Public API - Registry
-    "get_delegate",
     "get_location",
     "get_weather",
     "process_payment",
+    # Delegate registry
+    "get_delegate",
     "register_delegate",
-    "sse_agent",
-    "sse_agent_runner",
-    "stream_adk_to_ai_sdk",
+    # Result types
+    "Error",
+    "Ok",
+    "Result",
+    # Constants
+    "BIDI_CONFIRMATION_TOOLS",
+    "SSE_CONFIRMATION_TOOLS",
+    # --- Testing Utilities ---
+    "ChunkLogger",
 ]

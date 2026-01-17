@@ -21,7 +21,7 @@ import pytest
 from google.genai import types
 
 from adk_stream_protocol import BidiEventReceiver, FrontendToolDelegate
-from adk_stream_protocol.adk_vercel_id_mapper import ADKVercelIDMapper
+from adk_stream_protocol.protocol.adk_vercel_id_mapper import ADKVercelIDMapper
 from tests.utils.bidi import (
     create_bidi_event_handler,
     create_frontend_delegate_with_mapper,
@@ -72,7 +72,7 @@ async def test_level2_message_event_with_real_frontend_delegate() -> None:
     text_content = types.Content(parts=[types.Part(function_response=function_response)])
 
     with patch(
-        "adk_stream_protocol.bidi_event_receiver.process_chat_message_for_bidi",
+        "adk_stream_protocol.transport.bidi_event_receiver.process_chat_message_for_bidi",
         return_value=([], text_content),
     ):
         event = {"type": "message", "version": "1.0", "messages": []}
@@ -169,7 +169,7 @@ async def test_level2_confirmation_flow_with_real_delegate() -> None:
     frontend_delegate._pending_calls["payment-call-001"] = pending_future
 
     with patch(
-        "adk_stream_protocol.bidi_event_receiver.process_chat_message_for_bidi",
+        "adk_stream_protocol.transport.bidi_event_receiver.process_chat_message_for_bidi",
         return_value=([], text_content),
     ):
         event = {"type": "message", "version": "1.0", "messages": []}
@@ -305,7 +305,7 @@ async def test_level4_complete_message_flow() -> None:
     text_content = types.Content(parts=[types.Part(text="What's the weather like in Tokyo?")])
 
     with patch(
-        "adk_stream_protocol.bidi_event_receiver.process_chat_message_for_bidi",
+        "adk_stream_protocol.transport.bidi_event_receiver.process_chat_message_for_bidi",
         return_value=([], text_content),
     ):
         event = {"type": "message", "version": "1.0", "messages": []}
@@ -349,7 +349,7 @@ async def test_level4_sequential_events() -> None:
     # Step 1: Initial message
     text_content_1 = types.Content(parts=[types.Part(text="Where am I?")])
     with patch(
-        "adk_stream_protocol.bidi_event_receiver.process_chat_message_for_bidi",
+        "adk_stream_protocol.transport.bidi_event_receiver.process_chat_message_for_bidi",
         return_value=([], text_content_1),
     ):
         event_1 = {"type": "message", "data": {"messages": []}}
@@ -375,7 +375,7 @@ async def test_level4_sequential_events() -> None:
     )
     text_content_3 = types.Content(parts=[types.Part(function_response=function_response)])
     with patch(
-        "adk_stream_protocol.bidi_event_receiver.process_chat_message_for_bidi",
+        "adk_stream_protocol.transport.bidi_event_receiver.process_chat_message_for_bidi",
         return_value=([], text_content_3),
     ):
         event_3 = {"type": "message", "data": {"messages": []}}

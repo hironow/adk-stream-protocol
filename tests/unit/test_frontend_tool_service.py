@@ -18,7 +18,7 @@ from typing import Any
 import pytest
 
 from adk_stream_protocol import Error, FrontendToolDelegate, Ok
-from adk_stream_protocol.adk_vercel_id_mapper import ADKVercelIDMapper
+from adk_stream_protocol.protocol.adk_vercel_id_mapper import ADKVercelIDMapper
 from tests.utils.result_assertions import assert_error, assert_ok
 
 
