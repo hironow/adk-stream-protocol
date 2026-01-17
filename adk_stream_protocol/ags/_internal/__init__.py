@@ -14,13 +14,17 @@ Contents:
 try:
     from .result import Error, Ok, Result
 except ImportError:
-    from result import Error, Ok, Result  # type: ignore[no-redef]
+    from result import Error, Ok, Result  # type: ignore[import-not-found, no-redef]
 
 # ========== Frontend Tool Registry ==========
 try:
     from .registry import _REGISTRY, get_delegate, register_delegate
 except ImportError:
-    from registry import _REGISTRY, get_delegate, register_delegate  # type: ignore[no-redef]
+    from registry import (  # type: ignore[import-not-found, no-redef]
+        _REGISTRY,
+        get_delegate,
+        register_delegate,
+    )
 
 __all__ = [
     "_REGISTRY",

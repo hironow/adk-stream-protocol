@@ -65,9 +65,7 @@ class SessionStore:
 _session_store = SessionStore()
 
 
-def _build_session_id(
-    user_id: str, app_name: str, connection_signature: str | None
-) -> str:
+def _build_session_id(user_id: str, app_name: str, connection_signature: str | None) -> str:
     """Build session ID based on connection signature presence."""
     if connection_signature:
         return f"session_{user_id}_{connection_signature}"
@@ -93,9 +91,7 @@ async def _create_adk_session(
             session_id=session_id,
         )
     except Exception as e:
-        logger.warning(
-            f"Session {session_id} already exists in ADK, retrieving. Error: {e!s}"
-        )
+        logger.warning(f"Session {session_id} already exists in ADK, retrieving. Error: {e!s}")
         try:  # nosemgrep: forbid-try-except - fallback to get_session
             return await agent_runner.session_service.get_session(
                 app_name=app_name,

@@ -55,7 +55,7 @@ class ConfirmationDelegate:
         future: asyncio.Future[bool] = asyncio.Future()
         self._pending_confirmations[tool_call_id] = future
         logger.info(
-            f"[ToolConfirmation] Awaiting approval for tool={tool_name}, "
+            f"[Confirmation] Awaiting approval for tool={tool_name}, "
             f"tool_call_id={tool_call_id}, args={args}"
         )
 
@@ -64,13 +64,13 @@ class ConfirmationDelegate:
         try:  # nosemgrep: forbid-try-except - legitimate timeout and error handling for asyncio.wait_for
             approved = await asyncio.wait_for(future, timeout=60.0)
             logger.info(
-                f"[ToolConfirmation] Received approval for tool={tool_name} "
+                f"[Confirmation] Received approval for tool={tool_name} "
                 f"(tool_call_id={tool_call_id}): approved={approved}"
             )
             return approved
         except TimeoutError:
             logger.error(
-                f"[ToolConfirmation] Timeout waiting for confirmation: "
+                f"[Confirmation] Timeout waiting for confirmation: "
                 f"tool={tool_name}, tool_call_id={tool_call_id}"
             )
             # Clean up pending confirmation
@@ -79,7 +79,7 @@ class ConfirmationDelegate:
             return False
         except RuntimeError as e:
             logger.error(
-                f"[ToolConfirmation] Confirmation failed: "
+                f"[Confirmation] Confirmation failed: "
                 f"tool={tool_name}, tool_call_id={tool_call_id}, error={e}"
             )
             # Clean up pending confirmation
@@ -98,12 +98,12 @@ class ConfirmationDelegate:
         """
         if tool_call_id in self._pending_confirmations:
             logger.info(
-                f"[ToolConfirmation] Resolving tool_call_id={tool_call_id} with approved={approved}"
+                f"[Confirmation] Resolving tool_call_id={tool_call_id} with approved={approved}"
             )
             self._pending_confirmations[tool_call_id].set_result(approved)
             del self._pending_confirmations[tool_call_id]
         else:
             logger.warning(
-                f"[ToolConfirmation] No pending confirmation found for tool_call_id={tool_call_id}. "
+                f"[Confirmation] No pending confirmation found for tool_call_id={tool_call_id}. "
                 f"Pending: {list(self._pending_confirmations.keys())}"
             )

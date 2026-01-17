@@ -59,6 +59,7 @@ export function sendAutomaticallyWhenCore(
     log(`Checking parts: ${parts.length}`);
 
     // Debug: Log each part's type
+    // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
     parts.forEach((part: any, index: number) => {
       const partType = part.type || "unknown";
       const partState = part.state || "n/a";
@@ -96,6 +97,7 @@ export function sendAutomaticallyWhenCore(
         log("Has text part (no approval workflow), returning false");
 
         // Cleanup: Clear approval tracking for this message (mode-specific)
+        // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
         const messageId = (lastMessage as any).id || "unknown";
         const keysToDelete = Array.from(sentApprovalStates).filter((key) =>
           key.startsWith(`${mode}:${messageId}:`),
@@ -145,20 +147,22 @@ export function sendAutomaticallyWhenCore(
       // If approval workflow is active, check if this is Frontend Execute pattern
       if (hasApprovedTool || hasPendingApproval) {
         // Check if output and approval are for the SAME tool (Frontend Execute pattern)
-        // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
         const outputToolIds = new Set(
           parts
             .filter(
+              // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
               (p: any) => isOutputAvailableTool(p) && p.output !== undefined,
             )
+            // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
             .map((p: any) => p.toolCallId),
         );
 
         if (hasApprovedTool) {
-          // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
           const approvalToolIds = new Set(
             parts
+              // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
               .filter((p: any) => isApprovalRespondedTool(p))
+              // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
               .map((p: any) => p.toolCallId),
           );
 
@@ -235,9 +239,12 @@ export function sendAutomaticallyWhenCore(
     // Mode prefix ensures BIDI and SSE have separate state spaces.
     // EXCEPTION: Skip this check if tool output was just added by frontend (Frontend Execute pattern)
     // In Frontend Execute, output is added AFTER approval, creating a new state that needs sending.
+    // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
     const messageId = (lastMessage as any).id || "unknown";
     const approvedToolIds = parts
+      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
       .filter((p: any) => isApprovalRespondedTool(p))
+      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
       .map((p: any) => p.toolCallId)
       .sort()
       .join(",");

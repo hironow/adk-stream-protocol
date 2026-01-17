@@ -303,7 +303,9 @@ class BidiEventSender:
         Returns:
             True if the event should be sent immediately, False if it was deferred and sent later
         """
-        logger.info(f"[BIDI Approval] _handle_confirmation_if_needed called with: {sse_event[:100]}")
+        logger.info(
+            f"[BIDI Approval] _handle_confirmation_if_needed called with: {sse_event[:100]}"
+        )
 
         # Only process data events (skip DONE, comments, etc.)
         if not sse_event.startswith("data:"):
@@ -348,9 +350,7 @@ class BidiEventSender:
         # Default: send event normally
         return True
 
-    def _record_tool_confirmation(
-        self, tool_call_id: str, tool_name: str
-    ) -> None:
+    def _record_tool_confirmation(self, tool_call_id: str, tool_name: str) -> None:
         """
         Phase 5 Step 1: Record tool-input-start for confirmation-required tools.
 

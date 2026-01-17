@@ -644,14 +644,11 @@ def _fix_tool_output_role(msg: ChatMessage) -> None:
         return
 
     has_tool_output = any(
-        isinstance(part, ToolUsePart) and part.state == "output-available"
-        for part in msg.parts
+        isinstance(part, ToolUsePart) and part.state == "output-available" for part in msg.parts
     )
 
     if has_tool_output and msg.role != "user":
-        logger.info(
-            f"[BIDI] Overriding message role from '{msg.role}' to 'user' for tool output"
-        )
+        logger.info(f"[BIDI] Overriding message role from '{msg.role}' to 'user' for tool output")
         msg.role = "user"
 
 
@@ -771,11 +768,7 @@ def process_chat_message_for_bidi(
     adk_content = last_msg.to_adk_content(id_mapper=id_mapper)
 
     # STEP 2: Separate image blobs and text content
-    image_blobs = (
-        _extract_image_blobs_from_parts(last_msg.parts)
-        if last_msg.parts
-        else []
-    )
+    image_blobs = _extract_image_blobs_from_parts(last_msg.parts) if last_msg.parts else []
     text_content = _build_text_content(adk_content)
 
     # STEP 3: Log final ADK format

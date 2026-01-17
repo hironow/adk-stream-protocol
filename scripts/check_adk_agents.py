@@ -42,9 +42,7 @@ def check_agent(agent_name: str) -> bool:
         name = getattr(root_agent, "name", "unknown")
         model = getattr(root_agent, "model", "unknown")
         tools = getattr(root_agent, "tools", [])
-        tool_names = [
-            t.name if hasattr(t, "name") else t.__name__ for t in tools
-        ]
+        tool_names = [t.name if hasattr(t, "name") else t.__name__ for t in tools]
 
         print(f"  [OK] {agent_name}")
         print(f"       name: {name}")

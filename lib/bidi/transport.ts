@@ -451,7 +451,7 @@ export class WebSocketChatTransport implements ChatTransportFromAISDKv6 {
             // If new stream, use new controller
             const activeController = doneReceived
               ? controller
-              : this.currentController!;
+              : (this.currentController ?? controller);
 
             if (this.ws) {
               this.ws.onmessage = (event) => {

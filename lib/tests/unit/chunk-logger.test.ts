@@ -3,7 +3,7 @@
  * Tests for logging and debugging message chunks
  */
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { ChunkLogger } from "../../chunk_logs/chunk-logger";
 
 describe("ChunkLogger", () => {
@@ -378,14 +378,12 @@ describe("ChunkLogger", () => {
 
       // when
       const entries = logger.getEntries();
-      // biome-ignore lint/suspicious/noExplicitAny: Test filtering
-      const textDeltas = entries.filter(
-        (e) => (e.chunk as any)?.type === "text-delta",
-      );
-      // biome-ignore lint/suspicious/noExplicitAny: Test filtering
-      const toolCalls = entries.filter(
-        (e) => (e.chunk as any)?.type === "tool-call",
-      );
+      const isTextDelta = (e: { chunk: unknown }) =>
+        (e.chunk as { type?: string })?.type === "text-delta";
+      const isToolCall = (e: { chunk: unknown }) =>
+        (e.chunk as { type?: string })?.type === "tool-call";
+      const textDeltas = entries.filter(isTextDelta);
+      const toolCalls = entries.filter(isToolCall);
 
       // then
       expect(textDeltas).toHaveLength(1);

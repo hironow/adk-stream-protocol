@@ -199,7 +199,9 @@ class BidiEventReceiver:
                 has_text_content=text_content is not None,
             )
             logger.error("[BIDI] Possible causes:")
-            logger.error("[BIDI]   1. New message format not handled in process_chat_message_for_bidi()")
+            logger.error(
+                "[BIDI]   1. New message format not handled in process_chat_message_for_bidi()"
+            )
             logger.error("[BIDI]   2. Empty message_data with no content")
             logger.error("[BIDI]   3. Logic bug in event processing path")
 

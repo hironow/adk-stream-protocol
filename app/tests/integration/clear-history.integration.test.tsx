@@ -47,8 +47,7 @@ describe("Clear History Integration", () => {
 
   beforeEach(() => {
     originalWebSocket = global.WebSocket as typeof WebSocket;
-    // biome-ignore lint/suspicious/noExplicitAny: Mock WebSocket for testing
-    global.WebSocket = MockWebSocket as any;
+    global.WebSocket = MockWebSocket as unknown as typeof WebSocket;
     mockMessages = [];
     mockSetMessages.mockClear();
   });

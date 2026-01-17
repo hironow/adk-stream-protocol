@@ -13,6 +13,8 @@ Tools included:
 
 import json
 import os
+import time
+import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, assert_never
@@ -27,7 +29,7 @@ from loguru import logger
 try:
     from ._internal import Error, Ok, get_delegate
 except ImportError:
-    from _internal import Error, Ok, get_delegate  # type: ignore[no-redef]
+    from _internal import Error, Ok, get_delegate  # type: ignore[import-not-found, no-redef]
 
 
 # ========== Weather Tool Configuration ==========
@@ -37,8 +39,6 @@ CACHE_DIR = Path(".cache")
 
 def _get_weather_from_cache(location: str) -> dict[str, Any] | None:
     """Get weather data from file cache if available and not expired."""
-    import time
-
     CACHE_DIR.mkdir(exist_ok=True)
     cache_file = CACHE_DIR / f"weather_{location.lower().replace(' ', '_')}.json"
 
@@ -55,8 +55,6 @@ def _get_weather_from_cache(location: str) -> dict[str, Any] | None:
 
 def _set_weather_cache(location: str, data: dict[str, Any]) -> None:
     """Save weather data to file cache."""
-    import time
-
     CACHE_DIR.mkdir(exist_ok=True)
     cache_file = CACHE_DIR / f"weather_{location.lower().replace(' ', '_')}.json"
 
@@ -201,8 +199,6 @@ def execute_process_payment(
         }
 
     # Process payment (mock implementation)
-    import uuid
-
     transaction_id = f"txn_{uuid.uuid4().hex[:12]}"
     new_balance = mock_wallet_balance - amount
 

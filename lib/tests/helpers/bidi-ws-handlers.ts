@@ -228,8 +228,10 @@ export function createConfirmationRequestHandler(
 
         // Check if approval was granted or denied
         const approvalPart = data.messages
+          // biome-ignore lint/suspicious/noExplicitAny: Test helper - message structure varies
           ?.flatMap((msg: any) => msg.parts || [])
           .find(
+            // biome-ignore lint/suspicious/noExplicitAny: Test helper - part structure varies
             (part: any) =>
               part.toolCallId === originalFunctionCall.id && part.approval,
           );

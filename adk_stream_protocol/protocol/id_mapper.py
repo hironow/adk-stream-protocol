@@ -120,8 +120,7 @@ class IDMapper:
         if original_context and "name" in original_context:
             lookup_name = original_context["name"]
             logger.debug(
-                f"[IDMapper] Context-aware lookup: {tool_name} → "
-                f"original_name={lookup_name}"
+                f"[IDMapper] Context-aware lookup: {tool_name} → original_name={lookup_name}"
             )
         else:
             # For normal tools: use tool_name directly

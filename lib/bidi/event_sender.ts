@@ -192,9 +192,12 @@ export class EventSender {
     };
 
     const lastMsg = options.messages[options.messages.length - 1];
+    // biome-ignore lint/suspicious/noExplicitAny: Debug logging - message parts type varies
     const parts = (lastMsg as any).parts || [];
+    // biome-ignore lint/suspicious/noExplicitAny: Debug logging - part type varies
     const toolParts = parts.filter((p: any) => p.type?.startsWith("tool-"));
     const approvalParts = toolParts.filter(
+      // biome-ignore lint/suspicious/noExplicitAny: Debug logging - part type varies
       (p: any) => p.state === "approval-responded",
     );
 
@@ -205,6 +208,7 @@ export class EventSender {
       `[Event Sender]   └─ Last message: role=${lastMsg.role}, parts=${parts.length}, toolParts=${toolParts.length}, approvalParts=${approvalParts.length}`,
     );
     if (approvalParts.length > 0) {
+      // biome-ignore lint/suspicious/noExplicitAny: Debug logging - part type varies
       approvalParts.forEach((p: any) => {
         console.log(
           `[Event Sender]      ✓ Approval sent: toolCallId=${p.toolCallId?.slice(-8)}, approved=${p.approval?.approved}`,

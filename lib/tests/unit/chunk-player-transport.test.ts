@@ -3,7 +3,7 @@
  * Tests for transport that replays recorded chunks
  */
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { ChunkPlayer } from "../../chunk_logs/chunk-player";
 import { ChunkPlayerTransport } from "../../chunk_logs/chunk-player-transport";
 

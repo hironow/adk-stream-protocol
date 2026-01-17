@@ -1093,9 +1093,7 @@ class StreamProtocolConverter:
                 "hits": cache_hits,
                 "misses": cache_misses,
             }
-            logger.debug(
-                f"[CACHE] Added cache metadata: hits={cache_hits}, misses={cache_misses}"
-            )
+            logger.debug(f"[CACHE] Added cache metadata: hits={cache_hits}, misses={cache_misses}")
 
         # Add model version
         if model_version:
@@ -1242,9 +1240,7 @@ async def stream_adk_to_ai_sdk(
         logger.info(f"[FINALIZE] Accumulated usage_metadata: {metadata_extractor.usage_metadata!r}")
 
         # DEBUG: Log final model_version
-        logger.debug(
-            f"[MODEL_VERSION] Final value: {metadata_extractor.model_version!r}"
-        )
+        logger.debug(f"[MODEL_VERSION] Final value: {metadata_extractor.model_version!r}")
 
         if error:
             logger.error(f"[FINALIZE] Sending error: {error!s}")

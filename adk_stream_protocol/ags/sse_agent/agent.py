@@ -11,7 +11,7 @@ When ADK CLI runs `adk web adk_stream_protocol/ags`:
 
 # ADK CLI adds ags/ to sys.path when running: adk web adk_stream_protocol/ags
 # So we import from runner directly (not ags.runner)
-from runner import sse_agent
+from runner import sse_agent  # type: ignore[import-not-found]
 
 
 # root_agent is required by adk web

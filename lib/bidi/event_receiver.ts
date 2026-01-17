@@ -206,10 +206,15 @@ export class EventReceiver {
     }
 
     // Debug logging for ALL events with recipient info
+    // biome-ignore lint/suspicious/noExplicitAny: Debug logging - chunk type varies by event
     const eventType = (chunk as any).type;
+    // biome-ignore lint/suspicious/noExplicitAny: Debug logging - chunk type varies by event
     const _toolName = (chunk as any).toolName;
+    // biome-ignore lint/suspicious/noExplicitAny: Debug logging - chunk type varies by event
     const toolCallId = (chunk as any).toolCallId;
+    // biome-ignore lint/suspicious/noExplicitAny: Debug logging - chunk type varies by event
     const input = (chunk as any).input;
+    // biome-ignore lint/suspicious/noExplicitAny: Debug logging - chunk type varies by event
     const approvalId = (chunk as any).approvalId;
     const recipient = input?.recipient || "N/A";
 
@@ -222,9 +227,9 @@ export class EventReceiver {
     }
 
     // Additional debug logging for specific event types
-    if ((chunk as any).type === "tool-approval-request") {
+    if (eventType === "tool-approval-request") {
       console.log(
-        `[Event Receiver]   └─ APPROVAL REQUEST for ${recipient}: approvalId=${(chunk as any).approvalId}, toolCallId=${(chunk as any).toolCallId}`,
+        `[Event Receiver]   └─ APPROVAL REQUEST for ${recipient}: approvalId=${approvalId}, toolCallId=${toolCallId}`,
       );
     }
 
@@ -285,9 +290,11 @@ export class EventReceiver {
     }
 
     // Special handling for finish event with audio: inject recorded audio BEFORE finish
+    // biome-ignore lint/suspicious/noExplicitAny: Chunk type varies by event - messageMetadata access
+    const messageMetadata = (chunk as any).messageMetadata;
     if (
-      (chunk as any).type === "finish" &&
-      (chunk as any).messageMetadata?.audio &&
+      eventType === "finish" &&
+      messageMetadata?.audio &&
       this.pcmBuffer.length > 0
     ) {
       this.injectRecordedAudio(controller);
@@ -304,7 +311,7 @@ export class EventReceiver {
         err.code === "ERR_INVALID_STATE"
       ) {
         console.warn(
-          `[Event Receiver] Controller already closed, skipping chunk: ${(chunk as any).type}`,
+          `[Event Receiver] Controller already closed, skipping chunk: ${eventType}`,
         );
         return;
       }

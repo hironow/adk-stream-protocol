@@ -103,7 +103,8 @@ async def test_send_events_calls_stream_adk_to_ai_sdk_with_correct_params() -> N
 
     # when
     with patch(
-        "adk_stream_protocol.transport.bidi_event_sender.stream_adk_to_ai_sdk", return_value=mock_stream()
+        "adk_stream_protocol.transport.bidi_event_sender.stream_adk_to_ai_sdk",
+        return_value=mock_stream(),
     ) as mock_stream_func:
         live_events = mock_live_events()
         await sender.send_events(live_events)
@@ -143,7 +144,8 @@ async def test_send_events_sends_sse_events_to_websocket() -> None:
     # when
     with (
         patch(
-            "adk_stream_protocol.transport.bidi_event_sender.stream_adk_to_ai_sdk", return_value=mock_stream()
+            "adk_stream_protocol.transport.bidi_event_sender.stream_adk_to_ai_sdk",
+            return_value=mock_stream(),
         ),
     ):
         await sender.send_events(mock_live_events())
@@ -184,7 +186,8 @@ async def test_send_events_handles_websocket_disconnect_gracefully() -> None:
     # when/then - should not raise
     with (
         patch(
-            "adk_stream_protocol.transport.bidi_event_sender.stream_adk_to_ai_sdk", return_value=mock_stream()
+            "adk_stream_protocol.transport.bidi_event_sender.stream_adk_to_ai_sdk",
+            return_value=mock_stream(),
         ),
     ):
         await sender.send_events(mock_live_events())

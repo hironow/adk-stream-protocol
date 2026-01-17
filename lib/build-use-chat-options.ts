@@ -128,6 +128,7 @@ export function buildUseChatOptions({
         // Get mode-specific sendAutomaticallyWhen for testing
         // Even though we're using ChunkPlayerTransport, we still want to test
         // that sendAutomaticallyWhen would be called correctly
+        // biome-ignore lint/suspicious/noExplicitAny: Type varies by mode, unified typing not worth complexity
         let sendAutomaticallyWhen: any;
         if (mode === "adk-bidi") {
           const bidiOptions = buildBidiUseChatOptions({

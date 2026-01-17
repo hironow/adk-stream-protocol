@@ -20,16 +20,9 @@ import { useChat } from "@ai-sdk/react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { http } from "msw";
 import { describe, expect, it } from "vitest";
-import { buildUseChatOptions as buildBidiOptions } from "../../bidi";
 import { buildUseChatOptions as buildSseOptions } from "../../sse";
 import type { UIMessageFromAISDKv6 } from "../../utils";
-import {
-  createBidiWebSocketLink,
-  createTextResponse,
-  createTextResponseHandler,
-  getMessageText,
-  setupMswServer,
-} from "../helpers";
+import { createTextResponse, getMessageText, setupMswServer } from "../helpers";
 
 // Create MSW server for WebSocket/HTTP interception
 const server = setupMswServer({
