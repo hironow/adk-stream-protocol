@@ -371,16 +371,6 @@ async def stream(  # noqa: C901, PLR0915
         session = await get_or_create_session(user_id, sse_agent_runner, "adk_assistant_app_sse")
         logger.info(f"[/stream] Session ID: {session.id}")
 
-        # DEBUG: Check session state persistence
-        try:  # nosem: semgrep.forbid-try-except - debug logging, legitimate exception handling
-            events = await sse_agent_runner.session_service.get_events(
-                session=session, after_event_index=0
-            )
-            event_count = len(list(events))
-            logger.info(f"[/stream] Session has {event_count} events in history")
-        except Exception as e:
-            logger.warning(f"[/stream] Could not get session events: {e}")
-
         # Get or create session-specific frontend delegate
         # Delegate must persist across turns so Futures created in Turn 1 can be resolved in Turn 2
         # Note: Cannot store in session.state (not serializable - contains asyncio.Future)
