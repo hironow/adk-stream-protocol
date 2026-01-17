@@ -21,7 +21,7 @@ import pytest
 from google.genai import types
 
 from adk_stream_protocol import BidiEventReceiver, FrontendToolDelegate
-from adk_stream_protocol.protocol.adk_vercel_id_mapper import ADKVercelIDMapper
+from adk_stream_protocol.protocol.id_mapper import ADKVercelIDMapper
 from tests.utils.bidi import (
     create_bidi_event_handler,
     create_frontend_delegate_with_mapper,

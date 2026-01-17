@@ -113,7 +113,9 @@ describe("Mode Switching E2E", () => {
       // Then: Verify history is preserved
       await waitFor(
         () => {
-          expect(bidiResult.current.messages.length).toBe(historyMessages.length);
+          expect(bidiResult.current.messages.length).toBe(
+            historyMessages.length,
+          );
           // Verify user message is preserved
           const userMessage = bidiResult.current.messages.find(
             (m) => m.role === "user",
@@ -258,7 +260,9 @@ describe("Mode Switching E2E", () => {
 
       // Then: Verify all messages are preserved
       expect(sse2.current.messages.length).toBe(4);
-      const userMessages = sse2.current.messages.filter((m) => m.role === "user");
+      const userMessages = sse2.current.messages.filter(
+        (m) => m.role === "user",
+      );
       expect(userMessages.length).toBe(2);
       expect(getMessageText(userMessages[0])).toBe("Message 1");
       expect(getMessageText(userMessages[1])).toBe("Message 2");
@@ -268,9 +272,17 @@ describe("Mode Switching E2E", () => {
       // Given: Pre-built history with specific order
       const orderedHistory: UIMessageFromAISDKv6[] = [
         { id: "1", role: "user", parts: [{ type: "text", text: "First" }] },
-        { id: "2", role: "assistant", parts: [{ type: "text", text: "First response" }] },
+        {
+          id: "2",
+          role: "assistant",
+          parts: [{ type: "text", text: "First response" }],
+        },
         { id: "3", role: "user", parts: [{ type: "text", text: "Second" }] },
-        { id: "4", role: "assistant", parts: [{ type: "text", text: "Second response" }] },
+        {
+          id: "4",
+          role: "assistant",
+          parts: [{ type: "text", text: "Second response" }],
+        },
       ];
 
       // Load in SSE mode
@@ -375,7 +387,9 @@ describe("Mode Switching E2E", () => {
           const messages = sse.current.messages;
           expect(messages.length).toBeGreaterThan(existingHistory.length);
           const lastMessage = messages.at(-1);
-          expect(getMessageText(lastMessage)).toContain("SSE processed pending");
+          expect(getMessageText(lastMessage)).toContain(
+            "SSE processed pending",
+          );
         },
         { timeout: 3000 },
       );

@@ -64,7 +64,9 @@ describe("Error Handling E2E", () => {
           const stream = new ReadableStream({
             start(controller) {
               controller.enqueue(
-                encoder.encode('data: {"type":"text-delta","delta":"Starting..."}\n\n'),
+                encoder.encode(
+                  'data: {"type":"text-delta","delta":"Starting..."}\n\n',
+                ),
               );
               // Abruptly close without [DONE]
               controller.close();
@@ -213,13 +215,16 @@ describe("Error Handling E2E", () => {
       // Given: SSE endpoint that returns 429
       server.use(
         http.post("http://localhost:8000/stream", () => {
-          return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
-            status: 429,
-            headers: {
-              "Content-Type": "application/json",
-              "Retry-After": "60",
+          return new Response(
+            JSON.stringify({ error: "Rate limit exceeded" }),
+            {
+              status: 429,
+              headers: {
+                "Content-Type": "application/json",
+                "Retry-After": "60",
+              },
             },
-          });
+          );
         }),
       );
 
@@ -492,7 +497,9 @@ describe("Error Handling E2E", () => {
       );
 
       // Then: Original history should still be preserved
-      const userMessages = result.current.messages.filter((m) => m.role === "user");
+      const userMessages = result.current.messages.filter(
+        (m) => m.role === "user",
+      );
       expect(userMessages.length).toBeGreaterThanOrEqual(2); // Original + new
       expect(getMessageText(userMessages[0])).toBe("Previous message");
     });
@@ -552,7 +559,10 @@ describe("Error Handling E2E", () => {
             start(controller) {
               const errorEvent = {
                 type: "error",
-                error: { message: "Stream error occurred", code: "STREAM_ERROR" },
+                error: {
+                  message: "Stream error occurred",
+                  code: "STREAM_ERROR",
+                },
               };
               controller.enqueue(
                 encoder.encode(`data: ${JSON.stringify(errorEvent)}\n\n`),

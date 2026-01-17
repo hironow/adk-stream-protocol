@@ -1,5 +1,5 @@
 """
-Unit tests for adk_compat module
+Unit tests for session module
 
 This module tests the ADK compatibility functions for session management and history synchronization.
 """
@@ -10,13 +10,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from adk_stream_protocol.adk.adk_compat import (
+from adk_stream_protocol.adk.session import (
     _session_store,
     clear_sessions,
     get_or_create_session,
     sync_conversation_history_to_session,
 )
-from adk_stream_protocol.protocol.ai_sdk_v6_compat import process_chat_message_for_bidi
+from adk_stream_protocol.protocol.message_types import process_chat_message_for_bidi
 
 
 @pytest.fixture(autouse=True)
@@ -555,7 +555,7 @@ async def test_message_conversion_pipeline_call_count():
 
     # when - spy on process_chat_message_for_bidi
     with patch(
-        "adk_stream_protocol.protocol.ai_sdk_v6_compat.process_chat_message_for_bidi",
+        "adk_stream_protocol.protocol.message_types.process_chat_message_for_bidi",
         wraps=process_chat_message_for_bidi,
     ) as spy_process:
         image_blobs, text_content = spy_process(message_data)

@@ -13,8 +13,8 @@ Components:
 """
 
 from .approval_queue import ApprovalQueue
+from .confirmation_service import ToolConfirmationDelegate
 from .frontend_tool_service import FrontendToolDelegate
-from .tool_confirmation_service import ToolConfirmationDelegate
 
 
 __all__ = [

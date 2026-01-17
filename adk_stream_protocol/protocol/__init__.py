@@ -11,8 +11,8 @@ Components:
 - ChatMessage, TextPart, etc.: AI SDK v6 type definitions
 """
 
-from .adk_vercel_id_mapper import ADKVercelIDMapper
-from .ai_sdk_v6_compat import (
+from .id_mapper import ADKVercelIDMapper
+from .message_types import (
     ChatMessage,
     FilePart,
     GenericPart,

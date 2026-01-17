@@ -347,9 +347,7 @@ describe("Tool Execution E2E", () => {
 
             // Check for approval response (state changes to "approval-responded" after addToolApprovalResponse)
             const hasApprovalResponse = data.messages?.some((msg: any) =>
-              msg.parts?.some(
-                (p: any) => p.state === "approval-responded",
-              ),
+              msg.parts?.some((p: any) => p.state === "approval-responded"),
             );
 
             if (hasApprovalResponse) {
@@ -659,9 +657,9 @@ describe("Tool Execution E2E", () => {
             result.current.messages[result.current.messages.length - 1];
           const toolParts = findToolParts(lastMessage);
           // AI SDK v6: Tool type is "tool-<name>", so check type contains tool name
-          expect(
-            toolParts.some((p: any) => p.type === "tool-change_bgm"),
-          ).toBe(true);
+          expect(toolParts.some((p: any) => p.type === "tool-change_bgm")).toBe(
+            true,
+          );
         },
         { timeout: 3000 },
       );

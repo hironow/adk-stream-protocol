@@ -13,7 +13,7 @@ Components:
 - clear_sessions: Session cleanup for testing
 """
 
-from .adk_compat import (
+from .session import (
     Event,
     SessionStore,
     _session_store,

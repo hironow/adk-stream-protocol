@@ -25,7 +25,7 @@ from google.adk.tools import BaseTool, FunctionTool, ToolContext
 from google.genai import types
 from loguru import logger
 
-from adk_stream_protocol.adk.adk_compat import get_or_create_session
+from adk_stream_protocol.adk.session import get_or_create_session
 
 
 load_dotenv(".env.local")

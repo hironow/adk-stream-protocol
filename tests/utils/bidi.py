@@ -9,7 +9,7 @@ from typing import Any
 from unittest.mock import AsyncMock, Mock
 
 from adk_stream_protocol import BidiEventReceiver, FrontendToolDelegate
-from adk_stream_protocol.protocol.adk_vercel_id_mapper import ADKVercelIDMapper
+from adk_stream_protocol.protocol.id_mapper import ADKVercelIDMapper
 
 
 def create_mock_bidi_components() -> tuple[Mock, Mock, Mock, Mock]:

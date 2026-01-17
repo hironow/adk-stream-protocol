@@ -27,7 +27,7 @@ from google.adk.tools import FunctionTool, ToolContext
 from google.genai import types
 from loguru import logger as loguru_logger
 
-from adk_stream_protocol.adk.adk_compat import get_or_create_session
+from adk_stream_protocol.adk.session import get_or_create_session
 
 # Import ApprovalQueue from the main test file
 from .test_deferred_approval_flow import ApprovalQueue

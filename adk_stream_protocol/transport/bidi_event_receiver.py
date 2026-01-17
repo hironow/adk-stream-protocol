@@ -23,10 +23,10 @@ from google.adk.sessions import Session
 from google.genai import types
 from loguru import logger
 
-from adk_stream_protocol.adk.adk_compat import Event as AdkEvent
-from adk_stream_protocol.adk.adk_compat import sync_conversation_history_to_session
+from adk_stream_protocol.adk.session import Event as AdkEvent
+from adk_stream_protocol.adk.session import sync_conversation_history_to_session
 from adk_stream_protocol.ags.tools import _execute_get_location, _execute_process_payment
-from adk_stream_protocol.protocol.ai_sdk_v6_compat import ChatMessage, process_chat_message_for_bidi
+from adk_stream_protocol.protocol.message_types import ChatMessage, process_chat_message_for_bidi
 from adk_stream_protocol.tools.approval_queue import ApprovalQueue
 from adk_stream_protocol.tools.frontend_tool_service import FrontendToolDelegate
 from adk_stream_protocol.transport._utils import ensure_session_state_key, log_implementation_gap

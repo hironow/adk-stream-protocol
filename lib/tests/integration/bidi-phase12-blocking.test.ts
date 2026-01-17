@@ -96,7 +96,10 @@ describe("BIDI Phase 12 BLOCKING: Controller Lifecycle", () => {
       'data: {"type": "tool-approval-request", "toolCallId": "tool-1", "approvalId": "approval-1"}\n\n',
       controller,
     );
-    eventReceiver.handleMessage('data: {"type": "finish-step"}\n\n', controller);
+    eventReceiver.handleMessage(
+      'data: {"type": "finish-step"}\n\n',
+      controller,
+    );
 
     // Then: doneReceived should be true
     expect(eventReceiver.isDoneReceived()).toBe(true);
@@ -141,7 +144,10 @@ describe("BIDI Phase 12 BLOCKING: Controller Lifecycle", () => {
       'data: {"type": "tool-approval-request", "toolCallId": "tool-1", "approvalId": "approval-1"}\n\n',
       controller,
     );
-    eventReceiver.handleMessage('data: {"type": "finish-step"}\n\n', controller);
+    eventReceiver.handleMessage(
+      'data: {"type": "finish-step"}\n\n',
+      controller,
+    );
 
     // Then: onApprovalStreamClosed should be called
     expect(onApprovalStreamClosed).toHaveBeenCalledTimes(1);
@@ -159,7 +165,10 @@ describe("BIDI Phase 12 BLOCKING: Controller Lifecycle", () => {
     } as unknown as ReadableStreamDefaultController<UIMessageChunkFromAISDKv6>;
 
     // When: Receive finish-step WITHOUT prior approval-request
-    eventReceiver.handleMessage('data: {"type": "finish-step"}\n\n', controller);
+    eventReceiver.handleMessage(
+      'data: {"type": "finish-step"}\n\n',
+      controller,
+    );
 
     // Then: onApprovalStreamClosed should NOT be called
     expect(onApprovalStreamClosed).not.toHaveBeenCalled();
@@ -180,7 +189,10 @@ describe("BIDI Phase 12 BLOCKING: Controller Lifecycle", () => {
       'data: {"type": "tool-approval-request", "toolCallId": "tool-1", "approvalId": "approval-1"}\n\n',
       controller,
     );
-    eventReceiver.handleMessage('data: {"type": "finish-step"}\n\n', controller);
+    eventReceiver.handleMessage(
+      'data: {"type": "finish-step"}\n\n',
+      controller,
+    );
     expect(eventReceiver.isDoneReceived()).toBe(true);
 
     // When: Reset
@@ -210,7 +222,9 @@ describe("BIDI Phase 12 BLOCKING: Controller Lifecycle", () => {
     await vi.waitFor(() => mockWs?.readyState === WebSocket.OPEN);
 
     // Simulate server response with [DONE]
-    mockWs?.simulateMessage('data: {"type": "start", "messageId": "msg-1"}\n\n');
+    mockWs?.simulateMessage(
+      'data: {"type": "start", "messageId": "msg-1"}\n\n',
+    );
     mockWs?.simulateMessage('data: {"type": "text-delta", "text": "Hi"}\n\n');
     mockWs?.simulateMessage("data: [DONE]\n\n");
 
@@ -324,7 +338,10 @@ describe("BIDI Phase 12 BLOCKING: Backend Response Timeout", () => {
       'data: {"type": "tool-approval-request", "toolCallId": "tool-1", "approvalId": "approval-1"}\n\n',
       controller,
     );
-    eventReceiver.handleMessage('data: {"type": "finish-step"}\n\n', controller);
+    eventReceiver.handleMessage(
+      'data: {"type": "finish-step"}\n\n',
+      controller,
+    );
 
     // Then: onApprovalStreamClosed callback should be called (transport uses this to clear timeout)
     expect(onApprovalStreamClosed).toHaveBeenCalledTimes(1);

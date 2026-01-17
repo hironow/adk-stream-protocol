@@ -11,7 +11,7 @@ Tests cover:
 import base64
 
 from adk_stream_protocol import ChatMessage
-from adk_stream_protocol.protocol.ai_sdk_v6_compat import GenericPart
+from adk_stream_protocol.protocol.message_types import GenericPart
 
 
 def test_chat_message_with_text_and_image():
