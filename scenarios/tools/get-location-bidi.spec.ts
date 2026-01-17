@@ -158,6 +158,14 @@ test.describe("get_location Tool - BIDI Mode", () => {
   });
 
   test("4. Deny Then Approve (State reset verification)", async ({ page }) => {
+    // Ensure clean state - no leftover approval buttons from previous tests
+    await expect(
+      page.getByRole("button", { name: "Approve" }),
+    ).toHaveCount(0, { timeout: 5000 });
+    await expect(
+      page.getByRole("button", { name: "Deny" }),
+    ).toHaveCount(0, { timeout: 5000 });
+
     // Location request 1 - Deny
     console.log("[Test 4] Location request 1 (Deny)...");
     await sendTextMessage(page, "私の位置を教えてください");
@@ -168,6 +176,11 @@ test.describe("get_location Tool - BIDI Mode", () => {
     });
     await page.getByRole("button", { name: "Deny" }).first().click();
     await waitForAssistantResponse(page, { timeout: 30000 });
+
+    // Wait for the Deny button to disappear before proceeding
+    await expect(
+      page.getByRole("button", { name: "Deny" }),
+    ).toHaveCount(0, { timeout: 10000 });
     await page.waitForTimeout(2000);
     console.log("[Test 4] Location request 1 denied");
 
@@ -181,6 +194,11 @@ test.describe("get_location Tool - BIDI Mode", () => {
     });
     await page.getByRole("button", { name: "Approve" }).first().click();
     await waitForAssistantResponse(page, { timeout: 30000 });
+
+    // Wait for the Approve button to disappear
+    await expect(
+      page.getByRole("button", { name: "Approve" }),
+    ).toHaveCount(0, { timeout: 10000 });
     await page.waitForTimeout(2000);
     console.log("[Test 4] Location request 2 approved");
 

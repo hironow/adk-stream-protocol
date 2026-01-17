@@ -460,7 +460,11 @@ test.describe("ADK Tool Confirmation - SSE Mode", () => {
 
       // Click first deny, second approve
       await page.getByRole("button", { name: "Deny" }).first().click();
-      await page.waitForTimeout(500);
+      await page.waitForTimeout(2000);
+      // Wait for the Approve button to be visible before clicking
+      await expect(
+        page.getByRole("button", { name: "Approve" }).first(),
+      ).toBeVisible({ timeout: 10000 });
       await page.getByRole("button", { name: "Approve" }).first().click();
 
       // Wait for response

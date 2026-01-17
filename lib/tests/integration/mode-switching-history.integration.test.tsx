@@ -44,7 +44,7 @@ describe("Mode Switching with History Preservation", () => {
         },
       ] as UIMessageFromAISDKv6[];
 
-      const { useChatOptions: _geminiOptions } = buildUseChatOptions({
+      const { useChatOptions: geminiOptions } = buildUseChatOptions({
         mode: "gemini",
         initialMessages,
       });
@@ -131,7 +131,7 @@ describe("Mode Switching with History Preservation", () => {
       });
 
       // when - switch to Gemini mode
-      const { useChatOptions: _geminiOptions } = buildUseChatOptions({
+      const { useChatOptions: geminiOptions } = buildUseChatOptions({
         mode: "gemini",
         initialMessages,
       });
@@ -152,7 +152,7 @@ describe("Mode Switching with History Preservation", () => {
   describe("Empty History Handling", () => {
     it("should handle mode switching with no messages", () => {
       // given - no initial messages
-      const { useChatOptions: _geminiOptions } = buildUseChatOptions({
+      const { useChatOptions: geminiOptions } = buildUseChatOptions({
         mode: "gemini",
         initialMessages: [],
       });
@@ -325,7 +325,7 @@ describe("Mode Switching with History Preservation", () => {
       ] as UIMessageFromAISDKv6[];
 
       // when - switch modes
-      const { useChatOptions: _geminiOptions } = buildUseChatOptions({
+      const { useChatOptions: geminiOptions } = buildUseChatOptions({
         mode: "gemini",
         initialMessages,
       });

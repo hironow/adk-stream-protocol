@@ -18,6 +18,7 @@ test.describe("SSE Error Handling", () => {
     const response = await request.post(`${SERVER_URL}/stream`, {
       headers: {
         "Content-Type": "application/json",
+        "X-API-Key": "dev-key-12345",
       },
       data: "{ invalid json without quotes }",
       failOnStatusCode: false,
@@ -35,6 +36,7 @@ test.describe("SSE Error Handling", () => {
     const response = await request.post(`${SERVER_URL}/stream`, {
       headers: {
         "Content-Type": "application/json",
+        "X-API-Key": "dev-key-12345",
       },
       data: "",
       failOnStatusCode: false,
@@ -54,6 +56,7 @@ test.describe("SSE Error Handling", () => {
     const response = await request.post(`${SERVER_URL}/stream`, {
       headers: {
         "Content-Type": "application/json",
+        "X-API-Key": "dev-key-12345",
       },
       data: JSON.stringify({
         invalidField: "value",
@@ -75,6 +78,7 @@ test.describe("SSE Error Handling", () => {
     const response = await request.post(`${SERVER_URL}/stream`, {
       headers: {
         "Content-Type": "application/json",
+        "X-API-Key": "dev-key-12345",
       },
       data: JSON.stringify({
         messages: [],
@@ -94,6 +98,7 @@ test.describe("SSE Error Handling", () => {
     const response = await request.post(`${SERVER_URL}/stream`, {
       headers: {
         "Content-Type": "application/json",
+        "X-API-Key": "dev-key-12345",
       },
       data: JSON.stringify({
         messages: [{ invalidField: "no role or content" }],
@@ -115,6 +120,7 @@ test.describe("SSE Error Handling", () => {
     const response = await request.post(`${SERVER_URL}/stream`, {
       headers: {
         "Content-Type": "application/json",
+        "X-API-Key": "dev-key-12345",
       },
       data: JSON.stringify({
         messages: [
@@ -141,6 +147,7 @@ test.describe("SSE Error Handling", () => {
     const response = await request.post(`${SERVER_URL}/stream`, {
       headers: {
         "Content-Type": "application/json",
+        "X-API-Key": "dev-key-12345",
       },
       data: JSON.stringify({
         messages: [
@@ -167,6 +174,7 @@ test.describe("SSE Error Handling", () => {
     await request.post(`${SERVER_URL}/stream`, {
       headers: {
         "Content-Type": "application/json",
+        "X-API-Key": "dev-key-12345",
       },
       data: "{ invalid }",
       failOnStatusCode: false,
@@ -176,6 +184,7 @@ test.describe("SSE Error Handling", () => {
     const response = await request.post(`${SERVER_URL}/stream`, {
       headers: {
         "Content-Type": "application/json",
+        "X-API-Key": "dev-key-12345",
       },
       data: JSON.stringify({
         messages: [
@@ -198,11 +207,14 @@ test.describe("SSE Error Handling", () => {
   test("should handle request with very long message content", async ({
     request,
   }) => {
+    // Increase timeout for this test - 100KB content takes longer to process
+    test.setTimeout(120000); // 2 minutes
     // when - send message with very long content (100KB)
     const longContent = "a".repeat(100000);
     const response = await request.post(`${SERVER_URL}/stream`, {
       headers: {
         "Content-Type": "application/json",
+        "X-API-Key": "dev-key-12345",
       },
       data: JSON.stringify({
         messages: [
@@ -231,6 +243,7 @@ test.describe("SSE Error Handling", () => {
     const response = await request.post(`${SERVER_URL}/stream`, {
       headers: {
         "Content-Type": "application/json",
+        "X-API-Key": "dev-key-12345",
       },
       data: JSON.stringify({
         messages: [
