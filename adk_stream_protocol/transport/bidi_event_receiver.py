@@ -29,6 +29,7 @@ from adk_stream_protocol.ags.tools import _execute_get_location, _execute_proces
 from adk_stream_protocol.protocol.ai_sdk_v6_compat import ChatMessage, process_chat_message_for_bidi
 from adk_stream_protocol.tools.approval_queue import ApprovalQueue
 from adk_stream_protocol.tools.frontend_tool_service import FrontendToolDelegate
+from adk_stream_protocol.transport._utils import ensure_session_state_key
 
 
 class BidiEventReceiver:
@@ -75,10 +76,8 @@ class BidiEventReceiver:
 
         # Initialize session state dicts upfront (B2: consistency improvement)
         # These are used by both BidiEventSender and BidiEventReceiver
-        if "pending_long_running_calls" not in session.state:
-            session.state["pending_long_running_calls"] = {}
-        if "confirmation_id_mapping" not in session.state:
-            session.state["confirmation_id_mapping"] = {}
+        ensure_session_state_key(session, "pending_long_running_calls", {})
+        ensure_session_state_key(session, "confirmation_id_mapping", {})
         logger.info("[BidiEventReceiver] ✓ Session state dicts initialized")
 
         # Set mode to "bidi" for tool functions to detect mode
@@ -267,17 +266,7 @@ class BidiEventReceiver:
         self, confirmation_id: str, response_data: dict[str, Any]
     ) -> None:
         """
-        Handle confirmation approval: Submit to approval_queue (Phase 12) or execute tool (Phase 5).
-
-        Phase 12 (BLOCKING mode) - NEW:
-        - Tool is BLOCKING and awaiting approval via approval_queue
-        - Just submit approval decision to approval_queue
-        - Tool function will resume and return final result
-
-        Phase 5 (LongRunningFunctionTool) - LEGACY:
-        - Tool returned pending status without execution
-        - Server executes actual tool logic after approval
-        - Server sends FunctionResponse with execution result to ADK
+        Handle confirmation approval: Route to Phase 12 (BLOCKING) or Phase 5 (Legacy).
 
         Args:
             confirmation_id: The ID of the confirmation FunctionResponse (lookup key)
@@ -290,52 +279,89 @@ class BidiEventReceiver:
         )
         logger.info("=" * 80)
 
-        # Phase 12: Check if approval_queue exists (BLOCKING mode)
-        approval_queue = self._session.state.get("approval_queue")
-        if approval_queue:
-            logger.info("[BIDI-APPROVAL] Phase 12: BLOCKING mode detected (approval_queue exists)")
+        # Route to appropriate handler based on approval_queue presence
+        if self._session.state.get("approval_queue"):
+            await self._handle_blocking_mode_approval(confirmation_id, response_data)
+        else:
+            await self._handle_legacy_mode_approval(confirmation_id, response_data)
 
-            # Look up original tool_call_id using confirmation_id
-            confirmation_id_mapping = self._session.state.get("confirmation_id_mapping", {})
-            original_tool_call_id = confirmation_id_mapping.get(confirmation_id)
+    async def _handle_blocking_mode_approval(
+        self, confirmation_id: str, response_data: dict[str, Any]
+    ) -> None:
+        """
+        Handle confirmation approval in Phase 12 BLOCKING mode.
 
-            if not original_tool_call_id:
-                logger.error(
-                    f"[BIDI-APPROVAL] Phase 12: confirmation_id {confirmation_id} not found in mapping"
-                )
-                return
+        Phase 12 (BLOCKING mode):
+        - Tool is BLOCKING and awaiting approval via approval_queue
+        - Submit approval decision to approval_queue
+        - Tool function will resume and return final result
 
-            # Extract approval decision (try both "confirmed" and "approved" fields for compatibility)
-            approved = response_data.get("approved", response_data.get("confirmed", False))
+        Args:
+            confirmation_id: The ID of the confirmation FunctionResponse (lookup key)
+            response_data: FunctionResponse.response dict with {"confirmed": bool} or {"approved": bool}
+        """
+        logger.info("[BIDI-APPROVAL] Phase 12: BLOCKING mode detected (approval_queue exists)")
 
-            logger.info(
-                f"[BIDI-APPROVAL] Phase 12: Submitting to approval_queue: "
-                f"tool_call_id={original_tool_call_id}, approved={approved}"
-            )
-
-            # Submit to approval_queue (this unblocks the BLOCKING tool function)
-            approval_queue.submit_approval(original_tool_call_id, approved)
-
-            # Clean up pending_long_running_calls to allow final tool-output-available to be sent
-            # IMPORTANT: Without this, BidiEventSender will skip the final result event
-            pending_calls = self._session.state.get("pending_long_running_calls", {})
-            if original_tool_call_id in pending_calls:
-                del pending_calls[original_tool_call_id]
-                logger.info(
-                    f"[BIDI-APPROVAL] Phase 12: Removed {original_tool_call_id} from pending_long_running_calls"
-                )
-
-            # Clean up confirmation mapping
-            del confirmation_id_mapping[confirmation_id]
-            logger.info(
-                f"[BIDI-APPROVAL] Phase 12: Cleaned up confirmation mapping for {confirmation_id}"
-            )
-
-            logger.info("[BIDI-APPROVAL] Phase 12: ✓ Approval decision submitted to ApprovalQueue")
-            logger.info("[BIDI-APPROVAL] Phase 12: Tool will resume and return final result")
+        approval_queue: ApprovalQueue | None = self._session.state.get("approval_queue")
+        if approval_queue is None:
+            # This should never happen - caller verified approval_queue exists
+            logger.error("[BIDI-APPROVAL] Phase 12: approval_queue unexpectedly None")
             return
 
-        # Phase 5: Fall through to legacy LongRunningFunctionTool handling
+        # Look up original tool_call_id using confirmation_id
+        confirmation_id_mapping = self._session.state.get("confirmation_id_mapping", {})
+        original_tool_call_id = confirmation_id_mapping.get(confirmation_id)
+
+        if not original_tool_call_id:
+            logger.error(
+                f"[BIDI-APPROVAL] Phase 12: confirmation_id {confirmation_id} not found in mapping"
+            )
+            return
+
+        # Extract approval decision (try both "confirmed" and "approved" fields for compatibility)
+        approved = response_data.get("approved", response_data.get("confirmed", False))
+
+        logger.info(
+            f"[BIDI-APPROVAL] Phase 12: Submitting to approval_queue: "
+            f"tool_call_id={original_tool_call_id}, approved={approved}"
+        )
+
+        # Submit to approval_queue (this unblocks the BLOCKING tool function)
+        approval_queue.submit_approval(original_tool_call_id, approved)
+
+        # Clean up pending_long_running_calls to allow final tool-output-available to be sent
+        # IMPORTANT: Without this, BidiEventSender will skip the final result event
+        pending_calls = self._session.state.get("pending_long_running_calls", {})
+        if original_tool_call_id in pending_calls:
+            del pending_calls[original_tool_call_id]
+            logger.info(
+                f"[BIDI-APPROVAL] Phase 12: Removed {original_tool_call_id} from pending_long_running_calls"
+            )
+
+        # Clean up confirmation mapping
+        del confirmation_id_mapping[confirmation_id]
+        logger.info(
+            f"[BIDI-APPROVAL] Phase 12: Cleaned up confirmation mapping for {confirmation_id}"
+        )
+
+        logger.info("[BIDI-APPROVAL] Phase 12: ✓ Approval decision submitted to ApprovalQueue")
+        logger.info("[BIDI-APPROVAL] Phase 12: Tool will resume and return final result")
+
+    async def _handle_legacy_mode_approval(
+        self, confirmation_id: str, response_data: dict[str, Any]
+    ) -> None:
+        """
+        Handle confirmation approval in Phase 5 LongRunningFunctionTool mode (legacy).
+
+        Phase 5 (LongRunningFunctionTool) - LEGACY:
+        - Tool returned pending status without execution
+        - Server executes actual tool logic after approval
+        - Server sends FunctionResponse with execution result to ADK
+
+        Args:
+            confirmation_id: The ID of the confirmation FunctionResponse (lookup key)
+            response_data: FunctionResponse.response dict with {"confirmed": bool}
+        """
         logger.info("[BIDI-APPROVAL] Phase 5: LongRunningFunctionTool mode (no approval_queue)")
 
         # Look up original tool_call_id using confirmation_id from session.state
@@ -387,33 +413,66 @@ class BidiEventReceiver:
         logger.info(f"[BIDI-APPROVAL] tool_name={tool_name}, args={tool_args}, approved={approved}")
         logger.info("=" * 80)
 
-        # Execute tool logic or create error response
+        # Execute tool logic
+        result = await self._execute_legacy_tool(tool_name, tool_args, approved)
+        logger.info(f"[BIDI-APPROVAL] Execution result: {result}")
+
+        # Send FunctionResponse to ADK
+        await self._send_function_response_to_adk(tool_call_id, tool_name, result)
+
+        # Clean up mappings
+        del confirmation_id_mapping[confirmation_id]
+        del pending_calls[tool_call_id]
+        logger.info(f"[BIDI-APPROVAL] Cleaned up mappings for {tool_call_id}")
+
+    async def _execute_legacy_tool(
+        self, tool_name: str, tool_args: dict[str, Any], approved: bool
+    ) -> dict[str, Any]:
+        """
+        Execute tool logic for Phase 5 legacy mode.
+
+        Args:
+            tool_name: Name of the tool to execute
+            tool_args: Arguments for the tool
+            approved: Whether user approved the tool execution
+
+        Returns:
+            Tool execution result dict
+        """
         if approved:
             # Execute actual tool logic
             if tool_name == "process_payment":
-                result = _execute_process_payment(**tool_args)
+                return _execute_process_payment(**tool_args)
             elif tool_name == "get_location":
-                result = await _execute_get_location(self._session.id)
+                return await _execute_get_location(self._session.id)
             else:
                 logger.error(f"[BIDI-APPROVAL] Unknown tool name: {tool_name}")
-                result = {"success": False, "error": f"Unknown tool: {tool_name}"}
+                return {"success": False, "error": f"Unknown tool: {tool_name}"}
         else:
             # User rejected - create error response
             logger.info(f"[BIDI-APPROVAL] User rejected {tool_name}")
             if tool_name == "process_payment":
-                result = {
+                return {
                     "success": False,
                     "error": "Payment rejected by user",
                     "transaction_id": None,
                 }
             elif tool_name == "get_location":
-                result = {"success": False, "error": "Location access rejected by user"}
+                return {"success": False, "error": "Location access rejected by user"}
             else:
-                result = {"success": False, "error": f"{tool_name} rejected by user"}
+                return {"success": False, "error": f"{tool_name} rejected by user"}
 
-        logger.info(f"[BIDI-APPROVAL] Execution result: {result}")
+    async def _send_function_response_to_adk(
+        self, tool_call_id: str, tool_name: str, result: dict[str, Any]
+    ) -> None:
+        """
+        Send FunctionResponse to ADK via LiveRequestQueue.
 
-        # ===== SEND FUNCTIONRESPONSE TO ADK =====
+        Args:
+            tool_call_id: Original tool call ID
+            tool_name: Name of the tool
+            result: Tool execution result
+        """
         logger.info("=" * 80)
         logger.info("[BIDI-APPROVAL] ===== SENDING FUNCTIONRESPONSE TO ADK =====")
         logger.info(f"[BIDI-APPROVAL] id={tool_call_id}, name={tool_name}")
@@ -436,11 +495,6 @@ class BidiEventReceiver:
 
         logger.info("[BIDI-APPROVAL] ✓ FunctionResponse sent to ADK")
         logger.info("[BIDI-APPROVAL] ADK will continue execution with this result")
-
-        # Clean up mappings
-        del confirmation_id_mapping[confirmation_id]
-        del pending_calls[tool_call_id]
-        logger.info(f"[BIDI-APPROVAL] Cleaned up mappings for {tool_call_id}")
 
     async def _handle_interrupt_event(self, event: dict[str, Any]) -> None:
         """

@@ -102,6 +102,91 @@ class AISdkFinishReason(str, enum.Enum):
     OTHER = "other"
 
 
+class MetadataExtractor:
+    """
+    Extract and accumulate metadata from ADK Event objects.
+
+    This class eliminates duplicated metadata extraction logic that existed in:
+    - StreamProtocolConverter._accumulate_metadata() (instance-based)
+    - stream_adk_to_ai_sdk() (list-based)
+
+    Both patterns needed "last non-None value" for each metadata field.
+    This class provides a unified approach: call extract() for each event,
+    and accumulated values are updated (last non-None wins).
+
+    Extracted metadata fields:
+    - usage_metadata: Token usage information
+    - finish_reason: Why generation stopped
+    - grounding_metadata: Search grounding info
+    - citation_metadata: Citation information
+    - cache_metadata: Caching information
+    - model_version: Model identifier
+
+    Usage:
+        extractor = MetadataExtractor(agent_model="gemini-2.0-flash")
+        for event in events:
+            extractor.extract(event)
+        usage = extractor.usage_metadata  # Last non-None value
+    """
+
+    def __init__(self, agent_model: str | None = None):
+        """
+        Initialize MetadataExtractor.
+
+        Args:
+            agent_model: Optional fallback for model_version when event lacks it.
+        """
+        self._agent_model = agent_model
+        self.usage_metadata: Any | None = None
+        self.finish_reason: Any | None = None
+        self.grounding_metadata: Any | None = None
+        self.citation_metadata: Any | None = None
+        self.cache_metadata: Any | None = None
+        self.model_version: str | None = None
+
+    def extract(self, event: Event) -> None:
+        """
+        Extract metadata from ADK Event, updating accumulated values.
+
+        Only non-None values overwrite existing values (last non-None wins).
+
+        Args:
+            event: ADK Event object to extract metadata from.
+        """
+        if hasattr(event, "usage_metadata") and event.usage_metadata:
+            self.usage_metadata = event.usage_metadata
+            logger.info(f"[MetadataExtractor] Accumulated usage_metadata: {self.usage_metadata!r}")
+
+        if hasattr(event, "finish_reason") and event.finish_reason:
+            self.finish_reason = event.finish_reason
+
+        if hasattr(event, "grounding_metadata") and event.grounding_metadata:
+            self.grounding_metadata = event.grounding_metadata
+
+        if hasattr(event, "citation_metadata") and event.citation_metadata:
+            self.citation_metadata = event.citation_metadata
+
+        if hasattr(event, "cache_metadata") and event.cache_metadata:
+            self.cache_metadata = event.cache_metadata
+
+        if hasattr(event, "model_version") and event.model_version:
+            self.model_version = event.model_version
+            logger.debug(f"[MetadataExtractor] Accumulated model_version: {self.model_version}")
+        elif not self.model_version and self._agent_model:
+            # Use agent_model as fallback only if not already set
+            self.model_version = self._agent_model
+            logger.debug(f"[MetadataExtractor] Using agent_model fallback: {self.model_version}")
+
+    def reset(self) -> None:
+        """Reset all accumulated metadata to initial state."""
+        self.usage_metadata = None
+        self.finish_reason = None
+        self.grounding_metadata = None
+        self.citation_metadata = None
+        self.cache_metadata = None
+        self.model_version = None
+
+
 def _map_adk_finish_reason_to_ai_sdk(finish_reason: types.FinishReason | None) -> str:
     """
     Map ADK FinishReason enum to AI SDK v6 finish reason string.
@@ -212,13 +297,8 @@ class StreamProtocolConverter:
         # Track metadata for BIDI mode finalization
         # In BIDI mode (WebSocket), stream doesn't end until connection closes,
         # so finally block in stream_adk_to_ai_sdk doesn't execute per turn.
-        # We need to accumulate metadata in the converter instance instead.
-        self._usage_metadata: Any | None = None
-        self._finish_reason: Any | None = None
-        self._grounding_metadata: Any | None = None
-        self._citation_metadata: Any | None = None
-        self._cache_metadata: Any | None = None
-        self._model_version: str | None = None
+        # We use MetadataExtractor to accumulate metadata in the converter instance.
+        self._metadata = MetadataExtractor(agent_model=agent_model)
 
     def _generate_part_id(self) -> str:
         """Generate unique part ID."""
@@ -237,9 +317,291 @@ class StreamProtocolConverter:
         """Format event data as SSE. Delegates to module-level format_sse_event()."""
         return format_sse_event(event_data)
 
-    async def _convert_event(self, event: Event) -> AsyncGenerator[str]:  # noqa: C901, PLR0912, PLR0915
+    # =========================================================================
+    # Refactored helper methods for _convert_event()
+    # =========================================================================
+
+    def _handle_error_event(self, event: Event) -> str | None:
+        """
+        Check for error in event and return error SSE event if present.
+
+        Args:
+            event: ADK Event object
+
+        Returns:
+            SSE-formatted error event string, or None if no error
+        """
+        if hasattr(event, "error_code") and event.error_code:
+            error_message = getattr(event, "error_message", None) or "Unknown error"
+            logger.error(f"[ERROR] ADK error detected: {event.error_code} - {error_message}")
+            return self.format_sse_event(
+                {
+                    "type": "error",
+                    "error": {"code": event.error_code, "message": error_message},
+                }
+            )
+        return None
+
+    def _accumulate_metadata(self, event: Event) -> None:
+        """
+        Accumulate metadata from event for BIDI mode finalization.
+
+        In BIDI mode, usage_metadata may arrive in a different event than turn_complete.
+        Delegates to MetadataExtractor to accumulate metadata in the converter instance.
+
+        Args:
+            event: ADK Event object
+        """
+        self._metadata.extract(event)
+
+    def _process_content_parts(self, event: Event) -> list[str]:  # noqa: C901
+        """
+        Process content parts from event and return SSE events.
+
+        Handles: thought, text, function_call, function_response,
+        executable_code, code_execution_result, inline_data.
+
+        Args:
+            event: ADK Event object
+
+        Returns:
+            List of SSE-formatted event strings
+        """
+        events: list[str] = []
+
+        if not event.content or not event.content.parts:
+            return events
+
+        for part in event.content.parts:
+            # Thought/Reasoning content (Gemini 2.0)
+            if (
+                hasattr(part, "thought")
+                and part.thought is True
+                and hasattr(part, "text")
+                and part.text
+            ):
+                logger.info(
+                    f"[THOUGHT PART] Processing thought text: length={len(part.text)}, preview='{part.text[:50]}...'"
+                )
+                # Accumulate reasoning text to filter duplicate text-delta
+                self._accumulated_reasoning_texts.append(part.text)
+                events.extend(self._process_thought_part(part.text))
+
+            # Text content (regular answer when thought=False or None)
+            elif hasattr(part, "text") and part.text:
+                # Filter duplicate text-delta if it matches accumulated reasoning texts
+                should_skip = self._should_skip_duplicate_text(part.text)
+
+                if not should_skip:
+                    thought_value = getattr(part, "thought", None)
+                    logger.info(
+                        f"[TEXT PART] Processing text (thought={thought_value}): length={len(part.text)}, preview='{part.text[:50]}...'"
+                    )
+                    events.extend(self._process_text_part(part.text))
+
+            # Function call (Tool call)
+            if hasattr(part, "function_call") and part.function_call:
+                events.extend(self._process_function_call(part.function_call))
+
+            # Function response (Tool result)
+            if hasattr(part, "function_response") and part.function_response:
+                events.extend(self._process_function_response(part.function_response))
+
+            # Code execution
+            if hasattr(part, "executable_code") and part.executable_code:
+                events.extend(self._process_executable_code(part.executable_code))
+
+            if hasattr(part, "code_execution_result") and part.code_execution_result:
+                events.extend(self._process_code_result(part.code_execution_result))
+
+            # Inline data (images, etc.)
+            if (
+                hasattr(part, "inline_data")
+                and part.inline_data
+                and isinstance(part.inline_data, types.Blob)
+            ):
+                events.extend(self._process_inline_data_part(part.inline_data))
+
+        return events
+
+    def _should_skip_duplicate_text(self, text: str) -> bool:
+        """
+        Check if text should be skipped as duplicate of accumulated reasoning.
+
+        In BIDI mode, Gemini 2.0 sometimes sends reasoning parts followed by text parts
+        containing either the concatenation of all reasoning texts or individual
+        reasoning texts repeated as separate text parts.
+
+        Args:
+            text: Text content to check
+
+        Returns:
+            True if text should be skipped, False otherwise
+        """
+        if not self._accumulated_reasoning_texts:
+            return False
+
+        # Check if text matches concatenation of all reasoning texts
+        accumulated_reasoning = "".join(self._accumulated_reasoning_texts)
+        if text == accumulated_reasoning:
+            logger.info(
+                f"[TEXT PART] Filtering duplicate text-delta (matches concatenated reasoning): "
+                f"length={len(text)}, reasoning_parts={len(self._accumulated_reasoning_texts)}, "
+                f"preview='{text[:50]}...'"
+            )
+            return True
+
+        # Also check if text matches any individual reasoning text
+        for idx, reasoning_text in enumerate(self._accumulated_reasoning_texts):
+            if text == reasoning_text:
+                logger.info(
+                    f"[TEXT PART] Filtering duplicate text-delta (matches reasoning[{idx}]): "
+                    f"length={len(text)}, preview='{text[:50]}...'"
+                )
+                return True
+
+        return False
+
+    def _process_input_transcription(self, event: Event) -> list[str]:
+        """
+        Process input transcription (user audio input in BIDI mode).
+
+        When user speaks, ADK generates input_transcription events with the
+        recognized text. This converts it to AI SDK v6 text-delta events.
+
+        Args:
+            event: ADK Event object
+
+        Returns:
+            List of SSE-formatted event strings
+        """
+        events: list[str] = []
+
+        if not hasattr(event, "input_transcription") or not event.input_transcription:
+            return events
+
+        transcription = event.input_transcription
+        if not hasattr(transcription, "text") or not transcription.text:
+            return events
+
+        logger.debug(
+            f"[INPUT TRANSCRIPTION] text='{transcription.text}', finished={getattr(transcription, 'finished', None)}"
+        )
+
+        # Send text-start if this is the first transcription chunk
+        if not self._input_text_block_started:
+            self._input_text_block_id = f"{self.message_id}_input_text"
+            self._input_text_block_started = True
+            events.append(
+                self.format_sse_event({"type": "text-start", "id": self._input_text_block_id})
+            )
+
+        # Send text-delta with the transcription text (AI SDK v6 protocol)
+        events.append(
+            self.format_sse_event(
+                {
+                    "type": "text-delta",
+                    "id": self._input_text_block_id,
+                    "delta": transcription.text,
+                }
+            )
+        )
+
+        # Send text-end if transcription is finished
+        if hasattr(transcription, "finished") and transcription.finished:
+            events.append(
+                self.format_sse_event({"type": "text-end", "id": self._input_text_block_id})
+            )
+            self._input_text_block_started = False
+
+        return events
+
+    def _process_output_transcription(self, event: Event) -> list[str]:
+        """
+        Process output transcription (AI audio response in native-audio models).
+
+        When AI speaks, models like Gemini 2.0 Flash can generate output_transcription
+        events with the spoken text.
+
+        Args:
+            event: ADK Event object
+
+        Returns:
+            List of SSE-formatted event strings
+        """
+        events: list[str] = []
+
+        if not hasattr(event, "output_transcription") or not event.output_transcription:
+            return events
+
+        transcription = event.output_transcription
+        if not hasattr(transcription, "text") or not transcription.text:
+            return events
+
+        finished = getattr(transcription, "finished", None)
+        text_length = len(transcription.text)
+        logger.info(
+            f"[OUTPUT TRANSCRIPTION] text_length={text_length}, "
+            f"finished={finished}, "
+            f"accumulated_length={len(self._output_transcription_accumulated)}, "
+            f"text_preview='{transcription.text[:100]}...'"
+        )
+
+        # Check if this is final transcription with full text (Gemini 2.0 behavior)
+        # If finished=True and text matches accumulated, skip (duplicate summary)
+        if finished and transcription.text == self._output_transcription_accumulated:
+            logger.info(
+                "[OUTPUT TRANSCRIPTION] Filtering duplicate final summary "
+                "(finished=True, matches accumulated text)"
+            )
+            # Send text-end and skip text-delta
+            events.append(
+                self.format_sse_event({"type": "text-end", "id": self._output_text_block_id})
+            )
+            self._output_text_block_started = False
+        else:
+            # Send text-start if this is the first transcription chunk
+            if not self._output_text_block_started:
+                self._output_text_block_id = f"{self.message_id}_output_text"
+                self._output_text_block_started = True
+                events.append(
+                    self.format_sse_event({"type": "text-start", "id": self._output_text_block_id})
+                )
+
+            # Send text-delta with the transcription text (AI SDK v6 protocol)
+            events.append(
+                self.format_sse_event(
+                    {
+                        "type": "text-delta",
+                        "id": self._output_text_block_id,
+                        "delta": transcription.text,
+                    }
+                )
+            )
+
+            # Accumulate text for duplicate detection
+            self._output_transcription_accumulated += transcription.text
+
+            # Send text-end if transcription is finished
+            if hasattr(transcription, "finished") and transcription.finished:
+                events.append(
+                    self.format_sse_event({"type": "text-end", "id": self._output_text_block_id})
+                )
+                self._output_text_block_started = False
+
+        return events
+
+    async def _convert_event(self, event: Event) -> AsyncGenerator[str]:
         """
         Convert a single ADK event to AI SDK v6 SSE events.
+
+        This method orchestrates the event conversion process by delegating
+        to specialized helper methods for each responsibility:
+        - Error handling: _handle_error_event()
+        - Metadata accumulation: _accumulate_metadata()
+        - Content processing: _process_content_parts()
+        - Input transcription: _process_input_transcription()
+        - Output transcription: _process_output_transcription()
 
         Args:
             event: ADK Event object
@@ -247,282 +609,48 @@ class StreamProtocolConverter:
         Yields:
             SSE-formatted event strings
         """
-        # Check for errors FIRST (before any other processing)
-        if hasattr(event, "error_code") and event.error_code:
-            error_message = getattr(event, "error_message", None) or "Unknown error"
-            logger.error(f"[ERROR] ADK error detected: {event.error_code} - {error_message}")
-            yield self.format_sse_event(
-                {
-                    "type": "error",
-                    "error": {"code": event.error_code, "message": error_message},
-                }
-            )
+        # 1. Check for errors FIRST (before any other processing)
+        error_event = self._handle_error_event(event)
+        if error_event:
+            yield error_event
             return
 
-        # Accumulate metadata from events for BIDI mode finalization
-        # In BIDI mode, usage_metadata may arrive in a different event than turn_complete
-        if hasattr(event, "usage_metadata") and event.usage_metadata:
-            self._usage_metadata = event.usage_metadata
-            logger.info(f"[CONVERTER] Accumulated usage_metadata: {self._usage_metadata!r}")
-        if hasattr(event, "finish_reason") and event.finish_reason:
-            self._finish_reason = event.finish_reason
-        if hasattr(event, "grounding_metadata") and event.grounding_metadata:
-            self._grounding_metadata = event.grounding_metadata
-        if hasattr(event, "citation_metadata") and event.citation_metadata:
-            self._citation_metadata = event.citation_metadata
-        if hasattr(event, "cache_metadata") and event.cache_metadata:
-            self._cache_metadata = event.cache_metadata
-        if hasattr(event, "model_version") and event.model_version:
-            self._model_version = event.model_version
-            logger.debug(f"[CONVERTER] Accumulated model_version: {self._model_version}")
-        elif not self._model_version and self.agent_model:
-            # Use agent_model as fallback only if not already set
-            self._model_version = self.agent_model
-            logger.debug(f"[CONVERTER] Using agent_model fallback: {self._model_version}")
+        # 2. Accumulate metadata from events for BIDI mode finalization
+        self._accumulate_metadata(event)
 
-        has_content = hasattr(event, "content") and event.content
-
-        # Log content parts if present
-        if has_content and event.content is not None and event.content.parts:
-            for _idx, part in enumerate(event.content.parts):
-                part_types = []
-                if hasattr(part, "text") and part.text:
-                    part_types.append(f"text({len(part.text)} chars)")
-                if hasattr(part, "thought") and part.thought:
-                    part_types.append("thought")
-                if hasattr(part, "function_call") and part.function_call:
-                    part_types.append(f"function_call({part.function_call.name})")
-                if hasattr(part, "function_response") and part.function_response:
-                    part_types.append(f"function_response({part.function_response.name})")
-                if hasattr(part, "inline_data") and part.inline_data:
-                    part_types.append("inline_data")
-                if hasattr(part, "executable_code") and part.executable_code:
-                    part_types.append("executable_code")
-                if hasattr(part, "code_execution_result") and part.code_execution_result:
-                    part_types.append("code_execution_result")
-
-        # Send start event on first event
+        # 3. Send start event on first event
         if not self.has_started:
             yield self.format_sse_event({"type": "start", "messageId": self.message_id})
             self.has_started = True
 
-        # Process event content parts
-        if event.content and event.content.parts:
-            for part in event.content.parts:
-                # Thought/Reasoning content (Gemini 2.0)
-                # - thought (boolean): indicates if this is a thought summary
-                # - text (string): contains the actual reasoning content when thought=True
-                if (
-                    hasattr(part, "thought")
-                    and part.thought is True
-                    and hasattr(part, "text")
-                    and part.text
-                ):
-                    logger.info(
-                        f"[THOUGHT PART] Processing thought text: length={len(part.text)}, preview='{part.text[:50]}...'"
-                    )
-                    # Accumulate reasoning text to filter duplicate text-delta
-                    self._accumulated_reasoning_texts.append(part.text)
-                    for sse_event in self._process_thought_part(part.text):
-                        yield sse_event
-                # Text content (regular answer when thought=False or None)
-                elif hasattr(part, "text") and part.text:
-                    # Filter duplicate text-delta if it matches accumulated reasoning texts
-                    # This handles BIDI mode where Gemini 2.0 sends reasoning parts followed by text parts
-                    # containing either:
-                    # 1. The concatenation of all reasoning texts
-                    # 2. Individual reasoning texts repeated as separate text parts
-                    should_skip = False
-                    if self._accumulated_reasoning_texts:
-                        # Check if text matches concatenation of all reasoning texts
-                        accumulated_reasoning = "".join(self._accumulated_reasoning_texts)
-                        if part.text == accumulated_reasoning:
-                            logger.info(
-                                f"[TEXT PART] Filtering duplicate text-delta (matches concatenated reasoning): "
-                                f"length={len(part.text)}, reasoning_parts={len(self._accumulated_reasoning_texts)}, "
-                                f"preview='{part.text[:50]}...'"
-                            )
-                            should_skip = True
+        # 4. Process event content parts (thought, text, function_call, etc.)
+        for sse_event in self._process_content_parts(event):
+            yield sse_event
 
-                        # Also check if text matches any individual reasoning text
-                        if not should_skip:
-                            for idx, reasoning_text in enumerate(self._accumulated_reasoning_texts):
-                                if part.text == reasoning_text:
-                                    logger.info(
-                                        f"[TEXT PART] Filtering duplicate text-delta (matches reasoning[{idx}]): "
-                                        f"length={len(part.text)}, preview='{part.text[:50]}...'"
-                                    )
-                                    should_skip = True
-                                    break
+        # 5. Process input transcription (user audio input in BIDI mode)
+        for sse_event in self._process_input_transcription(event):
+            yield sse_event
 
-                    if should_skip:
-                        continue
+        # 6. Process output transcription (AI audio response in native-audio models)
+        for sse_event in self._process_output_transcription(event):
+            yield sse_event
 
-                    thought_value = getattr(part, "thought", None)
-                    logger.info(
-                        f"[TEXT PART] Processing text (thought={thought_value}): length={len(part.text)}, preview='{part.text[:50]}...'"
-                    )
-                    for sse_event in self._process_text_part(part.text):
-                        yield sse_event
-
-                # Function call (Tool call)
-                if hasattr(part, "function_call") and part.function_call:
-                    for sse_event in self._process_function_call(part.function_call):
-                        yield sse_event
-
-                # Function response (Tool result)
-                if hasattr(part, "function_response") and part.function_response:
-                    for sse_event in self._process_function_response(part.function_response):
-                        yield sse_event
-
-                # Code execution
-                if hasattr(part, "executable_code") and part.executable_code:
-                    for sse_event in self._process_executable_code(part.executable_code):
-                        yield sse_event
-
-                if hasattr(part, "code_execution_result") and part.code_execution_result:
-                    for sse_event in self._process_code_result(part.code_execution_result):
-                        yield sse_event
-
-                # Inline data (images, etc.)
-                if (
-                    hasattr(part, "inline_data")
-                    and part.inline_data
-                    and isinstance(part.inline_data, types.Blob)
-                ):
-                    # logger.info("[INLINE DATA] Processing inline data part")
-                    for sse_event in self._process_inline_data_part(part.inline_data):
-                        yield sse_event
-
-        # ========================================================================
-        # [P3-T1] Live API Transcriptions - Input Transcription
-        # ========================================================================
-        # Handles user audio input transcription in BIDI mode (ADK Live API).
-        # When user speaks, ADK generates input_transcription events with the
-        # recognized text. This converts it to AI SDK v6 text-delta events.
-        #
-        # Flow: User speaks → ADK Live API → input_transcription event
-        #       → text-start/text-delta/text-end → Frontend displays as text
-        #
-        # Reference: server.py:800 - input_audio_transcription config
-        # ========================================================================
-        if hasattr(event, "input_transcription") and event.input_transcription:
-            transcription = event.input_transcription
-            if hasattr(transcription, "text") and transcription.text:
-                logger.debug(
-                    f"[INPUT TRANSCRIPTION] text='{transcription.text}', finished={getattr(transcription, 'finished', None)}"
-                )
-
-                # Send text-start if this is the first transcription chunk
-                if not self._input_text_block_started:
-                    self._input_text_block_id = f"{self.message_id}_input_text"
-                    self._input_text_block_started = True
-                    yield self.format_sse_event(
-                        {"type": "text-start", "id": self._input_text_block_id}
-                    )
-
-                # Send text-delta with the transcription text (AI SDK v6 protocol)
-                yield self.format_sse_event(
-                    {
-                        "type": "text-delta",
-                        "id": self._input_text_block_id,
-                        "delta": transcription.text,
-                    }
-                )
-
-                # Send text-end if transcription is finished
-                if hasattr(transcription, "finished") and transcription.finished:
-                    yield self.format_sse_event(
-                        {"type": "text-end", "id": self._input_text_block_id}
-                    )
-                    self._input_text_block_started = False
-
-        # ========================================================================
-        # [P3-T1] Live API Transcriptions - Output Transcription
-        # ========================================================================
-        # Handles AI audio output transcription from native-audio models.
-        # When AI speaks (audio response), models like Gemini 2.0 Flash can
-        # generate output_transcription events with the spoken text.
-        #
-        # Flow: AI audio response → Native-audio model → output_transcription
-        #       → text-start/text-delta/text-end → Frontend displays as text
-        #
-        # Reference: server.py:801 - output_audio_transcription config
-        # Note: Only available with native-audio models (AUDIO modality)
-        # ========================================================================
-        if hasattr(event, "output_transcription") and event.output_transcription:
-            transcription = event.output_transcription
-            if hasattr(transcription, "text") and transcription.text:
-                finished = getattr(transcription, "finished", None)
-                text_length = len(transcription.text)
-                logger.info(
-                    f"[OUTPUT TRANSCRIPTION] text_length={text_length}, "
-                    f"finished={finished}, "
-                    f"accumulated_length={len(self._output_transcription_accumulated)}, "
-                    f"text_preview='{transcription.text[:100]}...'"
-                )
-
-                # Check if this is final transcription with full text (Gemini 2.0 behavior)
-                # If finished=True and text matches accumulated, skip (duplicate summary)
-                if finished and transcription.text == self._output_transcription_accumulated:
-                    logger.info(
-                        "[OUTPUT TRANSCRIPTION] Filtering duplicate final summary "
-                        "(finished=True, matches accumulated text)"
-                    )
-                    # Send text-end and skip text-delta
-                    yield self.format_sse_event(
-                        {"type": "text-end", "id": self._output_text_block_id}
-                    )
-                    self._output_text_block_started = False
-                    # Don't send text-delta for this duplicate
-                else:
-                    # Send text-start if this is the first transcription chunk
-                    if not self._output_text_block_started:
-                        self._output_text_block_id = f"{self.message_id}_output_text"
-                        self._output_text_block_started = True
-                        yield self.format_sse_event(
-                            {"type": "text-start", "id": self._output_text_block_id}
-                        )
-
-                    # Send text-delta with the transcription text (AI SDK v6 protocol)
-                    yield self.format_sse_event(
-                        {
-                            "type": "text-delta",
-                            "id": self._output_text_block_id,
-                            "delta": transcription.text,
-                        }
-                    )
-
-                    # Accumulate text for duplicate detection
-                    self._output_transcription_accumulated += transcription.text
-
-                    # Send text-end if transcription is finished
-                    if hasattr(transcription, "finished") and transcription.finished:
-                        yield self.format_sse_event(
-                            {"type": "text-end", "id": self._output_text_block_id}
-                        )
-                        self._output_text_block_started = False
-
-        # BIDI mode: Handle turn completion within convert_event
-        # This ensures content and turn_complete are processed in correct order
+        # 7. Handle turn completion for BIDI mode
         if hasattr(event, "turn_complete") and event.turn_complete:
             logger.info("[TURN COMPLETE] Detected turn_complete in convert_event")
-
-            # Use accumulated metadata from instance variables
-            # In BIDI mode, usage_metadata may have arrived in a previous event
             logger.info(
-                f"[TURN COMPLETE] Using accumulated metadata - usage: {self._usage_metadata!r}"
+                f"[TURN COMPLETE] Using accumulated metadata - usage: {self._metadata.usage_metadata!r}"
             )
 
             # Send finish event with accumulated metadata
             async for final_event in self.finalize(
-                usage_metadata=self._usage_metadata,
+                usage_metadata=self._metadata.usage_metadata,
                 error=None,
-                finish_reason=self._finish_reason,
-                grounding_metadata=self._grounding_metadata,
-                citation_metadata=self._citation_metadata,
-                cache_metadata=self._cache_metadata,
-                model_version=self._model_version,
+                finish_reason=self._metadata.finish_reason,
+                grounding_metadata=self._metadata.grounding_metadata,
+                citation_metadata=self._metadata.citation_metadata,
+                cache_metadata=self._metadata.cache_metadata,
+                model_version=self._metadata.model_version,
             ):
                 yield final_event
 
@@ -530,7 +658,6 @@ class StreamProtocolConverter:
         self,
         event_type_prefix: str,
         content: str,
-        log_prefix: str | None = None,
     ) -> list[str]:
         """
         Generic helper for start/delta/end event sequences.
@@ -538,7 +665,6 @@ class StreamProtocolConverter:
         Args:
             event_type_prefix: Prefix for event types (e.g., "text", "reasoning")
             content: Content to stream
-            log_prefix: Optional logging prefix (e.g., "[TEXT PART]")
 
         Returns:
             List of SSE-formatted events
@@ -556,7 +682,7 @@ class StreamProtocolConverter:
 
     def _process_text_part(self, text: str) -> list[str]:
         """Process text part into text-* events."""
-        return self._create_streaming_events("text", text, log_prefix="[TEXT PART]")
+        return self._create_streaming_events("text", text)
 
     def _process_thought_part(self, thought: str) -> list[str]:
         """Process thought part into reasoning-* events."""
@@ -839,7 +965,147 @@ class StreamProtocolConverter:
         )
         return []
 
-    async def finalize(  # noqa: C901, PLR0912, PLR0915, PLR0913
+    def _close_pending_text_blocks(self) -> list[str]:
+        """
+        Close any open text blocks for input/output transcription.
+
+        Returns:
+            List of SSE events to close text blocks (may be empty).
+        """
+        events: list[str] = []
+
+        # Close input transcription text block
+        if self._input_text_block_started and self._input_text_block_id:
+            logger.debug(
+                f"[INPUT TRANSCRIPTION] Closing text block in finalize: id={self._input_text_block_id}"
+            )
+            events.append(
+                self.format_sse_event({"type": "text-end", "id": self._input_text_block_id})
+            )
+            self._input_text_block_started = False
+
+        # Close output transcription text block
+        if self._output_text_block_started and self._output_text_block_id:
+            events.append(
+                self.format_sse_event({"type": "text-end", "id": self._output_text_block_id})
+            )
+            self._output_text_block_started = False
+
+        return events
+
+    def _build_message_metadata(
+        self,
+        usage_metadata: Any | None,
+        grounding_metadata: Any | None,
+        citation_metadata: Any | None,
+        cache_metadata: Any | None,
+        model_version: str | None,
+    ) -> dict[str, Any]:
+        """
+        Build messageMetadata dict for the finish event.
+
+        Consolidates: usage, audio stats, grounding, citations, cache, model version.
+
+        Args:
+            usage_metadata: Token usage information
+            grounding_metadata: Grounding sources (RAG, web search)
+            citation_metadata: Citation information
+            cache_metadata: Context cache statistics
+            model_version: Model version string
+
+        Returns:
+            Metadata dict (may be empty if no metadata available).
+        """
+        metadata: dict[str, Any] = {}
+
+        # DEBUG: Log usage_metadata value
+        logger.info(f"[FINALIZE-METADATA] usage_metadata={usage_metadata!r}")
+
+        # Add usage metadata if available
+        if usage_metadata:
+            metadata["usage"] = {
+                "promptTokens": usage_metadata.prompt_token_count,
+                "completionTokens": usage_metadata.candidates_token_count,
+                "totalTokens": usage_metadata.total_token_count,
+            }
+
+        # Add audio streaming metadata if present
+        if self.pcm_chunk_count > 0:
+            sample_rate = self.pcm_sample_rate or 24000
+            # Calculate duration: bytes / (sample_rate * bytes_per_sample)
+            # PCM16: 2 bytes per sample, 1 channel
+            duration_seconds = self.pcm_total_bytes / (sample_rate * 2)
+
+            metadata["audio"] = {
+                "chunks": self.pcm_chunk_count,
+                "bytes": self.pcm_total_bytes,
+                "sampleRate": sample_rate,
+                "duration": duration_seconds,
+            }
+            logger.info(
+                f"[AUDIO COMPLETE] chunks={self.pcm_chunk_count}, "
+                f"bytes={self.pcm_total_bytes}, "
+                f"sampleRate={sample_rate}, "
+                f"duration={duration_seconds:.2f}s"
+            )
+
+        # Add grounding sources (RAG, web search results)
+        if grounding_metadata:
+            sources = []
+            grounding_chunks = getattr(grounding_metadata, "grounding_chunks", None)
+            if grounding_chunks:
+                for chunk in grounding_chunks:
+                    if hasattr(chunk, "web"):
+                        web = chunk.web
+                        sources.append(
+                            {
+                                "type": "web",
+                                "uri": getattr(web, "uri", ""),
+                                "title": getattr(web, "title", ""),
+                            }
+                        )
+            if sources:
+                metadata["grounding"] = {"sources": sources}
+                logger.debug(f"[GROUNDING] Added {len(sources)} grounding sources to metadata")
+
+        # Add citations
+        if citation_metadata:
+            citations = []
+            citation_sources = getattr(citation_metadata, "citation_sources", None)
+            if citation_sources:
+                for source in citation_sources:
+                    citations.append(
+                        {
+                            "startIndex": getattr(source, "start_index", 0),
+                            "endIndex": getattr(source, "end_index", 0),
+                            "uri": getattr(source, "uri", ""),
+                            "license": getattr(source, "license", ""),
+                        }
+                    )
+            if citations:
+                metadata["citations"] = citations
+                logger.debug(f"[CITATIONS] Added {len(citations)} citations to metadata")
+
+        # Add cache metadata (context cache statistics)
+        if cache_metadata:
+            cache_hits = getattr(cache_metadata, "cache_hits", 0)
+            cache_misses = getattr(cache_metadata, "cache_misses", 0)
+            metadata["cache"] = {
+                "hits": cache_hits,
+                "misses": cache_misses,
+            }
+            logger.debug(
+                f"[CACHE] Added cache metadata: hits={cache_hits}, misses={cache_misses}"
+            )
+
+        # Add model version
+        if model_version:
+            metadata["modelVersion"] = model_version
+            logger.debug(f"[MODEL] Added model version: {model_version}")
+
+        return metadata
+
+    async def finalize(
         self,
         usage_metadata: Any | None = None,
         error: Exception | None = None,
@@ -867,114 +1133,21 @@ class StreamProtocolConverter:
         if error:
             yield self.format_sse_event({"type": "error", "error": str(error)})
         else:
-            # Close any open text blocks (input transcription)
-            if self._input_text_block_started and self._input_text_block_id:
-                logger.debug(
-                    f"[INPUT TRANSCRIPTION] Closing text block in finalize: id={self._input_text_block_id}"
-                )
-                yield self.format_sse_event({"type": "text-end", "id": self._input_text_block_id})
-                self._input_text_block_started = False
+            # Close any open text blocks
+            for event in self._close_pending_text_blocks():
+                yield event
 
-            # Close any open text blocks (output transcription)
-            if self._output_text_block_started and self._output_text_block_id:
-                yield self.format_sse_event({"type": "text-end", "id": self._output_text_block_id})
-                self._output_text_block_started = False
-
-            # Build finish event
+            # Build finish event with metadata
             finish_event: dict[str, Any] = {"type": "finish"}
-
-            # Add finish reason (always, defaults to "stop" if None)
             finish_event["finishReason"] = _map_adk_finish_reason_to_ai_sdk(finish_reason)
 
-            # Build messageMetadata with usage and audio stats
-            metadata: dict[str, Any] = {}
-
-            # DEBUG: Log usage_metadata value
-            logger.info(f"[FINALIZE-METADATA] usage_metadata={usage_metadata!r}")
-
-            # Add usage metadata if available
-            if usage_metadata:
-                metadata["usage"] = {
-                    "promptTokens": usage_metadata.prompt_token_count,
-                    "completionTokens": usage_metadata.candidates_token_count,
-                    "totalTokens": usage_metadata.total_token_count,
-                }
-
-            # Add audio streaming metadata if present
-            if self.pcm_chunk_count > 0:
-                sample_rate = self.pcm_sample_rate or 24000
-                # Calculate duration: bytes / (sample_rate * bytes_per_sample)
-                # PCM16: 2 bytes per sample, 1 channel
-                duration_seconds = self.pcm_total_bytes / (sample_rate * 2)
-
-                metadata["audio"] = {
-                    "chunks": self.pcm_chunk_count,
-                    "bytes": self.pcm_total_bytes,
-                    "sampleRate": sample_rate,
-                    "duration": duration_seconds,
-                }
-                logger.info(
-                    f"[AUDIO COMPLETE] chunks={self.pcm_chunk_count}, "
-                    f"bytes={self.pcm_total_bytes}, "
-                    f"sampleRate={sample_rate}, "
-                    f"duration={duration_seconds:.2f}s"
-                )
-
-            # Add grounding sources (RAG, web search results)
-            if grounding_metadata:
-                sources = []
-                grounding_chunks = getattr(grounding_metadata, "grounding_chunks", None)
-                if grounding_chunks:
-                    for chunk in grounding_chunks:
-                        if hasattr(chunk, "web"):
-                            web = chunk.web
-                            sources.append(
-                                {
-                                    "type": "web",
-                                    "uri": getattr(web, "uri", ""),
-                                    "title": getattr(web, "title", ""),
-                                }
-                            )
-                if sources:
-                    metadata["grounding"] = {"sources": sources}
-                    logger.debug(f"[GROUNDING] Added {len(sources)} grounding sources to metadata")
-
-            # Add citations
-            if citation_metadata:
-                citations = []
-                citation_sources = getattr(citation_metadata, "citation_sources", None)
-                if citation_sources:
-                    for source in citation_sources:
-                        citations.append(
-                            {
-                                "startIndex": getattr(source, "start_index", 0),
-                                "endIndex": getattr(source, "end_index", 0),
-                                "uri": getattr(source, "uri", ""),
-                                "license": getattr(source, "license", ""),
-                            }
-                        )
-                if citations:
-                    metadata["citations"] = citations
-                    logger.debug(f"[CITATIONS] Added {len(citations)} citations to metadata")
-
-            # Add cache metadata (context cache statistics)
-            if cache_metadata:
-                cache_hits = getattr(cache_metadata, "cache_hits", 0)
-                cache_misses = getattr(cache_metadata, "cache_misses", 0)
-                metadata["cache"] = {
-                    "hits": cache_hits,
-                    "misses": cache_misses,
-                }
-                logger.debug(
-                    f"[CACHE] Added cache metadata: hits={cache_hits}, misses={cache_misses}"
-                )
-
-            # Add model version
-            if model_version:
-                metadata["modelVersion"] = model_version
-                logger.debug(f"[MODEL] Added model version: {model_version}")
-
-            # Add messageMetadata to finish event if we have any metadata
+            metadata = self._build_message_metadata(
+                usage_metadata=usage_metadata,
+                grounding_metadata=grounding_metadata,
+                citation_metadata=citation_metadata,
+                cache_metadata=cache_metadata,
+                model_version=model_version,
+            )
             if metadata:
                 finish_event["messageMetadata"] = metadata
 
@@ -985,7 +1158,7 @@ class StreamProtocolConverter:
         yield "data: [DONE]\n\n"
 
 
-async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912, PLR0915
+async def stream_adk_to_ai_sdk(
     event_stream: AsyncGenerator[Event | SseFormattedEvent],
     message_id: str | None = None,
     mode: Mode = "adk-sse",  # "adk-sse" or "adk-bidi" for chunk logger
@@ -1016,12 +1189,8 @@ async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912, PLR0915
     """
     converter = StreamProtocolConverter(message_id, agent_model=agent_model)
     error_list: list[Exception] = []
-    usage_metadata_list = []
-    finish_reason_list = []
-    grounding_metadata_list = []
-    citation_metadata_list = []
-    cache_metadata_list = []
-    model_version_list = []
+    # Use MetadataExtractor to accumulate metadata from events (eliminates list-based pattern)
+    metadata_extractor = MetadataExtractor(agent_model=agent_model)
 
     try:
         async for event in event_stream:
@@ -1056,35 +1225,12 @@ async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912, PLR0915
                 )
                 yield sse_event
 
-            # Extract metadata from Event for finalization
-            if hasattr(event, "usage_metadata") and event.usage_metadata:
-                usage_metadata_list.append(event.usage_metadata)
-                # DEBUG: Log usage_metadata contents
-                logger.info(
-                    f"[USAGE_METADATA] Found usage_metadata (list size now: {len(usage_metadata_list)}): {event.usage_metadata!r}"
-                )
-            else:
-                # Log when usage_metadata is NOT found
-                logger.info(f"[USAGE_METADATA] No usage_metadata in event: {type(event).__name__}")
+            # Extract metadata from Event for finalization (delegates to MetadataExtractor)
+            metadata_extractor.extract(event)
+
+            # DEBUG: Log custom_metadata if present (not handled by MetadataExtractor)
             if hasattr(event, "custom_metadata") and event.custom_metadata:
-                # DEBUG: Log custom_metadata contents
                 logger.debug(f"[CUSTOM_METADATA] Found custom_metadata: {event.custom_metadata!r}")
-            if hasattr(event, "finish_reason") and event.finish_reason:
-                finish_reason_list.append(event.finish_reason)
-            if hasattr(event, "grounding_metadata") and event.grounding_metadata:
-                grounding_metadata_list.append(event.grounding_metadata)
-            if hasattr(event, "citation_metadata") and event.citation_metadata:
-                citation_metadata_list.append(event.citation_metadata)
-            if hasattr(event, "cache_metadata") and event.cache_metadata:
-                cache_metadata_list.append(event.cache_metadata)
-            # Extract model_version from event or use agent_model fallback
-            if hasattr(event, "model_version") and event.model_version:
-                model_version_list.append(event.model_version)
-                logger.debug(f"[MODEL_VERSION] Using event.model_version: {event.model_version}")
-            elif agent_model and not model_version_list:
-                # Use agent_model as fallback only once (if list is empty)
-                model_version_list.append(agent_model)
-                logger.debug(f"[MODEL_VERSION] Using agent_model fallback: {agent_model}")
 
     except Exception as e:
         import traceback
@@ -1094,40 +1240,26 @@ async def stream_adk_to_ai_sdk(  # noqa: C901, PLR0912, PLR0915
         error_list.append(e)
     finally:
         logger.info("[FINALIZE] Entering finally block")
-        # Send final events with all collected metadata
-        # Extract last values from lists (most recent)
+        # Send final events with accumulated metadata (from MetadataExtractor)
         error = error_list[-1] if len(error_list) > 0 else None
-        logger.info(f"[FINALIZE] usage_metadata_list length: {len(usage_metadata_list)}")
-        usage_metadata = usage_metadata_list[-1] if len(usage_metadata_list) > 0 else None
-        logger.info(
-            f"[FINALIZE] usage_metadata_list count: {len(usage_metadata_list)}, selected: {usage_metadata!r}"
-        )
-        finish_reason = finish_reason_list[-1] if len(finish_reason_list) > 0 else None
-        grounding_metadata = (
-            grounding_metadata_list[-1] if len(grounding_metadata_list) > 0 else None
-        )
-        citation_metadata = citation_metadata_list[-1] if len(citation_metadata_list) > 0 else None
-        cache_metadata = cache_metadata_list[-1] if len(cache_metadata_list) > 0 else None
-        model_version = model_version_list[-1] if len(model_version_list) > 0 else None
+        logger.info(f"[FINALIZE] Accumulated usage_metadata: {metadata_extractor.usage_metadata!r}")
 
         # DEBUG: Log final model_version
         logger.debug(
-            f"[MODEL_VERSION] Final values - "
-            f"list={model_version_list!r}, "
-            f"selected={model_version!r}"
+            f"[MODEL_VERSION] Final value: {metadata_extractor.model_version!r}"
         )
 
         if error:
             logger.error(f"[FINALIZE] Sending error: {error!s}")
 
         async for final_event in converter.finalize(
-            usage_metadata=usage_metadata,
+            usage_metadata=metadata_extractor.usage_metadata,
             error=error,
-            finish_reason=finish_reason,
-            grounding_metadata=grounding_metadata,
-            citation_metadata=citation_metadata,
-            cache_metadata=cache_metadata,
-            model_version=model_version,
+            finish_reason=metadata_extractor.finish_reason,
+            grounding_metadata=metadata_extractor.grounding_metadata,
+            citation_metadata=metadata_extractor.citation_metadata,
+            cache_metadata=metadata_extractor.cache_metadata,
+            model_version=metadata_extractor.model_version,
         ):
             # Chunk Logger: Record final SSE event (output)
             # Log raw SSE string to avoid encoding/decoding issues

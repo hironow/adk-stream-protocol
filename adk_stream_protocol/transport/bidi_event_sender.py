@@ -29,6 +29,7 @@ from adk_stream_protocol.protocol.stream_protocol import (
     stream_adk_to_ai_sdk,
 )
 from adk_stream_protocol.tools.frontend_tool_service import FrontendToolDelegate
+from adk_stream_protocol.transport._utils import ensure_session_state_key
 from adk_stream_protocol.utils import _parse_sse_event_data
 
 
@@ -233,6 +234,24 @@ class BidiEventSender:
             logger.error("[BIDI-SEND] Event that failed: %s", sse_event[:200])
             return False
 
+    async def _send_confirmation_step(self, sse_data: str, step_name: str) -> None:
+        """
+        Send a confirmation step event to WebSocket with logging and error handling.
+
+        Args:
+            sse_data: SSE-formatted string to send
+            step_name: Human-readable step name for logging (e.g., "start-step", "finish-step")
+
+        Raises:
+            Exception: Re-raises any exception after logging
+        """
+        try:
+            await self._ws.send_text(sse_data)
+            logger.info(f"[BIDI Approval] ✓ Sent {step_name}")
+        except Exception as e:
+            logger.error(f"[BIDI Approval] ✗ Failed to send {step_name}: {e!s}")
+            raise
+
     async def _handle_confirmation_if_needed(self, sse_event: str) -> bool:
         """
         Phase 5: Detect LongRunningFunctionTool calls and inject confirmation flow.
@@ -304,9 +323,7 @@ class BidiEventSender:
                         tool_args = event_data.get("input", {})
 
                         # Save pending call info for later execution
-                        if "pending_long_running_calls" not in self._session.state:
-                            self._session.state["pending_long_running_calls"] = {}
-
+                        ensure_session_state_key(self._session, "pending_long_running_calls", {})
                         self._session.state["pending_long_running_calls"][tool_call_id] = {
                             "name": tool_name,
                             "args": tool_args,
@@ -329,14 +346,9 @@ class BidiEventSender:
                         # ADR 0011: Inject start-step to begin approval step
                         # This marks the beginning of the approval pending step
                         start_step_sse = 'data: {"type":"start-step"}\n\n'
-                        try:
-                            await self._ws.send_text(start_step_sse)
-                            logger.info(
-                                "[BIDI Approval] ✓ Sent start-step before tool-approval-request"
-                            )
-                        except Exception as e:
-                            logger.error(f"[BIDI Approval] ✗ Failed to send start-step: {e!s}")
-                            raise
+                        await self._send_confirmation_step(
+                            start_step_sse, "start-step before tool-approval-request"
+                        )
 
                         # Send tool-approval-request (AI SDK v6 standard event)
                         # Do NOT send tool-input-* events for adk_request_confirmation
@@ -346,32 +358,19 @@ class BidiEventSender:
                             original_tool_call_id=tool_call_id,  # Original tool's ID
                             approval_id=confirmation_id,  # Unique approval request ID
                         )
-                        try:
-                            await self._ws.send_text(approval_request_sse)
-                            logger.info("[BIDI Approval] ✓ Sent tool-approval-request")
-                        except Exception as e:
-                            logger.error(
-                                f"[BIDI Approval] ✗ Failed to send tool-approval-request: {e!s}"
-                            )
-                            raise
+                        await self._send_confirmation_step(approval_request_sse, "tool-approval-request")
 
                         # ADR 0011: Inject finish-step to complete approval step
                         # This closes the stream, allowing frontend sendAutomaticallyWhen to be called
                         finish_step_sse = 'data: {"type":"finish-step"}\n\n'
-                        try:
-                            await self._ws.send_text(finish_step_sse)
-                            logger.info(
-                                "[BIDI Approval] ✓ Sent finish-step after tool-approval-request"
-                            )
-                        except Exception as e:
-                            logger.error(f"[BIDI Approval] ✗ Failed to send finish-step: {e!s}")
-                            raise
+                        await self._send_confirmation_step(
+                            finish_step_sse, "finish-step after tool-approval-request"
+                        )
 
                         # Save confirmation_id → original_tool_call_id mapping in session.state
                         # BidiEventReceiver will use this to resolve the original tool_call_id
                         # when it receives confirmation approval
-                        if "confirmation_id_mapping" not in self._session.state:
-                            self._session.state["confirmation_id_mapping"] = {}
+                        ensure_session_state_key(self._session, "confirmation_id_mapping", {})
                         self._session.state["confirmation_id_mapping"][confirmation_id] = (
                             tool_call_id
                         )

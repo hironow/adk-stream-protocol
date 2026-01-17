@@ -6,7 +6,7 @@ including session cache cleanup to prevent test interference.
 
 import pytest
 
-from adk_stream_protocol.adk.adk_compat import _sessions, _synced_message_counts
+from adk_stream_protocol.adk.adk_compat import _session_store
 
 
 @pytest.fixture(autouse=True)
@@ -18,11 +18,9 @@ def clear_session_cache():
     integration tests.
     """
     # Clear before test
-    _sessions.clear()
-    _synced_message_counts.clear()
+    _session_store.clear_all()
 
     yield
 
     # Clear after test
-    _sessions.clear()
-    _synced_message_counts.clear()
+    _session_store.clear_all()

@@ -11,8 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from adk_stream_protocol.adk.adk_compat import (
-    _sessions,
-    _synced_message_counts,
+    _session_store,
     clear_sessions,
     get_or_create_session,
     sync_conversation_history_to_session,
@@ -23,9 +22,9 @@ from adk_stream_protocol.protocol.ai_sdk_v6_compat import process_chat_message_f
 @pytest.fixture(autouse=True)
 def clear_synced_counts():
     """Clear synced message counts before and after each test"""
-    _synced_message_counts.clear()
+    _session_store.clear_all()
     yield
-    _synced_message_counts.clear()
+    _session_store.clear_all()
 
 
 @pytest.fixture
@@ -73,7 +72,7 @@ async def test_sync_conversation_history_first_sync(
     assert mock_session_service.append_event.call_count == 4
 
     # Check that synced_message_count was updated
-    assert _synced_message_counts[mock_session.id] == 4
+    assert _session_store.get_synced_count(mock_session.id) == 4
 
     # Verify the events were created with correct roles
     calls = mock_session_service.append_event.call_args_list
@@ -95,7 +94,7 @@ async def test_sync_conversation_history_incremental(
         msg.to_adk_content.return_value = MagicMock(role=msg.role)
 
     # Set that we've already synced 2 messages
-    _synced_message_counts[mock_session.id] = 2
+    _session_store.set_synced_count(mock_session.id, 2)
 
     # Call the function
     result = await sync_conversation_history_to_session(
@@ -112,7 +111,7 @@ async def test_sync_conversation_history_incremental(
     assert mock_session_service.append_event.call_count == 2
 
     # Check that synced_message_count was updated
-    assert _synced_message_counts[mock_session.id] == 4
+    assert _session_store.get_synced_count(mock_session.id) == 4
 
 
 @pytest.mark.asyncio
@@ -150,7 +149,7 @@ async def test_sync_conversation_history_already_synced(
         msg.to_adk_content.return_value = MagicMock(role=msg.role)
 
     # Set that we've already synced all messages except the last
-    _synced_message_counts[mock_session.id] = 4
+    _session_store.set_synced_count(mock_session.id, 4)
 
     # Call the function
     result = await sync_conversation_history_to_session(
@@ -167,7 +166,7 @@ async def test_sync_conversation_history_already_synced(
     assert mock_session_service.append_event.call_count == 0
 
     # synced_message_count should remain the same
-    assert _synced_message_counts[mock_session.id] == 4
+    assert _session_store.get_synced_count(mock_session.id) == 4
 
 
 @pytest.mark.asyncio
@@ -372,18 +371,20 @@ def test_clear_sessions():
     """Test that clear_sessions removes all sessions"""
     # Clear any existing sessions first
     clear_sessions()
-    assert len(_sessions) == 0
+    assert not _session_store.has_session("test1")
 
     # Add some test sessions directly
-    _sessions["test1"] = MagicMock()
-    _sessions["test2"] = MagicMock()
+    _session_store.set_session("test1", MagicMock())
+    _session_store.set_session("test2", MagicMock())
 
-    assert len(_sessions) == 2
+    assert _session_store.has_session("test1")
+    assert _session_store.has_session("test2")
 
     # Clear sessions
     clear_sessions()
 
-    assert len(_sessions) == 0
+    assert not _session_store.has_session("test1")
+    assert not _session_store.has_session("test2")
 
 
 @pytest.mark.asyncio
@@ -473,7 +474,7 @@ async def test_sync_conversation_history_with_large_history(mock_session, mock_s
     # Should sync 200 messages (all except the last)
     assert result == 200
     assert mock_session_service.append_event.call_count == 200
-    assert _synced_message_counts[mock_session.id] == 200
+    assert _session_store.get_synced_count(mock_session.id) == 200
 
 
 @pytest.mark.asyncio
@@ -517,7 +518,9 @@ async def test_connection_signature_uniqueness():
         assert sig in session.id
 
     # Verify we have 5 sessions in storage
-    assert len(_sessions) == 5
+    for sig in signatures:
+        session_id = f"session_user_{sig}"
+        assert _session_store.has_session(session_id)
 
 
 @pytest.mark.asyncio

@@ -12,14 +12,57 @@ from google.adk.events import Event
 from loguru import logger
 
 
-# Session storage (shared across all ADK modes)
-_sessions: dict[str, Any] = {}
+class SessionStore:
+    """
+    Central store for ADK session management.
 
-# Synced message count tracking (persists across HTTP requests)
-# Key: session_id, Value: number of messages synced
-# NOTE: session.state dict does NOT persist across HTTP requests in ADK,
-# so we maintain this separately to prevent duplicate history syncing
-_synced_message_counts: dict[str, int] = {}
+    Encapsulates session storage and message sync tracking that were
+    previously module-level globals. This improves testability and
+    makes state management more explicit.
+
+    Thread-safety: This implementation is NOT thread-safe. It assumes
+    single-threaded async operation within one event loop.
+    """
+
+    def __init__(self) -> None:
+        """Initialize empty session store."""
+        # Session storage (shared across all ADK modes)
+        self._sessions: dict[str, Any] = {}
+        # Synced message count tracking (persists across HTTP requests)
+        # Key: session_id, Value: number of messages synced
+        # NOTE: session.state dict does NOT persist across HTTP requests in ADK,
+        # so we maintain this separately to prevent duplicate history syncing
+        self._synced_message_counts: dict[str, int] = {}
+
+    def get_session(self, session_id: str) -> Any | None:
+        """Get session by ID, or None if not found."""
+        return self._sessions.get(session_id)
+
+    def set_session(self, session_id: str, session: Any) -> None:
+        """Store session by ID."""
+        self._sessions[session_id] = session
+
+    def has_session(self, session_id: str) -> bool:
+        """Check if session exists."""
+        return session_id in self._sessions
+
+    def get_synced_count(self, session_id: str) -> int:
+        """Get number of messages synced for a session."""
+        return self._synced_message_counts.get(session_id, 0)
+
+    def set_synced_count(self, session_id: str, count: int) -> None:
+        """Set synced message count for a session."""
+        self._synced_message_counts[session_id] = count
+
+    def clear_all(self) -> None:
+        """Clear all sessions and synced message counts."""
+        self._sessions.clear()
+        self._synced_message_counts.clear()
+        logger.info("Cleared all ADK sessions and synced message counts")
+
+
+# Module-level singleton instance for backward compatibility
+_session_store = SessionStore()
 
 
 async def get_or_create_session(
@@ -66,7 +109,7 @@ async def get_or_create_session(
         # Traditional session for SSE mode (one session per user+app)
         session_id = f"session_{user_id}_{app_name}"
 
-    if session_id not in _sessions:
+    if not _session_store.has_session(session_id):
         logger.info(
             f"Creating new session for user: {user_id} with app: {app_name}"
             + (f", connection: {connection_signature}" if connection_signature else "")
@@ -78,7 +121,7 @@ async def get_or_create_session(
                 user_id=user_id,
                 session_id=session_id,
             )
-            _sessions[session_id] = session
+            _session_store.set_session(session_id, session)
         except Exception as e:
             # If session already exists in ADK, retrieve it from session_service
             # This can happen when clear_sessions() clears _sessions dict but ADK sessions persist
@@ -93,12 +136,12 @@ async def get_or_create_session(
                     user_id=user_id,
                     session_id=session_id,
                 )
-                _sessions[session_id] = session
+                _session_store.set_session(session_id, session)
             except Exception as get_error:
                 logger.error(f"Failed to retrieve existing session {session_id}: {get_error}")
                 raise
 
-    return _sessions[session_id]
+    return _session_store.get_session(session_id)
 
 
 async def sync_conversation_history_to_session(
@@ -139,7 +182,7 @@ async def sync_conversation_history_to_session(
 
     # Edge case: Check if we need to sync (avoid duplicates)
     # We track synced message count in persistent dict (not session.state, which resets)
-    synced_count = _synced_message_counts.get(session.id, 0)
+    synced_count = _session_store.get_synced_count(session.id)
 
     # Calculate how many new messages need syncing
     new_messages_to_sync = (
@@ -173,7 +216,7 @@ async def sync_conversation_history_to_session(
             logger.info(f"[{current_mode}] Synced message {event_index}: role={msg_content.role}")
 
         # Update the synced count in persistent dict (persists across HTTP requests)
-        _synced_message_counts[session.id] = len(messages_to_sync)
+        _session_store.set_synced_count(session.id, len(messages_to_sync))
         logger.info(
             f"[{current_mode}] Updated synced_message_count to {len(messages_to_sync)} "
             f"for session {session.id}"
@@ -188,7 +231,4 @@ def clear_sessions() -> None:
     """
     Clear all sessions and synced message counts. Useful for testing or cleanup.
     """
-    global _sessions, _synced_message_counts
-    _sessions.clear()
-    _synced_message_counts.clear()
-    logger.info("Cleared all ADK sessions and synced message counts")
+    _session_store.clear_all()

@@ -7,6 +7,7 @@ This subpackage handles:
 - ADK-specific compatibility functions
 
 Components:
+- SessionStore: Central session storage class
 - get_or_create_session: Session factory with connection-based isolation
 - sync_conversation_history_to_session: Message history synchronization
 - clear_sessions: Session cleanup for testing
@@ -14,21 +15,22 @@ Components:
 
 from .adk_compat import (
     Event,
-    _sessions,
-    _synced_message_counts,
+    SessionStore,
+    _session_store,
     clear_sessions,
     get_or_create_session,
     sync_conversation_history_to_session,
 )
 
+
 __all__ = [
     # Session Management
+    "SessionStore",
     "get_or_create_session",
     "clear_sessions",
     "sync_conversation_history_to_session",
     # Re-export from google.adk
     "Event",
     # Internal state (for testing)
-    "_sessions",
-    "_synced_message_counts",
+    "_session_store",
 ]

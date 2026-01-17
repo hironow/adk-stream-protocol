@@ -46,10 +46,12 @@ from loguru import logger
 
 class ApprovalQueue:
     """
-    Queue-based approval mechanism for BIDI mode deferred approval flow.
+    Event-based approval mechanism for BIDI mode deferred approval flow.
 
     This class supports multiple concurrent approval requests and provides
     a non-blocking interface for tools to await approval decisions.
+
+    Uses asyncio.Event for efficient waiting (no polling required).
 
     Thread-safety: This implementation uses asyncio and is safe for concurrent
     async tasks within a single event loop.
@@ -61,6 +63,8 @@ class ApprovalQueue:
         self._approval_results: dict[str, dict[str, Any]] = {}
         # Active approval requests (tool_call_id -> request metadata)
         self._active_approvals: dict[str, dict[str, Any]] = {}
+        # Approval events for efficient async waiting (tool_call_id -> Event)
+        self._approval_events: dict[str, asyncio.Event] = {}
 
     def request_approval(self, tool_call_id: str, tool_name: str, args: dict[str, Any]) -> None:
         """
@@ -85,11 +89,10 @@ class ApprovalQueue:
 
     async def wait_for_approval(self, tool_call_id: str, timeout: float = 30.0) -> dict[str, Any]:
         """
-        Wait for approval decision (blocks only this task).
+        Wait for approval decision using asyncio.Event (blocks only this task).
 
-        This method uses polling to check for approval results. The polling
-        interval is 100ms, which provides responsive approval handling while
-        not consuming excessive CPU.
+        This method uses asyncio.Event for efficient waiting without polling.
+        The event is set by submit_approval() when the decision arrives.
 
         Args:
             tool_call_id: Unique identifier for this tool call
@@ -102,26 +105,34 @@ class ApprovalQueue:
             TimeoutError: If approval is not received within timeout period
         """
         logger.info(f"[ApprovalQueue] Waiting for approval: {tool_call_id}")
-        start_time = time.time()
 
-        while time.time() - start_time < timeout:
-            if tool_call_id in self._approval_results:
-                result = self._approval_results.pop(tool_call_id)
-                self._active_approvals.pop(tool_call_id, None)
-                logger.info(
-                    f"[ApprovalQueue] Approval received: {tool_call_id} "
-                    f"(approved={result.get('approved')})"
-                )
-                return result
+        # Create event for this approval request
+        event = asyncio.Event()
+        self._approval_events[tool_call_id] = event
 
-            # Polling interval: 100ms provides responsive approval handling
-            await asyncio.sleep(0.1)
+        try:
+            # Wait for the event to be set by submit_approval()
+            await asyncio.wait_for(event.wait(), timeout=timeout)
 
-        # Timeout occurred
-        self._active_approvals.pop(tool_call_id, None)
-        error_msg = f"Approval timeout for {tool_call_id} after {timeout}s"
-        logger.error(f"[ApprovalQueue] {error_msg}")
-        raise TimeoutError(error_msg)
+            # Event was set, retrieve the result
+            result = self._approval_results.pop(tool_call_id)
+            self._active_approvals.pop(tool_call_id, None)
+            logger.info(
+                f"[ApprovalQueue] Approval received: {tool_call_id} "
+                f"(approved={result.get('approved')})"
+            )
+            return result
+
+        except TimeoutError:
+            # Timeout occurred
+            self._active_approvals.pop(tool_call_id, None)
+            error_msg = f"Approval timeout for {tool_call_id} after {timeout}s"
+            logger.error(f"[ApprovalQueue] {error_msg}")
+            raise TimeoutError(error_msg) from None
+
+        finally:
+            # Always clean up the event
+            self._approval_events.pop(tool_call_id, None)
 
     def submit_approval(self, tool_call_id: str, approved: bool) -> None:
         """
@@ -141,7 +152,12 @@ class ApprovalQueue:
             logger.info(f"[ApprovalQueue] ❌ DENIAL submitted for: {tool_call_id}")
         logger.info("=" * 80)
 
+        # Store the result
         self._approval_results[tool_call_id] = {"approved": approved}
+
+        # Signal the waiting event (if any)
+        if tool_call_id in self._approval_events:
+            self._approval_events[tool_call_id].set()
 
     def get_pending_count(self) -> int:
         """

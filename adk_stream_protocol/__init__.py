@@ -21,7 +21,30 @@ Public API:
 """
 
 # === Transport Layer ===
-from .transport import BidiEventReceiver, BidiEventSender, SseEventStreamer
+# === Agents Layer (from ags/) ===
+from .ags import (
+    # Constants
+    BIDI_CONFIRMATION_TOOLS,
+    SSE_CONFIRMATION_TOOLS,
+    # Result types
+    Error,
+    Ok,
+    Result,
+    # Agent instances
+    bidi_agent,
+    # Agent runners
+    bidi_agent_runner,
+    # Tool functions
+    change_bgm,
+    # Delegate registry
+    get_delegate,
+    get_location,
+    get_weather,
+    process_payment,
+    register_delegate,
+    sse_agent,
+    sse_agent_runner,
+)
 
 # === Protocol Layer ===
 from .protocol import (
@@ -32,36 +55,12 @@ from .protocol import (
     stream_adk_to_ai_sdk,
 )
 
-# === Tools Layer ===
-from .tools import FrontendToolDelegate
-
-# === Agents Layer (from ags/) ===
-from .ags import (
-    # Agent instances
-    bidi_agent,
-    sse_agent,
-    # Agent runners
-    bidi_agent_runner,
-    sse_agent_runner,
-    # Tool functions
-    change_bgm,
-    get_location,
-    get_weather,
-    process_payment,
-    # Delegate registry
-    get_delegate,
-    register_delegate,
-    # Result types
-    Error,
-    Ok,
-    Result,
-    # Constants
-    BIDI_CONFIRMATION_TOOLS,
-    SSE_CONFIRMATION_TOOLS,
-)
-
 # === Testing Utilities ===
 from .testing import ChunkLogger
+
+# === Tools Layer ===
+from .tools import FrontendToolDelegate
+from .transport import BidiEventReceiver, BidiEventSender, SseEventStreamer
 
 
 __all__ = [
