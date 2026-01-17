@@ -206,10 +206,20 @@ run_no_deps_tests() {
     local failed=0
 
     # TypeScript tests (vitest)
+    # Note: lib/tests/ is split into unit/integration/e2e to avoid Worker exit issues
+    # when running all tests together (msw WebSocket cleanup issue)
     if [ "$SKIP_TYPESCRIPT" = false ]; then
         if [ "$RUN_UNIT" = true ] || [ "$RUN_ALL" = true ] || [ "$RUN_NO_DEPS" = true ]; then
-            execute "lib/tests/ (vitest)" \
-                bun vitest run lib/ --reporter=verbose || failed=$((failed + 1))
+            execute "lib/tests/unit/ (vitest)" \
+                bun vitest run lib/tests/unit/ --reporter=verbose || failed=$((failed + 1))
+
+            # Use wrapper script to handle msw WebSocket cleanup errors
+            execute "lib/tests/integration/ (vitest)" \
+                "$(dirname "$0")/run-vitest-e2e.sh" lib/tests/integration/ || failed=$((failed + 1))
+
+            # Use wrapper script to handle msw WebSocket cleanup errors
+            execute "lib/tests/e2e/ (vitest)" \
+                "$(dirname "$0")/run-vitest-e2e.sh" || failed=$((failed + 1))
 
             execute "app/tests/ (vitest)" \
                 bun vitest run app/ --reporter=verbose || failed=$((failed + 1))
@@ -249,7 +259,7 @@ run_backend_only_tests() {
         if [ "$RUN_E2E" = true ] || [ "$RUN_ALL" = true ] || [ "$RUN_BACKEND_ONLY" = true ]; then
             log_warning "Requires: Backend server running on port 8000"
             execute "tests/e2e/ (pytest - backend E2E)" \
-                uv run pytest tests/e2e/ -v --workers="$workers" || failed=$((failed + 1))
+                uv run pytest tests/e2e/ -v || failed=$((failed + 1))
         fi
     fi
 

@@ -24,12 +24,36 @@ def test_sse_agent_exists_and_has_correct_model() -> None:
     assert adk_ag_runner.sse_agent.model == adk_ag_runner.SSE_MODEL
 
 
-def test_bidi_agent_exists_and_has_model() -> None:
-    """BIDI agent should be configured with a valid model."""
+def test_bidi_agent_exists_and_has_correct_model() -> None:
+    """BIDI agent should be configured with BIDI_MODEL (not converted)."""
+    # given
+    import os
+
+    expected_model = os.getenv("ADK_BIDI_MODEL", adk_ag_runner.BIDI_MODEL)
+
     # when/then
     assert adk_ag_runner.bidi_agent is not None
     assert isinstance(adk_ag_runner.bidi_agent, Agent)
-    assert adk_ag_runner.bidi_agent.model  # Should have a model
+    assert adk_ag_runner.bidi_agent.model == expected_model, (
+        f"Model name mismatch! Expected '{expected_model}', "
+        f"got '{adk_ag_runner.bidi_agent.model}'. "
+        "ADK may be converting model names unexpectedly."
+    )
+
+
+def test_bidi_agent_model_not_converted_to_legacy() -> None:
+    """BIDI agent model should NOT be converted to legacy 'gemini-live' format."""
+    # given
+    legacy_model = "gemini-live-2.5-flash-preview"
+
+    # when/then
+    assert adk_ag_runner.bidi_agent.model != legacy_model, (
+        f"Model was unexpectedly converted to legacy format: {legacy_model}"
+    )
+    assert "gemini-live" not in adk_ag_runner.bidi_agent.model, (
+        f"Model contains 'gemini-live' which indicates unwanted conversion: "
+        f"{adk_ag_runner.bidi_agent.model}"
+    )
 
 
 def test_agent_runners_initialized() -> None:

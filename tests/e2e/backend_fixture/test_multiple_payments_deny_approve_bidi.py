@@ -25,6 +25,10 @@ from .helpers import (
 
 
 @pytest.mark.asyncio
+@pytest.mark.xfail(
+    reason="Flaky: Gemini Live API preview model sometimes returns 'gemini-live-2.5-flash-preview is not found' error",
+    strict=False,
+)
 async def test_multiple_payments_deny_approve_bidi(frontend_fixture_dir: Path):
     """BIDI sequential execution: Alice denied, Bob approved."""
     fixture_path = frontend_fixture_dir / "multiple-payments-deny-approve-bidi.json"

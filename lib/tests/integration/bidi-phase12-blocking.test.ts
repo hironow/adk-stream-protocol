@@ -35,11 +35,11 @@ class MockWebSocket {
   public sentMessages: string[] = [];
 
   constructor(_url: string) {
-    // Auto-connect after construction
-    setTimeout(() => {
+    // Auto-connect after construction using microtask for more reliable timing
+    Promise.resolve().then(() => {
       this.readyState = WebSocket.OPEN;
       this.onopen?.();
-    }, 0);
+    });
   }
 
   send(data: string): void {

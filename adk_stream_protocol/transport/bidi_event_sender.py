@@ -259,8 +259,8 @@ class BidiEventSender:
             # and stop the stream gracefully
             raise
         except Exception as e:
-            logger.error("[BIDI-SEND] ✗ Failed to send event: %s", e)
-            logger.error("[BIDI-SEND] Event that failed: %s", sse_event[:200])
+            logger.error(f"[BIDI-SEND] ✗ Failed to send event: {e}")
+            logger.error(f"[BIDI-SEND] Event that failed: {sse_event[:200]}")
             return False
 
     async def _send_confirmation_step(self, sse_data: str, step_name: str) -> None:

@@ -43,7 +43,7 @@ def register_delegate(session_id: str, delegate: FrontendToolDelegate) -> None:
         delegate: FrontendToolDelegate instance for this session
     """
     _REGISTRY[session_id] = delegate
-    logger.info(f"[FrontendToolRegistry] Registered delegate for session_id={session_id}")
+    logger.info(f"[FrontendToolRegistry] Registered delegate for session_id: {session_id}")
 
 
 def get_delegate(session_id: str) -> FrontendToolDelegate | None:
@@ -58,10 +58,9 @@ def get_delegate(session_id: str) -> FrontendToolDelegate | None:
     """
     delegate = _REGISTRY.get(session_id)
     if delegate:
-        logger.debug(f"[FrontendToolRegistry] Found delegate for session_id={session_id}")
+        logger.debug(f"[FrontendToolRegistry] Found delegate for session_id: {session_id}")
     else:
         logger.warning(
-            f"[FrontendToolRegistry] No delegate found for session_id={session_id}. "
-            f"Available sessions: {list(_REGISTRY.keys())}"
+            f"[FrontendToolRegistry] No delegate found for session_id: {session_id}"
         )
     return delegate

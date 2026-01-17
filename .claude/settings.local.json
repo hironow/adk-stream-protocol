@@ -109,7 +109,10 @@
       "Bash(gh issue view:*)",
       "Bash(git commit:*)",
       "Bash(bun run lint:*)",
-      "Bash(bun run biome:*)"
+      "Bash(bun run biome:*)",
+      "Bash(bun run test:lib:*)",
+      "Bash(bun test:*)",
+      "Bash(bun run test)"
     ],
     "deny": [
       "Read(.env.keys)",

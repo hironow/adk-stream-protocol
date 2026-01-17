@@ -95,8 +95,8 @@ describe("ADR Validation - Frontend Protocol", () => {
       expect(approval.approvalId).toBeDefined();
       expect(approval.toolCallId).not.toBe(approval.approvalId);
 
-      // And: approvalId should have "adk-" prefix (backend-generated)
-      expect(approval.approvalId).toMatch(/^adk-/);
+      // And: approvalId should have backend-generated prefix ("adk-" legacy or "confirm-" current)
+      expect(approval.approvalId).toMatch(/^(adk-|confirm-)/);
     });
   });
 
