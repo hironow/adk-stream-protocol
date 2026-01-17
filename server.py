@@ -45,26 +45,27 @@ from google.genai import types  # noqa: E402
 from loguru import logger  # noqa: E402
 from pydantic import BaseModel, field_validator  # noqa: E402
 
-from adk_stream_protocol import (  # noqa: E402  # noqa: E402  # noqa: E402
+from adk_stream_protocol import (  # noqa: E402
     SSE_CONFIRMATION_TOOLS,
     BidiEventReceiver,
     BidiEventSender,
     ChatMessage,
     FrontendToolDelegate,
     SseEventStreamer,
-    ToolCallState,
-    ToolConfirmationDelegate,
     ToolUsePart,
     bidi_agent,
     bidi_agent_runner,
-    chunk_logger,
-    clear_sessions,
     get_delegate,
-    get_or_create_session,
     register_delegate,
     sse_agent,
     sse_agent_runner,
 )
+
+# Private imports (internal implementation details)
+from adk_stream_protocol.adk_compat import clear_sessions, get_or_create_session  # noqa: E402
+from adk_stream_protocol.ai_sdk_v6_compat import ToolCallState  # noqa: E402
+from adk_stream_protocol.chunk_logger import chunk_logger  # noqa: E402
+from adk_stream_protocol.tool_confirmation_service import ToolConfirmationDelegate  # noqa: E402
 
 
 # ========== API Key Authentication ==========

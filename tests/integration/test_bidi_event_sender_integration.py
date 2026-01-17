@@ -15,7 +15,8 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from fastapi import WebSocketDisconnect
 
-from adk_stream_protocol import ADKVercelIDMapper, BidiEventSender, FrontendToolDelegate
+from adk_stream_protocol import BidiEventSender, FrontendToolDelegate
+from adk_stream_protocol.adk_vercel_id_mapper import ADKVercelIDMapper
 from tests.utils.mocks import (
     create_mock_live_request_queue,
     create_mock_session,

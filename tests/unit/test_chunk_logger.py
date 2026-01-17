@@ -8,7 +8,8 @@ import sys
 import unittest
 from unittest.mock import Mock, patch
 
-from adk_stream_protocol import ChunkLogger, chunk_logger
+from adk_stream_protocol import ChunkLogger
+from adk_stream_protocol.chunk_logger import chunk_logger
 
 
 class TestChunkLoggerEnvironment(unittest.TestCase):

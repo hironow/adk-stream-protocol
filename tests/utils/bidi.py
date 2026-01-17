@@ -8,7 +8,8 @@ import asyncio
 from typing import Any
 from unittest.mock import AsyncMock, Mock
 
-from adk_stream_protocol import ADKVercelIDMapper, BidiEventReceiver, FrontendToolDelegate
+from adk_stream_protocol import BidiEventReceiver, FrontendToolDelegate
+from adk_stream_protocol.adk_vercel_id_mapper import ADKVercelIDMapper
 
 
 def create_mock_bidi_components() -> tuple[Mock, Mock, Mock, Mock]:

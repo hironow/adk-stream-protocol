@@ -13,20 +13,14 @@ For adk web debugging:
 # Internal utilities (Result types, Frontend tool registry)
 from ._internal import Error, Ok, Result, get_delegate, register_delegate
 from .runner import (
-    AGENT_DESCRIPTION,
-    AGENT_INSTRUCTION,
     BIDI_CONFIRMATION_TOOLS,
-    BIDI_TOOLS,
     SSE_CONFIRMATION_TOOLS,
-    SSE_SESSION_DB_PATH,
-    SSE_TOOLS,
     bidi_agent,
     bidi_agent_runner,
     bidi_app,
     sse_agent,
     sse_agent_runner,
     sse_app,
-    sse_session_service,
 )
 from .tools import (
     change_bgm,
@@ -40,38 +34,30 @@ from .tools import (
 root_agent = sse_agent
 
 __all__ = [
-    # Constants
-    "AGENT_DESCRIPTION",
-    "AGENT_INSTRUCTION",
+    # Public API - Constants
     "BIDI_CONFIRMATION_TOOLS",
-    "BIDI_TOOLS",
     "SSE_CONFIRMATION_TOOLS",
-    "SSE_SESSION_DB_PATH",
-    # Tools
-    "SSE_TOOLS",
     "Error",
-    # Result types
+    # Public API - Result Types
     "Ok",
     "Result",
     "bidi_agent",
     "bidi_agent_runner",
     "bidi_app",
+    # Public API - Tools
     "change_bgm",
-    # Frontend tool registry
+    # Public API - Registry
     "get_delegate",
     "get_location",
-    # Tool functions (public)
     "get_weather",
     "process_payment",
     "register_delegate",
-    # adk web entry point
+    # Public API - adk web entry point
     "root_agent",
-    # Agents
+    # Public API - Agents
     "sse_agent",
-    # Runners
+    # Public API - Runners
     "sse_agent_runner",
-    # Apps
+    # Public API - Apps
     "sse_app",
-    # Session
-    "sse_session_service",
 ]

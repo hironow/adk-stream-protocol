@@ -17,7 +17,8 @@ from dotenv import load_dotenv
 load_dotenv(".env.local")
 
 
-from adk_stream_protocol import ADKVercelIDMapper, FrontendToolDelegate  # noqa: E402
+from adk_stream_protocol import FrontendToolDelegate  # noqa: E402
+from adk_stream_protocol.adk_vercel_id_mapper import ADKVercelIDMapper  # noqa: E402
 
 
 # ============================================================

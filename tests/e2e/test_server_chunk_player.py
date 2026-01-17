@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-from adk_stream_protocol import ChunkPlayer, ChunkPlayerManager
+from adk_stream_protocol.chunk_player import ChunkPlayer, ChunkPlayerManager
 
 
 class TestChunkPlayerManager:

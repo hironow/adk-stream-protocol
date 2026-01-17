@@ -14,11 +14,13 @@ from pydantic import ValidationError
 
 from adk_stream_protocol import (
     ChatMessage,
+    TextPart,
+    ToolUsePart,
+)
+from adk_stream_protocol.ai_sdk_v6_compat import (
     GenericPart,
     StepPart,
-    TextPart,
     ToolCallState,
-    ToolUsePart,
     process_chat_message_for_bidi,
 )
 

@@ -10,13 +10,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from adk_stream_protocol import process_chat_message_for_bidi, sync_conversation_history_to_session
 from adk_stream_protocol.adk_compat import (
     _sessions,
     _synced_message_counts,
     clear_sessions,
     get_or_create_session,
+    sync_conversation_history_to_session,
 )
+from adk_stream_protocol.ai_sdk_v6_compat import process_chat_message_for_bidi
 
 
 @pytest.fixture(autouse=True)

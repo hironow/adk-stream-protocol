@@ -27,7 +27,7 @@ from typing import Any
 
 import pytest
 
-from adk_stream_protocol import ChunkPlayer
+from adk_stream_protocol.chunk_player import ChunkPlayer
 
 
 def load_frontend_fixture(filename: str) -> dict[str, Any]:
