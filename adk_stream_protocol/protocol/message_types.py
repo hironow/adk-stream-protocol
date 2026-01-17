@@ -600,7 +600,7 @@ class ChatMessage(BaseModel):
           ])
 
         Args:
-            id_mapper: Optional ADKVercelIDMapper for resolving tool_call_id → tool_name
+            id_mapper: Optional IDMapper for resolving tool_call_id → tool_name
                       Required for processing tool-result parts in Pattern B.
             delegate: Optional FrontendToolDelegate for resolving Futures in SSE mode
                      Required for resolving pending tool results across turns.

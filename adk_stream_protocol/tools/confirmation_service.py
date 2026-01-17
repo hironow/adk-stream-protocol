@@ -19,7 +19,7 @@ from typing import Any
 from loguru import logger
 
 
-class ToolConfirmationDelegate:
+class ConfirmationDelegate:
     """
     Makes tool confirmation awaitable using asyncio.Future.
 
@@ -107,3 +107,7 @@ class ToolConfirmationDelegate:
                 f"[ToolConfirmation] No pending confirmation found for tool_call_id={tool_call_id}. "
                 f"Pending: {list(self._pending_confirmations.keys())}"
             )
+
+
+# Backward compatibility alias (deprecated, use ConfirmationDelegate instead)
+ToolConfirmationDelegate = ConfirmationDelegate

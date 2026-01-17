@@ -7,11 +7,11 @@ This subpackage handles format conversion between:
 
 Components:
 - StreamProtocolConverter: Converts ADK events to SSE format
-- ADKVercelIDMapper: Bidirectional ID mapping
+- IDMapper: Bidirectional ID mapping (formerly ADKVercelIDMapper)
 - ChatMessage, TextPart, etc.: AI SDK v6 type definitions
 """
 
-from .id_mapper import ADKVercelIDMapper
+from .id_mapper import ADKVercelIDMapper, IDMapper
 from .message_types import (
     ChatMessage,
     FilePart,
@@ -35,7 +35,8 @@ from .stream_protocol import (
 
 __all__ = [
     # ID Mapper
-    "ADKVercelIDMapper",
+    "IDMapper",
+    "ADKVercelIDMapper",  # Deprecated alias, use IDMapper
     # AI SDK v6 Types
     "ChatMessage",
     "FilePart",

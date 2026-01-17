@@ -66,7 +66,7 @@ from adk_stream_protocol.adk.session import clear_sessions, get_or_create_sessio
 from adk_stream_protocol.protocol.message_types import ToolCallState  # noqa: E402
 from adk_stream_protocol.testing.chunk_logger import chunk_logger  # noqa: E402
 from adk_stream_protocol.tools.confirmation_service import (  # noqa: E402
-    ToolConfirmationDelegate,
+    ConfirmationDelegate,
 )
 
 
@@ -648,9 +648,9 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
         )
 
     # Tool functions (process_payment, get_location) use this to await user confirmation
-    confirmation_delegate = ToolConfirmationDelegate()
+    confirmation_delegate = ConfirmationDelegate()
     session.state["confirmation_delegate"] = confirmation_delegate
-    logger.info("[BIDI] ToolConfirmationDelegate initialized")
+    logger.info("[BIDI] ConfirmationDelegate initialized")
 
     # Set mode flag for tool functions to detect SSE vs BIDI mode
     session.state["mode"] = "bidi"

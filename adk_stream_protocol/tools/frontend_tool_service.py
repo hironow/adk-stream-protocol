@@ -11,7 +11,7 @@ Layer Position:
         ↓ delegates to
     **Services Layer (this module)**
         ↓ uses
-    Protocol Conversion (stream_protocol.py, ADKVercelIDMapper)
+    Protocol Conversion (stream_protocol.py, IDMapper)
         ↓
     ADK Layer
 
@@ -25,7 +25,7 @@ from typing import Any
 from loguru import logger
 
 from adk_stream_protocol.ags import Error, Ok, Result
-from adk_stream_protocol.protocol.id_mapper import ADKVercelIDMapper
+from adk_stream_protocol.protocol.id_mapper import IDMapper
 
 
 class FrontendToolDelegate:
@@ -51,7 +51,7 @@ class FrontendToolDelegate:
     See ADR-0008 for rationale.
     """
 
-    def __init__(self, id_mapper: ADKVercelIDMapper | None = None) -> None:
+    def __init__(self, id_mapper: IDMapper | None = None) -> None:
         """
         Initialize the delegate.
 
@@ -63,7 +63,7 @@ class FrontendToolDelegate:
         # In Pattern A, tool-result arrives during message processing (to_adk_content)
         # but Future is created later when ADK calls the tool (execute_on_frontend)
         self._pre_resolved_results: dict[str, dict[str, Any]] = {}
-        self._id_mapper = id_mapper or ADKVercelIDMapper()
+        self._id_mapper = id_mapper or IDMapper()
 
     def set_function_call_id(self, tool_name: str, function_call_id: str) -> Result[None, str]:
         """

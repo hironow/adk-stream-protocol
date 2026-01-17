@@ -97,28 +97,28 @@ SSE_TOOLS = [
 # Use BLOCKING behavior to await approval_queue inside tool function.
 
 
-# Simple wrappers for FunctionDeclaration creation (from_callable_with_api_option cannot handle ToolContext)
-def process_payment_simple(
+# Sync wrappers for FunctionDeclaration creation (from_callable_with_api_option cannot handle ToolContext)
+def process_payment_sync(
     amount: float, recipient: str, currency: str = "USD", description: str = ""
 ) -> dict:
-    """Simple wrapper for process_payment declaration."""
+    """Sync wrapper for process_payment declaration (used for BIDI mode)."""
     return {"status": "pending"}
 
 
-def get_location_simple() -> dict:
-    """Simple wrapper for get_location declaration."""
+def get_location_sync() -> dict:
+    """Sync wrapper for get_location declaration (used for BIDI mode)."""
     return {"status": "pending"}
 
 
 # Create FunctionDeclarations with BLOCKING behavior
 process_payment_declaration = types.FunctionDeclaration.from_callable_with_api_option(
-    callable=process_payment_simple,
+    callable=process_payment_sync,
     api_option="GEMINI_API",
     behavior=types.Behavior.BLOCKING,
 )
 
 get_location_declaration = types.FunctionDeclaration.from_callable_with_api_option(
-    callable=get_location_simple,
+    callable=get_location_sync,
     api_option="GEMINI_API",
     behavior=types.Behavior.BLOCKING,
 )

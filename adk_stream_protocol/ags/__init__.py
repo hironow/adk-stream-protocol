@@ -24,6 +24,8 @@ from .runner import (
 )
 from .tools import (
     change_bgm,
+    execute_get_location,
+    execute_process_payment,
     get_location,
     get_weather,
     process_payment,
@@ -46,6 +48,8 @@ __all__ = [
     "bidi_app",
     # Public API - Tools
     "change_bgm",
+    "execute_get_location",
+    "execute_process_payment",
     # Public API - Registry
     "get_delegate",
     "get_location",

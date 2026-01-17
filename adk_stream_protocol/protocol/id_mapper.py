@@ -11,7 +11,7 @@ Design:
 - Context-aware resolution for intercepted tools (e.g., adk_request_confirmation)
 
 Usage:
-    mapper = ADKVercelIDMapper()
+    mapper = IDMapper()
 
     # Register mapping when function_call arrives
     mapper.register("process_payment", "function-call-123")
@@ -34,7 +34,7 @@ from typing import Any
 from loguru import logger
 
 
-class ADKVercelIDMapper:
+class IDMapper:
     """
     Manages bidirectional ID mapping between ADK and Vercel AI SDK v6.
 
@@ -75,7 +75,7 @@ class ADKVercelIDMapper:
         self._tool_name_to_id[tool_name] = function_call_id
         self._id_to_tool_name[function_call_id] = tool_name
 
-        logger.debug(f"[ADKVercelIDMapper] Registered: {tool_name} → {function_call_id}")
+        logger.debug(f"[IDMapper] Registered: {tool_name} → {function_call_id}")
 
     def get_function_call_id(
         self,
@@ -113,14 +113,14 @@ class ADKVercelIDMapper:
         # even when original_context is provided. This ensures confirmation Future
         # uses a separate ID from the original tool Future.
         if tool_name == "adk_request_confirmation":
-            logger.debug("[ADKVercelIDMapper] Confirmation tool lookup: using tool_name directly")
+            logger.debug("[IDMapper] Confirmation tool lookup: using tool_name directly")
             return self._tool_name_to_id.get(tool_name)
 
         # For other intercepted tools: use original context
         if original_context and "name" in original_context:
             lookup_name = original_context["name"]
             logger.debug(
-                f"[ADKVercelIDMapper] Context-aware lookup: {tool_name} → "
+                f"[IDMapper] Context-aware lookup: {tool_name} → "
                 f"original_name={lookup_name}"
             )
         else:
@@ -157,7 +157,7 @@ class ADKVercelIDMapper:
             tool_name = self._id_to_tool_name.get(original_id)
             if tool_name:
                 logger.debug(
-                    f"[ADKVercelIDMapper] Resolved confirmation ID: "
+                    f"[IDMapper] Resolved confirmation ID: "
                     f"{function_call_id} → {original_id} → {tool_name}"
                 )
                 return tool_name
@@ -172,4 +172,8 @@ class ADKVercelIDMapper:
         """
         self._tool_name_to_id.clear()
         self._id_to_tool_name.clear()
-        logger.debug("[ADKVercelIDMapper] Cleared all mappings")
+        logger.debug("[IDMapper] Cleared all mappings")
+
+
+# Backward compatibility alias (deprecated, use IDMapper instead)
+ADKVercelIDMapper = IDMapper

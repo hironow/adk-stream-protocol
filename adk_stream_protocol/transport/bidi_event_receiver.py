@@ -25,7 +25,7 @@ from loguru import logger
 
 from adk_stream_protocol.adk.session import Event as AdkEvent
 from adk_stream_protocol.adk.session import sync_conversation_history_to_session
-from adk_stream_protocol.ags.tools import _execute_get_location, _execute_process_payment
+from adk_stream_protocol.ags.tools import execute_get_location, execute_process_payment
 from adk_stream_protocol.protocol.message_types import ChatMessage, process_chat_message_for_bidi
 from adk_stream_protocol.tools.approval_queue import ApprovalQueue
 from adk_stream_protocol.tools.frontend_tool_service import FrontendToolDelegate
@@ -436,9 +436,9 @@ class BidiEventReceiver:
         if approved:
             # Execute actual tool logic
             if tool_name == "process_payment":
-                return _execute_process_payment(**tool_args)
+                return execute_process_payment(**tool_args)
             elif tool_name == "get_location":
-                return await _execute_get_location(self._session.id)
+                return await execute_get_location(self._session.id)
             else:
                 logger.error(f"[BIDI-APPROVAL] Unknown tool name: {tool_name}")
                 return {"success": False, "error": f"Unknown tool: {tool_name}"}

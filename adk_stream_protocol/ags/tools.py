@@ -151,7 +151,7 @@ async def get_weather(location: str) -> dict[str, Any]:
         }
 
 
-def _execute_process_payment(
+def execute_process_payment(
     amount: float,
     recipient: str,
     currency: str = "USD",
@@ -298,7 +298,7 @@ async def process_payment(
 
             if approval_result.get("approved"):
                 logger.info("[process_payment] ✅ APPROVED - executing payment")
-                return _execute_process_payment(amount, recipient, currency, description)
+                return execute_process_payment(amount, recipient, currency, description)
             else:
                 logger.info("[process_payment] ❌ DENIED - rejecting payment")
                 return {
@@ -318,7 +318,7 @@ async def process_payment(
     # SSE mode: ADK handles confirmation automatically via require_confirmation=True
     # Execute payment logic directly (ADK has already handled approval)
     logger.info("[process_payment] SSE mode - executing payment logic")
-    return _execute_process_payment(amount, recipient, currency, description)
+    return execute_process_payment(amount, recipient, currency, description)
 
 
 async def change_bgm(track: int, tool_context: ToolContext | None = None) -> dict[str, Any]:
@@ -380,7 +380,7 @@ async def change_bgm(track: int, tool_context: ToolContext | None = None) -> dic
     }
 
 
-async def _execute_get_location(session_id: str) -> dict[str, Any]:
+async def execute_get_location(session_id: str) -> dict[str, Any]:
     """
     Execute location retrieval logic via frontend delegation (separated for reuse in BIDI mode).
 
@@ -480,7 +480,7 @@ async def get_location(tool_context: ToolContext) -> dict[str, Any]:
 
             if approval_result.get("approved"):
                 logger.info("[get_location] ✅ APPROVED - executing frontend delegation")
-                return await _execute_get_location(tool_context.session.id)
+                return await execute_get_location(tool_context.session.id)
             else:
                 logger.info("[get_location] ❌ DENIED - rejecting location access")
                 return {
@@ -498,4 +498,4 @@ async def get_location(tool_context: ToolContext) -> dict[str, Any]:
     # SSE mode: ADK handles confirmation automatically via require_confirmation=True
     # Execute frontend delegation directly (ADK has already handled approval)
     logger.info("[get_location] SSE mode - executing frontend delegation")
-    return await _execute_get_location(tool_context.session.id)
+    return await execute_get_location(tool_context.session.id)
