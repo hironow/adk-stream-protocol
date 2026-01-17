@@ -2,7 +2,7 @@
   "description": "BIDI Blocking Mode - process_payment with denial flow (SINGLE CONTINUOUS STREAM)",
   "mode": "bidi",
   "source": "Backend E2E test capture",
-  "scenario": "User denies process_payment tool call - BIDI Blocking Mode mode where tool awaits approval inside function",
+  "scenario": "User denies process_payment tool call - BIDI Blocking Mode where tool awaits approval inside function",
   "note": "BIDI Blocking Mode behavior: Single continuous stream with 1 [DONE]. Tool enters BLOCKING state awaiting approval, then returns error after denial. This is different from Legacy Approval Mode where tool returns pending immediately.",
   "input": {
     "messages": [

@@ -352,15 +352,15 @@ Key differences from Legacy Approval Mode fixtures:
 
 **Implementation**:
 
-- `adk_stream_protocol/approval_queue.py` - ApprovalQueue bridge
-- `adk_stream_protocol/bidi_event_receiver.py:_handle_confirmation_approval()` - BIDI Blocking Mode handling
-- `tests/e2e/backend_fixture/test_process_payment_approved_bidi_bidi-blocking.py` - Approval test
-- `tests/e2e/backend_fixture/test_process_payment_denied_bidi_bidi-blocking.py` - Denial test
+- `adk_stream_protocol/tools/approval_queue.py` - ApprovalQueue bridge
+- `adk_stream_protocol/transport/bidi_event_receiver.py:_handle_confirmation_approval()` - BIDI Blocking Mode handling
+- `tests/e2e/backend_fixture/test_process_payment_approved_bidi_baseline.py` - Approval test
+- `tests/e2e/backend_fixture/test_process_payment_denied_bidi_baseline.py` - Denial test
 
 **Baseline Fixtures**:
 
-- `fixtures/frontend/process_payment-approved-bidi-bidi-blocking.json`
-- `fixtures/frontend/process_payment-denied-bidi-bidi-blocking.json`
+- `fixtures/frontend/process_payment-approved-bidi-baseline.json`
+- `fixtures/frontend/process_payment-denied-bidi-baseline.json`
 
 **Frontend Tests**:
 

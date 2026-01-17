@@ -121,7 +121,7 @@ When a confirmation-required tool (e.g., `get_location`, `process_payment`) is i
 
 ### Implementation: BidiEventSender._handle_confirmation_if_needed()
 
-**Location**: `adk_stream_protocol/bidi_event_sender.py:221-367`
+**Location**: `adk_stream_protocol/transport/bidi_event_sender.py:221-367`
 
 **Step-by-Step Process**:
 
@@ -369,10 +369,10 @@ If Google adds native `adk_request_confirmation` generation for BIDI mode:
 
 **Implementation**:
 
-- `adk_stream_protocol/bidi_event_sender.py:221-367` - Chunk injection logic
-- `adk_stream_protocol/bidi_event_sender.py:338-349` - Confirmation chunk creation
+- `adk_stream_protocol/transport/bidi_event_sender.py:221-367` - Chunk injection logic
+- `adk_stream_protocol/transport/bidi_event_sender.py:338-349` - Confirmation chunk creation
 - `adk_stream_protocol/confirmation_interceptor.py` - Confirmation execution
-- `adk_stream_protocol/approval_queue.py` - BLOCKING tool coordination
+- `adk_stream_protocol/tools/approval_queue.py` - BLOCKING tool coordination
 
 **Tests**:
 

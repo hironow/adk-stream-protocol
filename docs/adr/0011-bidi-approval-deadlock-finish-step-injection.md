@@ -159,12 +159,12 @@ For tool approval flow, this creates two distinct steps:
 
 ### Implementation Strategy
 
-**Location:** `adk_stream_protocol/bidi_event_sender.py` - `_handle_confirmation_if_needed()` method
+**Location:** `adk_stream_protocol/transport/bidi_event_sender.py` - `_handle_confirmation_if_needed()` method
 
 **Change:** Wrap `tool-approval-request` with `start-step` and `finish-step` events:
 
 ```python
-# adk_stream_protocol/bidi_event_sender.py (line 309-351)
+# adk_stream_protocol/transport/bidi_event_sender.py (line 309-351)
 
 # 1. Send original tool-input-available
 await self._send_sse_event(sse_event)
@@ -308,7 +308,7 @@ if (
 ### Files to Modify
 
 1. **Backend:**
-   - `adk_stream_protocol/bidi_event_sender.py:309-351` - Inject finish-step
+   - `adk_stream_protocol/transport/bidi_event_sender.py:309-351` - Inject finish-step
 
 2. **Frontend:**
    - `lib/bidi/event_receiver.ts:210-253` - Wait for finish-step
