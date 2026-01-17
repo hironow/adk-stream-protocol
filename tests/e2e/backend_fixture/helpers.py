@@ -33,12 +33,14 @@ async def load_frontend_fixture(fixture_path: Path) -> dict[str, Any]:
 async def send_sse_request(
     messages: list[dict[str, Any]],
     backend_url: str = "http://localhost:8000/stream",
+    api_key: str = "dev-key-12345",
 ) -> list[str]:
     """Send SSE request to backend and collect rawEvents.
 
     Args:
         messages: Message history to send
         backend_url: Backend SSE endpoint URL
+        api_key: API key for authentication (default: dev-key-12345)
 
     Returns:
         List of SSE-format event strings (e.g., 'data: {...}\\n\\n')
@@ -50,6 +52,7 @@ async def send_sse_request(
             "POST",
             backend_url,
             json={"messages": messages},
+            headers={"X-API-Key": api_key},
         ) as response:
             response.raise_for_status()
 
@@ -558,13 +561,9 @@ def normalize_event(event_str: str) -> str:
                 event_obj["toolCallId"] = "DYNAMIC_TOOL_CALL_ID"
 
         # Replace dynamic approvalId with placeholder (for tool-approval-request events)
+        # Note: approvalId can be "adk-xxx" (old format) or "confirm-xxx" (new format)
         if "approvalId" in event_obj:
-            if isinstance(event_obj["approvalId"], str) and event_obj["approvalId"].startswith(
-                "adk-"
-            ):
-                event_obj["approvalId"] = "adk-DYNAMIC_ID"
-            else:
-                event_obj["approvalId"] = "DYNAMIC_APPROVAL_ID"
+            event_obj["approvalId"] = "DYNAMIC_APPROVAL_ID"
 
         # Replace timestamps in nested structures
         if "messageMetadata" in event_obj:

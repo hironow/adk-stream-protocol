@@ -143,7 +143,8 @@
       "Bash(bunx biome:*)",
       "Bash(timeout 60 bun vitest run:*)",
       "Bash(gh issue list:*)",
-      "Bash(gh issue view:*)"
+      "Bash(gh issue view:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [
       "Read(.env.keys)",
