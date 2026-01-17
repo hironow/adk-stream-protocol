@@ -271,19 +271,43 @@ it('handles WebSocket messages', async () => {
 
 ## テスト実行
 
+### 推奨コマンド (justfile)
+
+```bash
+# 全テスト（外部依存なし）- 推奨
+just test-fast
+
+# ユニットテストのみ
+just test-unified-unit
+
+# 統合テストのみ
+just test-unified-integration
+```
+
+### 直接実行
+
 ```bash
 # すべてのユニットテスト
-bunx vitest run lib/tests/unit/
+bun vitest run lib/tests/unit/
 
 # すべてのインテグレーションテスト
-bunx vitest run lib/tests/integration/
+bun vitest run lib/tests/integration/
+
+# すべてのE2Eテスト
+bun vitest run lib/tests/e2e/
 
 # 特定のテストファイル
-bunx vitest run lib/tests/unit/chunk_logs-public-api.test.ts
+bun vitest run lib/tests/unit/chunk_logs-public-api.test.ts
 
 # Watch mode
-bunx vitest lib/tests/unit/
+bun vitest lib/tests/unit/
 ```
+
+### msw WebSocket クリーンアップに関する注意
+
+`lib/tests/integration/` と `lib/tests/e2e/` では msw (Mock Service Worker) を使用した WebSocket モッキングを行っている。msw の WebSocket インターセプターはテスト終了後に完全にクリーンアップされないため、Worker exit error (`uv__stream_destroy` assertion) が発生することがある。
+
+**解決策**: `scripts/run-vitest-e2e.sh` ラッパースクリプトを使用。テスト結果を解析し、全テストがパスしていれば exit code 0 を返す。`just test-fast` や `just test-unified-unit` コマンドはこのラッパーを自動的に使用する。
 
 ## 注意事項
 
