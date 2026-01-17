@@ -339,7 +339,7 @@ class ChatMessage(BaseModel):
     This class combines AI SDK v6 type definition with ADK conversion logic
     (to_adk_content method) to keep type and transformation together.
 
-    Edge case fix (POC Phase 5): content can be list[MessagePart] for function_response.
+    Edge case fix (POC Legacy Approval Mode): content can be list[MessagePart] for function_response.
     Previously typed as str | None, causing Pydantic validation error in BIDI mode.
     """
 

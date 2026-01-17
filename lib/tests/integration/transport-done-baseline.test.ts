@@ -639,7 +639,7 @@ describe("Transport [DONE] Baseline Integration Tests", () => {
      * When: Transport processes events with BIDI mode (persistent connection)
      * Then: Complete tool execution matches baseline
      *
-     * Note: Baseline now uses BIDI Blocking Mode mode (not Phase 5)
+     * Note: Baseline now uses BIDI Blocking Mode mode (not Legacy Approval Mode)
      */
 
     const fixture = loadFixture("process_payment-approved-bidi-baseline.json");

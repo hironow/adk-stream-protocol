@@ -12,7 +12,7 @@ When implementing deferred approval flow in BIDI mode, we discovered two distinc
 
 The critical question was: **Which pattern should we use for BIDI mode tool approval, and why?**
 
-### Initial Phase 5 Implementation
+### Initial Legacy Approval Mode Implementation
 
 **Pattern**:
 
@@ -30,7 +30,7 @@ class ProcessPaymentTool(LongRunningFunctionTool):
         pass
 ```
 
-**Event Flow (Phase 5)**:
+**Event Flow (Legacy Approval Mode)**:
 
 ```
 Turn 1:
@@ -125,7 +125,7 @@ This is **exactly what we need** for deferred approval flow:
 
 ## Decision
 
-Use **BIDI Blocking Mode** for BIDI mode tool approval flow instead of Phase 5 LongRunningFunctionTool.
+Use **BIDI Blocking Mode** for BIDI mode tool approval flow instead of Legacy Approval Mode LongRunningFunctionTool.
 
 ### Implementation Architecture
 
@@ -174,7 +174,7 @@ Use **BIDI Blocking Mode** for BIDI mode tool approval flow instead of Phase 5 L
 **Frontend Protocol** (unchanged):
 
 - Uses existing `message` event with `approval-responded` state
-- Same format as Phase 5 (no frontend changes needed)
+- Same format as Legacy Approval Mode (no frontend changes needed)
 
 ### Why BIDI Blocking Mode is Better
 
@@ -186,7 +186,7 @@ Use **BIDI Blocking Mode** for BIDI mode tool approval flow instead of Phase 5 L
 
 ### Technical Comparison
 
-| Aspect | Phase 5 (LongRunningFunctionTool) | BIDI Blocking Mode (BLOCKING) |
+| Aspect | Legacy Approval Mode (LongRunningFunctionTool) | BIDI Blocking Mode (BLOCKING) |
 |--------|-----------------------------------|---------------------|
 | **Turn Count** | 2 turns | 1 continuous turn |
 | **[DONE] Count** | 2 | 1 |
@@ -204,7 +204,7 @@ Use **BIDI Blocking Mode** for BIDI mode tool approval flow instead of Phase 5 L
 2. **Easier Testing**: Single stream easier to test than multi-turn flow
 3. **Better Performance**: Fewer events, less state management overhead
 4. **Clearer Semantics**: "Tool awaits approval" is more intuitive than "tool returns pending"
-5. **Frontend Compatibility**: Same approval protocol as Phase 5 (seamless migration)
+5. **Frontend Compatibility**: Same approval protocol as Legacy Approval Mode (seamless migration)
 6. **Error Propagation**: Exceptions propagate naturally through await chain
 
 ### Negative
@@ -216,7 +216,7 @@ Use **BIDI Blocking Mode** for BIDI mode tool approval flow instead of Phase 5 L
 
 ### Neutral
 
-1. **Different Pattern**: Developers familiar with Phase 5 need to learn BIDI Blocking Mode
+1. **Different Pattern**: Developers familiar with Legacy Approval Mode need to learn BIDI Blocking Mode
 2. **No LiveRequestQueue Access**: Tools cannot access LiveRequestQueue directly (design limitation)
 3. **Parameter Injection**: BLOCKING tools (return dict) don't receive LiveRequestQueue injection (only async generator streaming tools do)
 
@@ -319,7 +319,7 @@ process_payment_tool = FunctionDeclaration.from_callable_with_api_option(
 
 ## Migration Path
 
-### From Phase 5 to BIDI Blocking Mode
+### From Legacy Approval Mode to BIDI Blocking Mode
 
 1. **Backend Changes**:
    - Create `ApprovalQueue` in session state
@@ -342,7 +342,7 @@ BIDI Blocking Mode baseline fixtures created:
 - `fixtures/frontend/process_payment-approved-bidi-bidi-blocking.json`
 - `fixtures/frontend/process_payment-denied-bidi-bidi-blocking.json`
 
-Key differences from Phase 5 fixtures:
+Key differences from Legacy Approval Mode fixtures:
 
 - `expectedDoneCount: 1` (instead of 2)
 - `expectedStreamCompletion: true`

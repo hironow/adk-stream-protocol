@@ -262,7 +262,7 @@ class BidiEventReceiver:
         self, confirmation_id: str, response_data: dict[str, Any]
     ) -> None:
         """
-        Handle confirmation approval: Route to BIDI Blocking Mode (BLOCKING) or Phase 5 (Legacy).
+        Handle confirmation approval: Route to BIDI Blocking Mode (BLOCKING) or Legacy Approval Mode.
 
         Args:
             confirmation_id: The ID of the confirmation FunctionResponse (lookup key)
@@ -347,9 +347,9 @@ class BidiEventReceiver:
         self, confirmation_id: str, response_data: dict[str, Any]
     ) -> None:
         """
-        Handle confirmation approval in Phase 5 LongRunningFunctionTool mode (legacy).
+        Handle confirmation approval in Legacy Approval Mode (LongRunningFunctionTool).
 
-        Phase 5 (LongRunningFunctionTool) - LEGACY:
+        Legacy Approval Mode (LongRunningFunctionTool):
         - Tool returned pending status without execution
         - Server executes actual tool logic after approval
         - Server sends FunctionResponse with execution result to ADK
@@ -358,7 +358,7 @@ class BidiEventReceiver:
             confirmation_id: The ID of the confirmation FunctionResponse (lookup key)
             response_data: FunctionResponse.response dict with {"confirmed": bool}
         """
-        logger.info("[BIDI-APPROVAL] Phase 5: LongRunningFunctionTool mode (no approval_queue)")
+        logger.info("[BIDI-APPROVAL] Legacy Approval Mode: LongRunningFunctionTool (no approval_queue)")
 
         # Look up original tool_call_id using confirmation_id from session.state
         try:  # nosemgrep: forbid-try-except - legitimate session.state access with KeyError handling
@@ -405,7 +405,7 @@ class BidiEventReceiver:
         tool_args = pending_call["args"]
 
         logger.info("=" * 80)
-        logger.info("[BIDI-APPROVAL] ===== EXECUTING TOOL LOGIC (Phase 5) =====")
+        logger.info("[BIDI-APPROVAL] ===== EXECUTING TOOL LOGIC (Legacy Approval Mode) =====")
         logger.info(f"[BIDI-APPROVAL] tool_name={tool_name}, args={tool_args}, approved={approved}")
         logger.info("=" * 80)
 
@@ -425,7 +425,7 @@ class BidiEventReceiver:
         self, tool_name: str, tool_args: dict[str, Any], approved: bool
     ) -> dict[str, Any]:
         """
-        Execute tool logic for Phase 5 legacy mode.
+        Execute tool logic for Legacy Approval Mode.
 
         Args:
             tool_name: Name of the tool to execute

@@ -283,7 +283,7 @@ class BidiEventSender:
 
     async def _handle_confirmation_if_needed(self, sse_event: str) -> bool:
         """
-        Phase 5: Detect LongRunningFunctionTool calls and inject confirmation flow.
+        Legacy Approval Mode: Detect LongRunningFunctionTool calls and inject confirmation flow.
 
         LongRunningFunctionTool returns None to prevent ADK from sending FunctionResponse.
         We detect tool-input-available for confirmation-required tools and inject
@@ -323,7 +323,7 @@ class BidiEventSender:
                 tool_call_id = event_data.get("toolCallId")
                 tool_name = event_data.get("toolName")
 
-                # Phase 5 Step 1: Record tool-input-start for confirmation-required tools
+                # Legacy Approval Mode Step 1: Record tool-input-start for confirmation-required tools
                 if (
                     event_type == "tool-input-start"
                     and tool_name in self._confirmation_tools
@@ -332,13 +332,13 @@ class BidiEventSender:
                     self._record_tool_confirmation(tool_call_id, tool_name)
                     return True  # Send this event normally
 
-                # Phase 5 Step 2: Detect tool-input-available for confirmation-required tools
+                # Legacy Approval Mode Step 2: Detect tool-input-available for confirmation-required tools
                 elif event_type == "tool-input-available":
                     if tool_call_id and tool_call_id in self._pending_confirmation:
                         await self._inject_confirmation_flow(sse_event, tool_call_id, event_data)
                         return False  # Already sent the original event
 
-                # Phase 5 Step 3: Skip tool-output-available for confirmation-required tools
+                # Legacy Approval Mode Step 3: Skip tool-output-available for confirmation-required tools
                 elif event_type == "tool-output-available":
                     if self._skip_pending_output(tool_call_id):
                         return False  # Skip this event
@@ -352,7 +352,7 @@ class BidiEventSender:
 
     def _record_tool_confirmation(self, tool_call_id: str, tool_name: str) -> None:
         """
-        Phase 5 Step 1: Record tool-input-start for confirmation-required tools.
+        Legacy Approval Mode Step 1: Record tool-input-start for confirmation-required tools.
 
         Args:
             tool_call_id: Unique identifier for the tool call
@@ -367,7 +367,7 @@ class BidiEventSender:
         self, sse_event: str, tool_call_id: str, event_data: dict[str, Any]
     ) -> None:
         """
-        Phase 5 Step 2: Inject confirmation flow for tools requiring approval.
+        Legacy Approval Mode Step 2: Inject confirmation flow for tools requiring approval.
 
         Flow:
         1. Send original tool-input-available
@@ -434,7 +434,7 @@ class BidiEventSender:
 
     def _skip_pending_output(self, tool_call_id: str | None) -> bool:
         """
-        Phase 5 Step 3: Check if tool-output-available should be skipped.
+        Legacy Approval Mode Step 3: Check if tool-output-available should be skipped.
 
         Pending status FunctionResponse should not be sent to frontend.
         Real result will be sent after approval via LiveRequestQueue.send_content().

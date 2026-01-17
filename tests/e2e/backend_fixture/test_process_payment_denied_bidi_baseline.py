@@ -158,7 +158,7 @@ async def test_process_payment_denied_bidi_baseline(frontend_fixture_dir: Path):
         expected_done_count=1,
         source="Backend E2E test capture",
         scenario="User denies process_payment tool call - BIDI Blocking Mode mode where tool awaits approval inside function",
-        note="BIDI Blocking Mode behavior: Single continuous stream with 1 [DONE]. Tool enters BLOCKING state awaiting approval, then returns error after denial. This is different from Phase 5 where tool returns pending immediately.",
+        note="BIDI Blocking Mode behavior: Single continuous stream with 1 [DONE]. Tool enters BLOCKING state awaiting approval, then returns error after denial. This is different from Legacy Approval Mode where tool returns pending immediately.",
     )
 
     # Verify against expected events (structure comparison) - MOVED AFTER SAVE

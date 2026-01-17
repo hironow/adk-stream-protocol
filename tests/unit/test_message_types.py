@@ -4,7 +4,7 @@ Unit tests for message_types module.
 Tests the AI SDK v6 compatibility layer, focusing on:
 - process_chat_message_for_bidi: BIDI mode message processing (image/text separation)
 - Tool use part validation
-- ADK request confirmation conversion (Phase 5)
+- ADK request confirmation conversion (Legacy Approval Mode)
 """
 
 from unittest.mock import patch
@@ -26,7 +26,7 @@ from adk_stream_protocol.protocol.message_types import (
 
 
 class TestProcessChatMessageForBidi:
-    """Tests for process_chat_message_for_bidi function (Phase 5 - simplified)."""
+    """Tests for process_chat_message_for_bidi function (Legacy Approval Mode - simplified)."""
 
     def test_text_only_message(self):
         """Should extract text content from text-only message."""
@@ -282,18 +282,18 @@ class TestToolUsePartValidation:
 
 
 class TestAdkRequestConfirmationConversion:
-    """Tests for Phase 5: ADK Tool Confirmation Flow.
+    """Tests for Legacy Approval Mode: ADK Tool Confirmation Flow.
 
     Tests the conversion of `adk_request_confirmation` tool outputs
     from AI SDK v6 format to ADK FunctionResponse format.
 
-    Related: experiments/2025-12-17_tool_architecture_refactoring.md (Phase 5)
+    Related: experiments/2025-12-17_tool_architecture_refactoring.md (Legacy Approval Mode)
     """
 
     def test_adk_request_confirmation_approved(self):
         """Should convert adk_request_confirmation with simplified output format.
 
-        Simplified Phase 5 behavior: Use tool_call_id directly, no originalFunctionCall needed.
+        Simplified Legacy Approval Mode behavior: Use tool_call_id directly, no originalFunctionCall needed.
         Frontend sends: output={"confirmed": true}
         Backend uses: part.tool_call_id as the ID
         """
@@ -817,7 +817,7 @@ class TestChatMessageContentField:
     """
     Tests for ChatMessage.content field type compatibility.
 
-    Edge case discovered during POC Phase 5:
+    Edge case discovered during POC Legacy Approval Mode:
     - function_response messages use content as list[Part] (AI SDK v6 spec)
     - ChatMessage.content was typed as str | None (incomplete)
     - Result: Pydantic validation error in BIDI mode
@@ -841,7 +841,7 @@ class TestChatMessageContentField:
         """
         ChatMessage.content should accept list[Part] for function_response.
 
-        This test captures the edge case bug found in POC Phase 5:
+        This test captures the edge case bug found in POC Legacy Approval Mode:
         - BIDI mode sends function_response with content as list
         - Example: content=[{"type": "tool-result", "toolCallId": "...", ...}]
         - Current type: str | None → Pydantic validation error

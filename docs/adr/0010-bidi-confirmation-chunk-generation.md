@@ -293,7 +293,7 @@ if original_tool_call_id in pending_calls:
     del pending_calls[original_tool_call_id]  # Critical cleanup
 ```
 
-**Why**: Without cleanup, final `tool-output-available` is skipped (legacy Phase 5 behavior).
+**Why**: Without cleanup, final `tool-output-available` is skipped (Legacy Approval Mode behavior).
 
 ## Testing Strategy
 
