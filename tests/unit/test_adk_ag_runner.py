@@ -17,11 +17,11 @@ from adk_stream_protocol.ags import runner as adk_ag_runner
 
 
 def test_sse_agent_exists_and_has_correct_model() -> None:
-    """SSE agent should be configured with gemini-3-flash-preview model."""
+    """SSE agent should be configured with SSE_MODEL."""
     # when/then
     assert adk_ag_runner.sse_agent is not None
     assert isinstance(adk_ag_runner.sse_agent, Agent)
-    assert adk_ag_runner.sse_agent.model == "gemini-3-flash-preview"
+    assert adk_ag_runner.sse_agent.model == adk_ag_runner.SSE_MODEL
 
 
 def test_bidi_agent_exists_and_has_model() -> None:

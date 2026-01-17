@@ -27,6 +27,7 @@ from google.genai import types
 from loguru import logger as loguru_logger
 
 from adk_stream_protocol.adk.session import get_or_create_session
+from adk_stream_protocol.ags import BIDI_MODEL
 
 
 load_dotenv(".env.local")
@@ -119,7 +120,7 @@ def experiment_runner():
     # Create test agent with unique name to avoid conflicts
     agent = Agent(
         name=f"live_queue_experiment_agent_{uuid.uuid4().hex[:8]}",
-        model="gemini-2.5-flash-native-audio-preview-12-2025",
+        model=BIDI_MODEL,
         description="Experiment agent for LiveRequestQueue observation",
         instruction=(
             "You are a test assistant. When the user asks you to process a message, "

@@ -14,7 +14,9 @@ For adk web debugging:
 from ._internal import Error, Ok, Result, get_delegate, register_delegate
 from .runner import (
     BIDI_CONFIRMATION_TOOLS,
+    BIDI_MODEL,
     SSE_CONFIRMATION_TOOLS,
+    SSE_MODEL,
     bidi_agent,
     bidi_agent_runner,
     bidi_app,
@@ -36,32 +38,26 @@ from .tools import (
 root_agent = sse_agent
 
 __all__ = [
-    # Public API - Constants
     "BIDI_CONFIRMATION_TOOLS",
+    "BIDI_MODEL",
     "SSE_CONFIRMATION_TOOLS",
+    "SSE_MODEL",
     "Error",
-    # Public API - Result Types
     "Ok",
     "Result",
     "bidi_agent",
     "bidi_agent_runner",
     "bidi_app",
-    # Public API - Tools
     "change_bgm",
     "execute_get_location",
     "execute_process_payment",
-    # Public API - Registry
     "get_delegate",
     "get_location",
     "get_weather",
     "process_payment",
     "register_delegate",
-    # Public API - adk web entry point
     "root_agent",
-    # Public API - Agents
     "sse_agent",
-    # Public API - Runners
     "sse_agent_runner",
-    # Public API - Apps
     "sse_app",
 ]

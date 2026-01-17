@@ -26,6 +26,7 @@ from google.genai import types
 from loguru import logger
 
 from adk_stream_protocol.adk.session import get_or_create_session
+from adk_stream_protocol.ags import BIDI_MODEL
 
 
 load_dotenv(".env.local")
@@ -253,7 +254,7 @@ TEST_APPROVAL_TOOL._declaration = test_approval_declaration_non_blocking  # type
 # Create minimal test agent with only ONE tool
 test_agent = Agent(
     name="test_deferred_approval_agent",
-    model="gemini-2.5-flash-native-audio-preview-12-2025",
+    model=BIDI_MODEL,
     description="Minimal test agent for deferred approval flow testing",
     instruction=(
         "You are a test assistant. When the user asks you to process a message, "
@@ -469,7 +470,7 @@ async def test_deferred_approval_flow_approved():
     # This ensures the agent is created after the plugin is defined
     fresh_test_agent = Agent(
         name="test_deferred_approval_agent_fresh",
-        model="gemini-2.5-flash-native-audio-preview-12-2025",
+        model=BIDI_MODEL,
         description="Fresh test agent for deferred approval flow testing with plugin",
         instruction=(
             "You are a test assistant. When the user asks you to process a message, "

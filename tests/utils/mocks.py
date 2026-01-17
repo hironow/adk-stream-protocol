@@ -240,14 +240,14 @@ def create_mock_live_request_queue() -> Mock:
 
 def create_mock_agent(
     tools: list[Any] | None = None,
-    model: str = "gemini-3-flash-preview",
+    model: str | None = None,
     name: str = "test-agent",
 ) -> Mock:
     """Create a mock Agent for ADK testing.
 
     Args:
         tools: Optional list of tools for the agent
-        model: Model name (default: gemini-3-flash-preview)
+        model: Model name (default: SSE_MODEL from runner)
         name: Agent name (default: test-agent)
 
     Returns:
@@ -255,9 +255,12 @@ def create_mock_agent(
 
     Examples:
         >>> agent = create_mock_agent(tools=[tool1, tool2])
-        >>> assert agent.model == "gemini-3-flash-preview"
         >>> assert len(agent.tools) == 2
     """
+    from adk_stream_protocol.ags import SSE_MODEL
+
+    if model is None:
+        model = SSE_MODEL
     from google.adk.agents import Agent
 
     mock_agent = Mock(spec=Agent)

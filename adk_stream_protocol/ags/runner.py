@@ -34,6 +34,11 @@ except ImportError:
 # ========== Constants for Agent Configuration ==========
 # Fixed values for reproducible behavior
 
+# Model names for different modes
+# Reference: https://ai.google.dev/gemini-api/docs/models
+SSE_MODEL = "gemini-3-flash-preview"  # For generateContent API (SSE streaming)
+BIDI_MODEL = "gemini-2.5-flash-native-audio-preview-12-2025"  # For Live API (native audio)
+
 # Note: ADK Agent doesn't support seed and temperature parameters
 # These would be used for deterministic responses if supported:
 # ADK_SEED = 42
@@ -144,7 +149,7 @@ BIDI_TOOLS = [
 # SSE Agent: Uses stable model for generateContent API (SSE streaming)
 sse_agent = Agent(
     name="adk_assistant_agent_sse",
-    model="gemini-3-flash-preview",  # Gemini 3 Flash Preview for generateContent API (SSE mode)
+    model=SSE_MODEL,
     description=AGENT_DESCRIPTION,
     instruction=AGENT_INSTRUCTION,
     tools=SSE_TOOLS,  # type: ignore[arg-type]
@@ -157,11 +162,10 @@ sse_agent = Agent(
 
 # BIDI Agent: Uses Live API model for bidirectional streaming
 # Model can be configured via ADK_BIDI_MODEL env var, defaults to native-audio model for audio support
-# default is newest available model
-bidi_model = os.getenv("ADK_BIDI_MODEL", "gemini-2.5-flash-native-audio-preview-12-2025")
+bidi_model = os.getenv("ADK_BIDI_MODEL", BIDI_MODEL)
 bidi_agent = Agent(
     name="adk_assistant_agent_bidi",
-    model=bidi_model,  # Configurable model for BIDI mode
+    model=bidi_model,
     description=AGENT_DESCRIPTION,
     instruction=AGENT_INSTRUCTION,
     tools=BIDI_TOOLS,  # type: ignore[arg-type]

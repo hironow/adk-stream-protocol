@@ -28,6 +28,7 @@ from google.genai import types
 from loguru import logger as loguru_logger
 
 from adk_stream_protocol.adk.session import get_or_create_session
+from adk_stream_protocol.ags import BIDI_MODEL
 
 # Import ApprovalQueue from the main test file
 from .test_deferred_approval_flow import ApprovalQueue
@@ -126,7 +127,7 @@ BLOCKING_APPROVAL_TOOL._declaration = blocking_approval_declaration  # type: ign
 # Create test agent
 test_agent_blocking = Agent(
     name="test_blocking_approval_agent",
-    model="gemini-2.5-flash-native-audio-preview-12-2025",
+    model=BIDI_MODEL,
     description="Test agent for BLOCKING mode approval experiment",
     instruction=(
         "You are a test assistant. When the user asks you to process a message, "
