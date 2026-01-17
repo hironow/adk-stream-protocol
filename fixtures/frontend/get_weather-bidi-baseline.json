@@ -16,27 +16,29 @@
   },
   "output": {
     "rawEvents": [
-      "data: {\"type\": \"start\", \"messageId\": \"413a00c7-f674-4c58-a742-13d1d34151b6\"}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"e59c0bbf-3a54-43df-9c10-15b0c60dcf88\"}\n\n",
       "data: {\"type\": \"reasoning-start\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Identifying Weather Request**\\n\\nI've determined the user is asking for the weather in Tokyo. The `get_weather` tool seems like the right fit. It requires a location, and \\\"\\u6771\\u4eac\\\" translates to \\\"Tokyo\\\". So, I'll call `get_weather` with the location set to \\\"Tokyo\\\".\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Resolving the Query**\\n\\nI've determined that the weather request for \\\"\\u6771\\u4eac\\\" needs to be converted into English for the `get_weather` tool. The tool requires an English `location`, and \\\"\\u6771\\u4eac\\\" translates directly to \\\"Tokyo.\\\" I'm now ready to call the tool with the argument `location='Tokyo'` to retrieve the weather information.\\n\\n\\n\"}\n\n",
       "data: {\"type\": \"reasoning-end\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-15138357924226897201\", \"toolName\": \"get_weather\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-15138357924226897201\", \"toolName\": \"get_weather\", \"input\": {\"location\": \"Tokyo\"}}\n\n",
-      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"function-call-15138357924226897201\", \"output\": {\"temperature\": 10.2, \"condition\": \"Clouds\", \"description\": \"broken clouds\", \"humidity\": 44, \"feels_like\": 8.4, \"wind_speed\": 4.12, \"cached\": true}}\n\n",
-      "data: {\"type\": \"text-start\", \"id\": \"413a00c7-f674-4c58-a742-13d1d34151b6_output_text\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"413a00c7-f674-4c58-a742-13d1d34151b6_output_text\", \"delta\": \"\\u6771\\u4eac\\u306f\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"413a00c7-f674-4c58-a742-13d1d34151b6_output_text\", \"delta\": \"\\u66c7\\u308a\\u3067\\u3001\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"413a00c7-f674-4c58-a742-13d1d34151b6_output_text\", \"delta\": \"\\u6c17\\u6e29\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"413a00c7-f674-4c58-a742-13d1d34151b6_output_text\", \"delta\": \"\\u306f10.2\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"413a00c7-f674-4c58-a742-13d1d34151b6_output_text\", \"delta\": \"\\u5ea6\\u3067\\u3059\\u3002\"}\n\n",
-      "data: {\"type\": \"text-end\", \"id\": \"413a00c7-f674-4c58-a742-13d1d34151b6_output_text\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1500, \"completionTokens\": null, \"totalTokens\": 1576}, \"audio\": {\"chunks\": 52, \"bytes\": 144000, \"sampleRate\": 24000, \"duration\": 3.0}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-3164003724458275924\", \"toolName\": \"get_weather\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-3164003724458275924\", \"toolName\": \"get_weather\", \"input\": {\"location\": \"Tokyo\"}}\n\n",
+      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"function-call-3164003724458275924\", \"output\": {\"temperature\": 9.6, \"condition\": \"Clear\", \"description\": \"clear sky\", \"humidity\": 50, \"feels_like\": 9.4, \"wind_speed\": 1.34, \"cached\": true}}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"e59c0bbf-3a54-43df-9c10-15b0c60dcf88_output_text\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e59c0bbf-3a54-43df-9c10-15b0c60dcf88_output_text\", \"delta\": \"\\u6771\\u4eac\\u306f\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e59c0bbf-3a54-43df-9c10-15b0c60dcf88_output_text\", \"delta\": \"\\u5feb\\u6674\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e59c0bbf-3a54-43df-9c10-15b0c60dcf88_output_text\", \"delta\": \"\\u3067\\u3001\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e59c0bbf-3a54-43df-9c10-15b0c60dcf88_output_text\", \"delta\": \"\\u6c17\\u6e29\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e59c0bbf-3a54-43df-9c10-15b0c60dcf88_output_text\", \"delta\": \"\\u306f9.6\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e59c0bbf-3a54-43df-9c10-15b0c60dcf88_output_text\", \"delta\": \"\\u5ea6\\u3067\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"e59c0bbf-3a54-43df-9c10-15b0c60dcf88_output_text\", \"delta\": \"\\u3059\\u3002\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"e59c0bbf-3a54-43df-9c10-15b0c60dcf88_output_text\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1498, \"completionTokens\": null, \"totalTokens\": 1576}, \"audio\": {\"chunks\": 53, \"bytes\": 145920, \"sampleRate\": 24000, \"duration\": 3.04}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
       {
         "type": "start",
-        "messageId": "413a00c7-f674-4c58-a742-13d1d34151b6"
+        "messageId": "e59c0bbf-3a54-43df-9c10-15b0c60dcf88"
       },
       {
         "type": "reasoning-start",
@@ -45,7 +47,7 @@
       {
         "type": "reasoning-delta",
         "id": "0",
-        "delta": "**Identifying Weather Request**\n\nI've determined the user is asking for the weather in Tokyo. The `get_weather` tool seems like the right fit. It requires a location, and \"東京\" translates to \"Tokyo\". So, I'll call `get_weather` with the location set to \"Tokyo\".\n\n\n"
+        "delta": "**Resolving the Query**\n\nI've determined that the weather request for \"東京\" needs to be converted into English for the `get_weather` tool. The tool requires an English `location`, and \"東京\" translates directly to \"Tokyo.\" I'm now ready to call the tool with the argument `location='Tokyo'` to retrieve the weather information.\n\n\n"
       },
       {
         "type": "reasoning-end",
@@ -53,12 +55,12 @@
       },
       {
         "type": "tool-input-start",
-        "toolCallId": "function-call-15138357924226897201",
+        "toolCallId": "function-call-3164003724458275924",
         "toolName": "get_weather"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "function-call-15138357924226897201",
+        "toolCallId": "function-call-3164003724458275924",
         "toolName": "get_weather",
         "input": {
           "location": "Tokyo"
@@ -66,64 +68,74 @@
       },
       {
         "type": "tool-output-available",
-        "toolCallId": "function-call-15138357924226897201",
+        "toolCallId": "function-call-3164003724458275924",
         "output": {
-          "temperature": 10.2,
-          "condition": "Clouds",
-          "description": "broken clouds",
-          "humidity": 44,
-          "feels_like": 8.4,
-          "wind_speed": 4.12,
+          "temperature": 9.6,
+          "condition": "Clear",
+          "description": "clear sky",
+          "humidity": 50,
+          "feels_like": 9.4,
+          "wind_speed": 1.34,
           "cached": true
         }
       },
       {
         "type": "text-start",
-        "id": "413a00c7-f674-4c58-a742-13d1d34151b6_output_text"
+        "id": "e59c0bbf-3a54-43df-9c10-15b0c60dcf88_output_text"
       },
       {
         "type": "text-delta",
-        "id": "413a00c7-f674-4c58-a742-13d1d34151b6_output_text",
+        "id": "e59c0bbf-3a54-43df-9c10-15b0c60dcf88_output_text",
         "delta": "東京は"
       },
       {
         "type": "text-delta",
-        "id": "413a00c7-f674-4c58-a742-13d1d34151b6_output_text",
-        "delta": "曇りで、"
+        "id": "e59c0bbf-3a54-43df-9c10-15b0c60dcf88_output_text",
+        "delta": "快晴"
       },
       {
         "type": "text-delta",
-        "id": "413a00c7-f674-4c58-a742-13d1d34151b6_output_text",
+        "id": "e59c0bbf-3a54-43df-9c10-15b0c60dcf88_output_text",
+        "delta": "で、"
+      },
+      {
+        "type": "text-delta",
+        "id": "e59c0bbf-3a54-43df-9c10-15b0c60dcf88_output_text",
         "delta": "気温"
       },
       {
         "type": "text-delta",
-        "id": "413a00c7-f674-4c58-a742-13d1d34151b6_output_text",
-        "delta": "は10.2"
+        "id": "e59c0bbf-3a54-43df-9c10-15b0c60dcf88_output_text",
+        "delta": "は9.6"
       },
       {
         "type": "text-delta",
-        "id": "413a00c7-f674-4c58-a742-13d1d34151b6_output_text",
-        "delta": "度です。"
+        "id": "e59c0bbf-3a54-43df-9c10-15b0c60dcf88_output_text",
+        "delta": "度で"
+      },
+      {
+        "type": "text-delta",
+        "id": "e59c0bbf-3a54-43df-9c10-15b0c60dcf88_output_text",
+        "delta": "す。"
       },
       {
         "type": "text-end",
-        "id": "413a00c7-f674-4c58-a742-13d1d34151b6_output_text"
+        "id": "e59c0bbf-3a54-43df-9c10-15b0c60dcf88_output_text"
       },
       {
         "type": "finish",
         "finishReason": "stop",
         "messageMetadata": {
           "usage": {
-            "promptTokens": 1500,
+            "promptTokens": 1498,
             "completionTokens": null,
             "totalTokens": 1576
           },
           "audio": {
-            "chunks": 52,
-            "bytes": 144000,
+            "chunks": 53,
+            "bytes": 145920,
             "sampleRate": 24000,
-            "duration": 3.0
+            "duration": 3.04
           },
           "modelVersion": "gemini-2.5-flash-native-audio-preview-12-2025"
         }

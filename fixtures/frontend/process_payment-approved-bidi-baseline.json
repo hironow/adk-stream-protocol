@@ -16,28 +16,31 @@
   },
   "output": {
     "rawEvents": [
-      "data: {\"type\": \"start\", \"messageId\": \"bed4328a-31d0-48ca-9311-6a7864de07a5\"}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"948a2cd6-36b3-412f-bea3-c005237c0a6a\"}\n\n",
       "data: {\"type\": \"reasoning-start\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Determining Payment Details**\\n\\nI've determined that I need to use the `process_payment` tool. The amount is straightforward: $200. The recipient is \\\"\\u6b21\\u90ce\\u3055\\u3093\\\". Currency defaults to USD, matching the request. Therefore, I need to call `process_payment(amount=200, recipient='\\u6b21\\u90ce\\u3055\\u3093', currency='USD')`. It looks like I'll need user approval to proceed.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Initiating Payment Transfer**\\n\\nI'm ready to proceed with the $200 USD payment to \\\"\\u6b21\\u90ce\\u3055\\u3093\\\" (Jiro). I'm confident that the `process_payment` tool is the right choice. I'm focusing on the recipient field; given that the tool description accepts usernames, emails, or wallet addresses, I plan to submit \\\"\\u6b21\\u90ce\\u3055\\u3093\\\" as a username and verify the transaction details. I'll utilize the provided amount (200) and currency (USD).\\n\\n\\n\"}\n\n",
       "data: {\"type\": \"reasoning-end\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-5232535084432164217\", \"toolName\": \"process_payment\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-5232535084432164217\", \"toolName\": \"process_payment\", \"input\": {\"amount\": 200, \"currency\": \"USD\", \"recipient\": \"\\u6b21\\u90ce\\u3055\\u3093\"}}\n\n",
+      "data: {\"type\": \"reasoning-start\", \"id\": \"1\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"1\", \"delta\": \"**Validating Recipient Details**\\n\\nI've determined that \\\"Jiro\\\" is the best identifier to pass as the `recipient`. The function should handle this as a valid `username` based on my understanding. I am preparing to execute the payment of $200 USD. The process now awaits my approval before finalizing.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-end\", \"id\": \"1\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-9283759008190705504\", \"toolName\": \"process_payment\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-9283759008190705504\", \"toolName\": \"process_payment\", \"input\": {\"amount\": 200, \"currency\": \"USD\", \"recipient\": \"Jiro\"}}\n\n",
       "data: {\"type\":\"start-step\"}\n\n",
-      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-5232535084432164217\", \"approvalId\": \"confirm-9480f76b-a020-4971-82b1-7dbf5c4c0912\"}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-9283759008190705504\", \"approvalId\": \"confirm-a943e3bc-e3c2-4315-9d9d-f8792fc62ea0\"}\n\n",
       "data: {\"type\":\"finish-step\"}\n\n",
-      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"function-call-5232535084432164217\", \"output\": {\"success\": true, \"transaction_id\": \"txn_e070e1632b97\", \"amount\": 200, \"currency\": \"USD\", \"recipient\": \"\\u6b21\\u90ce\\u3055\\u3093\", \"description\": \"\", \"wallet_balance\": 800.0, \"timestamp\": \"2026-01-17T03:07:35.391438+00:00\"}}\n\n",
-      "data: {\"type\": \"text-start\", \"id\": \"bed4328a-31d0-48ca-9311-6a7864de07a5_output_text\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"bed4328a-31d0-48ca-9311-6a7864de07a5_output_text\", \"delta\": \"\\u6b21\\u90ce\\u3055\\u3093\\u306b200\\u30c9\\u30eb\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"bed4328a-31d0-48ca-9311-6a7864de07a5_output_text\", \"delta\": \"\\u9001\\u91d1\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"bed4328a-31d0-48ca-9311-6a7864de07a5_output_text\", \"delta\": \"\\u3057\\u307e\\u3057\\u305f\\u3002\"}\n\n",
-      "data: {\"type\": \"text-end\", \"id\": \"bed4328a-31d0-48ca-9311-6a7864de07a5_output_text\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1599, \"completionTokens\": null, \"totalTokens\": 1659}, \"audio\": {\"chunks\": 33, \"bytes\": 107520, \"sampleRate\": 24000, \"duration\": 2.24}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
+      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"function-call-9283759008190705504\", \"output\": {\"success\": true, \"transaction_id\": \"txn_47b2ec639a72\", \"amount\": 200, \"currency\": \"USD\", \"recipient\": \"Jiro\", \"description\": \"\", \"wallet_balance\": 800.0, \"timestamp\": \"2026-01-17T14:42:59.031677+00:00\"}}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"948a2cd6-36b3-412f-bea3-c005237c0a6a_output_text\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"948a2cd6-36b3-412f-bea3-c005237c0a6a_output_text\", \"delta\": \"\\u6b21\\u90ce\\u3055\\u3093\\u306b200\\u30c9\\u30eb\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"948a2cd6-36b3-412f-bea3-c005237c0a6a_output_text\", \"delta\": \"\\u3092\\u9001\\u91d1\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"948a2cd6-36b3-412f-bea3-c005237c0a6a_output_text\", \"delta\": \"\\u3057\\u307e\\u3057\\u305f\\u3002\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"948a2cd6-36b3-412f-bea3-c005237c0a6a_output_text\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1678, \"completionTokens\": null, \"totalTokens\": 1733}, \"audio\": {\"chunks\": 30, \"bytes\": 101760, \"sampleRate\": 24000, \"duration\": 2.12}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
       {
         "type": "start",
-        "messageId": "bed4328a-31d0-48ca-9311-6a7864de07a5"
+        "messageId": "948a2cd6-36b3-412f-bea3-c005237c0a6a"
       },
       {
         "type": "reasoning-start",
@@ -46,25 +49,38 @@
       {
         "type": "reasoning-delta",
         "id": "0",
-        "delta": "**Determining Payment Details**\n\nI've determined that I need to use the `process_payment` tool. The amount is straightforward: $200. The recipient is \"次郎さん\". Currency defaults to USD, matching the request. Therefore, I need to call `process_payment(amount=200, recipient='次郎さん', currency='USD')`. It looks like I'll need user approval to proceed.\n\n\n"
+        "delta": "**Initiating Payment Transfer**\n\nI'm ready to proceed with the $200 USD payment to \"次郎さん\" (Jiro). I'm confident that the `process_payment` tool is the right choice. I'm focusing on the recipient field; given that the tool description accepts usernames, emails, or wallet addresses, I plan to submit \"次郎さん\" as a username and verify the transaction details. I'll utilize the provided amount (200) and currency (USD).\n\n\n"
       },
       {
         "type": "reasoning-end",
         "id": "0"
       },
       {
+        "type": "reasoning-start",
+        "id": "1"
+      },
+      {
+        "type": "reasoning-delta",
+        "id": "1",
+        "delta": "**Validating Recipient Details**\n\nI've determined that \"Jiro\" is the best identifier to pass as the `recipient`. The function should handle this as a valid `username` based on my understanding. I am preparing to execute the payment of $200 USD. The process now awaits my approval before finalizing.\n\n\n"
+      },
+      {
+        "type": "reasoning-end",
+        "id": "1"
+      },
+      {
         "type": "tool-input-start",
-        "toolCallId": "function-call-5232535084432164217",
+        "toolCallId": "function-call-9283759008190705504",
         "toolName": "process_payment"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "function-call-5232535084432164217",
+        "toolCallId": "function-call-9283759008190705504",
         "toolName": "process_payment",
         "input": {
           "amount": 200,
           "currency": "USD",
-          "recipient": "次郎さん"
+          "recipient": "Jiro"
         }
       },
       {
@@ -72,63 +88,63 @@
       },
       {
         "type": "tool-approval-request",
-        "toolCallId": "function-call-5232535084432164217",
-        "approvalId": "confirm-9480f76b-a020-4971-82b1-7dbf5c4c0912"
+        "toolCallId": "function-call-9283759008190705504",
+        "approvalId": "confirm-a943e3bc-e3c2-4315-9d9d-f8792fc62ea0"
       },
       {
         "type": "finish-step"
       },
       {
         "type": "tool-output-available",
-        "toolCallId": "function-call-5232535084432164217",
+        "toolCallId": "function-call-9283759008190705504",
         "output": {
           "success": true,
-          "transaction_id": "txn_e070e1632b97",
+          "transaction_id": "txn_47b2ec639a72",
           "amount": 200,
           "currency": "USD",
-          "recipient": "次郎さん",
+          "recipient": "Jiro",
           "description": "",
           "wallet_balance": 800.0,
-          "timestamp": "2026-01-17T03:07:35.391438+00:00"
+          "timestamp": "2026-01-17T14:42:59.031677+00:00"
         }
       },
       {
         "type": "text-start",
-        "id": "bed4328a-31d0-48ca-9311-6a7864de07a5_output_text"
+        "id": "948a2cd6-36b3-412f-bea3-c005237c0a6a_output_text"
       },
       {
         "type": "text-delta",
-        "id": "bed4328a-31d0-48ca-9311-6a7864de07a5_output_text",
+        "id": "948a2cd6-36b3-412f-bea3-c005237c0a6a_output_text",
         "delta": "次郎さんに200ドル"
       },
       {
         "type": "text-delta",
-        "id": "bed4328a-31d0-48ca-9311-6a7864de07a5_output_text",
-        "delta": "送金"
+        "id": "948a2cd6-36b3-412f-bea3-c005237c0a6a_output_text",
+        "delta": "を送金"
       },
       {
         "type": "text-delta",
-        "id": "bed4328a-31d0-48ca-9311-6a7864de07a5_output_text",
+        "id": "948a2cd6-36b3-412f-bea3-c005237c0a6a_output_text",
         "delta": "しました。"
       },
       {
         "type": "text-end",
-        "id": "bed4328a-31d0-48ca-9311-6a7864de07a5_output_text"
+        "id": "948a2cd6-36b3-412f-bea3-c005237c0a6a_output_text"
       },
       {
         "type": "finish",
         "finishReason": "stop",
         "messageMetadata": {
           "usage": {
-            "promptTokens": 1599,
+            "promptTokens": 1678,
             "completionTokens": null,
-            "totalTokens": 1659
+            "totalTokens": 1733
           },
           "audio": {
-            "chunks": 33,
-            "bytes": 107520,
+            "chunks": 30,
+            "bytes": 101760,
             "sampleRate": 24000,
-            "duration": 2.24
+            "duration": 2.12
           },
           "modelVersion": "gemini-2.5-flash-native-audio-preview-12-2025"
         }
