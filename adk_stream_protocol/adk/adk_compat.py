@@ -65,6 +65,48 @@ class SessionStore:
 _session_store = SessionStore()
 
 
+def _build_session_id(
+    user_id: str, app_name: str, connection_signature: str | None
+) -> str:
+    """Build session ID based on connection signature presence."""
+    if connection_signature:
+        return f"session_{user_id}_{connection_signature}"
+    return f"session_{user_id}_{app_name}"
+
+
+async def _create_adk_session(
+    agent_runner: Any,
+    app_name: str,
+    user_id: str,
+    session_id: str,
+) -> Any:
+    """Create or retrieve ADK session with fallback.
+
+    First attempts to create a new session. If it already exists in ADK
+    (e.g., after clear_sessions() which only clears our cache), falls back
+    to retrieving the existing session.
+    """
+    try:  # nosemgrep: forbid-try-except - ADK session service retry logic
+        return await agent_runner.session_service.create_session(
+            app_name=app_name,
+            user_id=user_id,
+            session_id=session_id,
+        )
+    except Exception as e:
+        logger.warning(
+            f"Session {session_id} already exists in ADK, retrieving. Error: {e!s}"
+        )
+        try:  # nosemgrep: forbid-try-except - fallback to get_session
+            return await agent_runner.session_service.get_session(
+                app_name=app_name,
+                user_id=user_id,
+                session_id=session_id,
+            )
+        except Exception as get_error:
+            logger.error(f"Failed to retrieve session {session_id}: {get_error}")
+            raise
+
+
 async def get_or_create_session(
     user_id: str,
     agent_runner: Any,  # InMemoryRunner type
@@ -101,47 +143,20 @@ async def get_or_create_session(
         connection_signature = str(uuid.uuid4())
         session = await get_or_create_session(user_id, runner, app_name, connection_signature)
     """
-    # Generate session_id based on whether connection_signature is provided
-    if connection_signature:
-        # Each WebSocket connection gets unique session to prevent race conditions
-        session_id = f"session_{user_id}_{connection_signature}"
-    else:
-        # Traditional session for SSE mode (one session per user+app)
-        session_id = f"session_{user_id}_{app_name}"
+    session_id = _build_session_id(user_id, app_name, connection_signature)
 
-    if not _session_store.has_session(session_id):
-        logger.info(
-            f"Creating new session for user: {user_id} with app: {app_name}"
-            + (f", connection: {connection_signature}" if connection_signature else "")
-        )
-        # Reason: ADK SDK session service exception handling - retry logic for existing sessions
-        try:  # nosemgrep: forbid-try-except
-            session = await agent_runner.session_service.create_session(
-                app_name=app_name,
-                user_id=user_id,
-                session_id=session_id,
-            )
-            _session_store.set_session(session_id, session)
-        except Exception as e:
-            # If session already exists in ADK, retrieve it from session_service
-            # This can happen when clear_sessions() clears _sessions dict but ADK sessions persist
-            logger.warning(
-                f"Session {session_id} already exists in ADK session_service, retrieving existing session. "
-                f"Error: {e!s}"
-            )
-            # Reason: ADK SDK session service exception handling - fallback to get_session
-            try:  # nosemgrep: forbid-try-except
-                session = await agent_runner.session_service.get_session(
-                    app_name=app_name,
-                    user_id=user_id,
-                    session_id=session_id,
-                )
-                _session_store.set_session(session_id, session)
-            except Exception as get_error:
-                logger.error(f"Failed to retrieve existing session {session_id}: {get_error}")
-                raise
+    # Early return if session already exists in cache
+    if _session_store.has_session(session_id):
+        return _session_store.get_session(session_id)
 
-    return _session_store.get_session(session_id)
+    # Create new session
+    logger.info(
+        f"Creating new session for user: {user_id} with app: {app_name}"
+        + (f", connection: {connection_signature}" if connection_signature else "")
+    )
+    session = await _create_adk_session(agent_runner, app_name, user_id, session_id)
+    _session_store.set_session(session_id, session)
+    return session
 
 
 async def sync_conversation_history_to_session(

@@ -19,9 +19,9 @@ from .chunk_player import ChunkPlayer, ChunkPlayerManager
 __all__ = [
     # Logging
     "ChunkLogger",
-    "Mode",
-    "chunk_logger",
     # Playback
     "ChunkPlayer",
     "ChunkPlayerManager",
+    "Mode",
+    "chunk_logger",
 ]

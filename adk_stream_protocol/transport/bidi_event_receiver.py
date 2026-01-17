@@ -29,7 +29,7 @@ from adk_stream_protocol.ags.tools import _execute_get_location, _execute_proces
 from adk_stream_protocol.protocol.ai_sdk_v6_compat import ChatMessage, process_chat_message_for_bidi
 from adk_stream_protocol.tools.approval_queue import ApprovalQueue
 from adk_stream_protocol.tools.frontend_tool_service import FrontendToolDelegate
-from adk_stream_protocol.transport._utils import ensure_session_state_key
+from adk_stream_protocol.transport._utils import ensure_session_state_key, log_implementation_gap
 
 
 class BidiEventReceiver:
@@ -192,22 +192,16 @@ class BidiEventReceiver:
 
         # Detect implementation gaps: event received but no queue operation performed
         if not queue_operation_performed:
-            logger.error("[BIDI] ========== IMPLEMENTATION GAP DETECTED ==========")
-            logger.error("[BIDI] Message event received but NO queue operation was performed!")
-            logger.error(f"[BIDI] Event data: {message_data}")
-            logger.error(
-                f"[BIDI] image_blobs count: {len(image_blobs)}, text_content: {text_content is not None}"
-            )
-            logger.error(
-                "[BIDI] This likely indicates a missing implementation for this event structure."
+            log_implementation_gap(
+                "Message event received but NO queue operation was performed!",
+                event_data=message_data,
+                image_blobs_count=len(image_blobs),
+                has_text_content=text_content is not None,
             )
             logger.error("[BIDI] Possible causes:")
-            logger.error(
-                "[BIDI]   1. New message format not handled in process_chat_message_for_bidi()"
-            )
+            logger.error("[BIDI]   1. New message format not handled in process_chat_message_for_bidi()")
             logger.error("[BIDI]   2. Empty message_data with no content")
             logger.error("[BIDI]   3. Logic bug in event processing path")
-            logger.error("[BIDI] =================================================")
 
     async def _handle_function_response(self, text_content: types.Content) -> None:
         """
@@ -254,10 +248,10 @@ class BidiEventReceiver:
                     logger.info(f"[BIDI] Resolved tool result for {tool_call_id}")
                     continue
 
-                logger.error("[BIDI] ========== IMPLEMENTATION GAP DETECTED ==========")
-                logger.error(
-                    f"[BIDI] Cannot resolve frontend request, missing id or response: "
-                    f"tool_call_id={tool_call_id}, response_data={response_data}"
+                log_implementation_gap(
+                    "Cannot resolve frontend request, missing id or response",
+                    tool_call_id=tool_call_id,
+                    response_data=response_data,
                 )
 
             continue
@@ -365,7 +359,7 @@ class BidiEventReceiver:
         logger.info("[BIDI-APPROVAL] Phase 5: LongRunningFunctionTool mode (no approval_queue)")
 
         # Look up original tool_call_id using confirmation_id from session.state
-        try:  # nosem: semgrep.forbid-try-except - legitimate session.state access with KeyError handling
+        try:  # nosemgrep: forbid-try-except - legitimate session.state access with KeyError handling
             confirmation_id_mapping = self._session.state["confirmation_id_mapping"]
             logger.info(
                 f"[BIDI-APPROVAL] confirmation_id_mapping keys: {list(confirmation_id_mapping.keys())}"
@@ -569,7 +563,7 @@ class BidiEventReceiver:
             logger.info(f"[BIDI] Resolved tool result for {tool_call_id}")
             return
 
-        logger.error("[BIDI] ========== IMPLEMENTATION GAP DETECTED ==========")
-        logger.error(
-            f"[BIDI] Invalid tool_result event. should have toolCallId and result: {event}"
+        log_implementation_gap(
+            "Invalid tool_result event. should have toolCallId and result",
+            event=event,
         )

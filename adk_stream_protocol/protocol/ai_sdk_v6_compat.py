@@ -45,6 +45,24 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 # ============================================================
+# Image Processing Helpers
+# ============================================================
+
+
+def _extract_image_metadata(image_bytes: bytes) -> tuple[int, int, str | None]:
+    """Extract image dimensions and format from raw bytes.
+
+    Args:
+        image_bytes: Raw image data
+
+    Returns:
+        (width, height, format) tuple where format may be None
+    """
+    with Image.open(BytesIO(image_bytes)) as img:
+        return img.size[0], img.size[1], img.format
+
+
+# ============================================================
 # Tool Call States
 # ============================================================
 
@@ -354,11 +372,7 @@ class ChatMessage(BaseModel):
     def _process_image_part(self, part: ImagePart) -> types.Part | None:
         """Process ImagePart and return ADK Part."""
         image_bytes = base64.b64decode(part.data)
-
-        # Get image dimensions using PIL
-        with Image.open(BytesIO(image_bytes)) as img:
-            width, height = img.size
-            image_format = img.format
+        width, height, image_format = _extract_image_metadata(image_bytes)
 
         logger.info(
             f"[IMAGE INPUT] media_type={part.media_type}, "
@@ -384,10 +398,7 @@ class ChatMessage(BaseModel):
 
         # Get image dimensions if it's an image
         if part.media_type.startswith("image/"):
-            with Image.open(BytesIO(file_bytes)) as img:
-                width, height = img.size
-                image_format = img.format
-
+            width, height, image_format = _extract_image_metadata(file_bytes)
             logger.info(
                 f"[FILE INPUT] filename={part.filename}, "
                 f"mediaType={part.media_type}, "
@@ -623,8 +634,93 @@ class ChatMessage(BaseModel):
 # ============================================================
 
 
-def process_chat_message_for_bidi(  # noqa: C901, PLR0912 - Complexity needed for AI SDK v6 message processing
-    message_data: dict,
+def _fix_tool_output_role(msg: ChatMessage) -> None:
+    """Fix message role for tool outputs.
+
+    AI SDK may send tool outputs as role="assistant", but ADK requires
+    role="user" for FunctionResponse. This function checks and fixes the role.
+    """
+    if not msg.parts:
+        return
+
+    has_tool_output = any(
+        isinstance(part, ToolUsePart) and part.state == "output-available"
+        for part in msg.parts
+    )
+
+    if has_tool_output and msg.role != "user":
+        logger.info(
+            f"[BIDI] Overriding message role from '{msg.role}' to 'user' for tool output"
+        )
+        msg.role = "user"
+
+
+def _extract_image_blobs_from_parts(parts: list[Any]) -> list[types.Blob]:
+    """Extract image/video blobs from message parts.
+
+    Decodes data URL format files and creates ADK Blob objects.
+    Used for Live API which requires images to be sent via send_realtime().
+    """
+    image_blobs: list[types.Blob] = []
+
+    logger.info(f"[STEP 2] Processing {len(parts)} parts from last_msg")
+    for part in parts:
+        logger.info(f"[STEP 2] Part type: {type(part).__name__}")
+        if isinstance(part, FilePart) and part.url.startswith("data:"):
+            # Decode data URL format: "data:image/png;base64,..."
+            data_url_parts = part.url.split(",", 1)
+            if len(data_url_parts) == 2:  # noqa: PLR2004 - data URL format: "data:type;base64,content"
+                file_data_base64 = data_url_parts[1]
+                file_bytes = base64.b64decode(file_data_base64)
+                blob = types.Blob(mime_type=part.media_type, data=file_bytes)
+                image_blobs.append(blob)
+
+    return image_blobs
+
+
+def _build_text_content(
+    adk_content: types.Content,
+) -> types.Content | None:
+    """Build text content from ADK content, separating non-image parts.
+
+    Handles the separation logic for FunctionResponse parts which must be
+    sent alone with role="user" per ADK requirements.
+    """
+    if not adk_content.parts:
+        return None
+
+    # Extract non-image parts (skip inline_data parts)
+    non_image_parts: list[types.Part] = []
+    logger.info(f"[STEP 2] ADK content has {len(adk_content.parts)} parts")
+
+    for adk_part in adk_content.parts:
+        if not hasattr(adk_part, "inline_data") or adk_part.inline_data is None:
+            non_image_parts.append(adk_part)
+            if hasattr(adk_part, "function_response") and adk_part.function_response:
+                logger.info(
+                    f"[STEP 2] Including FunctionResponse: {adk_part.function_response.name}"
+                )
+
+    if not non_image_parts:
+        return None
+
+    # Check for FunctionResponse parts
+    function_response_parts = [
+        part
+        for part in non_image_parts
+        if hasattr(part, "function_response") and part.function_response
+    ]
+
+    if function_response_parts:
+        # ADK requires FunctionResponse to be sent ALONE with role="user"
+        return types.Content(role="user", parts=function_response_parts)
+
+    # No FunctionResponse - send all parts with original role
+    return types.Content(role=adk_content.role, parts=non_image_parts)
+
+
+def process_chat_message_for_bidi(
+    message_data: dict[str, Any],
     id_mapper: Any = None,
 ) -> tuple[list[types.Blob], types.Content | None]:
     """
@@ -661,93 +757,31 @@ def process_chat_message_for_bidi(  # noqa: C901, PLR0912 - Complexity needed fo
     if not messages:
         return ([], None)
 
-    # STEP 1: Log incoming message data (verify frontend is sending correct data)
+    # STEP 1: Log and parse incoming message
     logger.info(f"[STEP 1] Received {len(messages)} messages from frontend")
     logger.info(f"[STEP 1] Last message role: {messages[-1].get('role')}")
     logger.info(f"[STEP 1] Last message parts: {messages[-1].get('parts', [])}")
 
-    # Parse last message from AI SDK v6 format
     last_msg = ChatMessage(**messages[-1])
 
-    # IMPORTANT: Tool outputs (including adk_request_confirmation) must have role="user"
-    # AI SDK may send them as role="assistant", but ADK requires role="user" for FunctionResponse
-    # Check if message contains tool outputs and override role if needed
-    has_tool_output = False
-    if last_msg.parts:
-        for part in last_msg.parts:
-            if isinstance(part, ToolUsePart) and part.state == "output-available":
-                has_tool_output = True
-                break
+    # Fix role for tool outputs (ADK requires role="user" for FunctionResponse)
+    _fix_tool_output_role(last_msg)
 
-    if has_tool_output and last_msg.role != "user":
-        logger.info(
-            f"[BIDI] Overriding message role from '{last_msg.role}' to 'user' for tool output"
-        )
-        last_msg.role = "user"
-
-    # Convert message to ADK Content using ChatMessage.to_adk_content()
-    # This handles all part types including ToolUsePart (confirmation responses)
+    # Convert to ADK Content (handles all part types including confirmation responses)
     adk_content = last_msg.to_adk_content(id_mapper=id_mapper)
 
-    # Separate image/video blobs from other parts
-    # IMPORTANT: Live API requires separation
-    # - Images/videos: Send via send_realtime(blob)
-    # - Text/tool responses: Send via send_content(content)
-    image_blobs: list[types.Blob] = []
-    non_image_parts: list[types.Part] = []
+    # STEP 2: Separate image blobs and text content
+    image_blobs = (
+        _extract_image_blobs_from_parts(last_msg.parts)
+        if last_msg.parts
+        else []
+    )
+    text_content = _build_text_content(adk_content)
 
-    # Extract image blobs from original parts (before ADK conversion)
-    if last_msg.parts:
-        logger.info(f"[STEP 2] Processing {len(last_msg.parts)} parts from last_msg")
-        for part in last_msg.parts:
-            logger.info(f"[STEP 2] Part type: {type(part).__name__}")
-            # Handle file parts (images/videos)
-            if isinstance(part, FilePart):
-                # Decode data URL format: "data:image/png;base64,..."
-                if part.url.startswith("data:"):
-                    data_url_parts = part.url.split(",", 1)
-                    if len(data_url_parts) == 2:  # noqa: PLR2004 - data URL format: "data:type;base64,content"
-                        file_data_base64 = data_url_parts[1]
-                        file_bytes = base64.b64decode(file_data_base64)
-
-                        # Create Blob for ADK
-                        blob = types.Blob(mime_type=part.media_type, data=file_bytes)
-                        image_blobs.append(blob)
-
-    # Extract non-image parts from ADK content (includes text, tool responses, etc.)
-    if adk_content.parts:
-        logger.info(f"[STEP 2] ADK content has {len(adk_content.parts)} parts")
-        for adk_part in adk_content.parts:
-            # Skip inline_data parts (images) - they're already in image_blobs
-            if not hasattr(adk_part, "inline_data") or adk_part.inline_data is None:
-                non_image_parts.append(adk_part)
-                # Log what we're including
-                if hasattr(adk_part, "function_response") and adk_part.function_response:
-                    logger.info(
-                        f"[STEP 2] Including FunctionResponse: {adk_part.function_response.name}"
-                    )
-
-    # Create text content if any non-image parts exist
-    text_content = None
-    if non_image_parts:
-        # Check if FunctionResponse is included (tool confirmation response)
-        function_response_parts = [
-            part
-            for part in non_image_parts
-            if hasattr(part, "function_response") and part.function_response
-        ]
-
-        if function_response_parts:
-            # ADK requires FunctionResponse to be sent ALONE with role="user"
-            # Do not mix FunctionResponse with other text parts
-            text_content = types.Content(role="user", parts=function_response_parts)
-        else:
-            # No FunctionResponse - send all parts with original role
-            text_content = types.Content(role=adk_content.role, parts=non_image_parts)
-
-    # STEP 3: Log ADK format before sending (verify correct structure for ADK)
+    # STEP 3: Log final ADK format
     logger.info(
-        f"[STEP 3] ADK format: image_blobs={len(image_blobs)}, non_image_parts={len(non_image_parts)}"
+        f"[STEP 3] ADK format: image_blobs={len(image_blobs)}, "
+        f"text_content={'present' if text_content else 'None'}"
     )
     if text_content:
         logger.info(f"[STEP 3] Text content role: {text_content.role}, parts: {text_content.parts}")

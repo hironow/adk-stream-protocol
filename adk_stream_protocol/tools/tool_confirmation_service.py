@@ -61,7 +61,7 @@ class ToolConfirmationDelegate:
 
         # Await frontend confirmation with timeout
         # Timeout set to 60 seconds (user needs time to approve)
-        try:  # nosem: semgrep.forbid-try-except - legitimate timeout and error handling for asyncio.wait_for
+        try:  # nosemgrep: forbid-try-except - legitimate timeout and error handling for asyncio.wait_for
             approved = await asyncio.wait_for(future, timeout=60.0)
             logger.info(
                 f"[ToolConfirmation] Received approval for tool={tool_name} "

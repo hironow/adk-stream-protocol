@@ -15,7 +15,7 @@ Counterpart: BidiEventReceiver handles upstream (WebSocket → ADK) direction.
 """
 
 import uuid
-from collections.abc import AsyncIterable
+from collections.abc import AsyncGenerator, AsyncIterable
 from typing import Any
 
 from fastapi import WebSocket
@@ -96,75 +96,24 @@ class BidiEventSender:
         # Initialize invocation_id capture
         self._current_invocation_id = None
 
-        # Capture invocation_id and log ADK events
-        async def events_with_invocation_capture():
-            async for event in live_events:
-                # Capture invocation_id from first event
-                if self._current_invocation_id is None and hasattr(event, "invocation_id"):
-                    self._current_invocation_id = event.invocation_id
-                    logger.info(f"[BIDI] Captured invocation_id: {self._current_invocation_id}")
-
-                # Log ADK events (before conversion to SSE)
-                # Focus on tool-related events, skip audio
-                event_type = type(event).__name__
-                if "Audio" not in event_type and "Pcm" not in event_type:
-                    # Check for tool-related content
-                    has_tool_content = False
-                    if hasattr(event, "content") and event.content:
-                        for part in event.content.parts:
-                            if hasattr(part, "function_call") and part.function_call:
-                                has_tool_content = True
-                                logger.info(
-                                    f"[ADK→SSE INPUT] FunctionCall: id={part.function_call.id}, "
-                                    f"name={part.function_call.name}"
-                                )
-                            elif hasattr(part, "function_response") and part.function_response:
-                                has_tool_content = True
-                                logger.info(
-                                    f"[ADK→SSE INPUT] FunctionResponse: id={part.function_response.id}, "
-                                    f"name={part.function_response.name}"
-                                )
-
-                    # Log all non-audio events for debugging
-                    if has_tool_content or event_type in ["TurnComplete", "ToolOutputAvailable"]:
-                        logger.info(f"[ADK→SSE INPUT] Event type: {event_type}")
-
-                yield event
-
         try:
             async for sse_event in stream_adk_to_ai_sdk(
-                events_with_invocation_capture(),
+                self._events_with_invocation_capture(live_events),
                 mode="adk-bidi",  # Chunk logger: distinguish from adk-sse mode
                 agent_model=self._agent_model,  # Pass agent model for modelVersion fallback
             ):
                 event_count += 1
 
-                # Log SSE output (after ADK conversion) - skip audio events
-                if sse_event.startswith("data:") and "DONE" not in sse_event:
-                    match _parse_sse_event_data(sse_event):
-                        case Ok(event_data):
-                            event_type = event_data.get("type", "unknown")
-                            # Log tool-related events only
-                            if event_type in [
-                                "tool-input-start",
-                                "tool-input-available",
-                                "tool-output-available",
-                            ]:
-                                logger.info(
-                                    f"[ADK→SSE OUTPUT] {event_type}: {event_data.get('toolName', 'N/A')}"
-                                )
-                            elif event_type in ["finish", "start"]:
-                                logger.info(f"[ADK→SSE OUTPUT] {event_type}")
+                # Log SSE output (after ADK conversion)
+                self._log_sse_output(sse_event)
 
                 # Check if this is a tool-input-available event requiring confirmation
-                # If so, inject adk_request_confirmation events and defer the original event
                 should_send_now = await self._handle_confirmation_if_needed(sse_event)
 
                 if should_send_now:
                     await self._send_sse_event(sse_event)
 
                 # Log [DONE] markers for debugging multi-turn flow
-                # Note: We do NOT break here - run_live() stream continues for Turn 2+
                 if sse_event.strip() == "data: [DONE]":
                     logger.info("[BIDI] Sent [DONE] marker (turn completed, stream continues)")
 
@@ -178,7 +127,87 @@ class BidiEventSender:
             return
         # no except any other exceptions. Let them propagate to caller for handling.
 
-    async def _send_sse_event(self, sse_event: str) -> bool:
+    async def _events_with_invocation_capture(
+        self, live_events: AsyncIterable[Any]
+    ) -> AsyncGenerator[Any]:
+        """
+        Wrap ADK events to capture invocation_id and log tool-related content.
+
+        Args:
+            live_events: AsyncIterable of ADK events from run_live()
+
+        Yields:
+            ADK events (unchanged)
+        """
+        async for event in live_events:
+            # Capture invocation_id from first event
+            if self._current_invocation_id is None and hasattr(event, "invocation_id"):
+                self._current_invocation_id = event.invocation_id
+                logger.info(f"[BIDI] Captured invocation_id: {self._current_invocation_id}")
+
+            # Log ADK events (before conversion to SSE) - skip audio
+            self._log_adk_event(event)
+
+            yield event
+
+    def _log_adk_event(self, event: Any) -> None:
+        """
+        Log ADK events for debugging. Focuses on tool-related events, skips audio.
+
+        Args:
+            event: ADK event object
+        """
+        event_type = type(event).__name__
+        if "Audio" in event_type or "Pcm" in event_type:
+            return
+
+        # Check for tool-related content
+        has_tool_content = False
+        if hasattr(event, "content") and event.content:
+            for part in event.content.parts:
+                if hasattr(part, "function_call") and part.function_call:
+                    has_tool_content = True
+                    logger.info(
+                        f"[ADK→SSE INPUT] FunctionCall: id={part.function_call.id}, "
+                        f"name={part.function_call.name}"
+                    )
+                elif hasattr(part, "function_response") and part.function_response:
+                    has_tool_content = True
+                    logger.info(
+                        f"[ADK→SSE INPUT] FunctionResponse: id={part.function_response.id}, "
+                        f"name={part.function_response.name}"
+                    )
+
+        # Log all non-audio events for debugging
+        if has_tool_content or event_type in ["TurnComplete", "ToolOutputAvailable"]:
+            logger.info(f"[ADK→SSE INPUT] Event type: {event_type}")
+
+    def _log_sse_output(self, sse_event: str) -> None:
+        """
+        Log SSE output events for debugging. Focuses on tool-related events.
+
+        Args:
+            sse_event: SSE-formatted event string
+        """
+        if not sse_event.startswith("data:") or "DONE" in sse_event:
+            return
+
+        match _parse_sse_event_data(sse_event):
+            case Ok(event_data):
+                event_type = event_data.get("type", "unknown")
+                # Log tool-related events only
+                if event_type in [
+                    "tool-input-start",
+                    "tool-input-available",
+                    "tool-output-available",
+                ]:
+                    logger.info(
+                        f"[ADK→SSE OUTPUT] {event_type}: {event_data.get('toolName', 'N/A')}"
+                    )
+                elif event_type in ["finish", "start"]:
+                    logger.info(f"[ADK→SSE OUTPUT] {event_type}")
+
+    async def _send_sse_event(self, sse_event: str) -> bool:  # noqa: C901 - event routing requires complexity
         """
         Send SSE-formatted event to WebSocket with logging and ID mapping.
 
@@ -298,111 +327,19 @@ class BidiEventSender:
                     and tool_name in self._confirmation_tools
                     and tool_call_id
                 ):
-                    self._pending_confirmation[tool_call_id] = tool_name
-                    logger.info(
-                        f"[BIDI Approval] Recorded pending confirmation for {tool_name} (ID: {tool_call_id})"
-                    )
+                    self._record_tool_confirmation(tool_call_id, tool_name)
                     return True  # Send this event normally
 
                 # Phase 5 Step 2: Detect tool-input-available for confirmation-required tools
                 elif event_type == "tool-input-available":
-                    # Check if this tool requires confirmation
                     if tool_call_id and tool_call_id in self._pending_confirmation:
-                        # Get tool_name from pending_confirmation dict
-                        tool_name = self._pending_confirmation.pop(tool_call_id)
-                        logger.info(
-                            f"[BIDI Approval] Detected tool-input-available for {tool_name} (ID: {tool_call_id})"
-                        )
-
-                        # Send original tool-input-available first
-                        # This shows the tool was called with arguments
-                        # (matching SSE mode where tool-input-available is sent before confirmation)
-                        # Note: We return True at the end to send this event
-
-                        # Extract args from input event
-                        tool_args = event_data.get("input", {})
-
-                        # Save pending call info for later execution
-                        ensure_session_state_key(self._session, "pending_long_running_calls", {})
-                        self._session.state["pending_long_running_calls"][tool_call_id] = {
-                            "name": tool_name,
-                            "args": tool_args,
-                        }
-                        logger.info(
-                            f"[BIDI Approval] Saved pending call: id={tool_call_id}, "
-                            f"name={tool_name}, args={tool_args}"
-                        )
-
-                        # Send original tool-input-available FIRST
-                        # This must happen before we inject confirmation events
-                        await self._send_sse_event(sse_event)
-
-                        # Generate unique ID for confirmation tool call
-                        # Use "confirm-" prefix to avoid confusion with "adk-" mode names
-                        confirmation_id = f"confirm-{uuid.uuid4()}"
-
-                        logger.info(f"[BIDI Approval] Injecting approval step for {tool_name}")
-
-                        # ADR 0011: Inject start-step to begin approval step
-                        # This marks the beginning of the approval pending step
-                        start_step_sse = 'data: {"type":"start-step"}\n\n'
-                        await self._send_confirmation_step(
-                            start_step_sse, "start-step before tool-approval-request"
-                        )
-
-                        # Send tool-approval-request (AI SDK v6 standard event)
-                        # Do NOT send tool-input-* events for adk_request_confirmation
-                        # Reference: ADR 0002 - Tool Approval Architecture
-                        # Use StreamProtocolConverter's centralized static method for consistent formatting
-                        approval_request_sse = StreamProtocolConverter.format_tool_approval_request(
-                            original_tool_call_id=tool_call_id,  # Original tool's ID
-                            approval_id=confirmation_id,  # Unique approval request ID
-                        )
-                        await self._send_confirmation_step(approval_request_sse, "tool-approval-request")
-
-                        # ADR 0011: Inject finish-step to complete approval step
-                        # This closes the stream, allowing frontend sendAutomaticallyWhen to be called
-                        finish_step_sse = 'data: {"type":"finish-step"}\n\n'
-                        await self._send_confirmation_step(
-                            finish_step_sse, "finish-step after tool-approval-request"
-                        )
-
-                        # Save confirmation_id → original_tool_call_id mapping in session.state
-                        # BidiEventReceiver will use this to resolve the original tool_call_id
-                        # when it receives confirmation approval
-                        ensure_session_state_key(self._session, "confirmation_id_mapping", {})
-                        self._session.state["confirmation_id_mapping"][confirmation_id] = (
-                            tool_call_id
-                        )
-                        logger.info(
-                            f"[BIDI Approval] Saved confirmation mapping: {confirmation_id} → {tool_call_id} for tool {tool_name}"
-                        )
-
-                        # Return False because we already sent the original event
-                        return False
+                        await self._inject_confirmation_flow(sse_event, tool_call_id, event_data)
+                        return False  # Already sent the original event
 
                 # Phase 5 Step 3: Skip tool-output-available for confirmation-required tools
-                # The pending status FunctionResponse should not be sent to frontend
-                # Real result will be sent after approval via LiveRequestQueue.send_content()
                 elif event_type == "tool-output-available":
-                    # Check if this tool_call_id is in pending_long_running_calls
-                    pending_calls = self._session.state.get("pending_long_running_calls", {})
-                    logger.info(
-                        f"[BIDI Approval] Checking tool-output-available: tool_call_id={tool_call_id}, "
-                        f"pending_calls={list(pending_calls.keys())}"
-                    )
-                    if tool_call_id and tool_call_id in pending_calls:
-                        tool_name = pending_calls[tool_call_id]["name"]
-                        logger.info(
-                            f"[BIDI Approval] Skipping tool-output-available for {tool_name} (ID: {tool_call_id}) - "
-                            "pending status should not be sent to frontend"
-                        )
+                    if self._skip_pending_output(tool_call_id):
                         return False  # Skip this event
-                    else:
-                        logger.info(
-                            f"[BIDI Approval] NOT skipping tool-output-available (ID: {tool_call_id}) - "
-                            f"not in pending_calls or tool_call_id is None"
-                        )
 
             case _:
                 # Parse failed, send event normally
@@ -410,3 +347,120 @@ class BidiEventSender:
 
         # Default: send event normally
         return True
+
+    def _record_tool_confirmation(
+        self, tool_call_id: str, tool_name: str
+    ) -> None:
+        """
+        Phase 5 Step 1: Record tool-input-start for confirmation-required tools.
+
+        Args:
+            tool_call_id: Unique identifier for the tool call
+            tool_name: Name of the tool requiring confirmation
+        """
+        self._pending_confirmation[tool_call_id] = tool_name
+        logger.info(
+            f"[BIDI Approval] Recorded pending confirmation for {tool_name} (ID: {tool_call_id})"
+        )
+
+    async def _inject_confirmation_flow(
+        self, sse_event: str, tool_call_id: str, event_data: dict[str, Any]
+    ) -> None:
+        """
+        Phase 5 Step 2: Inject confirmation flow for tools requiring approval.
+
+        Flow:
+        1. Send original tool-input-available
+        2. Save pending call info
+        3. Inject start-step, tool-approval-request, finish-step
+
+        Args:
+            sse_event: Original SSE event string
+            tool_call_id: Tool call identifier
+            event_data: Parsed event data dict
+        """
+        # Get tool_name from pending_confirmation dict
+        tool_name = self._pending_confirmation.pop(tool_call_id)
+        logger.info(
+            f"[BIDI Approval] Detected tool-input-available for {tool_name} (ID: {tool_call_id})"
+        )
+
+        # Extract args from input event
+        tool_args = event_data.get("input", {})
+
+        # Save pending call info for later execution
+        ensure_session_state_key(self._session, "pending_long_running_calls", {})
+        self._session.state["pending_long_running_calls"][tool_call_id] = {
+            "name": tool_name,
+            "args": tool_args,
+        }
+        logger.info(
+            f"[BIDI Approval] Saved pending call: id={tool_call_id}, "
+            f"name={tool_name}, args={tool_args}"
+        )
+
+        # Send original tool-input-available FIRST
+        await self._send_sse_event(sse_event)
+
+        # Generate unique ID for confirmation tool call
+        confirmation_id = f"confirm-{uuid.uuid4()}"
+        logger.info(f"[BIDI Approval] Injecting approval step for {tool_name}")
+
+        # ADR 0011: Inject start-step to begin approval step
+        start_step_sse = 'data: {"type":"start-step"}\n\n'
+        await self._send_confirmation_step(
+            start_step_sse, "start-step before tool-approval-request"
+        )
+
+        # Send tool-approval-request (AI SDK v6 standard event)
+        approval_request_sse = StreamProtocolConverter.format_tool_approval_request(
+            original_tool_call_id=tool_call_id,
+            approval_id=confirmation_id,
+        )
+        await self._send_confirmation_step(approval_request_sse, "tool-approval-request")
+
+        # ADR 0011: Inject finish-step to complete approval step
+        finish_step_sse = 'data: {"type":"finish-step"}\n\n'
+        await self._send_confirmation_step(
+            finish_step_sse, "finish-step after tool-approval-request"
+        )
+
+        # Save confirmation_id → original_tool_call_id mapping
+        ensure_session_state_key(self._session, "confirmation_id_mapping", {})
+        self._session.state["confirmation_id_mapping"][confirmation_id] = tool_call_id
+        logger.info(
+            f"[BIDI Approval] Saved confirmation mapping: {confirmation_id} → {tool_call_id} for tool {tool_name}"
+        )
+
+    def _skip_pending_output(self, tool_call_id: str | None) -> bool:
+        """
+        Phase 5 Step 3: Check if tool-output-available should be skipped.
+
+        Pending status FunctionResponse should not be sent to frontend.
+        Real result will be sent after approval via LiveRequestQueue.send_content().
+
+        Args:
+            tool_call_id: Tool call identifier (may be None)
+
+        Returns:
+            True if event should be skipped, False otherwise
+        """
+        pending_calls = self._session.state.get("pending_long_running_calls", {})
+        logger.info(
+            f"[BIDI Approval] Checking tool-output-available: tool_call_id={tool_call_id}, "
+            f"pending_calls={list(pending_calls.keys())}"
+        )
+
+        if tool_call_id and tool_call_id in pending_calls:
+            tool_name = pending_calls[tool_call_id]["name"]
+            logger.info(
+                f"[BIDI Approval] Skipping tool-output-available for {tool_name} (ID: {tool_call_id}) - "
+                "pending status should not be sent to frontend"
+            )
+            return True  # Skip this event
+
+        logger.info(
+            f"[BIDI Approval] NOT skipping tool-output-available (ID: {tool_call_id}) - "
+            f"not in pending_calls or tool_call_id is None"
+        )
+        return False

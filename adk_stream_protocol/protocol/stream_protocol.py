@@ -18,6 +18,7 @@ This ensures protocol consistency across all modes.
 import base64
 import enum
 import json
+import traceback
 import uuid
 from collections.abc import AsyncGenerator
 from typing import Any
@@ -708,8 +709,6 @@ class StreamProtocolConverter:
             - ADR 0002: Tool Approval Architecture
             - AI SDK v6: tool-approval-request event specification
         """
-        import json
-
         event_data = {
             "type": "tool-approval-request",
             "toolCallId": original_tool_call_id,  # Must match the original tool's ID
@@ -993,7 +992,7 @@ class StreamProtocolConverter:
 
         return events
 
-    def _build_message_metadata(
+    def _build_message_metadata(  # noqa: C901, PLR0912 - metadata assembly requires many branches
         self,
         usage_metadata: Any | None,
         grounding_metadata: Any | None,
@@ -1105,7 +1104,7 @@ class StreamProtocolConverter:
 
         return metadata
 
-    async def finalize(
+    async def finalize(  # noqa: PLR0913 - finalization needs many optional metadata params
         self,
         usage_metadata: Any | None = None,
         error: Exception | None = None,
@@ -1233,8 +1232,6 @@ async def stream_adk_to_ai_sdk(
                 logger.debug(f"[CUSTOM_METADATA] Found custom_metadata: {event.custom_metadata!r}")
 
     except Exception as e:
-        import traceback
-
         logger.error(f"[stream_adk_to_ai_sdk] Exception: {e!s}")
         logger.error(f"[stream_adk_to_ai_sdk] Traceback:\n{traceback.format_exc()}")
         error_list.append(e)
