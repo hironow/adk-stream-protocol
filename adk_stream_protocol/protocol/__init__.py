@@ -11,7 +11,7 @@ Components:
 - ChatMessage, TextPart, etc.: AI SDK v6 type definitions
 """
 
-from .id_mapper import ADKVercelIDMapper, IDMapper
+from .id_mapper import IDMapper
 from .message_types import (
     ChatMessage,
     FilePart,
@@ -34,17 +34,13 @@ from .stream_protocol import (
 
 
 __all__ = [
-    # ID Mapper
-    "IDMapper",
-    "ADKVercelIDMapper",  # Deprecated alias, use IDMapper
-    # AI SDK v6 Types
     "ChatMessage",
     "FilePart",
     "GenericPart",
+    "IDMapper",
     "ImagePart",
     "MessagePart",
     "StepPart",
-    # Stream Protocol
     "StreamProtocolConverter",
     "TextPart",
     "ToolApproval",
@@ -52,7 +48,6 @@ __all__ = [
     "ToolResultPart",
     "ToolUsePart",
     "format_sse_event",
-    # Processing
     "process_chat_message_for_bidi",
     "stream_adk_to_ai_sdk",
 ]

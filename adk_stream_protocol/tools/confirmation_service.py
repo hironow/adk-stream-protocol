@@ -107,7 +107,3 @@ class ConfirmationDelegate:
                 f"[ToolConfirmation] No pending confirmation found for tool_call_id={tool_call_id}. "
                 f"Pending: {list(self._pending_confirmations.keys())}"
             )
-
-
-# Backward compatibility alias (deprecated, use ConfirmationDelegate instead)
-ToolConfirmationDelegate = ConfirmationDelegate

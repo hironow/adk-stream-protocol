@@ -1,5 +1,5 @@
 """
-Unit tests for ADKVercelIDMapper class.
+Unit tests for IDMapper class.
 
 Tests the ID mapping layer between ADK (invocation_id) and Vercel AI SDK v6 (function_call.id):
 - register(): Register tool_name → function_call.id mapping
@@ -12,18 +12,18 @@ This mapper provides a decoupled abstraction layer for ID conversion between
 ADK's event system and Vercel AI SDK's UI stream protocol.
 """
 
-from adk_stream_protocol.protocol.id_mapper import ADKVercelIDMapper
+from adk_stream_protocol.protocol.id_mapper import IDMapper
 
 
 # ============================================================
-# ADKVercelIDMapper Tests
+# IDMapper Tests
 # ============================================================
 
 
 def test_register_and_get_function_call_id() -> None:
     """register() should store mapping and get_function_call_id() should retrieve it."""
     # given
-    mapper = ADKVercelIDMapper()
+    mapper = IDMapper()
 
     # when
     mapper.register("change_bgm", "function-call-123")
@@ -35,7 +35,7 @@ def test_register_and_get_function_call_id() -> None:
 def test_get_function_call_id_returns_none_for_unknown_tool() -> None:
     """get_function_call_id() should return None for unknown tool_name."""
     # given
-    mapper = ADKVercelIDMapper()
+    mapper = IDMapper()
 
     # when
     result = mapper.get_function_call_id("unknown_tool")
@@ -47,7 +47,7 @@ def test_get_function_call_id_returns_none_for_unknown_tool() -> None:
 def test_get_function_call_id_with_original_context() -> None:
     """get_function_call_id() should use original_context['name'] for non-confirmation intercepted tools."""
     # given
-    mapper = ADKVercelIDMapper()
+    mapper = IDMapper()
     mapper.register("process_payment", "function-call-456")
 
     # when - Interceptor calls with some_intercepted_tool but provides original context
@@ -66,7 +66,7 @@ def test_get_function_call_id_with_original_context() -> None:
 def test_get_function_call_id_without_original_context() -> None:
     """get_function_call_id() should fall back to tool_name when no original_context."""
     # given
-    mapper = ADKVercelIDMapper()
+    mapper = IDMapper()
     mapper.register("get_location", "function-call-789")
 
     # when - No original_context provided
@@ -79,7 +79,7 @@ def test_get_function_call_id_without_original_context() -> None:
 def test_resolve_tool_result_reverse_lookup() -> None:
     """resolve_tool_result() should find tool_name from function_call.id."""
     # given
-    mapper = ADKVercelIDMapper()
+    mapper = IDMapper()
     mapper.register("change_bgm", "function-call-123")
     mapper.register("get_weather", "function-call-456")
 
@@ -93,7 +93,7 @@ def test_resolve_tool_result_reverse_lookup() -> None:
 def test_resolve_tool_result_returns_none_for_unknown_id() -> None:
     """resolve_tool_result() should return None for unknown function_call.id."""
     # given
-    mapper = ADKVercelIDMapper()
+    mapper = IDMapper()
 
     # when
     tool_name = mapper.resolve_tool_result("unknown-id")
@@ -105,7 +105,7 @@ def test_resolve_tool_result_returns_none_for_unknown_id() -> None:
 def test_clear_removes_all_mappings() -> None:
     """clear() should remove all registered mappings."""
     # given
-    mapper = ADKVercelIDMapper()
+    mapper = IDMapper()
     mapper.register("change_bgm", "function-call-123")
     mapper.register("get_location", "function-call-456")
 
@@ -121,7 +121,7 @@ def test_clear_removes_all_mappings() -> None:
 def test_multiple_registrations_same_tool_overwrites() -> None:
     """Registering same tool_name multiple times should overwrite previous mapping."""
     # given
-    mapper = ADKVercelIDMapper()
+    mapper = IDMapper()
     mapper.register("change_bgm", "function-call-old")
 
     # when
@@ -136,7 +136,7 @@ def test_multiple_registrations_same_tool_overwrites() -> None:
 def test_original_context_without_name_falls_back_to_tool_name() -> None:
     """get_function_call_id() should fall back to tool_name if original_context lacks 'name'."""
     # given
-    mapper = ADKVercelIDMapper()
+    mapper = IDMapper()
     mapper.register("change_bgm", "function-call-123")
 
     # when - original_context present but no 'name' key
@@ -160,7 +160,7 @@ def test_confirmation_id_should_be_registered_separately() -> None:
     After fix: PASS (GREEN) - confirmation ID is registered and resolved correctly
     """
     # given
-    mapper = ADKVercelIDMapper()
+    mapper = IDMapper()
     original_id = "function-call-123"
     confirmation_id = f"confirmation-{original_id}"
 

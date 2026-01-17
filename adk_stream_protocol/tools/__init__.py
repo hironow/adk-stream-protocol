@@ -13,7 +13,7 @@ Components:
 """
 
 from .approval_queue import ApprovalQueue
-from .confirmation_service import ConfirmationDelegate, ToolConfirmationDelegate
+from .confirmation_service import ConfirmationDelegate
 from .frontend_tool_service import FrontendToolDelegate
 
 
@@ -21,5 +21,4 @@ __all__ = [
     "ApprovalQueue",
     "ConfirmationDelegate",
     "FrontendToolDelegate",
-    "ToolConfirmationDelegate",  # Deprecated alias, use ConfirmationDelegate
 ]

@@ -18,7 +18,7 @@ load_dotenv(".env.local")
 
 
 from adk_stream_protocol import FrontendToolDelegate  # noqa: E402
-from adk_stream_protocol.protocol.id_mapper import ADKVercelIDMapper  # noqa: E402
+from adk_stream_protocol.protocol.id_mapper import IDMapper  # noqa: E402
 
 
 # ============================================================
@@ -121,13 +121,13 @@ def tool_result_event() -> dict[str, object]:
 
 
 @pytest.fixture
-def id_mapper() -> ADKVercelIDMapper:
+def id_mapper() -> IDMapper:
     """Create fresh ID mapper instance for tests."""
-    return ADKVercelIDMapper()
+    return IDMapper()
 
 
 @pytest.fixture
-def frontend_delegate(id_mapper: ADKVercelIDMapper) -> FrontendToolDelegate:
+def frontend_delegate(id_mapper: IDMapper) -> FrontendToolDelegate:
     """Create FrontendToolDelegate with ID mapper."""
     return FrontendToolDelegate(id_mapper=id_mapper)
 

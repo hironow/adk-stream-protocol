@@ -207,9 +207,9 @@ class TestGetLocation:
         When user approves, frontend returns location data.
         """
         # given: Mock tool_context with frontend delegate (BIDI mode)
-        from adk_stream_protocol.protocol.id_mapper import ADKVercelIDMapper
+        from adk_stream_protocol.protocol.id_mapper import IDMapper
 
-        mock_id_mapper = ADKVercelIDMapper()
+        mock_id_mapper = IDMapper()
         mock_id_mapper.register("get_location", "function-call-123")
 
         mock_delegate = AsyncMock()

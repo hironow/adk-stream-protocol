@@ -4,7 +4,7 @@ Unit tests for services/frontend_tool_service.py (Service Layer).
 Tests FrontendToolDelegate service layer implementation focusing on:
 - asyncio.Future-based delegation pattern
 - 5-second timeout for deadlock detection
-- ADKVercelIDMapper integration for ID resolution
+- IDMapper integration for ID resolution
 - Confirmation ID prefix handling (confirmation-{id})
 - Multiple ID resolution strategies
 
@@ -18,7 +18,7 @@ from typing import Any
 import pytest
 
 from adk_stream_protocol import Error, FrontendToolDelegate, Ok
-from adk_stream_protocol.protocol.id_mapper import ADKVercelIDMapper
+from adk_stream_protocol.protocol.id_mapper import IDMapper
 from tests.utils.result_assertions import assert_error, assert_ok
 
 
@@ -57,7 +57,7 @@ async def test_execute_on_frontend_with_id_mapper_registration() -> None:
 async def test_execute_on_frontend_with_id_mapper() -> None:
     """execute_on_frontend() should use ID mapper when tool_call_id not provided."""
     # given
-    id_mapper = ADKVercelIDMapper()
+    id_mapper = IDMapper()
     id_mapper.register("test_tool", "function-call-456")
     delegate = FrontendToolDelegate(id_mapper=id_mapper)
 
@@ -83,7 +83,7 @@ async def test_execute_on_frontend_with_id_mapper() -> None:
 async def test_execute_on_frontend_with_original_context() -> None:
     """execute_on_frontend() should resolve intercepted tool IDs using original_context."""
     # given
-    id_mapper = ADKVercelIDMapper()
+    id_mapper = IDMapper()
     # Register the original tool
     id_mapper.register("original_tool", "original-123")
     delegate = FrontendToolDelegate(id_mapper=id_mapper)
@@ -261,7 +261,7 @@ async def test_resolve_tool_result_direct_id() -> None:
 async def test_resolve_tool_result_confirmation_prefix() -> None:
     """resolve_tool_result() should strip confirmation- prefix and resolve."""
     # given
-    id_mapper = ADKVercelIDMapper()
+    id_mapper = IDMapper()
     id_mapper.register("original_tool", "original-id-123")
     delegate = FrontendToolDelegate(id_mapper=id_mapper)
 
@@ -378,7 +378,7 @@ async def test_set_function_call_id() -> None:
 async def test_custom_id_mapper_injection() -> None:
     """FrontendToolDelegate should accept custom ID mapper."""
     # given
-    custom_mapper = ADKVercelIDMapper()
+    custom_mapper = IDMapper()
     custom_mapper.register("custom_tool", "custom-id-123")
     delegate = FrontendToolDelegate(id_mapper=custom_mapper)
 
@@ -407,7 +407,7 @@ async def test_default_id_mapper_created_if_not_provided() -> None:
 
     # then
     assert delegate._id_mapper is not None
-    assert isinstance(delegate._id_mapper, ADKVercelIDMapper)
+    assert isinstance(delegate._id_mapper, IDMapper)
 
 
 # ============================================================

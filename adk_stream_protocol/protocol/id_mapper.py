@@ -173,7 +173,3 @@ class IDMapper:
         self._tool_name_to_id.clear()
         self._id_to_tool_name.clear()
         logger.debug("[IDMapper] Cleared all mappings")
-
-
-# Backward compatibility alias (deprecated, use IDMapper instead)
-ADKVercelIDMapper = IDMapper

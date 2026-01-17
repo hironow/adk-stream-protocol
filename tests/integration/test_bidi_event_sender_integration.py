@@ -16,7 +16,7 @@ import pytest
 from fastapi import WebSocketDisconnect
 
 from adk_stream_protocol import BidiEventSender, FrontendToolDelegate
-from adk_stream_protocol.protocol.id_mapper import ADKVercelIDMapper
+from adk_stream_protocol.protocol.id_mapper import IDMapper
 from tests.utils.mocks import (
     create_mock_live_request_queue,
     create_mock_session,
@@ -41,8 +41,8 @@ async def test_level2_real_frontend_delegate_id_mapping() -> None:
     mock_session = create_mock_session()
     mock_live_request_queue = create_mock_live_request_queue()
 
-    # Real FrontendToolDelegate with real ADKVercelIDMapper
-    id_mapper = ADKVercelIDMapper()
+    # Real FrontendToolDelegate with real IDMapper
+    id_mapper = IDMapper()
     frontend_delegate = FrontendToolDelegate(id_mapper=id_mapper)
 
     sender = BidiEventSender(
@@ -75,7 +75,7 @@ async def test_level2_real_frontend_delegate_multiple_tools() -> None:
     mock_live_request_queue = create_mock_live_request_queue()
 
     # Real components
-    id_mapper = ADKVercelIDMapper()
+    id_mapper = IDMapper()
     frontend_delegate = FrontendToolDelegate(id_mapper=id_mapper)
 
     sender = BidiEventSender(
@@ -171,7 +171,7 @@ async def test_level4_complete_event_stream_with_confirmation_tools() -> None:
     mock_live_request_queue = create_mock_live_request_queue()
 
     # Real components
-    id_mapper = ADKVercelIDMapper()
+    id_mapper = IDMapper()
     frontend_delegate = FrontendToolDelegate(id_mapper=id_mapper)
     confirmation_tools = ["process_payment", "delete_account"]
 

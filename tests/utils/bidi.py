@@ -9,7 +9,7 @@ from typing import Any
 from unittest.mock import AsyncMock, Mock
 
 from adk_stream_protocol import BidiEventReceiver, FrontendToolDelegate
-from adk_stream_protocol.protocol.id_mapper import ADKVercelIDMapper
+from adk_stream_protocol.protocol.id_mapper import IDMapper
 
 
 def create_mock_bidi_components() -> tuple[Mock, Mock, Mock, Mock]:
@@ -83,7 +83,7 @@ def create_bidi_event_handler(
 
 def create_frontend_delegate_with_mapper(
     tool_mappings: dict[str, str] | None = None,
-) -> tuple[FrontendToolDelegate, ADKVercelIDMapper]:
+) -> tuple[FrontendToolDelegate, IDMapper]:
     """Create real FrontendToolDelegate with IDMapper for integration tests.
 
     Args:
@@ -91,7 +91,7 @@ def create_frontend_delegate_with_mapper(
                       Example: {"process_payment": "call-123"}
 
     Returns:
-        Tuple of (FrontendToolDelegate, ADKVercelIDMapper) instances
+        Tuple of (FrontendToolDelegate, IDMapper) instances
 
     Examples:
         >>> delegate, mapper = create_frontend_delegate_with_mapper({
@@ -99,7 +99,7 @@ def create_frontend_delegate_with_mapper(
         ...     "get_location": "location-call-002"
         ... })
     """
-    id_mapper = ADKVercelIDMapper()
+    id_mapper = IDMapper()
 
     # Register tool mappings if provided
     if tool_mappings:
