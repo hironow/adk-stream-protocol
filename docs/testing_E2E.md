@@ -317,8 +317,6 @@ grep -r 'locator("text=' scenarios/
 grep -r "locator('text=" scenarios/
 ```
 
-**Future**: Add custom ESLint rule or pre-commit hook
-
 ---
 
 ## 📦 Fixtures
@@ -612,10 +610,8 @@ const transport = new ChunkLoggingTransport(delegate, mode);
 ## 📚 Related Documentation
 
 - **[Testing Strategy](testing_STRATEGY.md)** - Overall test architecture
-- **[Backend E2E Tests](testing_E2E_BACKEND.md)** - pytest golden file testing (DEPRECATED - merged into this doc)
-- **[Frontend E2E Tests](testing_E2E_FRONTEND.md)** - Vitest browser testing (DEPRECATED - merged into this doc)
 - **[ADR-0007](adr/0007-approval-value-independence-in-auto-submit.md)** - Approval timing independence
 
 ---
 
-**Last Updated**: 2026-01-10
+**Last Updated**: 2026-01-18

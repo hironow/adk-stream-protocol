@@ -1,6 +1,6 @@
 # Architecture Documentation
 
-**Last Updated:** 2026-01-02
+**Last Updated:** 2026-01-18
 
 This document describes the key architectural patterns and technical implementations in the ADK AI Data Protocol project.
 
@@ -345,12 +345,11 @@ Clean up session (no automatic resumption)
 
 ### Overview
 
-The project implements **Phase 1-3 of multimodal support** through ADK's BIDI mode:
+The project implements **multimodal support** through ADK's BIDI mode:
 
-- ✅ **Phase 1:** Images (input/output)
-- ✅ **Phase 2:** Audio Output (PCM streaming)
-- ✅ **Phase 3:** Audio Input (microphone recording)
-- ⬜ **Phase 4:** Video (future work)
+- ✅ Images (input/output)
+- ✅ Audio Output (PCM streaming)
+- ✅ Audio Input (microphone recording)
 
 ### Implementation Status
 
@@ -362,7 +361,6 @@ The project implements **Phase 1-3 of multimodal support** through ADK's BIDI mo
 | **Image Output** | ✅ Full | ✅ `data-image` custom | ✅ Custom UI | ✅ **Working** |
 | **Audio Input** | ✅ `send_realtime()` | ✅ WebSocket binary | ✅ AudioWorklet | ✅ **Working** |
 | **Audio Output** | ✅ `AUDIO` modality | ✅ `data-pcm` custom | ✅ Custom Player | ✅ **Working** |
-| **Video I/O** | ✅ Full | ⚠️ `data-video-*` custom | ❌ No UI | ⬜ **Future** |
 
 ### Protocol Flow: Images
 
@@ -1042,8 +1040,6 @@ Complete test matrix coverage for all conditional logic branches.
 
 **Workaround:** Users must refresh the page to restart conversation.
 
-**Future Solution:** Implement session resumption with persistent session IDs.
-
 ---
 
 ### 2. No Native Voice Activity Detection (VAD)
@@ -1053,11 +1049,6 @@ Complete test matrix coverage for all conditional logic branches.
 **Status:** CMD key push-to-talk workaround in place
 
 **Limitation:** Users must manually trigger audio recording (not hands-free).
-
-**Future Solution:**
-
-- Implement browser-based VAD using Web Audio API analysis
-- Detect speech start/stop automatically
 
 ---
 
@@ -1081,11 +1072,7 @@ Complete test matrix coverage for all conditional logic branches.
 
 **Issue:** Audio chunks are accumulated before playback, causing delay.
 
-**Status:** Future enhancement
-
 **Current Behavior:** All PCM chunks are collected, then WAV file is played.
-
-**Future Solution:** Use Web Audio API for progressive streaming playback.
 
 ---
 
@@ -1107,5 +1094,4 @@ Complete test matrix coverage for all conditional logic branches.
 
 ---
 
-**Last Updated:** 2026-01-02
-**Status:** Phase 1-3 Complete
+**Last Updated:** 2026-01-18
