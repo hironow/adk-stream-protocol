@@ -1,16 +1,16 @@
 # Project Status
 
-**Updated:** 2026-01-10
+**Updated:** 2026-01-18
 **Status:** All Tests Passing (Fail 0)
 
 ## Test Counts
 
 | Suite | Passed | Failed | Skipped |
 |-------|--------|--------|---------|
-| Vitest | 690 | 0 | 34 |
-| Playwright | 147 | 0 | 19 |
-| Python pytest | 334 | 0 | 0 |
-| **Total** | **1,171** | **0** | **53** |
+| Vitest | 689 | 0 | 34 |
+| Playwright | 233 | 0 | 19 |
+| Python pytest | 404 | 0 | 0 |
+| **Total** | **1,326** | **0** | **53** |
 
 ## Code Quality
 
@@ -46,8 +46,17 @@ semgrep: 0 errors
 
 ---
 
+## Tool Approval Implementation Status
+
+| Mode | Pattern | Status | ADR |
+|------|---------|--------|-----|
+| SSE | Legacy Approval Mode (LongRunningFunctionTool) | ✅ Complete | ADR-0008 |
+| BIDI | BIDI Blocking Mode (ApprovalQueue) | ✅ Complete | ADR-0009, ADR-0011 |
+
+---
+
 ## References
 
 - Skipped tests: `agents/skipped-tests-analysis.md`
 - Architecture: `docs/spec_ARCHITECTURE.md`
-- Server API: `docs/external/server-api.md`
+- Protocol: `docs/spec_PROTOCOL.md`

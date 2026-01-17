@@ -112,7 +112,8 @@
       "Bash(bun run biome:*)",
       "Bash(bun run test:lib:*)",
       "Bash(bun test:*)",
-      "Bash(bun run test)"
+      "Bash(bun run test)",
+      "Bash(bun test:lib:*)"
     ],
     "deny": [
       "Read(.env.keys)",
