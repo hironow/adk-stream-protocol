@@ -26,11 +26,11 @@ This project is under **active development** and contains experimental features 
 
 BIDI mode (`run_live()`) has two significant issues:
 
-1. **Tool Confirmation Not Working** 🔴
-   - Tools with `require_confirmation=True` do not trigger approval UI
+1. **Tool Confirmation Not Working (Native ADK)** 🟡
+   - ADK's native `require_confirmation=True` does not trigger approval UI in live mode
    - Root cause: ADK `FunctionTool._call_live()` TODO - "tool confirmation not yet supported for live mode"
    - Status: Known ADK limitation, awaiting upstream fix
-   - Workaround: Use SSE mode for tools requiring confirmation
+   - Workaround: Use **BIDI Blocking Mode** (ADR-0009, ADR-0011) or SSE mode for tools requiring confirmation
 
 2. **Missing Text Responses After Tool Execution** 🟡
    - Tools execute successfully but AI generates no explanatory text
@@ -273,6 +273,7 @@ Complete documentation is available in the `docs/` directory:
 - **[ADR-0008](docs/adr/0008-sse-mode-pattern-a-only-for-frontend-tools.md)** - SSE Mode Pattern A Only
 - **[ADR-0009](docs/adr/0009-bidi-blocking-mode-for-approval.md)** - BIDI Blocking Mode
 - **[ADR-0010](docs/adr/0010-bidi-confirmation-chunk-generation.md)** - BIDI Confirmation Chunk Generation
+- **[ADR-0011](docs/adr/0011-bidi-approval-deadlock-finish-step-injection.md)** - BIDI Approval Deadlock Fix (finish-step Injection)
 
 ### Additional Resources
 
@@ -308,4 +309,4 @@ MIT License. See LICENSE file for details.
 
 ---
 
-**Last Updated:** 2025-12-29
+**Last Updated:** 2026-01-18
