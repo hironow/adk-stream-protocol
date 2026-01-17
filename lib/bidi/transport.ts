@@ -405,7 +405,7 @@ export class WebSocketChatTransport implements ChatTransportFromAISDKv6 {
           } else {
             // Reuse existing connection
 
-            // Phase 12 BLOCKING: Check if previous stream completed with [DONE]
+            // BIDI Blocking Mode: Check if previous stream completed with [DONE]
             // If [DONE] not received, reuse controller (approval/tool-output in same stream)
             // If [DONE] received, close previous controller and create new stream
             const doneReceived = this.eventReceiver.isDoneReceived();
@@ -432,10 +432,10 @@ export class WebSocketChatTransport implements ChatTransportFromAISDKv6 {
               // Reset EventReceiver state for new stream (Session 7)
               this.eventReceiver.reset();
             } else {
-              // Phase 12 BLOCKING: Stream still active (no [DONE] yet)
+              // BIDI Blocking Mode: Stream still active (no [DONE] yet)
               // Reuse existing controller for approval/tool-output
               console.debug(
-                "[WS Transport] Reusing controller (Phase 12 BLOCKING - no [DONE] yet)",
+                "[WS Transport] Reusing controller (BIDI Blocking Mode - no [DONE] yet)",
               );
 
               // DO NOT close previous controller
@@ -447,7 +447,7 @@ export class WebSocketChatTransport implements ChatTransportFromAISDKv6 {
             }
 
             // Update message handler for stream (use appropriate controller)
-            // If reusing controller (Phase 12), keep using existing one
+            // If reusing controller (BIDI Blocking Mode), keep using existing one
             // If new stream, use new controller
             const activeController = doneReceived
               ? controller

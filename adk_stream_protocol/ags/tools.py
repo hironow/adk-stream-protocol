@@ -227,7 +227,7 @@ async def process_payment(
     """
     Process a payment transaction (server-side execution with user approval required).
 
-    Phase 12: BLOCKING behavior mode for BIDI mode:
+    BIDI Blocking Mode: BLOCKING behavior mode for BIDI mode:
     - SSE mode: Uses ADK native confirmation (require_confirmation=True)
     - BIDI mode: Uses BLOCKING behavior to await approval inside function
 
@@ -423,7 +423,7 @@ async def get_location(tool_context: ToolContext) -> dict[str, Any]:
     """
     Get user's current location (requires user approval).
 
-    Phase 12: BLOCKING behavior mode for BIDI mode:
+    BIDI Blocking Mode: BLOCKING behavior mode for BIDI mode:
     - SSE mode: Uses ADK native confirmation (require_confirmation=True) + frontend delegation
     - BIDI mode: Uses BLOCKING behavior to await approval inside function
 

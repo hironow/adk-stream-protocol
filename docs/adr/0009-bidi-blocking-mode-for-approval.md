@@ -1,4 +1,4 @@
-# 0009. Phase 12 BLOCKING Mode for Tool Approval Flow
+# 0009. BIDI Blocking Mode for Tool Approval Flow
 
 **Date:** 2025-12-27
 **Status:** Accepted
@@ -7,8 +7,8 @@
 
 When implementing deferred approval flow in BIDI mode, we discovered two distinct implementation patterns in ADK:
 
-1. **Phase 5: LongRunningFunctionTool** - Tool returns pending status immediately, execution continues asynchronously
-2. **Phase 12: BLOCKING Mode** - Tool awaits approval inside function using `types.Behavior.BLOCKING`
+1. **LongRunningFunctionTool Pattern** - Tool returns pending status immediately, execution continues asynchronously
+2. **BIDI Blocking Mode** - Tool awaits approval inside function using `types.Behavior.BLOCKING`
 
 The critical question was: **Which pattern should we use for BIDI mode tool approval, and why?**
 
@@ -50,7 +50,7 @@ Turn 2 (After approval):
 - Requires session state (`pending_long_running_calls`) to track pending tools
 - Complex state management for multi-turn flow
 
-### Discovery of Phase 12 BLOCKING Mode
+### Discovery of BIDI Blocking Mode
 
 While investigating ADK capabilities, we discovered `types.Behavior.BLOCKING`:
 
@@ -79,7 +79,7 @@ async def process_payment_impl(amount: float, recipient: str, currency: str) -> 
         raise ValueError("User denied the payment")
 ```
 
-**Event Flow (Phase 12)**:
+**Event Flow (BIDI Blocking Mode)**:
 
 ```
 Single Continuous Turn:
@@ -125,7 +125,7 @@ This is **exactly what we need** for deferred approval flow:
 
 ## Decision
 
-Use **Phase 12 BLOCKING Mode** for BIDI mode tool approval flow instead of Phase 5 LongRunningFunctionTool.
+Use **BIDI Blocking Mode** for BIDI mode tool approval flow instead of Phase 5 LongRunningFunctionTool.
 
 ### Implementation Architecture
 
@@ -158,7 +158,7 @@ Use **Phase 12 BLOCKING Mode** for BIDI mode tool approval flow instead of Phase
 
    ```python
    async def _handle_confirmation_approval(self, confirmation_id, response_data):
-       # Phase 12: Check for approval_queue
+       # BIDI Blocking Mode: Check for approval_queue
        approval_queue = self._session.state.get("approval_queue")
        if approval_queue:
            # Submit approval to unblock BLOCKING tool
@@ -176,7 +176,7 @@ Use **Phase 12 BLOCKING Mode** for BIDI mode tool approval flow instead of Phase
 - Uses existing `message` event with `approval-responded` state
 - Same format as Phase 5 (no frontend changes needed)
 
-### Why Phase 12 is Better
+### Why BIDI Blocking Mode is Better
 
 1. **Simpler Event Flow**: Single continuous stream vs multi-turn flow
 2. **No State Management**: No need for `pending_long_running_calls` tracking
@@ -186,7 +186,7 @@ Use **Phase 12 BLOCKING Mode** for BIDI mode tool approval flow instead of Phase
 
 ### Technical Comparison
 
-| Aspect | Phase 5 (LongRunningFunctionTool) | Phase 12 (BLOCKING) |
+| Aspect | Phase 5 (LongRunningFunctionTool) | BIDI Blocking Mode (BLOCKING) |
 |--------|-----------------------------------|---------------------|
 | **Turn Count** | 2 turns | 1 continuous turn |
 | **[DONE] Count** | 2 | 1 |
@@ -216,13 +216,13 @@ Use **Phase 12 BLOCKING Mode** for BIDI mode tool approval flow instead of Phase
 
 ### Neutral
 
-1. **Different Pattern**: Developers familiar with Phase 5 need to learn Phase 12
+1. **Different Pattern**: Developers familiar with Phase 5 need to learn BIDI Blocking Mode
 2. **No LiveRequestQueue Access**: Tools cannot access LiveRequestQueue directly (design limitation)
 3. **Parameter Injection**: BLOCKING tools (return dict) don't receive LiveRequestQueue injection (only async generator streaming tools do)
 
 ## Implementation Details
 
-### Phase 12 BLOCKING Tool Pattern
+### BIDI Blocking Mode Tool Pattern
 
 ```python
 # 1. Create approval queue
@@ -264,7 +264,7 @@ process_payment_tool = FunctionDeclaration.from_callable_with_api_option(
 )
 ```
 
-### Phase 12 Event Flow
+### BIDI Blocking Mode Event Flow
 
 ```
 1. User sends message: "次郎さんに200ドル送金してください"
@@ -290,7 +290,7 @@ process_payment_tool = FunctionDeclaration.from_callable_with_api_option(
 
 ### Critical Implementation Notes
 
-1. **Cleanup pending_long_running_calls**: Even in Phase 12, `pending_long_running_calls` may be populated by `BidiEventSender._handle_confirmation_if_needed()`. Must clean up this dict when approval is submitted, otherwise final `tool-output-available` will be skipped.
+1. **Cleanup pending_long_running_calls**: Even in BIDI Blocking Mode, `pending_long_running_calls` may be populated by `BidiEventSender._handle_confirmation_if_needed()`. Must clean up this dict when approval is submitted, otherwise final `tool-output-available` will be skipped.
 
 2. **confirmation_id_mapping**: Required to map `adk_request_confirmation` tool call ID back to original tool call ID:
 
@@ -319,28 +319,28 @@ process_payment_tool = FunctionDeclaration.from_callable_with_api_option(
 
 ## Migration Path
 
-### From Phase 5 to Phase 12
+### From Phase 5 to BIDI Blocking Mode
 
 1. **Backend Changes**:
    - Create `ApprovalQueue` in session state
    - Convert tools to BLOCKING pattern
    - Update tool declarations to use `types.Behavior.BLOCKING`
-   - Update `BidiEventReceiver._handle_confirmation_approval` to handle Phase 12
+   - Update `BidiEventReceiver._handle_confirmation_approval` to handle BIDI Blocking Mode
 
 2. **Frontend Changes**:
    - **NONE** - Frontend approval protocol remains the same
 
 3. **Testing**:
-   - Create Phase 12 baseline fixtures
-   - Add Phase 12 tests to `transport-done-baseline.test.ts`
+   - Create BIDI Blocking Mode baseline fixtures
+   - Add BIDI Blocking Mode tests to `transport-done-baseline.test.ts`
    - Verify frontend can handle single continuous stream
 
 ### Baseline Fixtures
 
-Phase 12 baseline fixtures created:
+BIDI Blocking Mode baseline fixtures created:
 
-- `fixtures/frontend/process_payment-approved-bidi-phase12.json`
-- `fixtures/frontend/process_payment-denied-bidi-phase12.json`
+- `fixtures/frontend/process_payment-approved-bidi-bidi-blocking.json`
+- `fixtures/frontend/process_payment-denied-bidi-bidi-blocking.json`
 
 Key differences from Phase 5 fixtures:
 
@@ -353,18 +353,18 @@ Key differences from Phase 5 fixtures:
 **Implementation**:
 
 - `adk_stream_protocol/approval_queue.py` - ApprovalQueue bridge
-- `adk_stream_protocol/bidi_event_receiver.py:_handle_confirmation_approval()` - Phase 12 handling
-- `tests/e2e/backend_fixture/test_process_payment_approved_bidi_phase12.py` - Approval test
-- `tests/e2e/backend_fixture/test_process_payment_denied_bidi_phase12.py` - Denial test
+- `adk_stream_protocol/bidi_event_receiver.py:_handle_confirmation_approval()` - BIDI Blocking Mode handling
+- `tests/e2e/backend_fixture/test_process_payment_approved_bidi_bidi-blocking.py` - Approval test
+- `tests/e2e/backend_fixture/test_process_payment_denied_bidi_bidi-blocking.py` - Denial test
 
 **Baseline Fixtures**:
 
-- `fixtures/frontend/process_payment-approved-bidi-phase12.json`
-- `fixtures/frontend/process_payment-denied-bidi-phase12.json`
+- `fixtures/frontend/process_payment-approved-bidi-bidi-blocking.json`
+- `fixtures/frontend/process_payment-denied-bidi-bidi-blocking.json`
 
 **Frontend Tests**:
 
-- `lib/tests/integration/transport-done-baseline.test.ts` - Phase 12 transport tests
+- `lib/tests/integration/transport-done-baseline.test.ts` - BIDI Blocking Mode transport tests
 
 **Related ADRs**:
 
@@ -373,7 +373,7 @@ Key differences from Phase 5 fixtures:
 
 ## Future Considerations
 
-### Potential Phase 12 Enhancements
+### Potential BIDI Blocking Mode Enhancements
 
 1. **Timeout Customization**: Allow per-tool timeout configuration
 2. **Cancellation Support**: Add ability to cancel pending approvals
@@ -388,4 +388,4 @@ If ADK adds native deferred approval support:
 - Could simplify implementation
 - Should re-evaluate this ADR
 
-Until then, Phase 12 BLOCKING mode provides the best balance of simplicity and functionality.
+Until then, BIDI Blocking Mode provides the best balance of simplicity and functionality.

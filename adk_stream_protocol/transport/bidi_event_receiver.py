@@ -69,7 +69,7 @@ class BidiEventReceiver:
         self._live_request_queue = live_request_queue
         self._ag_runner = bidi_agent_runner
 
-        # Setup approval queue for BLOCKING tools (Phase 12)
+        # Setup approval queue for BLOCKING tools (BIDI Blocking Mode)
         approval_queue = ApprovalQueue()
         session.state["approval_queue"] = approval_queue
         logger.info("[BidiEventReceiver] ✓ ApprovalQueue initialized and stored in session.state")
@@ -262,7 +262,7 @@ class BidiEventReceiver:
         self, confirmation_id: str, response_data: dict[str, Any]
     ) -> None:
         """
-        Handle confirmation approval: Route to Phase 12 (BLOCKING) or Phase 5 (Legacy).
+        Handle confirmation approval: Route to BIDI Blocking Mode (BLOCKING) or Phase 5 (Legacy).
 
         Args:
             confirmation_id: The ID of the confirmation FunctionResponse (lookup key)
@@ -285,9 +285,9 @@ class BidiEventReceiver:
         self, confirmation_id: str, response_data: dict[str, Any]
     ) -> None:
         """
-        Handle confirmation approval in Phase 12 BLOCKING mode.
+        Handle confirmation approval in BIDI Blocking Mode mode.
 
-        Phase 12 (BLOCKING mode):
+        BIDI Blocking Mode (BLOCKING mode):
         - Tool is BLOCKING and awaiting approval via approval_queue
         - Submit approval decision to approval_queue
         - Tool function will resume and return final result
@@ -296,12 +296,12 @@ class BidiEventReceiver:
             confirmation_id: The ID of the confirmation FunctionResponse (lookup key)
             response_data: FunctionResponse.response dict with {"confirmed": bool} or {"approved": bool}
         """
-        logger.info("[BIDI-APPROVAL] Phase 12: BLOCKING mode detected (approval_queue exists)")
+        logger.info("[BIDI-APPROVAL] BIDI Blocking Mode: BLOCKING mode detected (approval_queue exists)")
 
         approval_queue: ApprovalQueue | None = self._session.state.get("approval_queue")
         if approval_queue is None:
             # This should never happen - caller verified approval_queue exists
-            logger.error("[BIDI-APPROVAL] Phase 12: approval_queue unexpectedly None")
+            logger.error("[BIDI-APPROVAL] BIDI Blocking Mode: approval_queue unexpectedly None")
             return
 
         # Look up original tool_call_id using confirmation_id
@@ -310,7 +310,7 @@ class BidiEventReceiver:
 
         if not original_tool_call_id:
             logger.error(
-                f"[BIDI-APPROVAL] Phase 12: confirmation_id {confirmation_id} not found in mapping"
+                f"[BIDI-APPROVAL] BIDI Blocking Mode: confirmation_id {confirmation_id} not found in mapping"
             )
             return
 
@@ -318,7 +318,7 @@ class BidiEventReceiver:
         approved = response_data.get("approved", response_data.get("confirmed", False))
 
         logger.info(
-            f"[BIDI-APPROVAL] Phase 12: Submitting to approval_queue: "
+            f"[BIDI-APPROVAL] BIDI Blocking Mode: Submitting to approval_queue: "
             f"tool_call_id={original_tool_call_id}, approved={approved}"
         )
 
@@ -331,17 +331,17 @@ class BidiEventReceiver:
         if original_tool_call_id in pending_calls:
             del pending_calls[original_tool_call_id]
             logger.info(
-                f"[BIDI-APPROVAL] Phase 12: Removed {original_tool_call_id} from pending_long_running_calls"
+                f"[BIDI-APPROVAL] BIDI Blocking Mode: Removed {original_tool_call_id} from pending_long_running_calls"
             )
 
         # Clean up confirmation mapping
         del confirmation_id_mapping[confirmation_id]
         logger.info(
-            f"[BIDI-APPROVAL] Phase 12: Cleaned up confirmation mapping for {confirmation_id}"
+            f"[BIDI-APPROVAL] BIDI Blocking Mode: Cleaned up confirmation mapping for {confirmation_id}"
         )
 
-        logger.info("[BIDI-APPROVAL] Phase 12: ✓ Approval decision submitted to ApprovalQueue")
-        logger.info("[BIDI-APPROVAL] Phase 12: Tool will resume and return final result")
+        logger.info("[BIDI-APPROVAL] BIDI Blocking Mode: ✓ Approval decision submitted to ApprovalQueue")
+        logger.info("[BIDI-APPROVAL] BIDI Blocking Mode: Tool will resume and return final result")
 
     async def _handle_legacy_mode_approval(
         self, confirmation_id: str, response_data: dict[str, Any]

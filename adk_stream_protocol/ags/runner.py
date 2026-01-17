@@ -94,7 +94,7 @@ SSE_TOOLS = [
 ]
 
 # ========= BIDI Tools Definition ==========
-# BIDI mode uses BLOCKING behavior mode (Phase 12)
+# BIDI mode uses BLOCKING behavior mode (BIDI Blocking Mode)
 # Tools use types.Behavior.BLOCKING to await approval inside function without blocking event loop
 #
 # IMPORTANT: Cannot use FunctionTool(..., require_confirmation=True) in BIDI mode
@@ -137,7 +137,7 @@ GET_LOCATION_BLOCKING._declaration = get_location_declaration  # type: ignore[at
 
 BIDI_TOOLS = [
     get_weather,  # Weather information retrieval (server, no approval)
-    # Phase 12: BLOCKING behavior for approval-required tools
+    # BIDI Blocking Mode: BLOCKING behavior for approval-required tools
     PROCESS_PAYMENT_BLOCKING,  # Payment processing with BLOCKING await for approval
     change_bgm,  # Background music control (client execution, no approval)
     GET_LOCATION_BLOCKING,  # User location retrieval with BLOCKING await for approval

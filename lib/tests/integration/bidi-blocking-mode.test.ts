@@ -1,7 +1,7 @@
 /**
- * Integration Tests: BIDI Phase 12 BLOCKING Controller Lifecycle (ADR 0009, ADR 0011)
+ * Integration Tests: BIDI Blocking Mode Controller Lifecycle (ADR 0009, ADR 0011)
  *
- * Tests the WebSocketChatTransport controller lifecycle behavior in Phase 12 BLOCKING mode.
+ * Tests the WebSocketChatTransport controller lifecycle behavior in BIDI Blocking Mode mode.
  *
  * Key Behaviors:
  * - Controller reuse: When no [DONE] received, reuse existing controller
@@ -9,7 +9,7 @@
  * - State preservation: Message state preserved across approval cycle
  * - Timeout: Backend response timeout after approval-request (ADR 0011 gap fix)
  *
- * Phase 12 BLOCKING Pattern:
+ * BIDI Blocking Mode Pattern:
  * 1. Backend sends tool-approval-request + finish-step
  * 2. Frontend closes stream (doneReceived = true)
  * 3. User approves → sendMessages() called
@@ -60,7 +60,7 @@ class MockWebSocket {
 // Store reference to created WebSocket
 let mockWs: MockWebSocket | null = null;
 
-describe("BIDI Phase 12 BLOCKING: Controller Lifecycle", () => {
+describe("BIDI Blocking Mode: Controller Lifecycle", () => {
   beforeEach(() => {
     // Mock global WebSocket
     vi.stubGlobal(
@@ -279,7 +279,7 @@ describe("BIDI Phase 12 BLOCKING: Controller Lifecycle", () => {
   });
 });
 
-describe("BIDI Phase 12 BLOCKING: Backend Response Timeout", () => {
+describe("BIDI Blocking Mode: Backend Response Timeout", () => {
   beforeEach(() => {
     vi.useFakeTimers();
 

@@ -554,14 +554,14 @@ describe("Transport [DONE] Baseline Integration Tests", () => {
     /**
      * Tool-Level Test: get_location (multi-turn tool with approval)
      *
-     * SKIPPED: Phase 12 BLOCKING approval flow requires multi-stream handling.
+     * SKIPPED: BIDI Blocking Mode approval flow requires multi-stream handling.
      * This fixture has 1 [DONE] but needs 2 streams:
      *   1. Stream closes after finish-step to trigger sendAutomaticallyWhen
      *   2. New stream created after approval for remaining events
      * The integration test's mock doesn't simulate this interactive flow.
      * Coverage provided by Playwright E2E tests (scenarios/tools/).
      *
-     * Given: Baseline fixture with get_location approval (Phase 12 BLOCKING)
+     * Given: Baseline fixture with get_location approval (BIDI Blocking Mode)
      * When: Transport processes with BIDI mode
      * Then: Complete tool execution matches baseline
      */
@@ -624,22 +624,22 @@ describe("Transport [DONE] Baseline Integration Tests", () => {
 
   it.skip("[BIDI] should match baseline behavior for process_payment with [DONE]", async () => {
     /**
-     * Tool-Level Test: process_payment (Phase 12 BLOCKING approval flow)
+     * Tool-Level Test: process_payment (BIDI Blocking Mode approval flow)
      *
-     * SKIPPED: Phase 12 BLOCKING approval flow requires multi-stream handling.
+     * SKIPPED: BIDI Blocking Mode approval flow requires multi-stream handling.
      * This fixture has 1 [DONE] but needs 2 streams:
      *   1. Stream closes after finish-step to trigger sendAutomaticallyWhen
      *   2. New stream created after approval for remaining events
      * The integration test's mock doesn't simulate this interactive flow.
      * Coverage provided by Playwright E2E tests (scenarios/tools/).
      *
-     * Given: Baseline fixture with Phase 12 BLOCKING approval flow
+     * Given: Baseline fixture with BIDI Blocking Mode approval flow
      *   - Tool enters BLOCKING state awaiting approval inside function
      *   - Single continuous stream with 1 [DONE] marker
      * When: Transport processes events with BIDI mode (persistent connection)
      * Then: Complete tool execution matches baseline
      *
-     * Note: Baseline now uses Phase 12 BLOCKING mode (not Phase 5)
+     * Note: Baseline now uses BIDI Blocking Mode mode (not Phase 5)
      */
 
     const fixture = loadFixture("process_payment-approved-bidi-baseline.json");

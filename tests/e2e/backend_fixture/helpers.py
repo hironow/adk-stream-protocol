@@ -86,7 +86,7 @@ async def receive_events_until_approval_request(
         - original_tool_call_id: toolCallId of the original tool
 
     Raises:
-        AssertionError: If [DONE] is received before tool-approval-request (Phase 12 BLOCKING violation)
+        AssertionError: If [DONE] is received before tool-approval-request (BIDI Blocking Mode violation)
         asyncio.TimeoutError: If timeout waiting for tool-approval-request
     """
     all_events = []
@@ -107,7 +107,7 @@ async def receive_events_until_approval_request(
             # ERROR: If we get [DONE] before approval response, that's wrong!
             if "[DONE]" in event:
                 raise AssertionError(
-                    "Received [DONE] before approval response in Phase 12 BLOCKING mode! "
+                    "Received [DONE] before approval response in BIDI Blocking Mode mode! "
                     "This indicates the tool returned early instead of BLOCKING."
                 )
 

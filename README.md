@@ -271,7 +271,7 @@ Complete documentation is available in the `docs/` directory:
 - **[ADR-0006](docs/adr/0006-send-automatically-when-decision-logic-order.md)** - sendAutomaticallyWhen Decision Logic Order
 - **[ADR-0007](docs/adr/0007-approval-value-independence-in-auto-submit.md)** - Approval Value Independence
 - **[ADR-0008](docs/adr/0008-sse-mode-pattern-a-only-for-frontend-tools.md)** - SSE Mode Pattern A Only
-- **[ADR-0009](docs/adr/0009-phase12-blocking-mode-for-approval.md)** - Phase 12 Blocking Mode
+- **[ADR-0009](docs/adr/0009-bidi-blocking-mode-for-approval.md)** - BIDI Blocking Mode
 - **[ADR-0010](docs/adr/0010-bidi-confirmation-chunk-generation.md)** - BIDI Confirmation Chunk Generation
 
 ### Additional Resources

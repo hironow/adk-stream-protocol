@@ -140,7 +140,7 @@ export class EventReceiver {
 
   /**
    * Check if [DONE] was received in current stream
-   * Used by transport to determine if controller should be reused (Phase 12 BLOCKING)
+   * Used by transport to determine if controller should be reused (BIDI Blocking Mode)
    */
   public isDoneReceived(): boolean {
     return this.doneReceived;

@@ -3,18 +3,18 @@
 Tests backend behavior against get_location BIDI baseline fixture with denial flow (get_location).
 
 Fixture: fixtures/frontend/get_location-denied-bidi-baseline.json
-Mode: Phase 12 BLOCKING (single continuous stream)
+Mode: BIDI Blocking Mode (single continuous stream)
 Tool: get_location (requires approval)
 Transport: WebSocket (BIDI mode)
 
-Expected Flow (Phase 12):
+Expected Flow (BIDI Blocking Mode):
 - Single continuous stream (no [DONE] between approval request and response)
 - User: Initial request
 - Backend: tool-input → adk_request_confirmation (tool is BLOCKING, waiting for approval)
 - User: denial response (unblocks the BLOCKING tool)
 - Backend: tool-output-error → finish → [DONE]
 
-Note: Phase 12 BLOCKING mode uses single stream with 1 [DONE], not 2 turns.
+Note: BIDI Blocking Mode mode uses single stream with 1 [DONE], not 2 turns.
 """
 
 import asyncio
@@ -36,8 +36,8 @@ from .helpers import (
 
 @pytest.mark.asyncio
 async def test_get_location_denied_bidi_baseline(frontend_fixture_dir: Path):
-    """Should generate correct rawEvents for get_location denial flow (get_location) (Phase 12 BLOCKING)."""
-    # Given: Frontend baseline fixture (Phase 12)
+    """Should generate correct rawEvents for get_location denial flow (get_location) (BIDI Blocking Mode)."""
+    # Given: Frontend baseline fixture (BIDI Blocking Mode)
     fixture_path = frontend_fixture_dir / "get_location-denied-bidi-baseline.json"
     fixture = await load_frontend_fixture(fixture_path)
 
@@ -140,7 +140,7 @@ async def test_get_location_denied_bidi_baseline(frontend_fixture_dir: Path):
         print(f"Tool output events: {len(tool_output_events)}")
         assert len(tool_output_events) > 0, "Should have tool output event"
 
-        print("\n✓ Phase 12 BLOCKING denial flow (get_location) test completed successfully")
+        print("\n✓ BIDI Blocking Mode denial flow (get_location) test completed successfully")
 
     # Total should be 1 [DONE] marker
     total_done_count = done_count
@@ -151,14 +151,14 @@ async def test_get_location_denied_bidi_baseline(frontend_fixture_dir: Path):
     # Save events to fixture (BEFORE comparison to ensure fixture is saved even if assertion fails)
     save_frontend_fixture(
         fixture_path=fixture_path,
-        description="BIDI mode Phase 12 BLOCKING - get_location with denial flow (SINGLE CONTINUOUS STREAM)",
+        description="BIDI Blocking Mode - get_location with denial flow (SINGLE CONTINUOUS STREAM)",
         mode="bidi",
         input_messages=input_messages,
         raw_events=all_events,
         expected_done_count=1,
         source="Backend E2E test capture",
-        scenario="User denies get_location tool call - Phase 12 BLOCKING mode where tool awaits approval inside function",
-        note="Phase 12 BLOCKING behavior: Single continuous stream with 1 [DONE]. Tool enters BLOCKING state awaiting approval, then returns error after denial.",
+        scenario="User denies get_location tool call - BIDI Blocking Mode mode where tool awaits approval inside function",
+        note="BIDI Blocking Mode behavior: Single continuous stream with 1 [DONE]. Tool enters BLOCKING state awaiting approval, then returns error after denial.",
     )
 
     # Verify against expected events (structure comparison) - MOVED AFTER SAVE
