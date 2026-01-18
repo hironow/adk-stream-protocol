@@ -21,6 +21,44 @@ import {
   type UIMessageFromAISDKv6,
 } from "@/lib/utils";
 
+// ============================================================================
+// Frontend Execute Tool Detection (ADR 0005)
+// ============================================================================
+
+/**
+ * Known Frontend Execute tools that require browser APIs.
+ * These tools need addToolOutput() called by frontend after approval.
+ * Server Execute tools (not in this list) are handled by backend after approval.
+ */
+const FRONTEND_EXECUTE_TOOLS = new Set([
+  "get_location", // Uses navigator.geolocation
+  "take_photo", // Uses camera API
+  "get_camera", // Uses camera API
+  // Add other browser-API tools as needed
+]);
+
+/**
+ * Extract tool name from AI SDK v6 tool part.
+ * Tool parts have types like "tool-get_location" or "tool-process_payment".
+ */
+function extractToolNameFromPart(part: { type?: string; toolName?: string }): string {
+  if (part.toolName) {
+    return part.toolName;
+  }
+  if (part.type?.startsWith("tool-")) {
+    return part.type.slice(5); // Remove "tool-" prefix
+  }
+  return "";
+}
+
+/**
+ * Check if a tool requires Frontend Execute pattern.
+ * Frontend Execute tools need addToolOutput() from frontend after approval.
+ */
+function isFrontendExecuteTool(toolName: string): boolean {
+  return FRONTEND_EXECUTE_TOOLS.has(toolName);
+}
+
 export interface SendAutomaticallyWhenOptions {
   messages: UIMessageFromAISDKv6[];
   mode?: "bidi" | "sse" | "unknown"; // Optional mode for state separation
@@ -225,6 +263,55 @@ export function sendAutomaticallyWhenCore(
       return false;
     }
     log("Has approved tool (approval-responded state)");
+
+    // ========================================================================
+    // Check 3.5: Frontend Execute - waiting for addToolOutput?
+    // ========================================================================
+    // Frontend Execute tools (browser APIs like geolocation) require output from addToolOutput().
+    // If approved but no output yet, wait for frontend to execute and call addToolOutput().
+    // Server Execute tools are handled by backend after approval - don't wait for output.
+    const approvedToolParts = parts.filter(
+      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+      (p: any) => isApprovalRespondedTool(p),
+    );
+
+    for (const toolPart of approvedToolParts) {
+      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+      const tp = toolPart as any;
+      const toolName = extractToolNameFromPart(tp);
+      const isApproved = tp.approval?.approved === true;
+      const isFrontendExec = isFrontendExecuteTool(toolName);
+      log(
+        `Check 3.5: toolCallId=${tp.toolCallId}, toolName=${toolName}, isFrontendExecute=${isFrontendExec}, output=${tp.output !== undefined ? "set" : "undefined"}, approved=${isApproved}`,
+      );
+
+      // Only wait for output if:
+      // 1. Known Frontend Execute tool (uses browser API)
+      // 2. User APPROVED the tool (approval.approved === true)
+      // If user DENIED, send immediately (no addToolOutput will be called)
+      // If Server Execute tool, send immediately (backend handles execution)
+      if (isFrontendExec && isApproved) {
+        // Frontend Execute tool approved but no output yet
+        // Wait for frontend to call addToolOutput()
+        if (tp.output === undefined) {
+          log(
+            `Frontend Execute tool (${toolName}) approved but no output yet, waiting for addToolOutput()`,
+          );
+          return false;
+        }
+        log(
+          `Frontend Execute tool (${toolName}) has output, proceeding`,
+        );
+      } else if (!isApproved) {
+        log(
+          `Tool (${toolName}) was denied, proceeding to send denial to backend`,
+        );
+      } else {
+        log(
+          `Server Execute tool (${toolName}) approved, proceeding to send approval to backend`,
+        );
+      }
+    }
 
     // ========================================================================
     // Check 4: Any tool still waiting for approval? (state = approval-requested)
