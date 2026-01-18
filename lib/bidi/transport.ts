@@ -8,7 +8,7 @@
  * ==========================================
  * Backend sends AI SDK v6 Data Stream Protocol in SSE format via WebSocket:
  *   - ADK events → SSE format (stream_protocol.py)
- *   - SSE format → WebSocket messages (server.py /live endpoint)
+ *   - SSE format → WebSocket messages (/live endpoint)
  *   - WebSocket messages → SSE parsing (this class)
  *   - SSE format → UIMessageChunkFromAISDKv6 (handleWebSocketMessage)
  *   - UIMessageChunkFromAISDKv6 → useChat hook (React state)

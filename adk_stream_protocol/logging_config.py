@@ -4,7 +4,6 @@ Logging Configuration Module
 Provides centralized logging configuration via LOG_LEVEL environment variable.
 
 Usage:
-    # In server.py or main entry point
     from adk_stream_protocol.logging_config import configure_logging
     configure_logging()  # Call once at startup
 
@@ -59,7 +58,7 @@ def configure_logging() -> None:
     - Console (stderr) output with LOG_LEVEL control
     - Compact format for console output
 
-    File logging should be configured separately in server.py
+    File logging should be configured separately in server
     to maintain full DEBUG level logs for diagnostics.
     """
     level = get_log_level()

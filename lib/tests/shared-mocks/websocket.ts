@@ -33,13 +33,14 @@ export class MockWebSocket {
 
   constructor(url: string) {
     this.url = url;
-    // Simulate connection opening
-    setTimeout(() => {
+    // Simulate connection opening with microtask (more deterministic than setTimeout)
+    // Using Promise.resolve() instead of setTimeout(0) for better parallel test isolation
+    Promise.resolve().then(() => {
       this.readyState = MockWebSocket.OPEN;
       if (this.onopen) {
         this.onopen(new Event("open"));
       }
-    }, 0);
+    });
   }
 
   send(data: string): void {

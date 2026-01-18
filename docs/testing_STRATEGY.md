@@ -676,6 +676,7 @@ function uv__stream_destroy, file stream.c, line 456.
 **原因**: E2E テストで使用する WebSocket や stream リソースが Vitest の fork 終了前に完全にクリーンアップされない場合に発生。テストロジック自体の問題ではなく、Node.js/libuv レベルの環境依存問題。
 
 **症状**:
+
 - `Test Files: 71 passed (73)` のようにファイル数が合わない
 - `Errors: 1 error` または `Errors: 2 errors` が表示される
 - ただし、テスト自体は全て pass している
@@ -683,6 +684,7 @@ function uv__stream_destroy, file stream.c, line 456.
 **対処法**:
 
 1. **テストをディレクトリ毎に分けて実行** (推奨):
+
    ```bash
    # Unit + Integration (安定)
    bunx vitest run lib/tests/unit/ lib/tests/integration/
@@ -695,11 +697,13 @@ function uv__stream_destroy, file stream.c, line 456.
    ```
 
 2. **並列度を下げて実行**:
+
    ```bash
    bunx vitest run --no-file-parallelism
    ```
 
 3. **justfile コマンドを使用** (ラッパースクリプトが exit code を正しく処理):
+
    ```bash
    just test-fast
    ```

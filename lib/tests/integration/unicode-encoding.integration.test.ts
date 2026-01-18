@@ -20,12 +20,10 @@ import type {
   UIMessageChunkFromAISDKv6,
   UIMessageFromAISDKv6,
 } from "../../utils";
-import { createTextResponse, setupMswServer } from "../helpers";
-
-// Create MSW server with standard lifecycle
-const server = setupMswServer();
+import { createTextResponse, useMswServer } from "../helpers";
 
 describe("Unicode and Encoding Integration Tests", () => {
+  const { getServer } = useMswServer();
   describe("Multibyte Character Encoding", () => {
     it.each([
       {
@@ -60,7 +58,7 @@ describe("Unicode and Encoding Integration Tests", () => {
       // given
       let capturedPayload: unknown = null;
 
-      server.use(
+      getServer().use(
         http.post(endpoint, async ({ request }) => {
           capturedPayload = await request.json();
           return createTextResponse(text); // Echo back same text
@@ -130,7 +128,7 @@ describe("Unicode and Encoding Integration Tests", () => {
       // given
       let capturedPayload: unknown = null;
 
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", async ({ request }) => {
           capturedPayload = await request.json();
           return createTextResponse(emoji);
@@ -201,7 +199,7 @@ describe("Unicode and Encoding Integration Tests", () => {
       // given
       let capturedPayload: unknown = null;
 
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", async ({ request }) => {
           capturedPayload = await request.json();
           return createTextResponse(`Echo: ${char}`);
@@ -256,7 +254,7 @@ describe("Unicode and Encoding Integration Tests", () => {
       // given
       let capturedPayload: unknown = null;
 
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", async ({ request }) => {
           capturedPayload = await request.json();
           return createTextResponse("OK");
@@ -310,7 +308,7 @@ describe("Unicode and Encoding Integration Tests", () => {
       // given
       let capturedPayload: unknown = null;
 
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", async ({ request }) => {
           capturedPayload = await request.json();
           return createTextResponse("Received code");
@@ -369,7 +367,7 @@ describe("Unicode and Encoding Integration Tests", () => {
       // given
       let capturedPayload: unknown = null;
 
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", async ({ request }) => {
           capturedPayload = await request.json();
           return createTextResponse("OK");
@@ -423,7 +421,7 @@ describe("Unicode and Encoding Integration Tests", () => {
       // given
       let capturedPayload: unknown = null;
 
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", async ({ request }) => {
           capturedPayload = await request.json();
           return createTextResponse("OK");
@@ -477,7 +475,7 @@ describe("Unicode and Encoding Integration Tests", () => {
       // given
       let capturedPayload: unknown = null;
 
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", async ({ request }) => {
           capturedPayload = await request.json();
           return createTextResponse("Whitespace received");
@@ -532,7 +530,7 @@ describe("Unicode and Encoding Integration Tests", () => {
       // given
       let capturedPayload: unknown = null;
 
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", async ({ request }) => {
           capturedPayload = await request.json();
           return createTextResponse("Received JSON");

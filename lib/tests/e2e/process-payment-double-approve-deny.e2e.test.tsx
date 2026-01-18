@@ -16,13 +16,13 @@
 
 import { useChat } from "@ai-sdk/react";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { buildUseChatOptions } from "../../bidi";
 import {
   createBidiWebSocketLink,
   createCustomHandler,
-} from "../helpers/bidi-ws-handlers";
-import { createMswServer } from "../shared-mocks/msw-server";
+  useMswServer,
+} from "../helpers";
 
 // Helper to extract text from message
 function getMessageText(message: any): string {
@@ -33,27 +33,23 @@ function getMessageText(message: any): string {
     .join("");
 }
 
-// Create MSW server for WebSocket interception
-const server = createMswServer();
-
 // Track transport instances for cleanup
 let currentTransport: any = null;
 
-beforeAll(() => server.listen({ onUnhandledRequest: "warn" }));
-afterEach(() => {
+afterEach(async () => {
   if (currentTransport) {
     try {
-      currentTransport._close();
+      await currentTransport._close();
     } catch (error) {
       console.error("Error closing transport:", error);
     }
     currentTransport = null;
   }
-  server.resetHandlers();
 });
-afterAll(() => server.close());
 
 describe("Process Payment Double - Approve×Deny Pattern", () => {
+  const { getServer } = useMswServer();
+
   it("should handle Alice approve + Bob deny (BIDI mode)", async () => {
     // Given: Backend sends two approval requests sequentially
     const chat = createBidiWebSocketLink();
@@ -61,7 +57,7 @@ describe("Process Payment Double - Approve×Deny Pattern", () => {
     let bobApprovalReceived = false;
     let finalResponseReceived = false;
 
-    server.use(
+    getServer().use(
       createCustomHandler(chat, ({ server: _server, client }) => {
         client.addEventListener("error", (error) => {
           console.error("[Test] WebSocket error:", error);

@@ -21,16 +21,8 @@ import {
   createBidiWebSocketLink,
   createConfirmationRequestHandler,
   createCustomHandler,
-  setupMswServer,
+  useMswServer,
 } from "../helpers";
-
-// Create MSW server for WebSocket interception
-const server = setupMswServer({
-  onUnhandledRequest(request) {
-    if (request.url.includes("/live")) return;
-    console.error("Unhandled request:", request.method, request.url);
-  },
-});
 
 /**
  * Helper function to extract text content from UIMessageFromAISDKv6 parts
@@ -54,12 +46,19 @@ function findToolParts(message: UIMessageFromAISDKv6 | undefined) {
 }
 
 describe("Tool Execution E2E", () => {
+  const { getServer } = useMswServer({
+    onUnhandledRequest(request) {
+      if (request.url.includes("/live")) return;
+      console.error("Unhandled request:", request.method, request.url);
+    },
+  });
+
   describe("Auto-execution Tools", () => {
     it("should execute get_weather tool automatically", async () => {
       // Given: Setup handler that sends tool call and immediate result
       const chat = createBidiWebSocketLink();
 
-      server.use(
+      getServer().use(
         createCustomHandler(chat, ({ client }) => {
           client.addEventListener("message", (event) => {
             const data = JSON.parse(event.data as string);
@@ -150,7 +149,7 @@ describe("Tool Execution E2E", () => {
       // Given: Setup handler that sends tool error
       const chat = createBidiWebSocketLink();
 
-      server.use(
+      getServer().use(
         createCustomHandler(chat, ({ client }) => {
           client.addEventListener("message", (event) => {
             const data = JSON.parse(event.data as string);
@@ -207,7 +206,7 @@ describe("Tool Execution E2E", () => {
       const chat = createBidiWebSocketLink();
       let messageCount = 0;
 
-      server.use(
+      getServer().use(
         createCustomHandler(chat, ({ client }) => {
           client.addEventListener("message", (event) => {
             const data = JSON.parse(event.data as string);
@@ -301,7 +300,7 @@ describe("Tool Execution E2E", () => {
     it("should show approval UI for get_location", async () => {
       // Given: Setup handler that sends approval request
       const chat = createBidiWebSocketLink();
-      server.use(
+      getServer().use(
         createConfirmationRequestHandler(chat, {
           id: "tool-location-1",
           name: "get_location",
@@ -339,7 +338,7 @@ describe("Tool Execution E2E", () => {
       const chat = createBidiWebSocketLink();
       let approvalReceived = false;
 
-      server.use(
+      getServer().use(
         createCustomHandler(chat, ({ client }) => {
           client.addEventListener("message", (event) => {
             const data = JSON.parse(event.data as string);
@@ -451,7 +450,7 @@ describe("Tool Execution E2E", () => {
       // Given: Setup handler that never responds to approval
       const chat = createBidiWebSocketLink();
 
-      server.use(
+      getServer().use(
         createCustomHandler(chat, ({ client }) => {
           client.addEventListener("message", (event) => {
             const data = JSON.parse(event.data as string);
@@ -522,7 +521,7 @@ describe("Tool Execution E2E", () => {
       // Given: Setup handler that sends multiple approval requests
       const chat = createBidiWebSocketLink();
 
-      server.use(
+      getServer().use(
         createCustomHandler(chat, ({ client }) => {
           client.addEventListener("message", (event) => {
             const data = JSON.parse(event.data as string);
@@ -589,7 +588,7 @@ describe("Tool Execution E2E", () => {
       let toolSent = false;
       let toolResultReceived = false;
 
-      server.use(
+      getServer().use(
         createCustomHandler(chat, ({ client }) => {
           client.addEventListener("message", (event) => {
             const data = JSON.parse(event.data as string);
@@ -690,7 +689,7 @@ describe("Tool Execution E2E", () => {
       let toolSent = false;
       let errorHandled = false;
 
-      server.use(
+      getServer().use(
         createCustomHandler(chat, ({ client }) => {
           client.addEventListener("message", (event) => {
             const data = JSON.parse(event.data as string);
@@ -789,7 +788,7 @@ describe("Tool Execution E2E", () => {
       const chat = createBidiWebSocketLink();
       let phase = 0;
 
-      server.use(
+      getServer().use(
         createCustomHandler(chat, ({ client }) => {
           client.addEventListener("message", (event) => {
             const data = JSON.parse(event.data as string);
@@ -899,7 +898,7 @@ describe("Tool Execution E2E", () => {
         }));
       let toolSent = false;
 
-      server.use(
+      getServer().use(
         createCustomHandler(chat, ({ client }) => {
           client.addEventListener("message", (event) => {
             const data = JSON.parse(event.data as string);

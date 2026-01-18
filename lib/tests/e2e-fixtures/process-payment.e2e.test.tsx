@@ -20,7 +20,7 @@ import { buildUseChatOptions as buildSseUseChatOptions } from "../../sse";
 import type { UIMessageFromAISDKv6 } from "../../utils";
 import {
   createBidiWebSocketLink,
-  setupMswServer,
+  useMswServer,
 } from "../helpers";
 import {
   loadFixture,
@@ -39,18 +39,17 @@ import {
   getMessageText,
 } from "./helpers/approval-ui-assertions";
 
-// Create MSW server with custom handler for WebSocket requests
-const server = setupMswServer({
-  onUnhandledRequest(request) {
-    // Ignore WebSocket upgrade requests
-    if (request.url.includes("/live")) {
-      return;
-    }
-    console.error("Unhandled request:", request.method, request.url);
-  },
-});
-
 describe("process_payment Approval Flow - Fixture E2E Tests", () => {
+  // Create MSW server with custom handler for WebSocket requests
+  const { getServer } = useMswServer({
+    onUnhandledRequest(request) {
+      // Ignore WebSocket upgrade requests
+      if (request.url.includes("/live")) {
+        return;
+      }
+      console.error("Unhandled request:", request.method, request.url);
+    },
+  });
   describe("BIDI Mode", () => {
     describe("Approval Flow (process_payment-approved-bidi-baseline.json)", () => {
       const fixture = loadFixture("process_payment-approved-bidi-baseline.json");
@@ -60,7 +59,7 @@ describe("process_payment Approval Flow - Fixture E2E Tests", () => {
       it("should display approval UI when tool-approval-request is received", async () => {
         // Given: Setup BIDI handler from fixture
         const chat = createBidiWebSocketLink();
-        server.use(createBidiHandlerFromFixture(chat, fixture));
+        getServer().use(createBidiHandlerFromFixture(chat, fixture));
 
         const { useChatOptions } = buildBidiUseChatOptions({
           initialMessages: [] as UIMessageFromAISDKv6[],
@@ -99,7 +98,7 @@ describe("process_payment Approval Flow - Fixture E2E Tests", () => {
       it("should complete approval flow when user approves", async () => {
         // Given: Setup BIDI handler from fixture
         const chat = createBidiWebSocketLink();
-        server.use(createBidiHandlerFromFixture(chat, fixture));
+        getServer().use(createBidiHandlerFromFixture(chat, fixture));
 
         const { useChatOptions } = buildBidiUseChatOptions({
           initialMessages: [] as UIMessageFromAISDKv6[],
@@ -180,7 +179,7 @@ describe("process_payment Approval Flow - Fixture E2E Tests", () => {
 
         // Given: Setup BIDI handler from fixture
         const chat = createBidiWebSocketLink();
-        server.use(createBidiHandlerFromFixture(chat, fixture));
+        getServer().use(createBidiHandlerFromFixture(chat, fixture));
 
         const { useChatOptions } = buildBidiUseChatOptions({
           initialMessages: [] as UIMessageFromAISDKv6[],
@@ -244,7 +243,7 @@ describe("process_payment Approval Flow - Fixture E2E Tests", () => {
 
       it("should display approval UI when tool-approval-request is received", async () => {
         // Given: Setup SSE handler from fixture
-        server.use(createSseHandlerFromFixture(fixture));
+        getServer().use(createSseHandlerFromFixture(fixture));
 
         const { useChatOptions } = buildSseUseChatOptions({
           mode: "adk-sse",
@@ -281,7 +280,7 @@ describe("process_payment Approval Flow - Fixture E2E Tests", () => {
 
       it("should complete approval flow when user approves", async () => {
         // Given: Setup SSE handler from fixture
-        server.use(createSseHandlerFromFixture(fixture));
+        getServer().use(createSseHandlerFromFixture(fixture));
 
         const { useChatOptions } = buildSseUseChatOptions({
           mode: "adk-sse",
@@ -344,7 +343,7 @@ describe("process_payment Approval Flow - Fixture E2E Tests", () => {
         const fixture = loadFixture("process_payment-denied-sse-baseline.json");
 
         // Given: Setup SSE handler from fixture
-        server.use(createSseHandlerFromFixture(fixture));
+        getServer().use(createSseHandlerFromFixture(fixture));
 
         const { useChatOptions } = buildSseUseChatOptions({
           mode: "adk-sse",

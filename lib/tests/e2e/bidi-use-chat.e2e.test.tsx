@@ -28,26 +28,24 @@ import {
   findAllConfirmationParts,
   findConfirmationPart,
   getMessageText,
-  setupMswServer,
+  useMswServer,
 } from "../helpers";
 
-// Create MSW server for WebSocket interception with custom unhandled request handler
-const server = setupMswServer({
-  onUnhandledRequest(request) {
-    // Ignore WebSocket upgrade requests
-    if (request.url.includes("/live")) {
-      return;
-    }
-    console.error("Unhandled request:", request.method, request.url);
-  },
-});
-
 describe("BIDI Mode with useChat - E2E Tests", () => {
+  const { getServer } = useMswServer({
+    onUnhandledRequest(request) {
+      // Ignore WebSocket upgrade requests
+      if (request.url.includes("/live")) {
+        return;
+      }
+      console.error("Unhandled request:", request.method, request.url);
+    },
+  });
   describe("Test 1: Full BIDI Configuration with sendAutomaticallyWhen", () => {
     it("should use all lib/bidi options and trigger sendAutomaticallyWhen on confirmation", async () => {
       // Given: Setup MSW handler to send confirmation request
       const chat = createBidiWebSocketLink();
-      server.use(
+      getServer().use(
         createConfirmationRequestHandler(chat, {
           id: "orig-1",
           name: "dangerous_operation",
@@ -147,7 +145,7 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
     it("should work with basic message flow (no confirmation)", async () => {
       // Given: Setup WebSocket handler to send text response
       const chat = createBidiWebSocketLink();
-      server.use(createTextResponseHandler(chat, "Hello", " World!"));
+      getServer().use(createTextResponseHandler(chat, "Hello", " World!"));
 
       const config = {
         initialMessages: [] as UIMessageFromAISDKv6[],
@@ -182,7 +180,7 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
     it("should correctly process confirmation response payload", async () => {
       // Given: Setup MSW handler to send confirmation request
       const chat = createBidiWebSocketLink();
-      server.use(
+      getServer().use(
         createConfirmationRequestHandler(chat, {
           id: "test-1",
           name: "test_tool",
@@ -236,7 +234,7 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
       let firstConfirmationSent = false;
       let secondConfirmationSent = false;
 
-      server.use(
+      getServer().use(
         createCustomHandler(chat, ({ server: _server, client }) => {
           client.addEventListener("message", (event) => {
             // Early return for non-JSON messages (e.g., WebSocket handshake)
@@ -434,7 +432,7 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
     it("should preserve message history during confirmation flow", async () => {
       // Given: Setup MSW handler to send confirmation request
       const chat = createBidiWebSocketLink();
-      server.use(
+      getServer().use(
         createConfirmationRequestHandler(chat, {
           id: "new",
           name: "new_tool",
@@ -496,7 +494,7 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
       const chat = createBidiWebSocketLink();
       let requestCount = 0;
 
-      server.use(
+      getServer().use(
         createCustomHandler(chat, ({ server, client }) => {
           client.addEventListener("message", (_event) => {
             requestCount++;
@@ -594,7 +592,7 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
       let denialReceived = false;
       let finalResponseReceived = false;
 
-      server.use(
+      getServer().use(
         createCustomHandler(chat, ({ server: _server, client }) => {
           client.addEventListener("message", (event) => {
             // Early return for non-JSON messages (e.g., WebSocket handshake)
@@ -767,7 +765,7 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
 
       // Setup MSW to send confirmation
       const chat = createBidiWebSocketLink();
-      server.use(
+      getServer().use(
         createConfirmationRequestHandler(chat, {
           id: "spy-test-1",
           name: "test_operation",
@@ -856,7 +854,7 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
       let firstConfirmationSent = false;
       let secondConfirmationSent = false;
 
-      server.use(
+      getServer().use(
         createCustomHandler(chat, ({ server: _server, client }) => {
           client.addEventListener("message", (event) => {
             // Early return for non-JSON messages

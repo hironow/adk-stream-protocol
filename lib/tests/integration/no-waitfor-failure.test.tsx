@@ -39,40 +39,36 @@
 
 import { useChat } from "@ai-sdk/react";
 import { act, renderHook } from "@testing-library/react";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { buildUseChatOptions } from "../../bidi";
 import {
   createBidiWebSocketLink,
   createCustomHandler,
-} from "../helpers/bidi-ws-handlers";
-import { createMswServer } from "../shared-mocks/msw-server";
-
-// Create MSW server
-const server = createMswServer();
+  useMswServer,
+} from "../helpers";
 
 // Track transport instances
 let currentTransport: any = null;
 
-beforeAll(() => server.listen({ onUnhandledRequest: "warn" }));
-afterEach(() => {
+afterEach(async () => {
   if (currentTransport) {
     try {
-      currentTransport._close();
+      await currentTransport._close();
     } catch (error) {
       console.error("Error closing transport:", error);
     }
     currentTransport = null;
   }
-  server.resetHandlers();
 });
-afterAll(() => server.close());
 
 describe("ADR 0005: Failure Without waitFor", () => {
+  const { getServer } = useMswServer();
+
   it("WRONG: Accessing tool WITHOUT waitFor causes undefined error", async () => {
     // Given: Backend sends approval request
     const chat = createBidiWebSocketLink();
 
-    server.use(
+    getServer().use(
       createCustomHandler(chat, ({ server: _server, client }) => {
         client.addEventListener("message", async (event) => {
           if (typeof event.data !== "string" || !event.data.startsWith("{")) {
@@ -154,7 +150,7 @@ describe("ADR 0005: Failure Without waitFor", () => {
     // Given: Backend sends approval request
     const chat = createBidiWebSocketLink();
 
-    server.use(
+    getServer().use(
       createCustomHandler(chat, ({ server: _server, client }) => {
         client.addEventListener("message", async (event) => {
           if (typeof event.data !== "string" || !event.data.startsWith("{")) {

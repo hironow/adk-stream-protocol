@@ -19,30 +19,28 @@ import {
   createTextResponse,
   createTextResponseHandler,
   getMessageText,
-  setupMswServer,
+  useMswServer,
 } from "../helpers";
 
-// Create MSW server for WebSocket/HTTP interception
-const server = setupMswServer({
-  onUnhandledRequest(request) {
-    // Ignore WebSocket upgrade requests
-    if (request.url.includes("/live")) {
-      return;
-    }
-    // Ignore SSE requests that will be handled by specific tests
-    if (request.url.includes("/stream")) {
-      return;
-    }
-    console.error("Unhandled request:", request.method, request.url);
-  },
-});
-
 describe("Chat Flow E2E", () => {
+  const { getServer } = useMswServer({
+    onUnhandledRequest(request) {
+      // Ignore WebSocket upgrade requests
+      if (request.url.includes("/live")) {
+        return;
+      }
+      // Ignore SSE requests that will be handled by specific tests
+      if (request.url.includes("/stream")) {
+        return;
+      }
+      console.error("Unhandled request:", request.method, request.url);
+    },
+  });
   describe("ADK BIDI Mode", () => {
     it("should send user message and receive AI response", async () => {
       // Given: Setup MSW handler to send text response
       const chat = createBidiWebSocketLink();
-      server.use(createTextResponseHandler(chat, "Hello", " from", " AI!"));
+      getServer().use(createTextResponseHandler(chat, "Hello", " from", " AI!"));
 
       const config = {
         initialMessages: [] as UIMessageFromAISDKv6[],
@@ -80,7 +78,7 @@ describe("Chat Flow E2E", () => {
       const chat = createBidiWebSocketLink();
       let turnCount = 0;
 
-      server.use(
+      getServer().use(
         chat.addEventListener("connection", ({ server, client }) => {
           server.connect();
 
@@ -159,7 +157,7 @@ describe("Chat Flow E2E", () => {
       const chat = createBidiWebSocketLink();
       const streamedParts = ["This ", "is ", "a ", "streaming ", "response."];
 
-      server.use(
+      getServer().use(
         chat.addEventListener("connection", ({ server, client }) => {
           server.connect();
 
@@ -219,7 +217,7 @@ describe("Chat Flow E2E", () => {
   describe("ADK SSE Mode", () => {
     it("should send user message and receive AI response via SSE", async () => {
       // Given: Setup MSW handler for SSE endpoint
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", () => {
           return createTextResponse("SSE response received!");
         }),
@@ -259,7 +257,7 @@ describe("Chat Flow E2E", () => {
         .map((c, i) => c + i)
         .join("");
 
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", () => {
           return createTextResponse(longText);
         }),
@@ -303,7 +301,7 @@ describe("Chat Flow E2E", () => {
     it("should handle network disconnection gracefully", async () => {
       // Given: Setup MSW handler that closes connection
       const chat = createBidiWebSocketLink();
-      server.use(
+      getServer().use(
         chat.addEventListener("connection", ({ server, client }) => {
           server.connect();
 
@@ -343,7 +341,7 @@ describe("Chat Flow E2E", () => {
 
     it("should handle backend error responses", async () => {
       // Given: Setup MSW handler that returns error
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", () => {
           return new Response(
             JSON.stringify({ error: "Internal Server Error" }),
@@ -380,7 +378,7 @@ describe("Chat Flow E2E", () => {
     it("should handle timeout scenarios", async () => {
       // Given: Setup MSW handler that never responds
       const chat = createBidiWebSocketLink();
-      server.use(
+      getServer().use(
         chat.addEventListener("connection", ({ server }) => {
           server.connect();
           // Never send response - simulate timeout

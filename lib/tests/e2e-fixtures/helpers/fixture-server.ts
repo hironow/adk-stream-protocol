@@ -14,6 +14,7 @@ import {
   splitBidiEventsForApprovalFlow,
   splitSseEventsForApprovalFlow,
 } from "./fixture-loader";
+import { trackClient } from "../../helpers/bidi-ws-handlers";
 
 // ============================================================================
 // Constants
@@ -174,6 +175,9 @@ export function createBidiHandlerFromFixture(
   singleToolSentPhasesMap.set(fixtureId, new Set());
 
   return chat.addEventListener("connection", ({ server, client }) => {
+    // Track client for cleanup (prevents "Worker exited unexpectedly" errors)
+    trackClient(client);
+
     server.connect();
 
     client.addEventListener("message", (event) => {
@@ -260,6 +264,9 @@ export function createBidiStreamHandlerFromFixture(
   fixture: FixtureData,
 ) {
   return chat.addEventListener("connection", ({ server, client }) => {
+    // Track client for cleanup (prevents "Worker exited unexpectedly" errors)
+    trackClient(client);
+
     server.connect();
 
     client.addEventListener("message", (event) => {
@@ -348,6 +355,9 @@ export function createBidiSequentialApprovalHandler(
   sentPhasesMap.set(fixtureId, new Set());
 
   return chat.addEventListener("connection", ({ server, client }) => {
+    // Track client for cleanup (prevents "Worker exited unexpectedly" errors)
+    trackClient(client);
+
     server.connect();
 
     client.addEventListener("message", (event) => {

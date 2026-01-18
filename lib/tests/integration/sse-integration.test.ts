@@ -15,19 +15,17 @@ import type {
 import {
   createAdkConfirmationRequest,
   createTextResponse,
-  setupMswServer,
+  useMswServer,
 } from "../helpers";
 
-// Create MSW server with standard lifecycle
-const server = setupMswServer();
-
 describe("lib/sse Integration Tests", () => {
+  const { getServer } = useMswServer();
   describe("Gemini Mode - HTTP SSE Communication", () => {
     it("sends correct request payload to /api/chat endpoint", async () => {
       // given
       let capturedPayload: unknown = null;
 
-      server.use(
+      getServer().use(
         http.post("http://localhost/api/chat", async ({ request }) => {
           capturedPayload = await request.json();
           return createTextResponse("Hello", " World");
@@ -111,7 +109,7 @@ describe("lib/sse Integration Tests", () => {
       let capturedPayload: unknown = null;
       let capturedEndpoint: string | null = null;
 
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", async ({ request }) => {
           capturedEndpoint = request.url;
           capturedPayload = await request.json();
@@ -181,7 +179,7 @@ describe("lib/sse Integration Tests", () => {
   describe("ADK SSE Mode - Confirmation Flow", () => {
     it("handles adk_request_confirmation tool invocation and response", async () => {
       // given
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", async () => {
           return createAdkConfirmationRequest({
             originalFunctionCall: {

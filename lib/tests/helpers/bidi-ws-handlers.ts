@@ -14,6 +14,12 @@ import { ws } from "msw";
 export const DEFAULT_BIDI_WS_URL = "ws://localhost:8000/live";
 
 /**
+ * Track active WebSocket clients for cleanup
+ * This is necessary because MSW's server.close() doesn't close WebSocket connections
+ */
+const activeClients: Set<WebSocket> = new Set();
+
+/**
  * Create WebSocket link for BIDI tests
  *
  * @param url - WebSocket URL to intercept (defaults to DEFAULT_BIDI_WS_URL)
@@ -28,6 +34,40 @@ export const DEFAULT_BIDI_WS_URL = "ws://localhost:8000/live";
  */
 export function createBidiWebSocketLink(url: string = DEFAULT_BIDI_WS_URL) {
   return ws.link(url);
+}
+
+/**
+ * Close all active WebSocket clients and clear tracking
+ *
+ * IMPORTANT: This must be called in afterAll() to prevent
+ * "Worker exited unexpectedly" errors caused by unclosed WebSocket connections.
+ * MSW's server.close() does NOT close WebSocket connections automatically.
+ */
+export function clearBidiWebSocketLinks() {
+  for (const client of activeClients) {
+    try {
+      if (client.readyState === WebSocket.OPEN || client.readyState === WebSocket.CONNECTING) {
+        client.close();
+      }
+    } catch {
+      // Ignore errors during cleanup
+    }
+  }
+  activeClients.clear();
+}
+
+/**
+ * Track a WebSocket client for cleanup
+ *
+ * Call this at the start of every WebSocket connection handler.
+ * @param client - The WebSocket client to track
+ */
+export function trackClient(client: WebSocket): void {
+  activeClients.add(client);
+  // Auto-remove when closed
+  client.addEventListener("close", () => {
+    activeClients.delete(client);
+  });
 }
 
 /**
@@ -55,6 +95,9 @@ export function createTextResponseHandler(
       "[MSW WebSocket] Connection established, sending text deltas:",
       textParts,
     );
+
+    // Track client for cleanup
+    trackClient(client);
 
     // Establish mock server connection
     server.connect();
@@ -149,6 +192,9 @@ export function createConfirmationRequestHandler(
   approvalId: string = "approval-1",
 ) {
   return chat.addEventListener("connection", ({ server, client }) => {
+    // Track client for cleanup
+    trackClient(client);
+
     // Establish mock server connection
     server.connect();
 
@@ -295,6 +341,9 @@ export function createEchoHandler(
   responsePrefix: string = "",
 ) {
   return chat.addEventListener("connection", ({ server, client }) => {
+    // Track client for cleanup
+    trackClient(client);
+
     // Establish mock server connection
     server.connect();
 
@@ -347,6 +396,9 @@ export function createCustomHandler(
   handler: (connection: { client: WebSocket; server: WebSocket }) => void,
 ) {
   return chat.addEventListener("connection", ({ server, client }) => {
+    // Track client for cleanup
+    trackClient(client);
+
     // Establish mock server connection
     server.connect();
 

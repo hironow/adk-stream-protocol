@@ -118,7 +118,9 @@
       "Bash(bun run tsc:*)",
       "Bash(bun next build:*)",
       "Bash(bun run build:only:*)",
-      "Bash(timeout 15 bun run dev:*)"
+      "Bash(timeout 15 bun run dev:*)",
+      "Bash(node --version:*)",
+      "Bash(bun:*)"
     ],
     "deny": [
       "Read(.env.keys)",

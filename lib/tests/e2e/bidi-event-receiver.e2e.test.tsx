@@ -14,22 +14,17 @@
 
 import { useChat } from "@ai-sdk/react";
 import { renderHook, waitFor } from "@testing-library/react";
-import { setupServer } from "msw/node";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { buildUseChatOptions } from "@/lib/build-use-chat-options";
 import {
   createBidiWebSocketLink,
   createCustomHandler,
-} from "@/lib/tests/helpers/bidi-ws-handlers";
+  useMswServer,
+} from "@/lib/tests/helpers";
 import type { UIMessageFromAISDKv6 } from "@/lib/utils";
 
-/**
- * MSW server for WebSocket mocking
- */
-const server = setupServer();
-
-beforeAll(() => {
-  server.listen({
+describe("BIDI EventReceiver - E2E Tests", () => {
+  const { getServer } = useMswServer({
     onUnhandledRequest(request) {
       // Ignore WebSocket upgrade requests
       if (request.url.includes("/live")) {
@@ -38,17 +33,6 @@ beforeAll(() => {
       console.error("Unhandled request:", request.method, request.url);
     },
   });
-});
-
-afterEach(() => {
-  server.resetHandlers();
-});
-
-afterAll(() => {
-  server.close();
-});
-
-describe("BIDI EventReceiver - E2E Tests", () => {
   describe("Audio Chunk Handling", () => {
     it("should handle PCM audio chunks and buffer them", async () => {
       // Given: MSW handler sends audio chunks
@@ -71,7 +55,7 @@ describe("BIDI EventReceiver - E2E Tests", () => {
         error: null,
       };
 
-      server.use(
+      getServer().use(
         createCustomHandler(chat, ({ server: _server, client }) => {
           client.addEventListener("message", () => {
             // Send PCM audio chunks using data-pcm format (BIDI protocol)
@@ -146,7 +130,7 @@ describe("BIDI EventReceiver - E2E Tests", () => {
         error: null,
       };
 
-      server.use(
+      getServer().use(
         createCustomHandler(chat, ({ server: _server, client }) => {
           client.addEventListener("message", () => {
             // Send minimal response
@@ -206,7 +190,7 @@ describe("BIDI EventReceiver - E2E Tests", () => {
         latencies.push(latency);
       };
 
-      server.use(
+      getServer().use(
         createCustomHandler(chat, ({ server: _server, client }) => {
           client.addEventListener("message", (event) => {
             const data = JSON.parse(event.data as string);
@@ -274,7 +258,7 @@ describe("BIDI EventReceiver - E2E Tests", () => {
       // Given: MSW handler sends malformed data
       const chat = createBidiWebSocketLink();
 
-      server.use(
+      getServer().use(
         createCustomHandler(chat, ({ server: _server, client }) => {
           client.addEventListener("message", () => {
             // Send malformed SSE (invalid JSON)
@@ -335,7 +319,7 @@ describe("BIDI EventReceiver - E2E Tests", () => {
         originalWarn(...args);
       };
 
-      server.use(
+      getServer().use(
         createCustomHandler(chat, ({ server: _server, client }) => {
           client.addEventListener("message", () => {
             // Send non-SSE message (should trigger warning)
@@ -401,7 +385,7 @@ describe("BIDI EventReceiver - E2E Tests", () => {
       // Given: MSW handler for multiple messages
       const chat = createBidiWebSocketLink();
 
-      server.use(
+      getServer().use(
         createCustomHandler(chat, ({ server: _server, client }) => {
           client.addEventListener("message", () => {
             const textId = `text-${Date.now()}`;

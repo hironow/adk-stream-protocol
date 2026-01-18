@@ -22,24 +22,22 @@ import { http } from "msw";
 import { describe, expect, it } from "vitest";
 import { buildUseChatOptions as buildSseOptions } from "../../sse";
 import type { UIMessageFromAISDKv6 } from "../../utils";
-import { createTextResponse, getMessageText, setupMswServer } from "../helpers";
-
-// Create MSW server for WebSocket/HTTP interception
-const server = setupMswServer({
-  onUnhandledRequest(request) {
-    // Ignore WebSocket upgrade requests
-    if (request.url.includes("/live")) {
-      return;
-    }
-    // Ignore SSE requests that will be handled by specific tests
-    if (request.url.includes("/stream")) {
-      return;
-    }
-    console.error("Unhandled request:", request.method, request.url);
-  },
-});
+import { createTextResponse, getMessageText, useMswServer } from "../helpers";
 
 describe("Error Handling E2E", () => {
+  const { getServer } = useMswServer({
+    onUnhandledRequest(request) {
+      // Ignore WebSocket upgrade requests
+      if (request.url.includes("/live")) {
+        return;
+      }
+      // Ignore SSE requests that will be handled by specific tests
+      if (request.url.includes("/stream")) {
+        return;
+      }
+      console.error("Unhandled request:", request.method, request.url);
+    },
+  });
   describe("Network Errors", () => {
     it.skip("should handle WebSocket disconnection during chat", async () => {
       // Skip: BIDI WebSocket disconnection testing requires more sophisticated
@@ -50,7 +48,7 @@ describe("Error Handling E2E", () => {
 
     it("should handle SSE connection loss", async () => {
       // Given: SSE endpoint that returns incomplete stream
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", () => {
           // Create a stream that ends abruptly
           const encoder = new TextEncoder();
@@ -99,7 +97,7 @@ describe("Error Handling E2E", () => {
 
     it("should handle HTTP request failures", async () => {
       // Given: SSE endpoint that returns network error
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", () => {
           return Response.error();
         }),
@@ -137,7 +135,7 @@ describe("Error Handling E2E", () => {
   describe("Backend Errors", () => {
     it("should handle backend server errors (500)", async () => {
       // Given: SSE endpoint that returns 500
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", () => {
           return new Response(
             JSON.stringify({ error: "Internal Server Error" }),
@@ -173,7 +171,7 @@ describe("Error Handling E2E", () => {
 
     it("should handle authentication errors (401)", async () => {
       // Given: SSE endpoint that returns 401
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", () => {
           return new Response(JSON.stringify({ error: "Unauthorized" }), {
             status: 401,
@@ -206,7 +204,7 @@ describe("Error Handling E2E", () => {
 
     it("should handle rate limiting (429)", async () => {
       // Given: SSE endpoint that returns 429
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", () => {
           return new Response(
             JSON.stringify({ error: "Rate limit exceeded" }),
@@ -245,7 +243,7 @@ describe("Error Handling E2E", () => {
 
     it("should handle malformed backend responses", async () => {
       // Given: SSE endpoint that returns invalid JSON
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", () => {
           const encoder = new TextEncoder();
           const stream = new ReadableStream({
@@ -306,7 +304,7 @@ describe("Error Handling E2E", () => {
 
     it("should handle streaming that stops mid-way", async () => {
       // Given: SSE that sends partial data then stalls
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", () => {
           const encoder = new TextEncoder();
           const textId = `text-${Date.now()}`;
@@ -392,7 +390,7 @@ describe("Error Handling E2E", () => {
     it("should recover and send new message after error", async () => {
       // Given: First request fails, second succeeds
       let requestCount = 0;
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", () => {
           requestCount++;
           if (requestCount === 1) {
@@ -457,7 +455,7 @@ describe("Error Handling E2E", () => {
         },
       ];
 
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", () => {
           return new Response(JSON.stringify({ error: "Server Error" }), {
             status: 500,
@@ -507,7 +505,7 @@ describe("Error Handling E2E", () => {
   describe("User Experience", () => {
     it("should capture error with message", async () => {
       // Given: SSE endpoint that returns error with message
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", () => {
           return new Response(
             JSON.stringify({ error: "Service temporarily unavailable" }),
@@ -545,7 +543,7 @@ describe("Error Handling E2E", () => {
 
     it("should handle stream error event", async () => {
       // Given: SSE endpoint that sends error event in stream
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", () => {
           const encoder = new TextEncoder();
           const stream = new ReadableStream({

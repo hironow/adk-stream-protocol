@@ -25,7 +25,7 @@ import { isApprovalRequestedTool, isTextUIPartFromAISDKv6 } from "../../utils";
 import {
   createBidiWebSocketLink,
   createCustomHandler,
-  setupMswServer,
+  useMswServer,
 } from "../helpers";
 
 /**
@@ -41,10 +41,8 @@ function getMessageText(message: UIMessageFromAISDKv6 | undefined): string {
     .join("");
 }
 
-// Create MSW server for WebSocket interception with standard lifecycle
-const server = setupMswServer({ onUnhandledRequest: "warn" });
-
 describe("Multi-Tool Execution E2E Tests", () => {
+  const { getServer } = useMswServer({ onUnhandledRequest: "warn" });
   describe("Sequential Tool Execution with Confirmations", () => {
     it("should execute multiple tools in sequence with approvals", async () => {
       // given
@@ -52,7 +50,7 @@ describe("Multi-Tool Execution E2E Tests", () => {
       let tool1Sent = false;
       let tool2Sent = false;
 
-      server.use(
+      getServer().use(
         createCustomHandler(chat, ({ server: _server, client }) => {
           client.addEventListener("message", (event) => {
             // Early return for non-JSON messages (e.g., WebSocket handshake)
@@ -331,7 +329,7 @@ describe("Multi-Tool Execution E2E Tests", () => {
       let tool1Sent = false;
       let tool2Sent = false;
 
-      server.use(
+      getServer().use(
         createCustomHandler(chat, ({ server: _server, client }) => {
           client.addEventListener("message", (event) => {
             // Early return for non-JSON messages (e.g., WebSocket handshake)
@@ -599,7 +597,7 @@ describe("Multi-Tool Execution E2E Tests", () => {
       const chat = createBidiWebSocketLink();
       const messagesSent: any[] = [];
 
-      server.use(
+      getServer().use(
         createCustomHandler(chat, ({ server: _server, client }) => {
           client.addEventListener("message", (event) => {
             const data = JSON.parse(event.data as string);

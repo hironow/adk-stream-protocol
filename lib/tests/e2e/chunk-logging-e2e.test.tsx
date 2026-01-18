@@ -27,7 +27,7 @@ import {
   createBidiWebSocketLink,
   createCustomHandler,
   createTextResponseHandler,
-  setupMswServer,
+  useMswServer,
 } from "../helpers";
 
 /**
@@ -43,20 +43,18 @@ function getMessageText(message: UIMessageFromAISDKv6 | undefined): string {
     .join("");
 }
 
-// Create MSW server for WebSocket interception with standard lifecycle
-const server = setupMswServer({ onUnhandledRequest: "warn" });
-
-// Additional cleanup: Clear chunk logger after each test
-afterEach(() => {
-  chunkLogger.clear();
-});
-
 describe("ChunkLogging E2E Tests", () => {
+  const { getServer } = useMswServer({ onUnhandledRequest: "warn" });
+
+  // Additional cleanup: Clear chunk logger after each test
+  afterEach(() => {
+    chunkLogger.clear();
+  });
   describe("BIDI Mode - ChunkLogging with Real WebSocket", () => {
     it("should log all chunks in BIDI mode with real WebSocket flow", async () => {
       // given
       const chat = createBidiWebSocketLink();
-      server.use(createTextResponseHandler(chat, "Hello", " ", "World"));
+      getServer().use(createTextResponseHandler(chat, "Hello", " ", "World"));
 
       const { useChatOptions, transport } = buildUseChatOptions({
         initialMessages: [],
@@ -122,7 +120,7 @@ describe("ChunkLogging E2E Tests", () => {
     it("should log chunks with correct sequence numbers", async () => {
       // given
       const chat = createBidiWebSocketLink();
-      server.use(createTextResponseHandler(chat, "First", "Second", "Third"));
+      getServer().use(createTextResponseHandler(chat, "First", "Second", "Third"));
 
       const { useChatOptions, transport } = buildUseChatOptions({
         initialMessages: [],
@@ -177,7 +175,7 @@ describe("ChunkLogging E2E Tests", () => {
     it("should log chunks with correct location and direction metadata", async () => {
       // given
       const chat = createBidiWebSocketLink();
-      server.use(createTextResponseHandler(chat, "Test"));
+      getServer().use(createTextResponseHandler(chat, "Test"));
 
       const { useChatOptions, transport } = buildUseChatOptions({
         initialMessages: [],
@@ -227,7 +225,7 @@ describe("ChunkLogging E2E Tests", () => {
       const chat = createBidiWebSocketLink();
       let messageCount = 0;
 
-      server.use(
+      getServer().use(
         createCustomHandler(chat, ({ client }) => {
           client.addEventListener("message", () => {
             messageCount++;
@@ -318,7 +316,7 @@ describe("ChunkLogging E2E Tests", () => {
     it("should be able to export logged chunks for replay", async () => {
       // given
       const chat = createBidiWebSocketLink();
-      server.use(createTextResponseHandler(chat, "Export", "Test"));
+      getServer().use(createTextResponseHandler(chat, "Export", "Test"));
 
       const { useChatOptions, transport } = buildUseChatOptions({
         initialMessages: [],

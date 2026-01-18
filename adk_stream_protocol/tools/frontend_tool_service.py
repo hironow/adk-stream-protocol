@@ -7,11 +7,11 @@ It decouples tool execution logic from transport layer (WebSocket/SSE handlers).
 Layer Position:
     Frontend (Browser)
         ↕ WebSocket/SSE Protocol
-    Transport Layer (server.py - routing only)
+    Transport Layer (routing only)
         ↓ delegates to
     **Services Layer (this module)**
         ↓ uses
-    Protocol Conversion (stream_protocol.py, IDMapper)
+    Protocol Conversion (IDMapper)
         ↓
     ADK Layer
 

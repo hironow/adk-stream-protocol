@@ -618,6 +618,7 @@ const transport = new ChunkLoggingTransport(delegate, mode);
 **Status**: Tests skipped. This is a BIDI mode specific issue, not related to Frontend Execute pattern.
 
 **Workaround**:
+
 - Use SSE mode for sequential tool testing (SSE mode passes)
 - Or test each tool call in a fresh browser session
 
@@ -632,6 +633,7 @@ const transport = new ChunkLoggingTransport(delegate, mode);
 **Status**: Test skipped due to Playwright limitation.
 
 **Manual Testing**:
+
 1. Open the app in a real browser (not headless)
 2. Request location: "現在地を取得してください"
 3. Click Approve on the tool approval dialog
@@ -639,6 +641,7 @@ const transport = new ChunkLoggingTransport(delegate, mode);
 5. Verify error is handled gracefully without infinite loop
 
 **Alternative Approach** (not implemented):
+
 - Mock `navigator.geolocation` via `page.addInitScript()` to return a permission error
 - This would make the test deterministic but less realistic
 
@@ -663,6 +666,7 @@ await waitForFrontendExecuteComplete(page);
 ```
 
 **Affected Tools**:
+
 - `get_location` - Browser Geolocation API
 - `change_bgm` - Audio context track switching
 

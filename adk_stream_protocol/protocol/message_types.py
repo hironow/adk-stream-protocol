@@ -734,7 +734,7 @@ def process_chat_message_for_bidi(
 
     Responsibility Separation:
     - This function: AI SDK v6 message processing (protocol layer)
-    - Caller (server.py): ADK LiveRequestQueue operations (transport layer)
+    - Caller (server): ADK LiveRequestQueue operations (transport layer)
 
     Args:
         message_data: Message data from WebSocket event (AI SDK v6 format)

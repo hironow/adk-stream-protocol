@@ -27,25 +27,23 @@ import {
   createTextResponse,
   createTextResponseHandler,
   getMessageText,
-  setupMswServer,
+  useMswServer,
 } from "../helpers";
 
-// Create MSW server for WebSocket/HTTP interception
-const server = setupMswServer({
-  onUnhandledRequest(request) {
-    // Ignore WebSocket upgrade requests
-    if (request.url.includes("/live")) {
-      return;
-    }
-    // Ignore SSE requests that will be handled by specific tests
-    if (request.url.includes("/stream")) {
-      return;
-    }
-    console.error("Unhandled request:", request.method, request.url);
-  },
-});
-
 describe("Mode Switching E2E", () => {
+  const { getServer } = useMswServer({
+    onUnhandledRequest(request) {
+      // Ignore WebSocket upgrade requests
+      if (request.url.includes("/live")) {
+        return;
+      }
+      // Ignore SSE requests that will be handled by specific tests
+      if (request.url.includes("/stream")) {
+        return;
+      }
+      console.error("Unhandled request:", request.method, request.url);
+    },
+  });
   describe("Gemini ↔ SSE Transitions", () => {
     it.skip("should switch from Gemini to SSE mode", async () => {
       // Skip: Gemini Direct mode uses different API endpoint and schema
@@ -62,7 +60,7 @@ describe("Mode Switching E2E", () => {
   describe("SSE ↔ BIDI Transitions", () => {
     it("should preserve history when switching from SSE to BIDI mode", async () => {
       // Given: Setup SSE handler
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", () => {
           return createTextResponse("SSE response from server");
         }),
@@ -333,7 +331,7 @@ describe("Mode Switching E2E", () => {
     it("should continue with pending messages after mode switch", async () => {
       // Given: Setup handlers
       const chat = createBidiWebSocketLink();
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", () => {
           return createTextResponse("SSE processed pending");
         }),
@@ -404,7 +402,7 @@ describe("Mode Switching E2E", () => {
     it("should preserve history when BIDI connection fails", async () => {
       // Given: Setup SSE handler (BIDI will fail to connect)
       const chat = createBidiWebSocketLink();
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", () => {
           return createTextResponse("SSE fallback response");
         }),

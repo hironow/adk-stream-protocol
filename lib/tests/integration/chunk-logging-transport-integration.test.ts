@@ -12,8 +12,7 @@
  * - Verify buildUseChatOptions returns ChunkLoggingTransport wrapper
  */
 
-import { setupServer } from "msw/node";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { WebSocketChatTransport } from "../../bidi/transport";
 import { buildBidiUseChatOptions } from "../../bidi/use-chat-options";
 import { ChunkLoggingTransport, chunkLogger } from "../../chunk_logs";
@@ -22,29 +21,20 @@ import type { UIMessageFromAISDKv6 } from "../../utils";
 import {
   createBidiWebSocketLink,
   createTextResponseHandler,
-} from "../helpers/bidi-ws-handlers";
-
-const server = setupServer();
-
-beforeAll(() => {
-  server.listen({ onUnhandledRequest: "error" });
-});
-
-afterEach(() => {
-  server.resetHandlers();
-  chunkLogger.clear();
-});
-
-afterAll(() => {
-  server.close();
-});
+  useMswServer,
+} from "../helpers";
 
 describe("ChunkLoggingTransport Integration Tests", () => {
+  const { getServer } = useMswServer({ onUnhandledRequest: "error" });
+
+  afterEach(() => {
+    chunkLogger.clear();
+  });
   describe("BIDI Mode - WebSocketChatTransport Wrapping", () => {
     it("should wrap WebSocketChatTransport and log all chunks", async () => {
       // given
       const chat = createBidiWebSocketLink();
-      server.use(createTextResponseHandler(chat, "Hello", " ", "World"));
+      getServer().use(createTextResponseHandler(chat, "Hello", " ", "World"));
 
       const wsTransport = new WebSocketChatTransport({
         url: "ws://localhost:8000/live",
@@ -97,7 +87,7 @@ describe("ChunkLoggingTransport Integration Tests", () => {
     it("should verify buildBidiUseChatOptions returns ChunkLoggingTransport wrapper", async () => {
       // given
       const chat = createBidiWebSocketLink();
-      server.use(createTextResponseHandler(chat, "Test"));
+      getServer().use(createTextResponseHandler(chat, "Test"));
 
       // when
       const { useChatOptions, transport } = buildBidiUseChatOptions({
@@ -138,7 +128,7 @@ describe("ChunkLoggingTransport Integration Tests", () => {
     it("should log chunks with correct sequence numbers for BIDI mode", async () => {
       // given
       const chat = createBidiWebSocketLink();
-      server.use(createTextResponseHandler(chat, "First", "Second", "Third"));
+      getServer().use(createTextResponseHandler(chat, "First", "Second", "Third"));
 
       const wsTransport = new WebSocketChatTransport({
         url: "ws://localhost:8000/live",
@@ -216,7 +206,7 @@ describe("ChunkLoggingTransport Integration Tests", () => {
     it("should log chunks with correct mode metadata for different transport types", async () => {
       // given
       const chat = createBidiWebSocketLink();
-      server.use(createTextResponseHandler(chat, "Test"));
+      getServer().use(createTextResponseHandler(chat, "Test"));
 
       const wsTransport = new WebSocketChatTransport({
         url: "ws://localhost:8000/live",
@@ -267,7 +257,7 @@ describe("ChunkLoggingTransport Integration Tests", () => {
       // given
       const chat = createBidiWebSocketLink();
       const expectedTexts = ["Hello", " ", "World", "!"];
-      server.use(createTextResponseHandler(chat, ...expectedTexts));
+      getServer().use(createTextResponseHandler(chat, ...expectedTexts));
 
       const wsTransport = new WebSocketChatTransport({
         url: "ws://localhost:8000/live",

@@ -21,12 +21,10 @@ import type {
   UIMessageChunkFromAISDKv6,
   UIMessageFromAISDKv6,
 } from "../../utils";
-import { createTextResponse, setupMswServer } from "../helpers";
-
-// Create MSW server with standard lifecycle
-const server = setupMswServer();
+import { createTextResponse, useMswServer } from "../helpers";
 
 describe("Message Processing Integration Tests", () => {
+  const { getServer } = useMswServer();
   describe("Basic Message Send/Receive", () => {
     it.each([
       {
@@ -47,7 +45,7 @@ describe("Message Processing Integration Tests", () => {
       // given
       let capturedPayload: unknown = null;
 
-      server.use(
+      getServer().use(
         http.post(endpoint, async ({ request }) => {
           capturedPayload = await request.json();
           return createTextResponse("こんにちは", "世界");
@@ -135,7 +133,7 @@ describe("Message Processing Integration Tests", () => {
       // given
       let capturedPayload: unknown = null;
 
-      server.use(
+      getServer().use(
         http.post(endpoint, async ({ request }) => {
           capturedPayload = await request.json();
           return createTextResponse("Response to follow-up");
@@ -229,7 +227,7 @@ describe("Message Processing Integration Tests", () => {
       config,
     }) => {
       // given
-      server.use(
+      getServer().use(
         http.post(endpoint, async () => {
           return createTextResponse(""); // Empty response
         }),
@@ -290,7 +288,7 @@ describe("Message Processing Integration Tests", () => {
       // given
       let capturedPayload: unknown = null;
 
-      server.use(
+      getServer().use(
         http.post(endpoint, async ({ request }) => {
           capturedPayload = await request.json();
           return createTextResponse("Received");
@@ -358,7 +356,7 @@ describe("Message Processing Integration Tests", () => {
       config,
     }) => {
       // given
-      server.use(
+      getServer().use(
         http.post(endpoint, async () => {
           return createTextResponse("First ", "chunk. ", "Second ", "chunk.");
         }),

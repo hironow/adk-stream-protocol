@@ -27,7 +27,7 @@ import {
 import {
   createAdkConfirmationRequest,
   createTextResponse,
-  setupMswServer,
+  useMswServer,
 } from "../helpers";
 
 /**
@@ -43,17 +43,15 @@ function getMessageText(message: UIMessageFromAISDKv6 | undefined): string {
     .join("");
 }
 
-// Create MSW server for HTTP interception with standard lifecycle
-const server = setupMswServer();
-
 describe("SSE Mode - Frontend Execute Pattern", () => {
+  const { getServer } = useMswServer();
   describe("Single Tool Frontend Execution", () => {
     it("should execute tool on frontend and send result with addToolOutput", async () => {
       // Given: Backend sends confirmation, frontend executes, sends result
       let requestCount = 0;
       let toolResultReceived = false;
 
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", async ({ request }) => {
           requestCount++;
           const payload = (await request.json()) as any;
@@ -229,7 +227,7 @@ describe("SSE Mode - Frontend Execute Pattern", () => {
       // Given: Frontend execution fails
       let requestCount = 0;
 
-      server.use(
+      getServer().use(
         http.post(
           "http://localhost:8000/stream",
           async ({ request: _request }) => {
@@ -343,7 +341,7 @@ describe("SSE Mode - Frontend Execute Pattern", () => {
       // Given: User denies permission
       let requestCount = 0;
 
-      server.use(
+      getServer().use(
         http.post(
           "http://localhost:8000/stream",
           async ({ request: _request }) => {

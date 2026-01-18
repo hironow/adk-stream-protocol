@@ -18,7 +18,7 @@ import { buildUseChatOptions as buildSseUseChatOptions } from "../../sse";
 import type { UIMessageFromAISDKv6 } from "../../utils";
 import {
   createBidiWebSocketLink,
-  setupMswServer,
+  useMswServer,
 } from "../helpers";
 import {
   loadFixture,
@@ -37,18 +37,17 @@ import {
   assertMultipleApprovalsDisplayed,
 } from "./helpers/approval-ui-assertions";
 
-// Create MSW server with custom handler for WebSocket requests
-const server = setupMswServer({
-  onUnhandledRequest(request) {
-    // Ignore WebSocket upgrade requests
-    if (request.url.includes("/live")) {
-      return;
-    }
-    console.error("Unhandled request:", request.method, request.url);
-  },
-});
-
 describe("Multiple Payments Approval Flow - Fixture E2E Tests", () => {
+  // Create MSW server with custom handler for WebSocket requests
+  const { getServer } = useMswServer({
+    onUnhandledRequest(request) {
+      // Ignore WebSocket upgrade requests
+      if (request.url.includes("/live")) {
+        return;
+      }
+      console.error("Unhandled request:", request.method, request.url);
+    },
+  });
   describe("BIDI Mode - Sequential Execution (ADR 0003)", () => {
     describe("Sequential Approval Flow (multiple-payments-sequential-bidi-baseline.json)", () => {
       const fixture = loadFixture("multiple-payments-sequential-bidi-baseline.json");
@@ -62,7 +61,7 @@ describe("Multiple Payments Approval Flow - Fixture E2E Tests", () => {
       it("should display Alice approval first, then Bob after Alice is approved", async () => {
         // Given: Setup BIDI sequential handler from fixture
         const chat = createBidiWebSocketLink();
-        server.use(createBidiSequentialApprovalHandler(chat, fixture));
+        getServer().use(createBidiSequentialApprovalHandler(chat, fixture));
 
         const { useChatOptions } = buildBidiUseChatOptions({
           initialMessages: [] as UIMessageFromAISDKv6[],
@@ -182,7 +181,7 @@ describe("Multiple Payments Approval Flow - Fixture E2E Tests", () => {
 
       it("should display both approval requests simultaneously", async () => {
         // Given: Setup SSE parallel handler from fixture
-        server.use(createSseParallelApprovalHandler(fixture));
+        getServer().use(createSseParallelApprovalHandler(fixture));
 
         const { useChatOptions } = buildSseUseChatOptions({
           mode: "adk-sse",
@@ -221,7 +220,7 @@ describe("Multiple Payments Approval Flow - Fixture E2E Tests", () => {
 
       it("should complete both approvals when user approves all", async () => {
         // Given: Setup SSE parallel handler
-        server.use(createSseParallelApprovalHandler(fixture));
+        getServer().use(createSseParallelApprovalHandler(fixture));
 
         const { useChatOptions } = buildSseUseChatOptions({
           mode: "adk-sse",

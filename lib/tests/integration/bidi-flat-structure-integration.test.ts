@@ -25,33 +25,20 @@
  */
 
 import { ws } from "msw";
-import { setupServer } from "msw/node";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { WebSocketChatTransport } from "../../bidi/transport";
 import type { UIMessageFromAISDKv6 } from "../../utils";
-
-const server = setupServer();
-
-beforeAll(() => {
-  server.listen({ onUnhandledRequest: "error" });
-});
-
-afterEach(() => {
-  server.resetHandlers();
-});
-
-afterAll(() => {
-  server.close();
-});
+import { useMswServer } from "../helpers";
 
 describe("BIDI Flat Structure Integration Tests", () => {
+  const { getServer } = useMswServer({ onUnhandledRequest: "error" });
   describe("EventSender - Flat Structure Format", () => {
     it("should send MessageEvent in flat structure format (no nested data)", async () => {
       // given
       let capturedMessage: any = null;
 
       const chat = ws.link("ws://localhost:8000/live");
-      server.use(
+      getServer().use(
         chat.addEventListener("connection", ({ client }) => {
           client.addEventListener("message", (event) => {
             capturedMessage = JSON.parse(event.data as string);
@@ -118,7 +105,7 @@ describe("BIDI Flat Structure Integration Tests", () => {
       let capturedMessage: any = null;
 
       const chat = ws.link("ws://localhost:8000/live");
-      server.use(
+      getServer().use(
         chat.addEventListener("connection", ({ client }) => {
           client.addEventListener("message", (event) => {
             capturedMessage = JSON.parse(event.data as string);
@@ -186,7 +173,7 @@ describe("BIDI Flat Structure Integration Tests", () => {
       let capturedMessage: any = null;
 
       const chat = ws.link("ws://localhost:8000/live");
-      server.use(
+      getServer().use(
         chat.addEventListener("connection", ({ client }) => {
           client.addEventListener("message", (event) => {
             capturedMessage = JSON.parse(event.data as string);
@@ -271,7 +258,7 @@ describe("BIDI Flat Structure Integration Tests", () => {
       let capturedMessage: any = null;
 
       const chat = ws.link("ws://localhost:8000/live");
-      server.use(
+      getServer().use(
         chat.addEventListener("connection", ({ client }) => {
           client.addEventListener("message", (event) => {
             capturedMessage = JSON.parse(event.data as string);
@@ -335,7 +322,7 @@ describe("BIDI Flat Structure Integration Tests", () => {
       let capturedMessage: any = null;
 
       const chat = ws.link("ws://localhost:8000/live");
-      server.use(
+      getServer().use(
         chat.addEventListener("connection", ({ client }) => {
           client.addEventListener("message", (event) => {
             capturedMessage = JSON.parse(event.data as string);

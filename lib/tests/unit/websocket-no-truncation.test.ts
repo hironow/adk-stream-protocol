@@ -3,33 +3,17 @@
  * Uses MSW for WebSocket mocking
  */
 
-import { setupServer } from "msw/node";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { WebSocketChatTransport } from "../../bidi/transport";
 import type { UIMessageFromAISDKv6 } from "../../utils";
 import {
   createBidiWebSocketLink,
   createCustomHandler,
-} from "../helpers/bidi-ws-handlers";
-
-/**
- * MSW server for WebSocket mocking
- */
-const server = setupServer();
-
-beforeAll(() => {
-  server.listen({ onUnhandledRequest: "error" });
-});
-
-afterEach(() => {
-  server.resetHandlers();
-});
-
-afterAll(() => {
-  server.close();
-});
+  useMswServer,
+} from "../helpers";
 
 describe("WebSocketChatTransport - Message Preservation", () => {
+  const { getServer } = useMswServer({ onUnhandledRequest: "error" });
   it("should send ALL messages without truncation", async () => {
     // Given: Create a large number of messages (more than old limit of 50)
     const messages: UIMessageFromAISDKv6[] = Array.from(
@@ -46,7 +30,7 @@ describe("WebSocketChatTransport - Message Preservation", () => {
 
     // Set up MSW handler to capture sent message
     const chat = createBidiWebSocketLink();
-    server.use(
+    getServer().use(
       createCustomHandler(chat, ({ client }) => {
         client.addEventListener("message", (event) => {
           receivedData = JSON.parse(event.data as string);
@@ -118,7 +102,7 @@ describe("WebSocketChatTransport - Message Preservation", () => {
     let receivedData: any = null;
 
     const chat = createBidiWebSocketLink();
-    server.use(
+    getServer().use(
       createCustomHandler(chat, ({ client }) => {
         client.addEventListener("message", (event) => {
           receivedData = JSON.parse(event.data as string);
@@ -194,7 +178,7 @@ describe("WebSocketChatTransport - Message Preservation", () => {
     let receivedData: any = null;
 
     const chat = createBidiWebSocketLink();
-    server.use(
+    getServer().use(
       createCustomHandler(chat, ({ client }) => {
         client.addEventListener("message", (event) => {
           receivedData = JSON.parse(event.data as string);
@@ -284,7 +268,7 @@ describe("WebSocketChatTransport - Message Preservation", () => {
     let receivedData: any = null;
 
     const chat = createBidiWebSocketLink();
-    server.use(
+    getServer().use(
       createCustomHandler(chat, ({ client }) => {
         client.addEventListener("message", (event) => {
           receivedData = JSON.parse(event.data as string);
@@ -348,7 +332,7 @@ describe("WebSocketChatTransport - Message Preservation", () => {
     let receivedData: any = null;
 
     const chat = createBidiWebSocketLink();
-    server.use(
+    getServer().use(
       createCustomHandler(chat, ({ client }) => {
         client.addEventListener("message", (event) => {
           receivedData = JSON.parse(event.data as string);
@@ -394,7 +378,7 @@ describe("WebSocketChatTransport - Message Preservation", () => {
 
     // Reset for next test
     receivedData = null;
-    server.resetHandlers();
+    getServer().resetHandlers();
 
     // Medium payload (>500KB) - should still send successfully
     const mediumText = "x".repeat(100000); // 100KB per message
@@ -408,7 +392,7 @@ describe("WebSocketChatTransport - Message Preservation", () => {
         }) as UIMessageFromAISDKv6,
     );
 
-    server.use(
+    getServer().use(
       createCustomHandler(chat, ({ client }) => {
         client.addEventListener("message", (event) => {
           receivedData = JSON.parse(event.data as string);

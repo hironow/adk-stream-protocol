@@ -15,7 +15,7 @@
 
 import { useChat } from "@ai-sdk/react";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { buildUseChatOptions } from "../../bidi";
 import type { UIMessageFromAISDKv6 } from "../../utils";
 import {
@@ -26,8 +26,8 @@ import {
 import {
   createBidiWebSocketLink,
   createCustomHandler,
-} from "../helpers/bidi-ws-handlers";
-import { createMswServer } from "../shared-mocks/msw-server";
+  useMswServer,
+} from "../helpers";
 
 /**
  * Helper function to extract text content from UIMessageFromAISDKv6 parts
@@ -42,35 +42,31 @@ function getMessageText(message: UIMessageFromAISDKv6 | undefined): string {
     .join("");
 }
 
-// Create MSW server for WebSocket interception
-const server = createMswServer();
-
 // Track transport instances for cleanup
 let currentTransport: any = null;
 
-beforeAll(() => server.listen({ onUnhandledRequest: "warn" }));
-afterEach(() => {
+afterEach(async () => {
   // Ensure WebSocket cleanup even if test fails
   if (currentTransport) {
     try {
-      currentTransport._close();
+      await currentTransport._close();
     } catch (error) {
       console.error("Error closing transport:", error);
     }
     currentTransport = null;
   }
-  server.resetHandlers();
 });
-afterAll(() => server.close());
 
 describe("BIDI Mode - Frontend Execute Pattern", () => {
+  const { getServer } = useMswServer();
+
   describe("Single Tool Frontend Execution", () => {
     it("should execute tool on frontend and send result with addToolOutput", async () => {
       // Given: Backend sends confirmation, frontend executes, sends result
       const chat = createBidiWebSocketLink();
       let toolResultReceived = false;
 
-      server.use(
+      getServer().use(
         createCustomHandler(chat, ({ server: _server, client }) => {
           // Add error handling for WebSocket
           client.addEventListener("error", (error) => {
@@ -320,7 +316,7 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
       const chat = createBidiWebSocketLink();
       let toolResultReceived = false;
 
-      server.use(
+      getServer().use(
         createCustomHandler(chat, ({ server: _server, client }) => {
           // Add error handling for WebSocket
           client.addEventListener("error", (error) => {
@@ -560,7 +556,7 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
       // Given: User denies permission
       const chat = createBidiWebSocketLink();
 
-      server.use(
+      getServer().use(
         createCustomHandler(chat, ({ server: _server, client }) => {
           // Add error handling for WebSocket
           client.addEventListener("error", (error) => {
@@ -717,7 +713,7 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
       let aliceApprovalReceived = false;
       let bobApprovalReceived = false;
 
-      server.use(
+      getServer().use(
         createCustomHandler(chat, ({ server: _server, client }) => {
           client.addEventListener("error", (error) => {
             console.error("WebSocket error in test:", error);

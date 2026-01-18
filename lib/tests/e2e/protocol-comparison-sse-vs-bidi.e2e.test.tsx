@@ -30,39 +30,35 @@
 
 import { useChat } from "@ai-sdk/react";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { buildUseChatOptions } from "../../bidi";
 import { buildUseChatOptions as buildSseUseChatOptions } from "../../sse";
 import {
   createBidiWebSocketLink,
   createCustomHandler,
-} from "../helpers/bidi-ws-handlers";
-import { createMswServer } from "../shared-mocks/msw-server";
-
-// Create MSW server for mocking
-const server = createMswServer();
+  useMswServer,
+} from "../helpers";
 
 // Track transport instances for cleanup
 const activeTransports: any[] = [];
 
-beforeAll(() => server.listen({ onUnhandledRequest: "warn" }));
-afterEach(() => {
-  activeTransports.forEach((transport) => {
+afterEach(async () => {
+  for (const transport of activeTransports) {
     try {
-      transport._close();
+      await transport._close();
     } catch (error) {
       console.error("Error closing transport:", error);
     }
-  });
+  }
   activeTransports.length = 0;
-  server.resetHandlers();
 });
-afterAll(() => server.close());
 
 describe("Protocol Comparison: SSE vs BIDI (ADR 0003)", () => {
+  const { getServer } = useMswServer();
+
   it("SSE Protocol: Uses addToolOutput() for tool result submission", async () => {
     // Given: SSE mode backend
-    server.use(
+    getServer().use(
       http.post("http://localhost:8000/stream", async () => {
         const encoder = new TextEncoder();
         const stream = new ReadableStream({
@@ -163,7 +159,7 @@ describe("Protocol Comparison: SSE vs BIDI (ADR 0003)", () => {
     const chat = createBidiWebSocketLink();
     let approvalMessageReceived = false;
 
-    server.use(
+    getServer().use(
       createCustomHandler(chat, ({ server: _server, client }) => {
         client.addEventListener("message", async (event) => {
           if (typeof event.data !== "string" || !event.data.startsWith("{")) {

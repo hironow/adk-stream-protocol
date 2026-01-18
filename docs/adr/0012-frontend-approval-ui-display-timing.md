@@ -16,6 +16,7 @@ Vercel AI SDK v6 の `useChat` フックを使用してフロントエンドを�
 AI SDK v6 のドキュメントでは「ストリームが閉じる必要はない」と記載されているが、実際の実装では `sendAutomaticallyWhen` の評価は `status !== "streaming"` の条件下でのみ実行される（ADR 0011 参照）。
 
 これにより、ADK の BLOCKING モードでは以下のデッドロックが発生する：
+
 - フロントエンドは `sendAutomaticallyWhen` の発火を待つ
 - バックエンドは承認レスポンスを待って `finish` を送信しない
 - 結果：相互待機状態

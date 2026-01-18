@@ -15,35 +15,31 @@
 
 import { useChat } from "@ai-sdk/react";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { buildUseChatOptions } from "../../bidi";
 import {
   createBidiWebSocketLink,
   createCustomHandler,
-} from "../helpers/bidi-ws-handlers";
-import { createMswServer } from "../shared-mocks/msw-server";
-
-// Create MSW server for WebSocket interception
-const server = createMswServer();
+  useMswServer,
+} from "../helpers";
 
 // Track transport instances for cleanup
 let currentTransport: any = null;
 
-beforeAll(() => server.listen({ onUnhandledRequest: "warn" }));
-afterEach(() => {
+afterEach(async () => {
   if (currentTransport) {
     try {
-      currentTransport._close();
+      await currentTransport._close();
     } catch (error) {
       console.error("Error closing transport:", error);
     }
     currentTransport = null;
   }
-  server.resetHandlers();
 });
-afterAll(() => server.close());
 
 describe("BIDI Sequential-Only Execution (ADR 0003)", () => {
+  const { getServer } = useMswServer();
+
   it("should send only ONE approval-request at a time (sequential execution)", async () => {
     // Given: Backend that tracks approval request timing
     const chat = createBidiWebSocketLink();
@@ -52,7 +48,7 @@ describe("BIDI Sequential-Only Execution (ADR 0003)", () => {
     let firstApprovalResolved = false;
     let secondApprovalSent = false;
 
-    server.use(
+    getServer().use(
       createCustomHandler(chat, ({ server: _server, client }) => {
         client.addEventListener("message", async (event) => {
           if (typeof event.data !== "string" || !event.data.startsWith("{")) {
