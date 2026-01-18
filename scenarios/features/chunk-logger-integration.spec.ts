@@ -32,6 +32,7 @@ import {
   sendTextMessage,
   setupFrontendConsoleLogger,
   waitForAssistantResponse,
+  waitForFrontendExecuteComplete,
 } from "../helpers";
 
 // Load environment variables from .env.local
@@ -565,8 +566,9 @@ test.describe
       // When: User approves
       await page.getByRole("button", { name: "Approve" }).first().click();
 
-      // Then: Wait for completion
-      await waitForAssistantResponse(page, { timeout: 45000 });
+      // Then: Wait for Frontend Execute tool completion
+      // get_location is a Frontend Execute tool - it doesn't always trigger a new assistant message
+      await waitForFrontendExecuteComplete(page, { timeout: 45000 });
 
       // Download frontend chunk logs
       const frontendLogPath = await downloadFrontendChunkLogs(

@@ -44,6 +44,7 @@ from google.adk.agents.run_config import RunConfig, StreamingMode  # noqa: E402
 from google.genai import types  # noqa: E402
 from loguru import logger  # noqa: E402
 from pydantic import BaseModel, field_validator  # noqa: E402
+from websockets.exceptions import ConnectionClosedError  # noqa: E402
 
 from adk_stream_protocol import (  # noqa: E402
     SSE_CONFIRMATION_TOOLS,
@@ -679,22 +680,58 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
 
     # Downstream task: Stream ADK events → WebSocket (following official bidi-demo pattern)
     async def downstream_task():
-        """Receives Events from run_live() and sends to WebSocket."""
-        logger.info("[BIDI] downstream_task started, calling runner.run_live()")
-        logger.info(f"[BIDI] Starting run_live with user_id={user_id}, session_id={session.id}")
+        """Receives Events from run_live() and sends to WebSocket.
 
-        # Single run_live() call handles ALL turns
-        # Turn 1: Initial message via live_request_queue
-        # Turn 2+: Continuation via send_content() on same queue
-        live_events = bidi_agent_runner.run_live(
-            user_id=user_id,
-            session_id=session.id,
-            live_request_queue=live_request_queue,
-            run_config=run_config,
-            session=session,
-        )
-        await bidi_event_sender.send_events(live_events)
-        logger.info("[BIDI] run_live() generator completed")
+        Includes retry logic for transient Gemini Live API errors:
+        - ConnectionClosedError with policy violation (1008)
+        - Model not found errors
+
+        Retries up to 3 times with exponential backoff (1s, 2s, 4s).
+        """
+        max_retries = 3
+        retry_delay = 1.0  # Initial delay in seconds
+
+        for attempt in range(max_retries):
+            try:
+                logger.info(
+                    f"[BIDI] downstream_task started (attempt {attempt + 1}/{max_retries}), "
+                    f"calling runner.run_live()"
+                )
+                logger.info(
+                    f"[BIDI] Starting run_live with user_id={user_id}, session_id={session.id}"
+                )
+
+                # Single run_live() call handles ALL turns
+                # Turn 1: Initial message via live_request_queue
+                # Turn 2+: Continuation via send_content() on same queue
+                live_events = bidi_agent_runner.run_live(
+                    user_id=user_id,
+                    session_id=session.id,
+                    live_request_queue=live_request_queue,
+                    run_config=run_config,
+                    session=session,
+                )
+                await bidi_event_sender.send_events(live_events)
+                logger.info("[BIDI] run_live() generator completed")
+                return  # Success, exit retry loop
+
+            except ConnectionClosedError as e:
+                error_message = str(e)
+                # Retry on policy violation (1008) - typically model not found or API issues
+                is_retryable = "1008" in error_message or "policy violation" in error_message
+
+                if is_retryable and attempt < max_retries - 1:
+                    delay = retry_delay * (2**attempt)  # Exponential backoff
+                    logger.warning(
+                        f"[BIDI] ConnectionClosedError (attempt {attempt + 1}/{max_retries}): {e!s}"
+                    )
+                    logger.info(f"[BIDI] Retrying in {delay:.1f}s...")
+                    await asyncio.sleep(delay)
+                    continue
+                else:
+                    # Final attempt failed or non-retryable error
+                    logger.error(f"[BIDI] ConnectionClosedError (final): {e!s}")
+                    raise
 
     # Upstream task: Receive WebSocket messages and send to LiveRequestQueue
     async def upstream_task():

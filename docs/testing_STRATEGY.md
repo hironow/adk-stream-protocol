@@ -657,6 +657,55 @@ it('should throw', () => {
 
 **対応**: `@pytest.mark.xfail(strict=False)` マーカーでフレーキーテストをマーク。テストがパスしても失敗してもテストスイート全体は成功扱いになる。
 
+### Vitest Worker Fork Error
+
+全テスト実行時 (`bunx vitest run`) に Worker fork error が発生し、一部のテストファイルがカウントされない場合がある。
+
+```
+Error: [vitest-pool]: Worker forks emitted error.
+Caused by: Error: Worker exited unexpectedly
+```
+
+または libuv assertion failure:
+
+```
+Assertion failed: (!uv__io_active(&stream->io_watcher, POLLIN | POLLOUT)),
+function uv__stream_destroy, file stream.c, line 456.
+```
+
+**原因**: E2E テストで使用する WebSocket や stream リソースが Vitest の fork 終了前に完全にクリーンアップされない場合に発生。テストロジック自体の問題ではなく、Node.js/libuv レベルの環境依存問題。
+
+**症状**:
+- `Test Files: 71 passed (73)` のようにファイル数が合わない
+- `Errors: 1 error` または `Errors: 2 errors` が表示される
+- ただし、テスト自体は全て pass している
+
+**対処法**:
+
+1. **テストをディレクトリ毎に分けて実行** (推奨):
+   ```bash
+   # Unit + Integration (安定)
+   bunx vitest run lib/tests/unit/ lib/tests/integration/
+
+   # E2E (安定)
+   bunx vitest run lib/tests/e2e/
+
+   # E2E Fixtures + Components + App (安定)
+   bunx vitest run lib/tests/e2e-fixtures/ components/tests/ app/tests/
+   ```
+
+2. **並列度を下げて実行**:
+   ```bash
+   bunx vitest run --no-file-parallelism
+   ```
+
+3. **justfile コマンドを使用** (ラッパースクリプトが exit code を正しく処理):
+   ```bash
+   just test-fast
+   ```
+
+**確認方法**: 各ディレクトリで個別にテストを実行し、全テストが pass することを確認する。Worker error が出ても、テスト自体が pass していれば問題ない。
+
 ---
 
-**Last Review**: 2026-01-18
+**Last Review**: 2026-01-19

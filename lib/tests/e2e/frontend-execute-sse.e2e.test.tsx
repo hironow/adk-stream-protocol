@@ -70,10 +70,11 @@ describe("SSE Mode - Frontend Execute Pattern", () => {
             });
           }
 
-          // Request 2: AI SDK v6 - After approval (two-phase tracking)
-          // In AI SDK v6, after user approves, the next request includes approval
-          // Tool output is added separately via addToolOutput, which doesn't auto-send
-          // So Request 2 contains the approved tool in approval-requested state
+          // Request 2: Frontend Execute pattern (optimized)
+          // After approval AND addToolOutput, single request contains both:
+          // - Approval response (approval-responded state)
+          // - Tool output (output-available state with output data)
+          // This is more efficient than sending approval separately
           if (requestCount === 2) {
             const messages = payload.messages as UIMessageFromAISDKv6[];
             const lastMessage = messages[messages.length - 1];
@@ -209,12 +210,12 @@ describe("SSE Mode - Frontend Execute Pattern", () => {
       );
 
       // Then: Verify flow
-      // AI SDK v6: 3 requests with Frontend Execute pattern
+      // AI SDK v6: 2 requests with Frontend Execute pattern (optimized)
       // 1) initial → confirmation request
-      // 2) after approval (two-phase) → approval sent
-      // 3) after addToolOutput → auto-send tool result (Frontend Execute)
-      // Note: addToolOutput auto-sends when output is added (Frontend Execute pattern)
-      expect(requestCount).toBe(3);
+      // 2) after addToolOutput → auto-send approval + tool result together
+      // Note: Frontend Execute tools wait for addToolOutput before sending
+      // This is more efficient than sending approval separately (no 204 response needed)
+      expect(requestCount).toBe(2);
       expect(toolResultReceived).toBe(true); // addToolOutput auto-sends
 
       // Verify tool output was sent to backend and AI responded

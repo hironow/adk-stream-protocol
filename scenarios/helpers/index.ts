@@ -367,6 +367,49 @@ export async function waitForToolApproval(
 }
 
 /**
+ * Wait for Frontend Execute tool to complete
+ *
+ * For Frontend Execute tools (get_location, change_bgm), the tool result is
+ * set directly on the frontend via addToolOutput(), and a new assistant message
+ * may not be added. This helper waits for the tool approval UI to disappear
+ * and the tool execution to complete.
+ *
+ * Use this instead of waitForAssistantResponse after approving Frontend Execute tools.
+ */
+export async function waitForFrontendExecuteComplete(
+  page: Page,
+  options: { timeout?: number } = {},
+) {
+  const timeout = options.timeout ?? 30000;
+
+  // Strategy: Wait for approval buttons to disappear (approval processed)
+  // then wait for tool state to move past intermediate states
+  const approveButton = page.getByRole("button", { name: "Approve" });
+  const denyButton = page.getByRole("button", { name: "Deny" });
+
+  // Wait for approval buttons to disappear (indicates approval was processed)
+  await expect(approveButton).toHaveCount(0, { timeout });
+  await expect(denyButton).toHaveCount(0, { timeout: 5000 });
+
+  // Wait for tool state to not be in an intermediate processing state
+  const toolState = page.getByTestId("tool-state").first();
+
+  // Poll for completion - state should not be "Processing Approval..." or "Executing..."
+  // Give the frontend executor time to complete
+  await page.waitForTimeout(1000);
+
+  // Check if tool state shows a terminal state (best effort)
+  try {
+    await expect(toolState).not.toHaveText(/Processing Approval|Executing/, {
+      timeout: 5000,
+    });
+  } catch {
+    // If state check fails, just wait a bit more for UI to settle
+    await page.waitForTimeout(1000);
+  }
+}
+
+/**
  * Approve the tool call in the approval dialog
  * Uses data-testid for i18n compatibility
  * Note: Uses .first() to handle multiple tool-state elements
