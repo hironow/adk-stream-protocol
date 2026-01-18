@@ -34,13 +34,14 @@ frontend:
     @echo "Starting frontend server at http://localhost:3000"
     bun run dev
 
-# Run both frontend and backend in parallel (requires 'just' with --jobs flag)
+# Run both frontend and backend in parallel
 [group("development")]
 dev:
     @echo "Starting backend and frontend servers..."
     @echo "Backend: http://localhost:8000"
     @echo "Frontend: http://localhost:3000"
-    just --jobs 2 server frontend
+    @echo "Press Ctrl+C to stop both servers"
+    (trap 'kill 0' INT; uv run uvicorn server:app --reload --host 0.0.0.0 --port 8000 & bun run dev & wait)
 
 # Format all code (Python + frontend)
 [group("development")]
