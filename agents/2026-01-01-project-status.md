@@ -55,6 +55,14 @@ semgrep: 0 errors
 
 ---
 
+## Recently Completed Features
+
+| Feature | Scope | Status | Details |
+|---------|-------|--------|---------|
+| ADK Mode History Sharing | ADK SSE ↔ ADK BIDI | ✅ Complete | Chat history preserved across ADK mode transitions. Streaming state blocks mode switch. E2E: 5/5 passing |
+
+---
+
 ## References
 
 - Skipped tests: `agents/skipped-tests-analysis.md`
