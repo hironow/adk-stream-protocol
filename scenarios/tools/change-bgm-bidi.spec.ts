@@ -99,6 +99,8 @@ test.describe("change_bgm Tool - BIDI Mode", () => {
   });
 
   test("3. Sequential changes - State management", async ({ page }) => {
+    // Extend timeout for sequential API calls (3 calls × ~20s each + waits)
+    test.setTimeout(90000);
     // Change 1: Track 1
     console.log("[Test 3] Change 1: Track 1...");
     await sendTextMessage(page, "BGMをトラック1に変更");
@@ -110,6 +112,9 @@ test.describe("change_bgm Tool - BIDI Mode", () => {
     });
     console.log("[Test 3] Change 1 completed");
 
+    // Wait between calls to avoid rate limiting and connection issues
+    await page.waitForTimeout(1500);
+
     // Change 2: Track 2
     console.log("[Test 3] Change 2: Track 2...");
     await sendTextMessage(page, "トラック2に変えて");
@@ -120,6 +125,9 @@ test.describe("change_bgm Tool - BIDI Mode", () => {
       timeout: 10000,
     });
     console.log("[Test 3] Change 2 completed");
+
+    // Wait between calls to avoid rate limiting and connection issues
+    await page.waitForTimeout(1500);
 
     // Change 3: Back to Track 1
     console.log("[Test 3] Change 3: Back to Track 1...");

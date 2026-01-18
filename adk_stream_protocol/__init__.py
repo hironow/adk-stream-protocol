@@ -1,94 +1,103 @@
 """
-Services Layer
+ADK Stream Protocol - Backend service layer for ADK-AI-Data-Protocol.
 
-This package provides the service layer for the ADK-AI-Data-Protocol backend.
-It sits between the Transport Layer (server.py) and Protocol Conversion Layer.
+This package provides protocol conversion between Google ADK and Vercel AI SDK,
+enabling seamless communication between backend agents and frontend applications.
 
-Components:
-    - FrontendToolService: Manages frontend tool execution
+Subpackages:
+    - transport/: Data transfer layer (WebSocket/HTTP event handling)
+    - protocol/: Protocol conversion layer (ADK <-> AI SDK format)
+    - tools/: Tool coordination layer (approval, confirmation, execution)
+    - adk/: ADK integration layer (session management)
+    - ags/: ADK Agents (agent definitions and runners)
+    - testing/: Test utilities (ChunkLogger, ChunkPlayer)
+
+Public API:
+    Transport: BidiEventReceiver, BidiEventSender, SseEventStreamer
+    Protocol: StreamProtocolConverter, ChatMessage, TextPart, ToolUsePart
+    Tools: FrontendToolDelegate
+    Agents: bidi_agent, sse_agent, bidi_agent_runner, sse_agent_runner
+    Testing: ChunkLogger
 """
 
-from .adk_ag_runner import (
+# === Transport Layer ===
+# === Agents Layer (from ags/) ===
+from .ags import (
+    # Constants
     BIDI_CONFIRMATION_TOOLS,
     SSE_CONFIRMATION_TOOLS,
+    # Result types
+    Error,
+    Ok,
+    Result,
+    # Agent instances
     bidi_agent,
+    # Agent runners
     bidi_agent_runner,
-    sse_agent,
-    sse_agent_runner,
-)
-from .adk_ag_tools import (
+    # Tool functions
     change_bgm,
+    # Delegate registry
+    get_delegate,
     get_location,
     get_weather,
     process_payment,
+    register_delegate,
+    sse_agent,
+    sse_agent_runner,
 )
-from .adk_compat import (
-    clear_sessions,
-    get_or_create_session,
-    sync_conversation_history_to_session,
-)
-from .adk_vercel_id_mapper import ADKVercelIDMapper
-from .ai_sdk_v6_compat import (
+
+# === Protocol Layer ===
+from .protocol import (
     ChatMessage,
-    GenericPart,
-    StepPart,
-    TextPart,
-    ToolCallState,
-    ToolUsePart,
-    process_chat_message_for_bidi,
-)
-from .approval_queue import ApprovalQueue
-from .bidi_event_receiver import BidiEventReceiver
-from .bidi_event_sender import BidiEventSender
-from .chunk_logger import ChunkLogger, Mode, chunk_logger
-from .chunk_player import ChunkPlayer, ChunkPlayerManager
-from .frontend_tool_registry import get_delegate, register_delegate
-from .frontend_tool_service import FrontendToolDelegate
-from .sse_event_streamer import SseEventStreamer
-from .stream_protocol import (
     StreamProtocolConverter,
-    _map_adk_finish_reason_to_ai_sdk,
+    TextPart,
+    ToolUsePart,
     stream_adk_to_ai_sdk,
 )
-from .tool_confirmation_service import ToolConfirmationDelegate
+
+# === Testing Utilities ===
+from .testing import ChunkLogger
+
+# === Tools Layer ===
+from .tools import FrontendToolDelegate
+from .transport import BidiEventReceiver, BidiEventSender, SseEventStreamer
 
 
 __all__ = [
+    # Constants
     "BIDI_CONFIRMATION_TOOLS",
     "SSE_CONFIRMATION_TOOLS",
-    "ADKVercelIDMapper",
-    "ApprovalQueue",
+    # --- Transport Layer ---
     "BidiEventReceiver",
     "BidiEventSender",
+    # --- Protocol Layer ---
     "ChatMessage",
+    # --- Testing Utilities ---
     "ChunkLogger",
-    "ChunkPlayer",
-    "ChunkPlayerManager",
+    # Result types
+    "Error",
+    # --- Tools Layer ---
     "FrontendToolDelegate",
-    "GenericPart",
-    "Mode",
+    "Ok",
+    "Result",
     "SseEventStreamer",
-    "StepPart",
     "StreamProtocolConverter",
     "TextPart",
-    "ToolCallState",
-    "ToolConfirmationDelegate",
     "ToolUsePart",
-    "_map_adk_finish_reason_to_ai_sdk",
+    # --- Agents Layer ---
+    # Agent instances
     "bidi_agent",
+    # Agent runners
     "bidi_agent_runner",
+    # Tool functions
     "change_bgm",
-    "chunk_logger",
-    "clear_sessions",
+    # Delegate registry
     "get_delegate",
     "get_location",
-    "get_or_create_session",
     "get_weather",
-    "process_chat_message_for_bidi",
     "process_payment",
     "register_delegate",
     "sse_agent",
     "sse_agent_runner",
     "stream_adk_to_ai_sdk",
-    "sync_conversation_history_to_session",
 ]

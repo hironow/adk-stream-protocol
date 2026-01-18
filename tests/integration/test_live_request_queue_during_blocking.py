@@ -26,7 +26,8 @@ from google.adk.tools import FunctionTool, ToolContext
 from google.genai import types
 from loguru import logger as loguru_logger
 
-from adk_stream_protocol.adk_compat import get_or_create_session
+from adk_stream_protocol.adk.session import get_or_create_session
+from adk_stream_protocol.ags import BIDI_MODEL
 
 
 load_dotenv(".env.local")
@@ -110,33 +111,37 @@ live_queue_experiment_declaration = types.FunctionDeclaration.from_callable_with
 
 # Create FunctionTool
 LIVE_QUEUE_EXPERIMENT_TOOL = FunctionTool(live_queue_experiment_tool)
-LIVE_QUEUE_EXPERIMENT_TOOL._declaration = live_queue_experiment_declaration
+LIVE_QUEUE_EXPERIMENT_TOOL._declaration = live_queue_experiment_declaration  # type: ignore[attr-defined]
 
-# Create test agent
-experiment_agent = Agent(
-    name="live_queue_experiment_agent",
-    model="gemini-2.5-flash-native-audio-preview-12-2025",
-    description="Experiment agent for LiveRequestQueue observation",
-    instruction=(
-        "You are a test assistant. When the user asks you to process a message, "
-        "call the live_queue_experiment_tool function. You MUST use the tool."
-    ),
-    tools=[LIVE_QUEUE_EXPERIMENT_TOOL],  # type: ignore[list-item]
-)
 
-# Create App
-experiment_app = App(
-    name="live_queue_experiment_app",
-    root_agent=experiment_agent,
-    resumability_config=ResumabilityConfig(is_resumable=True),
-)
+@pytest.fixture
+def experiment_runner():
+    """Create fresh runner for each test to ensure test isolation."""
+    # Create test agent with unique name to avoid conflicts
+    agent = Agent(
+        name=f"live_queue_experiment_agent_{uuid.uuid4().hex[:8]}",
+        model=BIDI_MODEL,
+        description="Experiment agent for LiveRequestQueue observation",
+        instruction=(
+            "You are a test assistant. When the user asks you to process a message, "
+            "call the live_queue_experiment_tool function. You MUST use the tool."
+        ),
+        tools=[LIVE_QUEUE_EXPERIMENT_TOOL],  # type: ignore[list-item]
+    )
 
-# Create Runner
-experiment_runner = InMemoryRunner(app=experiment_app)
+    # Create App with unique name
+    app = App(
+        name=f"live_queue_experiment_app_{uuid.uuid4().hex[:8]}",
+        root_agent=agent,
+        resumability_config=ResumabilityConfig(is_resumable=True),
+    )
+
+    # Create Runner
+    return InMemoryRunner(app=app)
 
 
 @pytest.mark.asyncio
-async def test_live_request_queue_during_blocking():
+async def test_live_request_queue_during_blocking(experiment_runner):
     """
     EXPERIMENT: Observe LiveRequestQueue behavior during BLOCKING tool execution.
 
@@ -165,6 +170,7 @@ async def test_live_request_queue_during_blocking():
     messages_sent_during_blocking = []
     events_received_during_blocking = []
     all_events = []
+    message_task = None  # Initialize for finally block cleanup
 
     # Create RunConfig for BIDI mode
     run_config = RunConfig(
@@ -192,9 +198,11 @@ async def test_live_request_queue_during_blocking():
 
         # Start run_live()
         live_events = experiment_runner.run_live(
-            session=session,
+            user_id=user_id,
+            session_id=session.id,
             live_request_queue=live_request_queue,
             run_config=run_config,
+            session=session,  # Still required during migration period
         )
         logger.info(f"[TEST] ✓ Started run_live() with session: {session_id}")
 
@@ -310,7 +318,15 @@ async def test_live_request_queue_during_blocking():
         assert tool_completed, "Tool should have completed"
 
     finally:
-        # Cleanup
+        # Cleanup: Cancel pending async tasks first
+        if message_task and not message_task.done():
+            message_task.cancel()
+            try:
+                await message_task
+            except asyncio.CancelledError:
+                logger.info("[TEST] ✓ Cancelled message_task")
+
+        # Then close the queue
         try:
             live_request_queue.close()
             logger.info("[TEST] ✓ Closed LiveRequestQueue")

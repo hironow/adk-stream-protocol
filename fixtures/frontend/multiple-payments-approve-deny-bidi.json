@@ -15,54 +15,32 @@
   },
   "output": {
     "rawEvents": [
-      "data: {\"type\": \"start\", \"messageId\": \"e8405870-705f-4a15-801d-1f38d6d1fa24\"}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"fe82d774-a5be-4f67-ac57-5b9d03135b9a\"}\n\n",
       "data: {\"type\": \"reasoning-start\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Orchestrating Payments Sequentially**\\n\\nI'm currently devising a sequential execution strategy for the payment transactions.  I'll call `process_payment` twice.  First, for Alice's $30, followed by Bob's $40, both in USD.  Each call will wait for explicit user approval before proceeding.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Generating Payment Actions**\\n\\nI've determined the need for two `process_payment` tool calls, one for Alice ($30) and one for Bob ($40). Both transactions default to USD. I'm structuring these calls now, ensuring that each payment triggers the necessary approval flow due to the tool's security requirements. I will generate the tool calls now.\\n\\n\\n\"}\n\n",
       "data: {\"type\": \"reasoning-end\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"reasoning-start\", \"id\": \"1\"}\n\n",
-      "data: {\"type\": \"reasoning-delta\", \"id\": \"1\", \"delta\": \"**Structuring Payment Flows**\\n\\nI've formalized the process into two distinct `process_payment` calls.  First, I'll handle Alice's $30, followed by Bob's $40. Both amounts are in USD, which I've inferred as the default currency.  Each call will wait on explicit approval.  I'm focusing on ensuring the transaction sequence remains clear and compliant with user authorization.\\n\\n\\n\"}\n\n",
-      "data: {\"type\": \"reasoning-end\", \"id\": \"1\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-2820951750648728483\", \"toolName\": \"process_payment\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-2820951750648728483\", \"toolName\": \"process_payment\", \"input\": {\"currency\": \"USD\", \"recipient\": \"Alice\", \"amount\": 30}}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-17442990617181459498\", \"toolName\": \"process_payment\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-17442990617181459498\", \"toolName\": \"process_payment\", \"input\": {\"currency\": \"USD\", \"amount\": 30, \"recipient\": \"Alice\"}}\n\n",
       "data: {\"type\":\"start-step\"}\n\n",
-      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-2820951750648728483\", \"approvalId\": \"adk-0c7c52b1-0f7c-4f31-989c-4b1ddd5b6bc1\"}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-17442990617181459498\", \"approvalId\": \"confirm-94a302d8-d84e-4c82-9e7f-5907c9e91fc3\"}\n\n",
       "data: {\"type\":\"finish-step\"}\n\n",
-      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"function-call-2820951750648728483\", \"output\": {\"success\": true, \"transaction_id\": \"txn_1c18798001c3\", \"amount\": 30, \"currency\": \"USD\", \"recipient\": \"Alice\", \"description\": \"\", \"wallet_balance\": 970.0, \"timestamp\": \"2025-12-31T14:25:21.290478+00:00\"}}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-2975994996430128164\", \"toolName\": \"process_payment\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-2975994996430128164\", \"toolName\": \"process_payment\", \"input\": {\"currency\": \"USD\", \"recipient\": \"Bob\", \"amount\": 40}}\n\n",
+      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"function-call-17442990617181459498\", \"output\": {\"success\": true, \"transaction_id\": \"txn_0a5963ae6c11\", \"amount\": 30, \"currency\": \"USD\", \"recipient\": \"Alice\", \"description\": \"\", \"wallet_balance\": 970.0, \"timestamp\": \"2026-01-17T14:42:07.441933+00:00\"}}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-9398163995842276300\", \"toolName\": \"process_payment\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-9398163995842276300\", \"toolName\": \"process_payment\", \"input\": {\"currency\": \"USD\", \"amount\": 40, \"recipient\": \"Bob\"}}\n\n",
       "data: {\"type\":\"start-step\"}\n\n",
-      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-2975994996430128164\", \"approvalId\": \"adk-f31a68dd-4f11-4e3f-8631-0e25083c0202\"}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-9398163995842276300\", \"approvalId\": \"confirm-27cf3ce6-f48d-4590-b363-ae705f0e1b06\"}\n\n",
       "data: {\"type\":\"finish-step\"}\n\n",
-      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"function-call-2975994996430128164\", \"errorText\": \"User denied the payment\"}\n\n",
-      "data: {\"type\": \"text-start\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \"Alice\\u3078\\u306e\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \"\\u9001\\u91d1\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \"\\u306f\\u627f\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \"\\u8a8d\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \"\\u3055\\u308c\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \"\\u3066\\u3001\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \"\\u6210\\u529f\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \"\\u3057\\u307e\\u3057\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \"\\u305f\\u3002\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \" Bob\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \"\\u3078\\u306e\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \"\\u9001\\u91d1\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \"\\u306f\\u3001\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \"\\u30e6\\u30fc\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \"\\u30b6\\u30fc\\u306b\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \"\\u62d2\\u5426\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \"\\u3055\\u308c\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \"\\u3066\\u3057\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \"\\u307e\\u3044\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\", \"delta\": \"\\u307e\\u3057\\u305f\\u3002\"}\n\n",
-      "data: {\"type\": \"text-end\", \"id\": \"e8405870-705f-4a15-801d-1f38d6d1fa24_output_text\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1733, \"completionTokens\": null, \"totalTokens\": 1900}, \"audio\": {\"chunks\": 137, \"bytes\": 307200, \"sampleRate\": 24000, \"duration\": 6.4}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
+      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"function-call-9398163995842276300\", \"errorText\": \"User denied the payment\"}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"fe82d774-a5be-4f67-ac57-5b9d03135b9a_output_text\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"fe82d774-a5be-4f67-ac57-5b9d03135b9a_output_text\", \"delta\": \"Alice\\u3078\\u306e30\\u30c9\\u30eb\\u306e\\u9001\\u91d1\\u306f\\u5b8c\\u4e86\\u3057\\u307e\\u3057\\u305f\\u304c\\u3001Bob\\u3078\\u306e\\u9001\\u91d1\\u306f\\u30e6\\u30fc\\u30b6\\u30fc\\u306b\\u3088\\u3063\\u3066\\u62d2\\u5426\\u3055\\u308c\\u307e\\u3057\\u305f\\u3002\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"fe82d774-a5be-4f67-ac57-5b9d03135b9a_output_text\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1732, \"completionTokens\": null, \"totalTokens\": 1860}, \"audio\": {\"chunks\": 102, \"bytes\": 240000, \"sampleRate\": 24000, \"duration\": 5.0}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
       {
         "type": "start",
-        "messageId": "e8405870-705f-4a15-801d-1f38d6d1fa24"
+        "messageId": "fe82d774-a5be-4f67-ac57-5b9d03135b9a"
       },
       {
         "type": "reasoning-start",
@@ -71,38 +49,25 @@
       {
         "type": "reasoning-delta",
         "id": "0",
-        "delta": "**Orchestrating Payments Sequentially**\n\nI'm currently devising a sequential execution strategy for the payment transactions.  I'll call `process_payment` twice.  First, for Alice's $30, followed by Bob's $40, both in USD.  Each call will wait for explicit user approval before proceeding.\n\n\n"
+        "delta": "**Generating Payment Actions**\n\nI've determined the need for two `process_payment` tool calls, one for Alice ($30) and one for Bob ($40). Both transactions default to USD. I'm structuring these calls now, ensuring that each payment triggers the necessary approval flow due to the tool's security requirements. I will generate the tool calls now.\n\n\n"
       },
       {
         "type": "reasoning-end",
         "id": "0"
       },
       {
-        "type": "reasoning-start",
-        "id": "1"
-      },
-      {
-        "type": "reasoning-delta",
-        "id": "1",
-        "delta": "**Structuring Payment Flows**\n\nI've formalized the process into two distinct `process_payment` calls.  First, I'll handle Alice's $30, followed by Bob's $40. Both amounts are in USD, which I've inferred as the default currency.  Each call will wait on explicit approval.  I'm focusing on ensuring the transaction sequence remains clear and compliant with user authorization.\n\n\n"
-      },
-      {
-        "type": "reasoning-end",
-        "id": "1"
-      },
-      {
         "type": "tool-input-start",
-        "toolCallId": "function-call-2820951750648728483",
+        "toolCallId": "function-call-17442990617181459498",
         "toolName": "process_payment"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "function-call-2820951750648728483",
+        "toolCallId": "function-call-17442990617181459498",
         "toolName": "process_payment",
         "input": {
           "currency": "USD",
-          "recipient": "Alice",
-          "amount": 30
+          "amount": 30,
+          "recipient": "Alice"
         }
       },
       {
@@ -110,39 +75,39 @@
       },
       {
         "type": "tool-approval-request",
-        "toolCallId": "function-call-2820951750648728483",
-        "approvalId": "adk-0c7c52b1-0f7c-4f31-989c-4b1ddd5b6bc1"
+        "toolCallId": "function-call-17442990617181459498",
+        "approvalId": "confirm-94a302d8-d84e-4c82-9e7f-5907c9e91fc3"
       },
       {
         "type": "finish-step"
       },
       {
         "type": "tool-output-available",
-        "toolCallId": "function-call-2820951750648728483",
+        "toolCallId": "function-call-17442990617181459498",
         "output": {
           "success": true,
-          "transaction_id": "txn_1c18798001c3",
+          "transaction_id": "txn_0a5963ae6c11",
           "amount": 30,
           "currency": "USD",
           "recipient": "Alice",
           "description": "",
           "wallet_balance": 970.0,
-          "timestamp": "2025-12-31T14:25:21.290478+00:00"
+          "timestamp": "2026-01-17T14:42:07.441933+00:00"
         }
       },
       {
         "type": "tool-input-start",
-        "toolCallId": "function-call-2975994996430128164",
+        "toolCallId": "function-call-9398163995842276300",
         "toolName": "process_payment"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "function-call-2975994996430128164",
+        "toolCallId": "function-call-9398163995842276300",
         "toolName": "process_payment",
         "input": {
           "currency": "USD",
-          "recipient": "Bob",
-          "amount": 40
+          "amount": 40,
+          "recipient": "Bob"
         }
       },
       {
@@ -150,139 +115,44 @@
       },
       {
         "type": "tool-approval-request",
-        "toolCallId": "function-call-2975994996430128164",
-        "approvalId": "adk-f31a68dd-4f11-4e3f-8631-0e25083c0202"
+        "toolCallId": "function-call-9398163995842276300",
+        "approvalId": "confirm-27cf3ce6-f48d-4590-b363-ae705f0e1b06"
       },
       {
         "type": "finish-step"
       },
       {
         "type": "tool-output-error",
-        "toolCallId": "function-call-2975994996430128164",
+        "toolCallId": "function-call-9398163995842276300",
         "errorText": "User denied the payment"
       },
       {
         "type": "text-start",
-        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text"
+        "id": "fe82d774-a5be-4f67-ac57-5b9d03135b9a_output_text"
       },
       {
         "type": "text-delta",
-        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
-        "delta": "Aliceへの"
-      },
-      {
-        "type": "text-delta",
-        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
-        "delta": "送金"
-      },
-      {
-        "type": "text-delta",
-        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
-        "delta": "は承"
-      },
-      {
-        "type": "text-delta",
-        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
-        "delta": "認"
-      },
-      {
-        "type": "text-delta",
-        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
-        "delta": "され"
-      },
-      {
-        "type": "text-delta",
-        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
-        "delta": "て、"
-      },
-      {
-        "type": "text-delta",
-        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
-        "delta": "成功"
-      },
-      {
-        "type": "text-delta",
-        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
-        "delta": "しまし"
-      },
-      {
-        "type": "text-delta",
-        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
-        "delta": "た。"
-      },
-      {
-        "type": "text-delta",
-        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
-        "delta": " Bob"
-      },
-      {
-        "type": "text-delta",
-        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
-        "delta": "への"
-      },
-      {
-        "type": "text-delta",
-        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
-        "delta": "送金"
-      },
-      {
-        "type": "text-delta",
-        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
-        "delta": "は、"
-      },
-      {
-        "type": "text-delta",
-        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
-        "delta": "ユー"
-      },
-      {
-        "type": "text-delta",
-        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
-        "delta": "ザーに"
-      },
-      {
-        "type": "text-delta",
-        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
-        "delta": "拒否"
-      },
-      {
-        "type": "text-delta",
-        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
-        "delta": "され"
-      },
-      {
-        "type": "text-delta",
-        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
-        "delta": "てし"
-      },
-      {
-        "type": "text-delta",
-        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
-        "delta": "まい"
-      },
-      {
-        "type": "text-delta",
-        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text",
-        "delta": "ました。"
+        "id": "fe82d774-a5be-4f67-ac57-5b9d03135b9a_output_text",
+        "delta": "Aliceへの30ドルの送金は完了しましたが、Bobへの送金はユーザーによって拒否されました。"
       },
       {
         "type": "text-end",
-        "id": "e8405870-705f-4a15-801d-1f38d6d1fa24_output_text"
+        "id": "fe82d774-a5be-4f67-ac57-5b9d03135b9a_output_text"
       },
       {
         "type": "finish",
         "finishReason": "stop",
         "messageMetadata": {
           "usage": {
-            "promptTokens": 1733,
+            "promptTokens": 1732,
             "completionTokens": null,
-            "totalTokens": 1900
+            "totalTokens": 1860
           },
           "audio": {
-            "chunks": 137,
-            "bytes": 307200,
+            "chunks": 102,
+            "bytes": 240000,
             "sampleRate": 24000,
-            "duration": 6.4
+            "duration": 5.0
           },
           "modelVersion": "gemini-2.5-flash-native-audio-preview-12-2025"
         }

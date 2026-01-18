@@ -173,13 +173,13 @@ tests/                ← Backend tests (Python)
 
 ```bash
 # Run all lib E2E tests
-pnpm test:lib:e2e
+bun test:lib:e2e
 
 # Run all lib tests (includes e2e, integration, unit)
-pnpm test:lib
+bun test:lib
 
 # Run specific test file
-pnpm vitest run lib/tests/e2e/frontend-execute-sse.e2e.test.tsx
+bunx vitest run lib/tests/e2e/frontend-execute-sse.e2e.test.tsx
 ```
 
 ## Future Consideration

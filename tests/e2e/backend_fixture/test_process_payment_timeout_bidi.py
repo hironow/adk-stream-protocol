@@ -2,19 +2,19 @@
 
 Tests backend behavior when user doesn't respond to approval request within timeout period.
 
-Mode: Phase 12 BLOCKING (single continuous stream)
+Mode: BIDI Blocking Mode (single continuous stream)
 Tool: process_payment (requires approval)
 Transport: WebSocket (BIDI mode)
 Scenario: User receives approval request but doesn't respond (timeout after 30s)
 
-Expected Flow (Phase 12 Timeout):
+Expected Flow (BIDI Blocking Mode Timeout):
 - Single continuous stream (no [DONE] between approval request and timeout)
 - User: Initial request
 - Backend: tool-input → adk_request_confirmation (tool is BLOCKING, waiting for approval)
 - User: (no response - timeout after 30s)
 - Backend: tool-output-error (timeout) → finish → [DONE]
 
-Note: Phase 12 BLOCKING mode uses single stream with 1 [DONE], not 2 turns.
+Note: BIDI Blocking Mode mode uses single stream with 1 [DONE], not 2 turns.
 """
 
 import asyncio
@@ -29,7 +29,7 @@ from .helpers import save_frontend_fixture
 
 @pytest.mark.asyncio
 async def test_process_payment_timeout_bidi():
-    """Should generate timeout error when user doesn't respond to approval request (Phase 12 BLOCKING)."""
+    """Should generate timeout error when user doesn't respond to approval request (BIDI Blocking Mode)."""
 
     timeout = 35.0  # Slightly longer than tool timeout (30s)
 
@@ -71,7 +71,7 @@ async def test_process_payment_timeout_bidi():
                 # ERROR: If we get [DONE] before approval request, that's wrong!
                 if "[DONE]" in event:
                     raise AssertionError(
-                        "Received [DONE] before approval request in Phase 12 BLOCKING mode! "
+                        "Received [DONE] before approval request in BIDI Blocking Mode mode! "
                         "This indicates the tool returned early instead of BLOCKING."
                     )
 
@@ -160,16 +160,16 @@ async def test_process_payment_timeout_bidi():
         )
         save_frontend_fixture(
             fixture_path=fixture_path,
-            description="BIDI mode Phase 12 BLOCKING - process_payment with timeout flow (SINGLE CONTINUOUS STREAM, user doesn't respond)",
+            description="BIDI Blocking Mode - process_payment with timeout flow (SINGLE CONTINUOUS STREAM, user doesn't respond)",
             mode="bidi",
             input_messages=[initial_message],
             raw_events=all_events,
             expected_done_count=1,
             source="Backend E2E test capture",
             scenario="User receives approval request but doesn't respond - timeout after 30s",
-            note="Phase 12 BLOCKING behavior: Single continuous stream with 1 [DONE]. Tool enters BLOCKING state awaiting approval, then times out after 30s and returns error.",
+            note="BIDI Blocking Mode behavior: Single continuous stream with 1 [DONE]. Tool enters BLOCKING state awaiting approval, then times out after 30s and returns error.",
         )
 
-        print("\n✓ Phase 12 BLOCKING timeout flow test completed successfully")
+        print("\n✓ BIDI Blocking Mode timeout flow test completed successfully")
         print("✓ Tool properly timed out after ~30s without approval response")
         print("✓ Single continuous stream with 1 [DONE] marker confirmed")

@@ -1,6 +1,6 @@
 # Testing Strategy
 
-**Last Updated:** 2025-12-29
+**Last Updated:** 2026-01-18
 
 Comprehensive testing strategy for the ADK AI Data Protocol project.
 
@@ -8,7 +8,31 @@ Comprehensive testing strategy for the ADK AI Data Protocol project.
 
 ## 🚀 Quick Start
 
-### Running Tests
+### Running Tests (Unified Test Runner)
+
+**推奨: justfile コマンドを使用**
+
+```bash
+# 全テスト（外部依存なし）- 最速、並列実行
+just test-fast
+
+# ユニットテストのみ
+just test-unified-unit
+
+# 統合テストのみ
+just test-unified-integration
+
+# E2Eテスト（バックエンドサーバー必要）
+just test-unified-e2e
+
+# フルスタックテスト（バックエンド + フロントエンド + ブラウザ必要）
+just test-full-stack
+
+# 全テスト
+just test-unified-all
+```
+
+### 直接実行
 
 **Backend (pytest)**:
 
@@ -26,29 +50,26 @@ uv run pytest tests/e2e/
 
 ```bash
 # All frontend tests
-pnpm test:lib
+bun vitest run lib/tests/
 
 # Specific layer
-pnpm test:lib:unit
-pnpm test:lib:integration
-pnpm test:lib:e2e
+bun vitest run lib/tests/unit/
+bun vitest run lib/tests/integration/
+bun vitest run lib/tests/e2e/
 
 # Component tests
-pnpm test:components
-pnpm test:app
+bun vitest run components/
+bun vitest run app/
 ```
 
 **E2E (Playwright)**:
 
 ```bash
 # Full E2E tests
-pnpm test:e2e:app
-
-# Fast smoke tests only
-pnpm test:e2e:app:smoke
+bunx playwright test
 
 # Interactive UI mode
-pnpm test:e2e:ui
+bunx playwright test --ui
 ```
 
 ---
@@ -620,4 +641,22 @@ it('should throw', () => {
 
 ---
 
-**Last Review**: 2025-12-29
+## ⚠️ Known Issues
+
+### msw WebSocket Cleanup Issue
+
+`lib/tests/integration/` と `lib/tests/e2e/` では msw (Mock Service Worker) を使用した WebSocket モッキングを行っている。msw の WebSocket インターセプターは vitest のテスト終了後に完全にクリーンアップされない場合があり、Worker exit error (`uv__stream_destroy` assertion failure) が発生することがある。
+
+**影響**: 全テストがパスしても、プロセス終了時に exit code 1 が返される。
+
+**対応**: `scripts/run-vitest-e2e.sh` ラッパースクリプトがテスト結果を解析し、全テストがパスしていれば exit code 0 を返す。`just test-fast` 等の unified test runner はこのラッパーを自動的に使用する。
+
+### Gemini Live API Flakiness
+
+`tests/integration/` と `scenarios/` の一部のテストは Gemini Live API に依存しており、API のレスポンス遅延やエラーによりタイムアウトすることがある。
+
+**対応**: `@pytest.mark.xfail(strict=False)` マーカーでフレーキーテストをマーク。テストがパスしても失敗してもテストスイート全体は成功扱いになる。
+
+---
+
+**Last Review**: 2026-01-18

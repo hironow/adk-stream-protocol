@@ -67,7 +67,7 @@ describe("Long Context Storage Integration Tests", () => {
     ])("$mode: should handle 50 messages", async ({
       mode,
       endpoint,
-      config,
+      _config,
     }) => {
       // given
       let capturedPayload: unknown = null;
@@ -130,7 +130,7 @@ describe("Long Context Storage Integration Tests", () => {
     ])("$mode: should handle 100 messages", async ({
       mode,
       endpoint,
-      config,
+      _config,
     }) => {
       // given
       let capturedPayload: unknown = null;
@@ -229,11 +229,11 @@ describe("Long Context Storage Integration Tests", () => {
 
     it("should maintain message IDs in large histories", async () => {
       // given
-      let capturedPayload: unknown = null;
+      let _capturedPayload: unknown = null;
 
       server.use(
         http.post("http://localhost:8000/stream", async ({ request }) => {
-          capturedPayload = await request.json();
+          _capturedPayload = await request.json();
           return createTextResponse("OK");
         }),
       );

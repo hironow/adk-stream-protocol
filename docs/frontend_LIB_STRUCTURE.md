@@ -9,11 +9,14 @@ lib/
 ├── bidi/                        # ADK BIDI Mode (WebSocket)
 ├── sse/                         # SSE Modes (Gemini + ADK SSE)
 ├── chunk_logs/                  # Chunk Logging & Replay (AI SDK v6)
+├── core/                        # Shared Core Utilities
 ├── audio-context.tsx            # ADK Audio Streaming
 ├── audio-recorder.ts            # ADK PCM Recording
-├── use-audio-recorder.ts        # ADK Audio Hook
-├── adk_compat.ts                # ADK Tool Utilities
+├── audio-worklet-manager.ts     # AudioWorklet Lifecycle
 ├── build-use-chat-options.ts    # Mode Dispatcher
+├── file-reader-utils.ts         # File Upload Utilities
+├── use-audio-recorder.ts        # ADK Audio Hook
+├── utils.ts                     # General Utilities
 └── tests/                       # Tests
 ```
 
@@ -54,22 +57,22 @@ import {
 
 **Usage**: Only with `adk-bidi` mode
 
-#### lib/adk_compat.ts - ADK Tool Utilities
-
-**Dependencies**: ADK Tool Protocol (`adk_request_confirmation`)
-**Purpose**: Backward compatibility utilities for ADK tool handling
-
-**Note**: Used by both BIDI and SSE modes for confirmation flow
-
 ### 🟡 Partially ADK-Dependent Modules
+
+#### lib/core/ - Shared Core Utilities
+
+**Dependencies**: AI SDK v6
+**Purpose**: Shared utilities used by both BIDI and SSE modes
+
+- `send-automatically-when.ts` - Core `sendAutomaticallyWhen` logic
+- `error-utils.ts` - Error handling utilities
 
 #### lib/sse/ - SSE Modes
 
 **Dependencies**: AI SDK v6 DefaultChatTransport, (Optional) ADK SSE
 **Purpose**: HTTP streaming for Gemini and ADK SSE modes
 
-- `event_sender.ts` - SSE confirmation output formatting
-- `event_receiver.ts` - Placeholder (uses DefaultChatTransport)
+- `event_receiver.ts` - SSE event processing
 - `transport.ts` - SSE transport factory
 - `send-automatically-when.ts` - `adk_request_confirmation` detection (ADK SSE only)
 - `use-chat-options.ts` - useChat options builder for SSE modes
@@ -197,8 +200,8 @@ The `adk_request_confirmation` tool is used in both BIDI and SSE modes:
 **Implementation**:
 
 - BIDI: `lib/bidi/event_sender.ts` converts to `function_response` event
-- SSE: `lib/sse/event_sender.ts` formats output for HTTP request
-- Detection: Both use identical logic in `send-automatically-when.ts`
+- SSE: `lib/sse/use-chat-options.ts` handles confirmation output formatting
+- Detection: Both use `lib/core/send-automatically-when.ts` for core logic
 
 ## Type Safety
 

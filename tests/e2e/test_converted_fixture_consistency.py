@@ -27,7 +27,7 @@ from typing import Any
 
 import pytest
 
-from adk_stream_protocol import ChunkPlayer
+from adk_stream_protocol.testing.chunk_player import ChunkPlayer
 
 
 def load_frontend_fixture(filename: str) -> dict[str, Any]:
@@ -47,7 +47,7 @@ def normalize_ids_in_chunk(chunk: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(chunk, dict):
         return chunk
 
-    normalized = {}
+    normalized: dict[str, Any] = {}
     for key, value in chunk.items():
         if key == "messageId" and isinstance(value, str):
             normalized[key] = "NORMALIZED_MESSAGE_ID"

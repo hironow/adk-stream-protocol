@@ -1,5 +1,5 @@
 /**
- * ADK Tool Confirmation E2E Tests (Phase 5)
+ * ADK Tool Confirmation E2E Tests (Legacy Approval Mode)
  *
  * Comprehensive test coverage for tool confirmation flows in both SSE and BIDI modes.
  *
@@ -99,7 +99,7 @@ test.describe("ADK Tool Confirmation - SSE Mode", () => {
       await sendTextMessage(page, "花子さんに50ドル送金してください");
 
       // Then: Tool invocation should appear with approval buttons
-      // Note: Phase 5 uses inline approval UI, not dialog
+      // Note: Legacy Approval Mode uses inline approval UI, not dialog
       // ADR 0002: Only process_payment tool is shown (adk_request_confirmation is backend-internal)
       await expect(page.getByText(/process_payment/i).first()).toBeVisible({
         timeout: 30000,
@@ -460,7 +460,11 @@ test.describe("ADK Tool Confirmation - SSE Mode", () => {
 
       // Click first deny, second approve
       await page.getByRole("button", { name: "Deny" }).first().click();
-      await page.waitForTimeout(500);
+      await page.waitForTimeout(2000);
+      // Wait for the Approve button to be visible before clicking
+      await expect(
+        page.getByRole("button", { name: "Approve" }).first(),
+      ).toBeVisible({ timeout: 10000 });
       await page.getByRole("button", { name: "Approve" }).first().click();
 
       // Wait for response

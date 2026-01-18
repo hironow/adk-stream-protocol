@@ -183,7 +183,7 @@ describe("Mode Switching with History Preservation", () => {
       ] as UIMessageFromAISDKv6[];
 
       // when - create options for different modes
-      const { useChatOptions: geminiOptions } = buildUseChatOptions({
+      const { useChatOptions: _geminiOptions } = buildUseChatOptions({
         mode: "gemini",
         initialMessages,
       });

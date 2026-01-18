@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useAudio } from "@/lib/audio-context";
 
 /**
  * Tool invocation state for UI display.
@@ -33,6 +34,9 @@ export function ToolInvocationComponent({
   // State management for long-running tool approval
   const [approvalSent, setApprovalSent] = useState(false);
   const [approvalError, setApprovalError] = useState<string | null>(null);
+
+  // BGM channel for change_bgm tool (requires AudioProvider context)
+  const { bgmChannel } = useAudio();
 
   // Extract toolName from type (e.g., "tool-change_bgm" -> "change_bgm")
   const toolName =
@@ -276,16 +280,29 @@ export function ToolInvocationComponent({
                     console.info(
                       `[ToolInvocationComponent] Executing change_bgm on client`,
                     );
-                    const track = toolInvocation.input?.track || 1;
-                    // TODO: Implement actual BGM change logic with AudioContext
-                    // For now, just send success response
+                    // Tool input uses 1-indexed track (1, 2), audio uses 0-indexed (0, 1)
+                    const requestedTrack = toolInvocation.input?.track || 1;
+                    const targetAudioTrack = requestedTrack - 1;
+
+                    // Only switch if current track differs from target
+                    if (bgmChannel.currentTrack !== targetAudioTrack) {
+                      bgmChannel.switchTrack();
+                      console.info(
+                        `[ToolInvocationComponent] BGM switched: ${bgmChannel.currentTrack} → ${targetAudioTrack}`,
+                      );
+                    } else {
+                      console.info(
+                        `[ToolInvocationComponent] BGM already on track ${targetAudioTrack}`,
+                      );
+                    }
+
                     addToolOutput?.({
                       tool: toolName,
                       toolCallId: toolInvocation.toolCallId,
                       output: {
                         success: true,
-                        track,
-                        message: `BGM changed to track ${track}`,
+                        track: requestedTrack,
+                        message: `BGM changed to track ${requestedTrack}`,
                       },
                     });
                   }

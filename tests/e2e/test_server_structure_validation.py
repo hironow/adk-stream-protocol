@@ -29,10 +29,16 @@ import json
 from pathlib import Path
 from typing import Any
 
-import pytest
 from fastapi.testclient import TestClient
 
 from server import app
+
+
+# Default API key for development/test
+DEFAULT_HEADERS = {
+    "X-API-Key": "dev-key-12345",
+    "Accept": "text/event-stream",
+}
 
 
 def load_frontend_fixture(filename: str) -> dict[str, Any]:
@@ -102,7 +108,7 @@ class TestServerOutputStructure:
                     "messages": frontend_fixture["input"]["messages"],
                     "mode": "adk-sse",
                 },
-                headers={"Accept": "text/event-stream"},
+                headers=DEFAULT_HEADERS,
             )
 
         # Then: Response should be successful
@@ -149,7 +155,7 @@ class TestServerOutputStructure:
                     "messages": frontend_fixture["input"]["messages"],
                     "mode": "adk-sse",
                 },
-                headers={"Accept": "text/event-stream"},
+                headers=DEFAULT_HEADERS,
             )
 
         # Then: Response should be successful
@@ -194,6 +200,7 @@ class TestEventSequencePatterns:
                     "messages": frontend_fixture["input"]["messages"],
                     "mode": "adk-sse",
                 },
+                headers=DEFAULT_HEADERS,
             )
 
         # Then: Parse event types
@@ -224,6 +231,7 @@ class TestEventSequencePatterns:
                     "messages": frontend_fixture["input"]["messages"],
                     "mode": "adk-sse",
                 },
+                headers=DEFAULT_HEADERS,
             )
 
         # Then: Parse event types
@@ -260,6 +268,7 @@ class TestRequiredFields:
                     "messages": frontend_fixture["input"]["messages"],
                     "mode": "adk-sse",
                 },
+                headers=DEFAULT_HEADERS,
             )
 
         # Then: Parse chunks
@@ -287,6 +296,7 @@ class TestRequiredFields:
                     "messages": frontend_fixture["input"]["messages"],
                     "mode": "adk-sse",
                 },
+                headers=DEFAULT_HEADERS,
             )
 
         # Then: Parse chunks
@@ -321,6 +331,7 @@ class TestRequiredFields:
                     "messages": frontend_fixture["input"]["messages"],
                     "mode": "adk-sse",
                 },
+                headers=DEFAULT_HEADERS,
             )
 
         # Then: Parse chunks

@@ -33,12 +33,14 @@ async def load_frontend_fixture(fixture_path: Path) -> dict[str, Any]:
 async def send_sse_request(
     messages: list[dict[str, Any]],
     backend_url: str = "http://localhost:8000/stream",
+    api_key: str = "dev-key-12345",
 ) -> list[str]:
     """Send SSE request to backend and collect rawEvents.
 
     Args:
         messages: Message history to send
         backend_url: Backend SSE endpoint URL
+        api_key: API key for authentication (default: dev-key-12345)
 
     Returns:
         List of SSE-format event strings (e.g., 'data: {...}\\n\\n')
@@ -50,6 +52,7 @@ async def send_sse_request(
             "POST",
             backend_url,
             json={"messages": messages},
+            headers={"X-API-Key": api_key},
         ) as response:
             response.raise_for_status()
 
@@ -83,7 +86,7 @@ async def receive_events_until_approval_request(
         - original_tool_call_id: toolCallId of the original tool
 
     Raises:
-        AssertionError: If [DONE] is received before tool-approval-request (Phase 12 BLOCKING violation)
+        AssertionError: If [DONE] is received before tool-approval-request (BIDI Blocking Mode violation)
         asyncio.TimeoutError: If timeout waiting for tool-approval-request
     """
     all_events = []
@@ -95,14 +98,16 @@ async def receive_events_until_approval_request(
     )
     while True:
         try:
-            event = await asyncio.wait_for(websocket.recv(), timeout=timeout)
+            event_raw = await asyncio.wait_for(websocket.recv(), timeout=timeout)
+            # Ensure event is str (websocket.recv() can return bytes or str)
+            event = event_raw.decode("utf-8") if isinstance(event_raw, bytes) else event_raw
             all_events.append(event)
             print(f"Event {len(all_events)}: {event.strip()}")
 
             # ERROR: If we get [DONE] before approval response, that's wrong!
             if "[DONE]" in event:
                 raise AssertionError(
-                    "Received [DONE] before approval response in Phase 12 BLOCKING mode! "
+                    "Received [DONE] before approval response in BIDI Blocking Mode mode! "
                     "This indicates the tool returned early instead of BLOCKING."
                 )
 
@@ -351,7 +356,7 @@ def create_tool_result_message(
     }
 
 
-async def send_bidi_request(  # noqa: C901, PLR0912, PLR0915
+async def send_bidi_request(
     messages: list[dict[str, Any]],
     backend_url: str = "ws://localhost:8000/live",
     timeout: float = 30.0,
@@ -556,13 +561,9 @@ def normalize_event(event_str: str) -> str:
                 event_obj["toolCallId"] = "DYNAMIC_TOOL_CALL_ID"
 
         # Replace dynamic approvalId with placeholder (for tool-approval-request events)
+        # Note: approvalId can be "adk-xxx" (old format) or "confirm-xxx" (new format)
         if "approvalId" in event_obj:
-            if isinstance(event_obj["approvalId"], str) and event_obj["approvalId"].startswith(
-                "adk-"
-            ):
-                event_obj["approvalId"] = "adk-DYNAMIC_ID"
-            else:
-                event_obj["approvalId"] = "DYNAMIC_APPROVAL_ID"
+            event_obj["approvalId"] = "DYNAMIC_APPROVAL_ID"
 
         # Replace timestamps in nested structures
         if "messageMetadata" in event_obj:
@@ -577,7 +578,7 @@ def normalize_event(event_str: str) -> str:
         return event_str
 
 
-def validate_event_structure(  # noqa: C901, PLR0911, PLR0912
+def validate_event_structure(
     actual_event: str,
     expected_event: str,
 ) -> tuple[bool, str]:
@@ -719,7 +720,7 @@ def validate_event_structure(  # noqa: C901, PLR0911, PLR0912
         return (False, f"Failed to parse event: {e}")
 
 
-def compare_raw_events(  # noqa: C901, PLR0912, PLR0915
+def compare_raw_events(
     actual: list[str],
     expected: list[str],
     normalize: bool = True,
@@ -1084,7 +1085,7 @@ def validate_tool_approval_request_toolcallid(raw_events: list[str]) -> tuple[bo
             continue
 
     # Validate each approval request
-    for approval_toolcallid, approval_id in approval_requests:
+    for approval_toolcallid, _approval_id in approval_requests:
         # The toolCallId in tool-approval-request should match one of the tool-input-available toolCallIds
         if approval_toolcallid not in tool_call_ids:
             return (

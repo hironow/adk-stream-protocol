@@ -95,18 +95,18 @@ describe("ADR Validation - Frontend Protocol", () => {
       expect(approval.approvalId).toBeDefined();
       expect(approval.toolCallId).not.toBe(approval.approvalId);
 
-      // And: approvalId should have "adk-" prefix (backend-generated)
-      expect(approval.approvalId).toMatch(/^adk-/);
+      // And: approvalId should have backend-generated prefix ("adk-" legacy or "confirm-" current)
+      expect(approval.approvalId).toMatch(/^(adk-|confirm-)/);
     });
   });
 
-  describe("Phase 12 BLOCKING Mode - Single Stream Behavior", () => {
-    it("ADR Claim: Phase 12 BLOCKING sends exactly one [DONE] signal", () => {
-      // Given: Phase 12 BLOCKING baseline
+  describe("BIDI Blocking Mode Mode - Single Stream Behavior", () => {
+    it("ADR Claim: BIDI Blocking Mode sends exactly one [DONE] signal", () => {
+      // Given: BIDI Blocking Mode baseline
       const baseline = getLocationApprovedBidiBaseline;
 
-      // Verify this is Phase 12 BLOCKING mode
-      expect(baseline.description).toContain("Phase 12 BLOCKING");
+      // Verify this is BIDI Blocking Mode mode
+      expect(baseline.description).toContain("BIDI Blocking Mode");
       expect(baseline.description).toContain("SINGLE CONTINUOUS STREAM");
 
       // When: Count [DONE] signals in raw events
@@ -123,8 +123,8 @@ describe("ADR Validation - Frontend Protocol", () => {
       expect(lastEvent).toContain("data: [DONE]");
     });
 
-    it("ADR Claim: tool-output-available comes AFTER user approval in Phase 12", () => {
-      // Given: Phase 12 BLOCKING baseline
+    it("ADR Claim: tool-output-available comes AFTER user approval in BIDI Blocking Mode", () => {
+      // Given: BIDI Blocking Mode baseline
       const baseline = getLocationApprovedBidiBaseline;
       const rawEvents = baseline.output.rawEvents;
 

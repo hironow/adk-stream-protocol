@@ -10,8 +10,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from fastapi import WebSocketDisconnect
 
-from adk_stream_protocol import BidiEventSender
-from adk_stream_protocol.result import Error, Ok
+from adk_stream_protocol import BidiEventSender, Error, Ok
 from tests.utils.mocks import (
     create_mock_live_events,
     create_mock_session,
@@ -71,7 +70,7 @@ async def test_send_events_wraps_events_with_confirmation_processing() -> None:
 
     # when
     with patch(
-        "adk_stream_protocol.bidi_event_sender.stream_adk_to_ai_sdk",
+        "adk_stream_protocol.transport.bidi_event_sender.stream_adk_to_ai_sdk",
         return_value=create_mock_sse_stream('data: {"type":"text-delta","text":"Hello"}\n\n'),
     ):
         await sender.send_events(create_mock_live_events(Mock()))
@@ -104,7 +103,8 @@ async def test_send_events_calls_stream_adk_to_ai_sdk_with_correct_params() -> N
 
     # when
     with patch(
-        "adk_stream_protocol.bidi_event_sender.stream_adk_to_ai_sdk", return_value=mock_stream()
+        "adk_stream_protocol.transport.bidi_event_sender.stream_adk_to_ai_sdk",
+        return_value=mock_stream(),
     ) as mock_stream_func:
         live_events = mock_live_events()
         await sender.send_events(live_events)
@@ -144,7 +144,8 @@ async def test_send_events_sends_sse_events_to_websocket() -> None:
     # when
     with (
         patch(
-            "adk_stream_protocol.bidi_event_sender.stream_adk_to_ai_sdk", return_value=mock_stream()
+            "adk_stream_protocol.transport.bidi_event_sender.stream_adk_to_ai_sdk",
+            return_value=mock_stream(),
         ),
     ):
         await sender.send_events(mock_live_events())
@@ -185,7 +186,8 @@ async def test_send_events_handles_websocket_disconnect_gracefully() -> None:
     # when/then - should not raise
     with (
         patch(
-            "adk_stream_protocol.bidi_event_sender.stream_adk_to_ai_sdk", return_value=mock_stream()
+            "adk_stream_protocol.transport.bidi_event_sender.stream_adk_to_ai_sdk",
+            return_value=mock_stream(),
         ),
     ):
         await sender.send_events(mock_live_events())
@@ -217,7 +219,7 @@ async def test_send_events_handles_session_resumption_error_silently() -> None:
     # when
     with (
         patch(
-            "adk_stream_protocol.bidi_event_sender.stream_adk_to_ai_sdk",
+            "adk_stream_protocol.transport.bidi_event_sender.stream_adk_to_ai_sdk",
             side_effect=lambda *args, **kwargs: mock_stream_generator(),
         ),
     ):
@@ -250,7 +252,7 @@ async def test_send_events_raises_other_value_errors() -> None:
     # when/then
     with (
         patch(
-            "adk_stream_protocol.bidi_event_sender.stream_adk_to_ai_sdk",
+            "adk_stream_protocol.transport.bidi_event_sender.stream_adk_to_ai_sdk",
             side_effect=lambda *args, **kwargs: mock_stream_generator(),
         ),
     ):
@@ -283,7 +285,7 @@ async def test_send_events_raises_other_exceptions() -> None:
     # when/then
     with (
         patch(
-            "adk_stream_protocol.bidi_event_sender.stream_adk_to_ai_sdk",
+            "adk_stream_protocol.transport.bidi_event_sender.stream_adk_to_ai_sdk",
             side_effect=lambda *args, **kwargs: mock_stream_generator(),
         ),
     ):
@@ -454,8 +456,8 @@ async def test_send_sse_event_skips_id_mapping_when_tool_call_id_missing() -> No
 
 
 @pytest.mark.asyncio
-async def test_send_sse_event_with_websocket_send_error_raises() -> None:
-    """_send_sse_event() should propagate websocket.send_text() errors (non-disconnect)."""
+async def test_send_sse_event_with_websocket_send_error_returns_false() -> None:
+    """_send_sse_event() should return False for non-disconnect WebSocket errors (B3: graceful handling)."""
     # given
     mock_websocket = create_mock_websocket()
     mock_websocket.send_text = AsyncMock(side_effect=RuntimeError("WebSocket error"))
@@ -470,8 +472,32 @@ async def test_send_sse_event_with_websocket_send_error_raises() -> None:
 
     sse_event = 'data: {"type":"text-delta","text":"test"}\n\n'
 
-    # when/then
-    with pytest.raises(RuntimeError, match="WebSocket error"):
+    # when
+    result = await sender._send_sse_event(sse_event)
+
+    # then - B3: non-disconnect errors return False instead of raising
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_send_sse_event_with_websocket_disconnect_raises() -> None:
+    """_send_sse_event() should re-raise WebSocketDisconnect (not caught by B3 graceful handling)."""
+    # given
+    mock_websocket = create_mock_websocket()
+    mock_websocket.send_text = AsyncMock(side_effect=WebSocketDisconnect())
+    mock_session = create_mock_session()
+
+    sender = BidiEventSender(
+        websocket=mock_websocket,
+        frontend_delegate=Mock(),
+        confirmation_tools=[],
+        session=mock_session,
+    )
+
+    sse_event = 'data: {"type":"text-delta","text":"test"}\n\n'
+
+    # when/then - WebSocketDisconnect should be re-raised for outer handler
+    with pytest.raises(WebSocketDisconnect):
         await sender._send_sse_event(sse_event)
 
 
@@ -528,7 +554,7 @@ async def test_send_events_with_stream_error_after_first_event() -> None:
     # when/then
     with (
         patch(
-            "adk_stream_protocol.bidi_event_sender.stream_adk_to_ai_sdk",
+            "adk_stream_protocol.transport.bidi_event_sender.stream_adk_to_ai_sdk",
             side_effect=lambda *args, **kwargs: mock_stream_generator(),
         ),
     ):
@@ -616,7 +642,7 @@ async def test_send_events_with_empty_live_events() -> None:
     # when
     with (
         patch(
-            "adk_stream_protocol.bidi_event_sender.stream_adk_to_ai_sdk",
+            "adk_stream_protocol.transport.bidi_event_sender.stream_adk_to_ai_sdk",
             side_effect=lambda *args, **kwargs: mock_stream(),
         ),
     ):

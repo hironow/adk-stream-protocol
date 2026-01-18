@@ -1,7 +1,7 @@
 import json
 from typing import Any
 
-from .result import Error, Ok, Result
+from .ags import Error, Ok, Result
 
 
 def _parse_json_safely(json_str: str) -> Result[dict[str, Any], str]:

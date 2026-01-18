@@ -15,41 +15,52 @@
   },
   "output": {
     "rawEvents": [
-      "data: {\"type\": \"start\", \"messageId\": \"92bee025-d054-491e-9e26-9cee0e59fcff\"}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"76ac6341-05bc-484a-904e-0ecd3d73008f\"}\n\n",
       "data: {\"type\": \"reasoning-start\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Confirming Payment Details**\\n\\nI've confirmed the payment details for Alice and Bob. My plan is to execute the `process_payment` tool twice. For Alice, I'll call it with `amount=30`, `recipient='Alice'`, and `currency='USD'`.  Then, for Bob, the call will be `amount=40`, `recipient='Bob'`, again with `currency='USD'`. I will execute these tool calls in sequence.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Generating Payment Actions**\\n\\nI've determined the need for two separate `process_payment` tool calls, one for Alice ($30) and another for Bob ($40), both in USD. I'm building these tool calls now, ready to be sent. The implicit user approval flows required by `process_payment` are also in place for both calls.\\n\\n\\n\"}\n\n",
       "data: {\"type\": \"reasoning-end\", \"id\": \"0\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-4132076293338020419\", \"toolName\": \"process_payment\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-4132076293338020419\", \"toolName\": \"process_payment\", \"input\": {\"amount\": 30, \"recipient\": \"Alice\", \"currency\": \"USD\"}}\n\n",
+      "data: {\"type\":\"start-step\"}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-4132076293338020419\", \"approvalId\": \"confirm-c0e8459c-6b37-4dda-a4e0-00563ca71716\"}\n\n",
+      "data: {\"type\":\"finish-step\"}\n\n",
+      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"function-call-4132076293338020419\", \"errorText\": \"User denied the payment\"}\n\n",
       "data: {\"type\": \"reasoning-start\", \"id\": \"1\"}\n\n",
-      "data: {\"type\": \"reasoning-delta\", \"id\": \"1\", \"delta\": \"**Updating Payment Strategy**\\n\\nI've refined the execution strategy. I'll utilize the `process_payment` tool twice. The first instance processes Alice's payment of $30, using the explicit `currency='USD'`. Following that, I'll process Bob's $40 payment to completion. Both actions will be sequential, with user approval where needed. I am ready to implement and confirm!\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"1\", \"delta\": \"**Addressing the Second Payment**\\n\\nI'm focused on the second payment request. The initial transaction with Alice was rejected, but I'm proceeding with the one for Bob's 40 USD. It's crucial to keep them distinct, so I'm processing Bob's payment independently.\\n\\n\\n\"}\n\n",
       "data: {\"type\": \"reasoning-end\", \"id\": \"1\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-13268727075906608236\", \"toolName\": \"process_payment\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-13268727075906608236\", \"toolName\": \"process_payment\", \"input\": {\"currency\": \"USD\", \"recipient\": \"Alice\", \"amount\": 30}}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-3696417290158933246\", \"toolName\": \"process_payment\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-3696417290158933246\", \"toolName\": \"process_payment\", \"input\": {\"amount\": 40, \"recipient\": \"Bob\", \"currency\": \"USD\"}}\n\n",
       "data: {\"type\":\"start-step\"}\n\n",
-      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-13268727075906608236\", \"approvalId\": \"adk-1543c9cd-6d6c-489e-88ec-7684ac83cb80\"}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-3696417290158933246\", \"approvalId\": \"confirm-d663ce51-fbd6-4c1e-b246-75c6031ca1b7\"}\n\n",
       "data: {\"type\":\"finish-step\"}\n\n",
-      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"function-call-13268727075906608236\", \"errorText\": \"User denied the payment\"}\n\n",
+      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"function-call-3696417290158933246\", \"errorText\": \"User denied the payment\"}\n\n",
       "data: {\"type\": \"reasoning-start\", \"id\": \"2\"}\n\n",
-      "data: {\"type\": \"reasoning-delta\", \"id\": \"2\", \"delta\": \"**Handling the Next Step**\\n\\nI've just been informed that the initial payment to Alice, totaling $30, wasn't approved. This necessitates an immediate shift in focus. The user has explicitly requested that I now initiate the second payment, this time for $40 to Bob. I'm prioritizing this action to maintain efficiency.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"2\", \"delta\": \"**Notifying Failed Transactions**\\n\\nI see that both payment requests, $30 to Alice and $40 to Bob, were denied. I must immediately inform the user that both transactions have failed.\\n\\n\\n\"}\n\n",
       "data: {\"type\": \"reasoning-end\", \"id\": \"2\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-8468173163374196472\", \"toolName\": \"process_payment\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-8468173163374196472\", \"toolName\": \"process_payment\", \"input\": {\"currency\": \"USD\", \"amount\": 40, \"recipient\": \"Bob\"}}\n\n",
-      "data: {\"type\":\"start-step\"}\n\n",
-      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-8468173163374196472\", \"approvalId\": \"adk-ec55d482-029e-4848-bb57-6764b364a466\"}\n\n",
-      "data: {\"type\":\"finish-step\"}\n\n",
-      "data: {\"type\": \"tool-output-error\", \"toolCallId\": \"function-call-8468173163374196472\", \"errorText\": \"User denied the payment\"}\n\n",
-      "data: {\"type\": \"reasoning-start\", \"id\": \"3\"}\n\n",
-      "data: {\"type\": \"reasoning-delta\", \"id\": \"3\", \"delta\": \"**Communicating Denial Outcomes**\\n\\nI've just concluded that I need to immediately inform the user that both payment requests, the $30 for Alice and $40 for Bob, were rejected. Since both transactions were explicitly denied, this needs to be directly communicated to the user without delay.\\n\\n\\n\"}\n\n",
-      "data: {\"type\": \"reasoning-end\", \"id\": \"3\"}\n\n",
-      "data: {\"type\": \"text-start\", \"id\": \"92bee025-d054-491e-9e26-9cee0e59fcff_output_text\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"92bee025-d054-491e-9e26-9cee0e59fcff_output_text\", \"delta\": \"Alice\\u3078\\u306e30\\u30c9\\u30eb\\u3068Bob\\u3078\\u306e40\\u30c9\\u30eb\\u306e\\u9001\\u91d1\\u306f\\u3001\\u30e6\\u30fc\\u30b6\\u30fc\\u306b\\u3088\\u3063\\u3066\\u62d2\\u5426\\u3055\\u308c\\u305f\\u305f\\u3081\\u3001\\u3069\\u3061\\u3089\\u3082\\u5b9f\\u884c\\u3055\\u308c\\u307e\\u305b\\u3093\\u3067\\u3057\\u305f\\u3002\"}\n\n",
-      "data: {\"type\": \"text-end\", \"id\": \"92bee025-d054-491e-9e26-9cee0e59fcff_output_text\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1722, \"completionTokens\": null, \"totalTokens\": 1900}, \"audio\": {\"chunks\": 150, \"bytes\": 332160, \"sampleRate\": 24000, \"duration\": 6.92}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"76ac6341-05bc-484a-904e-0ecd3d73008f_output_text\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"76ac6341-05bc-484a-904e-0ecd3d73008f_output_text\", \"delta\": \"\\u7533\\u3057\\u8a33\\u3042\\u308a\\u307e\\u305b\\u3093\\u304c\\u3001\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"76ac6341-05bc-484a-904e-0ecd3d73008f_output_text\", \"delta\": \"\\u30e6\\u30fc\\u30b6\\u30fc\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"76ac6341-05bc-484a-904e-0ecd3d73008f_output_text\", \"delta\": \"\\u306e\\u62d2\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"76ac6341-05bc-484a-904e-0ecd3d73008f_output_text\", \"delta\": \"\\u5426\\u306b\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"76ac6341-05bc-484a-904e-0ecd3d73008f_output_text\", \"delta\": \"\\u3088\\u308a\\u3001\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"76ac6341-05bc-484a-904e-0ecd3d73008f_output_text\", \"delta\": \" Alice\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"76ac6341-05bc-484a-904e-0ecd3d73008f_output_text\", \"delta\": \"\\u3068Bob\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"76ac6341-05bc-484a-904e-0ecd3d73008f_output_text\", \"delta\": \"\\u3078\\u306e\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"76ac6341-05bc-484a-904e-0ecd3d73008f_output_text\", \"delta\": \"\\u9001\\u91d1\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"76ac6341-05bc-484a-904e-0ecd3d73008f_output_text\", \"delta\": \"\\u304c\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"76ac6341-05bc-484a-904e-0ecd3d73008f_output_text\", \"delta\": \"\\u6b63\\u5e38\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"76ac6341-05bc-484a-904e-0ecd3d73008f_output_text\", \"delta\": \"\\u306b\\u51e6\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"76ac6341-05bc-484a-904e-0ecd3d73008f_output_text\", \"delta\": \"\\u7406\\u3067\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"76ac6341-05bc-484a-904e-0ecd3d73008f_output_text\", \"delta\": \"\\u304d\\u307e\\u305b\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"76ac6341-05bc-484a-904e-0ecd3d73008f_output_text\", \"delta\": \"\\u3093\\u3067\\u3057\\u305f\\u3002\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"76ac6341-05bc-484a-904e-0ecd3d73008f_output_text\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1706, \"completionTokens\": null, \"totalTokens\": 1854}, \"audio\": {\"chunks\": 124, \"bytes\": 282240, \"sampleRate\": 24000, \"duration\": 5.88}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
       {
         "type": "start",
-        "messageId": "92bee025-d054-491e-9e26-9cee0e59fcff"
+        "messageId": "76ac6341-05bc-484a-904e-0ecd3d73008f"
       },
       {
         "type": "reasoning-start",
@@ -58,11 +69,42 @@
       {
         "type": "reasoning-delta",
         "id": "0",
-        "delta": "**Confirming Payment Details**\n\nI've confirmed the payment details for Alice and Bob. My plan is to execute the `process_payment` tool twice. For Alice, I'll call it with `amount=30`, `recipient='Alice'`, and `currency='USD'`.  Then, for Bob, the call will be `amount=40`, `recipient='Bob'`, again with `currency='USD'`. I will execute these tool calls in sequence.\n\n\n"
+        "delta": "**Generating Payment Actions**\n\nI've determined the need for two separate `process_payment` tool calls, one for Alice ($30) and another for Bob ($40), both in USD. I'm building these tool calls now, ready to be sent. The implicit user approval flows required by `process_payment` are also in place for both calls.\n\n\n"
       },
       {
         "type": "reasoning-end",
         "id": "0"
+      },
+      {
+        "type": "tool-input-start",
+        "toolCallId": "function-call-4132076293338020419",
+        "toolName": "process_payment"
+      },
+      {
+        "type": "tool-input-available",
+        "toolCallId": "function-call-4132076293338020419",
+        "toolName": "process_payment",
+        "input": {
+          "amount": 30,
+          "recipient": "Alice",
+          "currency": "USD"
+        }
+      },
+      {
+        "type": "start-step"
+      },
+      {
+        "type": "tool-approval-request",
+        "toolCallId": "function-call-4132076293338020419",
+        "approvalId": "confirm-c0e8459c-6b37-4dda-a4e0-00563ca71716"
+      },
+      {
+        "type": "finish-step"
+      },
+      {
+        "type": "tool-output-error",
+        "toolCallId": "function-call-4132076293338020419",
+        "errorText": "User denied the payment"
       },
       {
         "type": "reasoning-start",
@@ -71,7 +113,7 @@
       {
         "type": "reasoning-delta",
         "id": "1",
-        "delta": "**Updating Payment Strategy**\n\nI've refined the execution strategy. I'll utilize the `process_payment` tool twice. The first instance processes Alice's payment of $30, using the explicit `currency='USD'`. Following that, I'll process Bob's $40 payment to completion. Both actions will be sequential, with user approval where needed. I am ready to implement and confirm!\n\n\n"
+        "delta": "**Addressing the Second Payment**\n\nI'm focused on the second payment request. The initial transaction with Alice was rejected, but I'm proceeding with the one for Bob's 40 USD. It's crucial to keep them distinct, so I'm processing Bob's payment independently.\n\n\n"
       },
       {
         "type": "reasoning-end",
@@ -79,17 +121,17 @@
       },
       {
         "type": "tool-input-start",
-        "toolCallId": "function-call-13268727075906608236",
+        "toolCallId": "function-call-3696417290158933246",
         "toolName": "process_payment"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "function-call-13268727075906608236",
+        "toolCallId": "function-call-3696417290158933246",
         "toolName": "process_payment",
         "input": {
-          "currency": "USD",
-          "recipient": "Alice",
-          "amount": 30
+          "amount": 40,
+          "recipient": "Bob",
+          "currency": "USD"
         }
       },
       {
@@ -97,15 +139,15 @@
       },
       {
         "type": "tool-approval-request",
-        "toolCallId": "function-call-13268727075906608236",
-        "approvalId": "adk-1543c9cd-6d6c-489e-88ec-7684ac83cb80"
+        "toolCallId": "function-call-3696417290158933246",
+        "approvalId": "confirm-d663ce51-fbd6-4c1e-b246-75c6031ca1b7"
       },
       {
         "type": "finish-step"
       },
       {
         "type": "tool-output-error",
-        "toolCallId": "function-call-13268727075906608236",
+        "toolCallId": "function-call-3696417290158933246",
         "errorText": "User denied the payment"
       },
       {
@@ -115,83 +157,109 @@
       {
         "type": "reasoning-delta",
         "id": "2",
-        "delta": "**Handling the Next Step**\n\nI've just been informed that the initial payment to Alice, totaling $30, wasn't approved. This necessitates an immediate shift in focus. The user has explicitly requested that I now initiate the second payment, this time for $40 to Bob. I'm prioritizing this action to maintain efficiency.\n\n\n"
+        "delta": "**Notifying Failed Transactions**\n\nI see that both payment requests, $30 to Alice and $40 to Bob, were denied. I must immediately inform the user that both transactions have failed.\n\n\n"
       },
       {
         "type": "reasoning-end",
         "id": "2"
       },
       {
-        "type": "tool-input-start",
-        "toolCallId": "function-call-8468173163374196472",
-        "toolName": "process_payment"
-      },
-      {
-        "type": "tool-input-available",
-        "toolCallId": "function-call-8468173163374196472",
-        "toolName": "process_payment",
-        "input": {
-          "currency": "USD",
-          "amount": 40,
-          "recipient": "Bob"
-        }
-      },
-      {
-        "type": "start-step"
-      },
-      {
-        "type": "tool-approval-request",
-        "toolCallId": "function-call-8468173163374196472",
-        "approvalId": "adk-ec55d482-029e-4848-bb57-6764b364a466"
-      },
-      {
-        "type": "finish-step"
-      },
-      {
-        "type": "tool-output-error",
-        "toolCallId": "function-call-8468173163374196472",
-        "errorText": "User denied the payment"
-      },
-      {
-        "type": "reasoning-start",
-        "id": "3"
-      },
-      {
-        "type": "reasoning-delta",
-        "id": "3",
-        "delta": "**Communicating Denial Outcomes**\n\nI've just concluded that I need to immediately inform the user that both payment requests, the $30 for Alice and $40 for Bob, were rejected. Since both transactions were explicitly denied, this needs to be directly communicated to the user without delay.\n\n\n"
-      },
-      {
-        "type": "reasoning-end",
-        "id": "3"
-      },
-      {
         "type": "text-start",
-        "id": "92bee025-d054-491e-9e26-9cee0e59fcff_output_text"
+        "id": "76ac6341-05bc-484a-904e-0ecd3d73008f_output_text"
       },
       {
         "type": "text-delta",
-        "id": "92bee025-d054-491e-9e26-9cee0e59fcff_output_text",
-        "delta": "Aliceへの30ドルとBobへの40ドルの送金は、ユーザーによって拒否されたため、どちらも実行されませんでした。"
+        "id": "76ac6341-05bc-484a-904e-0ecd3d73008f_output_text",
+        "delta": "申し訳ありませんが、"
+      },
+      {
+        "type": "text-delta",
+        "id": "76ac6341-05bc-484a-904e-0ecd3d73008f_output_text",
+        "delta": "ユーザー"
+      },
+      {
+        "type": "text-delta",
+        "id": "76ac6341-05bc-484a-904e-0ecd3d73008f_output_text",
+        "delta": "の拒"
+      },
+      {
+        "type": "text-delta",
+        "id": "76ac6341-05bc-484a-904e-0ecd3d73008f_output_text",
+        "delta": "否に"
+      },
+      {
+        "type": "text-delta",
+        "id": "76ac6341-05bc-484a-904e-0ecd3d73008f_output_text",
+        "delta": "より、"
+      },
+      {
+        "type": "text-delta",
+        "id": "76ac6341-05bc-484a-904e-0ecd3d73008f_output_text",
+        "delta": " Alice"
+      },
+      {
+        "type": "text-delta",
+        "id": "76ac6341-05bc-484a-904e-0ecd3d73008f_output_text",
+        "delta": "とBob"
+      },
+      {
+        "type": "text-delta",
+        "id": "76ac6341-05bc-484a-904e-0ecd3d73008f_output_text",
+        "delta": "への"
+      },
+      {
+        "type": "text-delta",
+        "id": "76ac6341-05bc-484a-904e-0ecd3d73008f_output_text",
+        "delta": "送金"
+      },
+      {
+        "type": "text-delta",
+        "id": "76ac6341-05bc-484a-904e-0ecd3d73008f_output_text",
+        "delta": "が"
+      },
+      {
+        "type": "text-delta",
+        "id": "76ac6341-05bc-484a-904e-0ecd3d73008f_output_text",
+        "delta": "正常"
+      },
+      {
+        "type": "text-delta",
+        "id": "76ac6341-05bc-484a-904e-0ecd3d73008f_output_text",
+        "delta": "に処"
+      },
+      {
+        "type": "text-delta",
+        "id": "76ac6341-05bc-484a-904e-0ecd3d73008f_output_text",
+        "delta": "理で"
+      },
+      {
+        "type": "text-delta",
+        "id": "76ac6341-05bc-484a-904e-0ecd3d73008f_output_text",
+        "delta": "きませ"
+      },
+      {
+        "type": "text-delta",
+        "id": "76ac6341-05bc-484a-904e-0ecd3d73008f_output_text",
+        "delta": "んでした。"
       },
       {
         "type": "text-end",
-        "id": "92bee025-d054-491e-9e26-9cee0e59fcff_output_text"
+        "id": "76ac6341-05bc-484a-904e-0ecd3d73008f_output_text"
       },
       {
         "type": "finish",
         "finishReason": "stop",
         "messageMetadata": {
           "usage": {
-            "promptTokens": 1722,
+            "promptTokens": 1706,
             "completionTokens": null,
-            "totalTokens": 1900
+            "totalTokens": 1854
           },
           "audio": {
-            "chunks": 150,
-            "bytes": 332160,
+            "chunks": 124,
+            "bytes": 282240,
             "sampleRate": 24000,
-            "duration": 6.92
+            "duration": 5.88
           },
           "modelVersion": "gemini-2.5-flash-native-audio-preview-12-2025"
         }

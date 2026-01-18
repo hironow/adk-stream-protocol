@@ -108,7 +108,9 @@ async def test_multiple_payments_sequential_bidi_baseline(frontend_fixture_dir: 
         print("✓ Turn 1: tool-approval-request toolCallId matches original tool")
 
         is_valid, error_msg = validate_no_adk_request_confirmation_tool_input(turn1_events)
-        assert is_valid, f"Turn 1: adk_request_confirmation tool-input validation failed:\n{error_msg}"
+        assert is_valid, (
+            f"Turn 1: adk_request_confirmation tool-input validation failed:\n{error_msg}"
+        )
         print("✓ Turn 1: No forbidden adk_request_confirmation tool-input events")
 
         # Count tool-approval-request events (should be 1 in BIDI mode)
@@ -116,10 +118,14 @@ async def test_multiple_payments_sequential_bidi_baseline(frontend_fixture_dir: 
         assert len(approval_requests_turn1) == 1, (
             f"BIDI Turn 1: Expected 1 tool-approval-request (sequential execution), got {len(approval_requests_turn1)}"
         )
-        print(f"✓ Turn 1: Found {len(approval_requests_turn1)} tool-approval-request (Alice only, Bob not generated yet)")
+        print(
+            f"✓ Turn 1: Found {len(approval_requests_turn1)} tool-approval-request (Alice only, Bob not generated yet)"
+        )
 
         # ===== TURN 2: Alice approval → Alice execution + Bob confirmation =====
-        print("\n=== TURN 2: Sending Alice approval (expect Alice execution + Bob approval request) ===")
+        print(
+            "\n=== TURN 2: Sending Alice approval (expect Alice execution + Bob approval request) ==="
+        )
 
         alice_approval_message = {
             "role": "user",
@@ -166,12 +172,18 @@ async def test_multiple_payments_sequential_bidi_baseline(frontend_fixture_dir: 
         print("✓ Turn 2: tool-approval-request toolCallIds match original tools")
 
         is_valid, error_msg = validate_no_adk_request_confirmation_tool_input(turn2_events)
-        assert is_valid, f"Turn 2: adk_request_confirmation tool-input validation failed:\n{error_msg}"
+        assert is_valid, (
+            f"Turn 2: adk_request_confirmation tool-input validation failed:\n{error_msg}"
+        )
         print("✓ Turn 2: No forbidden adk_request_confirmation tool-input events")
 
         # Should have Alice tool-output and Bob approval-request
-        alice_output_events = [e for e in turn2_events if "tool-output-available" in e and alice_tool_call_id in e]
-        assert len(alice_output_events) == 1, f"Turn 2: Expected 1 Alice tool-output, got {len(alice_output_events)}"
+        alice_output_events = [
+            e for e in turn2_events if "tool-output-available" in e and alice_tool_call_id in e
+        ]
+        assert len(alice_output_events) == 1, (
+            f"Turn 2: Expected 1 Alice tool-output, got {len(alice_output_events)}"
+        )
         print("✓ Turn 2: Found Alice tool-output-available")
 
         approval_requests_turn2 = [e for e in turn2_events if "tool-approval-request" in e]
@@ -207,7 +219,9 @@ async def test_multiple_payments_sequential_bidi_baseline(frontend_fixture_dir: 
         turn3_events: list[str] = []
         while True:
             try:
-                event = await asyncio.wait_for(websocket.recv(), timeout=10.0)
+                event_raw = await asyncio.wait_for(websocket.recv(), timeout=10.0)
+                # Ensure event is str (websocket.recv() can return bytes or str)
+                event = event_raw.decode("utf-8") if isinstance(event_raw, bytes) else event_raw
                 turn3_events.append(event)
                 all_events.append(event)
                 print(f"Event {len(turn3_events)}: {event.strip()}")
@@ -223,12 +237,18 @@ async def test_multiple_payments_sequential_bidi_baseline(frontend_fixture_dir: 
 
         # Validate Turn 3
         is_valid, error_msg = validate_no_adk_request_confirmation_tool_input(turn3_events)
-        assert is_valid, f"Turn 3: adk_request_confirmation tool-input validation failed:\n{error_msg}"
+        assert is_valid, (
+            f"Turn 3: adk_request_confirmation tool-input validation failed:\n{error_msg}"
+        )
         print("✓ Turn 3: No forbidden adk_request_confirmation tool-input events")
 
         # Should have Bob tool-output
-        bob_output_events = [e for e in turn3_events if "tool-output-available" in e and bob_tool_call_id in e]
-        assert len(bob_output_events) == 1, f"Turn 3: Expected 1 Bob tool-output, got {len(bob_output_events)}"
+        bob_output_events = [
+            e for e in turn3_events if "tool-output-available" in e and bob_tool_call_id in e
+        ]
+        assert len(bob_output_events) == 1, (
+            f"Turn 3: Expected 1 Bob tool-output, got {len(bob_output_events)}"
+        )
         print("✓ Turn 3: Found Bob tool-output-available")
 
         # Should have [DONE]

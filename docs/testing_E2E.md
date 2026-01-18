@@ -22,29 +22,29 @@ uv run pytest tests/e2e/test_server_chunk_player.py
 
 ```bash
 # All frontend E2E tests
-pnpm exec vitest run lib/tests/e2e/
+bunx vitest run lib/tests/e2e/
 
 # Specific test
-pnpm exec vitest run lib/tests/e2e/chat-flow.e2e.test.ts
+bunx vitest run lib/tests/e2e/chat-flow.e2e.test.ts
 ```
 
 **Full E2E (Playwright)**:
 
 ```bash
 # All tiers (smoke + core + advanced)
-pnpm test:e2e:app
+bun run test:e2e:app
 
 # Smoke tests only (fast)
-pnpm test:e2e:app:smoke
+bun run test:e2e:app:smoke
 
 # UI mode (interactive)
-pnpm test:e2e:ui
+bun run test:e2e:ui
 ```
 
 ### Prerequisites
 
 1. **Backend server running**: `just dev` (starts at `localhost:8000`)
-2. **Frontend server running**: `pnpm dev` (starts at `localhost:3000`)
+2. **Frontend server running**: `bun dev` (starts at `localhost:3000`)
 3. **Fixtures up-to-date**: Run tests to generate latest fixtures
 
 ---
@@ -316,8 +316,6 @@ await page.locator("text=/Hello/").click();
 grep -r 'locator("text=' scenarios/
 grep -r "locator('text=" scenarios/
 ```
-
-**Future**: Add custom ESLint rule or pre-commit hook
 
 ---
 
@@ -612,10 +610,8 @@ const transport = new ChunkLoggingTransport(delegate, mode);
 ## 📚 Related Documentation
 
 - **[Testing Strategy](testing_STRATEGY.md)** - Overall test architecture
-- **[Backend E2E Tests](testing_E2E_BACKEND.md)** - pytest golden file testing (DEPRECATED - merged into this doc)
-- **[Frontend E2E Tests](testing_E2E_FRONTEND.md)** - Vitest browser testing (DEPRECATED - merged into this doc)
 - **[ADR-0007](adr/0007-approval-value-independence-in-auto-submit.md)** - Approval timing independence
 
 ---
 
-**Last Updated**: 2025-12-29
+**Last Updated**: 2026-01-18

@@ -10,7 +10,8 @@ Tests cover:
 
 import base64
 
-from adk_stream_protocol import ChatMessage, GenericPart
+from adk_stream_protocol import ChatMessage
+from adk_stream_protocol.protocol.message_types import GenericPart
 
 
 def test_chat_message_with_text_and_image():

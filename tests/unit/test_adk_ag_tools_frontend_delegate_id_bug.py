@@ -19,9 +19,13 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from adk_stream_protocol import change_bgm, get_location
-from adk_stream_protocol.frontend_tool_registry import _REGISTRY, register_delegate
-from adk_stream_protocol.result import Ok
+from adk_stream_protocol import (
+    Ok,
+    change_bgm,
+    get_location,
+    register_delegate,
+)
+from adk_stream_protocol.ags._internal import _REGISTRY
 from tests.utils.mocks import create_mock_session, create_mock_tool_context
 
 

@@ -2,7 +2,7 @@
  * BIDI EventReceiver Unit Tests
  *
  * Tests the critical functionality of EventReceiver including:
- * - Approval request handling with [DONE] sending (Phase 12 BLOCKING fix)
+ * - Approval request handling with [DONE] sending (BIDI Blocking Mode fix)
  * - [DONE] marker processing and doneReceived flag
  * - SSE message parsing and chunk conversion
  * - State management (reset, isDoneReceived)
@@ -160,7 +160,7 @@ describe("BIDI EventReceiver", () => {
     });
   });
 
-  describe("Approval Request Handling (Phase 12 BLOCKING Fix)", () => {
+  describe("Approval Request Handling (BIDI Blocking Mode Fix)", () => {
     it("should send [DONE] after approval request to enable sendAutomaticallyWhen", () => {
       // given
       const approvalChunk = {

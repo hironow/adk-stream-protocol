@@ -1,7 +1,6 @@
 # Protocol Implementation
 
-**Last Updated:** 2025-12-29
-**Status:** Phase 1-3 Complete (Text, Images, Audio I/O)
+**Last Updated:** 2026-01-18
 
 AI SDK v6 Data Stream Protocol implementation for ADK backend integration.
 
@@ -27,7 +26,7 @@ AI SDK v6 Data Stream Protocol implementation for ADK backend integration.
 | **Error Handling** | ✅ Complete | Error events |
 | **Metadata** | ✅ Complete | Usage, finish reason, grounding, citations, cache, model version |
 | **File References** | ❌ Not Implemented | Requires backend proxy for gs:// URLs |
-| **Advanced Features** | ❌ Not Implemented | Logprobs, video metadata (low priority) |
+| **Advanced Features** | ❌ Not Implemented | Logprobs, video metadata |
 
 ---
 
@@ -80,7 +79,7 @@ AI SDK v6 Data Stream Protocol implementation for ADK backend integration.
 
 - `thought_signature` (cryptographic signature)
 - `file_data` (requires gs:// URL proxy)
-- `video_metadata`, `media_resolution` (Phase 4 - future)
+- `video_metadata`, `media_resolution` (not implemented)
 
 ---
 
@@ -112,7 +111,7 @@ AI SDK v6 Data Stream Protocol implementation for ADK backend integration.
 | **Not Implemented** |
 | `source-url`, `source-document` | ❌ | ADK doesn't provide source metadata |
 | `file` | ❌ | Use `data-*` instead |
-| `start-step`, `finish-step` | ❌ | Not needed (ADK events are step-based) |
+| `start-step`, `finish-step` | ✅ | Injected for BIDI approval flow (ADR-0011) |
 
 ---
 
@@ -139,7 +138,6 @@ Custom `data-*` events for Gemini-specific features:
 | **Phase 1: Images** | Upload, display, bidirectional | ✅ Complete |
 | **Phase 2: Audio Output** | PCM streaming, WAV playback, transcription | ✅ Complete |
 | **Phase 3: Audio Input** | Microphone, push-to-talk, transcription | ✅ Complete |
-| **Phase 4: Video** | Video streaming | ⬜ Planned |
 
 ---
 
@@ -155,7 +153,7 @@ Custom `data-*` events for Gemini-specific features:
 
 **Field**: `Part.file_data` (gs:// URLs)
 **Challenge**: Cloud Storage URIs require signed URLs or proxy
-**Status**: Not implemented (low priority)
+**Status**: Not implemented
 
 **Proposal** (if needed):
 
@@ -171,11 +169,11 @@ Custom `data-*` events for Gemini-specific features:
 **Impact**: Minor UX - tool calls appear instantly vs character-by-character
 **Workaround**: Could artificially stream on frontend (cosmetic only)
 
-### 4. Multi-Step Control Not Needed
+### 4. Multi-Step Control for BIDI Approval
 
 **Events**: `start-step`, `finish-step`
-**Reason**: ADK events are already step-based
-**Impact**: None - AI SDK v6 processes stream correctly without explicit step markers
+**Implementation**: Injected by `BidiEventSender` for tool approval flow (ADR-0011)
+**Context**: ADK doesn't emit these events, but we inject them to signal step boundaries for frontend approval handling. This breaks the deadlock between backend blocking and frontend stream waiting.
 
 ---
 
@@ -185,11 +183,12 @@ Custom `data-*` events for Gemini-specific features:
 
 Our implementation provides **full AI SDK v6 Data Stream Protocol support** for all data exposed by ADK/Gemini API.
 
-**Unimplemented events fall into 3 categories:**
+**Unimplemented events fall into 2 categories:**
 
 1. **Not provided by ADK**: Source references, file metadata
 2. **ADK limitation**: Tool input delta (not streamed incrementally)
-3. **Not needed**: Multi-step control (ADK is step-based)
+
+**Note**: `start-step`/`finish-step` are now implemented via injection for BIDI approval flow (ADR-0011).
 
 ### Testing
 
@@ -212,4 +211,4 @@ All implemented events are tested in `tests/unit/test_stream_protocol_comprehens
 
 ---
 
-**Last Review**: 2025-12-29
+**Last Review**: 2026-01-18

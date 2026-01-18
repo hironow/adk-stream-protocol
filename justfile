@@ -3,7 +3,7 @@
 default: help
 
 help:
-    @just --list --unsorted
+    @just --list
 
 
 # Define specific commands
@@ -15,32 +15,33 @@ PDOC := "uv run pdoc"
 [group("setup")]
 install:
     uv sync
-    pnpm install
+    bun install
 
 # Run Python backend server
 [group("development")]
-server:
-    @echo "Starting backend server at http://localhost:8000"
-    uv run uvicorn server:app --reload --host 0.0.0.0 --port 8000
+server port="8000" host="0.0.0.0":
+    @echo "Starting backend server at http://localhost:{{port}}"
+    uv run uvicorn server:app --reload --host {{host}} --port {{port}}
 
 [group("development")]
-pdoc:
-    @echo "Starting pdoc documentation server at http://localhost:8888"
-    {{PDOC}} --port 8888 ./adk_stream_protocol
+pdoc port="8888":
+    @echo "Starting pdoc documentation server at http://localhost:{{port}}"
+    {{PDOC}} --port {{port}} ./adk_stream_protocol
 
 # Run Next.js frontend development server
 [group("development")]
 frontend:
     @echo "Starting frontend server at http://localhost:3000"
-    pnpm dev
+    bun run dev
 
-# Run both frontend and backend in parallel (requires 'just' with --jobs flag)
+# Run both frontend and backend in parallel
 [group("development")]
 dev:
     @echo "Starting backend and frontend servers..."
     @echo "Backend: http://localhost:8000"
     @echo "Frontend: http://localhost:3000"
-    just --jobs 2 server frontend
+    @echo "Press Ctrl+C to stop both servers"
+    (trap 'kill 0' INT; uv run uvicorn server:app --reload --host 0.0.0.0 --port 8000 & bun run dev & wait)
 
 # Format all code (Python + frontend)
 [group("development")]
@@ -75,12 +76,12 @@ typecheck-python:
 # Run linting for frontend (Biome)
 [group("development")]
 lint-frontend:
-    pnpm run lint
+    bun run lint
 
 # Format frontend code (Biome)
 [group("development")]
 format-frontend:
-    pnpm run format
+    bun run format
 
 # Run Semgrep for security/static analysis
 [group("development")]
@@ -97,7 +98,7 @@ md-lint:
 # Install Playwright browsers
 [group("setup")]
 install-browsers:
-    pnpm exec playwright install chromium
+    bunx playwright install chromium
 
 # Run all Python checks
 [group("development")]
@@ -107,11 +108,16 @@ check-python: lint-python typecheck-python
 # Run all TypeScript checks
 [group("development")]
 check-typescript: lint-frontend
-    pnpm exec vitest list
+    bunx vitest list
+
+# Check ADK agents can be loaded (simulates adk web)
+[group("development")]
+check-agents:
+    uv run python scripts/check_adk_agents.py
 
 # Run all checks
 [group("development")]
-check: check-python check-typescript md-lint
+check: check-python check-typescript md-lint check-agents
     @echo "All checks passed."
 
 # Tail the latest chunk logs (for development debugging)
@@ -180,7 +186,7 @@ delete-deps:
 [group("hardercleaner")]
 delete-lock:
     @echo "Cleaning up lock files..."
-    rm -f pnpm-lock.yaml
+    rm -f bun.lock
     rm -f uv.lock
     @echo "Lock files cleaned."
 

@@ -18,7 +18,7 @@
  *
  * Prerequisites:
  * - Backend server running: uv run uvicorn server:app --reload
- * - Server must implement Phase 12 BLOCKING approval pattern
+ * - Server must implement BIDI Blocking Mode approval pattern
  */
 
 import { expect, test } from "@playwright/test";

@@ -97,10 +97,14 @@ export const uiMessageChunkSchemaFromAISDKv6 = uiMessageChunkSchema;
 // Type aliases
 export type UIMessageFromAISDKv6 = UIMessage;
 export type UIMessageChunkFromAISDKv6 = UIMessageChunk;
+// biome-ignore lint/suspicious/noExplicitAny: Generic type params for AI SDK compatibility
 export type UIMessagePartFromAISDKv6 = UIMessagePart<any, any>;
+// biome-ignore lint/suspicious/noExplicitAny: Generic type param for AI SDK compatibility
 export type UIToolInvocationFromAISDKv6 = UIToolInvocation<any>;
 export type DynamicToolUIPartFromAISDKv6 = DynamicToolUIPart;
+// biome-ignore lint/suspicious/noExplicitAny: Generic type param for AI SDK compatibility
 export type ChatTransportFromAISDKv6 = ChatTransport<any>;
+// biome-ignore lint/suspicious/noExplicitAny: Generic type param for AI SDK compatibility
 export type DefaultChatTransportFromAISDKv6 = DefaultChatTransport<any>;
 export type ChatRequestOptionsFromAISDKv6 = ChatRequestOptions;
 

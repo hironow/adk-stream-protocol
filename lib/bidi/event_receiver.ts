@@ -25,12 +25,24 @@ export interface AudioContext {
 }
 
 /**
+ * PCM audio format parameters
+ */
+interface PCMFormat {
+  sampleRate: number;
+  channels: number;
+  bitDepth: number;
+}
+
+/**
  * PCM audio chunk structure from ADK BIDI protocol
  */
 interface PCMAudioChunk {
   type: "data-pcm";
   data: {
     content: string; // base64-encoded PCM data
+    sampleRate?: number; // default: 24000 (ADK BIDI default)
+    channels?: number; // default: 1 (mono)
+    bitDepth?: number; // default: 16
   };
 }
 
@@ -47,6 +59,18 @@ export interface EventReceiverConfig {
    * Callback for handling pong messages (latency monitoring)
    */
   onPong?: (timestamp: number) => void;
+
+  /**
+   * Callback when tool-approval-request is received
+   * Used by transport to start timeout for backend response (ADR 0011 gap fix)
+   */
+  onApprovalRequestReceived?: () => void;
+
+  /**
+   * Callback when finish-step or [DONE] is received after approval-request
+   * Used by transport to clear timeout (ADR 0011 gap fix)
+   */
+  onApprovalStreamClosed?: () => void;
 }
 
 /**
@@ -66,8 +90,10 @@ export interface EventReceiverConfig {
 export class EventReceiver {
   private doneReceived = false;
   private waitingForFinishStepAfterApproval = false; // Flag for BIDI BLOCKING pattern (ADR 0011)
+  // Counter for received audio chunks, used for logging/debugging stream completion statistics
   private audioChunkIndex = 0;
   private pcmBuffer: Int16Array[] = [];
+  private pcmFormat: PCMFormat | null = null;
 
   constructor(private config: EventReceiverConfig) {}
 
@@ -114,7 +140,7 @@ export class EventReceiver {
 
   /**
    * Check if [DONE] was received in current stream
-   * Used by transport to determine if controller should be reused (Phase 12 BLOCKING)
+   * Used by transport to determine if controller should be reused (BIDI Blocking Mode)
    */
   public isDoneReceived(): boolean {
     return this.doneReceived;
@@ -180,10 +206,15 @@ export class EventReceiver {
     }
 
     // Debug logging for ALL events with recipient info
+    // biome-ignore lint/suspicious/noExplicitAny: Debug logging - chunk type varies by event
     const eventType = (chunk as any).type;
+    // biome-ignore lint/suspicious/noExplicitAny: Debug logging - chunk type varies by event
     const _toolName = (chunk as any).toolName;
+    // biome-ignore lint/suspicious/noExplicitAny: Debug logging - chunk type varies by event
     const toolCallId = (chunk as any).toolCallId;
+    // biome-ignore lint/suspicious/noExplicitAny: Debug logging - chunk type varies by event
     const input = (chunk as any).input;
+    // biome-ignore lint/suspicious/noExplicitAny: Debug logging - chunk type varies by event
     const approvalId = (chunk as any).approvalId;
     const recipient = input?.recipient || "N/A";
 
@@ -196,9 +227,9 @@ export class EventReceiver {
     }
 
     // Additional debug logging for specific event types
-    if ((chunk as any).type === "tool-approval-request") {
+    if (eventType === "tool-approval-request") {
       console.log(
-        `[Event Receiver]   └─ APPROVAL REQUEST for ${recipient}: approvalId=${(chunk as any).approvalId}, toolCallId=${(chunk as any).toolCallId}`,
+        `[Event Receiver]   └─ APPROVAL REQUEST for ${recipient}: approvalId=${approvalId}, toolCallId=${toolCallId}`,
       );
     }
 
@@ -218,6 +249,9 @@ export class EventReceiver {
 
       // Flag: Next finish-step chunk should close the stream
       this.waitingForFinishStepAfterApproval = true;
+
+      // Notify transport to start timeout (ADR 0011 gap fix)
+      this.config.onApprovalRequestReceived?.();
 
       return; // Skip normal enqueue since we already enqueued
     }
@@ -249,13 +283,18 @@ export class EventReceiver {
       // Reset flag
       this.waitingForFinishStepAfterApproval = false;
 
+      // Notify transport to clear timeout (ADR 0011 gap fix)
+      this.config.onApprovalStreamClosed?.();
+
       return; // Skip normal enqueue since we already enqueued
     }
 
     // Special handling for finish event with audio: inject recorded audio BEFORE finish
+    // biome-ignore lint/suspicious/noExplicitAny: Chunk type varies by event - messageMetadata access
+    const messageMetadata = (chunk as any).messageMetadata;
     if (
-      (chunk as any).type === "finish" &&
-      (chunk as any).messageMetadata?.audio &&
+      eventType === "finish" &&
+      messageMetadata?.audio &&
       this.pcmBuffer.length > 0
     ) {
       this.injectRecordedAudio(controller);
@@ -272,7 +311,7 @@ export class EventReceiver {
         err.code === "ERR_INVALID_STATE"
       ) {
         console.warn(
-          `[Event Receiver] Controller already closed, skipping chunk: ${(chunk as any).type}`,
+          `[Event Receiver] Controller already closed, skipping chunk: ${eventType}`,
         );
         return;
       }
@@ -362,7 +401,17 @@ export class EventReceiver {
    */
   private handlePCMAudioChunk(chunk: PCMAudioChunk): void {
     try {
-      // TODO: handle chunk data PCM format changes
+      // Extract PCM format with defaults for ADK BIDI standard format
+      const format: PCMFormat = {
+        sampleRate: chunk.data?.sampleRate ?? 24000,
+        channels: chunk.data?.channels ?? 1,
+        bitDepth: chunk.data?.bitDepth ?? 16,
+      };
+      // Store format for WAV conversion (uses first chunk's format)
+      if (!this.pcmFormat) {
+        this.pcmFormat = format;
+      }
+
       if (!chunk.data) {
         console.warn(
           "[Audio Stream] Invalid PCM chunk: missing data field: ",
@@ -481,10 +530,15 @@ export class EventReceiver {
       offset += chunk.length;
     }
 
-    // WAV file parameters (match ADK BIDI output format)
-    const sampleRate = 24000; // 24kHz (ADK BIDI default)
-    const numChannels = 1; // Mono
-    const bitsPerSample = 16; // 16-bit
+    // WAV file parameters (from received PCM format or ADK BIDI defaults)
+    const format = this.pcmFormat ?? {
+      sampleRate: 24000,
+      channels: 1,
+      bitDepth: 16,
+    };
+    const sampleRate = format.sampleRate;
+    const numChannels = format.channels;
+    const bitsPerSample = format.bitDepth;
 
     // Create WAV file buffer
     const wavBuffer = new ArrayBuffer(44 + pcmData.length * 2);

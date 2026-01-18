@@ -37,6 +37,7 @@ vi.mock("@/lib/audio-context", () => ({
 vi.mock("@/components/image-display", () => ({
   ImageDisplay: ({ url, alt }: { url: string; alt: string }) => (
     <div data-testid="image-display">
+      {/* biome-ignore lint/performance/noImgElement: Test mock - not production code */}
       <img src={url} alt={alt} />
     </div>
   ),

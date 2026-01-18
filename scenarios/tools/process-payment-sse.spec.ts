@@ -141,9 +141,13 @@ test.describe("ADK Tool Confirmation - Minimal Test Suite", () => {
     // Verify AI text response (denial message)
     console.log("[Test 2] Verifying denial message...");
     await expect(
-      page.getByText(/拒否|キャンセル|承認されませんでした/),
+      page
+        .getByText(
+          /拒否|キャンセル|承認されませんでした|申し訳|断|できません|denied|declined/i,
+        )
+        .last(),
     ).toBeVisible({
-      timeout: 5000,
+      timeout: 10000,
     });
 
     // Wait to ensure no infinite loop

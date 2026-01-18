@@ -114,9 +114,7 @@ async def test_multiple_payments_deny_deny_sse(frontend_fixture_dir: Path):
         except (json.JSONDecodeError, KeyError):
             continue
 
-    assert len(tool_call_pairs) == 2, (
-        f"Expected 2 tool call pairs, got {len(tool_call_pairs)}"
-    )
+    assert len(tool_call_pairs) == 2, f"Expected 2 tool call pairs, got {len(tool_call_pairs)}"
 
     # Create assistant message from Turn 1
     assistant_msg = create_assistant_message_from_turn1(turn1_events)
@@ -178,7 +176,7 @@ async def test_multiple_payments_deny_deny_sse(frontend_fixture_dir: Path):
 
     # Should have 2 tool-output-error events (both denied)
     alice_tool_call_id = tool_call_pairs[0][0]  # First tool call (Alice)
-    bob_tool_call_id = tool_call_pairs[1][0]    # Second tool call (Bob)
+    bob_tool_call_id = tool_call_pairs[1][0]  # Second tool call (Bob)
 
     # Find both error outputs
     alice_error = None
@@ -192,12 +190,18 @@ async def test_multiple_payments_deny_deny_sse(frontend_fixture_dir: Path):
             event_data = json.loads(json_str)
 
             # Alice denied → tool-output-error
-            if event_data.get("type") == "tool-output-error" and event_data.get("toolCallId") == alice_tool_call_id:
+            if (
+                event_data.get("type") == "tool-output-error"
+                and event_data.get("toolCallId") == alice_tool_call_id
+            ):
                 alice_error = event_data.get("errorText", "")
                 print(f"✓ Found Alice tool-output-error: {alice_error}")
 
             # Bob denied → tool-output-error
-            elif event_data.get("type") == "tool-output-error" and event_data.get("toolCallId") == bob_tool_call_id:
+            elif (
+                event_data.get("type") == "tool-output-error"
+                and event_data.get("toolCallId") == bob_tool_call_id
+            ):
                 bob_error = event_data.get("errorText", "")
                 print(f"✓ Found Bob tool-output-error: {bob_error}")
         except (json.JSONDecodeError, KeyError):
@@ -205,14 +209,16 @@ async def test_multiple_payments_deny_deny_sse(frontend_fixture_dir: Path):
 
     # Verify Alice payment was denied
     assert alice_error is not None, "Expected Alice tool-output-error event"
-    assert "denied" in alice_error.lower() or "rejected" in alice_error.lower(), \
+    assert "denied" in alice_error.lower() or "rejected" in alice_error.lower(), (
         f"Alice error should mention denial/rejection: {alice_error}"
+    )
     print(f"✓ Alice payment denied: {alice_error}")
 
     # Verify Bob payment was denied
     assert bob_error is not None, "Expected Bob tool-output-error event"
-    assert "denied" in bob_error.lower() or "rejected" in bob_error.lower(), \
+    assert "denied" in bob_error.lower() or "rejected" in bob_error.lower(), (
         f"Bob error should mention denial/rejection: {bob_error}"
+    )
     print(f"✓ Bob payment denied: {bob_error}")
 
     # Verify AI response acknowledges both denials

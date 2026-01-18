@@ -11,6 +11,19 @@ export default defineConfig({
     environment: "node",
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
+    globalSetup: [],
+    globalTeardown: ["./vitest.global-teardown.ts"],
+    // Use forks pool - has WebSocket cleanup issues with msw but tests pass
+    // Note: Worker exit errors are expected due to msw cleanup, but all tests pass
+    pool: "forks",
+    // vitest 4: poolOptions moved to top-level
+    forks: {
+      singleFork: true,
+    },
+    // Give more time for cleanup to complete
+    teardownTimeout: 5000,
+    // Force exit after tests complete to avoid hanging due to WebSocket cleanup issues
+    forceExit: true,
     // Suppress console output during tests to reduce noise
     silent: false, // Set to true to completely suppress console output
     exclude: [

@@ -63,6 +63,17 @@ export function createTextResponseHandler(
     client.addEventListener("message", (event) => {
       console.log("[MSW WebSocket] Received client message:", event.data);
 
+      // Skip ping messages
+      try {
+        const data = JSON.parse(event.data as string);
+        if (data.type === "ping") {
+          console.log("[MSW WebSocket] Skipping ping message");
+          return;
+        }
+      } catch {
+        // Not JSON, continue processing
+      }
+
       // AI SDK v6 expects: text-start, text-delta(s), text-end sequence
       const textId = `text-${Date.now()}`;
 
@@ -217,8 +228,10 @@ export function createConfirmationRequestHandler(
 
         // Check if approval was granted or denied
         const approvalPart = data.messages
+          // biome-ignore lint/suspicious/noExplicitAny: Test helper - message structure varies
           ?.flatMap((msg: any) => msg.parts || [])
           .find(
+            // biome-ignore lint/suspicious/noExplicitAny: Test helper - part structure varies
             (part: any) =>
               part.toolCallId === originalFunctionCall.id && part.approval,
           );
