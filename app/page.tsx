@@ -13,6 +13,8 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<UIMessageFromAISDKv6[]>([]);
   // Version counter to force Chat remount on clear
   const [messagesVersion, setMessagesVersion] = useState(0);
+  // Streaming state for mode switch blocking
+  const [isStreaming, setIsStreaming] = useState(false);
 
   return (
     <AudioProvider>
@@ -37,6 +39,7 @@ export default function ChatPage() {
           mode={mode}
           initialMessages={messages}
           onMessagesChange={setMessages}
+          onStreamingChange={setIsStreaming}
         />
 
         {/* Backend Mode Switcher - visually at top-right via position:fixed */}
@@ -72,6 +75,7 @@ export default function ChatPage() {
               onClick={() => {
                 setMode("gemini");
               }}
+              disabled={isStreaming}
               tabIndex={-1}
               style={{
                 padding: "0.5rem 1rem",
@@ -81,9 +85,10 @@ export default function ChatPage() {
                 background: mode === "gemini" ? "#1e3a8a" : "#111",
                 color: mode === "gemini" ? "#fff" : "#888",
                 fontSize: "0.875rem",
-                cursor: "pointer",
+                cursor: isStreaming ? "not-allowed" : "pointer",
                 fontWeight: mode === "gemini" ? 600 : 400,
                 textAlign: "left",
+                opacity: isStreaming ? 0.5 : 1,
               }}
             >
               Gemini Direct
@@ -102,6 +107,7 @@ export default function ChatPage() {
               onClick={() => {
                 setMode("adk-sse");
               }}
+              disabled={isStreaming}
               tabIndex={-1}
               style={{
                 padding: "0.5rem 1rem",
@@ -111,9 +117,10 @@ export default function ChatPage() {
                 background: mode === "adk-sse" ? "#064e3b" : "#111",
                 color: mode === "adk-sse" ? "#fff" : "#888",
                 fontSize: "0.875rem",
-                cursor: "pointer",
+                cursor: isStreaming ? "not-allowed" : "pointer",
                 fontWeight: mode === "adk-sse" ? 600 : 400,
                 textAlign: "left",
+                opacity: isStreaming ? 0.5 : 1,
               }}
             >
               ADK SSE
@@ -132,6 +139,7 @@ export default function ChatPage() {
               onClick={() => {
                 setMode("adk-bidi");
               }}
+              disabled={isStreaming}
               tabIndex={-1}
               style={{
                 padding: "0.5rem 1rem",
@@ -141,9 +149,10 @@ export default function ChatPage() {
                 background: mode === "adk-bidi" ? "#78350f" : "#111",
                 color: mode === "adk-bidi" ? "#fff" : "#888",
                 fontSize: "0.875rem",
-                cursor: "pointer",
+                cursor: isStreaming ? "not-allowed" : "pointer",
                 fontWeight: mode === "adk-bidi" ? 600 : 400,
                 textAlign: "left",
+                opacity: isStreaming ? 0.5 : 1,
               }}
             >
               ADK BIDI ⚡

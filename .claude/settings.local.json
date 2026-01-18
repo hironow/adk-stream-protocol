@@ -113,7 +113,12 @@
       "Bash(bun run test:lib:*)",
       "Bash(bun test:*)",
       "Bash(bun run test)",
-      "Bash(bun test:lib:*)"
+      "Bash(bun test:lib:*)",
+      "Bash(bun run check:*)",
+      "Bash(bun run tsc:*)",
+      "Bash(bun next build:*)",
+      "Bash(bun run build:only:*)",
+      "Bash(timeout 15 bun run dev:*)"
     ],
     "deny": [
       "Read(.env.keys)",

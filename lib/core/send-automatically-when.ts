@@ -31,6 +31,14 @@ export interface SendAutomaticallyWhenOptions {
 const sentApprovalStates = new Set<string>();
 
 /**
+ * Clear sent approval states when switching modes.
+ * Prevents stale state from causing issues after mode transition.
+ */
+export function clearSentApprovalStates(): void {
+  sentApprovalStates.clear();
+}
+
+/**
  * Core auto-send decision logic for tool confirmation workflow.
  *
  * @param options - Messages to analyze

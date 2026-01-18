@@ -17,12 +17,15 @@ interface ChatProps {
   // Message history preservation
   initialMessages?: UIMessageFromAISDKv6[];
   onMessagesChange?: (messages: UIMessageFromAISDKv6[]) => void;
+  // Streaming state notification for mode switch blocking
+  onStreamingChange?: (isStreaming: boolean) => void;
 }
 
 export function Chat({
   mode,
   initialMessages = [],
   onMessagesChange,
+  onStreamingChange,
 }: ChatProps) {
   const audioContext = useAudio();
 
@@ -110,6 +113,12 @@ export function Chat({
       onMessagesChange(messages);
     }
   }, [messages, onMessagesChange]);
+
+  // Notify parent of streaming state change for mode switch blocking
+  useEffect(() => {
+    const isStreaming = status === "submitted" || status === "streaming";
+    onStreamingChange?.(isStreaming);
+  }, [status, onStreamingChange]);
 
   // Keep transport reference for imperative control
   const transportRef = useRef(transport);
