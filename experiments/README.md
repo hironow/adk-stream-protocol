@@ -47,7 +47,7 @@ This directory contains research, preliminary experiments, and exploratory imple
 | 2025-12-13 | [Per-Connection State](./2025-12-13_per_connection_state_management_investigation.md) | 🟢 Complete | ADK per-user/connection state patterns | ✅ Connection-specific FrontendToolDelegate |
 | 2025-12-12 | [Audio Completion + Recording](./2025-12-12_audio_stream_completion_notification.md) | 🟢 Complete | Audio completion notification + recording | ✅ PCM buffering, WAV conversion |
 | 2025-12-12 | [AudioWorklet Investigation](./2025-12-12_audio_worklet_investigation.md) | 🟢 Complete | Fix audio playback restart bug | ✅ AudioWorklet with ring buffer |
-| 2025-12-12 | [ADK Field Mapping](./2025-12-12_adk_field_mapping_completeness.md) | 🟡 In Progress | Systematic ADK field mapping review | 4/5 Priority fields complete |
+| 2025-12-12 | [ADK Field Mapping](./2025-12-12_adk_field_mapping_completeness.md) | 🟢 Complete | Systematic ADK field mapping review | ✅ Critical/High fields done; Low deferred |
 | 2025-12-12 | [BIDI Message History](./2025-12-12_adk_bidi_message_history_and_function_calling.md) | 🟢 Complete | Message history in BIDI mode | ✅ History working, native-audio behavior documented |
 | 2025-12-11 | [E2E Test Timeout](./2025-12-11_e2e_test_timeout_investigation.md) | 🟢 Complete | Fix endpoint switching bug | ✅ Manual transport creation |
 | 2025-12-11 | [BIDI Multimodal Support](./2025-12-11_adk_bidi_multimodal_support.md) | 🟢 Complete | Implement multimodal capabilities | ✅ Image, AudioWorklet PCM streaming |
@@ -125,13 +125,11 @@ This directory contains research, preliminary experiments, and exploratory imple
 > **事前調査**: 各機能の実現可能性とビジネス価値を評価してください。技術的な実現可能性調査（ADK Live APIのpause/resume対応状況、multi-channelオーディオのブラウザAPI対応）、ユーザーニーズの定量化（機能要望の優先順位、使用頻度予測）、実装コストとROIの見積もり、競合製品/類似実装の調査を実施してください。ADK SDKのロードマップやバージョンアップ計画も確認すると良いでしょう。
 
 - **POC Documentation Updates**: Update user docs with LongRunningFunctionTool pattern, add production deployment monitoring/alerting guidelines. See [POC Phase 5](./2025-12-18_poc_phase5_generic_approval_success.md).
-- **Migration Guide for Manual Send**: Create comprehensive migration guide for manual send mechanism workaround until AI SDK v6 fixes sendAutomaticallyWhen bug. See [Manual Send Tool Approval Design](./2025-12-16_manual_send_tool_approval_design.md).
 - **ADK Field Mapping Automation**: Add CI checks to fail on unhandled Event/Part fields, create real ADK fixtures, and documentation completeness tests. See [ADK Field Mapping Completeness](./2025-12-12_adk_field_mapping_completeness.md).
 - **ADK SDK Version Monitoring**: Implement CI checks to alert on ADK SDK version changes and trigger manual field mapping review. See [ADK Field Mapping Completeness](./2025-12-12_adk_field_mapping_completeness.md).
 
 ### 🔮 Future Enhancements
 
-- **ADK Field Mapping completeness**: Finish remaining priority fields per [2025-12-12_adk_field_mapping_completeness.md](./2025-12-12_adk_field_mapping_completeness.md).
 - **LongRunning Tool Plan Follow-ups**: Validate metadata propagation and pause/resume across modes; finalize POC learnings into production docs/tests. See [BIDI LongRunning Tool Plan](./2025-12-18_bidi_longrunning_tool_plan.md) and [API Discovery](./2025-12-18_longrunning_tool_api_discovery.md).
 - **Live API Pause/Resume Verification**: Confirm ADK Live API supports LongRunningFunctionTool pause/resume; make GO/NO-GO decision and implement resume handler/messages if supported. See [BIDI LongRunning Tool Plan](./2025-12-18_bidi_longrunning_tool_plan.md).
 - **Session Resumption Roadmap**: Design persistent session IDs and reconnection flow for page reload resilience; align with [E2E Test Timeout Investigation](./2025-12-11_e2e_test_timeout_investigation.md) findings.
