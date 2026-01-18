@@ -20,44 +20,7 @@ import {
   isToolUIPartFromAISDKv6,
   type UIMessageFromAISDKv6,
 } from "@/lib/utils";
-
-// ============================================================================
-// Frontend Execute Tool Detection (ADR 0005)
-// ============================================================================
-
-/**
- * Known Frontend Execute tools that require browser APIs.
- * These tools need addToolOutput() called by frontend after approval.
- * Server Execute tools (not in this list) are handled by backend after approval.
- */
-const FRONTEND_EXECUTE_TOOLS = new Set([
-  "get_location", // Uses navigator.geolocation
-  "take_photo", // Uses camera API
-  "get_camera", // Uses camera API
-  // Add other browser-API tools as needed
-]);
-
-/**
- * Extract tool name from AI SDK v6 tool part.
- * Tool parts have types like "tool-get_location" or "tool-process_payment".
- */
-function extractToolNameFromPart(part: { type?: string; toolName?: string }): string {
-  if (part.toolName) {
-    return part.toolName;
-  }
-  if (part.type?.startsWith("tool-")) {
-    return part.type.slice(5); // Remove "tool-" prefix
-  }
-  return "";
-}
-
-/**
- * Check if a tool requires Frontend Execute pattern.
- * Frontend Execute tools need addToolOutput() from frontend after approval.
- */
-function isFrontendExecuteTool(toolName: string): boolean {
-  return FRONTEND_EXECUTE_TOOLS.has(toolName);
-}
+import { extractToolName, isFrontendExecuteTool } from "@/lib/tool-utils";
 
 export interface SendAutomaticallyWhenOptions {
   messages: UIMessageFromAISDKv6[];
@@ -278,7 +241,7 @@ export function sendAutomaticallyWhenCore(
     for (const toolPart of approvedToolParts) {
       // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
       const tp = toolPart as any;
-      const toolName = extractToolNameFromPart(tp);
+      const toolName = extractToolName(tp);
       const isApproved = tp.approval?.approved === true;
       const isFrontendExec = isFrontendExecuteTool(toolName);
       log(

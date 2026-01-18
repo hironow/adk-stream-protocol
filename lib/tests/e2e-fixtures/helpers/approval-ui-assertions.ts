@@ -15,6 +15,7 @@ import {
   isTextUIPartFromAISDKv6,
   isToolUIPartFromAISDKv6,
 } from "../../../utils";
+import { extractToolNameFromType } from "../../../tool-utils";
 
 // ============================================================================
 // Types
@@ -44,23 +45,6 @@ export interface ToolInvocationPart {
   output?: unknown; // ADK uses "output" instead of "result"
 }
 
-// ============================================================================
-// Extraction Helpers
-// ============================================================================
-
-/**
- * Extract toolName from AI SDK v6 dynamic type
- *
- * AI SDK v6 + ADK uses types like "tool-process_payment" or "tool-get_location"
- * This extracts the tool name from the type prefix.
- */
-function extractToolName(type: string): string {
-  if (type.startsWith("tool-")) {
-    return type.slice(5); // Remove "tool-" prefix
-  }
-  return type;
-}
-
 /**
  * Get all tool invocation parts from message
  *
@@ -82,7 +66,7 @@ export function getToolInvocationParts(
   // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
   return rawParts.map((p: any) => ({
     ...p,
-    toolName: p.toolName || extractToolName(p.type),
+    toolName: p.toolName || extractToolNameFromType(p.type),
     args: p.args || p.input || {},
     result: p.result ?? p.output,
   }));

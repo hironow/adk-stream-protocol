@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useAudio } from "@/lib/audio-context";
+import { extractToolName } from "@/lib/tool-utils";
+import { useToolExecutors } from "@/lib/hooks/use-tool-executors";
 
 /**
  * Tool invocation state for UI display.
@@ -35,16 +36,11 @@ export function ToolInvocationComponent({
   const [approvalSent, setApprovalSent] = useState(false);
   const [approvalError, setApprovalError] = useState<string | null>(null);
 
-  // BGM channel for change_bgm tool (requires AudioProvider context)
-  const { bgmChannel } = useAudio();
+  // Tool executors for Frontend Execute pattern (ADR 0005)
+  const { execute, isExecutorAvailable } = useToolExecutors();
 
   // Extract toolName from type (e.g., "tool-change_bgm" -> "change_bgm")
-  const toolName =
-    toolInvocation.toolName ||
-    (toolInvocation.type?.startsWith("tool-")
-      ? toolInvocation.type.substring(5)
-      : toolInvocation.type) ||
-    "unknown";
+  const toolName = extractToolName(toolInvocation, "unknown");
 
   // ADK RequestConfirmation is handled by state === "approval-requested" (ADR 0002)
   // The adk_request_confirmation tool is never sent to frontend (only tool-approval-request events)
@@ -219,91 +215,20 @@ export function ToolInvocationComponent({
                     reason: "User approved the tool execution.",
                   });
 
-                  // SSE Mode Pattern A (1-request): Execute tool and send result immediately
-                  // After approval, execute frontend-delegated tools and send result
-                  // Both approval + result sent together via sendAutomaticallyWhen
-                  if (toolName === "get_location") {
-                    console.info(
-                      `[ToolInvocationComponent] Executing get_location on client`,
+                  // Frontend Execute: Execute registered tool and send result
+                  // SSE Mode Pattern A (1-request): Both approval + result sent together
+                  if (isExecutorAvailable(toolName)) {
+                    const result = await execute(
+                      toolName,
+                      toolInvocation.input || {},
                     );
-                    try {
-                      const position = await new Promise<GeolocationPosition>(
-                        (resolve, reject) => {
-                          navigator.geolocation.getCurrentPosition(
-                            resolve,
-                            reject,
-                            {
-                              enableHighAccuracy: true,
-                              timeout: 5000,
-                              maximumAge: 0,
-                            },
-                          );
-                        },
-                      );
-
-                      const locationResult = {
-                        latitude: position.coords.latitude,
-                        longitude: position.coords.longitude,
-                        accuracy: position.coords.accuracy,
-                        timestamp: position.timestamp,
-                      };
-
-                      console.info(
-                        `[ToolInvocationComponent] get_location result:`,
-                        locationResult,
-                      );
-
-                      addToolOutput?.({
-                        tool: toolName,
-                        toolCallId: toolInvocation.toolCallId,
-                        output: locationResult,
-                      });
-                    } catch (error) {
-                      const errorMessage =
-                        error instanceof Error
-                          ? error.message
-                          : "Geolocation failed";
-                      console.error(
-                        `[ToolInvocationComponent] get_location error:`,
-                        errorMessage,
-                      );
-                      addToolOutput?.({
-                        tool: toolName,
-                        toolCallId: toolInvocation.toolCallId,
-                        output: {
-                          success: false,
-                          error: errorMessage,
-                        },
-                      });
-                    }
-                  } else if (toolName === "change_bgm") {
-                    console.info(
-                      `[ToolInvocationComponent] Executing change_bgm on client`,
-                    );
-                    // Tool input uses 1-indexed track (1, 2), audio uses 0-indexed (0, 1)
-                    const requestedTrack = toolInvocation.input?.track || 1;
-                    const targetAudioTrack = requestedTrack - 1;
-
-                    // Only switch if current track differs from target
-                    if (bgmChannel.currentTrack !== targetAudioTrack) {
-                      bgmChannel.switchTrack();
-                      console.info(
-                        `[ToolInvocationComponent] BGM switched: ${bgmChannel.currentTrack} → ${targetAudioTrack}`,
-                      );
-                    } else {
-                      console.info(
-                        `[ToolInvocationComponent] BGM already on track ${targetAudioTrack}`,
-                      );
-                    }
 
                     addToolOutput?.({
                       tool: toolName,
                       toolCallId: toolInvocation.toolCallId,
-                      output: {
-                        success: true,
-                        track: requestedTrack,
-                        message: `BGM changed to track ${requestedTrack}`,
-                      },
+                      output: result.success
+                        ? result.output
+                        : { success: false, error: result.error },
                     });
                   }
                 }}
