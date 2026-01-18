@@ -14,11 +14,13 @@ This project is under **active development** and contains experimental features 
 
 - Gemini Direct mode (AI SDK v6 only)
 - ADK SSE streaming with tool calling
+- ADK BIDI Blocking Mode for tool approval (ADR-0009, ADR-0011)
+- ADK Mode History Sharing (chat history preserved across ADK SSE ↔ BIDI transitions)
 - Complete E2E test infrastructure (Frontend, Backend, Playwright)
 
 **🚧 Experimental Features**
 
-- ADK BIDI (WebSocket) streaming - See known issues below
+- ADK BIDI (WebSocket) native tool confirmation - See known issues below
 
 ### Known Issues
 
@@ -40,6 +42,8 @@ BIDI mode (`run_live()`) has two significant issues:
 
 **Recent Fixes**
 
+- ✅ ADK Mode History Sharing - chat history preserved across ADK SSE ↔ BIDI transitions (2026-01-18)
+- ✅ BIDI Confirmation ID routing bug fixed (2025-12-19)
 - ✅ Fixed infinite loop in tool confirmation auto-send logic (2025-12-17)
 
 ---
@@ -55,7 +59,7 @@ This project demonstrates the integration between:
 
 1. **Gemini Direct** - Direct Gemini API via AI SDK (stable)
 2. **ADK SSE** - ADK backend with Server-Sent Events (stable)
-3. **ADK BIDI** ⚡ - ADK backend with WebSocket bidirectional streaming (experimental)
+3. **ADK BIDI** ⚡ - ADK backend with WebSocket bidirectional streaming (stable for Blocking Mode, experimental for native confirmation)
 
 **Key Insight:** All three modes use the same **AI SDK v6 Data Stream Protocol** format, ensuring consistent frontend behavior regardless of backend implementation.
 

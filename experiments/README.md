@@ -118,8 +118,6 @@ This directory contains research, preliminary experiments, and exploratory imple
 
 - **Global FrontendDelegate Deprecation**: Deprecate global `frontend_delegate` singleton in favor of per-connection instances; add deprecation warnings and migration guide. See [Per-Connection State Management](./2025-12-13_per_connection_state_management_investigation.md).
 - **tool_call_id_map Cleanup**: Remove legacy `tool_call_id_map` after adopting ADK `function_call.id` throughout. See [toolCallId Compatibility](./2025-12-13_toolCallId_compatibility_investigation.md).
-- **Dead Code Removal**: Remove unused "tool_result" event handler from server.py (identified as dead code from older design). See [Frontend Backend Integration Gap Analysis](./2025-12-13_frontend_backend_integration_gap_analysis.md).
-- **Legacy Test File Review**: Review and potentially remove `adk-tool-confirmation.spec.ts` (appears to be legacy). See [E2E Test Matrix Analysis](./2025-12-18_test_matrix_analysis.md).
 - **Mode Instance Isolation**: Consider independent `useChat` instances per backend mode for dev/test isolation; verify Next.js hot reload reliability. See [E2E Test Timeout Investigation](./2025-12-11_e2e_test_timeout_investigation.md).
 
 ### 📚 Documentation & CI/CD
