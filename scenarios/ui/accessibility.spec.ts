@@ -108,8 +108,7 @@ test.describe("Accessibility (Advanced)", () => {
     const chatInput = page.locator('input[placeholder="Type your message..."]');
     await expect(chatInput).toBeVisible();
 
-    // Then: Should have main landmark
-    const _mainElements = await page.locator("main").count();
+    // Then: Should have form element
     const formElements = await page.locator("form").count();
 
     // Should have proper structure
@@ -158,7 +157,6 @@ test.describe("Accessibility (Advanced)", () => {
     const chatInput = page.locator('input[placeholder="Type your message..."]');
 
     // Then: Input should have proper attributes
-    const _inputType = await chatInput.getAttribute("type");
     const placeholder = await chatInput.getAttribute("placeholder");
 
     expect(placeholder).toBeTruthy();
@@ -186,20 +184,6 @@ test.describe("Accessibility (Advanced)", () => {
     // Then: Should handle interruption
     await page.waitForTimeout(1000);
     await expect(chatInput).toBeEnabled();
-  });
-
-  test("should have proper heading hierarchy", async ({ page }) => {
-    // Given: Page loaded
-    const chatInput = page.locator('input[placeholder="Type your message..."]');
-    await expect(chatInput).toBeVisible();
-
-    // When: Check heading structure
-    const headings = await page.locator("h1, h2, h3, h4, h5, h6").all();
-
-    // Then: Headings should exist and be in proper order
-    // Note: This is a basic check; actual hierarchy depends on implementation
-    const headingCount = headings.length;
-    expect(headingCount).toBeGreaterThanOrEqual(0);
   });
 
   test("should have accessible images with alt text", async ({ page }) => {
@@ -266,24 +250,6 @@ test.describe("Accessibility (Advanced)", () => {
     expect(activeElement).toBeTruthy();
   });
 
-  test("should have accessible error messages", async ({ page }) => {
-    // Given: Trigger potential error
-    const chatInput = page.locator('input[placeholder="Type your message..."]');
-    await chatInput.fill("Error test");
-    await chatInput.press("Enter");
-
-    await page.waitForTimeout(5000);
-
-    // Then: Error messages should be accessible
-    const errors = await page
-      .locator('[role="alert"], [aria-live="polite"], [aria-live="assertive"]')
-      .count();
-
-    // Errors should be announced to screen readers if present
-    // This is a structure check
-    expect(errors).toBeGreaterThanOrEqual(0);
-  });
-
   test("should maintain language attribute", async ({ page }) => {
     // Given: Page loaded
     const chatInput = page.locator('input[placeholder="Type your message..."]');
@@ -295,42 +261,6 @@ test.describe("Accessibility (Advanced)", () => {
     });
 
     expect(lang).toBeTruthy();
-  });
-
-  test("should have skip links or landmarks for navigation", async ({
-    page,
-  }) => {
-    // Given: Page loaded
-    const chatInput = page.locator('input[placeholder="Type your message..."]');
-    await expect(chatInput).toBeVisible();
-
-    // Then: Should have landmarks for screen reader navigation
-    const landmarks = await page
-      .locator('[role="main"], [role="navigation"], main, nav')
-      .count();
-
-    expect(landmarks).toBeGreaterThanOrEqual(0);
-  });
-
-  test("should have accessible loading states", async ({ page }) => {
-    // Given: Send message that triggers loading
-    const geminiButton = page.getByRole("button", { name: /Gemini Direct/i });
-    await geminiButton.click();
-
-    const chatInput = page.locator('input[placeholder="Type your message..."]');
-    await chatInput.fill("Loading state test");
-    await chatInput.press("Enter");
-
-    // Wait for loading state
-    await page.waitForTimeout(1000);
-
-    // Then: Loading indicators should be accessible
-    const loadingElements = await page
-      .locator('[aria-busy="true"], [role="status"]')
-      .count();
-
-    // Loading state should be announced if present
-    expect(loadingElements).toBeGreaterThanOrEqual(0);
   });
 
   test("should not have accessibility violations after interaction", async ({

@@ -30,8 +30,6 @@ export default defineConfig({
       "**/dist/**",
       // Exclude scenarios as they are for playwright
       "**/scenarios/**",
-      // Exclude app/tests/e2e as they are for playwright
-      "**/app/tests/e2e/**",
     ],
   },
   resolve: {

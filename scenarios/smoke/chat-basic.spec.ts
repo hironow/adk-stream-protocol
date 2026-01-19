@@ -32,13 +32,9 @@ test.describe("Chat Basic Flow (Smoke)", () => {
     await expect(chatInput).toBeVisible();
   });
 
-  test.skip("should send message and receive response in Gemini mode", async ({
+  test("should send message and receive response in Gemini mode", async ({
     page,
   }) => {
-    // TODO: Fix Gemini Direct mode - "Invalid prompt: The messages do not match the ModelMessage[] schema"
-    // This is a Gemini API error, not an ADK issue
-    // Backend validation needs to be fixed
-
     // Given: Gemini mode is selected (default)
     const geminiButton = page.getByRole("button", { name: /Gemini Direct/i });
     await geminiButton.click();
@@ -65,12 +61,14 @@ test.describe("Chat Basic Flow (Smoke)", () => {
     );
   });
 
-  test("should show streaming animation during response", async ({ page }) => {
+  test("should receive AI response with content in Gemini mode", async ({
+    page,
+  }) => {
     // Given: Gemini mode
     const geminiButton = page.getByRole("button", { name: /Gemini Direct/i });
     await geminiButton.click();
 
-    // When: Send a message that will stream
+    // When: Send a message
     const chatInput = page.locator('input[placeholder="Type your message..."]');
     await chatInput.fill("Tell me a very short joke");
     await chatInput.press("Enter");
@@ -82,22 +80,16 @@ test.describe("Chat Basic Flow (Smoke)", () => {
       "Tell me a very short joke",
     );
 
-    // Then: Some response content should appear (streaming)
-    // We just verify that some text appears, indicating streaming is working
-    await page.waitForTimeout(2000); // Wait for streaming to start
+    // Then: AI response should appear with content
+    await page.waitForTimeout(2000);
 
-    // Then: Page should have more content than just the user message
+    // Then: Page should have response content
     const bodyText = await page.textContent("body");
     expect(bodyText).toBeTruthy();
     expect(bodyText!.length).toBeGreaterThan(50);
   });
 
-  test.skip("should display error message on network failure", async ({
-    page,
-  }) => {
-    // This test is skipped because it requires network mocking
-    // which is better suited for integration tests
-
+  test("should display error message on network failure", async ({ page }) => {
     // Given: Simulate offline mode
     await page.context().setOffline(true);
 

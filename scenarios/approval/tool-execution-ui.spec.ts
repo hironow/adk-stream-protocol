@@ -91,34 +91,17 @@ test.describe("Tool Execution UI (Core)", () => {
       "Search the web",
     );
 
-    // Wait for tool approval UI or execution
-    await page.waitForTimeout(5000);
+    // Then: Approve button must appear for SSE mode tool approval
+    const approveButton = page
+      .locator('button:has-text("Approve"), button:has-text("approve")')
+      .first();
+    await expect(approveButton).toBeVisible({ timeout: 10000 });
 
-    // Then: Look for approve/deny buttons or tool execution result
-    // Note: Actual buttons depend on data-testid implementation
-    const hasApproveButton =
-      (await page
-        .locator('button:has-text("Approve"), button:has-text("approve")')
-        .count()) > 0;
-    const _hasDenyButton =
-      (await page
-        .locator('button:has-text("Deny"), button:has-text("deny")')
-        .count()) > 0;
+    // When: Click approve
+    await approveButton.click();
 
-    // If approval buttons exist, click approve
-    if (hasApproveButton) {
-      const approveButton = page
-        .locator('button:has-text("Approve"), button:has-text("approve")')
-        .first();
-      await approveButton.click();
-
-      // Wait for tool execution
-      await page.waitForTimeout(3000);
-    }
-
-    // Verify page is still functional after approval flow
-    const bodyContent = await page.textContent("body");
-    expect(bodyContent).toBeTruthy();
+    // Then: Chat input should remain functional after approval
+    await expect(chatInput).toBeEnabled({ timeout: 10000 });
   });
 
   test("should display tool execution result inline", async ({ page }) => {
@@ -298,32 +281,6 @@ test.describe("Tool Execution UI (Core)", () => {
     expect(bodyContent).toBeTruthy();
 
     // Verify page remains responsive during execution
-    await expect(chatInput).toBeVisible();
-  });
-
-  test.skip("should handle tool execution errors gracefully", async ({
-    page,
-  }) => {
-    // This test requires backend to simulate tool execution errors
-    // Skipped until error simulation is implemented
-
-    // Given: ADK SSE mode
-    const adkSseButton = page.getByRole("button", { name: /ADK SSE/i });
-    await adkSseButton.click();
-
-    // When: Send message that will cause tool error
-    const chatInput = page.locator('input[placeholder="Type your message..."]');
-    await chatInput.fill("Execute invalid tool");
-    await chatInput.press("Enter");
-
-    // Then: Error message should be displayed
-    await page.waitForTimeout(3000);
-
-    // Look for error indicators
-    const _hasError =
-      (await page.locator("text=/error/i, text=/failed/i").count()) > 0;
-
-    // Page should remain functional
     await expect(chatInput).toBeVisible();
   });
 });

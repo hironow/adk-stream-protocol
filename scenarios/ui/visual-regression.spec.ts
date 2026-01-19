@@ -58,9 +58,8 @@ test.describe("Visual Regression (Advanced)", () => {
   });
 
   test("should maintain consistent chat input styling", async ({ page }) => {
-    // Given: Chat input and send button
+    // Given: Chat input
     const chatInput = page.locator('input[placeholder="Type your message..."]');
-    const _sendButton = page.getByRole("button", { name: /Send/i });
 
     await expect(chatInput).toBeVisible();
 
@@ -145,16 +144,15 @@ test.describe("Visual Regression (Advanced)", () => {
   });
 
   test("should maintain consistent file upload button", async ({ page }) => {
-    // Given: File upload button is visible
+    // Given: File upload button must be visible
     const uploadLabel = page.locator('label:has-text("Attach Image")').first();
+    await expect(uploadLabel).toBeVisible();
 
-    if (await uploadLabel.isVisible()) {
-      // When: Take screenshot of upload button
-      // Then: Visual should be consistent
-      await expect(uploadLabel).toHaveScreenshot("file-upload-button.png", {
-        maxDiffPixels: 30,
-      });
-    }
+    // When: Take screenshot of upload button
+    // Then: Visual should be consistent
+    await expect(uploadLabel).toHaveScreenshot("file-upload-button.png", {
+      maxDiffPixels: 30,
+    });
   });
 
   test("should maintain consistent button states", async ({ page }) => {

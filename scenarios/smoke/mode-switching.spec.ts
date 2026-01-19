@@ -52,29 +52,6 @@ test.describe("Mode Switching (Smoke)", () => {
     expect(bodyText).toContain("First message");
   });
 
-  test("should show audio controls when switching to BIDI mode", async ({
-    page,
-  }) => {
-    // Given: Start in Gemini mode (no audio controls)
-    const geminiButton = page.getByRole("button", { name: /Gemini Direct/i });
-    await geminiButton.click();
-
-    // Then: Audio-specific elements should not be prominent
-    // (ADK BIDI has special audio features)
-
-    // When: Switch to ADK BIDI mode
-    const adkBidiButton = page.getByRole("button", { name: /ADK BIDI/i });
-    await adkBidiButton.click();
-
-    // Then: BIDI-specific UI should appear
-    // Note: Actual audio controls visibility depends on component implementation
-    // We just verify the mode switch doesn't crash
-    await page.waitForTimeout(1000);
-
-    const bodyContent = await page.textContent("body");
-    expect(bodyContent).toBeTruthy();
-  });
-
   test("should hide audio controls when switching away from BIDI mode", async ({
     page,
   }) => {
