@@ -189,19 +189,32 @@ export function useMswServer(options?: {
   });
 
   afterAll(async () => {
-    // Dynamically import to avoid circular dependency issues during module load
+    // Step 1: Clear tracked WebSocket clients first (server-side)
+    // This closes any WebSocket connections tracked by our handlers
+    clearBidiWebSocketLinks();
+
+    // Step 2: Dynamically import to avoid circular dependency issues
     const { closeAllBidiTransports } = await import("../../bidi");
-    // Close all BIDI transports first (client-side WebSocket connections)
+
+    // Step 3: Close all BIDI transports (client-side WebSocket connections)
     closeAllBidiTransports();
-    // Small delay to allow close handshakes to complete
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    // Then close MSW server (server-side mock cleanup)
+
+    // Step 4: Yield to event loop to allow close events to propagate
+    await new Promise((resolve) => setImmediate(resolve));
+
+    // Step 5: Wait for libuv to process close events
+    // 200ms is needed because libuv I/O watchers need time to deactivate
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    // Step 6: Close MSW server (this triggers interceptor cleanup)
     server?.close();
     server = null;
-    // Clear WebSocket link cache to prevent listener accumulation
-    clearBidiWebSocketLinks();
-    // Additional delay after MSW server close
-    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    // Step 7: Final yield to ensure all cleanup completes
+    await new Promise((resolve) => setImmediate(resolve));
+
+    // Step 8: Final delay for libuv stream destruction
+    await new Promise((resolve) => setTimeout(resolve, 200));
   });
 
   return {

@@ -17,12 +17,13 @@ export default defineConfig({
     // Each test file runs in separate process for clean isolation
     pool: "forks",
     forks: {
-      singleFork: false, // Enabled parallel execution - MSW server cleanup per describe block
+      singleFork: false, // Enable parallel execution
     },
     // Give more time for cleanup to complete
     teardownTimeout: 10000,
-    // Don't force exit - allow cleanup to complete properly
-    forceExit: false,
+    // Force exit to prevent hang from libuv handle cleanup issues
+    // This is a workaround for MSW WebSocket cleanup issues (see MSW #2537)
+    forceExit: true,
     // Suppress console output during tests to reduce noise
     silent: false, // Set to true to completely suppress console output
     exclude: [

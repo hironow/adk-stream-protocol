@@ -1,19 +1,16 @@
 /**
  * Tests for WebSocket message preservation (no truncation)
- * Uses MSW for WebSocket mocking
+ * Uses Custom Mock for WebSocket mocking (parallel execution support)
  */
 
 import { describe, expect, it } from "vitest";
 import { WebSocketChatTransport } from "../../bidi/transport";
 import type { UIMessageFromAISDKv6 } from "../../utils";
-import {
-  createBidiWebSocketLink,
-  createCustomHandler,
-  useMswServer,
-} from "../helpers";
+import { useMockWebSocket } from "../helpers/mock-websocket";
 
 describe("WebSocketChatTransport - Message Preservation", () => {
-  const { getServer } = useMswServer({ onUnhandledRequest: "error" });
+  const { setDefaultHandler } = useMockWebSocket();
+
   it("should send ALL messages without truncation", async () => {
     // Given: Create a large number of messages (more than old limit of 50)
     const messages: UIMessageFromAISDKv6[] = Array.from(
@@ -28,28 +25,14 @@ describe("WebSocketChatTransport - Message Preservation", () => {
 
     let receivedData: any = null;
 
-    // Set up MSW handler to capture sent message
-    const chat = createBidiWebSocketLink();
-    getServer().use(
-      createCustomHandler(chat, ({ client }) => {
-        client.addEventListener("message", (event) => {
-          receivedData = JSON.parse(event.data as string);
-
-          // Send simple response
-          const textId = `text-${Date.now()}`;
-          client.send(
-            `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
-          );
-          client.send(
-            `data: ${JSON.stringify({ type: "text-delta", delta: "OK", id: textId })}\n\n`,
-          );
-          client.send(
-            `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
-          );
-          client.send("data: [DONE]\n\n");
-        });
-      }),
-    );
+    // Set up Custom Mock handler to capture sent message
+    setDefaultHandler((ws) => {
+      ws.onClientMessage((data) => {
+        receivedData = JSON.parse(data);
+        // Send simple response
+        ws.sendTextResponse(`text-${Date.now()}`, "OK");
+      });
+    });
 
     const transport = new WebSocketChatTransport({
       url: "ws://localhost:8000/live",
@@ -101,27 +84,12 @@ describe("WebSocketChatTransport - Message Preservation", () => {
 
     let receivedData: any = null;
 
-    const chat = createBidiWebSocketLink();
-    getServer().use(
-      createCustomHandler(chat, ({ client }) => {
-        client.addEventListener("message", (event) => {
-          receivedData = JSON.parse(event.data as string);
-
-          // Send simple response
-          const textId = `text-${Date.now()}`;
-          client.send(
-            `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
-          );
-          client.send(
-            `data: ${JSON.stringify({ type: "text-delta", delta: "OK", id: textId })}\n\n`,
-          );
-          client.send(
-            `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
-          );
-          client.send("data: [DONE]\n\n");
-        });
-      }),
-    );
+    setDefaultHandler((ws) => {
+      ws.onClientMessage((data) => {
+        receivedData = JSON.parse(data);
+        ws.sendTextResponse(`text-${Date.now()}`, "OK");
+      });
+    });
 
     const transport = new WebSocketChatTransport({
       url: "ws://localhost:8000/live",
@@ -177,27 +145,12 @@ describe("WebSocketChatTransport - Message Preservation", () => {
 
     let receivedData: any = null;
 
-    const chat = createBidiWebSocketLink();
-    getServer().use(
-      createCustomHandler(chat, ({ client }) => {
-        client.addEventListener("message", (event) => {
-          receivedData = JSON.parse(event.data as string);
-
-          // Send simple response
-          const textId = `text-${Date.now()}`;
-          client.send(
-            `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
-          );
-          client.send(
-            `data: ${JSON.stringify({ type: "text-delta", delta: "OK", id: textId })}\n\n`,
-          );
-          client.send(
-            `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
-          );
-          client.send("data: [DONE]\n\n");
-        });
-      }),
-    );
+    setDefaultHandler((ws) => {
+      ws.onClientMessage((data) => {
+        receivedData = JSON.parse(data);
+        ws.sendTextResponse(`text-${Date.now()}`, "OK");
+      });
+    });
 
     const transport = new WebSocketChatTransport({
       url: "ws://localhost:8000/live",
@@ -267,27 +220,12 @@ describe("WebSocketChatTransport - Message Preservation", () => {
 
     let receivedData: any = null;
 
-    const chat = createBidiWebSocketLink();
-    getServer().use(
-      createCustomHandler(chat, ({ client }) => {
-        client.addEventListener("message", (event) => {
-          receivedData = JSON.parse(event.data as string);
-
-          // Send simple response
-          const textId = `text-${Date.now()}`;
-          client.send(
-            `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
-          );
-          client.send(
-            `data: ${JSON.stringify({ type: "text-delta", delta: "OK", id: textId })}\n\n`,
-          );
-          client.send(
-            `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
-          );
-          client.send("data: [DONE]\n\n");
-        });
-      }),
-    );
+    setDefaultHandler((ws) => {
+      ws.onClientMessage((data) => {
+        receivedData = JSON.parse(data);
+        ws.sendTextResponse(`text-${Date.now()}`, "OK");
+      });
+    });
 
     const transport = new WebSocketChatTransport({
       url: "ws://localhost:8000/live",
@@ -331,27 +269,13 @@ describe("WebSocketChatTransport - Message Preservation", () => {
 
     let receivedData: any = null;
 
-    const chat = createBidiWebSocketLink();
-    getServer().use(
-      createCustomHandler(chat, ({ client }) => {
-        client.addEventListener("message", (event) => {
-          receivedData = JSON.parse(event.data as string);
-
-          // Send simple response
-          const textId = `text-${Date.now()}`;
-          client.send(
-            `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
-          );
-          client.send(
-            `data: ${JSON.stringify({ type: "text-delta", delta: "OK", id: textId })}\n\n`,
-          );
-          client.send(
-            `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
-          );
-          client.send("data: [DONE]\n\n");
-        });
-      }),
-    );
+    // Handler responds to all messages
+    setDefaultHandler((ws) => {
+      ws.onClientMessage((data) => {
+        receivedData = JSON.parse(data);
+        ws.sendTextResponse(`text-${Date.now()}`, "OK");
+      });
+    });
 
     const transport = new WebSocketChatTransport({
       url: "ws://localhost:8000/live",
@@ -376,9 +300,8 @@ describe("WebSocketChatTransport - Message Preservation", () => {
     expect(receivedData).not.toBeNull();
     expect(receivedData.messages).toBeDefined();
 
-    // Reset for next test
+    // Reset for next test (receivedData tracking only)
     receivedData = null;
-    getServer().resetHandlers();
 
     // Medium payload (>500KB) - should still send successfully
     const mediumText = "x".repeat(100000); // 100KB per message
@@ -392,26 +315,7 @@ describe("WebSocketChatTransport - Message Preservation", () => {
         }) as UIMessageFromAISDKv6,
     );
 
-    getServer().use(
-      createCustomHandler(chat, ({ client }) => {
-        client.addEventListener("message", (event) => {
-          receivedData = JSON.parse(event.data as string);
-
-          // Send simple response
-          const textId = `text-${Date.now()}`;
-          client.send(
-            `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
-          );
-          client.send(
-            `data: ${JSON.stringify({ type: "text-delta", delta: "OK", id: textId })}\n\n`,
-          );
-          client.send(
-            `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
-          );
-          client.send("data: [DONE]\n\n");
-        });
-      }),
-    );
+    // Note: setDefaultHandler is already set, will respond to all messages
 
     const stream2 = await transport.sendMessages({
       trigger: "submit-message",

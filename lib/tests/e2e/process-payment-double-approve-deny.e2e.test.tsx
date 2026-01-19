@@ -16,170 +16,171 @@
 
 import { useChat } from "@ai-sdk/react";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { buildUseChatOptions } from "../../bidi";
-import {
-  createBidiWebSocketLink,
-  createCustomHandler,
-  useMswServer,
-} from "../helpers";
+import { useMockWebSocket } from "../helpers/mock-websocket";
 
 // Helper to extract text from message
+// biome-ignore lint/suspicious/noExplicitAny: Test helper
 function getMessageText(message: any): string {
   if (!message?.parts) return "";
   return message.parts
+    // biome-ignore lint/suspicious/noExplicitAny: Test helper
     .filter((part: any) => part.type === "text")
+    // biome-ignore lint/suspicious/noExplicitAny: Test helper
     .map((part: any) => part.text)
     .join("");
 }
 
-// Track transport instances for cleanup
-let currentTransport: any = null;
-
-afterEach(async () => {
-  if (currentTransport) {
-    try {
-      await currentTransport._close();
-    } catch (error) {
-      console.error("Error closing transport:", error);
-    }
-    currentTransport = null;
-  }
-});
-
 describe("Process Payment Double - Approve×Deny Pattern", () => {
-  const { getServer } = useMswServer();
+  const { setDefaultHandler } = useMockWebSocket();
 
   it("should handle Alice approve + Bob deny (BIDI mode)", async () => {
     // Given: Backend sends two approval requests sequentially
-    const chat = createBidiWebSocketLink();
     let aliceApprovalReceived = false;
     let bobApprovalReceived = false;
     let finalResponseReceived = false;
 
-    getServer().use(
-      createCustomHandler(chat, ({ server: _server, client }) => {
-        client.addEventListener("error", (error) => {
-          console.error("[Test] WebSocket error:", error);
-        });
+    setDefaultHandler((ws) => {
+      ws.onClientMessage((data) => {
+        if (!data.startsWith("{")) {
+          return;
+        }
 
-        client.addEventListener("message", async (event) => {
-          if (typeof event.data !== "string" || !event.data.startsWith("{")) {
+        const msg = JSON.parse(data);
+        console.log("[Test Mock Server] Received:", msg.type);
+
+        // Turn 1: Initial message → Alice approval request
+        if (msg.type === "message" && msg.messages) {
+          const lastMsg = msg.messages[msg.messages.length - 1];
+
+          if (
+            !aliceApprovalReceived &&
+            lastMsg.role === "user" &&
+            // biome-ignore lint/suspicious/noExplicitAny: Test helper
+            !lastMsg.parts?.some((p: any) => p.type === "tool-process_payment")
+          ) {
+            console.log(
+              "[Test Mock Server] Turn 1: Sending Alice approval request",
+            );
+
+            ws.simulateServerMessage({ type: "start", messageId: "msg-1" });
+            ws.simulateServerMessage({
+              type: "tool-input-start",
+              toolCallId: "alice-payment",
+              toolName: "process_payment",
+            });
+            ws.simulateServerMessage({
+              type: "tool-input-available",
+              toolCallId: "alice-payment",
+              toolName: "process_payment",
+              input: { amount: 30, recipient: "Alice", currency: "USD" },
+            });
+            ws.simulateServerMessage({
+              type: "tool-approval-request",
+              toolCallId: "alice-payment",
+              approvalId: "approval-alice",
+            });
+            ws.simulateDone();
+
+            aliceApprovalReceived = true;
             return;
           }
 
-          const msg = JSON.parse(event.data);
-          console.log("[Test Mock Server] Received:", msg.type);
+          // Turn 2: Alice approval → Alice execution + Bob approval request
+          if (
+            aliceApprovalReceived &&
+            !bobApprovalReceived &&
+            lastMsg.parts?.some(
+              // biome-ignore lint/suspicious/noExplicitAny: Test helper
+              (p: any) =>
+                p.type === "tool-process_payment" &&
+                p.state === "approval-responded" &&
+                p.approval?.id === "approval-alice" &&
+                p.approval?.approved === true,
+            )
+          ) {
+            console.log(
+              "[Test Mock Server] Turn 2: Sending Alice result + Bob approval",
+            );
 
-          // Turn 1: Initial message → Alice approval request
-          if (msg.type === "message" && msg.messages) {
-            const lastMsg = msg.messages[msg.messages.length - 1];
+            ws.simulateServerMessage({
+              type: "tool-output-available",
+              toolCallId: "alice-payment",
+              output: {
+                success: true,
+                transactionId: "txn-alice",
+                amount: 30,
+                recipient: "Alice",
+              },
+            });
+            ws.simulateServerMessage({
+              type: "tool-input-start",
+              toolCallId: "bob-payment",
+              toolName: "process_payment",
+            });
+            ws.simulateServerMessage({
+              type: "tool-input-available",
+              toolCallId: "bob-payment",
+              toolName: "process_payment",
+              input: { amount: 40, recipient: "Bob", currency: "USD" },
+            });
+            ws.simulateServerMessage({
+              type: "tool-approval-request",
+              toolCallId: "bob-payment",
+              approvalId: "approval-bob",
+            });
+            ws.simulateDone();
 
-            if (
-              !aliceApprovalReceived &&
-              lastMsg.role === "user" &&
-              !lastMsg.parts?.some(
-                (p: any) => p.type === "tool-process_payment",
-              )
-            ) {
-              console.log(
-                "[Test Mock Server] Turn 1: Sending Alice approval request",
-              );
-
-              client.send('data: {"type": "start", "messageId": "msg-1"}\n\n');
-              client.send(
-                'data: {"type": "tool-input-start", "toolCallId": "alice-payment", "toolName": "process_payment"}\n\n',
-              );
-              client.send(
-                'data: {"type": "tool-input-available", "toolCallId": "alice-payment", "toolName": "process_payment", "input": {"amount": 30, "recipient": "Alice", "currency": "USD"}}\n\n',
-              );
-              client.send(
-                'data: {"type": "tool-approval-request", "toolCallId": "alice-payment", "approvalId": "approval-alice"}\n\n',
-              );
-              client.send("data: [DONE]\n\n");
-
-              aliceApprovalReceived = true;
-              return;
-            }
-
-            // Turn 2: Alice approval → Alice execution + Bob approval request
-            if (
-              aliceApprovalReceived &&
-              !bobApprovalReceived &&
-              lastMsg.parts?.some(
-                (p: any) =>
-                  p.type === "tool-process_payment" &&
-                  p.state === "approval-responded" &&
-                  p.approval?.id === "approval-alice" &&
-                  p.approval?.approved === true,
-              )
-            ) {
-              console.log(
-                "[Test Mock Server] Turn 2: Sending Alice result + Bob approval",
-              );
-
-              client.send(
-                'data: {"type": "tool-output-available", "toolCallId": "alice-payment", "output": {"success": true, "transactionId": "txn-alice", "amount": 30, "recipient": "Alice"}}\n\n',
-              );
-              client.send(
-                'data: {"type": "tool-input-start", "toolCallId": "bob-payment", "toolName": "process_payment"}\n\n',
-              );
-              client.send(
-                'data: {"type": "tool-input-available", "toolCallId": "bob-payment", "toolName": "process_payment", "input": {"amount": 40, "recipient": "Bob", "currency": "USD"}}\n\n',
-              );
-              client.send(
-                'data: {"type": "tool-approval-request", "toolCallId": "bob-payment", "approvalId": "approval-bob"}\n\n',
-              );
-              client.send("data: [DONE]\n\n");
-
-              bobApprovalReceived = true;
-              return;
-            }
-
-            // Turn 3: Bob denial → Bob error + final response
-            if (
-              bobApprovalReceived &&
-              !finalResponseReceived &&
-              lastMsg.parts?.some(
-                (p: any) =>
-                  p.type === "tool-process_payment" &&
-                  p.state === "approval-responded" &&
-                  p.approval?.id === "approval-bob" &&
-                  p.approval?.approved === false,
-              )
-            ) {
-              console.log(
-                "[Test Mock Server] Turn 3: Sending Bob error + final response",
-              );
-
-              client.send(
-                'data: {"type": "tool-output-error", "toolCallId": "bob-payment", "errorText": "This tool call is rejected."}\n\n',
-              );
-              client.send('data: {"type": "text-start", "id": "text-1"}\n\n');
-              client.send(
-                'data: {"type": "text-delta", "id": "text-1", "delta": "Alice received $30 successfully. Bob\'s payment was denied."}\n\n',
-              );
-              client.send('data: {"type": "text-end", "id": "text-1"}\n\n');
-              client.send(
-                'data: {"type": "finish", "finishReason": "stop"}\n\n',
-              );
-              client.send("data: [DONE]\n\n");
-
-              finalResponseReceived = true;
-              return;
-            }
+            bobApprovalReceived = true;
+            return;
           }
-        });
-      }),
-    );
 
-    const { useChatOptions, transport } = buildUseChatOptions({
+          // Turn 3: Bob denial → Bob error + final response
+          if (
+            bobApprovalReceived &&
+            !finalResponseReceived &&
+            lastMsg.parts?.some(
+              // biome-ignore lint/suspicious/noExplicitAny: Test helper
+              (p: any) =>
+                p.type === "tool-process_payment" &&
+                p.state === "approval-responded" &&
+                p.approval?.id === "approval-bob" &&
+                p.approval?.approved === false,
+            )
+          ) {
+            console.log(
+              "[Test Mock Server] Turn 3: Sending Bob error + final response",
+            );
+
+            ws.simulateServerMessage({
+              type: "tool-output-error",
+              toolCallId: "bob-payment",
+              errorText: "This tool call is rejected.",
+            });
+            ws.simulateServerMessage({ type: "text-start", id: "text-1" });
+            ws.simulateServerMessage({
+              type: "text-delta",
+              id: "text-1",
+              delta:
+                "Alice received $30 successfully. Bob's payment was denied.",
+            });
+            ws.simulateServerMessage({ type: "text-end", id: "text-1" });
+            ws.simulateServerMessage({ type: "finish", finishReason: "stop" });
+            ws.simulateDone();
+
+            finalResponseReceived = true;
+            return;
+          }
+        }
+      });
+    });
+
+    const { useChatOptions } = buildUseChatOptions({
       initialMessages: [],
       adkBackendUrl: "http://localhost:8000",
       forceNewInstance: true,
     });
-
-    currentTransport = transport;
 
     const { result } = renderHook(() => useChat(useChatOptions));
 

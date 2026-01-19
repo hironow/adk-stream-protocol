@@ -19,17 +19,15 @@ import { describe, expect, it } from "vitest";
 import { buildUseChatOptions as buildBidiUseChatOptions } from "../../bidi";
 import { buildUseChatOptions as buildSseUseChatOptions } from "../../sse";
 import type { UIMessageFromAISDKv6 } from "../../utils";
-import {
-  createBidiWebSocketLink,
-  useMswServer,
-} from "../helpers";
+import { useMswServer } from "../helpers";
+import { useMockWebSocket } from "../helpers/mock-websocket";
 import {
   loadFixture,
   parseRawEvents,
   findApprovalRequestEvent,
 } from "./helpers/fixture-loader";
 import {
-  createBidiHandlerFromFixture,
+  createBidiHandlerFromFixtureForMock,
   createSseHandlerFromFixture,
 } from "./helpers/fixture-server";
 import {
@@ -39,31 +37,24 @@ import {
 } from "./helpers/approval-ui-assertions";
 
 describe("get_location Approval Flow - Fixture E2E Tests (Frontend Execute)", () => {
-  // Create MSW server with custom handler for WebSocket requests
-  const { getServer } = useMswServer({
-    onUnhandledRequest(request) {
-      // Ignore WebSocket upgrade requests
-      if (request.url.includes("/live")) {
-        return;
-      }
-      console.error("Unhandled request:", request.method, request.url);
-    },
-  });
+  // MSW for SSE (HTTP) tests
+  const { getServer } = useMswServer();
+  // Custom Mock for BIDI (WebSocket) tests
+  const { setDefaultHandler } = useMockWebSocket();
+
   describe("BIDI Mode", () => {
     describe("Approval Flow (get_location-approved-bidi-baseline.json)", () => {
       const fixture = loadFixture("get_location-approved-bidi-baseline.json");
       const events = parseRawEvents(fixture.output.rawEvents);
 
       it("should display approval UI for location permission request", async () => {
-        // Given: Setup BIDI handler from fixture
-        const chat = createBidiWebSocketLink();
-        getServer().use(createBidiHandlerFromFixture(chat, fixture));
+        // Given: Setup BIDI handler from fixture using Custom Mock
+        setDefaultHandler(createBidiHandlerFromFixtureForMock(fixture));
 
         const { useChatOptions } = buildBidiUseChatOptions({
           initialMessages: [] as UIMessageFromAISDKv6[],
           forceNewInstance: true,
         });
-        // Transport cleanup handled by MSW server lifecycle
 
         const { result } = renderHook(() => useChat(useChatOptions));
 
@@ -96,15 +87,13 @@ describe("get_location Approval Flow - Fixture E2E Tests (Frontend Execute)", ()
       });
 
       it("should complete Frontend Execute flow when user approves", async () => {
-        // Given: Setup BIDI handler from fixture
-        const chat = createBidiWebSocketLink();
-        getServer().use(createBidiHandlerFromFixture(chat, fixture));
+        // Given: Setup BIDI handler from fixture using Custom Mock
+        setDefaultHandler(createBidiHandlerFromFixtureForMock(fixture));
 
         const { useChatOptions } = buildBidiUseChatOptions({
           initialMessages: [] as UIMessageFromAISDKv6[],
           forceNewInstance: true,
         });
-        // Transport cleanup handled by MSW server lifecycle
 
         const { result } = renderHook(() => useChat(useChatOptions));
 
@@ -210,15 +199,13 @@ describe("get_location Approval Flow - Fixture E2E Tests (Frontend Execute)", ()
       it("should handle location permission denial correctly", async () => {
         const fixture = loadFixture("get_location-denied-bidi-baseline.json");
 
-        // Given: Setup BIDI handler from fixture
-        const chat = createBidiWebSocketLink();
-        getServer().use(createBidiHandlerFromFixture(chat, fixture));
+        // Given: Setup BIDI handler from fixture using Custom Mock
+        setDefaultHandler(createBidiHandlerFromFixtureForMock(fixture));
 
         const { useChatOptions } = buildBidiUseChatOptions({
           initialMessages: [] as UIMessageFromAISDKv6[],
           forceNewInstance: true,
         });
-        // Transport cleanup handled by MSW server lifecycle
 
         const { result } = renderHook(() => useChat(useChatOptions));
 

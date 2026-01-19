@@ -22,11 +22,7 @@ import { describe, expect, it } from "vitest";
 import { buildUseChatOptions } from "../../bidi";
 import type { UIMessageFromAISDKv6 } from "../../utils";
 import { isApprovalRequestedTool, isTextUIPartFromAISDKv6 } from "../../utils";
-import {
-  createBidiWebSocketLink,
-  createCustomHandler,
-  useMswServer,
-} from "../helpers";
+import { useMockWebSocket } from "../helpers/mock-websocket";
 
 /**
  * Helper function to extract text content from UIMessageFromAISDKv6 parts
@@ -42,23 +38,23 @@ function getMessageText(message: UIMessageFromAISDKv6 | undefined): string {
 }
 
 describe("Multi-Tool Execution E2E Tests", () => {
-  const { getServer } = useMswServer({ onUnhandledRequest: "warn" });
+  const { setDefaultHandler } = useMockWebSocket();
+
   describe("Sequential Tool Execution with Confirmations", () => {
     it("should execute multiple tools in sequence with approvals", async () => {
       // given
-      const chat = createBidiWebSocketLink();
       let tool1Sent = false;
       let tool2Sent = false;
 
-      getServer().use(
-        createCustomHandler(chat, ({ server: _server, client }) => {
-          client.addEventListener("message", (event) => {
-            // Early return for non-JSON messages (e.g., WebSocket handshake)
-            if (typeof event.data !== "string" || !event.data.startsWith("{")) {
-              return;
-            }
-
-            const data = JSON.parse(event.data as string);
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((rawData) => {
+          let data: any;
+          try {
+            data = JSON.parse(rawData);
+            if (data.type === "ping") return;
+          } catch {
+            return;
+          }
 
             // Check if Tool1 was approved (AI SDK v6: approval object exists)
             const hasTool1Approval = data.messages?.some(
@@ -82,131 +78,65 @@ describe("Multi-Tool Execution E2E Tests", () => {
                 ),
             );
 
-            if (!tool1Sent) {
-              tool1Sent = true;
-              // First interaction: User asks for multiple actions
-              // Backend requests confirmation for Tool1
-              // Send tool-input-start
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-input-start",
-                  toolCallId: "call-tool1",
-                  toolName: "test_operation",
-                })}\n\n`,
-              );
+          if (!tool1Sent) {
+            tool1Sent = true;
+            // First interaction: User asks for multiple actions
+            // Backend requests confirmation for Tool1
+            // sendToolWithApproval calls simulateDone() by default
+            ws.sendToolWithApproval(
+              "call-tool1",
+              "test_operation",
+              {
+                originalFunctionCall: {
+                  id: "tool1-original",
+                  name: "search_database",
+                  args: { query: "users" },
+                },
+              },
+              "call-tool1",
+            );
+          } else if (hasTool1Approval && !tool2Sent) {
+            tool2Sent = true;
+            // Second interaction: User approved Tool1
+            // Request confirmation for Tool2
+            ws.sendToolWithApproval(
+              "call-tool2",
+              "test_operation",
+              {
+                originalFunctionCall: {
+                  id: "tool2-original",
+                  name: "update_database",
+                  args: { action: "cleanup" },
+                },
+              },
+              "call-tool2",
+            );
+          } else if (hasTool2Approval) {
+            // Third interaction: User approved Tool2
+            // Execute both tools and complete with results
+            const textId3 = `text-${Date.now()}-3`;
+            ws.sendTextStart(textId3);
+            ws.sendTextDelta(textId3, "Found 10 users. ");
+            ws.sendTextDelta(textId3, "Database updated successfully.");
+            ws.sendTextEnd(textId3);
 
-              // Send tool-input-available
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-input-available",
-                  toolCallId: "call-tool1",
-                  toolName: "test_operation",
-                  input: {
-                    originalFunctionCall: {
-                      id: "tool1-original",
-                      name: "search_database",
-                      args: { query: "users" },
-                    },
-                  },
-                })}\n\n`,
-              );
+            // Tool1 result
+            ws.simulateServerMessage({
+              type: "tool-result",
+              toolCallId: "tool1-original",
+              result: { count: 10, users: ["Alice", "Bob"] },
+            });
 
-              // Send tool-approval-request
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-approval-request",
-                  approvalId: "call-tool1",
-                  toolCallId: "call-tool1",
-                })}\n\n`,
-              );
-
-              client.send("data: [DONE]\n\n");
-            } else if (hasTool1Approval && !tool2Sent) {
-              tool2Sent = true;
-              // Second interaction: User approved Tool1
-              // Request confirmation for Tool2 (no text parts yet)
-              // Send tool-input-start
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-input-start",
-                  toolCallId: "call-tool2",
-                  toolName: "test_operation",
-                })}\n\n`,
-              );
-
-              // Send tool-input-available
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-input-available",
-                  toolCallId: "call-tool2",
-                  toolName: "test_operation",
-                  input: {
-                    originalFunctionCall: {
-                      id: "tool2-original",
-                      name: "update_database",
-                      args: { action: "cleanup" },
-                    },
-                  },
-                })}\n\n`,
-              );
-
-              // Send tool-approval-request
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-approval-request",
-                  approvalId: "call-tool2",
-                  toolCallId: "call-tool2",
-                })}\n\n`,
-              );
-
-              client.send("data: [DONE]\n\n");
-            } else if (hasTool2Approval) {
-              // Third interaction: User approved Tool2
-              // Execute both tools and complete with results
-              const textId3 = `text-${Date.now()}-3`;
-              client.send(
-                `data: ${JSON.stringify({ type: "text-start", id: textId3 })}\n\n`,
-              );
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "text-delta",
-                  delta: "Found 10 users. ",
-                  id: textId3,
-                })}\n\n`,
-              );
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "text-delta",
-                  delta: "Database updated successfully.",
-                  id: textId3,
-                })}\n\n`,
-              );
-              client.send(
-                `data: ${JSON.stringify({ type: "text-end", id: textId3 })}\n\n`,
-              );
-
-              // Tool1 result
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-result",
-                  toolCallId: "tool1-original",
-                  result: { count: 10, users: ["Alice", "Bob"] },
-                })}\n\n`,
-              );
-
-              // Tool2 result
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-result",
-                  toolCallId: "tool2-original",
-                  result: { success: true, updated: 5 },
-                })}\n\n`,
-              );
-              client.send("data: [DONE]\n\n");
-            }
-          });
-        }),
-      );
+            // Tool2 result
+            ws.simulateServerMessage({
+              type: "tool-result",
+              toolCallId: "tool2-original",
+              result: { success: true, updated: 5 },
+            });
+            ws.simulateDone();
+          }
+        });
+      });
 
       const { useChatOptions, transport } = buildUseChatOptions({
         initialMessages: [],
@@ -325,157 +255,91 @@ describe("Multi-Tool Execution E2E Tests", () => {
 
     it("should handle mixed approval/denial across multiple tools", async () => {
       // given
-      const chat = createBidiWebSocketLink();
       let tool1Sent = false;
       let tool2Sent = false;
 
-      getServer().use(
-        createCustomHandler(chat, ({ server: _server, client }) => {
-          client.addEventListener("message", (event) => {
-            // Early return for non-JSON messages (e.g., WebSocket handshake)
-            if (typeof event.data !== "string" || !event.data.startsWith("{")) {
-              return;
-            }
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((rawData) => {
+          let data: any;
+          try {
+            data = JSON.parse(rawData);
+            if (data.type === "ping") return;
+          } catch {
+            return;
+          }
 
-            const data = JSON.parse(event.data as string);
+          // Check if Tool1 was approved (AI SDK v6: approval object exists)
+          const hasTool1Approval = data.messages?.some(
+            (msg: any) =>
+              msg.role === "assistant" &&
+              msg.parts?.some(
+                (part: any) =>
+                  part.toolCallId === "call-tool1" &&
+                  part.approval !== undefined,
+              ),
+          );
 
-            // Check if Tool1 was approved (AI SDK v6: approval object exists)
-            const hasTool1Approval = data.messages?.some(
-              (msg: any) =>
-                msg.role === "assistant" &&
-                msg.parts?.some(
-                  (part: any) =>
-                    part.toolCallId === "call-tool1" &&
-                    part.approval !== undefined,
-                ),
+          // Check if Tool2 was denied (AI SDK v6: approval object exists, backend knows it's denied from request)
+          const hasTool2Denial = data.messages?.some(
+            (msg: any) =>
+              msg.role === "assistant" &&
+              msg.parts?.some(
+                (part: any) =>
+                  part.toolCallId === "call-tool2" &&
+                  part.approval !== undefined,
+              ),
+          );
+
+          if (!tool1Sent) {
+            tool1Sent = true;
+            // Request confirmation for Tool1
+            // sendToolWithApproval calls simulateDone() by default
+            ws.sendToolWithApproval(
+              "call-tool1",
+              "test_operation",
+              {
+                originalFunctionCall: {
+                  id: "tool1-original",
+                  name: "safe_operation",
+                  args: {},
+                },
+              },
+              "call-tool1",
             );
-
-            // Check if Tool2 was denied (AI SDK v6: approval object exists, backend knows it's denied from request)
-            const hasTool2Denial = data.messages?.some(
-              (msg: any) =>
-                msg.role === "assistant" &&
-                msg.parts?.some(
-                  (part: any) =>
-                    part.toolCallId === "call-tool2" &&
-                    part.approval !== undefined,
-                ),
+          } else if (hasTool1Approval && !tool2Sent) {
+            tool2Sent = true;
+            // Tool1 approved - request Tool2 (which will be denied)
+            ws.sendToolWithApproval(
+              "call-tool2",
+              "test_operation",
+              {
+                originalFunctionCall: {
+                  id: "tool2-original",
+                  name: "dangerous_operation",
+                  args: {},
+                },
+              },
+              "call-tool2",
             );
+          } else if (hasTool2Denial) {
+            // Tool2 denied - acknowledge and complete with both results
+            const textId = `text-${Date.now()}-3`;
+            ws.sendTextStart(textId);
+            ws.sendTextDelta(textId, "Operation completed. ");
+            ws.sendTextDelta(textId, "Understood. Skipping dangerous operation.");
+            ws.sendTextEnd(textId);
 
-            if (!tool1Sent) {
-              tool1Sent = true;
-              // Request confirmation for Tool1
-              // Send tool-input-start
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-input-start",
-                  toolCallId: "call-tool1",
-                  toolName: "test_operation",
-                })}\n\n`,
-              );
+            // Tool1 result
+            ws.simulateServerMessage({
+              type: "tool-result",
+              toolCallId: "tool1-original",
+              result: { success: true },
+            });
 
-              // Send tool-input-available
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-input-available",
-                  toolCallId: "call-tool1",
-                  toolName: "test_operation",
-                  input: {
-                    originalFunctionCall: {
-                      id: "tool1-original",
-                      name: "safe_operation",
-                      args: {},
-                    },
-                  },
-                })}\n\n`,
-              );
-
-              // Send tool-approval-request
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-approval-request",
-                  approvalId: "call-tool1",
-                  toolCallId: "call-tool1",
-                })}\n\n`,
-              );
-
-              client.send("data: [DONE]\n\n");
-            } else if (hasTool1Approval && !tool2Sent) {
-              tool2Sent = true;
-              // Tool1 approved - request Tool2 (no text parts yet)
-              // Request confirmation for Tool2 (which will be denied)
-              // Send tool-input-start
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-input-start",
-                  toolCallId: "call-tool2",
-                  toolName: "test_operation",
-                })}\n\n`,
-              );
-
-              // Send tool-input-available
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-input-available",
-                  toolCallId: "call-tool2",
-                  toolName: "test_operation",
-                  input: {
-                    originalFunctionCall: {
-                      id: "tool2-original",
-                      name: "dangerous_operation",
-                      args: {},
-                    },
-                  },
-                })}\n\n`,
-              );
-
-              // Send tool-approval-request
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-approval-request",
-                  approvalId: "call-tool2",
-                  toolCallId: "call-tool2",
-                })}\n\n`,
-              );
-
-              client.send("data: [DONE]\n\n");
-            } else if (hasTool2Denial) {
-              // Tool2 denied - acknowledge and complete with both results
-              const textId = `text-${Date.now()}-3`;
-              client.send(
-                `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
-              );
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "text-delta",
-                  delta: "Operation completed. ",
-                  id: textId,
-                })}\n\n`,
-              );
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "text-delta",
-                  delta: "Understood. Skipping dangerous operation.",
-                  id: textId,
-                })}\n\n`,
-              );
-              client.send(
-                `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
-              );
-
-              // Tool1 result
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-result",
-                  toolCallId: "tool1-original",
-                  result: { success: true },
-                })}\n\n`,
-              );
-
-              client.send("data: [DONE]\n\n");
-            }
-          });
-        }),
-      );
+            ws.simulateDone();
+          }
+        });
+      });
 
       const { useChatOptions, transport } = buildUseChatOptions({
         initialMessages: [],
@@ -594,30 +458,23 @@ describe("Multi-Tool Execution E2E Tests", () => {
 
     it("should preserve message history across multiple tool executions", async () => {
       // given
-      const chat = createBidiWebSocketLink();
       const messagesSent: any[] = [];
 
-      getServer().use(
-        createCustomHandler(chat, ({ server: _server, client }) => {
-          client.addEventListener("message", (event) => {
-            const data = JSON.parse(event.data as string);
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((rawData) => {
+          let data: any;
+          try {
+            data = JSON.parse(rawData);
+            if (data.type === "ping") return;
             messagesSent.push(data);
+          } catch {
+            return;
+          }
 
-            // Simple response for this test
-            const textId = `text-${Date.now()}`;
-            client.send(
-              `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
-            );
-            client.send(
-              `data: ${JSON.stringify({ type: "text-delta", delta: "OK", id: textId })}\n\n`,
-            );
-            client.send(
-              `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
-            );
-            client.send("data: [DONE]\n\n");
-          });
-        }),
-      );
+          // Simple response for this test
+          ws.sendTextResponse(`text-${Date.now()}`, "OK");
+        });
+      });
 
       const { useChatOptions, transport } = buildUseChatOptions({
         initialMessages: [],

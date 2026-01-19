@@ -15,160 +15,170 @@
 
 import { useChat } from "@ai-sdk/react";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { buildUseChatOptions } from "../../bidi";
-import {
-  createBidiWebSocketLink,
-  createCustomHandler,
-  useMswServer,
-} from "../helpers";
-
-// Track transport instances for cleanup
-let currentTransport: any = null;
-
-afterEach(async () => {
-  if (currentTransport) {
-    try {
-      await currentTransport._close();
-    } catch (error) {
-      console.error("Error closing transport:", error);
-    }
-    currentTransport = null;
-  }
-});
+import { useMockWebSocket } from "../helpers/mock-websocket";
 
 describe("BIDI Sequential-Only Execution (ADR 0003)", () => {
-  const { getServer } = useMswServer();
+  const { setDefaultHandler } = useMockWebSocket();
 
   it("should send only ONE approval-request at a time (sequential execution)", async () => {
     // Given: Backend that tracks approval request timing
-    const chat = createBidiWebSocketLink();
     const approvalTimestamps: number[] = [];
     let firstApprovalSent = false;
     let firstApprovalResolved = false;
     let secondApprovalSent = false;
 
-    getServer().use(
-      createCustomHandler(chat, ({ server: _server, client }) => {
-        client.addEventListener("message", async (event) => {
-          if (typeof event.data !== "string" || !event.data.startsWith("{")) {
-            return;
-          }
+    setDefaultHandler((ws) => {
+      ws.onClientMessage((data) => {
+        if (!data.startsWith("{")) {
+          return;
+        }
 
-          const msg = JSON.parse(event.data);
-          console.log("[Test Mock Server] Received:", msg.type);
+        const msg = JSON.parse(data);
+        console.log("[Test Mock Server] Received:", msg.type);
 
-          // Turn 1: Initial message → Send ONLY first approval request (Alice)
-          if (
-            msg.type === "message" &&
-            msg.messages &&
-            !firstApprovalSent &&
-            !msg.messages[msg.messages.length - 1].parts?.some(
-              (p: any) => p.type === "tool-process_payment",
-            )
-          ) {
-            console.log(
-              "[Test Mock Server] Turn 1: Sending FIRST approval request (Alice)",
-            );
-            approvalTimestamps.push(Date.now());
+        // Turn 1: Initial message → Send ONLY first approval request (Alice)
+        if (
+          msg.type === "message" &&
+          msg.messages &&
+          !firstApprovalSent &&
+          // biome-ignore lint/suspicious/noExplicitAny: Test helper
+          !msg.messages[msg.messages.length - 1].parts?.some(
+            (p: any) => p.type === "tool-process_payment",
+          )
+        ) {
+          console.log(
+            "[Test Mock Server] Turn 1: Sending FIRST approval request (Alice)",
+          );
+          approvalTimestamps.push(Date.now());
 
-            client.send('data: {"type": "start", "messageId": "msg-1"}\n\n');
-            client.send(
-              'data: {"type": "tool-input-start", "toolCallId": "alice-payment", "toolName": "process_payment"}\n\n',
-            );
-            client.send(
-              'data: {"type": "tool-input-available", "toolCallId": "alice-payment", "toolName": "process_payment", "input": {"amount": 30, "recipient": "Alice", "currency": "USD"}}\n\n',
-            );
-            client.send(
-              'data: {"type": "tool-approval-request", "toolCallId": "alice-payment", "approvalId": "approval-alice"}\n\n',
-            );
-            client.send('data: {"type": "finish-step"}\n\n');
-            client.send("data: [DONE]\n\n");
+          ws.simulateServerMessage({ type: "start", messageId: "msg-1" });
+          ws.simulateServerMessage({
+            type: "tool-input-start",
+            toolCallId: "alice-payment",
+            toolName: "process_payment",
+          });
+          ws.simulateServerMessage({
+            type: "tool-input-available",
+            toolCallId: "alice-payment",
+            toolName: "process_payment",
+            input: { amount: 30, recipient: "Alice", currency: "USD" },
+          });
+          ws.simulateServerMessage({
+            type: "tool-approval-request",
+            toolCallId: "alice-payment",
+            approvalId: "approval-alice",
+          });
+          ws.simulateServerMessage({ type: "finish-step" });
+          ws.simulateDone();
 
-            firstApprovalSent = true;
-            return;
-          }
+          firstApprovalSent = true;
+          return;
+        }
 
-          // Turn 2: First approval resolved → Now send second approval request (Bob)
-          if (
-            firstApprovalSent &&
-            !firstApprovalResolved &&
-            msg.type === "message" &&
-            msg.messages &&
-            msg.messages[msg.messages.length - 1].parts?.some(
-              (p: any) =>
-                p.type === "tool-process_payment" &&
-                p.state === "approval-responded" &&
-                p.approval?.id === "approval-alice",
-            )
-          ) {
-            console.log(
-              "[Test Mock Server] Turn 2: First approval resolved, sending SECOND approval request (Bob)",
-            );
-            approvalTimestamps.push(Date.now());
-            firstApprovalResolved = true;
+        // Turn 2: First approval resolved → Now send second approval request (Bob)
+        if (
+          firstApprovalSent &&
+          !firstApprovalResolved &&
+          msg.type === "message" &&
+          msg.messages &&
+          // biome-ignore lint/suspicious/noExplicitAny: Test helper
+          msg.messages[msg.messages.length - 1].parts?.some(
+            (p: any) =>
+              p.type === "tool-process_payment" &&
+              p.state === "approval-responded" &&
+              p.approval?.id === "approval-alice",
+          )
+        ) {
+          console.log(
+            "[Test Mock Server] Turn 2: First approval resolved, sending SECOND approval request (Bob)",
+          );
+          approvalTimestamps.push(Date.now());
+          firstApprovalResolved = true;
 
-            // Send Alice result
-            client.send(
-              'data: {"type": "tool-output-available", "toolCallId": "alice-payment", "output": {"success": true, "transactionId": "txn-alice", "amount": 30, "recipient": "Alice"}}\n\n',
-            );
+          // Send Alice result
+          ws.simulateServerMessage({
+            type: "tool-output-available",
+            toolCallId: "alice-payment",
+            output: {
+              success: true,
+              transactionId: "txn-alice",
+              amount: 30,
+              recipient: "Alice",
+            },
+          });
 
-            // Send Bob approval request
-            client.send(
-              'data: {"type": "tool-input-start", "toolCallId": "bob-payment", "toolName": "process_payment"}\n\n',
-            );
-            client.send(
-              'data: {"type": "tool-input-available", "toolCallId": "bob-payment", "toolName": "process_payment", "input": {"amount": 40, "recipient": "Bob", "currency": "USD"}}\n\n',
-            );
-            client.send(
-              'data: {"type": "tool-approval-request", "toolCallId": "bob-payment", "approvalId": "approval-bob"}\n\n',
-            );
-            client.send('data: {"type": "finish-step"}\n\n');
-            client.send("data: [DONE]\n\n");
+          // Send Bob approval request
+          ws.simulateServerMessage({
+            type: "tool-input-start",
+            toolCallId: "bob-payment",
+            toolName: "process_payment",
+          });
+          ws.simulateServerMessage({
+            type: "tool-input-available",
+            toolCallId: "bob-payment",
+            toolName: "process_payment",
+            input: { amount: 40, recipient: "Bob", currency: "USD" },
+          });
+          ws.simulateServerMessage({
+            type: "tool-approval-request",
+            toolCallId: "bob-payment",
+            approvalId: "approval-bob",
+          });
+          ws.simulateServerMessage({ type: "finish-step" });
+          ws.simulateDone();
 
-            secondApprovalSent = true;
-            return;
-          }
+          secondApprovalSent = true;
+          return;
+        }
 
-          // Turn 3: Second approval resolved → Send final response
-          if (
-            secondApprovalSent &&
-            msg.type === "message" &&
-            msg.messages &&
-            msg.messages[msg.messages.length - 1].parts?.some(
-              (p: any) =>
-                p.type === "tool-process_payment" &&
-                p.state === "approval-responded" &&
-                p.approval?.id === "approval-bob",
-            )
-          ) {
-            console.log(
-              "[Test Mock Server] Turn 3: Second approval resolved, sending final response",
-            );
+        // Turn 3: Second approval resolved → Send final response
+        if (
+          secondApprovalSent &&
+          msg.type === "message" &&
+          msg.messages &&
+          // biome-ignore lint/suspicious/noExplicitAny: Test helper
+          msg.messages[msg.messages.length - 1].parts?.some(
+            (p: any) =>
+              p.type === "tool-process_payment" &&
+              p.state === "approval-responded" &&
+              p.approval?.id === "approval-bob",
+          )
+        ) {
+          console.log(
+            "[Test Mock Server] Turn 3: Second approval resolved, sending final response",
+          );
 
-            client.send(
-              'data: {"type": "tool-output-available", "toolCallId": "bob-payment", "output": {"success": true, "transactionId": "txn-bob", "amount": 40, "recipient": "Bob"}}\n\n',
-            );
-            client.send('data: {"type": "text-start", "id": "text-1"}\n\n');
-            client.send(
-              'data: {"type": "text-delta", "id": "text-1", "delta": "Both payments completed successfully."}\n\n',
-            );
-            client.send('data: {"type": "text-end", "id": "text-1"}\n\n');
-            client.send('data: {"type": "finish", "finishReason": "stop"}\n\n');
-            client.send("data: [DONE]\n\n");
-            return;
-          }
-        });
-      }),
-    );
+          ws.simulateServerMessage({
+            type: "tool-output-available",
+            toolCallId: "bob-payment",
+            output: {
+              success: true,
+              transactionId: "txn-bob",
+              amount: 40,
+              recipient: "Bob",
+            },
+          });
+          ws.simulateServerMessage({ type: "text-start", id: "text-1" });
+          ws.simulateServerMessage({
+            type: "text-delta",
+            id: "text-1",
+            delta: "Both payments completed successfully.",
+          });
+          ws.simulateServerMessage({ type: "text-end", id: "text-1" });
+          ws.simulateServerMessage({ type: "finish", finishReason: "stop" });
+          ws.simulateDone();
+          return;
+        }
+      });
+    });
 
-    const { useChatOptions, transport } = buildUseChatOptions({
+    const { useChatOptions } = buildUseChatOptions({
       initialMessages: [],
       adkBackendUrl: "http://localhost:8000",
       forceNewInstance: true,
     });
-
-    currentTransport = transport;
 
     const { result } = renderHook(() => useChat(useChatOptions));
 
@@ -185,6 +195,7 @@ describe("BIDI Sequential-Only Execution (ADR 0003)", () => {
         const lastMsg =
           result.current.messages[result.current.messages.length - 1];
         const aliceTool = lastMsg?.parts?.find(
+          // biome-ignore lint/suspicious/noExplicitAny: Test helper
           (p: any) =>
             p.type === "tool-process_payment" && p.input?.recipient === "Alice",
         );
@@ -198,6 +209,7 @@ describe("BIDI Sequential-Only Execution (ADR 0003)", () => {
     // CRITICAL: Verify second approval does NOT exist yet (sequential execution)
     const lastMsg = result.current.messages[result.current.messages.length - 1];
     const bobTool = lastMsg?.parts?.find(
+      // biome-ignore lint/suspicious/noExplicitAny: Test helper
       (p: any) =>
         p.type === "tool-process_payment" && p.input?.recipient === "Bob",
     );
@@ -209,6 +221,7 @@ describe("BIDI Sequential-Only Execution (ADR 0003)", () => {
 
     // When: User approves first payment
     const aliceTool = lastMsg?.parts?.find(
+      // biome-ignore lint/suspicious/noExplicitAny: Test helper
       (p: any) =>
         p.type === "tool-process_payment" && p.input?.recipient === "Alice",
     );
@@ -225,6 +238,7 @@ describe("BIDI Sequential-Only Execution (ADR 0003)", () => {
         const currentMsg =
           result.current.messages[result.current.messages.length - 1];
         const currentBobTool = currentMsg?.parts?.find(
+          // biome-ignore lint/suspicious/noExplicitAny: Test helper
           (p: any) =>
             p.type === "tool-process_payment" && p.input?.recipient === "Bob",
         );
@@ -249,6 +263,7 @@ describe("BIDI Sequential-Only Execution (ADR 0003)", () => {
     const currentMsg =
       result.current.messages[result.current.messages.length - 1];
     const currentBobTool = currentMsg?.parts?.find(
+      // biome-ignore lint/suspicious/noExplicitAny: Test helper
       (p: any) =>
         p.type === "tool-process_payment" && p.input?.recipient === "Bob",
     );
@@ -265,7 +280,9 @@ describe("BIDI Sequential-Only Execution (ADR 0003)", () => {
         const finalMsg =
           result.current.messages[result.current.messages.length - 1];
         const text = finalMsg?.parts
+          // biome-ignore lint/suspicious/noExplicitAny: Test helper
           ?.filter((p: any) => p.type === "text")
+          // biome-ignore lint/suspicious/noExplicitAny: Test helper
           .map((p: any) => p.text)
           .join("");
         return text && text.length > 0;

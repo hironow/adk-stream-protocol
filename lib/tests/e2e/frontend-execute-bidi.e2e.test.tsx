@@ -15,7 +15,7 @@
 
 import { useChat } from "@ai-sdk/react";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { buildUseChatOptions } from "../../bidi";
 import type { UIMessageFromAISDKv6 } from "../../utils";
 import {
@@ -23,11 +23,7 @@ import {
   isApprovalRespondedTool,
   isTextUIPartFromAISDKv6,
 } from "../../utils";
-import {
-  createBidiWebSocketLink,
-  createCustomHandler,
-  useMswServer,
-} from "../helpers";
+import { useMockWebSocket } from "../helpers/mock-websocket";
 
 /**
  * Helper function to extract text content from UIMessageFromAISDKv6 parts
@@ -42,183 +38,133 @@ function getMessageText(message: UIMessageFromAISDKv6 | undefined): string {
     .join("");
 }
 
-// Track transport instances for cleanup
-let currentTransport: any = null;
-
-afterEach(async () => {
-  // Ensure WebSocket cleanup even if test fails
-  if (currentTransport) {
-    try {
-      await currentTransport._close();
-    } catch (error) {
-      console.error("Error closing transport:", error);
-    }
-    currentTransport = null;
-  }
-});
-
 describe("BIDI Mode - Frontend Execute Pattern", () => {
-  const { getServer } = useMswServer();
+  const { setDefaultHandler } = useMockWebSocket();
 
   describe("Single Tool Frontend Execution", () => {
     it("should execute tool on frontend and send result with addToolOutput", async () => {
       // Given: Backend sends confirmation, frontend executes, sends result
-      const chat = createBidiWebSocketLink();
       let toolResultReceived = false;
 
-      getServer().use(
-        createCustomHandler(chat, ({ server: _server, client }) => {
-          // Add error handling for WebSocket
-          client.addEventListener("error", (error) => {
-            console.error("WebSocket error in test:", error);
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((data) => {
+          if (!data.startsWith("{")) {
+            return;
+          }
+
+          const msg = JSON.parse(data);
+
+          console.log("[Test Mock Server] Received message:", {
+            type: msg.type,
+            trigger: msg.trigger,
+            messageCount: msg.messages?.length,
+            lastMessage: msg.messages?.[msg.messages.length - 1],
           });
 
-          client.addEventListener("close", (event) => {
-            console.log("WebSocket closed:", event);
+          // Check if this is approval response (assistant message with approval-responded)
+          const hasApprovalResponse = msg.messages?.some(
+            // biome-ignore lint/suspicious/noExplicitAny: Test helper
+            (m: any) =>
+              m.role === "assistant" &&
+              m.parts?.some((part: any) => isApprovalRespondedTool(part)),
+          );
+
+          // Check if frontend sent tool output (addToolOutput updates assistant message)
+          const hasToolOutput = msg.messages?.some(
+            // biome-ignore lint/suspicious/noExplicitAny: Test helper
+            (m: any) =>
+              m.role === "assistant" &&
+              m.parts?.some(
+                (part: any) =>
+                  part.toolCallId === "orig-location" &&
+                  part.state === "output-available",
+              ),
+          );
+
+          console.log("[Test Mock Server] Check results:", {
+            hasApprovalResponse,
+            hasToolOutput,
+            toolResultReceived,
           });
 
-          client.addEventListener("message", (event) => {
-            // Early return for non-JSON messages (e.g., WebSocket handshake)
-            if (typeof event.data !== "string" || !event.data.startsWith("{")) {
-              return;
-            }
+          if (hasToolOutput) {
+            // Frontend sent tool-result
+            toolResultReceived = true;
 
-            const data = JSON.parse(event.data as string);
+            // Backend continues with AI response
+            const textId = `text-${Date.now()}`;
+            ws.simulateServerMessage({ type: "text-start", id: textId });
+            ws.simulateServerMessage({
+              type: "text-delta",
+              delta: "Your location is Tokyo, Japan (35.6762°N, 139.6503°E).",
+              id: textId,
+            });
+            ws.simulateServerMessage({ type: "text-end", id: textId });
+            ws.simulateDone();
+          } else if (hasApprovalResponse) {
+            // Approval received, send [DONE] to complete this turn
+            // Tool output will come in next message
+            ws.simulateDone();
+            return;
+          } else {
+            // First message: Send original tool + confirmation request
 
-            console.log("[MSW Handler] Received message:", {
-              type: data.type,
-              trigger: data.trigger,
-              messageCount: data.messages?.length,
-              lastMessage: data.messages?.[data.messages.length - 1],
+            // Send original tool chunks first
+            ws.simulateServerMessage({
+              type: "tool-input-start",
+              toolCallId: "orig-location",
+              toolName: "get_location",
             });
 
-            // Check if this is approval response (assistant message with approval-responded)
-            const hasApprovalResponse = data.messages?.some(
-              (msg: any) =>
-                msg.role === "assistant" &&
-                msg.parts?.some((part: any) => isApprovalRespondedTool(part)),
-            );
-
-            // Check if frontend sent tool output (addToolOutput updates assistant message)
-            const hasToolOutput = data.messages?.some(
-              (msg: any) =>
-                msg.role === "assistant" &&
-                msg.parts?.some(
-                  (part: any) =>
-                    part.toolCallId === "orig-location" &&
-                    part.state === "output-available",
-                ),
-            );
-
-            console.log("[MSW Handler] Check results:", {
-              hasApprovalResponse,
-              hasToolOutput,
-              toolResultReceived,
+            ws.simulateServerMessage({
+              type: "tool-input-available",
+              toolCallId: "orig-location",
+              toolName: "get_location",
+              input: {},
             });
 
-            if (hasToolOutput) {
-              // Frontend sent tool-result
-              toolResultReceived = true;
+            // Then send confirmation tool chunks
+            ws.simulateServerMessage({
+              type: "tool-input-start",
+              toolCallId: "call-location",
+              toolName: "test_operation",
+            });
 
-              // Backend continues with AI response
-              const textId = `text-${Date.now()}`;
-              client.send(
-                `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
-              );
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "text-delta",
-                  delta:
-                    "Your location is Tokyo, Japan (35.6762°N, 139.6503°E).",
-                  id: textId,
-                })}\n\n`,
-              );
-              client.send(
-                `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
-              );
-              client.send("data: [DONE]\n\n");
-            } else if (hasApprovalResponse) {
-              // Approval received, send [DONE] to complete this turn
-              // Tool output will come in next message
-              client.send("data: [DONE]\n\n");
-              return;
-            } else {
-              // First message: Send original tool + confirmation request
-              // NOTE: No text-* events here (unlike real backend) to match SSE E2E pattern
-              // This allows sendAutomaticallyWhen to work correctly
+            ws.simulateServerMessage({
+              type: "tool-input-available",
+              toolCallId: "call-location",
+              toolName: "test_operation",
+              input: {
+                originalFunctionCall: {
+                  id: "orig-location",
+                  name: "get_location",
+                  args: {},
+                },
+                toolConfirmation: {
+                  hint: "Please approve or reject the tool call get_location()",
+                  confirmed: false,
+                },
+              },
+            });
 
-              // Send original tool chunks first
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-input-start",
-                  toolCallId: "orig-location",
-                  toolName: "get_location",
-                })}\n\n`,
-              );
+            // Send tool-approval-request (AI SDK v6 standard event)
+            ws.simulateServerMessage({
+              type: "tool-approval-request",
+              toolCallId: "call-location",
+              approvalId: "call-location",
+            });
 
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-input-available",
-                  toolCallId: "orig-location",
-                  toolName: "get_location",
-                  input: {},
-                })}\n\n`,
-              );
+            // Send [DONE] to complete this turn
+            ws.simulateDone();
+          }
+        });
+      });
 
-              // Then send confirmation tool chunks
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-input-start",
-                  toolCallId: "call-location",
-                  toolName: "test_operation",
-                })}\n\n`,
-              );
-
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-input-available",
-                  toolCallId: "call-location",
-                  toolName: "test_operation",
-                  input: {
-                    originalFunctionCall: {
-                      id: "orig-location",
-                      name: "get_location",
-                      args: {},
-                    },
-                    toolConfirmation: {
-                      hint: "Please approve or reject the tool call get_location()",
-                      confirmed: false,
-                    },
-                  },
-                })}\n\n`,
-              );
-
-              // Send tool-approval-request (AI SDK v6 standard event)
-              // Reference: ADR 0002 - Tool Approval Architecture
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-approval-request",
-                  toolCallId: "call-location",
-                  approvalId: "call-location",
-                })}\n\n`,
-              );
-
-              // Send [DONE] to complete this turn
-              // Approval response will come in a separate message
-              client.send("data: [DONE]\n\n");
-            }
-          });
-        }),
-      );
-
-      const { useChatOptions, transport } = buildUseChatOptions({
+      const { useChatOptions } = buildUseChatOptions({
         initialMessages: [],
         adkBackendUrl: "http://localhost:8000",
         forceNewInstance: true,
       });
-
-      // Register transport for cleanup
-      currentTransport = transport;
 
       // When: User sends message
       const { result } = renderHook(() => useChat(useChatOptions));
@@ -308,168 +254,114 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
       expect(finalText).toContain("Tokyo, Japan");
       expect(finalText).toContain("35.6762");
 
-      // Transport cleanup handled by afterEach
     });
 
     it("should handle frontend execution failure", async () => {
       // Given: Frontend execution fails
-      const chat = createBidiWebSocketLink();
       let toolResultReceived = false;
 
-      getServer().use(
-        createCustomHandler(chat, ({ server: _server, client }) => {
-          // Add error handling for WebSocket
-          client.addEventListener("error", (error) => {
-            console.error("WebSocket error in test:", error);
-          });
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((data) => {
+          if (!data.startsWith("{")) {
+            return;
+          }
 
-          client.addEventListener("close", (event) => {
-            console.log("WebSocket closed:", event);
-          });
+          const msg = JSON.parse(data);
 
-          client.addEventListener("message", (event) => {
-            // Early return for non-JSON messages (e.g., WebSocket handshake)
-            if (typeof event.data !== "string" || !event.data.startsWith("{")) {
-              return;
-            }
+          // Check if this is approval response
+          const hasApprovalResponse = msg.messages?.some(
+            // biome-ignore lint/suspicious/noExplicitAny: Test helper
+            (m: any) =>
+              m.role === "assistant" &&
+              m.parts?.some((part: any) => isApprovalRespondedTool(part)),
+          );
 
-            const data = JSON.parse(event.data as string);
+          const hasToolOutput = msg.messages?.some(
+            // biome-ignore lint/suspicious/noExplicitAny: Test helper
+            (m: any) =>
+              m.role === "assistant" &&
+              m.parts?.some(
+                (part: any) =>
+                  part.toolCallId === "orig-camera" &&
+                  part.state === "output-available",
+              ),
+          );
 
-            // Debug: Log all messages structure
-            console.log("[MSW Handler] Message structure:", {
-              messageCount: data.messages?.length,
-              messages: data.messages?.map((m: any) => ({
-                role: m.role,
-                id: m.id,
-                partsCount: m.parts?.length,
-                parts: m.parts?.map((p: any) => ({
-                  type: p.type,
-                  state: p.state,
-                  toolCallId: p.toolCallId,
-                })),
-              })),
+          if (hasToolOutput) {
+            // Frontend sent tool-result
+            toolResultReceived = true;
+
+            // Error response
+            const textId = `text-${Date.now()}`;
+            ws.simulateServerMessage({ type: "text-start", id: textId });
+            ws.simulateServerMessage({
+              type: "text-delta",
+              delta: "Unable to access camera. Permission denied.",
+              id: textId,
+            });
+            ws.simulateServerMessage({ type: "text-end", id: textId });
+            ws.simulateDone();
+          } else if (hasApprovalResponse) {
+            // Approval received, send [DONE] to complete this turn
+            ws.simulateDone();
+            return;
+          } else {
+            // Send original tool chunks first
+            ws.simulateServerMessage({
+              type: "tool-input-start",
+              toolCallId: "orig-camera",
+              toolName: "take_photo",
             });
 
-            // Check if this is approval response
-            const hasApprovalResponse = data.messages?.some(
-              (msg: any) =>
-                msg.role === "assistant" &&
-                msg.parts?.some((part: any) => isApprovalRespondedTool(part)),
-            );
-
-            const hasToolOutput = data.messages?.some(
-              (msg: any) =>
-                msg.role === "assistant" &&
-                msg.parts?.some(
-                  (part: any) =>
-                    part.toolCallId === "orig-camera" &&
-                    part.state === "output-available",
-                ),
-            );
-
-            console.log("[MSW Handler] Detection results:", {
-              hasApprovalResponse,
-              hasToolOutput,
+            ws.simulateServerMessage({
+              type: "tool-input-available",
+              toolCallId: "orig-camera",
+              toolName: "take_photo",
+              input: {},
             });
 
-            if (hasToolOutput) {
-              // Frontend sent tool-result
-              toolResultReceived = true;
+            // Then send confirmation
+            ws.simulateServerMessage({
+              type: "tool-input-start",
+              toolCallId: "call-camera",
+              toolName: "test_operation",
+            });
 
-              // Error response
-              const textId = `text-${Date.now()}`;
-              client.send(
-                `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
-              );
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "text-delta",
-                  delta: "Unable to access camera. Permission denied.",
-                  id: textId,
-                })}\n\n`,
-              );
-              client.send(
-                `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
-              );
-              client.send("data: [DONE]\n\n");
-            } else if (hasApprovalResponse) {
-              // Approval received, send [DONE] to complete this turn
-              // Tool output will come in next message
-              client.send("data: [DONE]\n\n");
-              return;
-            } else {
-              // Send original tool chunks first
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-input-start",
-                  toolCallId: "orig-camera",
-                  toolName: "take_photo",
-                })}\n\n`,
-              );
+            ws.simulateServerMessage({
+              type: "tool-input-available",
+              toolCallId: "call-camera",
+              toolName: "test_operation",
+              input: {
+                originalFunctionCall: {
+                  id: "orig-camera",
+                  name: "take_photo",
+                  args: {},
+                },
+                toolConfirmation: {
+                  hint: "Please approve or reject the tool call take_photo()",
+                  confirmed: false,
+                },
+              },
+            });
 
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-input-available",
-                  toolCallId: "orig-camera",
-                  toolName: "take_photo",
-                  input: {},
-                })}\n\n`,
-              );
+            // Send tool-approval-request (AI SDK v6 standard event)
+            ws.simulateServerMessage({
+              type: "tool-approval-request",
+              toolCallId: "call-camera",
+              approvalId: "call-camera",
+            });
 
-              // Then send confirmation
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-input-start",
-                  toolCallId: "call-camera",
-                  toolName: "test_operation",
-                })}\n\n`,
-              );
+            // Send [DONE] to complete this stream
+            ws.simulateDone();
+          }
+        });
+      });
 
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-input-available",
-                  toolCallId: "call-camera",
-                  toolName: "test_operation",
-                  input: {
-                    originalFunctionCall: {
-                      id: "orig-camera",
-                      name: "take_photo",
-                      args: {},
-                    },
-                    toolConfirmation: {
-                      hint: "Please approve or reject the tool call take_photo()",
-                      confirmed: false,
-                    },
-                  },
-                })}\n\n`,
-              );
-
-              // Send tool-approval-request (AI SDK v6 standard event)
-              // Reference: ADR 0002 - Tool Approval Architecture
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-approval-request",
-                  toolCallId: "call-camera",
-                  approvalId: "call-camera",
-                })}\n\n`,
-              );
-
-              // Send [DONE] to complete this stream
-              // Approval response will come in a separate message
-              client.send("data: [DONE]\n\n");
-            }
-          });
-        }),
-      );
-
-      const { useChatOptions, transport } = buildUseChatOptions({
+      const { useChatOptions } = buildUseChatOptions({
         initialMessages: [],
         adkBackendUrl: "http://localhost:8000",
         forceNewInstance: true,
       });
-
-      // Register transport for cleanup
-      currentTransport = transport;
 
       const { result } = renderHook(() => useChat(useChatOptions));
 
@@ -546,109 +438,79 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
       );
       expect(finalText).toContain("Permission denied");
       expect(toolResultReceived).toBe(true);
-
-      // Transport cleanup handled by afterEach
     });
   });
 
   describe("Approval Denial", () => {
     it("should handle user denying frontend tool execution", async () => {
       // Given: User denies permission
-      const chat = createBidiWebSocketLink();
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((data) => {
+          if (!data.startsWith("{")) {
+            return;
+          }
 
-      getServer().use(
-        createCustomHandler(chat, ({ server: _server, client }) => {
-          // Add error handling for WebSocket
-          client.addEventListener("error", (error) => {
-            console.error("WebSocket error in test:", error);
-          });
+          const msg = JSON.parse(data);
 
-          client.addEventListener("close", (event) => {
-            console.log("WebSocket closed:", event);
-          });
+          const hasDenial = msg.messages?.some(
+            // biome-ignore lint/suspicious/noExplicitAny: Test helper
+            (m: any) =>
+              m.role === "assistant" &&
+              m.parts?.some(
+                (part: any) =>
+                  isApprovalRespondedTool(part) &&
+                  part.approval?.approved === false,
+              ),
+          );
 
-          client.addEventListener("message", (event) => {
-            // Early return for non-JSON messages (e.g., WebSocket handshake)
-            if (typeof event.data !== "string" || !event.data.startsWith("{")) {
-              return;
-            }
+          if (!hasDenial) {
+            // Send confirmation
+            ws.simulateServerMessage({
+              type: "tool-input-start",
+              toolCallId: "call-mic",
+              toolName: "test_operation",
+            });
 
-            const data = JSON.parse(event.data as string);
+            ws.simulateServerMessage({
+              type: "tool-input-available",
+              toolCallId: "call-mic",
+              toolName: "test_operation",
+              input: {
+                originalFunctionCall: {
+                  id: "orig-mic",
+                  name: "record_audio",
+                  args: { duration: 5 },
+                },
+              },
+            });
 
-            const hasDenial = data.messages?.some(
-              (msg: any) =>
-                msg.role === "assistant" &&
-                msg.parts?.some(
-                  (part: any) =>
-                    isApprovalRespondedTool(part) &&
-                    part.approval?.approved === false,
-                ),
-            );
+            ws.simulateServerMessage({
+              type: "tool-approval-request",
+              approvalId: "call-mic",
+              toolCallId: "call-mic",
+            });
 
-            if (!hasDenial) {
-              // Send confirmation
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-input-start",
-                  toolCallId: "call-mic",
-                  toolName: "test_operation",
-                })}\n\n`,
-              );
+            ws.simulateDone();
+          } else {
+            // User denied
+            const textId = `text-${Date.now()}`;
+            ws.simulateServerMessage({ type: "text-start", id: textId });
+            ws.simulateServerMessage({
+              type: "text-delta",
+              delta: "Understood. I won't access your microphone.",
+              id: textId,
+            });
+            ws.simulateServerMessage({ type: "text-end", id: textId });
+            ws.simulateDone();
+          }
+        });
+      });
 
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-input-available",
-                  toolCallId: "call-mic",
-                  toolName: "test_operation",
-                  input: {
-                    originalFunctionCall: {
-                      id: "orig-mic",
-                      name: "record_audio",
-                      args: { duration: 5 },
-                    },
-                  },
-                })}\n\n`,
-              );
-
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-approval-request",
-                  approvalId: "call-mic",
-                  toolCallId: "call-mic",
-                })}\n\n`,
-              );
-
-              client.send("data: [DONE]\n\n");
-            } else {
-              // User denied
-              const textId = `text-${Date.now()}`;
-              client.send(
-                `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
-              );
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "text-delta",
-                  delta: "Understood. I won't access your microphone.",
-                  id: textId,
-                })}\n\n`,
-              );
-              client.send(
-                `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
-              );
-              client.send("data: [DONE]\n\n");
-            }
-          });
-        }),
-      );
-
-      const { useChatOptions, transport } = buildUseChatOptions({
+      const { useChatOptions } = buildUseChatOptions({
         initialMessages: [],
         adkBackendUrl: "http://localhost:8000",
         forceNewInstance: true,
       });
-
-      // Register transport for cleanup
-      currentTransport = transport;
 
       const { result } = renderHook(() => useChat(useChatOptions));
 
@@ -698,8 +560,6 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
           result.current.messages[result.current.messages.length - 1],
         ),
       ).toContain("won't access your microphone");
-
-      // Transport cleanup handled by afterEach
     });
   });
 
@@ -709,153 +569,155 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
       // Turn 1: Alice approval request
       // Turn 2: Alice execution + Bob approval request
       // Turn 3: Bob execution + final response
-      const chat = createBidiWebSocketLink();
       let aliceApprovalReceived = false;
       let bobApprovalReceived = false;
 
-      getServer().use(
-        createCustomHandler(chat, ({ server: _server, client }) => {
-          client.addEventListener("error", (error) => {
-            console.error("WebSocket error in test:", error);
-          });
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((data) => {
+          if (!data.startsWith("{")) {
+            return;
+          }
 
-          client.addEventListener("message", async (event) => {
-            if (typeof event.data !== "string" || !event.data.startsWith("{")) {
+          const msg = JSON.parse(data);
+          console.log("[Test Mock Server] Received:", msg.type, msg);
+
+          // Turn 1: Initial message → Alice approval request
+          if (msg.type === "message" && msg.messages) {
+            const lastMsg = msg.messages[msg.messages.length - 1];
+
+            // Check if this is the initial user message
+            if (
+              !aliceApprovalReceived &&
+              lastMsg.role === "user" &&
+              // biome-ignore lint/suspicious/noExplicitAny: Test helper
+              !lastMsg.parts?.some(
+                (p: any) => p.type === "tool-adk_request_confirmation",
+              )
+            ) {
+              console.log(
+                "[Test Mock Server] Turn 1: Sending Alice approval request",
+              );
+
+              ws.simulateServerMessage({ type: "start", messageId: "msg-1" });
+              ws.simulateServerMessage({
+                type: "tool-input-start",
+                toolCallId: "alice-tool-id",
+                toolName: "process_payment",
+              });
+              ws.simulateServerMessage({
+                type: "tool-input-available",
+                toolCallId: "alice-tool-id",
+                toolName: "process_payment",
+                input: { amount: 30, recipient: "Alice", currency: "USD" },
+              });
+              ws.simulateServerMessage({
+                type: "tool-approval-request",
+                toolCallId: "alice-tool-id",
+                approvalId: "alice-approval-id",
+              });
+              ws.simulateDone();
+
+              aliceApprovalReceived = true;
               return;
             }
 
-            const msg = JSON.parse(event.data);
-            console.log("[Test Mock Server] Received:", msg.type, msg);
+            // Turn 2: Alice approval → Alice execution + Bob approval request
+            if (
+              aliceApprovalReceived &&
+              !bobApprovalReceived &&
+              lastMsg.parts?.some(
+                // biome-ignore lint/suspicious/noExplicitAny: Test helper
+                (p: any) =>
+                  p.type === "tool-process_payment" &&
+                  "approval-responded" === p.state &&
+                  p.approval?.id === "alice-approval-id",
+              )
+            ) {
+              console.log(
+                "[Test Mock Server] Turn 2: Sending Alice execution + Bob approval request",
+              );
 
-            // Turn 1: Initial message → Alice approval request
-            if (msg.type === "message" && msg.messages) {
-              const lastMsg = msg.messages[msg.messages.length - 1];
+              ws.simulateServerMessage({
+                type: "tool-output-available",
+                toolCallId: "alice-tool-id",
+                output: {
+                  success: true,
+                  transaction_id: "txn-alice",
+                  amount: 30,
+                  recipient: "Alice",
+                },
+              });
+              ws.simulateServerMessage({
+                type: "tool-input-start",
+                toolCallId: "bob-tool-id",
+                toolName: "process_payment",
+              });
+              ws.simulateServerMessage({
+                type: "tool-input-available",
+                toolCallId: "bob-tool-id",
+                toolName: "process_payment",
+                input: { amount: 40, recipient: "Bob", currency: "USD" },
+              });
+              ws.simulateServerMessage({
+                type: "tool-approval-request",
+                toolCallId: "bob-tool-id",
+                approvalId: "bob-approval-id",
+              });
+              ws.simulateDone();
 
-              // Check if this is the initial user message (ADR 0002: no tool-adk_request_confirmation in initial message)
-              if (
-                !aliceApprovalReceived &&
-                lastMsg.role === "user" &&
-                !lastMsg.parts?.some(
-                  (p: any) => p.type === "tool-adk_request_confirmation",
-                )
-              ) {
-                console.log(
-                  "[Test Mock Server] Turn 1: Sending Alice approval request",
-                );
-
-                // Send start event
-                client.send(
-                  'data: {"type": "start", "messageId": "msg-1"}\n\n',
-                );
-
-                // Send Alice process_payment tool input
-                client.send(
-                  'data: {"type": "tool-input-start", "toolCallId": "alice-tool-id", "toolName": "process_payment"}\n\n',
-                );
-                client.send(
-                  'data: {"type": "tool-input-available", "toolCallId": "alice-tool-id", "toolName": "process_payment", "input": {"amount": 30, "recipient": "Alice", "currency": "USD"}}\n\n',
-                );
-
-                // Send approval request for Alice
-                client.send(
-                  'data: {"type": "tool-approval-request", "toolCallId": "alice-tool-id", "approvalId": "alice-approval-id"}\n\n',
-                );
-
-                // Send [DONE] to complete Turn 1
-                client.send("data: [DONE]\n\n");
-
-                aliceApprovalReceived = true;
-                return;
-              }
-
-              // Turn 2: Alice approval → Alice execution + Bob approval request
-              // ADR 0002: Check for actual tool part (tool-process_payment) with approval-responded state
-              if (
-                aliceApprovalReceived &&
-                !bobApprovalReceived &&
-                lastMsg.parts?.some(
-                  (p: any) =>
-                    p.type === "tool-process_payment" &&
-                    "approval-responded" === p.state &&
-                    p.approval?.id === "alice-approval-id",
-                )
-              ) {
-                console.log(
-                  "[Test Mock Server] Turn 2: Sending Alice execution + Bob approval request",
-                );
-
-                // Send Alice execution result
-                client.send(
-                  'data: {"type": "tool-output-available", "toolCallId": "alice-tool-id", "output": {"success": true, "transaction_id": "txn-alice", "amount": 30, "recipient": "Alice"}}\n\n',
-                );
-
-                // Send Bob process_payment tool input
-                client.send(
-                  'data: {"type": "tool-input-start", "toolCallId": "bob-tool-id", "toolName": "process_payment"}\n\n',
-                );
-                client.send(
-                  'data: {"type": "tool-input-available", "toolCallId": "bob-tool-id", "toolName": "process_payment", "input": {"amount": 40, "recipient": "Bob", "currency": "USD"}}\n\n',
-                );
-
-                // Send approval request for Bob
-                client.send(
-                  'data: {"type": "tool-approval-request", "toolCallId": "bob-tool-id", "approvalId": "bob-approval-id"}\n\n',
-                );
-
-                // Send [DONE] to complete Turn 2
-                client.send("data: [DONE]\n\n");
-
-                bobApprovalReceived = true;
-                return;
-              }
-
-              // Turn 3: Bob approval → Bob execution + final response
-              // ADR 0002: Check for actual tool part (tool-process_payment) with approval-responded state
-              if (
-                bobApprovalReceived &&
-                lastMsg.parts?.some(
-                  (p: any) =>
-                    p.type === "tool-process_payment" &&
-                    "approval-responded" === p.state &&
-                    p.approval?.id === "bob-approval-id",
-                )
-              ) {
-                console.log(
-                  "[Test Mock Server] Turn 3: Sending Bob execution + final response",
-                );
-
-                // Send Bob execution result
-                client.send(
-                  'data: {"type": "tool-output-available", "toolCallId": "bob-tool-id", "output": {"success": true, "transaction_id": "txn-bob", "amount": 40, "recipient": "Bob"}}\n\n',
-                );
-
-                // Send AI response
-                client.send('data: {"type": "text-start", "id": "text-1"}\n\n');
-                client.send(
-                  'data: {"type": "text-delta", "id": "text-1", "delta": "Both payments completed successfully."}\n\n',
-                );
-                client.send('data: {"type": "text-end", "id": "text-1"}\n\n');
-
-                // Send finish
-                client.send(
-                  'data: {"type": "finish", "finishReason": "stop"}\n\n',
-                );
-                client.send("data: [DONE]\n\n");
-                return;
-              }
+              bobApprovalReceived = true;
+              return;
             }
-          });
-        }),
-      );
+
+            // Turn 3: Bob approval → Bob execution + final response
+            if (
+              bobApprovalReceived &&
+              lastMsg.parts?.some(
+                // biome-ignore lint/suspicious/noExplicitAny: Test helper
+                (p: any) =>
+                  p.type === "tool-process_payment" &&
+                  "approval-responded" === p.state &&
+                  p.approval?.id === "bob-approval-id",
+              )
+            ) {
+              console.log(
+                "[Test Mock Server] Turn 3: Sending Bob execution + final response",
+              );
+
+              ws.simulateServerMessage({
+                type: "tool-output-available",
+                toolCallId: "bob-tool-id",
+                output: {
+                  success: true,
+                  transaction_id: "txn-bob",
+                  amount: 40,
+                  recipient: "Bob",
+                },
+              });
+              ws.simulateServerMessage({ type: "text-start", id: "text-1" });
+              ws.simulateServerMessage({
+                type: "text-delta",
+                id: "text-1",
+                delta: "Both payments completed successfully.",
+              });
+              ws.simulateServerMessage({ type: "text-end", id: "text-1" });
+              ws.simulateServerMessage({
+                type: "finish",
+                finishReason: "stop",
+              });
+              ws.simulateDone();
+              return;
+            }
+          }
+        });
+      });
 
       // When: User sends message requesting two payments
-      const { useChatOptions, transport } = buildUseChatOptions({
+      const { useChatOptions } = buildUseChatOptions({
         initialMessages: [],
         adkBackendUrl: "http://localhost:8000",
         forceNewInstance: true,
       });
-
-      currentTransport = transport;
 
       const { result } = renderHook(() => useChat(useChatOptions));
 
@@ -952,8 +814,6 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
           result.current.messages[result.current.messages.length - 1],
         ),
       ).toContain("completed");
-
-      // Transport cleanup handled by afterEach
     });
   });
 });

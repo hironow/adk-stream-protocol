@@ -16,17 +16,15 @@ import { describe, expect, it } from "vitest";
 import { buildUseChatOptions as buildBidiUseChatOptions } from "../../bidi";
 import { buildUseChatOptions as buildSseUseChatOptions } from "../../sse";
 import type { UIMessageFromAISDKv6 } from "../../utils";
-import {
-  createBidiWebSocketLink,
-  useMswServer,
-} from "../helpers";
+import { useMswServer } from "../helpers";
+import { useMockWebSocket } from "../helpers/mock-websocket";
 import {
   loadFixture,
   parseRawEvents,
   findAllApprovalRequestEvents,
 } from "./helpers/fixture-loader";
 import {
-  createBidiSequentialApprovalHandler,
+  createBidiSequentialApprovalHandlerForMock,
   createSseParallelApprovalHandler,
 } from "./helpers/fixture-server";
 import {
@@ -38,16 +36,11 @@ import {
 } from "./helpers/approval-ui-assertions";
 
 describe("Multiple Payments Approval Flow - Fixture E2E Tests", () => {
-  // Create MSW server with custom handler for WebSocket requests
-  const { getServer } = useMswServer({
-    onUnhandledRequest(request) {
-      // Ignore WebSocket upgrade requests
-      if (request.url.includes("/live")) {
-        return;
-      }
-      console.error("Unhandled request:", request.method, request.url);
-    },
-  });
+  // MSW for SSE (HTTP) tests
+  const { getServer } = useMswServer();
+  // Custom Mock for BIDI (WebSocket) tests
+  const { setDefaultHandler } = useMockWebSocket();
+
   describe("BIDI Mode - Sequential Execution (ADR 0003)", () => {
     describe("Sequential Approval Flow (multiple-payments-sequential-bidi-baseline.json)", () => {
       const fixture = loadFixture("multiple-payments-sequential-bidi-baseline.json");
@@ -59,15 +52,13 @@ describe("Multiple Payments Approval Flow - Fixture E2E Tests", () => {
       });
 
       it("should display Alice approval first, then Bob after Alice is approved", async () => {
-        // Given: Setup BIDI sequential handler from fixture
-        const chat = createBidiWebSocketLink();
-        getServer().use(createBidiSequentialApprovalHandler(chat, fixture));
+        // Given: Setup BIDI sequential handler from fixture using Custom Mock
+        setDefaultHandler(createBidiSequentialApprovalHandlerForMock(fixture));
 
         const { useChatOptions } = buildBidiUseChatOptions({
           initialMessages: [] as UIMessageFromAISDKv6[],
           forceNewInstance: true,
         });
-        // Transport cleanup handled by MSW server lifecycle
 
         const { result } = renderHook(() => useChat(useChatOptions));
 

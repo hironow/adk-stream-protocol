@@ -8,7 +8,7 @@
  * 4. Response processing and confirmation flow
  *
  * This is an E2E test - we use real React components, real useChat hook,
- * and real WebSocket communication (mocked with MSW WebSocket).
+ * and WebSocket communication (mocked with Custom Mock for parallel execution).
  *
  * @vitest-environment jsdom
  */
@@ -20,38 +20,40 @@ import { buildUseChatOptions } from "../../bidi";
 import type { UIMessageFromAISDKv6 } from "../../utils";
 import { isApprovalRequestedTool, isToolUIPartFromAISDKv6 } from "../../utils";
 import {
-  createBidiWebSocketLink,
-  createConfirmationRequestHandler,
-  createCustomHandler,
   createSendAutoSpy,
-  createTextResponseHandler,
   findAllConfirmationParts,
   findConfirmationPart,
   getMessageText,
-  useMswServer,
 } from "../helpers";
+import { useMockWebSocket } from "../helpers/mock-websocket";
 
 describe("BIDI Mode with useChat - E2E Tests", () => {
-  const { getServer } = useMswServer({
-    onUnhandledRequest(request) {
-      // Ignore WebSocket upgrade requests
-      if (request.url.includes("/live")) {
-        return;
-      }
-      console.error("Unhandled request:", request.method, request.url);
-    },
-  });
+  // Custom Mock WebSocket for BIDI tests (replaces MSW WebSocket)
+  const { setDefaultHandler } = useMockWebSocket();
   describe("Test 1: Full BIDI Configuration with sendAutomaticallyWhen", () => {
     it("should use all lib/bidi options and trigger sendAutomaticallyWhen on confirmation", async () => {
-      // Given: Setup MSW handler to send confirmation request
-      const chat = createBidiWebSocketLink();
-      getServer().use(
-        createConfirmationRequestHandler(chat, {
-          id: "orig-1",
-          name: "dangerous_operation",
-          args: { action: "delete_all" },
-        }),
-      );
+      // Given: Setup Custom Mock handler to send confirmation request
+      setDefaultHandler((ws) => {
+        let messageCount = 0;
+        ws.onClientMessage((data) => {
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.type === "ping") return;
+          } catch {
+            // Not JSON
+          }
+
+          messageCount++;
+          if (messageCount === 1) {
+            // First message: Send approval request
+            ws.sendToolWithApproval("orig-1", "dangerous_operation", { action: "delete_all" }, "approval-1");
+          } else if (messageCount === 2) {
+            // Second message (after approval): Send output
+            ws.sendToolOutputAvailable("orig-1", "dangerous_operation", { result: "Operation completed successfully" });
+            ws.simulateDone();
+          }
+        });
+      });
 
       const config = {
         initialMessages: [] as UIMessageFromAISDKv6[],
@@ -143,9 +145,22 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
     });
 
     it("should work with basic message flow (no confirmation)", async () => {
-      // Given: Setup WebSocket handler to send text response
-      const chat = createBidiWebSocketLink();
-      getServer().use(createTextResponseHandler(chat, "Hello", " World!"));
+      // Given: Setup Custom Mock handler to send text response
+      setDefaultHandler((ws) => {
+        let responded = false;
+        ws.onClientMessage((data) => {
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.type === "ping") return;
+          } catch {
+            // Not JSON
+          }
+          if (!responded) {
+            responded = true;
+            ws.sendTextResponse(`text-${Date.now()}`, "Hello", " World!");
+          }
+        });
+      });
 
       const config = {
         initialMessages: [] as UIMessageFromAISDKv6[],
@@ -178,15 +193,22 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
 
   describe("Test 2: Response Processing and Confirmation Flow", () => {
     it("should correctly process confirmation response payload", async () => {
-      // Given: Setup MSW handler to send confirmation request
-      const chat = createBidiWebSocketLink();
-      getServer().use(
-        createConfirmationRequestHandler(chat, {
-          id: "test-1",
-          name: "test_tool",
-          args: { key: "value" },
-        }),
-      );
+      // Given: Setup Custom Mock handler to send confirmation request
+      setDefaultHandler((ws) => {
+        let messageCount = 0;
+        ws.onClientMessage((data) => {
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.type === "ping") return;
+          } catch {
+            // Not JSON
+          }
+          messageCount++;
+          if (messageCount === 1) {
+            ws.sendToolWithApproval("test-1", "test_tool", { key: "value" }, "approval-1");
+          }
+        });
+      });
 
       const config = {
         initialMessages: [] as UIMessageFromAISDKv6[],
@@ -229,115 +251,51 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
     });
 
     it("should handle multiple confirmations in sequence", async () => {
-      // Given: Setup MSW handler to send two different confirmations
-      const chat = createBidiWebSocketLink();
+      // Given: Setup Custom Mock handler to send two different confirmations
       let firstConfirmationSent = false;
       let secondConfirmationSent = false;
 
-      getServer().use(
-        createCustomHandler(chat, ({ server: _server, client }) => {
-          client.addEventListener("message", (event) => {
-            // Early return for non-JSON messages (e.g., WebSocket handshake)
-            if (typeof event.data !== "string" || !event.data.startsWith("{")) {
-              return;
-            }
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((data) => {
+          // Early return for non-JSON messages
+          if (!data.startsWith("{")) return;
 
-            const data = JSON.parse(event.data as string);
+          const parsed = JSON.parse(data);
+          if (parsed.type === "ping") return;
 
-            // Check message content to determine response (like SSE does)
-            // AI SDK v6: Check for TOOL parts with approval objects, not approval-request parts
-            const hasFirstApproval = data.messages?.some(
-              (msg: any) =>
-                msg.role === "assistant" &&
-                msg.parts?.some(
-                  (part: any) =>
-                    part.toolCallId === "call-1" && part.approval !== undefined,
-                ),
-            );
+          // Check message content to determine response
+          const hasFirstApproval = parsed.messages?.some(
+            (msg: any) =>
+              msg.role === "assistant" &&
+              msg.parts?.some(
+                (part: any) =>
+                  part.toolCallId === "call-1" && part.approval !== undefined,
+              ),
+          );
 
-            const hasSecondApproval = data.messages?.some(
-              (msg: any) =>
-                msg.role === "assistant" &&
-                msg.parts?.some(
-                  (part: any) =>
-                    part.toolCallId === "call-2" && part.approval !== undefined,
-                ),
-            );
+          const hasSecondApproval = parsed.messages?.some(
+            (msg: any) =>
+              msg.role === "assistant" &&
+              msg.parts?.some(
+                (part: any) =>
+                  part.toolCallId === "call-2" && part.approval !== undefined,
+              ),
+          );
 
-            if (!firstConfirmationSent) {
-              firstConfirmationSent = true;
-              // First request: Send first confirmation
-              const startChunk = {
-                type: "tool-input-start",
-                toolCallId: "call-1",
-                toolName: "first_tool",
-              };
-              client.send(`data: ${JSON.stringify(startChunk)}\n\n`);
-
-              const availableChunk = {
-                type: "tool-input-available",
-                toolCallId: "call-1",
-                toolName: "first_tool",
-                input: {
-                  action: "first",
-                },
-              };
-              client.send(`data: ${JSON.stringify(availableChunk)}\n\n`);
-
-              const approvalChunk = {
-                type: "tool-approval-request",
-                approvalId: "call-1",
-                toolCallId: "call-1",
-              };
-              client.send(`data: ${JSON.stringify(approvalChunk)}\n\n`);
-              client.send("data: [DONE]\n\n");
-            } else if (hasFirstApproval && !secondConfirmationSent) {
-              secondConfirmationSent = true;
-              // Second request: After first approval, send second confirmation
-              const startChunk = {
-                type: "tool-input-start",
-                toolCallId: "call-2",
-                toolName: "second_tool",
-              };
-              client.send(`data: ${JSON.stringify(startChunk)}\n\n`);
-
-              const availableChunk = {
-                type: "tool-input-available",
-                toolCallId: "call-2",
-                toolName: "second_tool",
-                input: {
-                  action: "second",
-                },
-              };
-              client.send(`data: ${JSON.stringify(availableChunk)}\n\n`);
-
-              const approvalChunk = {
-                type: "tool-approval-request",
-                approvalId: "call-2",
-                toolCallId: "call-2",
-              };
-              client.send(`data: ${JSON.stringify(approvalChunk)}\n\n`);
-              client.send("data: [DONE]\n\n");
-            } else if (hasSecondApproval) {
-              // Third request: After second approval, send final response
-              const textId = `text-${Date.now()}`;
-              client.send(
-                `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
-              );
-              client.send(
-                `data: ${JSON.stringify({ type: "text-delta", delta: "All", id: textId })}\n\n`,
-              );
-              client.send(
-                `data: ${JSON.stringify({ type: "text-delta", delta: " steps completed!", id: textId })}\n\n`,
-              );
-              client.send(
-                `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
-              );
-              client.send("data: [DONE]\n\n");
-            }
-          });
-        }),
-      );
+          if (!firstConfirmationSent) {
+            firstConfirmationSent = true;
+            // First request: Send first confirmation
+            ws.sendToolWithApproval("call-1", "first_tool", { action: "first" }, "call-1");
+          } else if (hasFirstApproval && !secondConfirmationSent) {
+            secondConfirmationSent = true;
+            // Second request: After first approval, send second confirmation
+            ws.sendToolWithApproval("call-2", "second_tool", { action: "second" }, "call-2");
+          } else if (hasSecondApproval) {
+            // Third request: After second approval, send final response
+            ws.sendTextResponse(`text-${Date.now()}`, "All", " steps completed!");
+          }
+        });
+      });
 
       const config = {
         initialMessages: [] as UIMessageFromAISDKv6[],
@@ -430,15 +388,22 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
     });
 
     it("should preserve message history during confirmation flow", async () => {
-      // Given: Setup MSW handler to send confirmation request
-      const chat = createBidiWebSocketLink();
-      getServer().use(
-        createConfirmationRequestHandler(chat, {
-          id: "new",
-          name: "new_tool",
-          args: {},
-        }),
-      );
+      // Given: Setup Custom Mock handler to send confirmation request
+      setDefaultHandler((ws) => {
+        let messageCount = 0;
+        ws.onClientMessage((data) => {
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.type === "ping") return;
+          } catch {
+            // Not JSON
+          }
+          messageCount++;
+          if (messageCount === 1) {
+            ws.sendToolWithApproval("new", "new_tool", {}, "approval-1");
+          }
+        });
+      });
 
       const config = {
         initialMessages: [
@@ -490,48 +455,30 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
     });
 
     it("should handle errors during confirmation flow gracefully", async () => {
-      // Given: MSW handler returns confirmation, then error
-      const chat = createBidiWebSocketLink();
+      // Given: Custom Mock handler returns confirmation, then error
       let requestCount = 0;
 
-      getServer().use(
-        createCustomHandler(chat, ({ server, client }) => {
-          client.addEventListener("message", (_event) => {
-            requestCount++;
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((data) => {
+          if (!data.startsWith("{")) return;
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.type === "ping") return;
+          } catch {
+            // Not JSON
+          }
 
-            if (requestCount === 1) {
-              // First request: Return confirmation
-              const startChunk = {
-                type: "tool-input-start",
-                toolCallId: "call-error",
-                toolName: "failing_tool",
-              };
-              client.send(`data: ${JSON.stringify(startChunk)}\n\n`);
+          requestCount++;
 
-              const availableChunk = {
-                type: "tool-input-available",
-                toolCallId: "call-error",
-                toolName: "failing_tool",
-                input: {},
-              };
-              client.send(`data: ${JSON.stringify(availableChunk)}\n\n`);
-
-              const approvalChunk = {
-                type: "tool-approval-request",
-                approvalId: "call-error",
-                toolCallId: "call-error",
-              };
-              client.send(`data: ${JSON.stringify(approvalChunk)}\n\n`);
-              client.send("data: [DONE]\n\n");
-            } else if (requestCount === 2) {
-              // Second request: Simulate error by closing connection
-              // In BIDI mode, errors are typically communicated via connection close
-              // or error events rather than HTTP status codes
-              server.close();
-            }
-          });
-        }),
-      );
+          if (requestCount === 1) {
+            // First request: Return confirmation
+            ws.sendToolWithApproval("call-error", "failing_tool", {}, "call-error");
+          } else if (requestCount === 2) {
+            // Second request: Simulate error by closing connection
+            ws.simulateClose(1006, "Connection error");
+          }
+        });
+      });
 
       const config = {
         initialMessages: [] as UIMessageFromAISDKv6[],
@@ -587,101 +534,51 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
     });
 
     it("should handle tool approval denial correctly", async () => {
-      // Given: MSW handler returns confirmation, then handles denial
-      const chat = createBidiWebSocketLink();
+      // Given: Custom Mock handler returns confirmation, then handles denial
       let denialReceived = false;
       let finalResponseReceived = false;
 
-      getServer().use(
-        createCustomHandler(chat, ({ server: _server, client }) => {
-          client.addEventListener("message", (event) => {
-            // Early return for non-JSON messages (e.g., WebSocket handshake)
-            if (typeof event.data !== "string" || !event.data.startsWith("{")) {
-              return;
-            }
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((data) => {
+          // Early return for non-JSON messages
+          if (!data.startsWith("{")) return;
 
-            const data = JSON.parse(event.data as string);
+          const parsed = JSON.parse(data);
+          if (parsed.type === "ping") return;
 
-            // Check if this is the denial response
-            // AI SDK v6: Check for approval object existence (user responded)
-            // Note: AI SDK doesn't set approval.approved until backend responds,
-            // so we check for approval object presence instead
-            const hasDenial = data.messages?.some(
-              (msg: any) =>
-                msg.role === "assistant" &&
-                msg.parts?.some(
-                  (part: any) =>
-                    part.toolCallId === "call-deny" &&
-                    part.approval !== undefined,
-                ),
-            );
+          // Check if this is the denial response
+          const hasDenial = parsed.messages?.some(
+            (msg: any) =>
+              msg.role === "assistant" &&
+              msg.parts?.some(
+                (part: any) =>
+                  part.toolCallId === "call-deny" &&
+                  part.approval !== undefined,
+              ),
+          );
 
-            if (!denialReceived) {
-              denialReceived = true;
-              // First request: Send confirmation request
-              const startChunk = {
-                type: "tool-input-start",
-                toolCallId: "call-deny",
-                toolName: "dangerous_operation",
-              };
-              client.send(`data: ${JSON.stringify(startChunk)}\n\n`);
+          if (!denialReceived) {
+            denialReceived = true;
+            // First request: Send confirmation request
+            ws.sendToolInputStart("call-deny", "dangerous_operation");
+            ws.sendToolInputAvailable("call-deny", "dangerous_operation", {
+              originalFunctionCall: {
+                id: "orig-deny",
+                name: "dangerous_operation",
+                args: { action: "delete_all" },
+              },
+            });
+            ws.sendToolApprovalRequest("call-deny", "call-deny");
+            ws.simulateDone();
+          }
 
-              const availableChunk = {
-                type: "tool-input-available",
-                toolCallId: "call-deny",
-                toolName: "dangerous_operation",
-                input: {
-                  originalFunctionCall: {
-                    id: "orig-deny",
-                    name: "dangerous_operation",
-                    args: { action: "delete_all" },
-                  },
-                },
-              };
-              client.send(`data: ${JSON.stringify(availableChunk)}\n\n`);
-
-              const approvalChunk = {
-                type: "tool-approval-request",
-                approvalId: "call-deny",
-                toolCallId: "call-deny",
-              };
-              client.send(`data: ${JSON.stringify(approvalChunk)}\n\n`);
-              client.send("data: [DONE]\n\n");
-            }
-
-            if (hasDenial && !finalResponseReceived) {
-              finalResponseReceived = true;
-              // Second request: Denial received, send acknowledgment
-              const textId = `text-${Date.now()}`;
-
-              // Send text-start chunk
-              const startChunk = {
-                type: "text-start",
-                id: textId,
-              };
-              client.send(`data: ${JSON.stringify(startChunk)}\n\n`);
-
-              // Send text-delta chunk
-              const textChunk = {
-                type: "text-delta",
-                delta: "Operation cancelled as per your request.",
-                id: textId,
-              };
-              client.send(`data: ${JSON.stringify(textChunk)}\n\n`);
-
-              // Send text-end chunk
-              const endChunk = {
-                type: "text-end",
-                id: textId,
-              };
-              client.send(`data: ${JSON.stringify(endChunk)}\n\n`);
-
-              // Send [DONE] marker
-              client.send("data: [DONE]\n\n");
-            }
-          });
-        }),
-      );
+          if (hasDenial && !finalResponseReceived) {
+            finalResponseReceived = true;
+            // Second request: Denial received, send acknowledgment
+            ws.sendTextResponse(`text-${Date.now()}`, "Operation cancelled as per your request.");
+          }
+        });
+      });
 
       const config = {
         initialMessages: [] as UIMessageFromAISDKv6[],
@@ -763,15 +660,25 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
         sendAutomaticallyWhen: sendAutoSpy,
       };
 
-      // Setup MSW to send confirmation
-      const chat = createBidiWebSocketLink();
-      getServer().use(
-        createConfirmationRequestHandler(chat, {
-          id: "spy-test-1",
-          name: "test_operation",
-          args: { test: "data" },
-        }),
-      );
+      // Setup Custom Mock to send confirmation
+      setDefaultHandler((ws) => {
+        let messageCount = 0;
+        ws.onClientMessage((data) => {
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.type === "ping") return;
+          } catch {
+            // Not JSON
+          }
+          messageCount++;
+          if (messageCount === 1) {
+            ws.sendToolWithApproval("spy-test-1", "test_operation", { test: "data" }, "approval-1");
+          } else if (messageCount === 2) {
+            ws.sendToolOutputAvailable("spy-test-1", "test_operation", { result: "success" });
+            ws.simulateDone();
+          }
+        });
+      });
 
       const { result } = renderHook(() => useChat(optionsWithSpy));
 
@@ -849,107 +756,54 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
         sendAutomaticallyWhen: sendAutoSpy,
       };
 
-      // Setup MSW to send two sequential confirmations
-      const chat = createBidiWebSocketLink();
+      // Setup Custom Mock to send two sequential confirmations
       let firstConfirmationSent = false;
       let secondConfirmationSent = false;
 
-      getServer().use(
-        createCustomHandler(chat, ({ server: _server, client }) => {
-          client.addEventListener("message", (event) => {
-            // Early return for non-JSON messages
-            if (typeof event.data !== "string" || !event.data.startsWith("{")) {
-              return;
-            }
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((data) => {
+          // Early return for non-JSON messages
+          if (!data.startsWith("{")) return;
 
-            const data = JSON.parse(event.data as string);
+          const parsed = JSON.parse(data);
+          if (parsed.type === "ping") return;
 
-            // Check for first approval response
-            // AI SDK v6: Check for TOOL part with approval object (user has responded)
-            const hasFirstApproval = data.messages?.some(
-              (msg: any) =>
-                msg.role === "assistant" &&
-                msg.parts?.some(
-                  (part: any) =>
-                    part.toolCallId === "first-tool" &&
-                    part.approval !== undefined,
-                ),
-            );
+          // Check for first approval response
+          const hasFirstApproval = parsed.messages?.some(
+            (msg: any) =>
+              msg.role === "assistant" &&
+              msg.parts?.some(
+                (part: any) =>
+                  part.toolCallId === "first-tool" &&
+                  part.approval !== undefined,
+              ),
+          );
 
-            // Check for second approval response
-            // AI SDK v6: Check for TOOL part with approval object (user has responded)
-            const hasSecondApproval = data.messages?.some(
-              (msg: any) =>
-                msg.role === "assistant" &&
-                msg.parts?.some(
-                  (part: any) =>
-                    part.toolCallId === "second-tool" &&
-                    part.approval !== undefined,
-                ),
-            );
+          // Check for second approval response
+          const hasSecondApproval = parsed.messages?.some(
+            (msg: any) =>
+              msg.role === "assistant" &&
+              msg.parts?.some(
+                (part: any) =>
+                  part.toolCallId === "second-tool" &&
+                  part.approval !== undefined,
+              ),
+          );
 
-            if (!firstConfirmationSent) {
-              firstConfirmationSent = true;
-              // Send first tool-approval-request
-              const startChunk = {
-                type: "tool-input-start",
-                toolCallId: "first-tool",
-                toolName: "first_operation",
-              };
-              client.send(`data: ${JSON.stringify(startChunk)}\n\n`);
-
-              const availableChunk = {
-                type: "tool-input-available",
-                toolCallId: "first-tool",
-                toolName: "first_operation",
-                input: { action: "first" },
-              };
-              client.send(`data: ${JSON.stringify(availableChunk)}\n\n`);
-
-              const approvalChunk = {
-                type: "tool-approval-request",
-                approvalId: "approval-1",
-                toolCallId: "first-tool",
-              };
-              client.send(`data: ${JSON.stringify(approvalChunk)}\n\n`);
-              client.send("data: [DONE]\n\n");
-            } else if (hasFirstApproval && !secondConfirmationSent) {
-              secondConfirmationSent = true;
-              // Send second tool-approval-request after first is approved
-              const startChunk = {
-                type: "tool-input-start",
-                toolCallId: "second-tool",
-                toolName: "second_operation",
-              };
-              client.send(`data: ${JSON.stringify(startChunk)}\n\n`);
-
-              const availableChunk = {
-                type: "tool-input-available",
-                toolCallId: "second-tool",
-                toolName: "second_operation",
-                input: { action: "second" },
-              };
-              client.send(`data: ${JSON.stringify(availableChunk)}\n\n`);
-
-              const approvalChunk = {
-                type: "tool-approval-request",
-                approvalId: "approval-2",
-                toolCallId: "second-tool",
-              };
-              client.send(`data: ${JSON.stringify(approvalChunk)}\n\n`);
-              client.send("data: [DONE]\n\n");
-            } else if (hasSecondApproval) {
-              // Final response after both approvals
-              const textChunk = {
-                type: "text-delta",
-                text: "Both operations completed!",
-              };
-              client.send(`data: ${JSON.stringify(textChunk)}\n\n`);
-              client.send("data: [DONE]\n\n");
-            }
-          });
-        }),
-      );
+          if (!firstConfirmationSent) {
+            firstConfirmationSent = true;
+            // Send first tool-approval-request
+            ws.sendToolWithApproval("first-tool", "first_operation", { action: "first" }, "approval-1");
+          } else if (hasFirstApproval && !secondConfirmationSent) {
+            secondConfirmationSent = true;
+            // Send second tool-approval-request after first is approved
+            ws.sendToolWithApproval("second-tool", "second_operation", { action: "second" }, "approval-2");
+          } else if (hasSecondApproval) {
+            // Final response after both approvals
+            ws.sendTextResponse(`text-${Date.now()}`, "Both operations completed!");
+          }
+        });
+      });
 
       const { result } = renderHook(() => useChat(optionsWithSpy));
 

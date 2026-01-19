@@ -24,40 +24,33 @@
  * - Verify no nested "data" wrapper
  */
 
-import { ws } from "msw";
 import { describe, expect, it } from "vitest";
 import { WebSocketChatTransport } from "../../bidi/transport";
 import type { UIMessageFromAISDKv6 } from "../../utils";
-import { useMswServer } from "../helpers";
+import { useMockWebSocket } from "../helpers/mock-websocket";
 
 describe("BIDI Flat Structure Integration Tests", () => {
-  const { getServer } = useMswServer({ onUnhandledRequest: "error" });
+  const { setDefaultHandler } = useMockWebSocket();
+
   describe("EventSender - Flat Structure Format", () => {
     it("should send MessageEvent in flat structure format (no nested data)", async () => {
       // given
       let capturedMessage: any = null;
 
-      const chat = ws.link("ws://localhost:8000/live");
-      getServer().use(
-        chat.addEventListener("connection", ({ client }) => {
-          client.addEventListener("message", (event) => {
-            capturedMessage = JSON.parse(event.data as string);
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((data) => {
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.type === "ping") return;
+            capturedMessage = parsed;
+          } catch {
+            return;
+          }
 
-            // Send minimal response to complete the stream
-            const textId = `text-${Date.now()}`;
-            client.send(
-              `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
-            );
-            client.send(
-              `data: ${JSON.stringify({ type: "text-delta", delta: "OK", id: textId })}\n\n`,
-            );
-            client.send(
-              `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
-            );
-            client.send("data: [DONE]\n\n");
-          });
-        }),
-      );
+          // Send minimal response to complete the stream
+          ws.sendTextResponse(`text-${Date.now()}`, "OK");
+        });
+      });
 
       const transport = new WebSocketChatTransport({
         url: "ws://localhost:8000/live",
@@ -104,27 +97,20 @@ describe("BIDI Flat Structure Integration Tests", () => {
       // given
       let capturedMessage: any = null;
 
-      const chat = ws.link("ws://localhost:8000/live");
-      getServer().use(
-        chat.addEventListener("connection", ({ client }) => {
-          client.addEventListener("message", (event) => {
-            capturedMessage = JSON.parse(event.data as string);
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((data) => {
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.type === "ping") return;
+            capturedMessage = parsed;
+          } catch {
+            return;
+          }
 
-            // Send response
-            const textId = `text-${Date.now()}`;
-            client.send(
-              `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
-            );
-            client.send(
-              `data: ${JSON.stringify({ type: "text-delta", delta: "Response", id: textId })}\n\n`,
-            );
-            client.send(
-              `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
-            );
-            client.send("data: [DONE]\n\n");
-          });
-        }),
-      );
+          // Send response
+          ws.sendTextResponse(`text-${Date.now()}`, "Response");
+        });
+      });
 
       const transport = new WebSocketChatTransport({
         url: "ws://localhost:8000/live",
@@ -172,27 +158,20 @@ describe("BIDI Flat Structure Integration Tests", () => {
       // given
       let capturedMessage: any = null;
 
-      const chat = ws.link("ws://localhost:8000/live");
-      getServer().use(
-        chat.addEventListener("connection", ({ client }) => {
-          client.addEventListener("message", (event) => {
-            capturedMessage = JSON.parse(event.data as string);
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((data) => {
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.type === "ping") return;
+            capturedMessage = parsed;
+          } catch {
+            return;
+          }
 
-            // Send response
-            const textId = `text-${Date.now()}`;
-            client.send(
-              `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
-            );
-            client.send(
-              `data: ${JSON.stringify({ type: "text-delta", delta: "Multi-turn", id: textId })}\n\n`,
-            );
-            client.send(
-              `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
-            );
-            client.send("data: [DONE]\n\n");
-          });
-        }),
-      );
+          // Send response
+          ws.sendTextResponse(`text-${Date.now()}`, "Multi-turn");
+        });
+      });
 
       const transport = new WebSocketChatTransport({
         url: "ws://localhost:8000/live",
@@ -257,27 +236,20 @@ describe("BIDI Flat Structure Integration Tests", () => {
       // given
       let capturedMessage: any = null;
 
-      const chat = ws.link("ws://localhost:8000/live");
-      getServer().use(
-        chat.addEventListener("connection", ({ client }) => {
-          client.addEventListener("message", (event) => {
-            capturedMessage = JSON.parse(event.data as string);
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((data) => {
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.type === "ping") return;
+            capturedMessage = parsed;
+          } catch {
+            return;
+          }
 
-            // Send response
-            const textId = `text-${Date.now()}`;
-            client.send(
-              `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
-            );
-            client.send(
-              `data: ${JSON.stringify({ type: "text-delta", delta: "OK", id: textId })}\n\n`,
-            );
-            client.send(
-              `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
-            );
-            client.send("data: [DONE]\n\n");
-          });
-        }),
-      );
+          // Send response
+          ws.sendTextResponse(`text-${Date.now()}`, "OK");
+        });
+      });
 
       const transport = new WebSocketChatTransport({
         url: "ws://localhost:8000/live",
@@ -321,27 +293,20 @@ describe("BIDI Flat Structure Integration Tests", () => {
       // given
       let capturedMessage: any = null;
 
-      const chat = ws.link("ws://localhost:8000/live");
-      getServer().use(
-        chat.addEventListener("connection", ({ client }) => {
-          client.addEventListener("message", (event) => {
-            capturedMessage = JSON.parse(event.data as string);
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((data) => {
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.type === "ping") return;
+            capturedMessage = parsed;
+          } catch {
+            return;
+          }
 
-            // Send response
-            const textId = `text-${Date.now()}`;
-            client.send(
-              `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
-            );
-            client.send(
-              `data: ${JSON.stringify({ type: "text-delta", delta: "OK", id: textId })}\n\n`,
-            );
-            client.send(
-              `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
-            );
-            client.send("data: [DONE]\n\n");
-          });
-        }),
-      );
+          // Send response
+          ws.sendTextResponse(`text-${Date.now()}`, "OK");
+        });
+      });
 
       const transport = new WebSocketChatTransport({
         url: "ws://localhost:8000/live",

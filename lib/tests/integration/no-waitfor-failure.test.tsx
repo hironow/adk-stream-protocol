@@ -39,76 +39,61 @@
 
 import { useChat } from "@ai-sdk/react";
 import { act, renderHook } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { buildUseChatOptions } from "../../bidi";
-import {
-  createBidiWebSocketLink,
-  createCustomHandler,
-  useMswServer,
-} from "../helpers";
-
-// Track transport instances
-let currentTransport: any = null;
-
-afterEach(async () => {
-  if (currentTransport) {
-    try {
-      await currentTransport._close();
-    } catch (error) {
-      console.error("Error closing transport:", error);
-    }
-    currentTransport = null;
-  }
-});
+import { useMockWebSocket } from "../helpers/mock-websocket";
 
 describe("ADR 0005: Failure Without waitFor", () => {
-  const { getServer } = useMswServer();
+  const { setDefaultHandler } = useMockWebSocket();
 
   it("WRONG: Accessing tool WITHOUT waitFor causes undefined error", async () => {
     // Given: Backend sends approval request
-    const chat = createBidiWebSocketLink();
+    // Set up handler BEFORE WebSocket creation (via setDefaultHandler)
+    setDefaultHandler((ws) => {
+      ws.onClientMessage((data) => {
+        if (!data.startsWith("{")) {
+          return;
+        }
 
-    getServer().use(
-      createCustomHandler(chat, ({ server: _server, client }) => {
-        client.addEventListener("message", async (event) => {
-          if (typeof event.data !== "string" || !event.data.startsWith("{")) {
-            return;
-          }
+        const msg = JSON.parse(data);
 
-          const msg = JSON.parse(event.data);
+        if (
+          msg.type === "message" &&
+          msg.messages &&
+          // biome-ignore lint/suspicious/noExplicitAny: Test helper
+          !msg.messages[msg.messages.length - 1].parts?.some(
+            (p: any) => p.type === "tool-process_payment",
+          )
+        ) {
+          // Send approval request (async)
+          ws.simulateServerMessage({ type: "start", messageId: "msg-1" });
+          ws.simulateServerMessage({
+            type: "tool-input-start",
+            toolCallId: "payment-1",
+            toolName: "process_payment",
+          });
+          ws.simulateServerMessage({
+            type: "tool-input-available",
+            toolCallId: "payment-1",
+            toolName: "process_payment",
+            input: { amount: 30, recipient: "Alice", currency: "USD" },
+          });
+          ws.simulateServerMessage({
+            type: "tool-approval-request",
+            toolCallId: "payment-1",
+            approvalId: "approval-1",
+          });
+          ws.simulateServerMessage({ type: "finish-step" });
+          ws.simulateDone();
+        }
+      });
+    });
 
-          if (
-            msg.type === "message" &&
-            msg.messages &&
-            !msg.messages[msg.messages.length - 1].parts?.some(
-              (p: any) => p.type === "tool-process_payment",
-            )
-          ) {
-            // Send approval request (async)
-            client.send('data: {"type": "start", "messageId": "msg-1"}\n\n');
-            client.send(
-              'data: {"type": "tool-input-start", "toolCallId": "payment-1", "toolName": "process_payment"}\n\n',
-            );
-            client.send(
-              'data: {"type": "tool-input-available", "toolCallId": "payment-1", "toolName": "process_payment", "input": {"amount": 30, "recipient": "Alice", "currency": "USD"}}\n\n',
-            );
-            client.send(
-              'data: {"type": "tool-approval-request", "toolCallId": "payment-1", "approvalId": "approval-1"}\n\n',
-            );
-            client.send('data: {"type": "finish-step"}\n\n');
-            client.send("data: [DONE]\n\n");
-          }
-        });
-      }),
-    );
-
-    const { useChatOptions, transport } = buildUseChatOptions({
+    const { useChatOptions } = buildUseChatOptions({
       initialMessages: [],
       adkBackendUrl: "http://localhost:8000",
       forceNewInstance: true,
     });
-
-    currentTransport = transport;
 
     const { result } = renderHook(() => useChat(useChatOptions));
 
@@ -148,48 +133,51 @@ describe("ADR 0005: Failure Without waitFor", () => {
 
   it("CORRECT: Using waitFor ensures tool is ready", async () => {
     // Given: Backend sends approval request
-    const chat = createBidiWebSocketLink();
+    // Set up handler BEFORE WebSocket creation (via setDefaultHandler)
+    setDefaultHandler((ws) => {
+      ws.onClientMessage((data) => {
+        if (!data.startsWith("{")) {
+          return;
+        }
 
-    getServer().use(
-      createCustomHandler(chat, ({ server: _server, client }) => {
-        client.addEventListener("message", async (event) => {
-          if (typeof event.data !== "string" || !event.data.startsWith("{")) {
-            return;
-          }
+        const msg = JSON.parse(data);
 
-          const msg = JSON.parse(event.data);
+        if (
+          msg.type === "message" &&
+          msg.messages &&
+          // biome-ignore lint/suspicious/noExplicitAny: Test helper
+          !msg.messages[msg.messages.length - 1].parts?.some(
+            (p: any) => p.type === "tool-process_payment",
+          )
+        ) {
+          ws.simulateServerMessage({ type: "start", messageId: "msg-1" });
+          ws.simulateServerMessage({
+            type: "tool-input-start",
+            toolCallId: "payment-1",
+            toolName: "process_payment",
+          });
+          ws.simulateServerMessage({
+            type: "tool-input-available",
+            toolCallId: "payment-1",
+            toolName: "process_payment",
+            input: { amount: 30, recipient: "Alice", currency: "USD" },
+          });
+          ws.simulateServerMessage({
+            type: "tool-approval-request",
+            toolCallId: "payment-1",
+            approvalId: "approval-1",
+          });
+          ws.simulateServerMessage({ type: "finish-step" });
+          ws.simulateDone();
+        }
+      });
+    });
 
-          if (
-            msg.type === "message" &&
-            msg.messages &&
-            !msg.messages[msg.messages.length - 1].parts?.some(
-              (p: any) => p.type === "tool-process_payment",
-            )
-          ) {
-            client.send('data: {"type": "start", "messageId": "msg-1"}\n\n');
-            client.send(
-              'data: {"type": "tool-input-start", "toolCallId": "payment-1", "toolName": "process_payment"}\n\n',
-            );
-            client.send(
-              'data: {"type": "tool-input-available", "toolCallId": "payment-1", "toolName": "process_payment", "input": {"amount": 30, "recipient": "Alice", "currency": "USD"}}\n\n',
-            );
-            client.send(
-              'data: {"type": "tool-approval-request", "toolCallId": "payment-1", "approvalId": "approval-1"}\n\n',
-            );
-            client.send('data: {"type": "finish-step"}\n\n');
-            client.send("data: [DONE]\n\n");
-          }
-        });
-      }),
-    );
-
-    const { useChatOptions, transport } = buildUseChatOptions({
+    const { useChatOptions } = buildUseChatOptions({
       initialMessages: [],
       adkBackendUrl: "http://localhost:8000",
       forceNewInstance: true,
     });
-
-    currentTransport = transport;
 
     const { result } = renderHook(() => useChat(useChatOptions));
 

@@ -30,31 +30,17 @@
 
 import { useChat } from "@ai-sdk/react";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { http } from "msw";
+import { describe, expect, it } from "vitest";
 import { buildUseChatOptions } from "../../bidi";
 import { buildUseChatOptions as buildSseUseChatOptions } from "../../sse";
-import {
-  createBidiWebSocketLink,
-  createCustomHandler,
-  useMswServer,
-} from "../helpers";
-
-// Track transport instances for cleanup
-const activeTransports: any[] = [];
-
-afterEach(async () => {
-  for (const transport of activeTransports) {
-    try {
-      await transport._close();
-    } catch (error) {
-      console.error("Error closing transport:", error);
-    }
-  }
-  activeTransports.length = 0;
-});
+import { useMockWebSocket } from "../helpers/mock-websocket";
+import { useMswServer } from "../helpers/msw-server-pool";
 
 describe("Protocol Comparison: SSE vs BIDI (ADR 0003)", () => {
+  // Use MSW for SSE (HTTP) tests, Custom Mock for BIDI (WebSocket) tests
   const { getServer } = useMswServer();
+  const { setDefaultHandler } = useMockWebSocket();
 
   it("SSE Protocol: Uses addToolOutput() for tool result submission", async () => {
     // Given: SSE mode backend
@@ -99,13 +85,11 @@ describe("Protocol Comparison: SSE vs BIDI (ADR 0003)", () => {
       }),
     );
 
-    const { useChatOptions, transport } = buildSseUseChatOptions({
+    const { useChatOptions } = buildSseUseChatOptions({
       initialMessages: [],
       adkBackendUrl: "http://localhost:8000",
       forceNewInstance: true,
     });
-
-    activeTransports.push(transport);
 
     const { result } = renderHook(() => useChat(useChatOptions));
 
@@ -155,112 +139,127 @@ describe("Protocol Comparison: SSE vs BIDI (ADR 0003)", () => {
   });
 
   it("BIDI Protocol: Updates assistant message state for approval", async () => {
-    // Given: BIDI mode backend
-    const chat = createBidiWebSocketLink();
+    // Given: BIDI mode backend using Custom Mock
     let approvalMessageReceived = false;
 
-    getServer().use(
-      createCustomHandler(chat, ({ server: _server, client }) => {
-        client.addEventListener("message", async (event) => {
-          if (typeof event.data !== "string" || !event.data.startsWith("{")) {
-            return;
-          }
+    setDefaultHandler((ws) => {
+      ws.onClientMessage((data) => {
+        if (!data.startsWith("{")) {
+          return;
+        }
 
-          const msg = JSON.parse(event.data);
-          console.log("[BIDI Mock Server] Received:", msg.type);
+        const msg = JSON.parse(data);
+        console.log("[BIDI Mock Server] Received:", msg.type);
 
-          // Turn 1: Initial message → Send approval request
-          if (
-            msg.type === "message" &&
-            msg.messages &&
-            !approvalMessageReceived &&
-            !msg.messages[msg.messages.length - 1].parts?.some(
-              (p: any) => p.type === "tool-process_payment",
-            )
-          ) {
-            console.log("[BIDI Mock Server] Sending approval request...");
+        // Turn 1: Initial message → Send approval request
+        if (
+          msg.type === "message" &&
+          msg.messages &&
+          !approvalMessageReceived &&
+          !msg.messages[msg.messages.length - 1].parts?.some(
+            // biome-ignore lint/suspicious/noExplicitAny: Test helper
+            (p: any) => p.type === "tool-process_payment",
+          )
+        ) {
+          console.log("[BIDI Mock Server] Sending approval request...");
 
-            client.send('data: {"type": "start", "messageId": "msg-1"}\n\n');
-            client.send(
-              'data: {"type": "tool-input-start", "toolCallId": "payment-1", "toolName": "process_payment"}\n\n',
-            );
-            client.send(
-              'data: {"type": "tool-input-available", "toolCallId": "payment-1", "toolName": "process_payment", "input": {"amount": 30, "recipient": "Alice", "currency": "USD"}}\n\n',
-            );
-            client.send(
-              'data: {"type": "tool-approval-request", "toolCallId": "payment-1", "approvalId": "approval-1"}\n\n',
-            );
-            client.send('data: {"type": "finish-step"}\n\n');
-            client.send("data: [DONE]\n\n");
-            return;
-          }
+          ws.simulateServerMessage({ type: "start", messageId: "msg-1" });
+          ws.simulateServerMessage({
+            type: "tool-input-start",
+            toolCallId: "payment-1",
+            toolName: "process_payment",
+          });
+          ws.simulateServerMessage({
+            type: "tool-input-available",
+            toolCallId: "payment-1",
+            toolName: "process_payment",
+            input: { amount: 30, recipient: "Alice", currency: "USD" },
+          });
+          ws.simulateServerMessage({
+            type: "tool-approval-request",
+            toolCallId: "payment-1",
+            approvalId: "approval-1",
+          });
+          ws.simulateServerMessage({ type: "finish-step" });
+          ws.simulateDone();
+          return;
+        }
 
-          // Turn 2: Approval response - assistant message with updated state (BIDI protocol)
-          // NOTE: addToolApprovalResponse() updates the EXISTING assistant message's
-          // tool part state, it does NOT create a new user message
-          if (
-            msg.type === "message" &&
-            msg.messages &&
-            msg.messages.some((m: any) =>
-              m.parts?.some(
-                (p: any) =>
-                  p.type === "tool-process_payment" &&
-                  p.state === "approval-responded" &&
-                  p.approval?.id === "approval-1",
-              ),
-            )
-          ) {
-            console.log(
-              "[BIDI Mock Server] ✓ Received approval in updated assistant message (BIDI protocol)",
-            );
-            approvalMessageReceived = true;
+        // Turn 2: Approval response - assistant message with updated state (BIDI protocol)
+        if (
+          msg.type === "message" &&
+          msg.messages &&
+          // biome-ignore lint/suspicious/noExplicitAny: Test helper
+          msg.messages.some((m: any) =>
+            m.parts?.some(
+              // biome-ignore lint/suspicious/noExplicitAny: Test helper
+              (p: any) =>
+                p.type === "tool-process_payment" &&
+                p.state === "approval-responded" &&
+                p.approval?.id === "approval-1",
+            ),
+          )
+        ) {
+          console.log(
+            "[BIDI Mock Server] ✓ Received approval in updated assistant message (BIDI protocol)",
+          );
+          approvalMessageReceived = true;
 
-            // Verify message structure - find the message with the approval
-            const approvalMsg = msg.messages.find((m: any) =>
-              m.parts?.some(
-                (p: any) =>
-                  p.type === "tool-process_payment" &&
-                  p.state === "approval-responded",
-              ),
-            );
-            // BIDI: approval updates the existing assistant message, not a new user message
-            expect(approvalMsg.role).toBe("assistant");
-            expect(approvalMsg.parts).toBeDefined();
-            expect(
-              approvalMsg.parts.some(
-                (p: any) =>
-                  p.type === "tool-process_payment" &&
-                  p.state === "approval-responded",
-              ),
-            ).toBe(true);
+          // Verify message structure - find the message with the approval
+          // biome-ignore lint/suspicious/noExplicitAny: Test helper
+          const approvalMsg = msg.messages.find((m: any) =>
+            m.parts?.some(
+              // biome-ignore lint/suspicious/noExplicitAny: Test helper
+              (p: any) =>
+                p.type === "tool-process_payment" &&
+                p.state === "approval-responded",
+            ),
+          );
+          // BIDI: approval updates the existing assistant message, not a new user message
+          expect(approvalMsg.role).toBe("assistant");
+          expect(approvalMsg.parts).toBeDefined();
+          expect(
+            approvalMsg.parts.some(
+              // biome-ignore lint/suspicious/noExplicitAny: Test helper
+              (p: any) =>
+                p.type === "tool-process_payment" &&
+                p.state === "approval-responded",
+            ),
+          ).toBe(true);
 
-            console.log(
-              "[BIDI Mock Server] ✓ Verified: approval updated assistant message state",
-            );
+          console.log(
+            "[BIDI Mock Server] ✓ Verified: approval updated assistant message state",
+          );
 
-            // Send final response
-            client.send(
-              'data: {"type": "tool-output-available", "toolCallId": "payment-1", "output": {"success": true, "transactionId": "txn-1", "amount": 30, "recipient": "Alice"}}\n\n',
-            );
-            client.send('data: {"type": "text-start", "id": "text-1"}\n\n');
-            client.send(
-              'data: {"type": "text-delta", "id": "text-1", "delta": "Payment completed."}\n\n',
-            );
-            client.send('data: {"type": "text-end", "id": "text-1"}\n\n');
-            client.send('data: {"type": "finish", "finishReason": "stop"}\n\n');
-            client.send("data: [DONE]\n\n");
-          }
-        });
-      }),
-    );
+          // Send final response
+          ws.simulateServerMessage({
+            type: "tool-output-available",
+            toolCallId: "payment-1",
+            output: {
+              success: true,
+              transactionId: "txn-1",
+              amount: 30,
+              recipient: "Alice",
+            },
+          });
+          ws.simulateServerMessage({ type: "text-start", id: "text-1" });
+          ws.simulateServerMessage({
+            type: "text-delta",
+            id: "text-1",
+            delta: "Payment completed.",
+          });
+          ws.simulateServerMessage({ type: "text-end", id: "text-1" });
+          ws.simulateServerMessage({ type: "finish", finishReason: "stop" });
+          ws.simulateDone();
+        }
+      });
+    });
 
-    const { useChatOptions, transport } = buildUseChatOptions({
+    const { useChatOptions } = buildUseChatOptions({
       initialMessages: [],
       adkBackendUrl: "http://localhost:8000",
       forceNewInstance: true,
     });
-
-    activeTransports.push(transport);
 
     const { result } = renderHook(() => useChat(useChatOptions));
 
@@ -372,6 +371,3 @@ describe("Protocol Comparison: SSE vs BIDI (ADR 0003)", () => {
     expect(true).toBe(true); // Summary test - no execution needed
   });
 });
-
-// Import missing http from msw
-import { http } from "msw";

@@ -15,14 +15,14 @@ import { buildUseChatOptions as buildBidiOptions } from "../../bidi";
 import { buildUseChatOptions as buildSseOptions } from "../../sse";
 import type { UIMessageFromAISDKv6 } from "../../utils";
 import {
-  createBidiWebSocketLink,
   createTextResponse,
-  createTextResponseHandler,
   getMessageText,
   useMswServer,
 } from "../helpers";
+import { useMockWebSocket } from "../helpers/mock-websocket";
 
 describe("Chat Flow E2E", () => {
+  // MSW for HTTP/SSE tests
   const { getServer } = useMswServer({
     onUnhandledRequest(request) {
       // Ignore WebSocket upgrade requests
@@ -36,11 +36,31 @@ describe("Chat Flow E2E", () => {
       console.error("Unhandled request:", request.method, request.url);
     },
   });
+
+  // Custom Mock for BIDI WebSocket tests
+  const { setDefaultHandler } = useMockWebSocket();
   describe("ADK BIDI Mode", () => {
     it("should send user message and receive AI response", async () => {
-      // Given: Setup MSW handler to send text response
-      const chat = createBidiWebSocketLink();
-      getServer().use(createTextResponseHandler(chat, "Hello", " from", " AI!"));
+      // Given: Setup Custom Mock handler to send text response
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((rawData) => {
+          let data: any;
+          try {
+            data = JSON.parse(rawData);
+            if (data.type === "ping") return;
+          } catch {
+            return;
+          }
+
+          const textId = `text-${Date.now()}`;
+          ws.sendTextStart(textId);
+          ws.sendTextDelta(textId, "Hello");
+          ws.sendTextDelta(textId, " from");
+          ws.sendTextDelta(textId, " AI!");
+          ws.sendTextEnd(textId);
+          ws.simulateDone();
+        });
+      });
 
       const config = {
         initialMessages: [] as UIMessageFromAISDKv6[],
@@ -74,41 +94,35 @@ describe("Chat Flow E2E", () => {
     });
 
     it("should maintain conversation history across turns", async () => {
-      // Given: Setup MSW handler with echo-like behavior
-      const chat = createBidiWebSocketLink();
+      // Given: Setup Custom Mock handler with echo-like behavior
       let turnCount = 0;
 
-      getServer().use(
-        chat.addEventListener("connection", ({ server, client }) => {
-          server.connect();
-
-          client.addEventListener("message", (event) => {
-            const data = JSON.parse(event.data as string);
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((rawData) => {
+          let data: any;
+          try {
+            data = JSON.parse(rawData);
             if (data.type === "ping") return;
+          } catch {
+            return;
+          }
 
-            turnCount++;
-            const textId = `text-${Date.now()}`;
+          turnCount++;
+          const textId = `text-${Date.now()}`;
 
-            // Verify history is being sent
-            const historyLength = data.messages?.length || 0;
-            const responseText =
-              turnCount === 1
-                ? "First response"
-                : `Response ${turnCount} (history: ${historyLength} messages)`;
+          // Verify history is being sent
+          const historyLength = data.messages?.length || 0;
+          const responseText =
+            turnCount === 1
+              ? "First response"
+              : `Response ${turnCount} (history: ${historyLength} messages)`;
 
-            client.send(
-              `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
-            );
-            client.send(
-              `data: ${JSON.stringify({ type: "text-delta", delta: responseText, id: textId })}\n\n`,
-            );
-            client.send(
-              `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
-            );
-            client.send("data: [DONE]\n\n");
-          });
-        }),
-      );
+          ws.sendTextStart(textId);
+          ws.sendTextDelta(textId, responseText);
+          ws.sendTextEnd(textId);
+          ws.simulateDone();
+        });
+      });
 
       const config = {
         initialMessages: [] as UIMessageFromAISDKv6[],
@@ -153,40 +167,34 @@ describe("Chat Flow E2E", () => {
     });
 
     it("should handle message streaming correctly", async () => {
-      // Given: Setup MSW handler to send multiple chunks
-      const chat = createBidiWebSocketLink();
+      // Given: Setup Custom Mock handler to send multiple chunks
       const streamedParts = ["This ", "is ", "a ", "streaming ", "response."];
 
-      getServer().use(
-        chat.addEventListener("connection", ({ server, client }) => {
-          server.connect();
-
-          client.addEventListener("message", (event) => {
-            const data = JSON.parse(event.data as string);
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((rawData) => {
+          let data: any;
+          try {
+            data = JSON.parse(rawData);
             if (data.type === "ping") return;
+          } catch {
+            return;
+          }
 
-            const textId = `text-${Date.now()}`;
+          const textId = `text-${Date.now()}`;
 
-            // Send start
-            client.send(
-              `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
-            );
+          // Send start
+          ws.sendTextStart(textId);
 
-            // Send each part with small delay simulation
-            for (const part of streamedParts) {
-              client.send(
-                `data: ${JSON.stringify({ type: "text-delta", delta: part, id: textId })}\n\n`,
-              );
-            }
+          // Send each part with small delay simulation
+          for (const part of streamedParts) {
+            ws.sendTextDelta(textId, part);
+          }
 
-            // Send end
-            client.send(
-              `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
-            );
-            client.send("data: [DONE]\n\n");
-          });
-        }),
-      );
+          // Send end
+          ws.sendTextEnd(textId);
+          ws.simulateDone();
+        });
+      });
 
       const config = {
         initialMessages: [] as UIMessageFromAISDKv6[],
@@ -299,23 +307,25 @@ describe("Chat Flow E2E", () => {
 
   describe("Error Scenarios", () => {
     it("should handle network disconnection gracefully", async () => {
-      // Given: Setup MSW handler that closes connection
-      const chat = createBidiWebSocketLink();
-      getServer().use(
-        chat.addEventListener("connection", ({ server, client }) => {
-          server.connect();
+      // Given: Setup Custom Mock handler that closes connection
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((rawData) => {
+          let data: any;
+          try {
+            data = JSON.parse(rawData);
+            if (data.type === "ping") return;
+          } catch {
+            return;
+          }
 
-          client.addEventListener("message", () => {
-            // Simulate network error by sending error event
-            const errorChunk = {
-              type: "error",
-              error: { message: "Connection lost", code: "NETWORK_ERROR" },
-            };
-            client.send(`data: ${JSON.stringify(errorChunk)}\n\n`);
-            client.send("data: [DONE]\n\n");
+          // Simulate network error by sending error event
+          ws.simulateServerMessage({
+            type: "error",
+            error: { message: "Connection lost", code: "NETWORK_ERROR" },
           });
-        }),
-      );
+          ws.simulateDone();
+        });
+      });
 
       const config = {
         initialMessages: [] as UIMessageFromAISDKv6[],
@@ -376,14 +386,19 @@ describe("Chat Flow E2E", () => {
     });
 
     it("should handle timeout scenarios", async () => {
-      // Given: Setup MSW handler that never responds
-      const chat = createBidiWebSocketLink();
-      getServer().use(
-        chat.addEventListener("connection", ({ server }) => {
-          server.connect();
+      // Given: Setup Custom Mock handler that never responds
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((rawData) => {
+          let data: any;
+          try {
+            data = JSON.parse(rawData);
+            if (data.type === "ping") return;
+          } catch {
+            return;
+          }
           // Never send response - simulate timeout
-        }),
-      );
+        });
+      });
 
       const config = {
         initialMessages: [] as UIMessageFromAISDKv6[],

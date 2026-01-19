@@ -23,14 +23,14 @@ import { buildUseChatOptions as buildBidiOptions } from "../../bidi";
 import { buildUseChatOptions as buildSseOptions } from "../../sse";
 import type { UIMessageFromAISDKv6 } from "../../utils";
 import {
-  createBidiWebSocketLink,
   createTextResponse,
-  createTextResponseHandler,
   getMessageText,
   useMswServer,
 } from "../helpers";
+import { useMockWebSocket } from "../helpers/mock-websocket";
 
 describe("Mode Switching E2E", () => {
+  // MSW for HTTP/SSE tests
   const { getServer } = useMswServer({
     onUnhandledRequest(request) {
       // Ignore WebSocket upgrade requests
@@ -44,6 +44,9 @@ describe("Mode Switching E2E", () => {
       console.error("Unhandled request:", request.method, request.url);
     },
   });
+
+  // Custom Mock for BIDI WebSocket tests
+  const { setDefaultHandler } = useMockWebSocket();
   describe("Gemini ↔ SSE Transitions", () => {
     it.skip("should switch from Gemini to SSE mode", async () => {
       // Skip: Gemini Direct mode uses different API endpoint and schema
@@ -330,13 +333,26 @@ describe("Mode Switching E2E", () => {
 
     it("should continue with pending messages after mode switch", async () => {
       // Given: Setup handlers
-      const chat = createBidiWebSocketLink();
+      // SSE handler via MSW HTTP
       getServer().use(
         http.post("http://localhost:8000/stream", () => {
           return createTextResponse("SSE processed pending");
         }),
-        createTextResponseHandler(chat, "BIDI response"),
       );
+
+      // BIDI handler via Custom Mock (not actually used in this test)
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((rawData) => {
+          let data: any;
+          try {
+            data = JSON.parse(rawData);
+            if (data.type === "ping") return;
+          } catch {
+            return;
+          }
+          ws.sendTextResponse(`text-${Date.now()}`, "BIDI response");
+        });
+      });
 
       // Start in BIDI with existing history
       const existingHistory: UIMessageFromAISDKv6[] = [
@@ -401,17 +417,17 @@ describe("Mode Switching E2E", () => {
   describe("Error Scenarios", () => {
     it("should preserve history when BIDI connection fails", async () => {
       // Given: Setup SSE handler (BIDI will fail to connect)
-      const chat = createBidiWebSocketLink();
       getServer().use(
         http.post("http://localhost:8000/stream", () => {
           return createTextResponse("SSE fallback response");
         }),
-        // WebSocket handler that closes connection immediately
-        chat.addEventListener("connection", ({ client }) => {
-          // Don't call server.connect() - simulate connection failure
-          client.close();
-        }),
       );
+
+      // Custom Mock handler that closes connection immediately
+      setDefaultHandler((ws) => {
+        // Simulate connection failure by closing immediately after open
+        ws.close();
+      });
 
       // Prepare history from SSE mode
       const historyFromSse: UIMessageFromAISDKv6[] = [

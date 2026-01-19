@@ -34,82 +34,71 @@
 
 import { useChat } from "@ai-sdk/react";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { buildUseChatOptions } from "../../bidi";
-import {
-  createBidiWebSocketLink,
-  createCustomHandler,
-  useMswServer,
-} from "../helpers";
-
-// Track transport instances
-let currentTransport: any = null;
-
-afterEach(async () => {
-  if (currentTransport) {
-    try {
-      await currentTransport._close();
-    } catch (error) {
-      console.error("Error closing transport:", error);
-    }
-    currentTransport = null;
-  }
-});
+import { useMockWebSocket } from "../helpers/mock-websocket";
 
 describe("ADR 0002: approval.id vs toolCallId Distinction", () => {
-  const { getServer } = useMswServer();
+  const { setDefaultHandler } = useMockWebSocket();
+
+  // Common handler factory for sending approval request
+  const createApprovalHandler = (toolCallId: string, approvalId: string) => {
+    return (ws: import("../helpers/mock-websocket").BidiMockWebSocket) => {
+      ws.onClientMessage((data) => {
+        if (!data.startsWith("{")) {
+          return;
+        }
+
+        const msg = JSON.parse(data);
+
+        if (
+          msg.type === "message" &&
+          msg.messages &&
+          // biome-ignore lint/suspicious/noExplicitAny: Test helper
+          !msg.messages[msg.messages.length - 1].parts?.some(
+            (p: any) => p.type === "tool-process_payment",
+          )
+        ) {
+          console.log(
+            `[Test] Sending approval with toolCallId="${toolCallId}" and approvalId="${approvalId}"`,
+          );
+
+          ws.simulateServerMessage({ type: "start", messageId: "msg-1" });
+          ws.simulateServerMessage({
+            type: "tool-input-start",
+            toolCallId,
+            toolName: "process_payment",
+          });
+          ws.simulateServerMessage({
+            type: "tool-input-available",
+            toolCallId,
+            toolName: "process_payment",
+            input: { amount: 30, recipient: "Alice", currency: "USD" },
+          });
+          ws.simulateServerMessage({
+            type: "tool-approval-request",
+            toolCallId,
+            approvalId,
+          });
+          ws.simulateServerMessage({ type: "finish-step" });
+          ws.simulateDone();
+        }
+      });
+    };
+  };
 
   it("demonstrates toolCallId vs approval.id are DIFFERENT values", async () => {
     // Given: Backend sends approval request with DISTINCT IDs
-    const chat = createBidiWebSocketLink();
     const TOOL_CALL_ID = "orig-payment-123"; // ← Tool call ID
     const APPROVAL_ID = "approval-abc-456"; // ← Approval request ID
 
-    getServer().use(
-      createCustomHandler(chat, ({ server: _server, client }) => {
-        client.addEventListener("message", async (event) => {
-          if (typeof event.data !== "string" || !event.data.startsWith("{")) {
-            return;
-          }
+    setDefaultHandler(createApprovalHandler(TOOL_CALL_ID, APPROVAL_ID));
 
-          const msg = JSON.parse(event.data);
-
-          // Send approval request with BOTH IDs
-          if (
-            msg.type === "message" &&
-            msg.messages &&
-            !msg.messages[msg.messages.length - 1].parts?.some(
-              (p: any) => p.type === "tool-process_payment",
-            )
-          ) {
-            console.log(
-              `[Test] Sending approval with toolCallId="${TOOL_CALL_ID}" and approvalId="${APPROVAL_ID}"`,
-            );
-
-            client.send('data: {"type": "start", "messageId": "msg-1"}\n\n');
-            client.send(
-              `data: {"type": "tool-input-start", "toolCallId": "${TOOL_CALL_ID}", "toolName": "process_payment"}\n\n`,
-            );
-            client.send(
-              `data: {"type": "tool-input-available", "toolCallId": "${TOOL_CALL_ID}", "toolName": "process_payment", "input": {"amount": 30, "recipient": "Alice", "currency": "USD"}}\n\n`,
-            );
-            client.send(
-              `data: {"type": "tool-approval-request", "toolCallId": "${TOOL_CALL_ID}", "approvalId": "${APPROVAL_ID}"}\n\n`,
-            );
-            client.send('data: {"type": "finish-step"}\n\n');
-            client.send("data: [DONE]\n\n");
-          }
-        });
-      }),
-    );
-
-    const { useChatOptions, transport } = buildUseChatOptions({
+    const { useChatOptions } = buildUseChatOptions({
       initialMessages: [],
       adkBackendUrl: "http://localhost:8000",
       forceNewInstance: true,
     });
-
-    currentTransport = transport;
 
     const { result } = renderHook(() => useChat(useChatOptions));
 
@@ -124,6 +113,7 @@ describe("ADR 0002: approval.id vs toolCallId Distinction", () => {
         const lastMsg =
           result.current.messages[result.current.messages.length - 1];
         const tool = lastMsg?.parts?.find(
+          // biome-ignore lint/suspicious/noExplicitAny: Test helper
           (p: any) => p.type === "tool-process_payment",
         );
         return tool?.state === "approval-requested";
@@ -134,6 +124,7 @@ describe("ADR 0002: approval.id vs toolCallId Distinction", () => {
     // Verify: Tool part has BOTH IDs
     const lastMsg = result.current.messages[result.current.messages.length - 1];
     const tool = lastMsg?.parts?.find(
+      // biome-ignore lint/suspicious/noExplicitAny: Test helper
       (p: any) => p.type === "tool-process_payment",
     );
 
@@ -148,50 +139,16 @@ describe("ADR 0002: approval.id vs toolCallId Distinction", () => {
 
   it("WRONG: Using toolCallId does NOT change state", async () => {
     // Given: Backend sends approval request
-    const chat = createBidiWebSocketLink();
     const TOOL_CALL_ID = "orig-payment-123";
     const APPROVAL_ID = "approval-abc-456";
 
-    getServer().use(
-      createCustomHandler(chat, ({ server: _server, client }) => {
-        client.addEventListener("message", async (event) => {
-          if (typeof event.data !== "string" || !event.data.startsWith("{")) {
-            return;
-          }
+    setDefaultHandler(createApprovalHandler(TOOL_CALL_ID, APPROVAL_ID));
 
-          const msg = JSON.parse(event.data);
-
-          if (
-            msg.type === "message" &&
-            msg.messages &&
-            !msg.messages[msg.messages.length - 1].parts?.some(
-              (p: any) => p.type === "tool-process_payment",
-            )
-          ) {
-            client.send('data: {"type": "start", "messageId": "msg-1"}\n\n');
-            client.send(
-              `data: {"type": "tool-input-start", "toolCallId": "${TOOL_CALL_ID}", "toolName": "process_payment"}\n\n`,
-            );
-            client.send(
-              `data: {"type": "tool-input-available", "toolCallId": "${TOOL_CALL_ID}", "toolName": "process_payment", "input": {"amount": 30, "recipient": "Alice", "currency": "USD"}}\n\n`,
-            );
-            client.send(
-              `data: {"type": "tool-approval-request", "toolCallId": "${TOOL_CALL_ID}", "approvalId": "${APPROVAL_ID}"}\n\n`,
-            );
-            client.send('data: {"type": "finish-step"}\n\n');
-            client.send("data: [DONE]\n\n");
-          }
-        });
-      }),
-    );
-
-    const { useChatOptions, transport } = buildUseChatOptions({
+    const { useChatOptions } = buildUseChatOptions({
       initialMessages: [],
       adkBackendUrl: "http://localhost:8000",
       forceNewInstance: true,
     });
-
-    currentTransport = transport;
 
     const { result } = renderHook(() => useChat(useChatOptions));
 
@@ -204,6 +161,7 @@ describe("ADR 0002: approval.id vs toolCallId Distinction", () => {
         const lastMsg =
           result.current.messages[result.current.messages.length - 1];
         const tool = lastMsg?.parts?.find(
+          // biome-ignore lint/suspicious/noExplicitAny: Test helper
           (p: any) => p.type === "tool-process_payment",
         );
         return tool?.state === "approval-requested";
@@ -214,6 +172,7 @@ describe("ADR 0002: approval.id vs toolCallId Distinction", () => {
     // When: Use WRONG ID (toolCallId instead of approval.id)
     const lastMsg = result.current.messages[result.current.messages.length - 1];
     const tool = lastMsg?.parts?.find(
+      // biome-ignore lint/suspicious/noExplicitAny: Test helper
       (p: any) => p.type === "tool-process_payment",
     );
 
@@ -230,6 +189,7 @@ describe("ADR 0002: approval.id vs toolCallId Distinction", () => {
     const currentMsg =
       result.current.messages[result.current.messages.length - 1];
     const currentTool = currentMsg?.parts?.find(
+      // biome-ignore lint/suspicious/noExplicitAny: Test helper
       (p: any) => p.type === "tool-process_payment",
     );
 
@@ -242,50 +202,16 @@ describe("ADR 0002: approval.id vs toolCallId Distinction", () => {
 
   it("CORRECT: Using approval.id changes state immediately", async () => {
     // Given: Backend sends approval request
-    const chat = createBidiWebSocketLink();
     const TOOL_CALL_ID = "orig-payment-123";
     const APPROVAL_ID = "approval-abc-456";
 
-    getServer().use(
-      createCustomHandler(chat, ({ server: _server, client }) => {
-        client.addEventListener("message", async (event) => {
-          if (typeof event.data !== "string" || !event.data.startsWith("{")) {
-            return;
-          }
+    setDefaultHandler(createApprovalHandler(TOOL_CALL_ID, APPROVAL_ID));
 
-          const msg = JSON.parse(event.data);
-
-          if (
-            msg.type === "message" &&
-            msg.messages &&
-            !msg.messages[msg.messages.length - 1].parts?.some(
-              (p: any) => p.type === "tool-process_payment",
-            )
-          ) {
-            client.send('data: {"type": "start", "messageId": "msg-1"}\n\n');
-            client.send(
-              `data: {"type": "tool-input-start", "toolCallId": "${TOOL_CALL_ID}", "toolName": "process_payment"}\n\n`,
-            );
-            client.send(
-              `data: {"type": "tool-input-available", "toolCallId": "${TOOL_CALL_ID}", "toolName": "process_payment", "input": {"amount": 30, "recipient": "Alice", "currency": "USD"}}\n\n`,
-            );
-            client.send(
-              `data: {"type": "tool-approval-request", "toolCallId": "${TOOL_CALL_ID}", "approvalId": "${APPROVAL_ID}"}\n\n`,
-            );
-            client.send('data: {"type": "finish-step"}\n\n');
-            client.send("data: [DONE]\n\n");
-          }
-        });
-      }),
-    );
-
-    const { useChatOptions, transport } = buildUseChatOptions({
+    const { useChatOptions } = buildUseChatOptions({
       initialMessages: [],
       adkBackendUrl: "http://localhost:8000",
       forceNewInstance: true,
     });
-
-    currentTransport = transport;
 
     const { result } = renderHook(() => useChat(useChatOptions));
 
@@ -298,6 +224,7 @@ describe("ADR 0002: approval.id vs toolCallId Distinction", () => {
         const lastMsg =
           result.current.messages[result.current.messages.length - 1];
         const tool = lastMsg?.parts?.find(
+          // biome-ignore lint/suspicious/noExplicitAny: Test helper
           (p: any) => p.type === "tool-process_payment",
         );
         return tool?.state === "approval-requested";
@@ -308,6 +235,7 @@ describe("ADR 0002: approval.id vs toolCallId Distinction", () => {
     // When: Use CORRECT ID (approval.id)
     const lastMsg = result.current.messages[result.current.messages.length - 1];
     const tool = lastMsg?.parts?.find(
+      // biome-ignore lint/suspicious/noExplicitAny: Test helper
       (p: any) => p.type === "tool-process_payment",
     );
 
@@ -324,6 +252,7 @@ describe("ADR 0002: approval.id vs toolCallId Distinction", () => {
     const currentMsg =
       result.current.messages[result.current.messages.length - 1];
     const currentTool = currentMsg?.parts?.find(
+      // biome-ignore lint/suspicious/noExplicitAny: Test helper
       (p: any) => p.type === "tool-process_payment",
     );
 

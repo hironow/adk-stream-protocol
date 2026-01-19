@@ -18,17 +18,15 @@ import { describe, expect, it } from "vitest";
 import { buildUseChatOptions as buildBidiUseChatOptions } from "../../bidi";
 import { buildUseChatOptions as buildSseUseChatOptions } from "../../sse";
 import type { UIMessageFromAISDKv6 } from "../../utils";
-import {
-  createBidiWebSocketLink,
-  useMswServer,
-} from "../helpers";
+import { useMswServer } from "../helpers";
+import { useMockWebSocket } from "../helpers/mock-websocket";
 import {
   loadFixture,
   parseRawEvents,
   findApprovalRequestEvent,
 } from "./helpers/fixture-loader";
 import {
-  createBidiHandlerFromFixture,
+  createBidiHandlerFromFixtureForMock,
   createSseHandlerFromFixture,
 } from "./helpers/fixture-server";
 import {
@@ -40,16 +38,11 @@ import {
 } from "./helpers/approval-ui-assertions";
 
 describe("process_payment Approval Flow - Fixture E2E Tests", () => {
-  // Create MSW server with custom handler for WebSocket requests
-  const { getServer } = useMswServer({
-    onUnhandledRequest(request) {
-      // Ignore WebSocket upgrade requests
-      if (request.url.includes("/live")) {
-        return;
-      }
-      console.error("Unhandled request:", request.method, request.url);
-    },
-  });
+  // MSW for SSE (HTTP) tests
+  const { getServer } = useMswServer();
+  // Custom Mock for BIDI (WebSocket) tests
+  const { setDefaultHandler } = useMockWebSocket();
+
   describe("BIDI Mode", () => {
     describe("Approval Flow (process_payment-approved-bidi-baseline.json)", () => {
       const fixture = loadFixture("process_payment-approved-bidi-baseline.json");
@@ -57,15 +50,13 @@ describe("process_payment Approval Flow - Fixture E2E Tests", () => {
       const approvalEvent = findApprovalRequestEvent(events);
 
       it("should display approval UI when tool-approval-request is received", async () => {
-        // Given: Setup BIDI handler from fixture
-        const chat = createBidiWebSocketLink();
-        getServer().use(createBidiHandlerFromFixture(chat, fixture));
+        // Given: Setup BIDI handler from fixture using Custom Mock
+        setDefaultHandler(createBidiHandlerFromFixtureForMock(fixture));
 
         const { useChatOptions } = buildBidiUseChatOptions({
           initialMessages: [] as UIMessageFromAISDKv6[],
           forceNewInstance: true,
         });
-        // Transport cleanup handled by MSW server lifecycle
 
         const { result } = renderHook(() => useChat(useChatOptions));
 
@@ -96,15 +87,13 @@ describe("process_payment Approval Flow - Fixture E2E Tests", () => {
       });
 
       it("should complete approval flow when user approves", async () => {
-        // Given: Setup BIDI handler from fixture
-        const chat = createBidiWebSocketLink();
-        getServer().use(createBidiHandlerFromFixture(chat, fixture));
+        // Given: Setup BIDI handler from fixture using Custom Mock
+        setDefaultHandler(createBidiHandlerFromFixtureForMock(fixture));
 
         const { useChatOptions } = buildBidiUseChatOptions({
           initialMessages: [] as UIMessageFromAISDKv6[],
           forceNewInstance: true,
         });
-        // Transport cleanup handled by MSW server lifecycle
 
         const { result } = renderHook(() => useChat(useChatOptions));
 
@@ -177,15 +166,13 @@ describe("process_payment Approval Flow - Fixture E2E Tests", () => {
       it("should handle denial correctly", async () => {
         const fixture = loadFixture("process_payment-denied-bidi-baseline.json");
 
-        // Given: Setup BIDI handler from fixture
-        const chat = createBidiWebSocketLink();
-        getServer().use(createBidiHandlerFromFixture(chat, fixture));
+        // Given: Setup BIDI handler from fixture using Custom Mock
+        setDefaultHandler(createBidiHandlerFromFixtureForMock(fixture));
 
         const { useChatOptions } = buildBidiUseChatOptions({
           initialMessages: [] as UIMessageFromAISDKv6[],
           forceNewInstance: true,
         });
-        // Transport cleanup handled by MSW server lifecycle
 
         const { result } = renderHook(() => useChat(useChatOptions));
 

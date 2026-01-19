@@ -17,12 +17,7 @@ import {
   isTextUIPartFromAISDKv6,
   isToolUIPartFromAISDKv6,
 } from "../../utils";
-import {
-  createBidiWebSocketLink,
-  createConfirmationRequestHandler,
-  createCustomHandler,
-  useMswServer,
-} from "../helpers";
+import { useMockWebSocket } from "../helpers/mock-websocket";
 
 /**
  * Helper function to extract text content from UIMessageFromAISDKv6 parts
@@ -46,77 +41,61 @@ function findToolParts(message: UIMessageFromAISDKv6 | undefined) {
 }
 
 describe("Tool Execution E2E", () => {
-  const { getServer } = useMswServer({
-    onUnhandledRequest(request) {
-      if (request.url.includes("/live")) return;
-      console.error("Unhandled request:", request.method, request.url);
-    },
-  });
+  const { setDefaultHandler } = useMockWebSocket();
 
   describe("Auto-execution Tools", () => {
     it("should execute get_weather tool automatically", async () => {
       // Given: Setup handler that sends tool call and immediate result
-      const chat = createBidiWebSocketLink();
-
-      getServer().use(
-        createCustomHandler(chat, ({ client }) => {
-          client.addEventListener("message", (event) => {
-            const data = JSON.parse(event.data as string);
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((rawData) => {
+          let data: any;
+          try {
+            data = JSON.parse(rawData);
             if (data.type === "ping") return;
+          } catch {
+            return;
+          }
 
-            // Check for tool result in message
-            const hasToolResult = data.messages?.some((msg: any) =>
-              msg.parts?.some(
-                (p: any) => p.type?.startsWith("tool-") && p.output,
-              ),
-            );
+          // Check for tool result in message
+          const hasToolResult = data.messages?.some((msg: any) =>
+            msg.parts?.some(
+              (p: any) => p.type?.startsWith("tool-") && p.output,
+            ),
+          );
 
-            if (hasToolResult) {
-              // Tool executed, send final response
-              const textId = `text-${Date.now()}`;
-              client.send(
-                `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
-              );
-              client.send(
-                `data: ${JSON.stringify({ type: "text-delta", delta: "The weather in Tokyo is sunny, 25°C.", id: textId })}\n\n`,
-              );
-              client.send(
-                `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
-              );
-              client.send("data: [DONE]\n\n");
-              return;
-            }
+          if (hasToolResult) {
+            // Tool executed, send final response
+            const textId = `text-${Date.now()}`;
+            ws.sendTextStart(textId);
+            ws.sendTextDelta(textId, "The weather in Tokyo is sunny, 25°C.");
+            ws.sendTextEnd(textId);
+            ws.simulateDone();
+            return;
+          }
 
-            // First message: send tool call
-            const toolCallId = "tool-weather-1";
-            client.send(
-              `data: ${JSON.stringify({
-                type: "tool-input-start",
-                toolCallId,
-                toolName: "get_weather",
-              })}\n\n`,
-            );
-            client.send(
-              `data: ${JSON.stringify({
-                type: "tool-input-available",
-                toolCallId,
-                toolName: "get_weather",
-                input: { location: "Tokyo" },
-              })}\n\n`,
-            );
-            // For auto-execution tools, send output immediately
-            client.send(
-              `data: ${JSON.stringify({
-                type: "tool-output-available",
-                toolCallId,
-                toolName: "get_weather",
-                output: { temperature: 25, condition: "sunny" },
-              })}\n\n`,
-            );
-            client.send("data: [DONE]\n\n");
+          // First message: send tool call
+          const toolCallId = "tool-weather-1";
+          ws.simulateServerMessage({
+            type: "tool-input-start",
+            toolCallId,
+            toolName: "get_weather",
           });
-        }),
-      );
+          ws.simulateServerMessage({
+            type: "tool-input-available",
+            toolCallId,
+            toolName: "get_weather",
+            input: { location: "Tokyo" },
+          });
+          // For auto-execution tools, send output immediately
+          ws.simulateServerMessage({
+            type: "tool-output-available",
+            toolCallId,
+            toolName: "get_weather",
+            output: { temperature: 25, condition: "sunny" },
+          });
+          ws.simulateDone();
+        });
+      });
 
       const { result } = renderHook(() =>
         useChat(buildBidiOptions({ initialMessages: [] }).useChatOptions),
@@ -147,41 +126,36 @@ describe("Tool Execution E2E", () => {
 
     it("should handle tool execution errors", async () => {
       // Given: Setup handler that sends tool error
-      const chat = createBidiWebSocketLink();
-
-      getServer().use(
-        createCustomHandler(chat, ({ client }) => {
-          client.addEventListener("message", (event) => {
-            const data = JSON.parse(event.data as string);
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((rawData) => {
+          let data: any;
+          try {
+            data = JSON.parse(rawData);
             if (data.type === "ping") return;
+          } catch {
+            return;
+          }
 
-            const toolCallId = "tool-error-1";
-            client.send(
-              `data: ${JSON.stringify({
-                type: "tool-input-start",
-                toolCallId,
-                toolName: "failing_tool",
-              })}\n\n`,
-            );
-            client.send(
-              `data: ${JSON.stringify({
-                type: "tool-input-available",
-                toolCallId,
-                toolName: "failing_tool",
-                input: {},
-              })}\n\n`,
-            );
-            // Send error response
-            client.send(
-              `data: ${JSON.stringify({
-                type: "error",
-                error: { message: "Tool execution failed", code: "TOOL_ERROR" },
-              })}\n\n`,
-            );
-            client.send("data: [DONE]\n\n");
+          const toolCallId = "tool-error-1";
+          ws.simulateServerMessage({
+            type: "tool-input-start",
+            toolCallId,
+            toolName: "failing_tool",
           });
-        }),
-      );
+          ws.simulateServerMessage({
+            type: "tool-input-available",
+            toolCallId,
+            toolName: "failing_tool",
+            input: {},
+          });
+          // Send error response
+          ws.simulateServerMessage({
+            type: "error",
+            error: { message: "Tool execution failed", code: "TOOL_ERROR" },
+          });
+          ws.simulateDone();
+        });
+      });
 
       const { result } = renderHook(() =>
         useChat(buildBidiOptions({ initialMessages: [] }).useChatOptions),
@@ -203,73 +177,63 @@ describe("Tool Execution E2E", () => {
 
     it("should execute multiple tools in sequence", async () => {
       // Given: Setup handler that sends multiple tool calls
-      const chat = createBidiWebSocketLink();
       let messageCount = 0;
 
-      getServer().use(
-        createCustomHandler(chat, ({ client }) => {
-          client.addEventListener("message", (event) => {
-            const data = JSON.parse(event.data as string);
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((rawData) => {
+          let data: any;
+          try {
+            data = JSON.parse(rawData);
             if (data.type === "ping") return;
+          } catch {
+            return;
+          }
 
-            messageCount++;
+          messageCount++;
 
-            if (messageCount === 1) {
-              // First tool
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-input-start",
-                  toolCallId: "tool-1",
-                  toolName: "get_weather",
-                })}\n\n`,
-              );
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-input-available",
-                  toolCallId: "tool-1",
-                  toolName: "get_weather",
-                  input: { location: "Tokyo" },
-                })}\n\n`,
-              );
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-output-available",
-                  toolCallId: "tool-1",
-                  toolName: "get_weather",
-                  output: { temperature: 25 },
-                })}\n\n`,
-              );
+          if (messageCount === 1) {
+            // First tool
+            ws.simulateServerMessage({
+              type: "tool-input-start",
+              toolCallId: "tool-1",
+              toolName: "get_weather",
+            });
+            ws.simulateServerMessage({
+              type: "tool-input-available",
+              toolCallId: "tool-1",
+              toolName: "get_weather",
+              input: { location: "Tokyo" },
+            });
+            ws.simulateServerMessage({
+              type: "tool-output-available",
+              toolCallId: "tool-1",
+              toolName: "get_weather",
+              output: { temperature: 25 },
+            });
 
-              // Second tool
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-input-start",
-                  toolCallId: "tool-2",
-                  toolName: "get_time",
-                })}\n\n`,
-              );
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-input-available",
-                  toolCallId: "tool-2",
-                  toolName: "get_time",
-                  input: { timezone: "JST" },
-                })}\n\n`,
-              );
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-output-available",
-                  toolCallId: "tool-2",
-                  toolName: "get_time",
-                  output: { time: "14:30" },
-                })}\n\n`,
-              );
+            // Second tool
+            ws.simulateServerMessage({
+              type: "tool-input-start",
+              toolCallId: "tool-2",
+              toolName: "get_time",
+            });
+            ws.simulateServerMessage({
+              type: "tool-input-available",
+              toolCallId: "tool-2",
+              toolName: "get_time",
+              input: { timezone: "JST" },
+            });
+            ws.simulateServerMessage({
+              type: "tool-output-available",
+              toolCallId: "tool-2",
+              toolName: "get_time",
+              output: { time: "14:30" },
+            });
 
-              client.send("data: [DONE]\n\n");
-            }
-          });
-        }),
-      );
+            ws.simulateDone();
+          }
+        });
+      });
 
       const { result } = renderHook(() =>
         useChat(buildBidiOptions({ initialMessages: [] }).useChatOptions),
@@ -299,14 +263,25 @@ describe("Tool Execution E2E", () => {
   describe("Approval Required Tools", () => {
     it("should show approval UI for get_location", async () => {
       // Given: Setup handler that sends approval request
-      const chat = createBidiWebSocketLink();
-      getServer().use(
-        createConfirmationRequestHandler(chat, {
-          id: "tool-location-1",
-          name: "get_location",
-          args: { precision: "high" },
-        }),
-      );
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((rawData) => {
+          let data: any;
+          try {
+            data = JSON.parse(rawData);
+            if (data.type === "ping") return;
+          } catch {
+            return;
+          }
+
+          ws.sendToolWithApproval(
+            "tool-location-1",
+            "get_location",
+            { precision: "high" },
+            "tool-location-1",
+          );
+          ws.simulateDone();
+        });
+      });
 
       const { result } = renderHook(() =>
         useChat(buildBidiOptions({ initialMessages: [] }).useChatOptions),
@@ -335,67 +310,46 @@ describe("Tool Execution E2E", () => {
 
     it("should handle approval rejection", async () => {
       // Given: Setup handler for rejection flow
-      const chat = createBidiWebSocketLink();
       let approvalReceived = false;
 
-      getServer().use(
-        createCustomHandler(chat, ({ client }) => {
-          client.addEventListener("message", (event) => {
-            const data = JSON.parse(event.data as string);
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((rawData) => {
+          let data: any;
+          try {
+            data = JSON.parse(rawData);
             if (data.type === "ping") return;
+          } catch {
+            return;
+          }
 
-            // Check for approval response (state changes to "approval-responded" after addToolApprovalResponse)
-            const hasApprovalResponse = data.messages?.some((msg: any) =>
-              msg.parts?.some((p: any) => p.state === "approval-responded"),
+          // Check for approval response (state changes to "approval-responded" after addToolApprovalResponse)
+          const hasApprovalResponse = data.messages?.some((msg: any) =>
+            msg.parts?.some((p: any) => p.state === "approval-responded"),
+          );
+
+          if (hasApprovalResponse) {
+            // User responded (approved or denied), send acknowledgment
+            const textId = `text-${Date.now()}`;
+            ws.sendTextStart(textId);
+            ws.sendTextDelta(textId, "Understood. Location access was denied.");
+            ws.sendTextEnd(textId);
+            ws.simulateDone();
+            return;
+          }
+
+          if (!approvalReceived) {
+            approvalReceived = true;
+            // Send approval request
+            ws.sendToolWithApproval(
+              "tool-location-deny",
+              "get_location",
+              {},
+              "tool-location-deny",
             );
-
-            if (hasApprovalResponse) {
-              // User responded (approved or denied), send acknowledgment
-              const textId = `text-${Date.now()}`;
-              client.send(
-                `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
-              );
-              client.send(
-                `data: ${JSON.stringify({ type: "text-delta", delta: "Understood. Location access was denied.", id: textId })}\n\n`,
-              );
-              client.send(
-                `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
-              );
-              client.send("data: [DONE]\n\n");
-              return;
-            }
-
-            if (!approvalReceived) {
-              approvalReceived = true;
-              // Send approval request
-              const toolCallId = "tool-location-deny";
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-input-start",
-                  toolCallId,
-                  toolName: "get_location",
-                })}\n\n`,
-              );
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-input-available",
-                  toolCallId,
-                  toolName: "get_location",
-                  input: {},
-                })}\n\n`,
-              );
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-approval-request",
-                  approvalId: "approval-deny-1",
-                  toolCallId,
-                })}\n\n`,
-              );
-              client.send("data: [DONE]\n\n");
-            }
-          });
-        }),
-      );
+            ws.simulateDone();
+          }
+        });
+      });
 
       const { result } = renderHook(() =>
         useChat(buildBidiOptions({ initialMessages: [] }).useChatOptions),
@@ -448,43 +402,27 @@ describe("Tool Execution E2E", () => {
 
     it("should handle approval timeout", async () => {
       // Given: Setup handler that never responds to approval
-      const chat = createBidiWebSocketLink();
-
-      getServer().use(
-        createCustomHandler(chat, ({ client }) => {
-          client.addEventListener("message", (event) => {
-            const data = JSON.parse(event.data as string);
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((rawData) => {
+          let data: any;
+          try {
+            data = JSON.parse(rawData);
             if (data.type === "ping") return;
+          } catch {
+            return;
+          }
 
-            // Send approval request but never respond
-            const toolCallId = "tool-timeout-1";
-            client.send(
-              `data: ${JSON.stringify({
-                type: "tool-input-start",
-                toolCallId,
-                toolName: "slow_tool",
-              })}\n\n`,
-            );
-            client.send(
-              `data: ${JSON.stringify({
-                type: "tool-input-available",
-                toolCallId,
-                toolName: "slow_tool",
-                input: {},
-              })}\n\n`,
-            );
-            client.send(
-              `data: ${JSON.stringify({
-                type: "tool-approval-request",
-                approvalId: "approval-timeout-1",
-                toolCallId,
-              })}\n\n`,
-            );
-            client.send("data: [DONE]\n\n");
-            // Don't send any more responses - simulate timeout
-          });
-        }),
-      );
+          // Send approval request but never respond
+          ws.sendToolWithApproval(
+            "tool-timeout-1",
+            "slow_tool",
+            {},
+            "tool-timeout-1",
+          );
+          ws.simulateDone();
+          // Don't send any more responses - simulate timeout
+        });
+      });
 
       const { result } = renderHook(() =>
         useChat(buildBidiOptions({ initialMessages: [] }).useChatOptions),
@@ -519,43 +457,33 @@ describe("Tool Execution E2E", () => {
 
     it("should handle multiple pending approvals", async () => {
       // Given: Setup handler that sends multiple approval requests
-      const chat = createBidiWebSocketLink();
-
-      getServer().use(
-        createCustomHandler(chat, ({ client }) => {
-          client.addEventListener("message", (event) => {
-            const data = JSON.parse(event.data as string);
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((rawData) => {
+          let data: any;
+          try {
+            data = JSON.parse(rawData);
             if (data.type === "ping") return;
+          } catch {
+            return;
+          }
 
-            // Send two approval requests
-            ["tool-multi-1", "tool-multi-2"].forEach((toolCallId, index) => {
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-input-start",
-                  toolCallId,
-                  toolName: `approval_tool_${index + 1}`,
-                })}\n\n`,
-              );
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-input-available",
-                  toolCallId,
-                  toolName: `approval_tool_${index + 1}`,
-                  input: { index: index + 1 },
-                })}\n\n`,
-              );
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-approval-request",
-                  approvalId: `approval-multi-${index + 1}`,
-                  toolCallId,
-                })}\n\n`,
-              );
-            });
-            client.send("data: [DONE]\n\n");
-          });
-        }),
-      );
+          // Send two approval requests (first with done: false to avoid premature [DONE])
+          ws.sendToolWithApproval(
+            "tool-multi-1",
+            "approval_tool_1",
+            { index: 1 },
+            "tool-multi-1",
+            { done: false },
+          );
+          // Second one will call simulateDone() by default
+          ws.sendToolWithApproval(
+            "tool-multi-2",
+            "approval_tool_2",
+            { index: 2 },
+            "tool-multi-2",
+          );
+        });
+      });
 
       const { result } = renderHook(() =>
         useChat(buildBidiOptions({ initialMessages: [] }).useChatOptions),
@@ -584,61 +512,53 @@ describe("Tool Execution E2E", () => {
   describe("Frontend Delegate Tools", () => {
     it("should execute change_bgm tool client-side", async () => {
       // Given: Setup handler for frontend delegate tool
-      const chat = createBidiWebSocketLink();
       let toolSent = false;
       let toolResultReceived = false;
 
-      getServer().use(
-        createCustomHandler(chat, ({ client }) => {
-          client.addEventListener("message", (event) => {
-            const data = JSON.parse(event.data as string);
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((rawData) => {
+          let data: any;
+          try {
+            data = JSON.parse(rawData);
             if (data.type === "ping") return;
+          } catch {
+            return;
+          }
 
-            // Check for tool result
-            const hasToolOutput = data.messages?.some((msg: any) =>
-              msg.parts?.some((p: any) => p.output !== undefined),
-            );
+          // Check for tool result
+          const hasToolOutput = data.messages?.some((msg: any) =>
+            msg.parts?.some((p: any) => p.output !== undefined),
+          );
 
-            if (hasToolOutput && !toolResultReceived) {
-              toolResultReceived = true;
-              const textId = `text-${Date.now()}`;
-              client.send(
-                `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
-              );
-              client.send(
-                `data: ${JSON.stringify({ type: "text-delta", delta: "BGM changed successfully!", id: textId })}\n\n`,
-              );
-              client.send(
-                `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
-              );
-              client.send("data: [DONE]\n\n");
-              return;
-            }
+          if (hasToolOutput && !toolResultReceived) {
+            toolResultReceived = true;
+            const textId = `text-${Date.now()}`;
+            ws.sendTextStart(textId);
+            ws.sendTextDelta(textId, "BGM changed successfully!");
+            ws.sendTextEnd(textId);
+            ws.simulateDone();
+            return;
+          }
 
-            // Send tool request only once (first message from user)
-            if (toolSent) return;
-            toolSent = true;
+          // Send tool request only once (first message from user)
+          if (toolSent) return;
+          toolSent = true;
 
-            const toolCallId = "tool-bgm-1";
-            client.send(
-              `data: ${JSON.stringify({
-                type: "tool-input-start",
-                toolCallId,
-                toolName: "change_bgm",
-              })}\n\n`,
-            );
-            client.send(
-              `data: ${JSON.stringify({
-                type: "tool-input-available",
-                toolCallId,
-                toolName: "change_bgm",
-                input: { track: "relaxing_music.mp3" },
-              })}\n\n`,
-            );
-            client.send("data: [DONE]\n\n");
+          const toolCallId = "tool-bgm-1";
+          ws.simulateServerMessage({
+            type: "tool-input-start",
+            toolCallId,
+            toolName: "change_bgm",
           });
-        }),
-      );
+          ws.simulateServerMessage({
+            type: "tool-input-available",
+            toolCallId,
+            toolName: "change_bgm",
+            input: { track: "relaxing_music.mp3" },
+          });
+          ws.simulateDone();
+        });
+      });
 
       const { result } = renderHook(() =>
         useChat(buildBidiOptions({ initialMessages: [] }).useChatOptions),
@@ -685,61 +605,56 @@ describe("Tool Execution E2E", () => {
 
     it("should handle frontend tool execution errors", async () => {
       // Given: Setup handler for frontend tool error
-      const chat = createBidiWebSocketLink();
       let toolSent = false;
       let errorHandled = false;
 
-      getServer().use(
-        createCustomHandler(chat, ({ client }) => {
-          client.addEventListener("message", (event) => {
-            const data = JSON.parse(event.data as string);
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((rawData) => {
+          let data: any;
+          try {
+            data = JSON.parse(rawData);
             if (data.type === "ping") return;
+          } catch {
+            return;
+          }
 
-            // Check for error in tool output
-            const hasError = data.messages?.some((msg: any) =>
-              msg.parts?.some((p: any) => p.output?.error),
+          // Check for error in tool output
+          const hasError = data.messages?.some((msg: any) =>
+            msg.parts?.some((p: any) => p.output?.error),
+          );
+
+          if (hasError && !errorHandled) {
+            errorHandled = true;
+            const textId = `text-${Date.now()}`;
+            ws.sendTextStart(textId);
+            ws.sendTextDelta(
+              textId,
+              "Sorry, I couldn't change the BGM due to an error.",
             );
+            ws.sendTextEnd(textId);
+            ws.simulateDone();
+            return;
+          }
 
-            if (hasError && !errorHandled) {
-              errorHandled = true;
-              const textId = `text-${Date.now()}`;
-              client.send(
-                `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
-              );
-              client.send(
-                `data: ${JSON.stringify({ type: "text-delta", delta: "Sorry, I couldn't change the BGM due to an error.", id: textId })}\n\n`,
-              );
-              client.send(
-                `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
-              );
-              client.send("data: [DONE]\n\n");
-              return;
-            }
+          // Send tool request only once
+          if (toolSent) return;
+          toolSent = true;
 
-            // Send tool request only once
-            if (toolSent) return;
-            toolSent = true;
-
-            const toolCallId = "tool-bgm-error";
-            client.send(
-              `data: ${JSON.stringify({
-                type: "tool-input-start",
-                toolCallId,
-                toolName: "change_bgm",
-              })}\n\n`,
-            );
-            client.send(
-              `data: ${JSON.stringify({
-                type: "tool-input-available",
-                toolCallId,
-                toolName: "change_bgm",
-                input: { track: "invalid.mp3" },
-              })}\n\n`,
-            );
-            client.send("data: [DONE]\n\n");
+          const toolCallId = "tool-bgm-error";
+          ws.simulateServerMessage({
+            type: "tool-input-start",
+            toolCallId,
+            toolName: "change_bgm",
           });
-        }),
-      );
+          ws.simulateServerMessage({
+            type: "tool-input-available",
+            toolCallId,
+            toolName: "change_bgm",
+            input: { track: "invalid.mp3" },
+          });
+          ws.simulateDone();
+        });
+      });
 
       const { result } = renderHook(() =>
         useChat(buildBidiOptions({ initialMessages: [] }).useChatOptions),
@@ -785,72 +700,52 @@ describe("Tool Execution E2E", () => {
   describe("Complex Tool Scenarios", () => {
     it("should handle mixed auto and approval tools", async () => {
       // Given: Setup handler with mixed tool types
-      const chat = createBidiWebSocketLink();
       let phase = 0;
 
-      getServer().use(
-        createCustomHandler(chat, ({ client }) => {
-          client.addEventListener("message", (event) => {
-            const data = JSON.parse(event.data as string);
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((rawData) => {
+          let data: any;
+          try {
+            data = JSON.parse(rawData);
             if (data.type === "ping") return;
+          } catch {
+            return;
+          }
 
-            phase++;
+          phase++;
 
-            if (phase === 1) {
-              // Send auto-execute tool
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-input-start",
-                  toolCallId: "auto-1",
-                  toolName: "get_weather",
-                })}\n\n`,
-              );
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-input-available",
-                  toolCallId: "auto-1",
-                  toolName: "get_weather",
-                  input: { location: "Tokyo" },
-                })}\n\n`,
-              );
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-output-available",
-                  toolCallId: "auto-1",
-                  toolName: "get_weather",
-                  output: { temp: 25 },
-                })}\n\n`,
-              );
+          if (phase === 1) {
+            // Send auto-execute tool
+            ws.simulateServerMessage({
+              type: "tool-input-start",
+              toolCallId: "auto-1",
+              toolName: "get_weather",
+            });
+            ws.simulateServerMessage({
+              type: "tool-input-available",
+              toolCallId: "auto-1",
+              toolName: "get_weather",
+              input: { location: "Tokyo" },
+            });
+            ws.simulateServerMessage({
+              type: "tool-output-available",
+              toolCallId: "auto-1",
+              toolName: "get_weather",
+              output: { temp: 25 },
+            });
 
-              // Send approval-required tool
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-input-start",
-                  toolCallId: "approval-1",
-                  toolName: "get_location",
-                })}\n\n`,
-              );
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-input-available",
-                  toolCallId: "approval-1",
-                  toolName: "get_location",
-                  input: {},
-                })}\n\n`,
-              );
-              client.send(
-                `data: ${JSON.stringify({
-                  type: "tool-approval-request",
-                  approvalId: "mixed-approval-1",
-                  toolCallId: "approval-1",
-                })}\n\n`,
-              );
+            // Send approval-required tool
+            ws.sendToolWithApproval(
+              "approval-1",
+              "get_location",
+              {},
+              "approval-1",
+            );
 
-              client.send("data: [DONE]\n\n");
-            }
-          });
-        }),
-      );
+            ws.simulateDone();
+          }
+        });
+      });
 
       const { result } = renderHook(() =>
         useChat(buildBidiOptions({ initialMessages: [] }).useChatOptions),
@@ -888,7 +783,6 @@ describe("Tool Execution E2E", () => {
 
     it("should handle tool calls with large payloads", async () => {
       // Given: Setup handler with large data
-      const chat = createBidiWebSocketLink();
       const largeData = Array(100)
         .fill(null)
         .map((_, i) => ({
@@ -898,43 +792,40 @@ describe("Tool Execution E2E", () => {
         }));
       let toolSent = false;
 
-      getServer().use(
-        createCustomHandler(chat, ({ client }) => {
-          client.addEventListener("message", (event) => {
-            const data = JSON.parse(event.data as string);
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((rawData) => {
+          let data: any;
+          try {
+            data = JSON.parse(rawData);
             if (data.type === "ping") return;
+          } catch {
+            return;
+          }
 
-            // Only send tool once (first message from user)
-            if (toolSent) return;
-            toolSent = true;
+          // Only send tool once (first message from user)
+          if (toolSent) return;
+          toolSent = true;
 
-            client.send(
-              `data: ${JSON.stringify({
-                type: "tool-input-start",
-                toolCallId: "large-1",
-                toolName: "process_data",
-              })}\n\n`,
-            );
-            client.send(
-              `data: ${JSON.stringify({
-                type: "tool-input-available",
-                toolCallId: "large-1",
-                toolName: "process_data",
-                input: { data: largeData },
-              })}\n\n`,
-            );
-            client.send(
-              `data: ${JSON.stringify({
-                type: "tool-output-available",
-                toolCallId: "large-1",
-                toolName: "process_data",
-                output: { processed: largeData.length, status: "success" },
-              })}\n\n`,
-            );
-            client.send("data: [DONE]\n\n");
+          ws.simulateServerMessage({
+            type: "tool-input-start",
+            toolCallId: "large-1",
+            toolName: "process_data",
           });
-        }),
-      );
+          ws.simulateServerMessage({
+            type: "tool-input-available",
+            toolCallId: "large-1",
+            toolName: "process_data",
+            input: { data: largeData },
+          });
+          ws.simulateServerMessage({
+            type: "tool-output-available",
+            toolCallId: "large-1",
+            toolName: "process_data",
+            output: { processed: largeData.length, status: "success" },
+          });
+          ws.simulateDone();
+        });
+      });
 
       const { result } = renderHook(() =>
         useChat(buildBidiOptions({ initialMessages: [] }).useChatOptions),
