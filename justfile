@@ -218,6 +218,29 @@ delete-all: delete-gen delete-logs
 
 
 # ============================================================================
+# Python Test Commands (pytest)
+# ============================================================================
+
+# Run Python tests without server dependencies (parallel execution)
+[group("testing-python")]
+test-py-fast:
+    @echo "Running Python tests (no server required, parallel)..."
+    uv run pytest tests/unit/ tests/integration/ -n auto
+
+# Run all Python tests including E2E (requires backend server)
+[group("testing-python")]
+test-py-all:
+    @echo "Running all Python tests..."
+    uv run pytest -n auto
+
+# Run Python E2E tests requiring server (BIDI/SSE endpoints)
+[group("testing-python")]
+test-py-e2e:
+    @echo "Running Python E2E tests (requires backend server on localhost:8000)..."
+    uv run pytest tests/e2e/requires_server/ -n auto
+
+
+# ============================================================================
 # Unified Test Runner (scripts/run-tests.sh)
 # ============================================================================
 

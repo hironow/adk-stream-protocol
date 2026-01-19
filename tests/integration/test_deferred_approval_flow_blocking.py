@@ -318,10 +318,6 @@ async def test_blocking_mode_approved():
 
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(
-    reason="Flaky: Gemini Live API preview model sometimes returns 'gemini-live-2.5-flash-preview is not found' error",
-    strict=False,
-)
 async def test_blocking_mode_denied():
     """
     EXPERIMENT: Test if BLOCKING behavior handles denial correctly.
