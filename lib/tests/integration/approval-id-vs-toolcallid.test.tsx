@@ -54,7 +54,6 @@ describe("ADR 0002: approval.id vs toolCallId Distinction", () => {
         if (
           msg.type === "message" &&
           msg.messages &&
-          // biome-ignore lint/suspicious/noExplicitAny: Test helper
           !msg.messages[msg.messages.length - 1].parts?.some(
             (p: any) => p.type === "tool-process_payment",
           )
@@ -113,7 +112,6 @@ describe("ADR 0002: approval.id vs toolCallId Distinction", () => {
         const lastMsg =
           result.current.messages[result.current.messages.length - 1];
         const tool = lastMsg?.parts?.find(
-          // biome-ignore lint/suspicious/noExplicitAny: Test helper
           (p: any) => p.type === "tool-process_payment",
         );
         return tool?.state === "approval-requested";
@@ -124,7 +122,6 @@ describe("ADR 0002: approval.id vs toolCallId Distinction", () => {
     // Verify: Tool part has BOTH IDs
     const lastMsg = result.current.messages[result.current.messages.length - 1];
     const tool = lastMsg?.parts?.find(
-      // biome-ignore lint/suspicious/noExplicitAny: Test helper
       (p: any) => p.type === "tool-process_payment",
     );
 
@@ -161,7 +158,6 @@ describe("ADR 0002: approval.id vs toolCallId Distinction", () => {
         const lastMsg =
           result.current.messages[result.current.messages.length - 1];
         const tool = lastMsg?.parts?.find(
-          // biome-ignore lint/suspicious/noExplicitAny: Test helper
           (p: any) => p.type === "tool-process_payment",
         );
         return tool?.state === "approval-requested";
@@ -172,7 +168,6 @@ describe("ADR 0002: approval.id vs toolCallId Distinction", () => {
     // When: Use WRONG ID (toolCallId instead of approval.id)
     const lastMsg = result.current.messages[result.current.messages.length - 1];
     const tool = lastMsg?.parts?.find(
-      // biome-ignore lint/suspicious/noExplicitAny: Test helper
       (p: any) => p.type === "tool-process_payment",
     );
 
@@ -189,7 +184,6 @@ describe("ADR 0002: approval.id vs toolCallId Distinction", () => {
     const currentMsg =
       result.current.messages[result.current.messages.length - 1];
     const currentTool = currentMsg?.parts?.find(
-      // biome-ignore lint/suspicious/noExplicitAny: Test helper
       (p: any) => p.type === "tool-process_payment",
     );
 
@@ -224,7 +218,6 @@ describe("ADR 0002: approval.id vs toolCallId Distinction", () => {
         const lastMsg =
           result.current.messages[result.current.messages.length - 1];
         const tool = lastMsg?.parts?.find(
-          // biome-ignore lint/suspicious/noExplicitAny: Test helper
           (p: any) => p.type === "tool-process_payment",
         );
         return tool?.state === "approval-requested";
@@ -235,7 +228,6 @@ describe("ADR 0002: approval.id vs toolCallId Distinction", () => {
     // When: Use CORRECT ID (approval.id)
     const lastMsg = result.current.messages[result.current.messages.length - 1];
     const tool = lastMsg?.parts?.find(
-      // biome-ignore lint/suspicious/noExplicitAny: Test helper
       (p: any) => p.type === "tool-process_payment",
     );
 
@@ -252,7 +244,6 @@ describe("ADR 0002: approval.id vs toolCallId Distinction", () => {
     const currentMsg =
       result.current.messages[result.current.messages.length - 1];
     const currentTool = currentMsg?.parts?.find(
-      // biome-ignore lint/suspicious/noExplicitAny: Test helper
       (p: any) => p.type === "tool-process_payment",
     );
 

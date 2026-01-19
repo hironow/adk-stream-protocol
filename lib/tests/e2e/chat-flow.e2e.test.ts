@@ -14,11 +14,7 @@ import { describe, expect, it } from "vitest";
 import { buildUseChatOptions as buildBidiOptions } from "../../bidi";
 import { buildUseChatOptions as buildSseOptions } from "../../sse";
 import type { UIMessageFromAISDKv6 } from "../../utils";
-import {
-  createTextResponse,
-  getMessageText,
-  useMswServer,
-} from "../helpers";
+import { createTextResponse, getMessageText, useMswServer } from "../helpers";
 import { useMockWebSocket } from "../helpers/mock-websocket";
 
 describe("Chat Flow E2E", () => {

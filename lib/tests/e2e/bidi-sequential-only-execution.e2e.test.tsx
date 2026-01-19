@@ -43,7 +43,6 @@ describe("BIDI Sequential-Only Execution (ADR 0003)", () => {
           msg.type === "message" &&
           msg.messages &&
           !firstApprovalSent &&
-          // biome-ignore lint/suspicious/noExplicitAny: Test helper
           !msg.messages[msg.messages.length - 1].parts?.some(
             (p: any) => p.type === "tool-process_payment",
           )
@@ -83,7 +82,6 @@ describe("BIDI Sequential-Only Execution (ADR 0003)", () => {
           !firstApprovalResolved &&
           msg.type === "message" &&
           msg.messages &&
-          // biome-ignore lint/suspicious/noExplicitAny: Test helper
           msg.messages[msg.messages.length - 1].parts?.some(
             (p: any) =>
               p.type === "tool-process_payment" &&
@@ -138,7 +136,6 @@ describe("BIDI Sequential-Only Execution (ADR 0003)", () => {
           secondApprovalSent &&
           msg.type === "message" &&
           msg.messages &&
-          // biome-ignore lint/suspicious/noExplicitAny: Test helper
           msg.messages[msg.messages.length - 1].parts?.some(
             (p: any) =>
               p.type === "tool-process_payment" &&
@@ -195,7 +192,6 @@ describe("BIDI Sequential-Only Execution (ADR 0003)", () => {
         const lastMsg =
           result.current.messages[result.current.messages.length - 1];
         const aliceTool = lastMsg?.parts?.find(
-          // biome-ignore lint/suspicious/noExplicitAny: Test helper
           (p: any) =>
             p.type === "tool-process_payment" && p.input?.recipient === "Alice",
         );
@@ -209,7 +205,6 @@ describe("BIDI Sequential-Only Execution (ADR 0003)", () => {
     // CRITICAL: Verify second approval does NOT exist yet (sequential execution)
     const lastMsg = result.current.messages[result.current.messages.length - 1];
     const bobTool = lastMsg?.parts?.find(
-      // biome-ignore lint/suspicious/noExplicitAny: Test helper
       (p: any) =>
         p.type === "tool-process_payment" && p.input?.recipient === "Bob",
     );
@@ -221,7 +216,6 @@ describe("BIDI Sequential-Only Execution (ADR 0003)", () => {
 
     // When: User approves first payment
     const aliceTool = lastMsg?.parts?.find(
-      // biome-ignore lint/suspicious/noExplicitAny: Test helper
       (p: any) =>
         p.type === "tool-process_payment" && p.input?.recipient === "Alice",
     );
@@ -238,7 +232,6 @@ describe("BIDI Sequential-Only Execution (ADR 0003)", () => {
         const currentMsg =
           result.current.messages[result.current.messages.length - 1];
         const currentBobTool = currentMsg?.parts?.find(
-          // biome-ignore lint/suspicious/noExplicitAny: Test helper
           (p: any) =>
             p.type === "tool-process_payment" && p.input?.recipient === "Bob",
         );
@@ -263,7 +256,6 @@ describe("BIDI Sequential-Only Execution (ADR 0003)", () => {
     const currentMsg =
       result.current.messages[result.current.messages.length - 1];
     const currentBobTool = currentMsg?.parts?.find(
-      // biome-ignore lint/suspicious/noExplicitAny: Test helper
       (p: any) =>
         p.type === "tool-process_payment" && p.input?.recipient === "Bob",
     );
@@ -280,9 +272,7 @@ describe("BIDI Sequential-Only Execution (ADR 0003)", () => {
         const finalMsg =
           result.current.messages[result.current.messages.length - 1];
         const text = finalMsg?.parts
-          // biome-ignore lint/suspicious/noExplicitAny: Test helper
           ?.filter((p: any) => p.type === "text")
-          // biome-ignore lint/suspicious/noExplicitAny: Test helper
           .map((p: any) => p.text)
           .join("");
         return text && text.length > 0;

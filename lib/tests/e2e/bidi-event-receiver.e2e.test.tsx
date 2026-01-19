@@ -172,10 +172,12 @@ describe("BIDI EventReceiver - E2E Tests", () => {
 
           // Respond to ping with pong
           if (parsed.type === "ping") {
-            ws.simulateRawMessage(JSON.stringify({
-              type: "pong",
-              timestamp: parsed.timestamp,
-            }));
+            ws.simulateRawMessage(
+              JSON.stringify({
+                type: "pong",
+                timestamp: parsed.timestamp,
+              }),
+            );
           }
 
           // Also send normal text response for non-ping messages

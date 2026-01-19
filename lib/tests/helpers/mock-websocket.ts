@@ -556,8 +556,10 @@ export function createConfirmationMockHandler(config: {
       const approvalPart = messages
         // biome-ignore lint/suspicious/noExplicitAny: Test helper
         ?.flatMap((msg: any) => msg.parts || [])
-        // biome-ignore lint/suspicious/noExplicitAny: Test helper
-        .find((part: any) => part.toolCallId === config.toolCallId && part.approval);
+        .find(
+          // biome-ignore lint/suspicious/noExplicitAny: Test helper
+          (part: any) => part.toolCallId === config.toolCallId && part.approval,
+        );
 
       if (approvalPart?.approval) {
         // Approved

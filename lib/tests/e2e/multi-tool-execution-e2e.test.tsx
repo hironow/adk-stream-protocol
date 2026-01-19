@@ -56,27 +56,27 @@ describe("Multi-Tool Execution E2E Tests", () => {
             return;
           }
 
-            // Check if Tool1 was approved (AI SDK v6: approval object exists)
-            const hasTool1Approval = data.messages?.some(
-              (msg: any) =>
-                msg.role === "assistant" &&
-                msg.parts?.some(
-                  (part: any) =>
-                    part.toolCallId === "call-tool1" &&
-                    part.approval !== undefined,
-                ),
-            );
+          // Check if Tool1 was approved (AI SDK v6: approval object exists)
+          const hasTool1Approval = data.messages?.some(
+            (msg: any) =>
+              msg.role === "assistant" &&
+              msg.parts?.some(
+                (part: any) =>
+                  part.toolCallId === "call-tool1" &&
+                  part.approval !== undefined,
+              ),
+          );
 
-            // Check if Tool2 was approved (AI SDK v6: approval object exists)
-            const hasTool2Approval = data.messages?.some(
-              (msg: any) =>
-                msg.role === "assistant" &&
-                msg.parts?.some(
-                  (part: any) =>
-                    part.toolCallId === "call-tool2" &&
-                    part.approval !== undefined,
-                ),
-            );
+          // Check if Tool2 was approved (AI SDK v6: approval object exists)
+          const hasTool2Approval = data.messages?.some(
+            (msg: any) =>
+              msg.role === "assistant" &&
+              msg.parts?.some(
+                (part: any) =>
+                  part.toolCallId === "call-tool2" &&
+                  part.approval !== undefined,
+              ),
+          );
 
           if (!tool1Sent) {
             tool1Sent = true;
@@ -326,7 +326,10 @@ describe("Multi-Tool Execution E2E Tests", () => {
             const textId = `text-${Date.now()}-3`;
             ws.sendTextStart(textId);
             ws.sendTextDelta(textId, "Operation completed. ");
-            ws.sendTextDelta(textId, "Understood. Skipping dangerous operation.");
+            ws.sendTextDelta(
+              textId,
+              "Understood. Skipping dangerous operation.",
+            );
             ws.sendTextEnd(textId);
 
             // Tool1 result

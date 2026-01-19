@@ -46,10 +46,17 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
           messageCount++;
           if (messageCount === 1) {
             // First message: Send approval request
-            ws.sendToolWithApproval("orig-1", "dangerous_operation", { action: "delete_all" }, "approval-1");
+            ws.sendToolWithApproval(
+              "orig-1",
+              "dangerous_operation",
+              { action: "delete_all" },
+              "approval-1",
+            );
           } else if (messageCount === 2) {
             // Second message (after approval): Send output
-            ws.sendToolOutputAvailable("orig-1", "dangerous_operation", { result: "Operation completed successfully" });
+            ws.sendToolOutputAvailable("orig-1", "dangerous_operation", {
+              result: "Operation completed successfully",
+            });
             ws.simulateDone();
           }
         });
@@ -205,7 +212,12 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
           }
           messageCount++;
           if (messageCount === 1) {
-            ws.sendToolWithApproval("test-1", "test_tool", { key: "value" }, "approval-1");
+            ws.sendToolWithApproval(
+              "test-1",
+              "test_tool",
+              { key: "value" },
+              "approval-1",
+            );
           }
         });
       });
@@ -285,14 +297,28 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
           if (!firstConfirmationSent) {
             firstConfirmationSent = true;
             // First request: Send first confirmation
-            ws.sendToolWithApproval("call-1", "first_tool", { action: "first" }, "call-1");
+            ws.sendToolWithApproval(
+              "call-1",
+              "first_tool",
+              { action: "first" },
+              "call-1",
+            );
           } else if (hasFirstApproval && !secondConfirmationSent) {
             secondConfirmationSent = true;
             // Second request: After first approval, send second confirmation
-            ws.sendToolWithApproval("call-2", "second_tool", { action: "second" }, "call-2");
+            ws.sendToolWithApproval(
+              "call-2",
+              "second_tool",
+              { action: "second" },
+              "call-2",
+            );
           } else if (hasSecondApproval) {
             // Third request: After second approval, send final response
-            ws.sendTextResponse(`text-${Date.now()}`, "All", " steps completed!");
+            ws.sendTextResponse(
+              `text-${Date.now()}`,
+              "All",
+              " steps completed!",
+            );
           }
         });
       });
@@ -472,7 +498,12 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
 
           if (requestCount === 1) {
             // First request: Return confirmation
-            ws.sendToolWithApproval("call-error", "failing_tool", {}, "call-error");
+            ws.sendToolWithApproval(
+              "call-error",
+              "failing_tool",
+              {},
+              "call-error",
+            );
           } else if (requestCount === 2) {
             // Second request: Simulate error by closing connection
             ws.simulateClose(1006, "Connection error");
@@ -575,7 +606,10 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
           if (hasDenial && !finalResponseReceived) {
             finalResponseReceived = true;
             // Second request: Denial received, send acknowledgment
-            ws.sendTextResponse(`text-${Date.now()}`, "Operation cancelled as per your request.");
+            ws.sendTextResponse(
+              `text-${Date.now()}`,
+              "Operation cancelled as per your request.",
+            );
           }
         });
       });
@@ -672,9 +706,16 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
           }
           messageCount++;
           if (messageCount === 1) {
-            ws.sendToolWithApproval("spy-test-1", "test_operation", { test: "data" }, "approval-1");
+            ws.sendToolWithApproval(
+              "spy-test-1",
+              "test_operation",
+              { test: "data" },
+              "approval-1",
+            );
           } else if (messageCount === 2) {
-            ws.sendToolOutputAvailable("spy-test-1", "test_operation", { result: "success" });
+            ws.sendToolOutputAvailable("spy-test-1", "test_operation", {
+              result: "success",
+            });
             ws.simulateDone();
           }
         });
@@ -793,14 +834,27 @@ describe("BIDI Mode with useChat - E2E Tests", () => {
           if (!firstConfirmationSent) {
             firstConfirmationSent = true;
             // Send first tool-approval-request
-            ws.sendToolWithApproval("first-tool", "first_operation", { action: "first" }, "approval-1");
+            ws.sendToolWithApproval(
+              "first-tool",
+              "first_operation",
+              { action: "first" },
+              "approval-1",
+            );
           } else if (hasFirstApproval && !secondConfirmationSent) {
             secondConfirmationSent = true;
             // Send second tool-approval-request after first is approved
-            ws.sendToolWithApproval("second-tool", "second_operation", { action: "second" }, "approval-2");
+            ws.sendToolWithApproval(
+              "second-tool",
+              "second_operation",
+              { action: "second" },
+              "approval-2",
+            );
           } else if (hasSecondApproval) {
             // Final response after both approvals
-            ws.sendTextResponse(`text-${Date.now()}`, "Both operations completed!");
+            ws.sendTextResponse(
+              `text-${Date.now()}`,
+              "Both operations completed!",
+            );
           }
         });
       });

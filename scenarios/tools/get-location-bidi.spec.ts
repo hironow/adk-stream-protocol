@@ -82,7 +82,9 @@ test.describe("get_location Tool - BIDI Mode", () => {
     console.log("[Test 1] Verifying location result...");
     await expect(
       page
-        .getByText(/位置|場所|location|latitude|longitude|coordinates|緯度|経度/i)
+        .getByText(
+          /位置|場所|location|latitude|longitude|coordinates|緯度|経度/i,
+        )
         .last(),
     ).toBeVisible({
       timeout: 10000,

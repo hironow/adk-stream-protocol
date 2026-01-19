@@ -63,7 +63,6 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
 
           // Check if this is approval response (assistant message with approval-responded)
           const hasApprovalResponse = msg.messages?.some(
-            // biome-ignore lint/suspicious/noExplicitAny: Test helper
             (m: any) =>
               m.role === "assistant" &&
               m.parts?.some((part: any) => isApprovalRespondedTool(part)),
@@ -71,7 +70,6 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
 
           // Check if frontend sent tool output (addToolOutput updates assistant message)
           const hasToolOutput = msg.messages?.some(
-            // biome-ignore lint/suspicious/noExplicitAny: Test helper
             (m: any) =>
               m.role === "assistant" &&
               m.parts?.some(
@@ -253,7 +251,6 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
       const finalText = getMessageText(finalMessage);
       expect(finalText).toContain("Tokyo, Japan");
       expect(finalText).toContain("35.6762");
-
     });
 
     it("should handle frontend execution failure", async () => {
@@ -270,14 +267,12 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
 
           // Check if this is approval response
           const hasApprovalResponse = msg.messages?.some(
-            // biome-ignore lint/suspicious/noExplicitAny: Test helper
             (m: any) =>
               m.role === "assistant" &&
               m.parts?.some((part: any) => isApprovalRespondedTool(part)),
           );
 
           const hasToolOutput = msg.messages?.some(
-            // biome-ignore lint/suspicious/noExplicitAny: Test helper
             (m: any) =>
               m.role === "assistant" &&
               m.parts?.some(
@@ -453,7 +448,6 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
           const msg = JSON.parse(data);
 
           const hasDenial = msg.messages?.some(
-            // biome-ignore lint/suspicious/noExplicitAny: Test helper
             (m: any) =>
               m.role === "assistant" &&
               m.parts?.some(
@@ -589,7 +583,6 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
             if (
               !aliceApprovalReceived &&
               lastMsg.role === "user" &&
-              // biome-ignore lint/suspicious/noExplicitAny: Test helper
               !lastMsg.parts?.some(
                 (p: any) => p.type === "tool-adk_request_confirmation",
               )
@@ -626,7 +619,6 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
               aliceApprovalReceived &&
               !bobApprovalReceived &&
               lastMsg.parts?.some(
-                // biome-ignore lint/suspicious/noExplicitAny: Test helper
                 (p: any) =>
                   p.type === "tool-process_payment" &&
                   "approval-responded" === p.state &&
@@ -673,7 +665,6 @@ describe("BIDI Mode - Frontend Execute Pattern", () => {
             if (
               bobApprovalReceived &&
               lastMsg.parts?.some(
-                // biome-ignore lint/suspicious/noExplicitAny: Test helper
                 (p: any) =>
                   p.type === "tool-process_payment" &&
                   "approval-responded" === p.state &&

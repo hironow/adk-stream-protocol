@@ -11,7 +11,7 @@
  */
 
 import { useAudio } from "@/lib/audio-context";
-import { isToolType, extractToolNameFromType } from "@/lib/tool-utils";
+import { extractToolNameFromType, isToolType } from "@/lib/tool-utils";
 import type {
   DynamicToolUIPartFromAISDKv6,
   UIMessageFromAISDKv6,

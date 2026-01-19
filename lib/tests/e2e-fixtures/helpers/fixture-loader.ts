@@ -7,8 +7,8 @@
  * Reference: ADR 0012 - Frontend Approval UI Display Timing
  */
 
-import { readFileSync } from "fs";
-import { join } from "path";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { SSEEvent } from "../../helpers/event-types";
 import { parseSSEDataLine } from "../../helpers/event-types";
 
@@ -155,7 +155,10 @@ export function getEventsAfterApproval(events: SSEEvent[]): SSEEvent[] {
     }
     // In BIDI, approval response events come after finish-step
     // In SSE, they come in a separate request
-    if (event.type === "finish-step" || event.type === "tool-output-available") {
+    if (
+      event.type === "finish-step" ||
+      event.type === "tool-output-available"
+    ) {
       if (event.type === "tool-output-available") {
         foundApproval = true;
         result.push(event);

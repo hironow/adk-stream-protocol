@@ -22,19 +22,15 @@ import type { UIMessageFromAISDKv6 } from "../../utils";
 import { useMswServer } from "../helpers";
 import { useMockWebSocket } from "../helpers/mock-websocket";
 import {
-  loadFixture,
-  parseRawEvents,
-  findApprovalRequestEvent,
-} from "./helpers/fixture-loader";
+  getApprovalRequestedParts,
+  getMessageText,
+  getToolInvocationById,
+} from "./helpers/approval-ui-assertions";
+import { loadFixture, parseRawEvents } from "./helpers/fixture-loader";
 import {
   createBidiHandlerFromFixtureForMock,
   createSseHandlerFromFixture,
 } from "./helpers/fixture-server";
-import {
-  getApprovalRequestedParts,
-  getToolInvocationById,
-  getMessageText,
-} from "./helpers/approval-ui-assertions";
 
 describe("get_location Approval Flow - Fixture E2E Tests (Frontend Execute)", () => {
   // MSW for SSE (HTTP) tests

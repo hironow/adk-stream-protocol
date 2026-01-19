@@ -21,21 +21,19 @@ import type { UIMessageFromAISDKv6 } from "../../utils";
 import { useMswServer } from "../helpers";
 import { useMockWebSocket } from "../helpers/mock-websocket";
 import {
+  getApprovalRequestedParts,
+  getMessageText,
+  getToolInvocationById,
+} from "./helpers/approval-ui-assertions";
+import {
+  findApprovalRequestEvent,
   loadFixture,
   parseRawEvents,
-  findApprovalRequestEvent,
 } from "./helpers/fixture-loader";
 import {
   createBidiHandlerFromFixtureForMock,
   createSseHandlerFromFixture,
 } from "./helpers/fixture-server";
-import {
-  assertApprovalUIDisplayed,
-  assertToolResultReceived,
-  getToolInvocationById,
-  getApprovalRequestedParts,
-  getMessageText,
-} from "./helpers/approval-ui-assertions";
 
 describe("process_payment Approval Flow - Fixture E2E Tests", () => {
   // MSW for SSE (HTTP) tests
@@ -45,9 +43,11 @@ describe("process_payment Approval Flow - Fixture E2E Tests", () => {
 
   describe("BIDI Mode", () => {
     describe("Approval Flow (process_payment-approved-bidi-baseline.json)", () => {
-      const fixture = loadFixture("process_payment-approved-bidi-baseline.json");
+      const fixture = loadFixture(
+        "process_payment-approved-bidi-baseline.json",
+      );
       const events = parseRawEvents(fixture.output.rawEvents);
-      const approvalEvent = findApprovalRequestEvent(events);
+      const _approvalEvent = findApprovalRequestEvent(events);
 
       it("should display approval UI when tool-approval-request is received", async () => {
         // Given: Setup BIDI handler from fixture using Custom Mock
@@ -164,7 +164,9 @@ describe("process_payment Approval Flow - Fixture E2E Tests", () => {
 
     describe("Denial Flow (process_payment-denied-bidi-baseline.json)", () => {
       it("should handle denial correctly", async () => {
-        const fixture = loadFixture("process_payment-denied-bidi-baseline.json");
+        const fixture = loadFixture(
+          "process_payment-denied-bidi-baseline.json",
+        );
 
         // Given: Setup BIDI handler from fixture using Custom Mock
         setDefaultHandler(createBidiHandlerFromFixtureForMock(fixture));

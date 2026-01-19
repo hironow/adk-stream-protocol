@@ -46,7 +46,10 @@ export function createBidiWebSocketLink(url: string = DEFAULT_BIDI_WS_URL) {
 export function clearBidiWebSocketLinks() {
   for (const client of activeClients) {
     try {
-      if (client.readyState === WebSocket.OPEN || client.readyState === WebSocket.CONNECTING) {
+      if (
+        client.readyState === WebSocket.OPEN ||
+        client.readyState === WebSocket.CONNECTING
+      ) {
         client.close();
       }
     } catch {

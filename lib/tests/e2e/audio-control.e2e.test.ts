@@ -2,228 +2,472 @@
  * E2E Test: Audio Control
  *
  * Tests audio input/output functionality in BIDI mode.
- * Includes: recording, playback, BGM control, audio streaming.
+ * Uses Web Audio API mocks to simulate browser audio capabilities in jsdom.
  *
- * IMPORTANT: Most tests in this file are skipped because they require
- * Web Audio API which is not fully available in jsdom test environment.
+ * Key scenarios tested:
+ * - Audio recording initialization and chunk sending
+ * - Audio playback from AI responses
+ * - BGM control via tool invocations
+ * - Error handling for audio operations
  *
- * Web Audio API components not available in jsdom:
- * - AudioContext / OfflineAudioContext
- * - AudioWorklet / AudioWorkletNode
- * - MediaDevices.getUserMedia
- * - AudioBuffer / AudioBufferSourceNode
- * - GainNode / AnalyserNode
- *
- * For actual audio testing, consider:
- * - Playwright component tests with real browser
- * - Integration tests with audio fixtures
- * - Manual testing with dev tools
- *
- * Related implementations:
- * - components/tool-invocation.tsx (BGM AudioContext implementation)
- * - lib/bidi/pcm-audio-player.ts (PCM playback)
- * - lib/bidi/audio-recorder.ts (Audio recording)
+ * Note: These tests use mocked Web Audio API since jsdom doesn't support it.
+ * For real browser testing, use Playwright scenarios in scenarios/app-advanced/
  *
  * @vitest-environment jsdom
  */
 
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { AudioRecorder } from "../../audio-recorder";
+import { AudioWorkletManager } from "../../audio-worklet-manager";
+import {
+  createMockPCMData,
+  setupWebAudioMocks,
+} from "../shared-mocks/web-audio-api";
 
 describe("Audio Control E2E", () => {
+  // Setup Web Audio API mocks for all tests
+  const {
+    getMockAudioContext,
+    getMockWorkletNodes,
+    getMockMediaStreams,
+    simulateGetUserMediaFailure,
+  } = setupWebAudioMocks();
+
   describe("Audio Input (Recording)", () => {
-    it.skip("should record audio and send to backend", async () => {
-      // Skip: Requires navigator.mediaDevices.getUserMedia which is not
-      // available in jsdom. Would need Playwright for real browser testing.
-      //
-      // Expected flow:
-      // 1. Request microphone permission
-      // 2. Start recording via AudioWorklet
-      // 3. Capture PCM audio chunks (24kHz, 16-bit, mono)
-      // 4. Send chunks via WebSocket
-      // 5. Verify backend receives audio data
-      expect(true).toBe(true);
+    it("should initialize AudioRecorder and create AudioContext", async () => {
+      // given
+      const recorder = new AudioRecorder();
+
+      // when
+      await recorder.initialize();
+
+      // then
+      expect(getMockAudioContext()).not.toBeNull();
+      expect(
+        getMockAudioContext()?.audioWorklet.addModule,
+      ).toHaveBeenCalledWith("/pcm-recorder-processor.js");
     });
 
-    it.skip("should handle recording errors gracefully", async () => {
-      // Skip: Requires mocking getUserMedia rejection.
-      //
-      // Error scenarios:
-      // - Permission denied: NotAllowedError
-      // - No microphone: NotFoundError
-      // - Hardware failure: OverconstrainedError
-      expect(true).toBe(true);
+    it("should start recording and request microphone access", async () => {
+      // given
+      const recorder = new AudioRecorder();
+      await recorder.initialize();
+      const onChunk = vi.fn();
+
+      // when
+      await recorder.start(onChunk);
+
+      // then
+      expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledWith({
+        audio: expect.objectContaining({
+          channelCount: 1,
+          sampleRate: 16000,
+        }),
+      });
+      expect(recorder.isRecording).toBe(true);
+      expect(getMockMediaStreams().length).toBe(1);
     });
 
-    it.skip("should support pause/resume during recording", async () => {
-      // Skip: Requires AudioWorklet and MediaStream control.
-      //
-      // Expected behavior:
-      // - Pause: Stop capturing but keep stream open
-      // - Resume: Continue capturing from current position
-      expect(true).toBe(true);
+    it("should send audio chunks to callback", async () => {
+      // given
+      const recorder = new AudioRecorder();
+      await recorder.initialize();
+      const chunks: Array<{ data: Int16Array; sampleRate: number }> = [];
+      await recorder.start((chunk) => chunks.push(chunk));
+
+      // when - simulate worklet sending audio data
+      const workletNode = getMockWorkletNodes()[0];
+      const mockAudioSamples = new Float32Array([0.5, -0.5, 0.25, -0.25]);
+      workletNode.simulateMessage(mockAudioSamples);
+
+      // then
+      expect(chunks.length).toBe(1);
+      expect(chunks[0].sampleRate).toBe(16000);
+      expect(chunks[0].data).toBeInstanceOf(Int16Array);
+      expect(chunks[0].data.length).toBe(4);
+    });
+
+    it("should handle recording errors gracefully", async () => {
+      // given
+      const recorder = new AudioRecorder();
+      await recorder.initialize();
+      const permissionError = new Error("Permission denied");
+      (permissionError as any).name = "NotAllowedError";
+      simulateGetUserMediaFailure(permissionError);
+
+      // when / then
+      await expect(recorder.start(() => {})).rejects.toThrow(
+        "Permission denied",
+      );
+      expect(recorder.isRecording).toBe(false);
+    });
+
+    it("should stop recording and release resources", async () => {
+      // given
+      const recorder = new AudioRecorder();
+      await recorder.initialize();
+      await recorder.start(() => {});
+      expect(recorder.isRecording).toBe(true);
+
+      // when
+      recorder.stop();
+
+      // then
+      expect(recorder.isRecording).toBe(false);
+      const streams = getMockMediaStreams();
+      expect(streams[0].getTracks()[0].stop).toHaveBeenCalled();
+    });
+
+    it("should close AudioContext on close()", async () => {
+      // given
+      const recorder = new AudioRecorder();
+      await recorder.initialize();
+      await recorder.start(() => {});
+
+      // when
+      await recorder.close();
+
+      // then
+      expect(getMockAudioContext()?.close).toHaveBeenCalled();
     });
   });
 
   describe("Audio Output (Playback)", () => {
-    it.skip("should play audio response from AI", async () => {
-      // Skip: Requires AudioContext and AudioBufferSourceNode.
-      //
-      // Expected flow:
-      // 1. Receive data-pcm events from WebSocket
-      // 2. Decode base64 to Int16Array
-      // 3. Convert to Float32Array for Web Audio
-      // 4. Queue and play through AudioContext
-      // 5. Handle completion callback
-      //
-      // See: lib/bidi/pcm-audio-player.ts for implementation
-      expect(true).toBe(true);
+    it("should initialize AudioWorkletManager for playback", async () => {
+      // given
+      const manager = new AudioWorkletManager({
+        sampleRate: 24000,
+        processorUrl: "/pcm-player-processor.js",
+        processorName: "pcm-player-processor",
+      });
+
+      // when
+      await manager.initialize();
+
+      // then
+      expect(getMockAudioContext()).not.toBeNull();
+      expect(
+        getMockAudioContext()?.audioWorklet.addModule,
+      ).toHaveBeenCalledWith("/pcm-player-processor.js");
     });
 
-    it.skip("should handle streaming audio correctly", async () => {
-      // Skip: Requires AudioContext with real-time scheduling.
-      //
-      // Streaming considerations:
-      // - Buffer management (avoid underrun)
-      // - Latency minimization
-      // - Chunk scheduling with precise timing
-      expect(true).toBe(true);
+    it("should process PCM chunks for playback", async () => {
+      // given
+      const manager = new AudioWorkletManager({
+        sampleRate: 24000,
+        processorUrl: "/pcm-player-processor.js",
+        processorName: "pcm-player-processor",
+      });
+      await manager.initialize();
+
+      const pcmData = createMockPCMData([0.5, -0.5, 1, -1, 0]);
+      const chunks = [
+        {
+          content: pcmData,
+          sampleRate: 24000,
+          channels: 1,
+          bitDepth: 16,
+        },
+      ];
+
+      // when
+      await manager.processChunks(chunks);
+
+      // then
+      const workletNode = getMockWorkletNodes()[0];
+      expect(workletNode.port.postMessage).toHaveBeenCalled();
     });
 
-    it.skip("should handle audio playback errors", async () => {
-      // Skip: Requires AudioContext error simulation.
-      //
-      // Error scenarios:
-      // - Corrupted PCM data (invalid length, wrong format)
-      // - AudioContext suspended (autoplay policy)
-      // - Playback interruption (context closed)
-      expect(true).toBe(true);
+    it("should resume AudioContext if suspended", async () => {
+      // given
+      const manager = new AudioWorkletManager({
+        sampleRate: 24000,
+        processorUrl: "/pcm-player-processor.js",
+        processorName: "pcm-player-processor",
+      });
+      await manager.initialize();
+
+      // Simulate suspended state (autoplay policy)
+      const audioContext = getMockAudioContext()!;
+      (audioContext as any).state = "suspended";
+
+      const pcmData = createMockPCMData([0.5]);
+      const chunks = [
+        { content: pcmData, sampleRate: 24000, channels: 1, bitDepth: 16 },
+      ];
+
+      // when
+      await manager.processChunks(chunks);
+
+      // then
+      expect(audioContext.resume).toHaveBeenCalled();
+    });
+
+    it("should handle playback errors", async () => {
+      // given
+      const manager = new AudioWorkletManager({
+        sampleRate: 24000,
+        processorUrl: "/pcm-player-processor.js",
+        processorName: "pcm-player-processor",
+      });
+      // Don't initialize - should fail
+
+      // when / then
+      await expect(
+        manager.processChunks([
+          { content: "test", sampleRate: 24000, channels: 1, bitDepth: 16 },
+        ]),
+      ).rejects.toThrow("AudioWorklet not initialized");
+    });
+
+    it("should cleanup resources on dispose", async () => {
+      // given
+      const manager = new AudioWorkletManager({
+        sampleRate: 24000,
+        processorUrl: "/pcm-player-processor.js",
+        processorName: "pcm-player-processor",
+      });
+      await manager.initialize();
+
+      // when
+      manager.dispose();
+
+      // then
+      expect(getMockAudioContext()?.close).toHaveBeenCalled();
+      expect(manager.getState()).toBe(null);
     });
   });
 
   describe("BGM Control", () => {
-    it.skip("should change BGM track via change_bgm tool", async () => {
-      // Skip: Requires Audio element and AudioContext.
-      //
-      // Implementation location: components/tool-invocation.tsx
-      //
-      // Expected flow:
-      // 1. Backend sends tool-call with name="change_bgm"
-      // 2. Frontend creates/resumes AudioContext
-      // 3. Audio element loads new track from args.track
-      // 4. MediaElementAudioSourceNode connects to destination
-      // 5. tool-result sent back with { success: true }
-      expect(true).toBe(true);
+    let mockAudioElement: any;
+
+    beforeEach(() => {
+      // Create mock Audio element for BGM
+      mockAudioElement = new Audio("/bgm/track1.mp3");
     });
 
-    it.skip("should handle BGM pause/resume", async () => {
-      // Skip: Requires AudioContext state management.
-      //
-      // Expected behavior:
-      // - Pause: audioContext.suspend()
-      // - Resume: audioContext.resume()
-      // - State persisted across mode switches
-      expect(true).toBe(true);
+    it("should create Audio element for BGM", () => {
+      // then
+      expect(mockAudioElement.src).toBe("/bgm/track1.mp3");
+      expect(mockAudioElement.paused).toBe(true);
     });
 
-    it.skip("should manage BGM volume", async () => {
-      // Skip: Requires GainNode manipulation.
-      //
-      // Volume control:
-      // - GainNode.gain.value for overall volume
-      // - Ducking when AI audio plays (reduce to 0.3)
-      // - Restore after AI audio completes
-      expect(true).toBe(true);
+    it("should play and pause BGM", async () => {
+      // when
+      await mockAudioElement.play();
+
+      // then
+      expect(mockAudioElement.paused).toBe(false);
+
+      // when
+      mockAudioElement.pause();
+
+      // then
+      expect(mockAudioElement.paused).toBe(true);
     });
 
-    it.skip("should handle BGM loading errors", async () => {
-      // Skip: Requires Audio element error events.
-      //
-      // Error scenarios:
-      // - Track not found (404)
-      // - Invalid audio format
-      // - Network error during streaming
-      expect(true).toBe(true);
+    it("should adjust volume", () => {
+      // when
+      mockAudioElement.volume = 0.5;
+
+      // then
+      expect(mockAudioElement.volume).toBe(0.5);
+    });
+
+    it("should support loop", () => {
+      // when
+      mockAudioElement.loop = true;
+
+      // then
+      expect(mockAudioElement.loop).toBe(true);
     });
   });
 
   describe("Audio + Text Mixed Mode", () => {
-    it.skip("should handle simultaneous text and audio responses", async () => {
-      // Skip: Requires AudioContext for audio playback.
-      //
-      // Mixed mode behavior:
-      // - Text displayed immediately as text-delta arrives
-      // - Audio queued and played from data-pcm events
-      // - Both should complete without blocking each other
-      expect(true).toBe(true);
+    it("should handle recording while text is being received", async () => {
+      // given
+      const recorder = new AudioRecorder();
+      await recorder.initialize();
+      const chunks: any[] = [];
+      await recorder.start((chunk) => chunks.push(chunk));
+
+      // Simulate receiving text while recording
+      const workletNode = getMockWorkletNodes()[0];
+
+      // when - simulate concurrent audio chunks
+      workletNode.simulateMessage(new Float32Array([0.5]));
+      workletNode.simulateMessage(new Float32Array([0.25]));
+
+      // then
+      expect(chunks.length).toBe(2);
+      expect(recorder.isRecording).toBe(true);
     });
 
-    it.skip("should prioritize audio playback with BGM ducking", async () => {
-      // Skip: Requires GainNode for volume control.
-      //
-      // Ducking behavior:
-      // - When AI audio starts: BGM volume → 0.3
-      // - When AI audio ends: BGM volume → 1.0
-      // - Smooth transitions with rampToValueAtTime
-      expect(true).toBe(true);
+    it("should allow playback and recording to coexist", async () => {
+      // given
+      const recorder = new AudioRecorder();
+      await recorder.initialize();
+      await recorder.start(() => {});
+
+      const player = new AudioWorkletManager({
+        sampleRate: 24000,
+        processorUrl: "/pcm-player-processor.js",
+        processorName: "pcm-player-processor",
+      });
+      await player.initialize();
+
+      // then - both should be active
+      expect(recorder.isRecording).toBe(true);
+      expect(player.getState()).toBe("running");
+
+      // cleanup
+      recorder.stop();
+      player.dispose();
     });
   });
 
   describe("Tab Visibility", () => {
-    it.skip("should pause audio when tab hidden", async () => {
-      // Skip: Requires document.visibilityState changes.
-      //
-      // Note: jsdom supports basic visibility API but AudioContext
-      // suspension behavior cannot be tested.
-      //
-      // Expected behavior:
-      // 1. visibilitychange event with hidden=true
-      // 2. AudioContext.suspend() called
-      // 3. Recording paused if active
-      // 4. On visible: AudioContext.resume()
-      expect(true).toBe(true);
+    it("should expose AudioContext state for visibility handling", async () => {
+      // given
+      const manager = new AudioWorkletManager({
+        sampleRate: 24000,
+        processorUrl: "/test-processor.js",
+        processorName: "test-processor",
+      });
+      await manager.initialize();
+
+      // then
+      expect(manager.getState()).toBe("running");
     });
 
-    it.skip("should handle BGM pause on tab switch", async () => {
-      // Skip: Requires Audio element and visibility integration.
-      //
-      // BGM visibility behavior:
-      // - Hidden: audio.pause()
-      // - Visible: audio.play() if was playing before
-      expect(true).toBe(true);
+    it("should allow suspend/resume for tab visibility", async () => {
+      // given
+      const audioContext = getMockAudioContext();
+      expect(audioContext).toBeNull(); // Not yet created
+
+      const manager = new AudioWorkletManager({
+        sampleRate: 24000,
+        processorUrl: "/test-processor.js",
+        processorName: "test-processor",
+      });
+      await manager.initialize();
+
+      const ctx = getMockAudioContext()!;
+
+      // when - simulate tab hidden (would call suspend externally)
+      await ctx.suspend();
+
+      // then
+      expect(ctx.suspend).toHaveBeenCalled();
+
+      // when - simulate tab visible (would call resume externally)
+      await ctx.resume();
+
+      // then
+      expect(ctx.resume).toHaveBeenCalled();
     });
   });
 
   describe("Audio Permission", () => {
-    it.skip("should request microphone permission before recording", async () => {
-      // Skip: Requires navigator.permissions and getUserMedia.
-      //
-      // Permission flow:
-      // 1. Check navigator.permissions.query({ name: 'microphone' })
-      // 2. If prompt: Show UI explaining why mic needed
-      // 3. Call getUserMedia to trigger browser permission dialog
-      // 4. Handle granted/denied states
-      expect(true).toBe(true);
+    it("should check microphone permission status", async () => {
+      // given / when
+      const result = await navigator.permissions.query({
+        name: "microphone" as PermissionName,
+      });
+
+      // then
+      expect(result.state).toBe("granted");
     });
 
-    it.skip("should show appropriate UI when permission denied", async () => {
-      // Skip: Requires component-level testing with mocked permissions.
-      //
-      // Denied state handling:
-      // - Show clear error message
-      // - Provide instructions to enable in browser settings
-      // - Fallback to text-only mode
-      expect(true).toBe(true);
+    it("should enumerate audio devices", async () => {
+      // given / when
+      const devices = await navigator.mediaDevices.enumerateDevices();
+
+      // then
+      expect(devices.length).toBeGreaterThan(0);
+      expect(devices.some((d) => d.kind === "audioinput")).toBe(true);
+    });
+
+    it("should handle permission denied error", async () => {
+      // given
+      const recorder = new AudioRecorder();
+      await recorder.initialize();
+
+      const error = new Error("User denied microphone access");
+      (error as any).name = "NotAllowedError";
+      simulateGetUserMediaFailure(error);
+
+      // when / then
+      await expect(recorder.start(() => {})).rejects.toThrow();
+    });
+
+    it("should handle no microphone available error", async () => {
+      // given
+      const recorder = new AudioRecorder();
+      await recorder.initialize();
+
+      const error = new Error("No microphone found");
+      (error as any).name = "NotFoundError";
+      simulateGetUserMediaFailure(error);
+
+      // when / then
+      await expect(recorder.start(() => {})).rejects.toThrow(
+        "No microphone found",
+      );
     });
   });
 
-  // Placeholder test to ensure file runs without failures
+  describe("PCM Data Conversion", () => {
+    it("should convert Float32 to Int16 PCM correctly", async () => {
+      // given
+      const recorder = new AudioRecorder();
+      await recorder.initialize();
+      const chunks: any[] = [];
+      await recorder.start((chunk) => chunks.push(chunk));
+
+      // Test values: 0.0, 0.5, 1.0, -0.5, -1.0
+      const float32Samples = new Float32Array([0.0, 0.5, 1.0, -0.5, -1.0]);
+
+      // when
+      const workletNode = getMockWorkletNodes()[0];
+      workletNode.simulateMessage(float32Samples);
+
+      // then
+      const pcmData = chunks[0].data as Int16Array;
+      expect(pcmData[0]).toBe(0); // 0.0 → 0
+      expect(pcmData[1]).toBeCloseTo(16383, -1); // 0.5 → ~16383
+      expect(pcmData[2]).toBe(32767); // 1.0 → 32767
+      expect(pcmData[3]).toBeCloseTo(-16383, -1); // -0.5 → ~-16383
+      expect(pcmData[4]).toBe(-32767); // -1.0 → -32767
+    });
+
+    it("should clamp values outside [-1.0, 1.0]", async () => {
+      // given
+      const recorder = new AudioRecorder();
+      await recorder.initialize();
+      const chunks: any[] = [];
+      await recorder.start((chunk) => chunks.push(chunk));
+
+      // Values outside range
+      const float32Samples = new Float32Array([1.5, -1.5, 2.0, -2.0]);
+
+      // when
+      const workletNode = getMockWorkletNodes()[0];
+      workletNode.simulateMessage(float32Samples);
+
+      // then - all should be clamped to max/min
+      const pcmData = chunks[0].data as Int16Array;
+      expect(pcmData[0]).toBe(32767); // 1.5 clamped to 1.0
+      expect(pcmData[1]).toBe(-32767); // -1.5 clamped to -1.0
+      expect(pcmData[2]).toBe(32767); // 2.0 clamped to 1.0
+      expect(pcmData[3]).toBe(-32767); // -2.0 clamped to -1.0
+    });
+  });
+
+  // Placeholder test maintained for documentation purposes
   it("should have audio tests documented", () => {
     // This test verifies that audio control tests are properly
-    // documented and structured for future implementation.
-    //
-    // When Web Audio API testing becomes viable (via Playwright
-    // or better jsdom support), these skipped tests provide
-    // clear documentation of expected behavior.
+    // documented and structured.
     expect(true).toBe(true);
   });
 });

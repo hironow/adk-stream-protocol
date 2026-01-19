@@ -15,11 +15,27 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ToolInvocationComponent } from "@/components/tool-invocation";
-import { createMockAudioContext } from "@/lib/tests/shared-mocks";
 
 // Mock audio-context for ToolInvocationComponent which uses useAudio hook
 vi.mock("@/lib/audio-context", () => ({
-  useAudio: () => createMockAudioContext(),
+  useAudio: () => ({
+    voiceChannel: {
+      isPlaying: false,
+      chunkCount: 0,
+      sendChunk: vi.fn(),
+      reset: vi.fn(),
+      onComplete: vi.fn(),
+      lastCompletion: null,
+    },
+    bgmChannel: {
+      currentTrack: 0,
+      switchTrack: vi.fn(),
+    },
+    isReady: true,
+    error: null,
+    needsUserActivation: false,
+    activate: vi.fn().mockResolvedValue(undefined),
+  }),
 }));
 
 describe("Tool Invocation Component Integration", () => {

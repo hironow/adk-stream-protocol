@@ -157,7 +157,6 @@ describe("Protocol Comparison: SSE vs BIDI (ADR 0003)", () => {
           msg.messages &&
           !approvalMessageReceived &&
           !msg.messages[msg.messages.length - 1].parts?.some(
-            // biome-ignore lint/suspicious/noExplicitAny: Test helper
             (p: any) => p.type === "tool-process_payment",
           )
         ) {
@@ -189,10 +188,8 @@ describe("Protocol Comparison: SSE vs BIDI (ADR 0003)", () => {
         if (
           msg.type === "message" &&
           msg.messages &&
-          // biome-ignore lint/suspicious/noExplicitAny: Test helper
           msg.messages.some((m: any) =>
             m.parts?.some(
-              // biome-ignore lint/suspicious/noExplicitAny: Test helper
               (p: any) =>
                 p.type === "tool-process_payment" &&
                 p.state === "approval-responded" &&
@@ -206,10 +203,8 @@ describe("Protocol Comparison: SSE vs BIDI (ADR 0003)", () => {
           approvalMessageReceived = true;
 
           // Verify message structure - find the message with the approval
-          // biome-ignore lint/suspicious/noExplicitAny: Test helper
           const approvalMsg = msg.messages.find((m: any) =>
             m.parts?.some(
-              // biome-ignore lint/suspicious/noExplicitAny: Test helper
               (p: any) =>
                 p.type === "tool-process_payment" &&
                 p.state === "approval-responded",
@@ -220,7 +215,6 @@ describe("Protocol Comparison: SSE vs BIDI (ADR 0003)", () => {
           expect(approvalMsg.parts).toBeDefined();
           expect(
             approvalMsg.parts.some(
-              // biome-ignore lint/suspicious/noExplicitAny: Test helper
               (p: any) =>
                 p.type === "tool-process_payment" &&
                 p.state === "approval-responded",

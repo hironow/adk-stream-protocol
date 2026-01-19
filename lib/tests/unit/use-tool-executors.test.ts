@@ -7,13 +7,13 @@
  * @vitest-environment jsdom
  */
 
-import { describe, expect, it, beforeEach, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  executeGetLocation,
   executeChangeBgm,
-  registerToolExecutor,
+  executeGetLocation,
   getToolExecutor,
   hasToolExecutor,
+  registerToolExecutor,
   resetToolExecutors,
   type ToolExecutorDependencies,
   type ToolExecutorResult,
@@ -253,7 +253,7 @@ describe("use-tool-executors", () => {
       const customExecutor = vi.fn(
         async (
           input: Record<string, unknown>,
-          deps: ToolExecutorDependencies
+          deps: ToolExecutorDependencies,
         ): Promise<ToolExecutorResult> => {
           return {
             success: true,
@@ -262,7 +262,7 @@ describe("use-tool-executors", () => {
               hasBgmChannel: !!deps.bgmChannel,
             },
           };
-        }
+        },
       );
 
       registerToolExecutor("test_tool", customExecutor);

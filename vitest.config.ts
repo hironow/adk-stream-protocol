@@ -11,7 +11,6 @@ export default defineConfig({
     environment: "node",
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
-    globalSetup: [],
     globalTeardown: ["./vitest.global-teardown.ts"],
     // Use forks pool for parallel execution
     // Each test file runs in separate process for clean isolation

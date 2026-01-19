@@ -5,15 +5,15 @@
  * Covers ADR 0005 (Frontend Execute pattern) compliance.
  */
 
-import { describe, expect, it, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
   extractToolName,
   extractToolNameFromType,
-  isToolType,
-  isFrontendExecuteTool,
-  registerFrontendExecuteTool,
   getFrontendExecuteTools,
   getFrontendExecuteToolsByCategory,
+  isFrontendExecuteTool,
+  isToolType,
+  registerFrontendExecuteTool,
   resetFrontendExecuteTools,
 } from "../../tool-utils";
 

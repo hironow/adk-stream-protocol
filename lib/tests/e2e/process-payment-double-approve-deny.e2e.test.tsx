@@ -21,13 +21,10 @@ import { buildUseChatOptions } from "../../bidi";
 import { useMockWebSocket } from "../helpers/mock-websocket";
 
 // Helper to extract text from message
-// biome-ignore lint/suspicious/noExplicitAny: Test helper
 function getMessageText(message: any): string {
   if (!message?.parts) return "";
   return message.parts
-    // biome-ignore lint/suspicious/noExplicitAny: Test helper
     .filter((part: any) => part.type === "text")
-    // biome-ignore lint/suspicious/noExplicitAny: Test helper
     .map((part: any) => part.text)
     .join("");
 }
@@ -57,7 +54,6 @@ describe("Process Payment Double - Approve×Deny Pattern", () => {
           if (
             !aliceApprovalReceived &&
             lastMsg.role === "user" &&
-            // biome-ignore lint/suspicious/noExplicitAny: Test helper
             !lastMsg.parts?.some((p: any) => p.type === "tool-process_payment")
           ) {
             console.log(
@@ -92,7 +88,6 @@ describe("Process Payment Double - Approve×Deny Pattern", () => {
             aliceApprovalReceived &&
             !bobApprovalReceived &&
             lastMsg.parts?.some(
-              // biome-ignore lint/suspicious/noExplicitAny: Test helper
               (p: any) =>
                 p.type === "tool-process_payment" &&
                 p.state === "approval-responded" &&
@@ -141,7 +136,6 @@ describe("Process Payment Double - Approve×Deny Pattern", () => {
             bobApprovalReceived &&
             !finalResponseReceived &&
             lastMsg.parts?.some(
-              // biome-ignore lint/suspicious/noExplicitAny: Test helper
               (p: any) =>
                 p.type === "tool-process_payment" &&
                 p.state === "approval-responded" &&

@@ -9,13 +9,12 @@
  */
 
 import { expect } from "vitest";
+import { extractToolNameFromType } from "../../../tool-utils";
 import type { UIMessageFromAISDKv6 } from "../../../utils";
 import {
-  isApprovalRequestedTool,
   isTextUIPartFromAISDKv6,
   isToolUIPartFromAISDKv6,
 } from "../../../utils";
-import { extractToolNameFromType } from "../../../tool-utils";
 
 // ============================================================================
 // Types
@@ -36,7 +35,14 @@ export interface ToolInvocationPart {
   toolName: string;
   args: Record<string, unknown>;
   input?: Record<string, unknown>; // ADK uses "input" instead of "args"
-  state: "partial-call" | "call" | "approval-requested" | "approval-responded" | "result" | "output-available" | "output-error";
+  state:
+    | "partial-call"
+    | "call"
+    | "approval-requested"
+    | "approval-responded"
+    | "result"
+    | "output-available"
+    | "output-error";
   approval?: {
     id: string;
     approved?: boolean;
@@ -56,11 +62,12 @@ export function getToolInvocationParts(
   message: UIMessageFromAISDKv6 | undefined,
 ): ToolInvocationPart[] {
   if (!message) return [];
-  // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
-  const rawParts = (message as any).parts?.filter(
+  const rawParts =
     // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
-    (p: any) => isToolUIPartFromAISDKv6(p),
-  ) || [];
+    (message as any).parts?.filter(
+      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+      (p: any) => isToolUIPartFromAISDKv6(p),
+    ) || [];
 
   // Enrich parts with toolName and args for compatibility
   // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
@@ -131,8 +138,13 @@ export function assertApprovalUIDisplayed(
   expect(message, "Message should exist").toBeDefined();
 
   const part = getToolInvocationById(message, toolCallId);
-  expect(part, `Tool invocation with id "${toolCallId}" should exist`).toBeDefined();
-  expect(part?.state, "Tool state should be approval-requested").toBe("approval-requested");
+  expect(
+    part,
+    `Tool invocation with id "${toolCallId}" should exist`,
+  ).toBeDefined();
+  expect(part?.state, "Tool state should be approval-requested").toBe(
+    "approval-requested",
+  );
 
   if (toolName) {
     expect(part?.toolName, `Tool name should be "${toolName}"`).toBe(toolName);
@@ -176,7 +188,10 @@ export function assertApprovalResponded(
   expect(message, "Message should exist").toBeDefined();
 
   const part = getToolInvocationById(message, toolCallId);
-  expect(part, `Tool invocation with id "${toolCallId}" should exist`).toBeDefined();
+  expect(
+    part,
+    `Tool invocation with id "${toolCallId}" should exist`,
+  ).toBeDefined();
 
   // State should be approval-responded or result (if backend already responded)
   expect(
@@ -185,7 +200,10 @@ export function assertApprovalResponded(
   ).toBe(true);
 
   // Check approval decision
-  expect(part?.approval?.approved, `Approval should be ${expectedApproved}`).toBe(expectedApproved);
+  expect(
+    part?.approval?.approved,
+    `Approval should be ${expectedApproved}`,
+  ).toBe(expectedApproved);
 }
 
 /**
@@ -202,7 +220,10 @@ export function assertToolResultReceived(
   expect(message, "Message should exist").toBeDefined();
 
   const part = getToolInvocationById(message, toolCallId);
-  expect(part, `Tool invocation with id "${toolCallId}" should exist`).toBeDefined();
+  expect(
+    part,
+    `Tool invocation with id "${toolCallId}" should exist`,
+  ).toBeDefined();
   expect(part?.state, "Tool state should be result").toBe("result");
   expect(part?.result, "Tool result should exist").toBeDefined();
 }
@@ -238,10 +259,15 @@ export function assertToolArguments(
   expect(message, "Message should exist").toBeDefined();
 
   const part = getToolInvocationById(message, toolCallId);
-  expect(part, `Tool invocation with id "${toolCallId}" should exist`).toBeDefined();
+  expect(
+    part,
+    `Tool invocation with id "${toolCallId}" should exist`,
+  ).toBeDefined();
 
   for (const [key, value] of Object.entries(expectedArgs)) {
-    expect(part?.args[key], `Tool arg "${key}" should be ${value}`).toEqual(value);
+    expect(part?.args[key], `Tool arg "${key}" should be ${value}`).toEqual(
+      value,
+    );
   }
 }
 
@@ -255,10 +281,15 @@ export function assertFinalTextResponse(
   expect(message, "Message should exist").toBeDefined();
 
   const text = getMessageText(message);
-  expect(text.length, "Final text response should not be empty").toBeGreaterThan(0);
+  expect(
+    text.length,
+    "Final text response should not be empty",
+  ).toBeGreaterThan(0);
 
   if (containsText) {
-    expect(text, `Text should contain "${containsText}"`).toContain(containsText);
+    expect(text, `Text should contain "${containsText}"`).toContain(
+      containsText,
+    );
   }
 }
 

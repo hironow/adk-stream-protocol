@@ -60,7 +60,5 @@ def get_delegate(session_id: str) -> FrontendToolDelegate | None:
     if delegate:
         logger.debug(f"[FrontendToolRegistry] Found delegate for session_id: {session_id}")
     else:
-        logger.warning(
-            f"[FrontendToolRegistry] No delegate found for session_id: {session_id}"
-        )
+        logger.warning(f"[FrontendToolRegistry] No delegate found for session_id: {session_id}")
     return delegate

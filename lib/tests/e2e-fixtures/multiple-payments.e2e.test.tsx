@@ -19,21 +19,19 @@ import type { UIMessageFromAISDKv6 } from "../../utils";
 import { useMswServer } from "../helpers";
 import { useMockWebSocket } from "../helpers/mock-websocket";
 import {
+  getApprovalRequestedParts,
+  getMessageText,
+  getToolInvocationParts,
+} from "./helpers/approval-ui-assertions";
+import {
+  findAllApprovalRequestEvents,
   loadFixture,
   parseRawEvents,
-  findAllApprovalRequestEvents,
 } from "./helpers/fixture-loader";
 import {
   createBidiSequentialApprovalHandlerForMock,
   createSseParallelApprovalHandler,
 } from "./helpers/fixture-server";
-import {
-  getApprovalRequestedParts,
-  getToolInvocationById,
-  getToolInvocationParts,
-  getMessageText,
-  assertMultipleApprovalsDisplayed,
-} from "./helpers/approval-ui-assertions";
 
 describe("Multiple Payments Approval Flow - Fixture E2E Tests", () => {
   // MSW for SSE (HTTP) tests
@@ -43,7 +41,9 @@ describe("Multiple Payments Approval Flow - Fixture E2E Tests", () => {
 
   describe("BIDI Mode - Sequential Execution (ADR 0003)", () => {
     describe("Sequential Approval Flow (multiple-payments-sequential-bidi-baseline.json)", () => {
-      const fixture = loadFixture("multiple-payments-sequential-bidi-baseline.json");
+      const fixture = loadFixture(
+        "multiple-payments-sequential-bidi-baseline.json",
+      );
       const events = parseRawEvents(fixture.output.rawEvents);
       const approvalEvents = findAllApprovalRequestEvents(events);
 
@@ -104,7 +104,9 @@ describe("Multiple Payments Approval Flow - Fixture E2E Tests", () => {
             const aliceToolPart = toolParts.find(
               (p) => p.args.recipient === "Alice",
             );
-            expect(["result", "output-available"]).toContain(aliceToolPart?.state);
+            expect(["result", "output-available"]).toContain(
+              aliceToolPart?.state,
+            );
 
             // Bob should be in approval-requested
             const bobToolPart = toolParts.find(
@@ -141,8 +143,12 @@ describe("Multiple Payments Approval Flow - Fixture E2E Tests", () => {
             );
 
             // ADK uses "output-available" for successful tool completion
-            expect(["result", "output-available"]).toContain(aliceToolPart?.state);
-            expect(["result", "output-available"]).toContain(bobToolPart?.state);
+            expect(["result", "output-available"]).toContain(
+              aliceToolPart?.state,
+            );
+            expect(["result", "output-available"]).toContain(
+              bobToolPart?.state,
+            );
           },
           { timeout: 5000 },
         );
@@ -167,7 +173,9 @@ describe("Multiple Payments Approval Flow - Fixture E2E Tests", () => {
 
   describe("SSE Mode - Parallel Approval (ADR 0003)", () => {
     describe("Parallel Approval Flow (multiple-payments-approved-sse-baseline.json)", () => {
-      const fixture = loadFixture("multiple-payments-approved-sse-baseline.json");
+      const fixture = loadFixture(
+        "multiple-payments-approved-sse-baseline.json",
+      );
       const events = parseRawEvents(fixture.output.rawEvents);
 
       it("should display both approval requests simultaneously", async () => {
@@ -256,7 +264,9 @@ describe("Multiple Payments Approval Flow - Fixture E2E Tests", () => {
             const finalMessage = result.current.messages.at(-1);
             const toolParts = getToolInvocationParts(finalMessage);
 
-            const alicePart = toolParts.find((p) => p.args.recipient === "Alice");
+            const alicePart = toolParts.find(
+              (p) => p.args.recipient === "Alice",
+            );
             const bobPart = toolParts.find((p) => p.args.recipient === "Bob");
 
             // ADK uses "output-available" for successful tool completion
@@ -301,8 +311,12 @@ describe("Multiple Payments Approval Flow - Fixture E2E Tests", () => {
        * See ADR 0003 for detailed explanation.
        */
 
-      const bidiFixture = loadFixture("multiple-payments-sequential-bidi-baseline.json");
-      const sseFixture = loadFixture("multiple-payments-approved-sse-baseline.json");
+      const bidiFixture = loadFixture(
+        "multiple-payments-sequential-bidi-baseline.json",
+      );
+      const sseFixture = loadFixture(
+        "multiple-payments-approved-sse-baseline.json",
+      );
 
       // BIDI: Single stream
       expect(bidiFixture.output.expectedDoneCount).toBe(1);

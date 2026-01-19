@@ -19,15 +19,13 @@ import { useChat } from "@ai-sdk/react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { http } from "msw";
 import { describe, expect, it } from "vitest";
+import { AudioRecorder } from "../../audio-recorder";
 import { buildUseChatOptions as buildBidiOptions } from "../../bidi";
 import { buildUseChatOptions as buildSseOptions } from "../../sse";
 import type { UIMessageFromAISDKv6 } from "../../utils";
-import {
-  createTextResponse,
-  getMessageText,
-  useMswServer,
-} from "../helpers";
+import { createTextResponse, getMessageText, useMswServer } from "../helpers";
 import { useMockWebSocket } from "../helpers/mock-websocket";
+import { setupWebAudioMocks } from "../shared-mocks/web-audio-api";
 
 describe("Mode Switching E2E", () => {
   // MSW for HTTP/SSE tests
@@ -47,6 +45,9 @@ describe("Mode Switching E2E", () => {
 
   // Custom Mock for BIDI WebSocket tests
   const { setDefaultHandler } = useMockWebSocket();
+
+  // Web Audio API mocks for audio feature tests
+  const { getMockAudioContext } = setupWebAudioMocks();
   describe("Gemini ↔ SSE Transitions", () => {
     it.skip("should switch from Gemini to SSE mode", async () => {
       // Skip: Gemini Direct mode uses different API endpoint and schema
@@ -325,10 +326,22 @@ describe("Mode Switching E2E", () => {
   });
 
   describe("Mode-specific Features", () => {
-    it.skip("should enable audio features when switching to BIDI", async () => {
-      // Skip: Audio feature testing requires Web Audio API mocking
-      // See audio-control.e2e.test.ts for dedicated audio tests
-      expect(true).toBe(true);
+    it("should enable audio features when switching to BIDI", async () => {
+      // Given: Audio APIs are available in BIDI mode
+      // Web Audio API mocks are set up via setupWebAudioMocks()
+
+      // When: Create an AudioRecorder (BIDI-only feature)
+      const recorder = new AudioRecorder();
+      await recorder.initialize();
+
+      // Then: AudioContext should be created and ready
+      expect(getMockAudioContext()).not.toBeNull();
+      expect(
+        getMockAudioContext()?.audioWorklet.addModule,
+      ).toHaveBeenCalledWith("/pcm-recorder-processor.js");
+
+      // Cleanup
+      await recorder.close();
     });
 
     it("should continue with pending messages after mode switch", async () => {

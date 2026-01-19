@@ -296,7 +296,9 @@ class BidiEventReceiver:
             confirmation_id: The ID of the confirmation FunctionResponse (lookup key)
             response_data: FunctionResponse.response dict with {"confirmed": bool} or {"approved": bool}
         """
-        logger.info("[BIDI-APPROVAL] BIDI Blocking Mode: BLOCKING mode detected (approval_queue exists)")
+        logger.info(
+            "[BIDI-APPROVAL] BIDI Blocking Mode: BLOCKING mode detected (approval_queue exists)"
+        )
 
         approval_queue: ApprovalQueue | None = self._session.state.get("approval_queue")
         if approval_queue is None:
@@ -340,7 +342,9 @@ class BidiEventReceiver:
             f"[BIDI-APPROVAL] BIDI Blocking Mode: Cleaned up confirmation mapping for {confirmation_id}"
         )
 
-        logger.info("[BIDI-APPROVAL] BIDI Blocking Mode: ✓ Approval decision submitted to ApprovalQueue")
+        logger.info(
+            "[BIDI-APPROVAL] BIDI Blocking Mode: ✓ Approval decision submitted to ApprovalQueue"
+        )
         logger.info("[BIDI-APPROVAL] BIDI Blocking Mode: Tool will resume and return final result")
 
     async def _handle_legacy_mode_approval(
@@ -358,7 +362,9 @@ class BidiEventReceiver:
             confirmation_id: The ID of the confirmation FunctionResponse (lookup key)
             response_data: FunctionResponse.response dict with {"confirmed": bool}
         """
-        logger.info("[BIDI-APPROVAL] Legacy Approval Mode: LongRunningFunctionTool (no approval_queue)")
+        logger.info(
+            "[BIDI-APPROVAL] Legacy Approval Mode: LongRunningFunctionTool (no approval_queue)"
+        )
 
         # Look up original tool_call_id using confirmation_id from session.state
         try:  # nosemgrep: forbid-try-except - legitimate session.state access with KeyError handling

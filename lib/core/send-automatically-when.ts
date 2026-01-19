@@ -11,6 +11,7 @@
  * See ADR 0005 for detailed execution patterns and [DONE] sending timing.
  */
 
+import { extractToolName, isFrontendExecuteTool } from "@/lib/tool-utils";
 import {
   isApprovalRequestedTool,
   isApprovalRespondedTool,
@@ -20,7 +21,6 @@ import {
   isToolUIPartFromAISDKv6,
   type UIMessageFromAISDKv6,
 } from "@/lib/utils";
-import { extractToolName, isFrontendExecuteTool } from "@/lib/tool-utils";
 
 export interface SendAutomaticallyWhenOptions {
   messages: UIMessageFromAISDKv6[];
@@ -262,9 +262,7 @@ export function sendAutomaticallyWhenCore(
           );
           return false;
         }
-        log(
-          `Frontend Execute tool (${toolName}) has output, proceeding`,
-        );
+        log(`Frontend Execute tool (${toolName}) has output, proceeding`);
       } else if (!isApproved) {
         log(
           `Tool (${toolName}) was denied, proceeding to send denial to backend`,

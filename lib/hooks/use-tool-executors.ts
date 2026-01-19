@@ -31,7 +31,7 @@ export interface ToolExecutorDependencies {
 
 export type ToolExecutor = (
   input: Record<string, unknown>,
-  deps: ToolExecutorDependencies
+  deps: ToolExecutorDependencies,
 ) => Promise<ToolExecutorResult>;
 
 // ============================================================================
@@ -51,7 +51,7 @@ export async function executeGetLocation(): Promise<ToolExecutorResult> {
           timeout: 5000,
           maximumAge: 0,
         });
-      }
+      },
     );
 
     return {
@@ -77,7 +77,7 @@ export async function executeGetLocation(): Promise<ToolExecutorResult> {
  */
 export async function executeChangeBgm(
   input: Record<string, unknown>,
-  deps: ToolExecutorDependencies
+  deps: ToolExecutorDependencies,
 ): Promise<ToolExecutorResult> {
   const { bgmChannel } = deps;
 
@@ -91,12 +91,10 @@ export async function executeChangeBgm(
   if (bgmChannel.currentTrack !== targetAudioTrack) {
     bgmChannel.switchTrack();
     console.info(
-      `[executeChangeBgm] BGM switched: ${bgmChannel.currentTrack} → ${targetAudioTrack}`
+      `[executeChangeBgm] BGM switched: ${bgmChannel.currentTrack} → ${targetAudioTrack}`,
     );
   } else {
-    console.info(
-      `[executeChangeBgm] BGM already on track ${targetAudioTrack}`
-    );
+    console.info(`[executeChangeBgm] BGM already on track ${targetAudioTrack}`);
   }
 
   return {
@@ -129,7 +127,7 @@ const executorRegistry = new Map<string, ToolExecutor>([
  */
 export function registerToolExecutor(
   toolName: string,
-  executor: ToolExecutor
+  executor: ToolExecutor,
 ): void {
   executorRegistry.set(toolName, executor);
 }
@@ -182,13 +180,13 @@ export function useToolExecutors() {
     () => ({
       bgmChannel,
     }),
-    [bgmChannel]
+    [bgmChannel],
   );
 
   const execute = useCallback(
     async (
       toolName: string,
-      input: Record<string, unknown>
+      input: Record<string, unknown>,
     ): Promise<ToolExecutorResult> => {
       const executor = getToolExecutor(toolName);
 
@@ -199,7 +197,7 @@ export function useToolExecutors() {
       console.info(`[useToolExecutors] Executing ${toolName} on client`);
       return executor(input, deps);
     },
-    [deps]
+    [deps],
   );
 
   const isExecutorAvailable = useCallback((toolName: string): boolean => {

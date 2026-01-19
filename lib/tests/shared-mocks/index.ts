@@ -6,9 +6,17 @@
  *
  * Usage:
  * ```typescript
- * import { MockWebSocket, createMockAudioContext } from '@/lib/tests/shared-mocks';
+ * import { setupWebAudioMocks } from '@/lib/tests/shared-mocks';
  * ```
  */
 
-export { createMockAudioContext, setupAudioContextMock } from "./audio-context";
-export { MockWebSocket } from "./websocket";
+export {
+  createMockAudioBuffer,
+  createMockPCMData,
+  MockAudioContext,
+  MockAudioWorkletNode,
+  MockHTMLAudioElement,
+  MockMediaStream,
+  MockMediaStreamTrack,
+  setupWebAudioMocks,
+} from "./web-audio-api";

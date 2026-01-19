@@ -49,7 +49,10 @@ export function getPooledServer(): SetupServer {
   if (!pooledServer) {
     initMswServerPool();
   }
-  return pooledServer!;
+  if (!pooledServer) {
+    throw new Error("MSW server pool failed to initialize");
+  }
+  return pooledServer;
 }
 
 /**
@@ -220,7 +223,9 @@ export function useMswServer(options?: {
   return {
     getServer: () => {
       if (!server) {
-        throw new Error("MSW server not initialized. Ensure useMswServer() is called inside a describe block.");
+        throw new Error(
+          "MSW server not initialized. Ensure useMswServer() is called inside a describe block.",
+        );
       }
       return server;
     },

@@ -16,14 +16,29 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Chat } from "@/components/chat";
 import { buildUseChatOptions } from "@/lib/build-use-chat-options";
-import {
-  createMockAudioContext,
-  MockWebSocket,
-} from "@/lib/tests/shared-mocks";
+import { BidiMockWebSocket } from "@/lib/tests/helpers/mock-websocket";
 import type { UIMessageFromAISDKv6 } from "@/lib/utils";
 
+// Mock audio-context with inline mock matching AudioContextValue interface
 vi.mock("@/lib/audio-context", () => ({
-  useAudio: () => createMockAudioContext(),
+  useAudio: () => ({
+    voiceChannel: {
+      isPlaying: false,
+      chunkCount: 0,
+      sendChunk: vi.fn(),
+      reset: vi.fn(),
+      onComplete: vi.fn(),
+      lastCompletion: null,
+    },
+    bgmChannel: {
+      currentTrack: 0,
+      switchTrack: vi.fn(),
+    },
+    isReady: true,
+    error: null,
+    needsUserActivation: false,
+    activate: vi.fn().mockResolvedValue(undefined),
+  }),
 }));
 
 describe("Chat Component Integration", () => {
@@ -33,7 +48,7 @@ describe("Chat Component Integration", () => {
   beforeEach(() => {
     originalWebSocket = global.WebSocket as typeof WebSocket;
     originalFetch = global.fetch;
-    global.WebSocket = MockWebSocket as any;
+    global.WebSocket = BidiMockWebSocket as unknown as typeof WebSocket;
 
     // Mock fetch for Gemini Direct and ADK SSE modes
     global.fetch = vi.fn(() =>

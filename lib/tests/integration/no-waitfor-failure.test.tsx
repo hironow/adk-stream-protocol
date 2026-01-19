@@ -60,7 +60,6 @@ describe("ADR 0005: Failure Without waitFor", () => {
         if (
           msg.type === "message" &&
           msg.messages &&
-          // biome-ignore lint/suspicious/noExplicitAny: Test helper
           !msg.messages[msg.messages.length - 1].parts?.some(
             (p: any) => p.type === "tool-process_payment",
           )
@@ -145,7 +144,6 @@ describe("ADR 0005: Failure Without waitFor", () => {
         if (
           msg.type === "message" &&
           msg.messages &&
-          // biome-ignore lint/suspicious/noExplicitAny: Test helper
           !msg.messages[msg.messages.length - 1].parts?.some(
             (p: any) => p.type === "tool-process_payment",
           )

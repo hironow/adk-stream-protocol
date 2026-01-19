@@ -7,15 +7,14 @@
  * Reference: ADR 0012 - Frontend Approval UI Display Timing
  */
 
-import { http, HttpResponse } from "msw";
-import { ws } from "msw";
+import { HttpResponse, http, ws } from "msw";
+import { trackClient } from "../../helpers/bidi-ws-handlers";
+import type { BidiMockWebSocket } from "../../helpers/mock-websocket";
 import type { FixtureData } from "./fixture-loader";
 import {
   splitBidiEventsForApprovalFlow,
   splitSseEventsForApprovalFlow,
 } from "./fixture-loader";
-import { trackClient } from "../../helpers/bidi-ws-handlers";
-import type { BidiMockWebSocket } from "../../helpers/mock-websocket";
 
 // ============================================================================
 // Constants
@@ -308,7 +307,10 @@ export function createBidiStreamHandlerFromFixture(
 // Track sent phases globally to handle WebSocket reconnections
 const sentPhasesMap = new Map<string, Set<number>>();
 // Track single-tool approval flow state
-const singleToolSentPhasesMap = new Map<string, Set<"approval" | "execution">>();
+const singleToolSentPhasesMap = new Map<
+  string,
+  Set<"approval" | "execution">
+>();
 
 export function createBidiSequentialApprovalHandler(
   chat: ReturnType<typeof ws.link>,
@@ -362,7 +364,6 @@ export function createBidiSequentialApprovalHandler(
     server.connect();
 
     client.addEventListener("message", (event) => {
-
       // Skip ping messages
       let messageData: Record<string, unknown> | null = null;
       try {
@@ -521,7 +522,8 @@ export function createBidiHandlerFromFixtureForMock(
       }
 
       // Get sent phases for this fixture
-      const sentPhases = mockSingleToolSentPhasesMap.get(fixtureId) || new Set();
+      const sentPhases =
+        mockSingleToolSentPhasesMap.get(fixtureId) || new Set();
 
       // Detect if message contains an approval response or tool output
       let hasApprovalResponse = false;
