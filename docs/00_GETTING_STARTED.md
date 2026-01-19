@@ -262,14 +262,22 @@ curl -N http://localhost:8000/stream \
 Run `just --list` to see all available commands:
 
 ```bash
+# Setup & Development
 just install              # Install all dependencies
 just dev                  # Run frontend and backend concurrently
 just server               # Run backend server only
-just test-fast            # Run fast tests (no external dependencies)
-just test-unified-e2e     # Run E2E tests (pytest + Playwright)
-just test-unified-all     # Run all tests
+
+# Testing
+just test                 # Run fast tests (no server required)
+just test-all             # Run all tests (requires servers)
+just test-py              # Python unit + integration
+just test-ts              # Vitest all tests
+just test-browser         # Playwright UI tests (requires servers)
+
+# Code Quality
+just format               # Format code (Python + TypeScript)
 just lint                 # Run linting (Python + TypeScript)
-just format               # Format code
+just check                # Run all checks (lint + typecheck + agents)
 ```
 
 ## Usage Examples

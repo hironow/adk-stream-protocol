@@ -28,17 +28,17 @@ bunx vitest run lib/tests/e2e/
 bunx vitest run lib/tests/e2e/chat-flow.e2e.test.ts
 ```
 
-**Full E2E (Playwright)**:
+**Full E2E (Playwright)** - UI固有テストのみ (13ファイル):
 
 ```bash
-# All tiers (smoke + core + advanced)
-bun run test:e2e:app
+# UI固有テスト実行（要サーバー）
+just test-browser
 
-# Smoke tests only (fast)
-bun run test:e2e:app:smoke
+# スナップショット更新
+just test-browser-update
 
 # UI mode (interactive)
-bun run test:e2e:ui
+bunx playwright test scenarios/ --ui
 ```
 
 ### Prerequisites
@@ -55,13 +55,15 @@ bun run test:e2e:ui
 
 ```
 ┌─────────────────────────────────────────────┐
-│  Playwright E2E (scenarios/)                │  Full system
-│  Browser + Frontend + Backend + LLM Mock   │  User scenarios
+│  Playwright E2E (scenarios/)                │  UI-specific
+│  Browser + Frontend + Backend               │  13 files
+│  Visual regression, A11y, UI rendering     │  NO protocol tests
 └─────────────────────────────────────────────┘
-         ↓ mocks LLM with Chunk Player
+         ↓ UI tests only (protocol tests moved to Vitest)
 ┌─────────────────────────────────────────────┐
-│  Frontend E2E (lib/tests/e2e/)              │  Frontend only
-│  Browser + React + AI SDK v6               │  Component integration
+│  Frontend E2E (lib/tests/e2e/)              │  Protocol/Logic
+│  Vitest + React + AI SDK v6 + MSW          │  ~20 files
+│  Tool approval, mode switching, etc.       │  Component integration
 └─────────────────────────────────────────────┘
          ↓ uses baseline fixtures
 ┌─────────────────────────────────────────────┐
@@ -72,17 +74,19 @@ bun run test:e2e:ui
 
 **Legend / 凡例**:
 
-- Playwright E2E: システム全体の統合テスト
-- Frontend E2E: フロントエンド統合テスト
+- Playwright E2E: UI固有テスト（レンダリング、スナップショット、A11y）
+- Frontend E2E (Vitest): プロトコル/ロジックテスト（ツール承認、モード切替）
 - Backend E2E: バックエンドAPI検証
 
 ### Layer Comparison
 
 | Layer | Tool | Environment | Scope | Mock Strategy |
 |-------|------|-------------|-------|---------------|
-| **Playwright E2E** | Playwright | Real browser | Full system | LLM only (Chunk Player) |
-| **Frontend E2E** | Vitest | jsdom | Frontend + lib | Backend API (MSW) |
+| **Playwright E2E** | Playwright | Real browser | UI rendering | Real backend |
+| **Frontend E2E** | Vitest | jsdom | Protocol/Logic | Backend API (MSW) |
 | **Backend E2E** | pytest | Python | Backend API | LLM (Chunk Player) |
+
+**Note**: Playwright は UI 固有テスト（visual regression, accessibility）に特化。プロトコル検証は Vitest に委譲。
 
 ---
 
@@ -335,6 +339,12 @@ fixtures/
 │   └── ... (14 files total)
 └── scenarios/             # Playwright E2E resources
     └── test-image.png
+
+scenarios/                 # Playwright UI-specific tests (13 files)
+├── smoke/                 # Basic UI smoke tests (3)
+├── ui/                    # UI-specific tests (7)
+├── integration/           # UI integration tests (2)
+└── approval/              # Approval UI tests (1)
 ```
 
 ### Frontend Fixtures (Baseline)
@@ -681,3 +691,31 @@ await waitForFrontendExecuteComplete(page);
 ---
 
 **Last Updated**: 2026-01-19
+
+---
+
+## Playwright Test Strategy (Updated)
+
+### UI-Specific Focus
+
+Playwright E2E tests are now focused exclusively on **UI-specific testing**:
+
+- **Visual regression** - Screenshot comparison
+- **Accessibility** - A11y validation with axe-core
+- **UI rendering** - Component display verification
+- **Error UI** - Error message display
+
+### Removed (Migrated to Vitest)
+
+Protocol and logic tests have been migrated to Vitest for faster execution:
+
+- Tool approval flows → `lib/tests/e2e/frontend-execute-*.e2e.test.tsx`
+- Mode switching logic → `lib/tests/e2e/mode-switching.e2e.test.ts`
+- Tool execution → `lib/tests/e2e/tool-execution.e2e.test.ts`
+- Payment processing → `lib/tests/e2e/process-payment-*.e2e.test.tsx`
+
+### Benefits
+
+- **Faster CI**: Playwright tests reduced from 31 to 13 files
+- **Better isolation**: UI tests vs protocol tests
+- **Clearer responsibility**: Playwright = rendering, Vitest = logic

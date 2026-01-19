@@ -274,14 +274,14 @@ it('handles WebSocket messages', async () => {
 ### 推奨コマンド (justfile)
 
 ```bash
-# 全テスト（外部依存なし）- 推奨
-just test-fast
+# 高速テスト（サーバー不要）- pytest + vitest unit/integration
+just test
 
-# ユニットテストのみ
-just test-unified-unit
+# Vitest 全テスト
+just test-ts
 
-# 統合テストのみ
-just test-unified-integration
+# Vitest E2E のみ
+just test-ts-e2e
 ```
 
 ### 直接実行
@@ -307,7 +307,7 @@ bun vitest lib/tests/unit/
 
 `lib/tests/integration/` と `lib/tests/e2e/` では msw (Mock Service Worker) を使用した WebSocket モッキングを行っている。msw の WebSocket インターセプターはテスト終了後に完全にクリーンアップされないため、Worker exit error (`uv__stream_destroy` assertion) が発生することがある。
 
-**解決策**: `scripts/run-vitest-e2e.sh` ラッパースクリプトを使用。テスト結果を解析し、全テストがパスしていれば exit code 0 を返す。`just test-fast` や `just test-unified-unit` コマンドはこのラッパーを自動的に使用する。
+**解決策**: vitest.config.ts で `forceExit: true` を設定し、テスト完了後に強制終了する。
 
 ## 注意事項
 

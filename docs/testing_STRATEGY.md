@@ -1,6 +1,6 @@
 # Testing Strategy
 
-**Last Updated:** 2026-01-18
+**Last Updated:** 2026-01-19
 
 Comprehensive testing strategy for the ADK AI Data Protocol project.
 
@@ -8,28 +8,28 @@ Comprehensive testing strategy for the ADK AI Data Protocol project.
 
 ## 🚀 Quick Start
 
-### Running Tests (Unified Test Runner)
+### Running Tests
 
 **推奨: justfile コマンドを使用**
 
 ```bash
-# 全テスト（外部依存なし）- 最速、並列実行
-just test-fast
+# 高速テスト（サーバー不要）- pytest + vitest unit/integration
+just test
 
-# ユニットテストのみ
-just test-unified-unit
+# 全テスト（要サーバー）
+just test-all
 
-# 統合テストのみ
-just test-unified-integration
+# Python テスト
+just test-py         # unit + integration
+just test-py-e2e     # E2E（要バックエンドサーバー）
 
-# E2Eテスト（バックエンドサーバー必要）
-just test-unified-e2e
+# TypeScript テスト (Vitest)
+just test-ts         # 全vitest
+just test-ts-e2e     # E2Eのみ
 
-# フルスタックテスト（バックエンド + フロントエンド + ブラウザ必要）
-just test-full-stack
-
-# 全テスト
-just test-unified-all
+# ブラウザテスト (Playwright) - UI固有テストのみ
+just test-browser         # 実行（要サーバー）
+just test-browser-update  # スナップショット更新
 ```
 
 ### 直接実行
@@ -79,26 +79,29 @@ bunx playwright test --ui
 ### Test Pyramid
 
 ```
-                     E2E Tests
-                /                    \
-        Playwright (scenarios/)    pytest (tests/e2e/)
-              |                          |
-        Integration Tests          Integration Tests
-    /                    \              |
-lib/tests/integration  app/tests/  tests/integration/
-      (Vitest)         integration  (pytest)
-          |            (Vitest)          |
-      Unit Tests                     Unit Tests
-    /           \                        |
-lib/tests/unit  components/tests/   tests/unit/
-  (Vitest)         unit (Vitest)     (pytest)
+                        E2E Tests
+                   /        |        \
+      Playwright      Vitest E2E      pytest E2E
+    (scenarios/)    (lib/tests/e2e/) (tests/e2e/)
+     UI-specific     Protocol/Logic   Backend API
+      13 files         ~20 files       ~10 files
+          |               |                |
+        Integration Tests              Integration Tests
+    /                    \                  |
+lib/tests/integration  app/tests/     tests/integration/
+      (Vitest)         integration       (pytest)
+          |            (Vitest)              |
+      Unit Tests                         Unit Tests
+    /           \                            |
+lib/tests/unit  components/tests/       tests/unit/
+  (Vitest)         unit (Vitest)         (pytest)
 ```
 
 **Legend / 凡例**:
 
-- E2E Tests: エンドツーエンドテスト (Playwright/pytest)
-- Integration Tests: 統合テスト (Vitest/pytest)
-- Unit Tests: 単体テスト (Vitest/pytest)
+- Playwright: UI固有テスト（レンダリング検証、スナップショット）
+- Vitest E2E: フロントエンドプロトコル/ロジックテスト
+- pytest E2E: バックエンドAPIテスト
 
 ### Test Layer Philosophy
 
@@ -572,6 +575,7 @@ it('should throw', () => {
 
 | Layer | Files | Tests | Pass Rate |
 |-------|-------|-------|-----------|
+| scenarios/ (Playwright) | 13 | ~100 | 100% |
 | app/tests/integration | 3 | 34 | 100% |
 | components/tests/unit | 7 | 73 | 100% |
 | lib/tests/unit | 15 | ~200 | 100% |
@@ -579,7 +583,9 @@ it('should throw', () => {
 | lib/tests/e2e | 12 | ~158 | 100% |
 | tests/unit (Backend) | 19 | ~150 | 100% |
 | tests/integration (Backend) | 8 | ~50 | 100% |
-| **Total** | **73** | **~765** | **100%** |
+| **Total** | **86** | **~865** | **100%** |
+
+**Note**: Playwright テストは UI 固有テストに特化。プロトコル/ロジック検証は Vitest/pytest に委譲。
 
 ### Coverage Goals
 
@@ -649,7 +655,7 @@ it('should throw', () => {
 
 **影響**: 全テストがパスしても、プロセス終了時に exit code 1 が返される。
 
-**対応**: `scripts/run-vitest-e2e.sh` ラッパースクリプトがテスト結果を解析し、全テストがパスしていれば exit code 0 を返す。`just test-fast` 等の unified test runner はこのラッパーを自動的に使用する。
+**対応**: vitest.config.ts で `forceExit: true` を設定し、テスト完了後に強制終了する。
 
 ### Gemini Live API Flakiness
 
@@ -702,10 +708,10 @@ function uv__stream_destroy, file stream.c, line 456.
    bunx vitest run --no-file-parallelism
    ```
 
-3. **justfile コマンドを使用** (ラッパースクリプトが exit code を正しく処理):
+3. **justfile コマンドを使用**:
 
    ```bash
-   just test-fast
+   just test-ts
    ```
 
 **確認方法**: 各ディレクトリで個別にテストを実行し、全テストが pass することを確認する。Worker error が出ても、テスト自体が pass していれば問題ない。
