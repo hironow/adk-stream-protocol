@@ -11,6 +11,7 @@
  */
 
 import { useAudio } from "@/lib/audio-context";
+import { extractToolNameFromType, isToolType } from "@/lib/tool-utils";
 import type {
   DynamicToolUIPartFromAISDKv6,
   UIMessageFromAISDKv6,
@@ -356,7 +357,7 @@ export function MessageComponent({
             // Tool invocation in "tool-*" format (from AI SDK useChat)
             if (
               typeof part.type === "string" &&
-              part.type.startsWith("tool-") &&
+              isToolType(part.type) &&
               "toolCallId" in part &&
               "state" in part
             ) {
@@ -364,7 +365,7 @@ export function MessageComponent({
               // biome-ignore lint/suspicious/noExplicitAny: Dynamic tool invocation structure
               const toolInvocation: any = {
                 toolCallId: part.toolCallId,
-                toolName: part.type.replace("tool-", ""),
+                toolName: extractToolNameFromType(part.type),
                 state: part.state,
                 input: "input" in part ? part.input : undefined,
                 output: "output" in part ? part.output : undefined,

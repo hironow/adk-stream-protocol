@@ -14,45 +14,16 @@
 
 import { useChat } from "@ai-sdk/react";
 import { renderHook, waitFor } from "@testing-library/react";
-import { setupServer } from "msw/node";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { buildUseChatOptions } from "@/lib/build-use-chat-options";
-import {
-  createBidiWebSocketLink,
-  createCustomHandler,
-} from "@/lib/tests/helpers/bidi-ws-handlers";
+import { useMockWebSocket } from "@/lib/tests/helpers/mock-websocket";
 import type { UIMessageFromAISDKv6 } from "@/lib/utils";
 
-/**
- * MSW server for WebSocket mocking
- */
-const server = setupServer();
-
-beforeAll(() => {
-  server.listen({
-    onUnhandledRequest(request) {
-      // Ignore WebSocket upgrade requests
-      if (request.url.includes("/live")) {
-        return;
-      }
-      console.error("Unhandled request:", request.method, request.url);
-    },
-  });
-});
-
-afterEach(() => {
-  server.resetHandlers();
-});
-
-afterAll(() => {
-  server.close();
-});
-
 describe("BIDI EventReceiver - E2E Tests", () => {
+  const { setDefaultHandler } = useMockWebSocket();
   describe("Audio Chunk Handling", () => {
     it("should handle PCM audio chunks and buffer them", async () => {
-      // Given: MSW handler sends audio chunks
-      const chat = createBidiWebSocketLink();
+      // Given: Custom Mock handler sends audio chunks
       const audioChunks: string[] = [];
       let _audioResetCalled = false;
 
@@ -71,37 +42,34 @@ describe("BIDI EventReceiver - E2E Tests", () => {
         error: null,
       };
 
-      server.use(
-        createCustomHandler(chat, ({ server: _server, client }) => {
-          client.addEventListener("message", () => {
-            // Send PCM audio chunks using data-pcm format (BIDI protocol)
-            const pcmData1 = Buffer.from([0, 1, 2, 3]).toString("base64");
-            client.send(
-              `data: ${JSON.stringify({
-                type: "data-pcm",
-                data: {
-                  content: pcmData1,
-                },
-              })}\n\n`,
-            );
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((data) => {
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.type === "ping") return;
+          } catch {
+            // Not JSON
+          }
 
-            const pcmData2 = Buffer.from([4, 5, 6, 7]).toString("base64");
-            client.send(
-              `data: ${JSON.stringify({
-                type: "data-pcm",
-                data: {
-                  content: pcmData2,
-                },
-              })}\n\n`,
-            );
-
-            // Send [DONE] after delay to ensure all messages are processed
-            setTimeout(() => {
-              client.send("data: [DONE]\n\n");
-            }, 100);
+          // Send PCM audio chunks using data-pcm format (BIDI protocol)
+          const pcmData1 = Buffer.from([0, 1, 2, 3]).toString("base64");
+          ws.simulateServerMessage({
+            type: "data-pcm",
+            data: { content: pcmData1 },
           });
-        }),
-      );
+
+          const pcmData2 = Buffer.from([4, 5, 6, 7]).toString("base64");
+          ws.simulateServerMessage({
+            type: "data-pcm",
+            data: { content: pcmData2 },
+          });
+
+          // Send [DONE] after delay to ensure all messages are processed
+          setTimeout(() => {
+            ws.simulateDone();
+          }, 100);
+        });
+      });
 
       const { useChatOptions } = buildUseChatOptions({
         mode: "adk-bidi",
@@ -130,7 +98,6 @@ describe("BIDI EventReceiver - E2E Tests", () => {
 
     it("should reset audio buffer on new stream", async () => {
       // Given: Audio context with reset tracking
-      const chat = createBidiWebSocketLink();
       let resetCount = 0;
 
       const mockAudioContext = {
@@ -146,24 +113,18 @@ describe("BIDI EventReceiver - E2E Tests", () => {
         error: null,
       };
 
-      server.use(
-        createCustomHandler(chat, ({ server: _server, client }) => {
-          client.addEventListener("message", () => {
-            // Send minimal response
-            const textId = `text-${Date.now()}`;
-            client.send(
-              `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
-            );
-            client.send(
-              `data: ${JSON.stringify({ type: "text-delta", delta: "OK", id: textId })}\n\n`,
-            );
-            client.send(
-              `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
-            );
-            client.send("data: [DONE]\n\n");
-          });
-        }),
-      );
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((data) => {
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.type === "ping") return;
+          } catch {
+            // Not JSON
+          }
+          // Send minimal response
+          ws.sendTextResponse(`text-${Date.now()}`, "OK");
+        });
+      });
 
       const { useChatOptions } = buildUseChatOptions({
         mode: "adk-bidi",
@@ -198,47 +159,41 @@ describe("BIDI EventReceiver - E2E Tests", () => {
 
   describe("Custom Event Handling", () => {
     it("should handle pong events and calculate latency", async () => {
-      // Given: MSW handler sends pong
-      const chat = createBidiWebSocketLink();
+      // Given: Custom Mock handler sends pong
       const latencies: number[] = [];
 
       const mockLatencyCallback = (latency: number) => {
         latencies.push(latency);
       };
 
-      server.use(
-        createCustomHandler(chat, ({ server: _server, client }) => {
-          client.addEventListener("message", (event) => {
-            const data = JSON.parse(event.data as string);
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((data) => {
+          const parsed = JSON.parse(data);
 
-            // Respond to ping with pong
-            if (data.type === "ping") {
-              const pongMessage = JSON.stringify({
+          // Respond to ping with pong
+          if (parsed.type === "ping") {
+            ws.simulateRawMessage(
+              JSON.stringify({
                 type: "pong",
-                timestamp: data.timestamp,
-              });
-              client.send(pongMessage);
-            }
+                timestamp: parsed.timestamp,
+              }),
+            );
+          }
 
-            // Also send normal text response
+          // Also send normal text response for non-ping messages
+          if (parsed.type !== "ping") {
             const textId = `text-${Date.now()}`;
-            client.send(
-              `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
-            );
-            client.send(
-              `data: ${JSON.stringify({ type: "text-delta", delta: "Pong!", id: textId })}\n\n`,
-            );
-            client.send(
-              `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
-            );
+            ws.sendTextStart(textId);
+            ws.sendTextDelta(textId, "Pong!");
+            ws.sendTextEnd(textId);
 
             // Send [DONE] after delay to ensure all messages are processed
             setTimeout(() => {
-              client.send("data: [DONE]\n\n");
+              ws.simulateDone();
             }, 100);
-          });
-        }),
-      );
+          }
+        });
+      });
 
       const { useChatOptions } = buildUseChatOptions({
         mode: "adk-bidi",
@@ -271,34 +226,31 @@ describe("BIDI EventReceiver - E2E Tests", () => {
 
   describe("Error Resilience", () => {
     it("should handle malformed SSE chunks gracefully", async () => {
-      // Given: MSW handler sends malformed data
-      const chat = createBidiWebSocketLink();
+      // Given: Custom Mock handler sends malformed data
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((data) => {
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.type === "ping") return;
+          } catch {
+            // Not JSON
+          }
 
-      server.use(
-        createCustomHandler(chat, ({ server: _server, client }) => {
-          client.addEventListener("message", () => {
-            // Send malformed SSE (invalid JSON)
-            client.send("data: {invalid json}\n\n");
+          // Send malformed SSE (invalid JSON)
+          ws.simulateRawMessage("data: {invalid json}\n\n");
 
-            // But still send valid response after
-            const textId = `text-${Date.now()}`;
-            client.send(
-              `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
-            );
-            client.send(
-              `data: ${JSON.stringify({ type: "text-delta", delta: "Recovered", id: textId })}\n\n`,
-            );
-            client.send(
-              `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
-            );
+          // But still send valid response after
+          const textId = `text-${Date.now()}`;
+          ws.sendTextStart(textId);
+          ws.sendTextDelta(textId, "Recovered");
+          ws.sendTextEnd(textId);
 
-            // Send [DONE] after delay to ensure all messages are processed
-            setTimeout(() => {
-              client.send("data: [DONE]\n\n");
-            }, 100);
-          });
-        }),
-      );
+          // Send [DONE] after delay to ensure all messages are processed
+          setTimeout(() => {
+            ws.simulateDone();
+          }, 100);
+        });
+      });
 
       const { useChatOptions } = buildUseChatOptions({
         mode: "adk-bidi",
@@ -326,8 +278,7 @@ describe("BIDI EventReceiver - E2E Tests", () => {
     });
 
     it("should handle non-SSE messages with warning", async () => {
-      // Given: MSW handler sends non-SSE formatted message
-      const chat = createBidiWebSocketLink();
+      // Given: Custom Mock handler sends non-SSE formatted message
       const consoleLogs: string[] = [];
       const originalWarn = console.warn;
       console.warn = (...args: any[]) => {
@@ -335,31 +286,22 @@ describe("BIDI EventReceiver - E2E Tests", () => {
         originalWarn(...args);
       };
 
-      server.use(
-        createCustomHandler(chat, ({ server: _server, client }) => {
-          client.addEventListener("message", () => {
-            // Send non-SSE message (should trigger warning)
-            client.send("Not an SSE message");
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((data) => {
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.type === "ping") return;
+          } catch {
+            // Not JSON
+          }
 
-            // Then send valid SSE
-            const textId = `text-${Date.now()}`;
-            client.send(
-              `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
-            );
-            client.send(
-              `data: ${JSON.stringify({ type: "text-delta", delta: "Valid", id: textId })}\n\n`,
-            );
-            client.send(
-              `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
-            );
+          // Send non-SSE message (should trigger warning)
+          ws.simulateRawMessage("Not an SSE message");
 
-            // Send [DONE] after delay to ensure all messages are processed
-            setTimeout(() => {
-              client.send("data: [DONE]\n\n");
-            }, 100);
-          });
-        }),
-      );
+          // Then send valid SSE
+          ws.sendTextResponse(`text-${Date.now()}`, "Valid");
+        });
+      });
 
       const { useChatOptions } = buildUseChatOptions({
         mode: "adk-bidi",
@@ -398,30 +340,27 @@ describe("BIDI EventReceiver - E2E Tests", () => {
 
   describe("State Management", () => {
     it("should handle multiple consecutive streams", async () => {
-      // Given: MSW handler for multiple messages
-      const chat = createBidiWebSocketLink();
+      // Given: Custom Mock handler for multiple messages
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((data) => {
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.type === "ping") return;
+          } catch {
+            // Not JSON
+          }
 
-      server.use(
-        createCustomHandler(chat, ({ server: _server, client }) => {
-          client.addEventListener("message", () => {
-            const textId = `text-${Date.now()}`;
-            client.send(
-              `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
-            );
-            client.send(
-              `data: ${JSON.stringify({ type: "text-delta", delta: "Response", id: textId })}\n\n`,
-            );
-            client.send(
-              `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
-            );
+          const textId = `text-${Date.now()}`;
+          ws.sendTextStart(textId);
+          ws.sendTextDelta(textId, "Response");
+          ws.sendTextEnd(textId);
 
-            // Send [DONE] after delay to ensure all messages are processed
-            setTimeout(() => {
-              client.send("data: [DONE]\n\n");
-            }, 100);
-          });
-        }),
-      );
+          // Send [DONE] after delay to ensure all messages are processed
+          setTimeout(() => {
+            ws.simulateDone();
+          }, 100);
+        });
+      });
 
       const { useChatOptions } = buildUseChatOptions({
         mode: "adk-bidi",

@@ -15,32 +15,40 @@
   },
   "output": {
     "rawEvents": [
-      "data: {\"type\": \"start\", \"messageId\": \"6fd3f4ad-8629-4f47-afe9-e73d94bb374f\"}\n\n",
+      "data: {\"type\": \"start\", \"messageId\": \"912f3bc7-d98d-4d65-93f0-ec360b307e62\"}\n\n",
       "data: {\"type\": \"reasoning-start\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Generating Payment Calls**\\n\\nI am now generating the calls to the `process_payment` tool. I will send 30 units to Alice, and 40 units to Bob. The currency will default to USD. This can be done by invoking the tool twice, with a distinct recipient and amount each time.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"0\", \"delta\": \"**Planning Payment Execution**\\n\\nI've determined I need to make two separate calls to `process_payment`, one for Alice and another for Bob, each in USD. Amounts are $30 and $40, respectively. I'm focusing on the logic to execute these calls with the correct parameters, including the currency, even though it appears the tool doesn't explicitly handle user approval as described.\\n\\n\\n\"}\n\n",
       "data: {\"type\": \"reasoning-end\", \"id\": \"0\"}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-2632961205098641716\", \"toolName\": \"process_payment\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-2632961205098641716\", \"toolName\": \"process_payment\", \"input\": {\"amount\": 30, \"recipient\": \"Alice\"}}\n\n",
+      "data: {\"type\": \"reasoning-start\", \"id\": \"1\"}\n\n",
+      "data: {\"type\": \"reasoning-delta\", \"id\": \"1\", \"delta\": \"**Defining Tool Calls**\\n\\nI'm now generating the calls to the `process_payment` tool. I will send USD $30 to Alice and USD $40 to Bob. I'm accounting for the implicit USD currency from the user's input, even though they used \\\"\\u30c9\\u30eb\\\" in their example. The tool call requires the recipient, amount, and currency, with USD as the default if omitted.\\n\\n\\n\"}\n\n",
+      "data: {\"type\": \"reasoning-end\", \"id\": \"1\"}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-10979510385734015976\", \"toolName\": \"process_payment\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-10979510385734015976\", \"toolName\": \"process_payment\", \"input\": {\"currency\": \"USD\", \"recipient\": \"Alice\", \"amount\": 30}}\n\n",
       "data: {\"type\":\"start-step\"}\n\n",
-      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-2632961205098641716\", \"approvalId\": \"adk-e961dca3-5362-4a62-9bc4-16afb4f8974a\"}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-10979510385734015976\", \"approvalId\": \"confirm-f59e14e7-2fcf-4798-9fc9-bcc89b9df645\"}\n\n",
       "data: {\"type\":\"finish-step\"}\n\n",
-      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"function-call-2632961205098641716\", \"output\": {\"success\": true, \"transaction_id\": \"txn_24242764c950\", \"amount\": 30, \"currency\": \"USD\", \"recipient\": \"Alice\", \"description\": \"\", \"wallet_balance\": 970.0, \"timestamp\": \"2025-12-31T08:03:17.870654+00:00\"}}\n\n",
-      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-16988054424336502953\", \"toolName\": \"process_payment\"}\n\n",
-      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-16988054424336502953\", \"toolName\": \"process_payment\", \"input\": {\"recipient\": \"Bob\", \"amount\": 40}}\n\n",
+      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"function-call-10979510385734015976\", \"output\": {\"success\": true, \"transaction_id\": \"txn_acf8ea3585c7\", \"amount\": 30, \"currency\": \"USD\", \"recipient\": \"Alice\", \"description\": \"\", \"wallet_balance\": 970.0, \"timestamp\": \"2026-01-17T14:42:52.065447+00:00\"}}\n\n",
+      "data: {\"type\": \"tool-input-start\", \"toolCallId\": \"function-call-15109892570096751916\", \"toolName\": \"process_payment\"}\n\n",
+      "data: {\"type\": \"tool-input-available\", \"toolCallId\": \"function-call-15109892570096751916\", \"toolName\": \"process_payment\", \"input\": {\"currency\": \"USD\", \"recipient\": \"Bob\", \"amount\": 40}}\n\n",
       "data: {\"type\":\"start-step\"}\n\n",
-      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-16988054424336502953\", \"approvalId\": \"adk-25f12911-ed3d-4dca-9a8c-d4f49f5f525f\"}\n\n",
+      "data: {\"type\": \"tool-approval-request\", \"toolCallId\": \"function-call-15109892570096751916\", \"approvalId\": \"confirm-e5f05de4-5a16-44dd-ab4f-0deee4ce267c\"}\n\n",
       "data: {\"type\":\"finish-step\"}\n\n",
-      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"function-call-16988054424336502953\", \"output\": {\"success\": true, \"transaction_id\": \"txn_ddc19941b8fa\", \"amount\": 40, \"currency\": \"USD\", \"recipient\": \"Bob\", \"description\": \"\", \"wallet_balance\": 960.0, \"timestamp\": \"2025-12-31T08:03:18.279434+00:00\"}}\n\n",
-      "data: {\"type\": \"text-start\", \"id\": \"6fd3f4ad-8629-4f47-afe9-e73d94bb374f_output_text\"}\n\n",
-      "data: {\"type\": \"text-delta\", \"id\": \"6fd3f4ad-8629-4f47-afe9-e73d94bb374f_output_text\", \"delta\": \"Alice\\u306b30\\u30c9\\u30eb\\u3001Bob\\u306b40\\u30c9\\u30eb\\u306e\\u9001\\u91d1\\u51e6\\u7406\\u304c\\u5b8c\\u4e86\\u3057\\u307e\\u3057\\u305f\\u3002\"}\n\n",
-      "data: {\"type\": \"text-end\", \"id\": \"6fd3f4ad-8629-4f47-afe9-e73d94bb374f_output_text\"}\n\n",
-      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1712, \"completionTokens\": null, \"totalTokens\": 1806}, \"audio\": {\"chunks\": 68, \"bytes\": 174720, \"sampleRate\": 24000, \"duration\": 3.64}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
+      "data: {\"type\": \"tool-output-available\", \"toolCallId\": \"function-call-15109892570096751916\", \"output\": {\"success\": true, \"transaction_id\": \"txn_2a64f1436c7b\", \"amount\": 40, \"currency\": \"USD\", \"recipient\": \"Bob\", \"description\": \"\", \"wallet_balance\": 960.0, \"timestamp\": \"2026-01-17T14:42:52.364197+00:00\"}}\n\n",
+      "data: {\"type\": \"text-start\", \"id\": \"912f3bc7-d98d-4d65-93f0-ec360b307e62_output_text\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"912f3bc7-d98d-4d65-93f0-ec360b307e62_output_text\", \"delta\": \"Alice\\u306b30\\u30c9\\u30eb\\u3001\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"912f3bc7-d98d-4d65-93f0-ec360b307e62_output_text\", \"delta\": \" Bob\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"912f3bc7-d98d-4d65-93f0-ec360b307e62_output_text\", \"delta\": \"\\u306b40\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"912f3bc7-d98d-4d65-93f0-ec360b307e62_output_text\", \"delta\": \"\\u30c9\\u30eb\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"912f3bc7-d98d-4d65-93f0-ec360b307e62_output_text\", \"delta\": \"\\u9001\\u91d1\"}\n\n",
+      "data: {\"type\": \"text-delta\", \"id\": \"912f3bc7-d98d-4d65-93f0-ec360b307e62_output_text\", \"delta\": \"\\u3057\\u307e\\u3057\\u305f\\u3002\"}\n\n",
+      "data: {\"type\": \"text-end\", \"id\": \"912f3bc7-d98d-4d65-93f0-ec360b307e62_output_text\"}\n\n",
+      "data: {\"type\": \"finish\", \"finishReason\": \"stop\", \"messageMetadata\": {\"usage\": {\"promptTokens\": 1838, \"completionTokens\": null, \"totalTokens\": 1911}, \"audio\": {\"chunks\": 46, \"bytes\": 132480, \"sampleRate\": 24000, \"duration\": 2.76}, \"modelVersion\": \"gemini-2.5-flash-native-audio-preview-12-2025\"}}\n\n",
       "data: [DONE]\n\n"
     ],
     "expectedChunks": [
       {
         "type": "start",
-        "messageId": "6fd3f4ad-8629-4f47-afe9-e73d94bb374f"
+        "messageId": "912f3bc7-d98d-4d65-93f0-ec360b307e62"
       },
       {
         "type": "reasoning-start",
@@ -49,24 +57,38 @@
       {
         "type": "reasoning-delta",
         "id": "0",
-        "delta": "**Generating Payment Calls**\n\nI am now generating the calls to the `process_payment` tool. I will send 30 units to Alice, and 40 units to Bob. The currency will default to USD. This can be done by invoking the tool twice, with a distinct recipient and amount each time.\n\n\n"
+        "delta": "**Planning Payment Execution**\n\nI've determined I need to make two separate calls to `process_payment`, one for Alice and another for Bob, each in USD. Amounts are $30 and $40, respectively. I'm focusing on the logic to execute these calls with the correct parameters, including the currency, even though it appears the tool doesn't explicitly handle user approval as described.\n\n\n"
       },
       {
         "type": "reasoning-end",
         "id": "0"
       },
       {
+        "type": "reasoning-start",
+        "id": "1"
+      },
+      {
+        "type": "reasoning-delta",
+        "id": "1",
+        "delta": "**Defining Tool Calls**\n\nI'm now generating the calls to the `process_payment` tool. I will send USD $30 to Alice and USD $40 to Bob. I'm accounting for the implicit USD currency from the user's input, even though they used \"ドル\" in their example. The tool call requires the recipient, amount, and currency, with USD as the default if omitted.\n\n\n"
+      },
+      {
+        "type": "reasoning-end",
+        "id": "1"
+      },
+      {
         "type": "tool-input-start",
-        "toolCallId": "function-call-2632961205098641716",
+        "toolCallId": "function-call-10979510385734015976",
         "toolName": "process_payment"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "function-call-2632961205098641716",
+        "toolCallId": "function-call-10979510385734015976",
         "toolName": "process_payment",
         "input": {
-          "amount": 30,
-          "recipient": "Alice"
+          "currency": "USD",
+          "recipient": "Alice",
+          "amount": 30
         }
       },
       {
@@ -74,36 +96,37 @@
       },
       {
         "type": "tool-approval-request",
-        "toolCallId": "function-call-2632961205098641716",
-        "approvalId": "adk-e961dca3-5362-4a62-9bc4-16afb4f8974a"
+        "toolCallId": "function-call-10979510385734015976",
+        "approvalId": "confirm-f59e14e7-2fcf-4798-9fc9-bcc89b9df645"
       },
       {
         "type": "finish-step"
       },
       {
         "type": "tool-output-available",
-        "toolCallId": "function-call-2632961205098641716",
+        "toolCallId": "function-call-10979510385734015976",
         "output": {
           "success": true,
-          "transaction_id": "txn_24242764c950",
+          "transaction_id": "txn_acf8ea3585c7",
           "amount": 30,
           "currency": "USD",
           "recipient": "Alice",
           "description": "",
           "wallet_balance": 970.0,
-          "timestamp": "2025-12-31T08:03:17.870654+00:00"
+          "timestamp": "2026-01-17T14:42:52.065447+00:00"
         }
       },
       {
         "type": "tool-input-start",
-        "toolCallId": "function-call-16988054424336502953",
+        "toolCallId": "function-call-15109892570096751916",
         "toolName": "process_payment"
       },
       {
         "type": "tool-input-available",
-        "toolCallId": "function-call-16988054424336502953",
+        "toolCallId": "function-call-15109892570096751916",
         "toolName": "process_payment",
         "input": {
+          "currency": "USD",
           "recipient": "Bob",
           "amount": 40
         }
@@ -113,53 +136,78 @@
       },
       {
         "type": "tool-approval-request",
-        "toolCallId": "function-call-16988054424336502953",
-        "approvalId": "adk-25f12911-ed3d-4dca-9a8c-d4f49f5f525f"
+        "toolCallId": "function-call-15109892570096751916",
+        "approvalId": "confirm-e5f05de4-5a16-44dd-ab4f-0deee4ce267c"
       },
       {
         "type": "finish-step"
       },
       {
         "type": "tool-output-available",
-        "toolCallId": "function-call-16988054424336502953",
+        "toolCallId": "function-call-15109892570096751916",
         "output": {
           "success": true,
-          "transaction_id": "txn_ddc19941b8fa",
+          "transaction_id": "txn_2a64f1436c7b",
           "amount": 40,
           "currency": "USD",
           "recipient": "Bob",
           "description": "",
           "wallet_balance": 960.0,
-          "timestamp": "2025-12-31T08:03:18.279434+00:00"
+          "timestamp": "2026-01-17T14:42:52.364197+00:00"
         }
       },
       {
         "type": "text-start",
-        "id": "6fd3f4ad-8629-4f47-afe9-e73d94bb374f_output_text"
+        "id": "912f3bc7-d98d-4d65-93f0-ec360b307e62_output_text"
       },
       {
         "type": "text-delta",
-        "id": "6fd3f4ad-8629-4f47-afe9-e73d94bb374f_output_text",
-        "delta": "Aliceに30ドル、Bobに40ドルの送金処理が完了しました。"
+        "id": "912f3bc7-d98d-4d65-93f0-ec360b307e62_output_text",
+        "delta": "Aliceに30ドル、"
+      },
+      {
+        "type": "text-delta",
+        "id": "912f3bc7-d98d-4d65-93f0-ec360b307e62_output_text",
+        "delta": " Bob"
+      },
+      {
+        "type": "text-delta",
+        "id": "912f3bc7-d98d-4d65-93f0-ec360b307e62_output_text",
+        "delta": "に40"
+      },
+      {
+        "type": "text-delta",
+        "id": "912f3bc7-d98d-4d65-93f0-ec360b307e62_output_text",
+        "delta": "ドル"
+      },
+      {
+        "type": "text-delta",
+        "id": "912f3bc7-d98d-4d65-93f0-ec360b307e62_output_text",
+        "delta": "送金"
+      },
+      {
+        "type": "text-delta",
+        "id": "912f3bc7-d98d-4d65-93f0-ec360b307e62_output_text",
+        "delta": "しました。"
       },
       {
         "type": "text-end",
-        "id": "6fd3f4ad-8629-4f47-afe9-e73d94bb374f_output_text"
+        "id": "912f3bc7-d98d-4d65-93f0-ec360b307e62_output_text"
       },
       {
         "type": "finish",
         "finishReason": "stop",
         "messageMetadata": {
           "usage": {
-            "promptTokens": 1712,
+            "promptTokens": 1838,
             "completionTokens": null,
-            "totalTokens": 1806
+            "totalTokens": 1911
           },
           "audio": {
-            "chunks": 68,
-            "bytes": 174720,
+            "chunks": 46,
+            "bytes": 132480,
             "sampleRate": 24000,
-            "duration": 3.64
+            "duration": 2.76
           },
           "modelVersion": "gemini-2.5-flash-native-audio-preview-12-2025"
         }

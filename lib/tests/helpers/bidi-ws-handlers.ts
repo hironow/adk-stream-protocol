@@ -14,6 +14,12 @@ import { ws } from "msw";
 export const DEFAULT_BIDI_WS_URL = "ws://localhost:8000/live";
 
 /**
+ * Track active WebSocket clients for cleanup
+ * This is necessary because MSW's server.close() doesn't close WebSocket connections
+ */
+const activeClients: Set<WebSocket> = new Set();
+
+/**
  * Create WebSocket link for BIDI tests
  *
  * @param url - WebSocket URL to intercept (defaults to DEFAULT_BIDI_WS_URL)
@@ -28,6 +34,43 @@ export const DEFAULT_BIDI_WS_URL = "ws://localhost:8000/live";
  */
 export function createBidiWebSocketLink(url: string = DEFAULT_BIDI_WS_URL) {
   return ws.link(url);
+}
+
+/**
+ * Close all active WebSocket clients and clear tracking
+ *
+ * IMPORTANT: This must be called in afterAll() to prevent
+ * "Worker exited unexpectedly" errors caused by unclosed WebSocket connections.
+ * MSW's server.close() does NOT close WebSocket connections automatically.
+ */
+export function clearBidiWebSocketLinks() {
+  for (const client of activeClients) {
+    try {
+      if (
+        client.readyState === WebSocket.OPEN ||
+        client.readyState === WebSocket.CONNECTING
+      ) {
+        client.close();
+      }
+    } catch {
+      // Ignore errors during cleanup
+    }
+  }
+  activeClients.clear();
+}
+
+/**
+ * Track a WebSocket client for cleanup
+ *
+ * Call this at the start of every WebSocket connection handler.
+ * @param client - The WebSocket client to track
+ */
+export function trackClient(client: WebSocket): void {
+  activeClients.add(client);
+  // Auto-remove when closed
+  client.addEventListener("close", () => {
+    activeClients.delete(client);
+  });
 }
 
 /**
@@ -56,12 +99,26 @@ export function createTextResponseHandler(
       textParts,
     );
 
+    // Track client for cleanup
+    trackClient(client);
+
     // Establish mock server connection
     server.connect();
 
     // Listen for client messages
     client.addEventListener("message", (event) => {
       console.log("[MSW WebSocket] Received client message:", event.data);
+
+      // Skip ping messages
+      try {
+        const data = JSON.parse(event.data as string);
+        if (data.type === "ping") {
+          console.log("[MSW WebSocket] Skipping ping message");
+          return;
+        }
+      } catch {
+        // Not JSON, continue processing
+      }
 
       // AI SDK v6 expects: text-start, text-delta(s), text-end sequence
       const textId = `text-${Date.now()}`;
@@ -138,6 +195,9 @@ export function createConfirmationRequestHandler(
   approvalId: string = "approval-1",
 ) {
   return chat.addEventListener("connection", ({ server, client }) => {
+    // Track client for cleanup
+    trackClient(client);
+
     // Establish mock server connection
     server.connect();
 
@@ -217,8 +277,10 @@ export function createConfirmationRequestHandler(
 
         // Check if approval was granted or denied
         const approvalPart = data.messages
+          // biome-ignore lint/suspicious/noExplicitAny: Test helper - message structure varies
           ?.flatMap((msg: any) => msg.parts || [])
           .find(
+            // biome-ignore lint/suspicious/noExplicitAny: Test helper - part structure varies
             (part: any) =>
               part.toolCallId === originalFunctionCall.id && part.approval,
           );
@@ -282,6 +344,9 @@ export function createEchoHandler(
   responsePrefix: string = "",
 ) {
   return chat.addEventListener("connection", ({ server, client }) => {
+    // Track client for cleanup
+    trackClient(client);
+
     // Establish mock server connection
     server.connect();
 
@@ -334,6 +399,9 @@ export function createCustomHandler(
   handler: (connection: { client: WebSocket; server: WebSocket }) => void,
 ) {
   return chat.addEventListener("connection", ({ server, client }) => {
+    // Track client for cleanup
+    trackClient(client);
+
     // Establish mock server connection
     server.connect();
 

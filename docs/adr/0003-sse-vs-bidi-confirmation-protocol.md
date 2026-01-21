@@ -192,7 +192,7 @@ const message: UIMessage = {
 
 **Implementation**:
 
-- SSE: `services/sse_event_streamer.py:_handle_confirmation_if_needed()` (pass-through)
+- SSE: `adk_stream_protocol/transport/sse_event_streamer.py:_handle_confirmation_if_needed()` (pass-through)
 - BIDI: `lib/confirmation-handler.ts` (user message construction)
 - Frontend: `components/tool-invocation.tsx` (mode-aware handling)
 

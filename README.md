@@ -14,11 +14,13 @@ This project is under **active development** and contains experimental features 
 
 - Gemini Direct mode (AI SDK v6 only)
 - ADK SSE streaming with tool calling
+- ADK BIDI Blocking Mode for tool approval (ADR-0009, ADR-0011)
+- ADK Mode History Sharing (chat history preserved across ADK SSE ↔ BIDI transitions)
 - Complete E2E test infrastructure (Frontend, Backend, Playwright)
 
 **🚧 Experimental Features**
 
-- ADK BIDI (WebSocket) streaming - See known issues below
+- ADK BIDI (WebSocket) native tool confirmation - See known issues below
 
 ### Known Issues
 
@@ -26,11 +28,11 @@ This project is under **active development** and contains experimental features 
 
 BIDI mode (`run_live()`) has two significant issues:
 
-1. **Tool Confirmation Not Working** 🔴
-   - Tools with `require_confirmation=True` do not trigger approval UI
+1. **Tool Confirmation Not Working (Native ADK)** 🟡
+   - ADK's native `require_confirmation=True` does not trigger approval UI in live mode
    - Root cause: ADK `FunctionTool._call_live()` TODO - "tool confirmation not yet supported for live mode"
    - Status: Known ADK limitation, awaiting upstream fix
-   - Workaround: Use SSE mode for tools requiring confirmation
+   - Workaround: Use **BIDI Blocking Mode** (ADR-0009, ADR-0011) or SSE mode for tools requiring confirmation
 
 2. **Missing Text Responses After Tool Execution** 🟡
    - Tools execute successfully but AI generates no explanatory text
@@ -40,6 +42,8 @@ BIDI mode (`run_live()`) has two significant issues:
 
 **Recent Fixes**
 
+- ✅ ADK Mode History Sharing - chat history preserved across ADK SSE ↔ BIDI transitions (2026-01-18)
+- ✅ BIDI Confirmation ID routing bug fixed (2025-12-19)
 - ✅ Fixed infinite loop in tool confirmation auto-send logic (2025-12-17)
 
 ---
@@ -55,7 +59,7 @@ This project demonstrates the integration between:
 
 1. **Gemini Direct** - Direct Gemini API via AI SDK (stable)
 2. **ADK SSE** - ADK backend with Server-Sent Events (stable)
-3. **ADK BIDI** ⚡ - ADK backend with WebSocket bidirectional streaming (experimental)
+3. **ADK BIDI** ⚡ - ADK backend with WebSocket bidirectional streaming (stable for Blocking Mode, experimental for native confirmation)
 
 **Key Insight:** All three modes use the same **AI SDK v6 Data Stream Protocol** format, ensuring consistent frontend behavior regardless of backend implementation.
 
@@ -106,7 +110,7 @@ This project demonstrates the integration between:
 
 **Development Tools:**
 
-- pnpm (Node.js packages)
+- bun (Node.js packages)
 - uv (Python packages)
 - just (task automation)
 
@@ -118,7 +122,7 @@ This project demonstrates the integration between:
 
 - Python 3.13+
 - Node.js 18+
-- pnpm, uv, just
+- bun, uv, just
 
 ### Installation
 
@@ -128,7 +132,7 @@ just install
 
 # Or manually:
 uv sync
-pnpm install
+bun install
 ```
 
 ### Environment Setup
@@ -164,7 +168,7 @@ NEXT_PUBLIC_ADK_BACKEND_URL=http://localhost:8000
 **Gemini Direct (frontend only):**
 
 ```bash
-pnpm dev
+bun dev
 ```
 
 **ADK SSE/BIDI (backend + frontend):**
@@ -175,7 +179,7 @@ just dev
 
 # Or separately:
 just server  # Backend on :8000
-pnpm dev     # Frontend on :3000
+bun dev     # Frontend on :3000
 ```
 
 For all available commands:
@@ -198,7 +202,7 @@ just test-python
 **TypeScript Frontend Tests:**
 
 ```bash
-pnpm test:lib
+bun test:lib
 # Expected: ~565 passed (unit + integration + e2e)
 ```
 
@@ -271,8 +275,9 @@ Complete documentation is available in the `docs/` directory:
 - **[ADR-0006](docs/adr/0006-send-automatically-when-decision-logic-order.md)** - sendAutomaticallyWhen Decision Logic Order
 - **[ADR-0007](docs/adr/0007-approval-value-independence-in-auto-submit.md)** - Approval Value Independence
 - **[ADR-0008](docs/adr/0008-sse-mode-pattern-a-only-for-frontend-tools.md)** - SSE Mode Pattern A Only
-- **[ADR-0009](docs/adr/0009-phase12-blocking-mode-for-approval.md)** - Phase 12 Blocking Mode
+- **[ADR-0009](docs/adr/0009-bidi-blocking-mode-for-approval.md)** - BIDI Blocking Mode
 - **[ADR-0010](docs/adr/0010-bidi-confirmation-chunk-generation.md)** - BIDI Confirmation Chunk Generation
+- **[ADR-0011](docs/adr/0011-bidi-approval-deadlock-finish-step-injection.md)** - BIDI Approval Deadlock Fix (finish-step Injection)
 
 ### Additional Resources
 
@@ -308,4 +313,4 @@ MIT License. See LICENSE file for details.
 
 ---
 
-**Last Updated:** 2025-12-29
+**Last Updated:** 2026-01-18

@@ -159,12 +159,12 @@ For tool approval flow, this creates two distinct steps:
 
 ### Implementation Strategy
 
-**Location:** `adk_stream_protocol/bidi_event_sender.py` - `_handle_confirmation_if_needed()` method
+**Location:** `adk_stream_protocol/transport/bidi_event_sender.py` - `_handle_confirmation_if_needed()` method
 
 **Change:** Wrap `tool-approval-request` with `start-step` and `finish-step` events:
 
 ```python
-# adk_stream_protocol/bidi_event_sender.py (line 309-351)
+# adk_stream_protocol/transport/bidi_event_sender.py (line 309-351)
 
 # 1. Send original tool-input-available
 await self._send_sse_event(sse_event)
@@ -172,7 +172,7 @@ await self._send_sse_event(sse_event)
 # 2. NEW: Inject start-step to begin approval step
 start_step_sse = "data: {\"type\":\"start-step\"}\n\n"
 await self._ws.send_text(start_step_sse)
-logger.info("[BIDI Phase 5] ✓ Sent start-step before tool-approval-request")
+logger.info("[BIDI Legacy] ✓ Sent start-step before tool-approval-request")
 
 # 3. Inject tool-approval-request (existing code)
 approval_request_sse = StreamProtocolConverter.format_tool_approval_request(
@@ -180,12 +180,12 @@ approval_request_sse = StreamProtocolConverter.format_tool_approval_request(
     approval_id=confirmation_id,
 )
 await self._ws.send_text(approval_request_sse)
-logger.info("[BIDI Phase 5] ✓ Sent tool-approval-request")
+logger.info("[BIDI Legacy] ✓ Sent tool-approval-request")
 
 # 4. NEW: Inject finish-step to complete approval step
 finish_step_sse = "data: {\"type\":\"finish-step\"}\n\n"
 await self._ws.send_text(finish_step_sse)
-logger.info("[BIDI Phase 5] ✓ Sent finish-step after tool-approval-request")
+logger.info("[BIDI Legacy] ✓ Sent finish-step after tool-approval-request")
 
 # 5. Save confirmation mapping (existing code)
 ...
@@ -308,7 +308,7 @@ if (
 ### Files to Modify
 
 1. **Backend:**
-   - `adk_stream_protocol/bidi_event_sender.py:309-351` - Inject finish-step
+   - `adk_stream_protocol/transport/bidi_event_sender.py:309-351` - Inject finish-step
 
 2. **Frontend:**
    - `lib/bidi/event_receiver.ts:210-253` - Wait for finish-step

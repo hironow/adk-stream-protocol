@@ -245,5 +245,3 @@ Unique identifier for each turn in the conversation.
 - Included in `start` event: `{"type": "start", "messageId": "..."}`
 
 ---
-
-**Note:** This glossary is a living document. Update it when introducing new concepts or refining existing definitions.

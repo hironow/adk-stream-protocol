@@ -21,10 +21,7 @@ import type {
   UIMessageChunkFromAISDKv6,
   UIMessageFromAISDKv6,
 } from "../../utils";
-import { createTextResponse, setupMswServer } from "../helpers";
-
-// Create MSW server with standard lifecycle
-const server = setupMswServer();
+import { createTextResponse, useMswServer } from "../helpers";
 
 /**
  * Helper to create a large conversation history
@@ -52,6 +49,8 @@ function createLargeHistory(count: number): UIMessageFromAISDKv6[] {
 }
 
 describe("Long Context Storage Integration Tests", () => {
+  const { getServer } = useMswServer();
+
   describe("Large Message Arrays", () => {
     it.each([
       {
@@ -67,12 +66,12 @@ describe("Long Context Storage Integration Tests", () => {
     ])("$mode: should handle 50 messages", async ({
       mode,
       endpoint,
-      config,
+      _config,
     }) => {
       // given
       let capturedPayload: unknown = null;
 
-      server.use(
+      getServer().use(
         http.post(endpoint, async ({ request }) => {
           capturedPayload = await request.json();
           return createTextResponse("Response to message 25");
@@ -130,12 +129,12 @@ describe("Long Context Storage Integration Tests", () => {
     ])("$mode: should handle 100 messages", async ({
       mode,
       endpoint,
-      config,
+      _config,
     }) => {
       // given
       let capturedPayload: unknown = null;
 
-      server.use(
+      getServer().use(
         http.post(endpoint, async ({ request }) => {
           capturedPayload = await request.json();
           return createTextResponse("Response to long conversation");
@@ -178,7 +177,7 @@ describe("Long Context Storage Integration Tests", () => {
       // given
       let capturedPayload: unknown = null;
 
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", async ({ request }) => {
           capturedPayload = await request.json();
           return createTextResponse("OK");
@@ -229,11 +228,11 @@ describe("Long Context Storage Integration Tests", () => {
 
     it("should maintain message IDs in large histories", async () => {
       // given
-      let capturedPayload: unknown = null;
+      let _capturedPayload: unknown = null;
 
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", async ({ request }) => {
-          capturedPayload = await request.json();
+          _capturedPayload = await request.json();
           return createTextResponse("OK");
         }),
       );
@@ -274,7 +273,7 @@ describe("Long Context Storage Integration Tests", () => {
       // given
       let capturedPayload: unknown = null;
 
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", async ({ request }) => {
           capturedPayload = await request.json();
           return createTextResponse("Received large content");
@@ -332,7 +331,7 @@ describe("Long Context Storage Integration Tests", () => {
       // given
       let capturedPayload: unknown = null;
 
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", async ({ request }) => {
           capturedPayload = await request.json();
           return createTextResponse("OK");
@@ -391,7 +390,7 @@ describe("Long Context Storage Integration Tests", () => {
   describe("Response Streaming with Large Context", () => {
     it("should correctly stream response chunks with 50+ message history", async () => {
       // given
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", async () => {
           return createTextResponse(
             "Response ",
@@ -450,7 +449,7 @@ describe("Long Context Storage Integration Tests", () => {
       let capturedPayload: unknown = null;
       const startTime = Date.now();
 
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", async ({ request }) => {
           capturedPayload = await request.json();
           return createTextResponse("OK");
@@ -495,7 +494,7 @@ describe("Long Context Storage Integration Tests", () => {
       // given
       let capturedPayload: unknown = null;
 
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", async ({ request }) => {
           capturedPayload = await request.json();
           return createTextResponse("OK");

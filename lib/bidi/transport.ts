@@ -8,7 +8,7 @@
  * ==========================================
  * Backend sends AI SDK v6 Data Stream Protocol in SSE format via WebSocket:
  *   - ADK events → SSE format (stream_protocol.py)
- *   - SSE format → WebSocket messages (server.py /live endpoint)
+ *   - SSE format → WebSocket messages (/live endpoint)
  *   - WebSocket messages → SSE parsing (this class)
  *   - SSE format → UIMessageChunkFromAISDKv6 (handleWebSocketMessage)
  *   - UIMessageChunkFromAISDKv6 → useChat hook (React state)
@@ -101,6 +101,14 @@ export interface WebSocketChatTransportConfig {
  *
  * @implements {ChatTransportFromAISDKv6<UIMessageFromAISDKv6>} AI SDK v6 ChatTransportFromAISDKv6 interface
  */
+/**
+ * Backend response timeout (60 seconds)
+ * If backend doesn't send finish-step/[DONE] within this time after approval-request,
+ * the stream will error out. This prevents infinite waiting when backend crashes.
+ * See ADR 0011 gap analysis for rationale.
+ */
+const BACKEND_RESPONSE_TIMEOUT_MS = 60000;
+
 export class WebSocketChatTransport implements ChatTransportFromAISDKv6 {
   private config: WebSocketChatTransportConfig;
   private ws: WebSocket | null = null;
@@ -111,6 +119,9 @@ export class WebSocketChatTransport implements ChatTransportFromAISDKv6 {
 
   private pingInterval: NodeJS.Timeout | null = null; // Ping interval timer
   private lastPingTime: number | null = null; // Timestamp of last ping
+
+  // Backend response timeout for approval flow (ADR 0011 gap fix)
+  private approvalTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   // Controller lifecycle management
   // Tracks current ReadableStream controller to prevent orphaning on handler override
@@ -154,6 +165,10 @@ export class WebSocketChatTransport implements ChatTransportFromAISDKv6 {
           }
         : undefined,
       onPong: (timestamp: number) => this._handlePong(timestamp),
+      // ADR 0011 gap fix: Start timeout when approval-request received
+      onApprovalRequestReceived: () => this._startApprovalTimeout(),
+      // ADR 0011 gap fix: Clear timeout when finish-step/[DONE] received
+      onApprovalStreamClosed: () => this._clearApprovalTimeout(),
     });
 
     this.eventSender = new EventSender(this.ws);
@@ -227,6 +242,54 @@ export class WebSocketChatTransport implements ChatTransportFromAISDKv6 {
     if (this.lastPingTime && timestamp === this.lastPingTime) {
       const rtt = Date.now() - this.lastPingTime;
       this.config.latencyCallback?.(rtt);
+    }
+  }
+
+  /**
+   * Start timeout for backend response after approval-request
+   * ADR 0011 gap fix: Prevents infinite waiting when backend crashes
+   */
+  private _startApprovalTimeout() {
+    this._clearApprovalTimeout(); // Clear any existing timeout
+
+    this.approvalTimeoutId = setTimeout(() => {
+      console.error(
+        `[WS Transport] Backend response timeout (${BACKEND_RESPONSE_TIMEOUT_MS / 1000}s) - no finish-step/[DONE] received after approval-request`,
+      );
+
+      // Error the current controller if it exists
+      if (this.currentController) {
+        try {
+          this.currentController.error(
+            new Error(
+              `Backend response timeout: No response within ${BACKEND_RESPONSE_TIMEOUT_MS / 1000} seconds after approval-request`,
+            ),
+          );
+        } catch (err) {
+          console.debug(
+            "[WS Transport] Cannot error controller (already closed):",
+            err,
+          );
+        }
+      }
+
+      this.approvalTimeoutId = null;
+    }, BACKEND_RESPONSE_TIMEOUT_MS);
+
+    console.debug(
+      `[WS Transport] Started approval timeout (${BACKEND_RESPONSE_TIMEOUT_MS / 1000}s)`,
+    );
+  }
+
+  /**
+   * Clear the backend response timeout
+   * Called when finish-step or [DONE] is received
+   */
+  private _clearApprovalTimeout() {
+    if (this.approvalTimeoutId) {
+      clearTimeout(this.approvalTimeoutId);
+      this.approvalTimeoutId = null;
+      console.debug("[WS Transport] Cleared approval timeout");
     }
   }
 
@@ -342,7 +405,7 @@ export class WebSocketChatTransport implements ChatTransportFromAISDKv6 {
           } else {
             // Reuse existing connection
 
-            // Phase 12 BLOCKING: Check if previous stream completed with [DONE]
+            // BIDI Blocking Mode: Check if previous stream completed with [DONE]
             // If [DONE] not received, reuse controller (approval/tool-output in same stream)
             // If [DONE] received, close previous controller and create new stream
             const doneReceived = this.eventReceiver.isDoneReceived();
@@ -369,10 +432,10 @@ export class WebSocketChatTransport implements ChatTransportFromAISDKv6 {
               // Reset EventReceiver state for new stream (Session 7)
               this.eventReceiver.reset();
             } else {
-              // Phase 12 BLOCKING: Stream still active (no [DONE] yet)
+              // BIDI Blocking Mode: Stream still active (no [DONE] yet)
               // Reuse existing controller for approval/tool-output
               console.debug(
-                "[WS Transport] Reusing controller (Phase 12 BLOCKING - no [DONE] yet)",
+                "[WS Transport] Reusing controller (BIDI Blocking Mode - no [DONE] yet)",
               );
 
               // DO NOT close previous controller
@@ -384,11 +447,11 @@ export class WebSocketChatTransport implements ChatTransportFromAISDKv6 {
             }
 
             // Update message handler for stream (use appropriate controller)
-            // If reusing controller (Phase 12), keep using existing one
+            // If reusing controller (BIDI Blocking Mode), keep using existing one
             // If new stream, use new controller
             const activeController = doneReceived
               ? controller
-              : this.currentController!;
+              : (this.currentController ?? controller);
 
             if (this.ws) {
               this.ws.onmessage = (event) => {
@@ -463,6 +526,8 @@ export class WebSocketChatTransport implements ChatTransportFromAISDKv6 {
   }
 
   _close(): void {
+    this._clearApprovalTimeout(); // Clear any pending approval timeout
+    this._stopPing();
     this.ws?.close();
     this.ws = null;
   }

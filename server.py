@@ -12,7 +12,7 @@ import os
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from dotenv import load_dotenv
 
@@ -21,9 +21,22 @@ from dotenv import load_dotenv
 # This ensures ChunkLogger reads the correct environment variables
 load_dotenv(".env.local")
 
+# Configure logging first (before other imports that use logger)
+# This enables LOG_LEVEL environment variable control
+from adk_stream_protocol.logging_config import configure_logging  # noqa: E402, I001
+
+configure_logging()
+
 # All following imports have
 # ChunkLogger and other modules depend on environment variables being loaded first
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect  # noqa: E402
+from fastapi import (  # noqa: E402
+    Depends,
+    FastAPI,
+    Header,
+    HTTPException,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.responses import StreamingResponse  # noqa: E402
 from google.adk.agents import LiveRequestQueue  # noqa: E402
@@ -31,57 +44,81 @@ from google.adk.agents.run_config import RunConfig, StreamingMode  # noqa: E402
 from google.genai import types  # noqa: E402
 from loguru import logger  # noqa: E402
 from pydantic import BaseModel, field_validator  # noqa: E402
+from websockets.exceptions import ConnectionClosedError  # noqa: E402
 
-from adk_stream_protocol import (  # noqa: E402  # noqa: E402  # noqa: E402
+from adk_stream_protocol import (  # noqa: E402
     SSE_CONFIRMATION_TOOLS,
     BidiEventReceiver,
     BidiEventSender,
     ChatMessage,
     FrontendToolDelegate,
     SseEventStreamer,
-    ToolCallState,
-    ToolConfirmationDelegate,
     ToolUsePart,
     bidi_agent,
     bidi_agent_runner,
-    chunk_logger,
-    clear_sessions,
     get_delegate,
-    get_or_create_session,
     register_delegate,
     sse_agent,
     sse_agent_runner,
 )
 
+# Private imports (internal implementation details)
+from adk_stream_protocol.adk.session import clear_sessions, get_or_create_session  # noqa: E402
+from adk_stream_protocol.protocol.message_types import ToolCallState  # noqa: E402
+from adk_stream_protocol.testing.chunk_logger import chunk_logger  # noqa: E402
+from adk_stream_protocol.tools.confirmation_service import (  # noqa: E402
+    ConfirmationDelegate,
+)
 
-def _get_user() -> str:
+
+# ========== API Key Authentication ==========
+# Simple API key authentication for production environments.
+# Default key is for development only - override with API_KEY env var in production.
+API_KEY = os.getenv("API_KEY", "dev-key-12345")
+
+
+async def verify_api_key(x_api_key: str = Header(None, alias="X-API-Key")) -> str:
     """
-    Get the current user ID.
+    Verify API key from X-API-Key header.
 
-    IMPORTANT: This is a simplified implementation for a demo/development environment.
-    In production, this would:
-    - Extract user ID from JWT token, session cookie, or OAuth token
-    - Query a user database or authentication service
-    - Handle multi-tenancy and user isolation
-
-    Since this backend has no persistence layer (no database), we're using a fixed
-    user ID for all requests. This means:
-    - All requests share the same ADK session
-    - Conversation history persists across page refreshes
-    - This is suitable for single-user demo environments only
+    Args:
+        x_api_key: API key from request header
 
     Returns:
-        str: User ID (currently fixed for demo purposes)
-    """
-    # TODO: In production, implement proper user authentication
-    # Examples:
-    # - return extract_user_from_jwt(request.headers.get("Authorization"))
-    # - return get_user_from_session(request.cookies.get("session_id"))
-    # - return oauth_provider.get_current_user()
+        str: The validated API key
 
-    # For now, return a fixed user ID for the demo environment
-    # This creates a single persistent session for all requests
-    return "demo_user_001"
+    Raises:
+        HTTPException: 401 if API key is missing or invalid
+    """
+    if x_api_key is None:
+        raise HTTPException(status_code=401, detail="Missing API key. Provide X-API-Key header.")
+    if x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+    return x_api_key
+
+
+def _get_user(api_key: str | None = None) -> str:
+    """
+    Get the user ID derived from API key.
+
+    Args:
+        api_key: The validated API key. If None, returns demo user (for backward compatibility).
+
+    Returns:
+        str: User ID derived from API key hash, or "demo_user_001" if no API key.
+
+    Note:
+        User ID is derived using hash for consistent mapping:
+        - Same API key always returns same user ID
+        - Different API keys return different user IDs
+        - Format: "user_{hash % 10000}" (0-9999 range)
+    """
+    if api_key is None:
+        # Backward compatibility: return fixed demo user
+        return "demo_user_001"
+
+    # Derive user ID from API key hash for consistent mapping
+    return f"user_{hash(api_key) % 10000}"
 
 
 # Configure file logging
@@ -164,9 +201,9 @@ class ChatRequest(BaseModel):
     """
 
     messages: list[ChatMessage]
-    chatId: str | None = None  # Optional - for compatibility with BIDI mode
+    chatId: str | None = None  # Optional - for compatibility with BIDI mode  # noqa: N815
     trigger: Literal["submit-message", "regenerate-message"] | None = None
-    messageId: str | None = None
+    messageId: str | None = None  # noqa: N815
 
     # Pydantic v2 uses model_config instead of Config class
     model_config = {"extra": "allow"}  # Allow additional fields for future compatibility
@@ -237,8 +274,7 @@ def _process_latest_message(
         # Check if this is a tool confirmation response
         # Note: The tool_name will be the original tool (e.g., process_payment), not adk_request_confirmation
         has_confirmation = last_message.parts is not None and any(
-            isinstance(part, ToolUsePart)
-            and part.state == ToolCallState.APPROVAL_RESPONDED
+            isinstance(part, ToolUsePart) and part.state == ToolCallState.APPROVAL_RESPONDED
             for part in last_message.parts
         )
 
@@ -268,21 +304,26 @@ def _process_latest_message(
 
 
 @app.post("/stream")
-async def stream(request: ChatRequest):  # noqa: C901, PLR0915
+async def stream(  # noqa: C901, PLR0915
+    request: ChatRequest,
+    api_key: Annotated[str, Depends(verify_api_key)],
+):
     """
-    SSE streaming endpoint
+    SSE streaming endpoint (requires API key authentication).
 
     Transaction Script Pattern:
-    1. Validate input messages
-    2. Get or create session
-    3. Sync conversation history (mode switching support)
-    4. Create ADK message content from latest message
-    5. Run ADK agent in streaming mode
-    6. Convert ADK events to AI SDK format and stream
+    1. Validate API key (via dependency injection)
+    2. Validate input messages
+    3. Get or create session
+    4. Sync conversation history (mode switching support)
+    5. Create ADK message content from latest message
+    6. Run ADK agent in streaming mode
+    7. Convert ADK events to AI SDK format and stream
 
     AI SDK v6 Data Stream Protocol compliant endpoint.
     - Request: UIMessage[] (full message history)
     - Response: SSE stream (text-start, text-delta, text-end, finish)
+    - Header: X-API-Key (required)
     """
     logger.info("[/stream] ===== API REQUEST RECEIVED =====")
     logger.info(f"[/stream] Total messages: {len(request.messages)}")
@@ -325,21 +366,11 @@ async def stream(request: ChatRequest):  # noqa: C901, PLR0915
     # Create SSE stream generator inline (transaction script pattern)
     async def generate_sse_stream():  # noqa: C901, PLR0912, PLR0915
         # 2. Session management
-        # Get user ID (single user mode for demo environment without database)
-        user_id = _get_user()
+        # Get user ID derived from API key (ensures user isolation)
+        user_id = _get_user(api_key)
         # App-based runner requires app_name to match the App's name
         session = await get_or_create_session(user_id, sse_agent_runner, "adk_assistant_app_sse")
         logger.info(f"[/stream] Session ID: {session.id}")
-
-        # DEBUG: Check session state persistence
-        try:  # nosem: semgrep.forbid-try-except - debug logging, legitimate exception handling
-            events = await sse_agent_runner.session_service.get_events(
-                session=session, after_event_index=0
-            )
-            event_count = len(list(events))
-            logger.info(f"[/stream] Session has {event_count} events in history")
-        except Exception as e:
-            logger.warning(f"[/stream] Could not get session events: {e}")
 
         # Get or create session-specific frontend delegate
         # Delegate must persist across turns so Futures created in Turn 1 can be resolved in Turn 2
@@ -608,9 +639,9 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
         )
 
     # Tool functions (process_payment, get_location) use this to await user confirmation
-    confirmation_delegate = ToolConfirmationDelegate()
+    confirmation_delegate = ConfirmationDelegate()
     session.state["confirmation_delegate"] = confirmation_delegate
-    logger.info("[BIDI] ToolConfirmationDelegate initialized")
+    logger.info("[BIDI] ConfirmationDelegate initialized")
 
     # Set mode flag for tool functions to detect SSE vs BIDI mode
     session.state["mode"] = "bidi"
@@ -649,22 +680,58 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
 
     # Downstream task: Stream ADK events → WebSocket (following official bidi-demo pattern)
     async def downstream_task():
-        """Receives Events from run_live() and sends to WebSocket."""
-        logger.info("[BIDI] downstream_task started, calling runner.run_live()")
-        logger.info(f"[BIDI] Starting run_live with user_id={user_id}, session_id={session.id}")
+        """Receives Events from run_live() and sends to WebSocket.
 
-        # Single run_live() call handles ALL turns
-        # Turn 1: Initial message via live_request_queue
-        # Turn 2+: Continuation via send_content() on same queue
-        live_events = bidi_agent_runner.run_live(
-            user_id=user_id,
-            session_id=session.id,
-            live_request_queue=live_request_queue,
-            run_config=run_config,
-            session=session,
-        )
-        await bidi_event_sender.send_events(live_events)
-        logger.info("[BIDI] run_live() generator completed")
+        Includes retry logic for transient Gemini Live API errors:
+        - ConnectionClosedError with policy violation (1008)
+        - Model not found errors
+
+        Retries up to 3 times with exponential backoff (1s, 2s, 4s).
+        """
+        max_retries = 3
+        retry_delay = 1.0  # Initial delay in seconds
+
+        for attempt in range(max_retries):
+            try:
+                logger.info(
+                    f"[BIDI] downstream_task started (attempt {attempt + 1}/{max_retries}), "
+                    f"calling runner.run_live()"
+                )
+                logger.info(
+                    f"[BIDI] Starting run_live with user_id={user_id}, session_id={session.id}"
+                )
+
+                # Single run_live() call handles ALL turns
+                # Turn 1: Initial message via live_request_queue
+                # Turn 2+: Continuation via send_content() on same queue
+                live_events = bidi_agent_runner.run_live(
+                    user_id=user_id,
+                    session_id=session.id,
+                    live_request_queue=live_request_queue,
+                    run_config=run_config,
+                    session=session,
+                )
+                await bidi_event_sender.send_events(live_events)
+                logger.info("[BIDI] run_live() generator completed")
+                return  # Success, exit retry loop
+
+            except ConnectionClosedError as e:
+                error_message = str(e)
+                # Retry on policy violation (1008) - typically model not found or API issues
+                is_retryable = "1008" in error_message or "policy violation" in error_message
+
+                if is_retryable and attempt < max_retries - 1:
+                    delay = retry_delay * (2**attempt)  # Exponential backoff
+                    logger.warning(
+                        f"[BIDI] ConnectionClosedError (attempt {attempt + 1}/{max_retries}): {e!s}"
+                    )
+                    logger.info(f"[BIDI] Retrying in {delay:.1f}s...")
+                    await asyncio.sleep(delay)
+                    continue
+                else:
+                    # Final attempt failed or non-retryable error
+                    logger.error(f"[BIDI] ConnectionClosedError (final): {e!s}")
+                    raise
 
     # Upstream task: Receive WebSocket messages and send to LiveRequestQueue
     async def upstream_task():
@@ -674,6 +741,7 @@ async def live_chat(websocket: WebSocket):  # noqa: C901, PLR0915
             data = await websocket.receive_text()
 
             # Parse JSON and handle parse errors
+            # nosemgrep: forbid-try-except - External WebSocket input requires exception handling
             try:
                 event = json.loads(data)
             except json.JSONDecodeError as e:

@@ -3,7 +3,7 @@
 default: help
 
 help:
-    @just --list --unsorted
+    @just --list
 
 
 # Define specific commands
@@ -15,104 +15,122 @@ PDOC := "uv run pdoc"
 [group("setup")]
 install:
     uv sync
-    pnpm install
+    bun install
 
 # Run Python backend server
 [group("development")]
-server:
-    @echo "Starting backend server at http://localhost:8000"
-    uv run uvicorn server:app --reload --host 0.0.0.0 --port 8000
+server port="8000" host="0.0.0.0":
+    @echo "Starting backend server at http://localhost:{{port}}"
+    uv run uvicorn server:app --reload --host {{host}} --port {{port}}
 
 [group("development")]
-pdoc:
-    @echo "Starting pdoc documentation server at http://localhost:8888"
-    {{PDOC}} --port 8888 ./adk_stream_protocol
+pdoc port="8888":
+    @echo "Starting pdoc documentation server at http://localhost:{{port}}"
+    {{PDOC}} --port {{port}} ./adk_stream_protocol
 
 # Run Next.js frontend development server
 [group("development")]
 frontend:
     @echo "Starting frontend server at http://localhost:3000"
-    pnpm dev
+    bun run dev
 
-# Run both frontend and backend in parallel (requires 'just' with --jobs flag)
+# Run both frontend and backend in parallel
 [group("development")]
 dev:
     @echo "Starting backend and frontend servers..."
     @echo "Backend: http://localhost:8000"
     @echo "Frontend: http://localhost:3000"
-    just --jobs 2 server frontend
+    @echo "Press Ctrl+C to stop both servers"
+    (trap 'kill 0' INT; uv run uvicorn server:app --reload --host 0.0.0.0 --port 8000 & bun run dev & wait)
 
-# Format all code (Python + frontend)
-[group("development")]
-format: format-python format-frontend
+# ============================================================================
+# Code Quality Commands
+# ============================================================================
+
+# Format all code (Python + TypeScript)
+[group("code")]
+format: format-py format-ts
     @echo "Code formatted successfully."
 
-# Run linting for all code (Python + frontend)
-[group("development")]
-lint: lint-python lint-frontend
+# Run linting for all code (Python + TypeScript)
+[group("code")]
+lint: lint-py lint-ts
     @echo "Linting completed."
 
-# Run type checking for all code (Python only)
-[group("development")]
-typecheck: typecheck-python
-    @echo "Type checking completed."
+# Run all checks (lint + typecheck + agents)
+[group("code")]
+check: check-py check-ts md-lint check-agents
+    @echo "All checks passed."
 
-# Run linting for Python
-[group("development")]
-lint-python:
-    uv run ruff check --fix .
+
+# ============================================================================
+# Python Code Quality (ruff + mypy)
+# ============================================================================
 
 # Format Python code
-[group("development")]
-format-python:
+[group("code-py")]
+format-py:
     uv run ruff format .
 
-# Run type checking for Python
-[group("development")]
-typecheck-python:
+# Lint Python code
+[group("code-py")]
+lint-py:
+    uv run ruff check --fix .
+
+# Type check Python code
+[group("code-py")]
+typecheck-py:
     uv run mypy .
 
-# Run linting for frontend (Biome)
-[group("development")]
-lint-frontend:
-    pnpm run lint
-
-# Format frontend code (Biome)
-[group("development")]
-format-frontend:
-    pnpm run format
-
-# Run Semgrep for security/static analysis
-[group("development")]
-semgrep:
-    uv run semgrep --config .semgrep/ --error
+# Run all Python checks (lint + typecheck + collect tests)
+[group("code-py")]
+check-py: lint-py typecheck-py
+    uv run pytest --collect-only -q
 
 
-# Run Markdown linting and auto-fix
-[group("development")]
+# ============================================================================
+# TypeScript Code Quality (biome)
+# ============================================================================
+
+# Format TypeScript code
+[group("code-ts")]
+format-ts:
+    bun run format
+
+# Lint TypeScript code
+[group("code-ts")]
+lint-ts:
+    bun run lint
+
+# Run all TypeScript checks (lint + list tests)
+[group("code-ts")]
+check-ts: lint-ts
+    bunx vitest list
+
+
+# ============================================================================
+# Other Quality Checks
+# ============================================================================
+
+# Lint Markdown files
+[group("docs")]
 md-lint:
     @{{MARKDOWNLINT}} --fix "docs/**/*.md" "README.md" "experiments/**/*.md" "!node_modules/**" "!agents/**"
 
+# Check ADK agents can be loaded (simulates adk web)
+[group("code")]
+check-agents:
+    uv run python scripts/check_adk_agents.py
+
+# Run Semgrep for security/static analysis
+[group("security")]
+semgrep:
+    uv run semgrep --config .semgrep/ --error
 
 # Install Playwright browsers
 [group("setup")]
 install-browsers:
-    pnpm exec playwright install chromium
-
-# Run all Python checks
-[group("development")]
-check-python: lint-python typecheck-python
-    uv run pytest --collect-only -q
-
-# Run all TypeScript checks
-[group("development")]
-check-typescript: lint-frontend
-    pnpm exec vitest list
-
-# Run all checks
-[group("development")]
-check: check-python check-typescript md-lint
-    @echo "All checks passed."
+    bunx playwright install chromium
 
 # Tail the latest chunk logs (for development debugging)
 [group("development")]
@@ -180,7 +198,7 @@ delete-deps:
 [group("hardercleaner")]
 delete-lock:
     @echo "Cleaning up lock files..."
-    rm -f pnpm-lock.yaml
+    rm -f bun.lock
     rm -f uv.lock
     @echo "Lock files cleaned."
 
@@ -212,53 +230,68 @@ delete-all: delete-gen delete-logs
 
 
 # ============================================================================
-# Unified Test Runner (scripts/run-tests.sh)
+# Test Commands
 # ============================================================================
 
-# Run fast tests only (no external dependencies - parallel execution)
-[group("testing-unified")]
-test-fast:
-    @echo "Running fast tests (no dependencies, parallel)..."
-    ./scripts/run-tests.sh --no-deps
+# Run fast tests (no server required) - pytest + vitest unit/integration
+[group("test")]
+test:
+    @echo "Running fast tests (no server required)..."
+    uv run pytest tests/unit/ tests/integration/ -n auto
+    bunx vitest run lib/tests/unit lib/tests/integration
 
-# Run tests requiring backend server
-[group("testing-unified")]
-test-with-backend:
-    @echo "Running tests with backend dependencies..."
-    ./scripts/run-tests.sh --no-deps --backend-only
+# Run all tests (requires servers for e2e/browser)
+[group("test")]
+test-all: test-py test-py-e2e test-ts test-browser
+    @echo "All tests completed."
 
-# Run full stack tests (backend + frontend + browser)
-[group("testing-unified")]
-test-full-stack:
-    @echo "Running full stack tests (sequential, requires servers)..."
-    ./scripts/run-tests.sh --full
 
-# Run all tests (unified test runner)
-[group("testing-unified")]
-test-unified-all:
-    @echo "Running all tests through unified runner..."
-    ./scripts/run-tests.sh --all
+# ============================================================================
+# Python Tests (pytest)
+# ============================================================================
 
-# Run only unit tests across all frameworks
-[group("testing-unified")]
-test-unified-unit:
-    @echo "Running all unit tests..."
-    ./scripts/run-tests.sh --unit
+# Run Python unit + integration tests (no server required)
+[group("test-py")]
+test-py:
+    @echo "Running Python tests (no server required)..."
+    uv run pytest tests/unit/ tests/integration/ -n auto
 
-# Run only integration tests across all frameworks
-[group("testing-unified")]
-test-unified-integration:
-    @echo "Running all integration tests..."
-    ./scripts/run-tests.sh --integration
+# Run Python E2E tests (requires backend server on localhost:8000)
+[group("test-py")]
+test-py-e2e:
+    @echo "Running Python E2E tests (requires backend server)..."
+    uv run pytest tests/e2e/requires_server/ -n auto
 
-# Run only E2E tests (pytest + playwright)
-[group("testing-unified")]
-test-unified-e2e:
-    @echo "Running all E2E tests..."
-    ./scripts/run-tests.sh --e2e
 
-# Show what tests would run (dry-run)
-[group("testing-unified")]
-test-dry-run:
-    @echo "Dry run - showing test execution plan..."
-    ./scripts/run-tests.sh --all --dry-run
+# ============================================================================
+# TypeScript Tests (vitest)
+# ============================================================================
+
+# Run Vitest unit + integration + e2e tests
+[group("test-ts")]
+test-ts:
+    @echo "Running Vitest tests..."
+    bunx vitest run
+
+# Run Vitest E2E tests only
+[group("test-ts")]
+test-ts-e2e:
+    @echo "Running Vitest E2E tests..."
+    bunx vitest run lib/tests/e2e
+
+
+# ============================================================================
+# Browser Tests (playwright) - UI-specific tests only
+# ============================================================================
+
+# Run Playwright UI tests (requires frontend + backend servers)
+[group("test-browser")]
+test-browser:
+    @echo "Running Playwright browser tests (requires servers)..."
+    bunx playwright test scenarios/
+
+# Update Playwright snapshots
+[group("test-browser")]
+test-browser-update:
+    @echo "Updating Playwright snapshots..."
+    bunx playwright test scenarios/ --update-snapshots

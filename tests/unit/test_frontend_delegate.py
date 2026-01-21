@@ -15,9 +15,14 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from adk_stream_protocol import FrontendToolDelegate, change_bgm, get_location
-from adk_stream_protocol.frontend_tool_registry import _REGISTRY, register_delegate
-from adk_stream_protocol.result import Ok
+from adk_stream_protocol import (
+    FrontendToolDelegate,
+    Ok,
+    change_bgm,
+    get_location,
+    register_delegate,
+)
+from adk_stream_protocol.ags._internal import _REGISTRY
 from tests.utils.mocks import create_mock_frontend_delegate, create_mock_tool_context
 from tests.utils.result_assertions import assert_error, assert_ok
 
@@ -470,7 +475,7 @@ async def test_get_location_with_none_session_state() -> None:
     # Since delegate isn't registered, it returns "Missing frontend_delegate" error
     assert result["success"] is False
     assert "error" in result
-    assert ("session.state" in result["error"] or "Missing frontend_delegate" in result["error"])
+    assert "session.state" in result["error"] or "Missing frontend_delegate" in result["error"]
 
 
 @pytest.mark.asyncio

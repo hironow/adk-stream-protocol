@@ -15,12 +15,28 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { MessageComponent } from "@/components/message";
-// Mock AudioContext
-import { createMockAudioContext } from "@/lib/tests/shared-mocks";
 import type { UIMessageFromAISDKv6 } from "@/lib/utils";
 
+// Mock audio-context with inline mock matching AudioContextValue interface
 vi.mock("@/lib/audio-context", () => ({
-  useAudio: () => createMockAudioContext(),
+  useAudio: () => ({
+    voiceChannel: {
+      isPlaying: false,
+      chunkCount: 0,
+      sendChunk: vi.fn(),
+      reset: vi.fn(),
+      onComplete: vi.fn(),
+      lastCompletion: null,
+    },
+    bgmChannel: {
+      currentTrack: 0,
+      switchTrack: vi.fn(),
+    },
+    isReady: true,
+    error: null,
+    needsUserActivation: false,
+    activate: vi.fn().mockResolvedValue(undefined),
+  }),
 }));
 
 describe("Message Component Integration", () => {

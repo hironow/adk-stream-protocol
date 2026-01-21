@@ -23,12 +23,7 @@ import { buildUseChatOptions } from "../../bidi";
 import { chunkLogger } from "../../chunk_logs";
 import type { UIMessageFromAISDKv6 } from "../../utils";
 import { isTextUIPartFromAISDKv6 } from "../../utils";
-import {
-  createBidiWebSocketLink,
-  createCustomHandler,
-  createTextResponseHandler,
-  setupMswServer,
-} from "../helpers";
+import { useMockWebSocket } from "../helpers/mock-websocket";
 
 /**
  * Helper function to extract text content from UIMessageFromAISDKv6 parts
@@ -43,20 +38,34 @@ function getMessageText(message: UIMessageFromAISDKv6 | undefined): string {
     .join("");
 }
 
-// Create MSW server for WebSocket interception with standard lifecycle
-const server = setupMswServer({ onUnhandledRequest: "warn" });
-
-// Additional cleanup: Clear chunk logger after each test
-afterEach(() => {
-  chunkLogger.clear();
-});
-
 describe("ChunkLogging E2E Tests", () => {
+  const { setDefaultHandler } = useMockWebSocket();
+
+  // Additional cleanup: Clear chunk logger after each test
+  afterEach(() => {
+    chunkLogger.clear();
+  });
+
   describe("BIDI Mode - ChunkLogging with Real WebSocket", () => {
     it("should log all chunks in BIDI mode with real WebSocket flow", async () => {
       // given
-      const chat = createBidiWebSocketLink();
-      server.use(createTextResponseHandler(chat, "Hello", " ", "World"));
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((data) => {
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.type === "ping") return;
+          } catch {
+            return;
+          }
+          const textId = `text-${Date.now()}`;
+          ws.sendTextStart(textId);
+          ws.sendTextDelta(textId, "Hello");
+          ws.sendTextDelta(textId, " ");
+          ws.sendTextDelta(textId, "World");
+          ws.sendTextEnd(textId);
+          ws.simulateDone();
+        });
+      });
 
       const { useChatOptions, transport } = buildUseChatOptions({
         initialMessages: [],
@@ -121,8 +130,23 @@ describe("ChunkLogging E2E Tests", () => {
 
     it("should log chunks with correct sequence numbers", async () => {
       // given
-      const chat = createBidiWebSocketLink();
-      server.use(createTextResponseHandler(chat, "First", "Second", "Third"));
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((data) => {
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.type === "ping") return;
+          } catch {
+            return;
+          }
+          const textId = `text-${Date.now()}`;
+          ws.sendTextStart(textId);
+          ws.sendTextDelta(textId, "First");
+          ws.sendTextDelta(textId, "Second");
+          ws.sendTextDelta(textId, "Third");
+          ws.sendTextEnd(textId);
+          ws.simulateDone();
+        });
+      });
 
       const { useChatOptions, transport } = buildUseChatOptions({
         initialMessages: [],
@@ -176,8 +200,17 @@ describe("ChunkLogging E2E Tests", () => {
 
     it("should log chunks with correct location and direction metadata", async () => {
       // given
-      const chat = createBidiWebSocketLink();
-      server.use(createTextResponseHandler(chat, "Test"));
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((data) => {
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.type === "ping") return;
+          } catch {
+            return;
+          }
+          ws.sendTextResponse(`text-${Date.now()}`, "Test");
+        });
+      });
 
       const { useChatOptions, transport } = buildUseChatOptions({
         initialMessages: [],
@@ -224,32 +257,26 @@ describe("ChunkLogging E2E Tests", () => {
 
     it("should log multiple message exchanges in sequence", async () => {
       // given
-      const chat = createBidiWebSocketLink();
       let messageCount = 0;
 
-      server.use(
-        createCustomHandler(chat, ({ client }) => {
-          client.addEventListener("message", () => {
-            messageCount++;
-            const textId = `text-${Date.now()}-${messageCount}`;
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((data) => {
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.type === "ping") return;
+          } catch {
+            return;
+          }
 
-            client.send(
-              `data: ${JSON.stringify({ type: "text-start", id: textId })}\n\n`,
-            );
-            client.send(
-              `data: ${JSON.stringify({
-                type: "text-delta",
-                delta: `Response${messageCount}`,
-                id: textId,
-              })}\n\n`,
-            );
-            client.send(
-              `data: ${JSON.stringify({ type: "text-end", id: textId })}\n\n`,
-            );
-            client.send("data: [DONE]\n\n");
-          });
-        }),
-      );
+          messageCount++;
+          const textId = `text-${Date.now()}-${messageCount}`;
+
+          ws.sendTextStart(textId);
+          ws.sendTextDelta(textId, `Response${messageCount}`);
+          ws.sendTextEnd(textId);
+          ws.simulateDone();
+        });
+      });
 
       const { useChatOptions, transport } = buildUseChatOptions({
         initialMessages: [],
@@ -317,8 +344,22 @@ describe("ChunkLogging E2E Tests", () => {
   describe("ChunkLogging - Export and Replay", () => {
     it("should be able to export logged chunks for replay", async () => {
       // given
-      const chat = createBidiWebSocketLink();
-      server.use(createTextResponseHandler(chat, "Export", "Test"));
+      setDefaultHandler((ws) => {
+        ws.onClientMessage((data) => {
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.type === "ping") return;
+          } catch {
+            return;
+          }
+          const textId = `text-${Date.now()}`;
+          ws.sendTextStart(textId);
+          ws.sendTextDelta(textId, "Export");
+          ws.sendTextDelta(textId, "Test");
+          ws.sendTextEnd(textId);
+          ws.simulateDone();
+        });
+      });
 
       const { useChatOptions, transport } = buildUseChatOptions({
         initialMessages: [],

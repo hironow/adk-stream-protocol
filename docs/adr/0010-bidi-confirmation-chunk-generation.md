@@ -5,7 +5,7 @@
 
 ## Context
 
-In Phase 12 BLOCKING mode (ADR 0009), approval/deny UI is presented to users through `adk_request_confirmation` chunks. However, the **mechanism of how these chunks are generated** differs fundamentally between SSE and BIDI modes.
+In BIDI Blocking Mode (ADR 0009), approval/deny UI is presented to users through `adk_request_confirmation` chunks. However, the **mechanism of how these chunks are generated** differs fundamentally between SSE and BIDI modes.
 
 **Key Challenge**:
 
@@ -121,7 +121,7 @@ When a confirmation-required tool (e.g., `get_location`, `process_payment`) is i
 
 ### Implementation: BidiEventSender._handle_confirmation_if_needed()
 
-**Location**: `adk_stream_protocol/bidi_event_sender.py:221-367`
+**Location**: `adk_stream_protocol/transport/bidi_event_sender.py:221-367`
 
 **Step-by-Step Process**:
 
@@ -208,7 +208,7 @@ async def _handle_confirmation_if_needed(self, sse_event: str) -> bool:
 
 1. **Event Order Matters**: Original `tool-input-available` MUST be sent before confirmation chunks
 2. **ID Mapping Required**: `confirmation_id → original_tool_call_id` mapping enables approval routing
-3. **Session State**: `pending_long_running_calls` tracks pending executions for Phase 12 cleanup
+3. **Session State**: `pending_long_running_calls` tracks pending executions for BIDI Blocking Mode cleanup
 4. **UUID Generation**: Each confirmation request gets unique ID to avoid collisions
 
 ### Component Responsibilities
@@ -282,9 +282,9 @@ original_tool_call_id = mapping[confirmation_id]  # "function-call-1458590425860
 
 This enables `ApprovalQueue` to unblock the correct BLOCKING tool.
 
-### 3. Phase 12 State Cleanup Required
+### 3. BIDI Blocking Mode State Cleanup Required
 
-Even though Phase 12 BLOCKING tools don't use `pending_long_running_calls` for execution, `BidiEventSender` populates this dict during injection. Must clean up on approval:
+Even though BIDI Blocking Mode tools don't use `pending_long_running_calls` for execution, `BidiEventSender` populates this dict during injection. Must clean up on approval:
 
 ```python
 # BidiEventReceiver._handle_confirmation_approval()
@@ -293,7 +293,7 @@ if original_tool_call_id in pending_calls:
     del pending_calls[original_tool_call_id]  # Critical cleanup
 ```
 
-**Why**: Without cleanup, final `tool-output-available` is skipped (legacy Phase 5 behavior).
+**Why**: Without cleanup, final `tool-output-available` is skipped (Legacy Approval Mode behavior).
 
 ## Testing Strategy
 
@@ -340,9 +340,9 @@ expect(chunks[1].input.originalFunctionCall.id).toBe(chunks[0].toolCallId);
 
 ## Related ADRs
 
-- **ADR 0009**: Phase 12 BLOCKING Mode for Tool Approval Flow
+- **ADR 0009**: BIDI Blocking Mode for Tool Approval Flow
     - Establishes BLOCKING behavior and ApprovalQueue
-    - This ADR documents chunk generation mechanism for Phase 12
+    - This ADR documents chunk generation mechanism for BIDI Blocking Mode
 - **ADR 0003**: SSE vs BIDI Confirmation Protocol Differences
     - Documents protocol differences between modes
     - This ADR focuses specifically on BIDI chunk injection
@@ -369,10 +369,10 @@ If Google adds native `adk_request_confirmation` generation for BIDI mode:
 
 **Implementation**:
 
-- `adk_stream_protocol/bidi_event_sender.py:221-367` - Chunk injection logic
-- `adk_stream_protocol/bidi_event_sender.py:338-349` - Confirmation chunk creation
+- `adk_stream_protocol/transport/bidi_event_sender.py:221-367` - Chunk injection logic
+- `adk_stream_protocol/transport/bidi_event_sender.py:338-349` - Confirmation chunk creation
 - `adk_stream_protocol/confirmation_interceptor.py` - Confirmation execution
-- `adk_stream_protocol/approval_queue.py` - BLOCKING tool coordination
+- `adk_stream_protocol/tools/approval_queue.py` - BLOCKING tool coordination
 
 **Tests**:
 

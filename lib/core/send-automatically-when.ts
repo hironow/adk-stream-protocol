@@ -11,6 +11,7 @@
  * See ADR 0005 for detailed execution patterns and [DONE] sending timing.
  */
 
+import { extractToolName, isFrontendExecuteTool } from "@/lib/tool-utils";
 import {
   isApprovalRequestedTool,
   isApprovalRespondedTool,
@@ -29,6 +30,14 @@ export interface SendAutomaticallyWhenOptions {
 // Infinite loop prevention: Track approval states already sent
 // Key format: "mode:messageId:toolCallId1,toolCallId2,..." (mode prefix for BIDI/SSE separation)
 const sentApprovalStates = new Set<string>();
+
+/**
+ * Clear sent approval states when switching modes.
+ * Prevents stale state from causing issues after mode transition.
+ */
+export function clearSentApprovalStates(): void {
+  sentApprovalStates.clear();
+}
 
 /**
  * Core auto-send decision logic for tool confirmation workflow.
@@ -59,6 +68,7 @@ export function sendAutomaticallyWhenCore(
     log(`Checking parts: ${parts.length}`);
 
     // Debug: Log each part's type
+    // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
     parts.forEach((part: any, index: number) => {
       const partType = part.type || "unknown";
       const partState = part.state || "n/a";
@@ -96,6 +106,7 @@ export function sendAutomaticallyWhenCore(
         log("Has text part (no approval workflow), returning false");
 
         // Cleanup: Clear approval tracking for this message (mode-specific)
+        // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
         const messageId = (lastMessage as any).id || "unknown";
         const keysToDelete = Array.from(sentApprovalStates).filter((key) =>
           key.startsWith(`${mode}:${messageId}:`),
@@ -145,20 +156,22 @@ export function sendAutomaticallyWhenCore(
       // If approval workflow is active, check if this is Frontend Execute pattern
       if (hasApprovedTool || hasPendingApproval) {
         // Check if output and approval are for the SAME tool (Frontend Execute pattern)
-        // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
         const outputToolIds = new Set(
           parts
             .filter(
+              // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
               (p: any) => isOutputAvailableTool(p) && p.output !== undefined,
             )
+            // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
             .map((p: any) => p.toolCallId),
         );
 
         if (hasApprovedTool) {
-          // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
           const approvalToolIds = new Set(
             parts
+              // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
               .filter((p: any) => isApprovalRespondedTool(p))
+              // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
               .map((p: any) => p.toolCallId),
           );
 
@@ -215,6 +228,53 @@ export function sendAutomaticallyWhenCore(
     log("Has approved tool (approval-responded state)");
 
     // ========================================================================
+    // Check 3.5: Frontend Execute - waiting for addToolOutput?
+    // ========================================================================
+    // Frontend Execute tools (browser APIs like geolocation) require output from addToolOutput().
+    // If approved but no output yet, wait for frontend to execute and call addToolOutput().
+    // Server Execute tools are handled by backend after approval - don't wait for output.
+    const approvedToolParts = parts.filter(
+      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+      (p: any) => isApprovalRespondedTool(p),
+    );
+
+    for (const toolPart of approvedToolParts) {
+      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
+      const tp = toolPart as any;
+      const toolName = extractToolName(tp);
+      const isApproved = tp.approval?.approved === true;
+      const isFrontendExec = isFrontendExecuteTool(toolName);
+      log(
+        `Check 3.5: toolCallId=${tp.toolCallId}, toolName=${toolName}, isFrontendExecute=${isFrontendExec}, output=${tp.output !== undefined ? "set" : "undefined"}, approved=${isApproved}`,
+      );
+
+      // Only wait for output if:
+      // 1. Known Frontend Execute tool (uses browser API)
+      // 2. User APPROVED the tool (approval.approved === true)
+      // If user DENIED, send immediately (no addToolOutput will be called)
+      // If Server Execute tool, send immediately (backend handles execution)
+      if (isFrontendExec && isApproved) {
+        // Frontend Execute tool approved but no output yet
+        // Wait for frontend to call addToolOutput()
+        if (tp.output === undefined) {
+          log(
+            `Frontend Execute tool (${toolName}) approved but no output yet, waiting for addToolOutput()`,
+          );
+          return false;
+        }
+        log(`Frontend Execute tool (${toolName}) has output, proceeding`);
+      } else if (!isApproved) {
+        log(
+          `Tool (${toolName}) was denied, proceeding to send denial to backend`,
+        );
+      } else {
+        log(
+          `Server Execute tool (${toolName}) approved, proceeding to send approval to backend`,
+        );
+      }
+    }
+
+    // ========================================================================
     // Check 4: Any tool still waiting for approval? (state = approval-requested)
     // ========================================================================
     // Multiple tools can be pending approval in same message.
@@ -235,9 +295,12 @@ export function sendAutomaticallyWhenCore(
     // Mode prefix ensures BIDI and SSE have separate state spaces.
     // EXCEPTION: Skip this check if tool output was just added by frontend (Frontend Execute pattern)
     // In Frontend Execute, output is added AFTER approval, creating a new state that needs sending.
+    // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
     const messageId = (lastMessage as any).id || "unknown";
     const approvedToolIds = parts
+      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
       .filter((p: any) => isApprovalRespondedTool(p))
+      // biome-ignore lint/suspicious/noExplicitAny: AI SDK v6 internal structure
       .map((p: any) => p.toolCallId)
       .sort()
       .join(",");

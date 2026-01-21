@@ -4,12 +4,11 @@ Unit tests for adk_ag_runner module.
 Tests agent configuration, tool setup, and confirmation tool extraction.
 """
 
-
 from google.adk.agents import Agent
 from google.adk.tools.function_tool import FunctionTool
 from google.adk.tools.long_running_tool import LongRunningFunctionTool
 
-from adk_stream_protocol import adk_ag_runner
+from adk_stream_protocol.ags import runner as adk_ag_runner
 
 
 # ============================================================
@@ -18,19 +17,43 @@ from adk_stream_protocol import adk_ag_runner
 
 
 def test_sse_agent_exists_and_has_correct_model() -> None:
-    """SSE agent should be configured with gemini-3-flash-preview model."""
+    """SSE agent should be configured with SSE_MODEL."""
     # when/then
     assert adk_ag_runner.sse_agent is not None
     assert isinstance(adk_ag_runner.sse_agent, Agent)
-    assert adk_ag_runner.sse_agent.model == "gemini-3-flash-preview"
+    assert adk_ag_runner.sse_agent.model == adk_ag_runner.SSE_MODEL
 
 
-def test_bidi_agent_exists_and_has_model() -> None:
-    """BIDI agent should be configured with a valid model."""
+def test_bidi_agent_exists_and_has_correct_model() -> None:
+    """BIDI agent should be configured with BIDI_MODEL (not converted)."""
+    # given
+    import os
+
+    expected_model = os.getenv("ADK_BIDI_MODEL", adk_ag_runner.BIDI_MODEL)
+
     # when/then
     assert adk_ag_runner.bidi_agent is not None
     assert isinstance(adk_ag_runner.bidi_agent, Agent)
-    assert adk_ag_runner.bidi_agent.model  # Should have a model
+    assert adk_ag_runner.bidi_agent.model == expected_model, (
+        f"Model name mismatch! Expected '{expected_model}', "
+        f"got '{adk_ag_runner.bidi_agent.model}'. "
+        "ADK may be converting model names unexpectedly."
+    )
+
+
+def test_bidi_agent_model_not_converted_to_legacy() -> None:
+    """BIDI agent model should NOT be converted to legacy 'gemini-live' format."""
+    # given
+    legacy_model = "gemini-live-2.5-flash-preview"
+
+    # when/then
+    assert adk_ag_runner.bidi_agent.model != legacy_model, (
+        f"Model was unexpectedly converted to legacy format: {legacy_model}"
+    )
+    assert "gemini-live" not in adk_ag_runner.bidi_agent.model, (
+        f"Model contains 'gemini-live' which indicates unwanted conversion: "
+        f"{adk_ag_runner.bidi_agent.model}"
+    )
 
 
 def test_agent_runners_initialized() -> None:
@@ -63,7 +86,9 @@ def test_both_agents_have_same_tools() -> None:
     """Both agents should have the same number of tools (4 tools each)."""
     # when/then
     assert len(adk_ag_runner.sse_agent.tools) == len(adk_ag_runner.bidi_agent.tools)
-    assert len(adk_ag_runner.sse_agent.tools) == 4  # get_weather, process_payment, change_bgm, get_location
+    assert (
+        len(adk_ag_runner.sse_agent.tools) == 4
+    )  # get_weather, process_payment, change_bgm, get_location
 
 
 def test_sse_tools_includes_expected_tools() -> None:

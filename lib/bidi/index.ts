@@ -65,9 +65,12 @@ export type {
   BidiUseChatConfig as UseChatConfig,
   BidiUseChatOptions as UseChatOptions,
 } from "./use-chat-options";
-
 // Main configuration builder (aliased for unified API)
-export { buildBidiUseChatOptions as buildUseChatOptions } from "./use-chat-options";
+// Test cleanup utility
+export {
+  buildBidiUseChatOptions as buildUseChatOptions,
+  closeAllBidiTransports,
+} from "./use-chat-options";
 
 /**
  * Internal Implementation Modules (Not Exported)

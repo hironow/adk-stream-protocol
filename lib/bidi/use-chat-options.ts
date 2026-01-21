@@ -27,6 +27,30 @@ import { sendAutomaticallyWhen } from "./send-automatically-when";
 import { WebSocketChatTransport } from "./transport";
 
 /**
+ * Registry for tracking all created WebSocket transports
+ * Used for cleanup in tests to prevent "Worker exited unexpectedly" errors
+ */
+const activeTransports: Set<WebSocketChatTransport> = new Set();
+
+/**
+ * Close all active BIDI WebSocket transports
+ *
+ * IMPORTANT: Call this in test cleanup (afterEach/afterAll) to properly close
+ * WebSocket connections created by buildBidiUseChatOptions.
+ * Failure to do so may cause "Worker exited unexpectedly" errors in Vitest.
+ */
+export function closeAllBidiTransports(): void {
+  for (const transport of activeTransports) {
+    try {
+      transport._close();
+    } catch {
+      // Ignore errors during cleanup
+    }
+  }
+  activeTransports.clear();
+}
+
+/**
  * BIDI Mode Configuration
  *
  * Configuration object for building BIDI mode useChat options.
@@ -142,6 +166,9 @@ export function buildBidiUseChatOptions({
     url: wsUrl,
     audioContext, // Audio chunks will be routed to voiceChannel if provided
   });
+
+  // Track transport for cleanup (prevents "Worker exited unexpectedly" in tests)
+  activeTransports.add(websocketTransport);
 
   // Expose transport to window object for E2E testing and debugging
   // Only available in non-production environments for safety

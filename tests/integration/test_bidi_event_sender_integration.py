@@ -15,7 +15,8 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from fastapi import WebSocketDisconnect
 
-from adk_stream_protocol import ADKVercelIDMapper, BidiEventSender, FrontendToolDelegate
+from adk_stream_protocol import BidiEventSender, FrontendToolDelegate
+from adk_stream_protocol.protocol.id_mapper import IDMapper
 from tests.utils.mocks import (
     create_mock_live_request_queue,
     create_mock_session,
@@ -40,8 +41,8 @@ async def test_level2_real_frontend_delegate_id_mapping() -> None:
     mock_session = create_mock_session()
     mock_live_request_queue = create_mock_live_request_queue()
 
-    # Real FrontendToolDelegate with real ADKVercelIDMapper
-    id_mapper = ADKVercelIDMapper()
+    # Real FrontendToolDelegate with real IDMapper
+    id_mapper = IDMapper()
     frontend_delegate = FrontendToolDelegate(id_mapper=id_mapper)
 
     sender = BidiEventSender(
@@ -74,7 +75,7 @@ async def test_level2_real_frontend_delegate_multiple_tools() -> None:
     mock_live_request_queue = create_mock_live_request_queue()
 
     # Real components
-    id_mapper = ADKVercelIDMapper()
+    id_mapper = IDMapper()
     frontend_delegate = FrontendToolDelegate(id_mapper=id_mapper)
 
     sender = BidiEventSender(
@@ -141,7 +142,7 @@ async def test_level3_websocket_disconnect_during_send() -> None:
     # when - WebSocketDisconnect should be caught gracefully
     with (
         patch(
-            "adk_stream_protocol.bidi_event_sender.stream_adk_to_ai_sdk",
+            "adk_stream_protocol.transport.bidi_event_sender.stream_adk_to_ai_sdk",
             side_effect=lambda *args, **kwargs: mock_stream(),
         ),
     ):
@@ -170,7 +171,7 @@ async def test_level4_complete_event_stream_with_confirmation_tools() -> None:
     mock_live_request_queue = create_mock_live_request_queue()
 
     # Real components
-    id_mapper = ADKVercelIDMapper()
+    id_mapper = IDMapper()
     frontend_delegate = FrontendToolDelegate(id_mapper=id_mapper)
     confirmation_tools = ["process_payment", "delete_account"]
 
@@ -193,7 +194,7 @@ async def test_level4_complete_event_stream_with_confirmation_tools() -> None:
 
     # when
     with patch(
-        "adk_stream_protocol.bidi_event_sender.stream_adk_to_ai_sdk",
+        "adk_stream_protocol.transport.bidi_event_sender.stream_adk_to_ai_sdk",
         side_effect=lambda *args, **kwargs: mock_stream(),
     ):
         await sender.send_events(mock_live_events())
@@ -242,7 +243,7 @@ async def test_level4_mixed_event_types() -> None:
     # when
     with (
         patch(
-            "adk_stream_protocol.bidi_event_sender.stream_adk_to_ai_sdk",
+            "adk_stream_protocol.transport.bidi_event_sender.stream_adk_to_ai_sdk",
             side_effect=lambda *args, **kwargs: mock_stream(),
         ),
     ):

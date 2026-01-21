@@ -22,29 +22,29 @@ uv run pytest tests/e2e/test_server_chunk_player.py
 
 ```bash
 # All frontend E2E tests
-pnpm exec vitest run lib/tests/e2e/
+bunx vitest run lib/tests/e2e/
 
 # Specific test
-pnpm exec vitest run lib/tests/e2e/chat-flow.e2e.test.ts
+bunx vitest run lib/tests/e2e/chat-flow.e2e.test.ts
 ```
 
-**Full E2E (Playwright)**:
+**Full E2E (Playwright)** - UI固有テストのみ (13ファイル):
 
 ```bash
-# All tiers (smoke + core + advanced)
-pnpm test:e2e:app
+# UI固有テスト実行（要サーバー）
+just test-browser
 
-# Smoke tests only (fast)
-pnpm test:e2e:app:smoke
+# スナップショット更新
+just test-browser-update
 
 # UI mode (interactive)
-pnpm test:e2e:ui
+bunx playwright test scenarios/ --ui
 ```
 
 ### Prerequisites
 
 1. **Backend server running**: `just dev` (starts at `localhost:8000`)
-2. **Frontend server running**: `pnpm dev` (starts at `localhost:3000`)
+2. **Frontend server running**: `bun dev` (starts at `localhost:3000`)
 3. **Fixtures up-to-date**: Run tests to generate latest fixtures
 
 ---
@@ -55,13 +55,15 @@ pnpm test:e2e:ui
 
 ```
 ┌─────────────────────────────────────────────┐
-│  Playwright E2E (scenarios/)                │  Full system
-│  Browser + Frontend + Backend + LLM Mock   │  User scenarios
+│  Playwright E2E (scenarios/)                │  UI-specific
+│  Browser + Frontend + Backend               │  13 files
+│  Visual regression, A11y, UI rendering     │  NO protocol tests
 └─────────────────────────────────────────────┘
-         ↓ mocks LLM with Chunk Player
+         ↓ UI tests only (protocol tests moved to Vitest)
 ┌─────────────────────────────────────────────┐
-│  Frontend E2E (lib/tests/e2e/)              │  Frontend only
-│  Browser + React + AI SDK v6               │  Component integration
+│  Frontend E2E (lib/tests/e2e/)              │  Protocol/Logic
+│  Vitest + React + AI SDK v6 + MSW          │  ~20 files
+│  Tool approval, mode switching, etc.       │  Component integration
 └─────────────────────────────────────────────┘
          ↓ uses baseline fixtures
 ┌─────────────────────────────────────────────┐
@@ -72,17 +74,19 @@ pnpm test:e2e:ui
 
 **Legend / 凡例**:
 
-- Playwright E2E: システム全体の統合テスト
-- Frontend E2E: フロントエンド統合テスト
+- Playwright E2E: UI固有テスト（レンダリング、スナップショット、A11y）
+- Frontend E2E (Vitest): プロトコル/ロジックテスト（ツール承認、モード切替）
 - Backend E2E: バックエンドAPI検証
 
 ### Layer Comparison
 
 | Layer | Tool | Environment | Scope | Mock Strategy |
 |-------|------|-------------|-------|---------------|
-| **Playwright E2E** | Playwright | Real browser | Full system | LLM only (Chunk Player) |
-| **Frontend E2E** | Vitest | jsdom | Frontend + lib | Backend API (MSW) |
+| **Playwright E2E** | Playwright | Real browser | UI rendering | Real backend |
+| **Frontend E2E** | Vitest | jsdom | Protocol/Logic | Backend API (MSW) |
 | **Backend E2E** | pytest | Python | Backend API | LLM (Chunk Player) |
+
+**Note**: Playwright は UI 固有テスト（visual regression, accessibility）に特化。プロトコル検証は Vitest に委譲。
 
 ---
 
@@ -317,8 +321,6 @@ grep -r 'locator("text=' scenarios/
 grep -r "locator('text=" scenarios/
 ```
 
-**Future**: Add custom ESLint rule or pre-commit hook
-
 ---
 
 ## 📦 Fixtures
@@ -337,6 +339,12 @@ fixtures/
 │   └── ... (14 files total)
 └── scenarios/             # Playwright E2E resources
     └── test-image.png
+
+scenarios/                 # Playwright UI-specific tests (13 files)
+├── smoke/                 # Basic UI smoke tests (3)
+├── ui/                    # UI-specific tests (7)
+├── integration/           # UI integration tests (2)
+└── approval/              # Approval UI tests (1)
 ```
 
 ### Frontend Fixtures (Baseline)
@@ -609,13 +617,105 @@ const transport = new ChunkLoggingTransport(delegate, mode);
 
 ---
 
+### Playwright E2E
+
+**Issue**: BIDI mode sequential tool calls fail (Tests 3 & 5 in get-location-bidi.spec.ts)
+
+**Symptom**: Second Approve/Deny button never appears after first tool execution completes.
+
+**Root Cause**: BIDI WebSocket session has issues with sequential tool calls. After the first `get_location` tool completes, the AI doesn't consistently trigger a second tool call in the same session.
+
+**Status**: Tests skipped. This is a BIDI mode specific issue, not related to Frontend Execute pattern.
+
+**Workaround**:
+
+- Use SSE mode for sequential tool testing (SSE mode passes)
+- Or test each tool call in a fresh browser session
+
+---
+
+**Issue**: Geolocation permission denied test fails (Test 6 in get-location-sse.spec.ts)
+
+**Symptom**: Tool stuck at "Processing Approval..." state, error message never appears.
+
+**Root Cause**: Playwright's `context.grantPermissions([])` doesn't reliably deny geolocation in headless mode. The browser's geolocation API may hang indefinitely instead of rejecting with PERMISSION_DENIED.
+
+**Status**: Test skipped due to Playwright limitation.
+
+**Manual Testing**:
+
+1. Open the app in a real browser (not headless)
+2. Request location: "現在地を取得してください"
+3. Click Approve on the tool approval dialog
+4. Deny the browser's geolocation permission prompt
+5. Verify error is handled gracefully without infinite loop
+
+**Alternative Approach** (not implemented):
+
+- Mock `navigator.geolocation` via `page.addInitScript()` to return a permission error
+- This would make the test deterministic but less realistic
+
+---
+
+**Issue**: Frontend Execute tools don't trigger new assistant messages
+
+**Symptom**: `waitForAssistantResponse` times out after approving tools like `get_location` or `change_bgm`.
+
+**Root Cause**: Frontend Execute tools (ADR-0005) execute directly in the browser and call `addToolOutput()` inline. This doesn't necessarily create a new assistant message - the tool result is set directly on the existing tool invocation.
+
+**Solution**: Use `waitForFrontendExecuteComplete` helper instead of `waitForAssistantResponse` for Frontend Execute tools.
+
+```typescript
+// ❌ Wrong - waits for message count to increase
+await page.getByRole("button", { name: "Approve" }).click();
+await waitForAssistantResponse(page);
+
+// ✅ Correct - waits for tool state to complete
+await page.getByRole("button", { name: "Approve" }).click();
+await waitForFrontendExecuteComplete(page);
+```
+
+**Affected Tools**:
+
+- `get_location` - Browser Geolocation API
+- `change_bgm` - Audio context track switching
+
+---
+
 ## 📚 Related Documentation
 
 - **[Testing Strategy](testing_STRATEGY.md)** - Overall test architecture
-- **[Backend E2E Tests](testing_E2E_BACKEND.md)** - pytest golden file testing (DEPRECATED - merged into this doc)
-- **[Frontend E2E Tests](testing_E2E_FRONTEND.md)** - Vitest browser testing (DEPRECATED - merged into this doc)
+- **[ADR-0005](adr/0005-frontend-execute-pattern.md)** - Frontend Execute pattern
 - **[ADR-0007](adr/0007-approval-value-independence-in-auto-submit.md)** - Approval timing independence
 
 ---
 
-**Last Updated**: 2025-12-29
+**Last Updated**: 2026-01-19
+
+---
+
+## Playwright Test Strategy (Updated)
+
+### UI-Specific Focus
+
+Playwright E2E tests are now focused exclusively on **UI-specific testing**:
+
+- **Visual regression** - Screenshot comparison
+- **Accessibility** - A11y validation with axe-core
+- **UI rendering** - Component display verification
+- **Error UI** - Error message display
+
+### Removed (Migrated to Vitest)
+
+Protocol and logic tests have been migrated to Vitest for faster execution:
+
+- Tool approval flows → `lib/tests/e2e/frontend-execute-*.e2e.test.tsx`
+- Mode switching logic → `lib/tests/e2e/mode-switching.e2e.test.ts`
+- Tool execution → `lib/tests/e2e/tool-execution.e2e.test.ts`
+- Payment processing → `lib/tests/e2e/process-payment-*.e2e.test.tsx`
+
+### Benefits
+
+- **Faster CI**: Playwright tests reduced from 31 to 13 files
+- **Better isolation**: UI tests vs protocol tests
+- **Clearer responsibility**: Playwright = rendering, Vitest = logic

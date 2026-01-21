@@ -132,16 +132,18 @@ export default defineConfig({
       stdout: "pipe",
       stderr: "pipe",
       // Pass environment variables from .env.local to backend server
+      // biome-ignore lint/suspicious/noExplicitAny: Playwright webServer.env expects Record<string, string | undefined>, process.env has compatible but technically different type signature
       env: process.env as any,
     },
     {
-      command: "pnpm dev",
+      command: "bun run dev",
       port: 3000,
       reuseExistingServer: !process.env.CI,
       timeout: 120000, // 2 minutes to start server
       stdout: "pipe",
       stderr: "pipe",
       // Pass environment variables from .env.local to frontend server
+      // biome-ignore lint/suspicious/noExplicitAny: Playwright webServer.env expects Record<string, string | undefined>, process.env has compatible but technically different type signature
       env: process.env as any,
     },
   ],

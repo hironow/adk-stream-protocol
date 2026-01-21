@@ -31,20 +31,18 @@ import {
   findAllConfirmationParts,
   findConfirmationPart,
   getMessageText,
-  setupMswServer,
+  useMswServer,
 } from "../helpers";
 
-// Create MSW server for HTTP interception with standard lifecycle
-const server = setupMswServer();
-
 describe("SSE Mode with useChat - E2E Tests", () => {
+  const { getServer } = useMswServer();
   describe("Test 1: Full SSE Configuration with sendAutomaticallyWhen", () => {
     it("should use all lib/sse options and trigger sendAutomaticallyWhen on confirmation", async () => {
       // Given: Capture all requests sent to backend
       const capturedPayloads: unknown[] = [];
       let requestCount = 0;
 
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", async ({ request }) => {
           requestCount++;
           const payload = await request.json();
@@ -213,7 +211,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
       // Given: ADK SSE mode with simple text response (no confirmation)
       const capturedPayload: unknown[] = [];
 
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", async ({ request }) => {
           capturedPayload.push(await request.json());
           return createTextResponse("Hello", " World!");
@@ -266,7 +264,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
       let confirmationReceived = false;
       let finalResponseReceived = false;
 
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", async ({ request }) => {
           const payload = await request.json();
 
@@ -376,7 +374,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
       // Given: Backend returns multiple confirmations
       let requestCount = 0;
 
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", async ({ request }) => {
           requestCount++;
           const _payload = await request.json();
@@ -511,7 +509,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
 
       let capturedPayload: any = null;
 
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", async ({ request }) => {
           capturedPayload = await request.json();
           return createTextResponse("New", " response");
@@ -563,7 +561,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
       // Given: Backend returns error after confirmation
       let requestCount = 0;
 
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", async () => {
           requestCount++;
 
@@ -641,7 +639,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
       // Given: Backend returns confirmation request and handles denial
       let requestCount = 0;
 
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", async ({ request }) => {
           requestCount++;
           const _payload = await request.json();
@@ -750,7 +748,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
 
       // Setup MSW to send confirmation request
       let requestCount = 0;
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", async ({ request }) => {
           requestCount++;
           const _payload = await request.json();
@@ -863,7 +861,7 @@ describe("SSE Mode with useChat - E2E Tests", () => {
 
       // Setup MSW to handle multiple confirmations
       let requestCount = 0;
-      server.use(
+      getServer().use(
         http.post("http://localhost:8000/stream", async ({ request }) => {
           requestCount++;
           const _payload = await request.json();

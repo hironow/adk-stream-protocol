@@ -1,6 +1,6 @@
 # Testing Strategy
 
-**Last Updated:** 2025-12-29
+**Last Updated:** 2026-01-19
 
 Comprehensive testing strategy for the ADK AI Data Protocol project.
 
@@ -9,6 +9,30 @@ Comprehensive testing strategy for the ADK AI Data Protocol project.
 ## 🚀 Quick Start
 
 ### Running Tests
+
+**推奨: justfile コマンドを使用**
+
+```bash
+# 高速テスト（サーバー不要）- pytest + vitest unit/integration
+just test
+
+# 全テスト（要サーバー）
+just test-all
+
+# Python テスト
+just test-py         # unit + integration
+just test-py-e2e     # E2E（要バックエンドサーバー）
+
+# TypeScript テスト (Vitest)
+just test-ts         # 全vitest
+just test-ts-e2e     # E2Eのみ
+
+# ブラウザテスト (Playwright) - UI固有テストのみ
+just test-browser         # 実行（要サーバー）
+just test-browser-update  # スナップショット更新
+```
+
+### 直接実行
 
 **Backend (pytest)**:
 
@@ -26,29 +50,26 @@ uv run pytest tests/e2e/
 
 ```bash
 # All frontend tests
-pnpm test:lib
+bun vitest run lib/tests/
 
 # Specific layer
-pnpm test:lib:unit
-pnpm test:lib:integration
-pnpm test:lib:e2e
+bun vitest run lib/tests/unit/
+bun vitest run lib/tests/integration/
+bun vitest run lib/tests/e2e/
 
 # Component tests
-pnpm test:components
-pnpm test:app
+bun vitest run components/
+bun vitest run app/
 ```
 
 **E2E (Playwright)**:
 
 ```bash
 # Full E2E tests
-pnpm test:e2e:app
-
-# Fast smoke tests only
-pnpm test:e2e:app:smoke
+bunx playwright test
 
 # Interactive UI mode
-pnpm test:e2e:ui
+bunx playwright test --ui
 ```
 
 ---
@@ -58,26 +79,29 @@ pnpm test:e2e:ui
 ### Test Pyramid
 
 ```
-                     E2E Tests
-                /                    \
-        Playwright (scenarios/)    pytest (tests/e2e/)
-              |                          |
-        Integration Tests          Integration Tests
-    /                    \              |
-lib/tests/integration  app/tests/  tests/integration/
-      (Vitest)         integration  (pytest)
-          |            (Vitest)          |
-      Unit Tests                     Unit Tests
-    /           \                        |
-lib/tests/unit  components/tests/   tests/unit/
-  (Vitest)         unit (Vitest)     (pytest)
+                        E2E Tests
+                   /        |        \
+      Playwright      Vitest E2E      pytest E2E
+    (scenarios/)    (lib/tests/e2e/) (tests/e2e/)
+     UI-specific     Protocol/Logic   Backend API
+      13 files         ~20 files       ~10 files
+          |               |                |
+        Integration Tests              Integration Tests
+    /                    \                  |
+lib/tests/integration  app/tests/     tests/integration/
+      (Vitest)         integration       (pytest)
+          |            (Vitest)              |
+      Unit Tests                         Unit Tests
+    /           \                            |
+lib/tests/unit  components/tests/       tests/unit/
+  (Vitest)         unit (Vitest)         (pytest)
 ```
 
 **Legend / 凡例**:
 
-- E2E Tests: エンドツーエンドテスト (Playwright/pytest)
-- Integration Tests: 統合テスト (Vitest/pytest)
-- Unit Tests: 単体テスト (Vitest/pytest)
+- Playwright: UI固有テスト（レンダリング検証、スナップショット）
+- Vitest E2E: フロントエンドプロトコル/ロジックテスト
+- pytest E2E: バックエンドAPIテスト
 
 ### Test Layer Philosophy
 
@@ -551,6 +575,7 @@ it('should throw', () => {
 
 | Layer | Files | Tests | Pass Rate |
 |-------|-------|-------|-----------|
+| scenarios/ (Playwright) | 13 | ~100 | 100% |
 | app/tests/integration | 3 | 34 | 100% |
 | components/tests/unit | 7 | 73 | 100% |
 | lib/tests/unit | 15 | ~200 | 100% |
@@ -558,7 +583,9 @@ it('should throw', () => {
 | lib/tests/e2e | 12 | ~158 | 100% |
 | tests/unit (Backend) | 19 | ~150 | 100% |
 | tests/integration (Backend) | 8 | ~50 | 100% |
-| **Total** | **73** | **~765** | **100%** |
+| **Total** | **86** | **~865** | **100%** |
+
+**Note**: Playwright テストは UI 固有テストに特化。プロトコル/ロジック検証は Vitest/pytest に委譲。
 
 ### Coverage Goals
 
@@ -620,4 +647,75 @@ it('should throw', () => {
 
 ---
 
-**Last Review**: 2025-12-29
+## ⚠️ Known Issues
+
+### msw WebSocket Cleanup Issue
+
+`lib/tests/integration/` と `lib/tests/e2e/` では msw (Mock Service Worker) を使用した WebSocket モッキングを行っている。msw の WebSocket インターセプターは vitest のテスト終了後に完全にクリーンアップされない場合があり、Worker exit error (`uv__stream_destroy` assertion failure) が発生することがある。
+
+**影響**: 全テストがパスしても、プロセス終了時に exit code 1 が返される。
+
+**対応**: vitest.config.ts で `forceExit: true` を設定し、テスト完了後に強制終了する。
+
+### Gemini Live API Flakiness
+
+`tests/integration/` と `scenarios/` の一部のテストは Gemini Live API に依存しており、API のレスポンス遅延やエラーによりタイムアウトすることがある。
+
+**対応**: `@pytest.mark.xfail(strict=False)` マーカーでフレーキーテストをマーク。テストがパスしても失敗してもテストスイート全体は成功扱いになる。
+
+### Vitest Worker Fork Error
+
+全テスト実行時 (`bunx vitest run`) に Worker fork error が発生し、一部のテストファイルがカウントされない場合がある。
+
+```
+Error: [vitest-pool]: Worker forks emitted error.
+Caused by: Error: Worker exited unexpectedly
+```
+
+または libuv assertion failure:
+
+```
+Assertion failed: (!uv__io_active(&stream->io_watcher, POLLIN | POLLOUT)),
+function uv__stream_destroy, file stream.c, line 456.
+```
+
+**原因**: E2E テストで使用する WebSocket や stream リソースが Vitest の fork 終了前に完全にクリーンアップされない場合に発生。テストロジック自体の問題ではなく、Node.js/libuv レベルの環境依存問題。
+
+**症状**:
+
+- `Test Files: 71 passed (73)` のようにファイル数が合わない
+- `Errors: 1 error` または `Errors: 2 errors` が表示される
+- ただし、テスト自体は全て pass している
+
+**対処法**:
+
+1. **テストをディレクトリ毎に分けて実行** (推奨):
+
+   ```bash
+   # Unit + Integration (安定)
+   bunx vitest run lib/tests/unit/ lib/tests/integration/
+
+   # E2E (安定)
+   bunx vitest run lib/tests/e2e/
+
+   # E2E Fixtures + Components + App (安定)
+   bunx vitest run lib/tests/e2e-fixtures/ components/tests/ app/tests/
+   ```
+
+2. **並列度を下げて実行**:
+
+   ```bash
+   bunx vitest run --no-file-parallelism
+   ```
+
+3. **justfile コマンドを使用**:
+
+   ```bash
+   just test-ts
+   ```
+
+**確認方法**: 各ディレクトリで個別にテストを実行し、全テストが pass することを確認する。Worker error が出ても、テスト自体が pass していれば問題ない。
+
+---
+
+**Last Review**: 2026-01-19

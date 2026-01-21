@@ -27,10 +27,11 @@ from google.adk.tools import FunctionTool, ToolContext
 from google.genai import types
 from loguru import logger as loguru_logger
 
-# Import ApprovalQueue from the main test file
-from test_deferred_approval_flow import ApprovalQueue
+from adk_stream_protocol.adk.session import get_or_create_session
+from adk_stream_protocol.ags import BIDI_MODEL
 
-from adk_stream_protocol.adk_compat import get_or_create_session
+# Import ApprovalQueue from the main test file
+from .test_deferred_approval_flow import ApprovalQueue
 
 
 load_dotenv(".env.local")
@@ -121,12 +122,12 @@ blocking_approval_declaration = types.FunctionDeclaration.from_callable_with_api
 # Create FunctionTool from actual implementation (with ToolContext)
 BLOCKING_APPROVAL_TOOL = FunctionTool(blocking_approval_tool)
 # Override the declaration to use our BLOCKING schema
-BLOCKING_APPROVAL_TOOL._declaration = blocking_approval_declaration
+BLOCKING_APPROVAL_TOOL._declaration = blocking_approval_declaration  # type: ignore[attr-defined]
 
 # Create test agent
 test_agent_blocking = Agent(
     name="test_blocking_approval_agent",
-    model="gemini-2.5-flash-native-audio-preview-12-2025",
+    model=BIDI_MODEL,
     description="Test agent for BLOCKING mode approval experiment",
     instruction=(
         "You are a test assistant. When the user asks you to process a message, "
@@ -209,9 +210,11 @@ async def test_blocking_mode_approved():
 
         # Start run_live()
         live_events = test_runner_blocking.run_live(
-            session=session,
+            user_id=user_id,
+            session_id=session.id,
             live_request_queue=live_request_queue,
             run_config=run_config,
+            session=session,  # Still required during migration period
         )
         logger.info(f"[TEST] ✓ Started run_live() with session: {session_id}")
 
@@ -374,9 +377,11 @@ async def test_blocking_mode_denied():
 
         # Start run_live()
         live_events = test_runner_blocking.run_live(
-            session=session,
+            user_id=user_id,
+            session_id=session.id,
             live_request_queue=live_request_queue,
             run_config=run_config,
+            session=session,  # Still required during migration period
         )
         logger.info(f"[TEST] ✓ Started run_live() with session: {session_id}")
 

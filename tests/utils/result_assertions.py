@@ -7,7 +7,7 @@ following the pattern recommended in docs/RESULT_TYPE_PATTERN.md.
 
 import pytest
 
-from adk_stream_protocol.result import Error, Ok, Result
+from adk_stream_protocol import Error, Ok, Result
 
 
 def assert_ok[T, E](result: Result[T, E]) -> T:

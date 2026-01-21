@@ -7,7 +7,7 @@ to isolate integration issues.
 Test Levels:
 1. Level 1: All mocked (same as unit test, baseline)
 2. Level 2: FrontendToolDelegate real, others mocked
-3. Level 3: FrontendToolDelegate + ADKVercelIDMapper real
+3. Level 3: FrontendToolDelegate + IDMapper real
 4. Level 4: Session components real (close to E2E)
 """
 
@@ -20,7 +20,8 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from google.genai import types
 
-from adk_stream_protocol import ADKVercelIDMapper, BidiEventReceiver, FrontendToolDelegate
+from adk_stream_protocol import BidiEventReceiver, FrontendToolDelegate
+from adk_stream_protocol.protocol.id_mapper import IDMapper
 from tests.utils.bidi import (
     create_bidi_event_handler,
     create_frontend_delegate_with_mapper,
@@ -50,8 +51,8 @@ async def test_level2_message_event_with_real_frontend_delegate() -> None:
     mock_runner.session_service = mock_session_service
     mock_queue = Mock()
 
-    # Real FrontendToolDelegate with real ADKVercelIDMapper
-    id_mapper = ADKVercelIDMapper()
+    # Real FrontendToolDelegate with real IDMapper
+    id_mapper = IDMapper()
     id_mapper.register("process_payment", "function-call-456")
     frontend_delegate = FrontendToolDelegate(id_mapper=id_mapper)
 
@@ -71,7 +72,7 @@ async def test_level2_message_event_with_real_frontend_delegate() -> None:
     text_content = types.Content(parts=[types.Part(function_response=function_response)])
 
     with patch(
-        "adk_stream_protocol.bidi_event_receiver.process_chat_message_for_bidi",
+        "adk_stream_protocol.transport.bidi_event_receiver.process_chat_message_for_bidi",
         return_value=([], text_content),
     ):
         event = {"type": "message", "version": "1.0", "messages": []}
@@ -144,7 +145,7 @@ async def test_level2_confirmation_flow_with_real_delegate() -> None:
     mock_queue = Mock()
 
     # Real FrontendToolDelegate
-    id_mapper = ADKVercelIDMapper()
+    id_mapper = IDMapper()
     id_mapper.register("process_payment", "payment-call-001")
     frontend_delegate = FrontendToolDelegate(id_mapper=id_mapper)
 
@@ -168,7 +169,7 @@ async def test_level2_confirmation_flow_with_real_delegate() -> None:
     frontend_delegate._pending_calls["payment-call-001"] = pending_future
 
     with patch(
-        "adk_stream_protocol.bidi_event_receiver.process_chat_message_for_bidi",
+        "adk_stream_protocol.transport.bidi_event_receiver.process_chat_message_for_bidi",
         return_value=([], text_content),
     ):
         event = {"type": "message", "version": "1.0", "messages": []}
@@ -276,7 +277,7 @@ async def test_level4_complete_message_flow() -> None:
     Level 4: Test complete message flow with minimal mocking.
 
     Only mocks: Session, LiveRequestQueue, Runner
-    Real: FrontendToolDelegate, ADKVercelIDMapper, Message processing
+    Real: FrontendToolDelegate, IDMapper, Message processing
     """
     # given
     mock_session = create_mock_session(session_id="session-complete")
@@ -289,7 +290,7 @@ async def test_level4_complete_message_flow() -> None:
     mock_queue.send_realtime = Mock()
 
     # Real components
-    id_mapper = ADKVercelIDMapper()
+    id_mapper = IDMapper()
     id_mapper.register("get_weather", "weather-call-999")
     frontend_delegate = FrontendToolDelegate(id_mapper=id_mapper)
 
@@ -304,7 +305,7 @@ async def test_level4_complete_message_flow() -> None:
     text_content = types.Content(parts=[types.Part(text="What's the weather like in Tokyo?")])
 
     with patch(
-        "adk_stream_protocol.bidi_event_receiver.process_chat_message_for_bidi",
+        "adk_stream_protocol.transport.bidi_event_receiver.process_chat_message_for_bidi",
         return_value=([], text_content),
     ):
         event = {"type": "message", "version": "1.0", "messages": []}
@@ -334,7 +335,7 @@ async def test_level4_sequential_events() -> None:
     mock_queue.send_content = Mock()
 
     # Real components
-    id_mapper = ADKVercelIDMapper()
+    id_mapper = IDMapper()
     id_mapper.register("get_location", "loc-call-123")
     frontend_delegate = FrontendToolDelegate(id_mapper=id_mapper)
 
@@ -348,7 +349,7 @@ async def test_level4_sequential_events() -> None:
     # Step 1: Initial message
     text_content_1 = types.Content(parts=[types.Part(text="Where am I?")])
     with patch(
-        "adk_stream_protocol.bidi_event_receiver.process_chat_message_for_bidi",
+        "adk_stream_protocol.transport.bidi_event_receiver.process_chat_message_for_bidi",
         return_value=([], text_content_1),
     ):
         event_1 = {"type": "message", "data": {"messages": []}}
@@ -374,7 +375,7 @@ async def test_level4_sequential_events() -> None:
     )
     text_content_3 = types.Content(parts=[types.Part(function_response=function_response)])
     with patch(
-        "adk_stream_protocol.bidi_event_receiver.process_chat_message_for_bidi",
+        "adk_stream_protocol.transport.bidi_event_receiver.process_chat_message_for_bidi",
         return_value=([], text_content_3),
     ):
         event_3 = {"type": "message", "data": {"messages": []}}

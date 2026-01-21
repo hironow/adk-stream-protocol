@@ -413,7 +413,10 @@ describe("useChat Integration", () => {
       const secondCall = sendAutomaticallyWhen({
         messages: messagesApproved,
       });
-      expect(secondCall).toBe(true);
+      // Frontend Execute tool (get_location) approved but no output yet
+      // sendAutomaticallyWhen waits for addToolOutput() before sending
+      // This is the correct behavior - don't send approval without output
+      expect(secondCall).toBe(false);
 
       // Scenario 2: Frontend has added tool output, ready to send to backend
       // Note: When output is added via addToolOutput, the tool transitions to output-available

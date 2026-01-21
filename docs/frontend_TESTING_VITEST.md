@@ -9,17 +9,25 @@ lib/tests/
 ├── unit/                    # ユニットテスト (Public API)
 │   ├── chunk_logs-public-api.test.ts
 │   ├── bidi-public-api.test.ts
-│   └── sse-public-api.test.ts
-├── integration/             # インテグレーションテスト (MSW/Mock)
+│   ├── sse-public-api.test.ts
+│   └── ... (その他のユニットテスト)
+├── integration/             # インテグレーションテスト
 │   ├── chunk_logs-integration.test.ts
-│   ├── bidi-integration.test.ts
-│   └── sse-integration.test.ts
+│   ├── sse-integration.test.ts
+│   ├── sendAutomaticallyWhen-integration.test.ts
+│   └── ... (その他の統合テスト)
+├── e2e/                     # エンドツーエンドテスト
+│   ├── chat-flow.e2e.test.ts
+│   ├── tool-execution.e2e.test.ts
+│   └── ... (その他のE2Eテスト)
 ├── helpers/                 # テストヘルパー関数
 │   ├── sse-response-builders.ts
-│   └── websocket-message-builders.ts
-└── mocks/                   # 再利用可能なMock定義
+│   ├── websocket-message-builders.ts
+│   └── ... (その他のヘルパー)
+└── shared-mocks/            # 再利用可能なMock定義
     ├── msw-server.ts
-    └── mock-websocket.ts
+    ├── websocket.ts
+    └── audio-context.ts
 ```
 
 ## ユニットテスト (lib/tests/unit/)
@@ -65,21 +73,24 @@ MSW (Mock Service Worker) とMockWebSocketを使用した通信層のテスト�
 
 ### テストファイル
 
-1. **chunk_logs-integration.test.ts** (10 tests) ✅ All Passing
+1. **chunk_logs-integration.test.ts**
    - ChunkLoggingTransport wrapping with real transport
    - ChunkPlayer JSONL replay (fast-forward mode)
    - ChunkPlayerTransport fixture loading
    - chunkLogger sequence tracking
 
-2. **sse-integration.test.ts** (5 tests)
+2. **sse-integration.test.ts**
    - Gemini mode HTTP SSE communication
    - ADK SSE mode with custom backend URL
    - Confirmation flow with MSW
 
-3. **bidi-integration.test.ts** (7 tests)
-   - WebSocket connection and message payloads
-   - Confirmation flow over WebSocket
-   - Audio context integration
+3. **sendAutomaticallyWhen-integration.test.ts**
+   - Tool approval auto-submit logic
+   - Confirmation detection across modes
+
+4. **bidi-flat-structure-integration.test.ts**
+   - WebSocket message structure tests
+   - BIDI protocol verification
 
 ## テストヘルパー (lib/tests/helpers/)
 
@@ -141,7 +152,7 @@ mockWebSocket.simulateMessage(JSON.stringify(createBidiEndOfTurnEvent()));
 - `createBidiConfirmationRequest(originalFunctionCall)` - 確認リクエスト
 - `createTextDeltaEvent(textDelta)` - テキストデルタイベント
 
-## Mock定義 (lib/tests/mocks/)
+## Mock定義 (lib/tests/shared-mocks/)
 
 再利用可能なMock実装。
 
@@ -150,7 +161,7 @@ mockWebSocket.simulateMessage(JSON.stringify(createBidiEndOfTurnEvent()));
 MSW (Mock Service Worker) サーバーのセットアップ。
 
 ```typescript
-import { createMswServer } from '@/lib/tests/mocks/msw-server';
+import { createMswServer } from '@/lib/tests/shared-mocks/msw-server';
 
 const server = createMswServer();
 
@@ -159,7 +170,7 @@ afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 ```
 
-### mock-websocket.ts
+### websocket.ts
 
 WebSocket のモック実装。インスタンストラッキング機能付き。
 
@@ -168,7 +179,7 @@ import {
   MockWebSocket,
   installMockWebSocket,
   restoreMockWebSocket
-} from '@/lib/tests/mocks/mock-websocket';
+} from '@/lib/tests/shared-mocks/websocket';
 
 let originalWebSocket: typeof WebSocket;
 
@@ -210,7 +221,7 @@ describe('chunk_logs Public API', () => {
 ### インテグレーションテスト (SSE)
 
 ```typescript
-import { createMswServer } from '@/lib/tests/mocks/msw-server';
+import { createMswServer } from '@/lib/tests/shared-mocks/msw-server';
 import { createTextResponse } from '@/lib/tests/helpers/sse-response-builders';
 
 const server = createMswServer();
@@ -238,7 +249,7 @@ it('handles SSE response', async () => {
 ### インテグレーションテスト (WebSocket)
 
 ```typescript
-import { installMockWebSocket, MockWebSocket } from '@/lib/tests/mocks/mock-websocket';
+import { installMockWebSocket, MockWebSocket } from '@/lib/tests/shared-mocks/websocket';
 import { createTextDeltaEvent } from '@/lib/tests/helpers/websocket-message-builders';
 
 beforeEach(() => installMockWebSocket());
@@ -260,19 +271,43 @@ it('handles WebSocket messages', async () => {
 
 ## テスト実行
 
+### 推奨コマンド (justfile)
+
+```bash
+# 高速テスト（サーバー不要）- pytest + vitest unit/integration
+just test
+
+# Vitest 全テスト
+just test-ts
+
+# Vitest E2E のみ
+just test-ts-e2e
+```
+
+### 直接実行
+
 ```bash
 # すべてのユニットテスト
-pnpm exec vitest run lib/tests/unit/
+bun vitest run lib/tests/unit/
 
 # すべてのインテグレーションテスト
-pnpm exec vitest run lib/tests/integration/
+bun vitest run lib/tests/integration/
+
+# すべてのE2Eテスト
+bun vitest run lib/tests/e2e/
 
 # 特定のテストファイル
-pnpm exec vitest run lib/tests/unit/chunk_logs-public-api.test.ts
+bun vitest run lib/tests/unit/chunk_logs-public-api.test.ts
 
 # Watch mode
-pnpm exec vitest lib/tests/unit/
+bun vitest lib/tests/unit/
 ```
+
+### msw WebSocket クリーンアップに関する注意
+
+`lib/tests/integration/` と `lib/tests/e2e/` では msw (Mock Service Worker) を使用した WebSocket モッキングを行っている。msw の WebSocket インターセプターはテスト終了後に完全にクリーンアップされないため、Worker exit error (`uv__stream_destroy` assertion) が発生することがある。
+
+**解決策**: vitest.config.ts で `forceExit: true` を設定し、テスト完了後に強制終了する。
 
 ## 注意事項
 
@@ -299,10 +334,3 @@ it.each<{ mode: Mode; expected: boolean }>([
   // test implementation
 });
 ```
-
-## 今後の拡張
-
-- [ ] BIDI integration tests の安定化
-- [ ] SSE integration tests のエラー修正
-- [ ] E2E tests との統合
-- [ ] Coverage 測定の追加

@@ -53,8 +53,10 @@ export function getMessageText(
  */
 export function findConfirmationPart(
   message: UIMessageFromAISDKv6 | undefined,
+  // biome-ignore lint/suspicious/noExplicitAny: Test helper - return type varies
 ): any {
   if (!message) return undefined;
+  // biome-ignore lint/suspicious/noExplicitAny: Test helper - AI SDK v6 internal structure
   return (message as any).parts?.find((p: any) => isApprovalRequestedTool(p));
 }
 
@@ -73,9 +75,11 @@ export function findConfirmationPart(
  */
 export function findAllConfirmationParts(
   message: UIMessageFromAISDKv6 | undefined,
+  // biome-ignore lint/suspicious/noExplicitAny: Test helper - return type varies
 ): any[] {
   if (!message) return [];
   return (
+    // biome-ignore lint/suspicious/noExplicitAny: Test helper - AI SDK v6 internal structure
     (message as any).parts?.filter((p: any) => isApprovalRequestedTool(p)) || []
   );
 }
@@ -121,6 +125,7 @@ export function createSendAutoSpy(
  * ```
  */
 export function hasConfirmationState(
+  // biome-ignore lint/suspicious/noExplicitAny: Test helper - part type varies
   part: any,
   expectedState: string,
 ): boolean {

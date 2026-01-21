@@ -35,6 +35,7 @@ import {
   type ChunkLoggingTransport,
   ChunkPlayerTransport,
 } from "@/lib/chunk_logs";
+import { clearSentApprovalStates } from "@/lib/core/send-automatically-when";
 import { buildUseChatOptions as buildSseUseChatOptions } from "@/lib/sse";
 import type { Mode, UIMessageFromAISDKv6 } from "@/lib/utils";
 
@@ -108,6 +109,10 @@ export function buildUseChatOptions({
   audioContext?: AudioContextValue;
   apiEndpoint?: string;
 }): UseChatOptionsWithTransport {
+  // Clear approval state on mode switch to prevent stale state issues
+  // This is called when Chat component re-mounts due to mode change
+  clearSentApprovalStates();
+
   // E2E Test Mode Detection: Check localStorage for ChunkPlayerTransport mode
   // This allows E2E tests to replay pre-recorded responses deterministically
   if (typeof window !== "undefined") {
@@ -128,6 +133,7 @@ export function buildUseChatOptions({
         // Get mode-specific sendAutomaticallyWhen for testing
         // Even though we're using ChunkPlayerTransport, we still want to test
         // that sendAutomaticallyWhen would be called correctly
+        // biome-ignore lint/suspicious/noExplicitAny: Type varies by mode, unified typing not worth complexity
         let sendAutomaticallyWhen: any;
         if (mode === "adk-bidi") {
           const bidiOptions = buildBidiUseChatOptions({

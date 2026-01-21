@@ -17,15 +17,13 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { http } from "msw";
 import { describe, expect, it } from "vitest";
 import { buildUseChatOptions } from "../../sse";
-import { createAdkConfirmationRequest, setupMswServer } from "../helpers";
-
-// Create MSW server for HTTP interception
-const server = setupMswServer();
+import { createAdkConfirmationRequest, useMswServer } from "../helpers";
 
 describe("AI SDK v6 Approval State Verification", () => {
+  const { getServer } = useMswServer();
   it("should verify exact state and approval object structure after addToolApprovalResponse", async () => {
     // Given: Backend sends confirmation request
-    server.use(
+    getServer().use(
       http.post("http://localhost:8000/stream", async () => {
         return createAdkConfirmationRequest({
           toolCallId: "call-test",

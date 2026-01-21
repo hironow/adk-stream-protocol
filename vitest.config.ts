@@ -11,6 +11,18 @@ export default defineConfig({
     environment: "node",
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
+    globalTeardown: ["./vitest.global-teardown.ts"],
+    // Use forks pool for parallel execution
+    // Each test file runs in separate process for clean isolation
+    pool: "forks",
+    forks: {
+      singleFork: false, // Enable parallel execution
+    },
+    // Give more time for cleanup to complete
+    teardownTimeout: 10000,
+    // Force exit to prevent hang from libuv handle cleanup issues
+    // This is a workaround for MSW WebSocket cleanup issues (see MSW #2537)
+    forceExit: true,
     // Suppress console output during tests to reduce noise
     silent: false, // Set to true to completely suppress console output
     exclude: [
@@ -18,8 +30,6 @@ export default defineConfig({
       "**/dist/**",
       // Exclude scenarios as they are for playwright
       "**/scenarios/**",
-      // Exclude app/tests/e2e as they are for playwright
-      "**/app/tests/e2e/**",
     ],
   },
   resolve: {
