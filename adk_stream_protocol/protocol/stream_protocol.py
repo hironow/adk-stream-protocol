@@ -86,7 +86,7 @@ def format_sse_event(event_data: dict[str, Any]) -> SseFormattedEvent:
     return f"data: {json.dumps(event_data)}\n\n"
 
 
-class AISdkFinishReason(str, enum.Enum):
+class AISdkFinishReason(enum.StrEnum):
     """
     AI SDK v6 FinishReason values.
 

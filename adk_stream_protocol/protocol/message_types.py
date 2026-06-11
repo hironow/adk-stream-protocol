@@ -34,7 +34,7 @@ Tool Call States (UIToolInvocation):
 """
 
 import base64
-from enum import Enum
+from enum import StrEnum
 from io import BytesIO
 from typing import Any, Literal
 
@@ -67,7 +67,7 @@ def _extract_image_metadata(image_bytes: bytes) -> tuple[int, int, str | None]:
 # ============================================================
 
 
-class ToolCallState(str, Enum):
+class ToolCallState(StrEnum):
     """
     Tool call state values (AI SDK v6 UIToolInvocation states).
 
