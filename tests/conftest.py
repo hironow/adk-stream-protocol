@@ -51,7 +51,8 @@ def _gemini_api_key_status() -> tuple[str, str]:
         headers={"x-goog-api-key": key},
     )
     try:
-        with urllib.request.urlopen(request, timeout=5):
+        # S310 audited: the URL is the fixed https:// literal above
+        with urllib.request.urlopen(request, timeout=5):  # noqa: S310
             return "ok", ""
     except urllib.error.HTTPError as error:
         if error.code in (400, 401, 403):
