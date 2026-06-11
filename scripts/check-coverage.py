@@ -338,7 +338,7 @@ class ADKAnalyzer:
         event_access_pattern = r"\bevent\.(\w+)\b(?!\s*\()"
         for match in re.finditer(event_access_pattern, content):
             field_name = match.group(1)
-            if not field_name.startswith("_") and field_name not in ("content",):
+            if not field_name.startswith("_") and field_name != "content":
                 event_fields.add(field_name)
 
         # Pattern 2b: getattr(event, "field_name")

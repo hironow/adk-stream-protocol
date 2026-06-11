@@ -156,7 +156,7 @@ describe("Multi-Tool Execution E2E Tests", () => {
         () => {
           const lastMessage =
             result.current.messages[result.current.messages.length - 1];
-          if (!lastMessage || lastMessage.role !== "assistant") return false;
+          if (lastMessage?.role !== "assistant") return false;
 
           const confirmationPart = lastMessage.parts.find((part) =>
             isApprovalRequestedTool(part),
@@ -191,7 +191,7 @@ describe("Multi-Tool Execution E2E Tests", () => {
         () => {
           const messages = result.current.messages;
           const lastMessage = messages[messages.length - 1];
-          if (!lastMessage || lastMessage.role !== "assistant") return false;
+          if (lastMessage?.role !== "assistant") return false;
 
           // Look for Tool2 confirmation specifically
           const tool2Part = lastMessage.parts.find(

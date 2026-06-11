@@ -81,8 +81,7 @@ describe("BIDI Sequential-Only Execution (ADR 0003)", () => {
           firstApprovalSent &&
           !firstApprovalResolved &&
           msg.type === "message" &&
-          msg.messages &&
-          msg.messages[msg.messages.length - 1].parts?.some(
+          msg.messages?.[msg.messages.length - 1].parts?.some(
             (p: any) =>
               p.type === "tool-process_payment" &&
               p.state === "approval-responded" &&
@@ -135,8 +134,7 @@ describe("BIDI Sequential-Only Execution (ADR 0003)", () => {
         if (
           secondApprovalSent &&
           msg.type === "message" &&
-          msg.messages &&
-          msg.messages[msg.messages.length - 1].parts?.some(
+          msg.messages?.[msg.messages.length - 1].parts?.some(
             (p: any) =>
               p.type === "tool-process_payment" &&
               p.state === "approval-responded" &&
