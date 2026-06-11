@@ -228,6 +228,7 @@ Transcription(
 |-----------|---------------|-------------------|----------|-------|
 | `content` | ✅ Implemented | `start` → parts processing | Critical | Core message content |
 | `turnComplete` | ✅ Implemented | `finish` event | Critical | Signals end of turn |
+| `turnCompleteReason` | ❌ Not implemented | TBD | Medium | Why the turn completed, companion to `turnComplete` (added by ADK 1.34) |
 | `usageMetadata` | ✅ Implemented | `finish.messageMetadata.usage` | High | Token usage stats |
 | `finishReason` | ✅ Implemented | `finish.finishReason` | High | Why generation stopped |
 | `outputTranscription` | ✅ Implemented (2025-12-12) | `text-start/delta/end` | High | Native-audio model transcription |
@@ -238,6 +239,8 @@ Transcription(
 | `avgLogprobs` | ❌ Not implemented | TBD | Low | Average log probabilities |
 | `cacheMetadata` | ✅ Implemented (2025-12-13) | `finish.messageMetadata.cache` | Low | Context caching info (components/message.tsx:506-529) |
 | `liveSessionResumptionUpdate` | ❌ Not implemented | TBD | Low | Session resumption state |
+| `liveSessionId` | ❌ Not implemented | TBD | Low | Live session identifier (added by ADK 1.34) |
+| `goAway` | ❌ Not implemented | TBD | Medium | Live API imminent-disconnect notice, BIDI reconnect UX (added by ADK 1.34) |
 | `errorCode` | ✅ Implemented (2025-12-13) | `error` event (immediate detection) | Critical | Error signaling (stream_protocol.py:181-187) |
 | `errorMessage` | ✅ Implemented (2025-12-13) | `error` event (immediate detection) | Critical | Error details (stream_protocol.py:181-187) |
 | `interrupted` | ❌ Not implemented | TBD | Medium | Interruption signal |
@@ -260,6 +263,8 @@ Transcription(
 | `thought` | ✅ Implemented | Custom event `thought` | High | Reasoning/thinking mode |
 | `functionCall` | ✅ Implemented | `tool-input-start/available` | Critical | Tool invocation |
 | `functionResponse` | ✅ Implemented | `tool-output-available` | Critical | Tool result |
+| `toolCall` | ❌ Not implemented | TBD | Medium | Server-side tool call, unused by this app's agents (added by google-genai for ADK 1.34) |
+| `toolResponse` | ❌ Not implemented | TBD | Medium | Server-side tool response, pairs with `toolCall` (added by google-genai for ADK 1.34) |
 | `executableCode` | ✅ Implemented | `code-delta` | High | Code execution |
 | `codeExecutionResult` | ✅ Implemented | `code-delta` | High | Execution output |
 | `inlineData` | ✅ Implemented | `data-pcm` (audio) | High | Binary data (PCM audio) |
@@ -267,6 +272,7 @@ Transcription(
 | `videoMetadata` | ❌ Not implemented | TBD | Low | Video metadata |
 | `thoughtSignature` | ❌ Not implemented | TBD | Low | Thought verification |
 | `mediaResolution` | ❌ Not implemented | TBD | Low | Media resolution info |
+| `partMetadata` | ❌ Not implemented | TBD | Low | Custom per-part metadata, e.g. source file tracking (added by google-genai for ADK 1.34) |
 
 ---
 
