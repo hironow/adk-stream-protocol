@@ -40,6 +40,8 @@ IMPLEMENTED_EVENT_FIELDS = {
 # Fields we know about but haven't implemented yet (with justification)
 DOCUMENTED_EVENT_FIELDS = {
     "interrupted": "Medium priority: BIDI UX feature for user interruption",
+    "turnCompleteReason": "Medium priority: why the turn completed, companion to turnComplete (added by ADK 1.34)",
+    "goAway": "Medium priority: Live API imminent-disconnect notice, BIDI reconnect UX (added by ADK 1.34)",
 }
 
 # Internal/metadata fields (low priority, documented why skipped)
@@ -52,6 +54,7 @@ METADATA_EVENT_FIELDS = {
     "id": "Event ID (internal)",
     "interactionId": "Interactions API state management ID (added in ADK 1.21.0)",
     "invocationId": "Invocation tracking ID",
+    "liveSessionId": "Live session identifier (internal, added by ADK 1.34)",
     "liveSessionResumptionUpdate": "Live session state sync",
     "logprobsResult": "Advanced feature: token log probabilities",
     "longRunningToolIds": "ADK long-running tool tracking",
@@ -79,11 +82,14 @@ IMPLEMENTED_PART_FIELDS = {
 DOCUMENTED_PART_FIELDS = {
     "fileData": "Medium priority: Multi-modal file support (GCS URLs)",
     "videoMetadata": "Low priority: Video-specific metadata",
+    "toolCall": "Medium priority: server-side tool call flow, unused by this app's agents (added by google-genai for ADK 1.34)",
+    "toolResponse": "Medium priority: server-side tool response flow, pairs with toolCall (added by google-genai for ADK 1.34)",
 }
 
 # Part metadata fields
 METADATA_PART_FIELDS = {
     "mediaResolution": "Media resolution info (not forwarded)",
+    "partMetadata": "Custom per-part metadata, e.g. source file tracking (not forwarded)",
     "thoughtSignature": "Advanced: Thought verification signature",
     "value": "Unknown purpose - needs investigation",
 }
