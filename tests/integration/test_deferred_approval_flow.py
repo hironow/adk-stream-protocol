@@ -31,6 +31,9 @@ from adk_stream_protocol.ags import BIDI_MODEL
 
 load_dotenv(".env.local")
 
+# Drives a live BIDI session against the real Gemini API — skip without a live key
+pytestmark = pytest.mark.requires_api
+
 # Enable ADK debug logging to see what's sent to Live API
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"

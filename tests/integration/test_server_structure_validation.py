@@ -29,9 +29,14 @@ import json
 from pathlib import Path
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 
 from server import app
+
+
+# Real LLM API calls by design (no mocks for structure tests) — skip without a live key
+pytestmark = pytest.mark.requires_api
 
 
 # Default API key for development/test

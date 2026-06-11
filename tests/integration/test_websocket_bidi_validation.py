@@ -23,6 +23,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 
 from server import app
@@ -75,6 +76,7 @@ def has_required_fields(actual: dict[str, Any], expected: dict[str, Any]) -> boo
     return expected_fields.issubset(actual_fields)
 
 
+@pytest.mark.requires_api
 class TestWebSocketBIDIStructure:
     """
     E2E tests for WebSocket /live endpoint (ADK BIDI mode).
@@ -251,6 +253,7 @@ class TestWebSocketEventSequence:
                 )
                 assert first_message.endswith("\n\n"), "SSE messages should end with double newline"
 
+    @pytest.mark.requires_api
     def test_websocket_has_start_event(self):
         """WebSocket stream should start with 'start' event."""
         # Given: Any message
@@ -312,6 +315,7 @@ class TestWebSocketEventSequence:
                 assert events[-1] == "[DONE]", "Stream should end with [DONE] marker"
 
 
+@pytest.mark.requires_api
 class TestWebSocketRequiredFields:
     """Tests for required fields in WebSocket events."""
 

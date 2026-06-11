@@ -44,6 +44,10 @@ exclude = [
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
+markers = [
+    "requires_api: calls the real Gemini API; skipped when GOOGLE_API_KEY is missing or rejected",
+    "requires_server: needs the local backend server (just server); skipped when unreachable",
+]
 # Filter third-party deprecation warnings (keep our own warnings visible)
 filterwarnings = [
     # litellm: asyncio.iscoroutinefunction deprecated in Python 3.16
