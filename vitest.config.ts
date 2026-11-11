@@ -11,18 +11,16 @@ export default defineConfig({
     environment: "node",
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
-    globalTeardown: ["./vitest.global-teardown.ts"],
+    globalSetup: ["./vitest.global-setup.ts"],
     // Use forks pool for parallel execution
     // Each test file runs in separate process for clean isolation
     pool: "forks",
-    forks: {
-      singleFork: false, // Enable parallel execution
-    },
     // Give more time for cleanup to complete
     teardownTimeout: 10000,
-    // Force exit to prevent hang from libuv handle cleanup issues
-    // This is a workaround for MSW WebSocket cleanup issues (see MSW #2537)
-    forceExit: true,
+    // vitest 4 removed `forks` / `forceExit` (they are not options of its
+    // InlineConfig and were being ignored): the fork pool is parallel by
+    // default, and the MSW WebSocket cleanup workaround now lives in the
+    // teardown below plus teardownTimeout.
     // Suppress console output during tests to reduce noise
     silent: false, // Set to true to completely suppress console output
     exclude: [

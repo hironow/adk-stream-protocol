@@ -1,12 +1,17 @@
 /**
- * Vitest Global Teardown
+ * Vitest global setup — teardown only
  *
  * Forces cleanup of any remaining resources after tests complete.
  * This addresses the msw WebSocket cleanup issue that causes
  * libuv uv__stream_destroy assertion failures.
+ *
+ * It is a `globalSetup` file, not a `globalTeardown` one: vitest has no
+ * `globalTeardown` option (that is Jest's), and a vitest globalSetup module
+ * names its hooks by export instead. Exporting only `teardown` runs this
+ * after the suite and nothing before it.
  */
 
-export default async function globalTeardown() {
+export async function teardown() {
   // Force garbage collection if available (--expose-gc flag)
   if (typeof global.gc === "function") {
     global.gc();
